@@ -129,7 +129,8 @@ header `x-cron-secret`) or "SQL snippet" jobs. Check runs with `select * from cr
 > Remove-Item app\package-lock.json, supabase\tests\package-lock.json
 > cd app; npm install; npx expo install --fix
 > cd ..\supabase\tests; npm install
-> ```n>
+> ```
+>
 > `npx expo install --fix` also aligns every Expo package with SDK 58 and moves `react-native` from the 0.88 RC to the
 > stable version Expo SDK 58 expects once the public registry has it (after which `app/.npmrc`'s `legacy-peer-deps` is no longer needed).
 
