@@ -1,0 +1,19 @@
+project_id = "quickserve"
+
+[api]
+schemas = ["public"]
+
+[auth]
+site_url = "quickserve://"
+
+[auth.sms]
+enable_signup = true
+
+[functions.create-payment]
+verify_jwt = true
+
+[functions.razorpay-webhook]
+verify_jwt = false
+
+[functions.release-payouts]
+verify_jwt = false

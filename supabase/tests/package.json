@@ -1,0 +1,14 @@
+{
+  "name": "quickserve-sql-tests",
+  "private": true,
+  "description": "Parses the migration with libpg_query and runs the state machine against PGlite (PostGIS/Supabase schemas stubbed).",
+  "scripts": {
+    "parse": "node parse.cjs",
+    "test": "node parse.cjs && node migration.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
+    "libpg-query": "^18.1.5"
+  }
+}
+

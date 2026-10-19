@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>QuickServe — UI Mockups</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{--p:#1E5EFF;--ok:#12B76A;--warn:#F79009;--bad:#F04438;--t:#101828;--m:#667085;--bg:#F8FAFC;--c:#fff;--b:#EAECF0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#E4E7EC;color:var(--t);padding:24px}
+  h1{font-size:22px;margin-bottom:4px} .sub{color:var(--m);margin-bottom:20px;font-size:14px}
+  .grid{display:flex;flex-wrap:wrap;gap:28px}
+  .frame{width:360px}
+  .label{font-size:13px;font-weight:600;color:var(--m);margin-bottom:8px}
+  .phone{width:360px;height:740px;background:var(--bg);border-radius:32px;border:8px solid #101828;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .bar{height:24px;font-size:11px;display:flex;justify-content:space-between;padding:4px 16px;color:var(--m)}
+  .body{flex:1;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:12px}
+  .tabs{height:60px;background:var(--c);border-top:1px solid var(--b);display:flex;justify-content:space-around;align-items:center;font-size:12px;color:var(--m)}
+  .tabs .on{color:var(--p);font-weight:600}
+  .h1{font-size:20px;font-weight:700} .h2{font-size:16px;font-weight:600} .cap{font-size:12px;color:var(--m)}
+  .search{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:12px;color:var(--m);font-size:14px}
+  .cats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .cat{background:var(--c);border-radius:12px;padding:10px 4px;text-align:center;font-size:12px;border:1px solid var(--b)}
+  .cat b{display:block;font-size:22px;margin-bottom:4px}
+  .card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:12px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .av{width:44px;height:44px;border-radius:50%;background:#D0D5DD;flex:none}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#ECFDF3;color:var(--ok);font-weight:600}
+  .lvl{background:#EEF4FF;color:var(--p)}
+  .chip{font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--b);background:var(--c)}
+  .chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+  .btn{background:var(--p);color:#fff;border-radius:12px;padding:14px;text-align:center;font-weight:600;font-size:15px}
+  .btn.sm{padding:8px 14px;font-size:13px}
+  .btn.ghost{background:var(--c);color:var(--bad);border:1px solid var(--bad)}
+  .btn.ok{background:var(--ok)}
+  .star{color:#FDB022}
+  .line{display:flex;justify-content:space-between;font-size:14px;padding:4px 0}
+  .tot{border-top:1px dashed var(--b);margin-top:6px;padding-top:8px;font-weight:700}
+  .steps{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--m)}
+  .dot{width:14px;height:14px;border-radius:50%;background:var(--ok)} .dot.cur{background:var(--warn)} .dot.off{background:#D0D5DD}
+  .seg{flex:1;height:2px;background:#D0D5DD}
+  .otp{display:flex;gap:8px} .otp span{width:40px;height:44px;border-radius:10px;background:var(--c);border:1px solid var(--b);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700}
+  .banner{background:#FFFAEB;color:#B54708;border-radius:10px;padding:8px 10px;font-size:12px}
+  .toggle{background:var(--ok);color:#fff;border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700}
+  textarea{width:100%;border:1px solid var(--b);border-radius:12px;padding:10px;font:inherit;font-size:14px;height:70px;resize:none}
+  .in{border:1px solid var(--b);border-radius:8px;padding:6px 10px;font-size:14px;background:#fff}
+</style>
+</head>
+<body>
+<h1>QuickServe — MVP UI Mockups</h1>
+<p class="sub">Import into Figma with the "html.to.design" plugin. Tokens: primary #1E5EFF · success #12B76A · warning #F79009 · danger #F04438 · radius 12.</p>
+<div class="grid">
+
+<!-- 1 Login -->
+<div class="frame"><div class="label">1 · Login</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body" style="justify-content:center;gap:18px">
+  <div style="font-size:40px;text-align:center">🛠️</div>
+  <div class="h1" style="text-align:center">QuickServe</div>
+  <div class="cap" style="text-align:center">Trusted local pros, booked in 60 seconds</div>
+  <div class="search" style="color:var(--t)">+91 &nbsp;98765 43210</div>
+  <div class="btn">Send OTP</div>
+  <div class="cap" style="text-align:center">By continuing you agree to Terms & Privacy Policy</div>
+</div></div></div>
+
+<!-- 2 Home -->
+<div class="frame"><div class="label">2 · Customer Home</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="row"><div class="h2">📍 Home · Benz Circle ▾</div><span>🔔</span></div>
+  <div class="search">🔍 Search "AC repair"</div>
+  <div class="h2">What do you need?</div>
+  <div class="cats">
+    <div class="cat"><b>❄️</b>AC Repair</div><div class="cat"><b>⚡</b>Electrician</div><div class="cat"><b>🚰</b>Plumber</div><div class="cat"><b>🧹</b>Cleaning</div>
+    <div class="cat"><b>💧</b>Tank Clean</div><div class="cat"><b>🚗</b>Car</div><div class="cat"><b>🛵</b>Bike</div><div class="cat"><b>➕</b>More</div>
+  </div>
+  <div class="h2">⭐ Top rated near you</div>
+  <div class="card"><div class="row"><div class="av"></div><div style="flex:1"><div class="h2" style="font-size:15px">Ravi Kumar <span class="badge">✔ Verified</span></div><div class="cap"><span class="star">★</span> 4.8 (212) · AC Repair · 1.2 km</div></div></div></div>
+  <div class="card"><div class="row"><div class="av"></div><div style="flex:1"><div class="h2" style="font-size:15px">Lakshmi Cleaners <span class="badge">✔ Verified</span></div><div class="cap"><span class="star">★</span> 4.7 (96) · Deep cleaning · 2.0 km</div></div></div></div>
+</div>
+<div class="tabs"><span class="on">🏠 Home</span><span>📋 Bookings</span><span>👤 Me</span></div></div></div>
+
+<!-- 3 Results -->
+<div class="frame"><div class="label">3 · Category results (sort/filter)</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="row"><div class="h1">← AC Repair</div><span class="cap">32 pros</span></div>
+  <div class="row"><span class="chip on">Recommended ▾</span><span class="chip">⚙ Filters</span></div>
+  <div class="row" style="justify-content:flex-start"><span class="chip">★ 4+</span><span class="chip">Expert</span><span class="chip">Online now</span><span class="chip">≤ ₹200</span></div>
+  <div class="card"><div class="row"><div class="av"></div><div style="flex:1"><div class="h2" style="font-size:15px">Ravi Kumar <span class="badge">✔</span></div><div class="cap"><span class="star">★</span> 4.8 (212) · <span class="badge lvl">EXPERT</span></div><div class="cap">1.2 km · 340 jobs · 6 yrs</div></div></div>
+    <div class="row" style="margin-top:8px"><span><b>₹199</b> <span class="cap">visit</span></span><span class="btn sm">Book</span></div></div>
+  <div class="card"><div class="row"><div class="av"></div><div style="flex:1"><div class="h2" style="font-size:15px">Suresh A. <span class="badge">✔</span></div><div class="cap"><span class="star">★</span> 4.6 (88) · <span class="badge lvl">SKILLED</span></div><div class="cap">2.4 km · 120 jobs · 3 yrs</div></div></div>
+    <div class="row" style="margin-top:8px"><span><b>₹149</b> <span class="cap">visit</span></span><span class="btn sm">Book</span></div></div>
+  <div class="card"><div class="row"><div class="av"></div><div style="flex:1"><div class="h2" style="font-size:15px">CoolTech Services <span class="badge">✔</span></div><div class="cap"><span class="star">★</span> 4.9 (31) · <span class="badge lvl">CERTIFIED</span></div><div class="cap">4.1 km · 45 jobs · 9 yrs</div></div></div>
+    <div class="row" style="margin-top:8px"><span><b>₹249</b> <span class="cap">visit</span></span><span class="btn sm">Book</span></div></div>
+</div></div></div>
+
+<!-- 4 Provider detail -->
+<div class="frame"><div class="label">4 · Provider detail</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div style="text-align:center"><div class="av" style="width:80px;height:80px;margin:0 auto 8px"></div>
+  <div class="h1">Ravi Kumar <span class="badge">✔ Verified</span></div>
+  <div class="cap"><span class="star">★</span> 4.8 (212) · 340 jobs · 6 yrs · Telugu, Hindi</div></div>
+  <div class="card"><div class="row"><div class="h2">AC Repair</div><span class="badge lvl">EXPERT</span></div>
+    <div class="cap">Visit ₹199 · Labour ₹350/hr</div>
+    <div class="line"><span>Gas refill (1.5T split)</span><b>₹2,500</b></div>
+    <div class="line"><span>Jet service (split)</span><b>₹599</b></div></div>
+  <div class="card"><div class="h2">Reviews <span class="star">★</span> 4.8</div>
+    <div class="cap">Punctual 4.9 · Quality 4.8 · Behaviour 5.0 · Fair price 4.6</div>
+    <div style="font-size:13px;margin-top:6px">"Came in 30 mins, showed me the faulty capacitor and the bill. Fair price." — Priya</div></div>
+  <div style="flex:1"></div>
+  <div class="btn">Book Ravi →</div>
+</div></div></div>
+
+<!-- 5 Book -->
+<div class="frame"><div class="label">5 · Book &amp; pay visit fee</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="h1">← Book AC Repair</div>
+  <div class="h2">What's the problem?</div>
+  <textarea>AC not cooling, makes noise when starting.</textarea>
+  <span class="chip" style="align-self:flex-start">📷 Add photos</span>
+  <div class="card"><div class="cap">Address</div><div>Home · Flat 302, Sai Residency ▾</div></div>
+  <div class="row" style="justify-content:flex-start"><span class="chip on">● ASAP</span><span class="chip">Schedule</span></div>
+  <div class="card">
+    <div class="line"><span>Visit / inspection fee</span><b>₹199</b></div>
+    <div class="cap">Adjusted in the final bill. You approve a quote before any work starts.</div>
+    <div class="cap" style="margin-top:6px">Typical total for AC repair here: ₹600 – ₹2,800</div></div>
+  <div style="flex:1"></div>
+  <div class="btn">Pay ₹199 &amp; Book</div>
+</div></div></div>
+
+<!-- 6 Quote approval -->
+<div class="frame"><div class="label">6 · Booking detail — approve quote</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="h1">← Booking #QS1042</div>
+  <div class="steps"><span class="dot"></span><span class="seg"></span><span class="dot"></span><span class="seg"></span><span class="dot"></span><span class="seg"></span><span class="dot cur"></span><span class="seg"></span><span class="dot off"></span><span class="seg"></span><span class="dot off"></span></div>
+  <div class="steps" style="justify-content:space-between"><span>Req</span><span>Acc</span><span>Arrived</span><span>Quote</span><span>Work</span><span>Paid</span></div>
+  <div class="card"><div class="h2">Quote v1 · awaiting you</div>
+    <div class="line"><span>Labour · Gas refill</span><span>₹1,500</span></div>
+    <div class="line"><span>Part · Capacitor 45uF <span class="cap">📷 bill</span></span><span>₹650</span></div>
+    <div class="line"><span>Platform fee</span><span>₹29</span></div>
+    <div class="line"><span>Visit fee paid</span><span>−₹199</span></div>
+    <div class="line tot"><span>Pay now to start work</span><span>₹1,980</span></div></div>
+  <div class="banner">Within the typical range for this job ✓</div>
+  <div class="row"><div class="btn ghost" style="flex:1">Reject</div><div class="btn ok" style="flex:1">Approve &amp; Pay ✔</div></div>
+  <div class="card row"><span>💬 Chat with Ravi</span><span class="cap">2 new</span></div>
+  <div class="cap">Your money is held safely until the job is done. The completion code appears after Ravi marks the work done.</div>
+</div></div></div>
+
+<!-- 7 Provider dashboard -->
+<div class="frame"><div class="label">7 · Provider jobs dashboard</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="row"><div class="h1">Hi Ravi</div><span class="toggle">● ONLINE</span></div>
+  <div class="card row"><div><div class="cap">Today</div><div class="h1">₹2,340</div></div><div class="cap">3 jobs · ★ 4.8</div></div>
+  <div class="h2">New request <span class="cap">expires in 12:41</span></div>
+  <div class="card"><div class="row"><b>AC Repair</b><span class="cap">1.4 km</span></div>
+    <div style="font-size:13px;margin:6px 0">"AC not cooling, makes noise…" 📷×2</div>
+    <div class="cap">ASAP · Visit fee ₹199 (paid)</div>
+    <div class="row" style="margin-top:10px"><div class="btn ghost sm" style="flex:1">Decline</div><div class="btn sm" style="flex:1">Accept</div></div></div>
+  <div class="h2">Active</div>
+  <div class="card row"><span>#QS1039 · Arrived</span><span class="btn sm">Send quote</span></div>
+  <div class="card"><div class="cap">Enter start code from customer</div><div class="otp"><span>4</span><span>8</span><span>2</span><span>_</span></div></div>
+</div>
+<div class="tabs"><span class="on">🧰 Jobs</span><span>💰 Earnings</span><span>👤 Me</span></div></div></div>
+
+<!-- 8 Quote editor -->
+<div class="frame"><div class="label">8 · Provider quote editor</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="h1">← Quote #QS1042</div>
+  <div class="row" style="justify-content:flex-start"><span class="chip on">Labour</span><span class="chip">Part</span><span class="chip">Other</span><span class="chip">+ Add</span></div>
+  <div class="card"><div class="h2" style="font-size:14px">Labour · Gas refill</div><div class="row" style="margin-top:6px"><span>Qty [-] 1 [+]</span><span class="in">₹ 1500</span></div></div>
+  <div class="card"><div class="h2" style="font-size:14px">Part · Capacitor 45uF</div><div class="row" style="margin-top:6px"><span>Qty [-] 1 [+]</span><span class="in">₹ 650</span></div><span class="chip" style="display:inline-block;margin-top:8px">📷 Attach bill</span></div>
+  <div class="card"><div class="line tot" style="border:0;margin:0;padding:0"><span>Total</span><span>₹2,150</span></div>
+    <div class="cap">You receive ₹1,937.60 = ₹2,150 − ₹180 commission − ₹32.40 GST on commission (parts 0%; before statutory TDS/TCS)</div></div>
+  <div style="flex:1"></div>
+  <div class="btn">Send to customer →</div>
+</div></div></div>
+
+<!-- 9 Review -->
+<div class="frame"><div class="label">9 · Review</div><div class="phone"><div class="bar"><span>9:41</span><span>5G ▮▮▮</span></div>
+<div class="body">
+  <div class="h1">How was Ravi?</div>
+  <div style="font-size:36px" class="star">★★★★☆</div>
+  <div class="card">
+    <div class="line"><span>Punctuality</span><span class="star">★★★★★</span></div>
+    <div class="line"><span>Quality</span><span class="star">★★★★☆</span></div>
+    <div class="line"><span>Behaviour</span><span class="star">★★★★★</span></div>
+    <div class="line"><span>Fair price</span><span class="star">★★★★☆</span></div></div>
+  <textarea>Tell others about your experience…</textarea>
+  <span class="chip" style="align-self:flex-start">📷 Add photos</span>
+  <div style="flex:1"></div>
+  <div class="btn">Submit review</div>
+</div></div></div>
+
+</div>
+</body>
+</html>
