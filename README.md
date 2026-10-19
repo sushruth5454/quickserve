@@ -63,38 +63,75 @@ npx supabase secrets set `
 npx supabase functions deploy create-payment
 npx supabase functions deploy razorpay-webhook --no-verify-jwt
 npx supabase functions deploy release-payouts --no-verify-jwt
+npx supabase functions deploy process-refunds --no-verify-jwt
 ```
 
 | Function | Purpose |
 |---|---|
 | `create-payment` | Authenticated customer → computes the amount server-side (`prepare_payment`: visit fee, initial balance or change-order increment) → creates a Razorpay **Payment Link** → returns `short_url`. |
 | `razorpay-webhook` | Verifies `X-Razorpay-Signature` (HMAC-SHA256 of the raw body, constant-time compare). On `payment_link.paid` calls `record_payment_paid` (idempotent by `razorpay_payment_id`). |
-| `release-payouts` | Cron: expires 15-min-old requests, auto-confirms completions after 24h, then creates one Route transfer per due `payout_transfers` row (`POST /v1/payments/{payment_id}/transfers`). Requires header `x-cron-secret`. |
+| `release-payouts` | Cron: expires 15-min-old requests, auto-confirms completions after 24h, cancels retired payment links, then creates one Route transfer per due `payout_transfers` row (`POST /v1/payments/{payment_id}/transfers`, `notes.transfer_id` set). Failed attempts back off (5→40 min); retries first look the transfer up by `notes.transfer_id` so a timed-out request is never paid twice. After 5 failures the payout is flagged `failed`; fix the cause and run `select retry_payout('<payout id>')`. Requires header `x-cron-secret`. |
+| `process-refunds` | Cron: cancels retired payment links, claims queued `refunds` rows (`claim_due_refunds`) and calls `POST /v1/payments/{id}/refund` with `X-Refund-Idempotency: <refund row id>`; full refunds move the payment to `refunded`. Requires header `x-cron-secret`. |
 
 ### Razorpay (test mode)
 
 1. Dashboard → *Account & Settings → Webhooks* → **Add webhook**
    - URL: `https://<project-ref>.supabase.co/functions/v1/razorpay-webhook`
    - Secret: the `RAZORPAY_WEBHOOK_SECRET` above
-   - Events: `payment_link.paid`
+   - Events: `payment_link.paid`. A payment on a link that is no longer owed (retired, superseded or exceeding the
+     booking total) is recorded and queued for refund automatically.
 2. Enable **Route** and create a Linked Account per provider. The account id and its activation status drive
    `providers.kyc_status` via the service-role RPC `sync_provider_kyc(provider_id, account_id, status)`; there is no
    manual "mark verified" switch.
 
-### Schedule payouts (every 15 minutes)
+### Scheduled jobs
 
-Enable the `pg_cron` and `pg_net` extensions, then:
+| Job | Schedule | How |
+|---|---|---|
+| Expire requests not accepted in 15 min (refund queued) | every minute | SQL `expire_stale_requests()` |
+| Auto-confirm completions after 24h (creates payout) | every 15 min | SQL `auto_confirm_completions()` |
+| Release payouts after the 24h dispute window | every 15 min | Edge Function `release-payouts` (also runs the two SQL jobs) |
+| Process refunds and cancel retired payment links | every 10 min | Edge Function `process-refunds` |
+
+**Option A — `pg_cron` + `pg_net`** (Database → Extensions: enable both). Store the cron secret in Vault first:
+`select vault.create_secret('<CRON_SECRET>', 'cron_secret');`
 
 ```sql
+select cron.schedule('expire-requests', '* * * * *', $$ select public.expire_stale_requests(); $$);
+select cron.schedule('auto-confirm', '*/15 * * * *', $$ select public.auto_confirm_completions(); $$);
+
 select cron.schedule('release-payouts', '*/15 * * * *', $$
   select net.http_post(
     url := 'https://<project-ref>.supabase.co/functions/v1/release-payouts',
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', '<CRON_SECRET>')
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret',
+      (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret'))
+  );
+$$);
+
+select cron.schedule('process-refunds', '*/10 * * * *', $$
+  select net.http_post(
+    url := 'https://<project-ref>.supabase.co/functions/v1/process-refunds',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret',
+      (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret'))
   );
 $$);
 ```
 
+**Option B — Supabase Dashboard → Integrations → Cron**: create the same jobs as "Supabase Edge Function" (POST,
+header `x-cron-secret`) or "SQL snippet" jobs. Check runs with `select * from cron.job_run_details order by start_time desc limit 20;`.
 ## 3. Mobile app
+
+> **Using a personal machine / public npm.** The `package-lock.json` files in this repo were generated through a
+> corporate npm proxy, so their `resolved` URLs will not work elsewhere. On a personal machine:
+>
+> ```powershell
+> npm config set registry https://registry.npmjs.org/
+> Remove-Item app\package-lock.json, supabase\tests\package-lock.json
+> cd app; npm install; npx expo install --fix
+> cd ..\supabase\tests; npm install
+> ```n>
+> `npx expo install --fix` also aligns every Expo package with SDK 58 and moves `react-native` from the 0.88 RC to the
+> stable version Expo SDK 58 expects once the public registry has it (after which `app/.npmrc`'s `legacy-peer-deps` is no longer needed).
 
 ```powershell
 cd app
@@ -119,7 +156,8 @@ npm test                         # parses the migration (libpg_query) and runs t
 ```
 
 The SQL tests run the real migration in an in-process Postgres (PGlite) with PostGIS, `auth` and `storage` stubbed, and
-exercise the happy path, change orders, OTP lockout, disputes, payouts and RLS.
+exercise the happy path, change orders, OTP lockout, disputes, payouts, stale/excess payments, refunds, transfer retries
+and RLS. `npx -y deno check supabase/functions/*/index.ts` typechecks the Edge Functions.
 
 ### Builds (EAS)
 

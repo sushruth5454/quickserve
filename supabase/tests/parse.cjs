@@ -25,5 +25,6 @@ const lib = require('libpg-query');
     } catch (e) { errs++; console.log('ERR in', name, e.message); }
   }
   console.log('function bodies ok:', bodies, 'errors:', errs);
+  if (errs) process.exit(1);
 })().catch(e => { console.error('PARSE ERROR', e.message, e.cursorPosition); process.exit(1); });
 

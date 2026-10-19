@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, json, razorpay, requireEnv } from "../_shared/razorpay.ts";
+import { cancelRetiredLinks, corsHeaders, json, razorpay, requireEnv } from "../_shared/razorpay.ts";
 
 interface PreparedPayment {
   payment_id: string;
@@ -37,6 +37,9 @@ Deno.serve(async (req) => {
       .rpc("prepare_payment", { p_booking_id: bookingId, p_user_id: user.id })
       .single<PreparedPayment>();
     if (prepError || !prepared) return json({ error: prepError?.message ?? "cannot prepare payment" }, 400);
+
+    // Links retired by prepare_payment / change orders must not stay payable.
+    await cancelRetiredLinks(admin, bookingId);
 
     if (prepared.short_url) {
       return json({ short_url: prepared.short_url, amount: prepared.amount, purpose: prepared.purpose });

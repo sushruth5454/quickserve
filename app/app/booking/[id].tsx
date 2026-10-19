@@ -179,7 +179,7 @@ export default function BookingDetail() {
           <View key={p.id} style={styles.between}>
             <Text style={font.body}>{p.purpose === 'visit_fee' ? 'Visit fee' : 'Job payment'}</Text>
             <Text style={font.caption}>
-              {formatINR(p.amount)} • {p.status.replace('_', ' ')}
+              {formatINR(p.amount)} • {p.status.replaceAll('_', ' ')}
             </Text>
           </View>
         ))}

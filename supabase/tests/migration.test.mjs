@@ -240,6 +240,150 @@ await asP(`select accept_booking('${b7}')`); await asP(`select start_trip('${b7}
 await asC(`select cancel_booking('${b7}', 'late')`);
 ok((await db.query(`select amount from payouts where booking_id = $1`, [b7])).rows[0]?.amount === 17082, 'cancel after en_route -> visit fee payout');
 
+// ---- Regression tests for code-review findings ----
+async function section(name, fn) {
+  try { await fn(); } catch (e) { failures++; console.log(`FAIL: [${name}] threw: ${e.message}`); }
+}
+const labour = (paise) => JSON.stringify([{ kind: 'labour', title: 'Work', qty: 1, unit_price: paise }]);
+async function driveToInProgress(quotePaise) {
+  const [{ create_booking: id }] = await asC(`select create_booking($1, 'x', '1 St', 'Vijayawada', 16.5, 80.6)`, [psId]);
+  await pay(id);
+  await asP(`select accept_booking('${id}')`); await asP(`select start_trip('${id}')`);
+  const [o] = await asC(`select * from get_booking_otps('${id}')`);
+  await asP(`select arrive($1, $2)`, [id, o.start_otp]);
+  const [{ send_quote: q }] = await asP(`select send_quote($1, $2::jsonb)`, [id, labour(quotePaise)]);
+  await asC(`select approve_quote($1, $2)`, [id, q]);
+  await pay(id);
+  return id;
+}
+async function driveToCompleted(quotePaise) {
+  const id = await driveToInProgress(quotePaise);
+  await asP(`select request_completion('${id}')`);
+  await asC(`select confirm_completion('${id}')`);
+  return id;
+}
+const paidTotal = async (id) => (await db.query(`select coalesce(sum(amount), 0)::int s from payments where booking_id = $1 and status = 'paid'`, [id])).rows[0].s;
+
+await section('bug1 stale link', async () => {
+  const s1 = await driveToInProgress(100000);
+  ok(await paidTotal(s1) === 102900, 'bug1: initial ₹1,029 collected');
+  const [{ send_quote: co1 }] = await asP(`select send_quote($1, $2::jsonb)`, [s1, labour(150000)]);
+  await asC(`select approve_quote($1, $2)`, [s1, co1]);
+  const [l1] = await svc(`select * from prepare_payment($1, $2)`, [s1, C]);
+  ok(l1.amount === 50000, 'bug1: CO1 increment link ₹500');
+  await svc(`update payments set razorpay_link_id = 'plink_L1', short_url = 'https://rzp.io/L1' where id = $1`, [l1.payment_id]);
+  const [{ send_quote: co2 }] = await asP(`select send_quote($1, $2::jsonb)`, [s1, labour(120000)]);
+  const [retired] = (await db.query(`select status from payments where id = $1`, [l1.payment_id])).rows;
+  ok(retired.status === 'failed', 'bug1: superseded change-order link retired');
+  const queued = await svc(`select * from claim_link_cancellations($1)`, [s1]);
+  ok(queued.some((x) => x.razorpay_link_id === 'plink_L1'), 'bug1: retired link queued for cancellation at Razorpay');
+  const [r] = await svc(`select record_payment_paid('plink_L1', 'pay_L1', 50000) as r`);
+  ok(r.r.ok === true, 'bug1: late payment acknowledged');
+  const [after] = (await db.query(`select status from payments where id = $1`, [l1.payment_id])).rows;
+  ok(after.status === 'refund_pending', 'bug1: stale link payment -> refund_pending, not paid');
+  ok(await paidTotal(s1) === 102900, 'bug1: paid total unchanged at ₹1,029');
+  await asC(`select reject_quote($1, $2)`, [s1, co2]);
+  await asP(`select request_completion('${s1}')`); await asC(`select confirm_completion('${s1}')`);
+  const refunds = (await db.query(`select r.amount from refunds r join payments p on p.id = r.payment_id where p.booking_id = $1`, [s1])).rows;
+  ok(refunds.length === 1 && refunds[0].amount === 50000, 'bug1: refund row queued for the stale ₹500');
+  const links = await svc(`select * from claim_link_cancellations()`);
+  ok(links.some((x) => x.razorpay_link_id === 'plink_L1') === false, 'bug1: paid link not re-cancelled');
+});
+
+await section('bug1 overpay guard', async () => {
+  const s = await driveToInProgress(100000);
+  const [{ send_quote: co }] = await asP(`select send_quote($1, $2::jsonb)`, [s, labour(150000)]);
+  await asC(`select approve_quote($1, $2)`, [s, co]);
+  const [l] = await svc(`select * from prepare_payment($1, $2)`, [s, C]);
+  await svc(`update payments set razorpay_link_id = 'plink_OP', short_url = 'x' where id = $1`, [l.payment_id]);
+  // Simulate an out-of-band payment that already covered the increment.
+  await db.exec(`insert into payments (booking_id, purpose, amount, status, razorpay_payment_id, paid_at) values ('${s}', 'balance', 50000, 'paid', 'pay_manual', now())`);
+  await svc(`select record_payment_paid('plink_OP', 'pay_OP', 50000)`);
+  ok((await db.query(`select status from payments where id = $1`, [l.payment_id])).rows[0].status === 'refund_pending', 'bug1: payment exceeding required total -> refund_pending');
+});
+
+await section('bug2 full refund amount', async () => {
+  const s = await driveToCompleted(100000);
+  await asC(`select dispute_booking('${s}', 'bad')`);
+  await asX(`select resolve_dispute('${s}', 'full_refund')`);
+  const [bk] = (await db.query(`select refund_amount, status from bookings where id = $1`, [s])).rows;
+  ok(bk.status === 'refunded' && bk.refund_amount === 102900, 'bug2: full refund records ₹1,029 refund_amount');
+  const sum = (await db.query(`select coalesce(sum(r.amount), 0)::int s from refunds r join payments p on p.id = r.payment_id where p.booking_id = $1`, [s])).rows[0].s;
+  ok(sum === 102900, 'bug2: refund rows cover every paid payment');
+});
+
+await section('bug3 transient transfer failure', async () => {
+  const s = await driveToCompleted(100000);
+  const [po] = (await db.query(`select id from payouts where booking_id = $1`, [s])).rows;
+  await db.exec(`update payouts set release_after = now() - interval '1 minute' where id = '${po.id}'`);
+  const first = (await svc(`select * from claim_due_transfers()`)).filter((t) => t.payout_id === po.id);
+  ok(first.length === 2, 'bug3: two transfers claimed');
+  await svc(`select fail_transfer($1, 'timeout')`, [first[0].transfer_id]);
+  const [pst] = (await db.query(`select status from payouts where id = $1`, [po.id])).rows;
+  ok(pst.status === 'pending', 'bug3: one transfer failure keeps payout pending');
+  const [tst] = (await db.query(`select status, attempts, next_attempt_at > now() as later from payout_transfers where id = $1`, [first[0].transfer_id])).rows;
+  ok(tst.status === 'pending' && tst.attempts === 1 && tst.later, 'bug3: transfer retried with backoff');
+  await svc(`select complete_transfer($1, 'trf_ok')`, [first[1].transfer_id]);
+  ok((await svc(`select * from claim_due_transfers()`)).every((t) => t.transfer_id !== first[0].transfer_id), 'bug3: not retried before backoff');
+  await db.exec(`update payout_transfers set next_attempt_at = now() - interval '1 second' where id = '${first[0].transfer_id}'`);
+  const again = (await svc(`select * from claim_due_transfers()`)).filter((t) => t.transfer_id === first[0].transfer_id);
+  ok(again.length === 1 && again[0].attempts === 1, 'bug3: retried after backoff with attempt count');
+  for (let i = 0; i < 4; i++) {
+    await svc(`select fail_transfer($1, 'boom')`, [first[0].transfer_id]);
+    await db.exec(`update payout_transfers set next_attempt_at = now() - interval '1 second' where id = '${first[0].transfer_id}'`);
+    if (i < 3) await svc(`select * from claim_due_transfers()`);
+  }
+  const [t5] = (await db.query(`select status from payout_transfers where id = $1`, [first[0].transfer_id])).rows;
+  const [p5] = (await db.query(`select status from payouts where id = $1`, [po.id])).rows;
+  ok(t5.status === 'failed' && p5.status === 'failed', 'bug3: after 5 attempts transfer failed and payout flagged');
+  await svc(`select retry_payout($1)`, [po.id]);
+  const retried = (await svc(`select * from claim_due_transfers()`)).filter((t) => t.payout_id === po.id);
+  ok(retried.length === 1, 'bug3: retry_payout makes the failed transfer claimable again');
+  await svc(`select complete_transfer($1, 'trf_ok2')`, [retried[0].transfer_id]);
+  ok(await status(s) === 'closed', 'bug3: payout completes after retry');
+});
+
+await section('bug4 frozen payout not overwritten', async () => {
+  const s = await driveToCompleted(100000);
+  const [po] = (await db.query(`select id from payouts where booking_id = $1`, [s])).rows;
+  await db.exec(`update payouts set release_after = now() - interval '1 minute' where id = '${po.id}'`);
+  const claimed = (await svc(`select * from claim_due_transfers()`)).filter((t) => t.payout_id === po.id);
+  await db.exec(`update payouts set status = 'frozen' where id = '${po.id}'`);
+  for (const t of claimed) await svc(`select complete_transfer($1, $2)`, [t.transfer_id, 'trf_' + t.transfer_id.slice(0, 6)]);
+  ok((await db.query(`select status from payouts where id = $1`, [po.id])).rows[0].status === 'frozen', 'bug4: complete_transfer keeps a frozen payout frozen');
+  ok(await status(s) === 'completed', 'bug4: frozen payout does not close booking');
+  const s2 = await driveToCompleted(100000);
+  const [po2] = (await db.query(`select id from payouts where booking_id = $1`, [s2])).rows;
+  await db.exec(`update payouts set release_after = now() - interval '1 minute', status = 'frozen' where id = '${po2.id}'`);
+  ok((await svc(`select * from claim_due_transfers()`)).every((t) => t.payout_id !== po2.id), 'bug4: claim skips non-pending payouts');
+});
+
+await section('bug5 refunds processed', async () => {
+  const [{ create_booking: d }] = await asC(`select create_booking($1, 'x', '1 St', 'Vijayawada', 16.5, 80.6)`, [psId]);
+  await pay(d);
+  await db.exec(`insert into payments (booking_id, purpose, amount, status) values ('${d}', 'balance', 1000, 'paid')`);
+  await asP(`select decline_booking('${d}')`);
+  const rows = (await db.query(`select purpose, status, razorpay_payment_id from payments where booking_id = $1 order by amount`, [d])).rows;
+  ok(rows[0].status === 'failed', 'bug5: payment without razorpay_payment_id marked failed, not refunded');
+  const claimed = (await svc(`select * from claim_due_refunds()`)).filter((r) => r.booking_id === d);
+  ok(claimed.length === 1 && claimed[0].amount === 19900 && claimed[0].razorpay_payment_id, 'bug5: visit-fee refund claimed');
+  ok((await db.query(`select status from payments where razorpay_payment_id = $1`, [claimed[0].razorpay_payment_id])).rows[0].status === 'refund_processing', 'bug5: payment refund_processing while in flight');
+  ok((await svc(`select * from claim_due_refunds()`)).every((r) => r.refund_id !== claimed[0].refund_id), 'bug5: claimed refund not double-claimed');
+  await svc(`select complete_refund($1, 'rfnd_1')`, [claimed[0].refund_id]);
+  ok((await db.query(`select status from payments where razorpay_payment_id = $1`, [claimed[0].razorpay_payment_id])).rows[0].status === 'refunded', 'bug5: payment refunded');
+
+  const s = await driveToCompleted(100000);
+  await asC(`select dispute_booking('${s}', 'partly bad')`);
+  await asX(`select resolve_dispute('${s}', 'partial_refund', 10000, 'partial')`);
+  const pr = (await db.query(`select r.amount, r.status from refunds r join payments p on p.id = r.payment_id where p.booking_id = $1`, [s])).rows;
+  ok(pr.length === 1 && pr[0].amount === 10000 && pr[0].status === 'pending', 'bug5: partial dispute creates ₹100 refund row');
+  const pc = (await svc(`select * from claim_due_refunds()`)).filter((r) => r.booking_id === s);
+  await svc(`select fail_refund($1, 'gateway down')`, [pc[0].refund_id]);
+  const [rf] = (await db.query(`select status, attempts from refunds where id = $1`, [pc[0].refund_id])).rows;
+  ok(rf.status === 'pending' && rf.attempts === 1, 'bug5: failed refund is retried with backoff');
+  ok((await db.query(`select status from payments where razorpay_payment_id = $1`, [pc[0].razorpay_payment_id])).rows[0].status === 'paid', 'bug5: partially refunded payment stays paid');
+});
+
 // ---- RLS spot checks ----
 ok((await asX(`select * from bookings`)).length === 0, 'stranger sees no bookings');
 ok((await asC(`select * from payouts`)).length === 0, 'customer sees no payouts');

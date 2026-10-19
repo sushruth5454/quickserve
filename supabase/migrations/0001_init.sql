@@ -20,9 +20,10 @@ create type public.rate_unit as enum ('hour', 'job');
 create type public.quote_status as enum ('sent', 'approved_pending_payment', 'approved', 'rejected', 'superseded');
 create type public.quote_item_kind as enum ('labour', 'part', 'other');
 create type public.payment_purpose as enum ('visit_fee', 'balance', 'fixed');
-create type public.payment_status as enum ('created', 'paid', 'failed', 'refund_pending', 'refunded');
+create type public.payment_status as enum ('created', 'paid', 'failed', 'refund_pending', 'refund_processing', 'refunded');
 create type public.payout_status as enum ('pending', 'frozen', 'transferred', 'failed', 'reversed', 'partially_reversed');
 create type public.transfer_status as enum ('pending', 'processing', 'transferred', 'failed');
+create type public.refund_status as enum ('pending', 'processing', 'refunded', 'failed');
 create type public.dispute_outcome as enum ('denied', 'partial_refund', 'full_refund');
 
 -- ---------------------------------------------------------------------------
@@ -206,10 +207,29 @@ create table public.payments (
   razorpay_link_id text unique,
   razorpay_payment_id text unique,
   short_url text,
+  -- A retired 'created' link that must still be cancelled at Razorpay.
+  cancel_link_pending boolean not null default false,
   created_at timestamptz not null default now(),
   paid_at timestamptz
 );
 create index payments_booking_idx on public.payments (booking_id);
+create index payments_cancel_link_idx on public.payments (created_at) where cancel_link_pending;
+
+create table public.refunds (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null references public.payments (id) on delete cascade,
+  amount int not null check (amount > 0),
+  reason text,
+  status public.refund_status not null default 'pending',
+  razorpay_refund_id text unique,
+  attempts int not null default 0,
+  next_attempt_at timestamptz,
+  last_error text,
+  created_at timestamptz not null default now(),
+  processed_at timestamptz
+);
+create index refunds_payment_idx on public.refunds (payment_id);
+create index refunds_due_idx on public.refunds (created_at) where status = 'pending';
 
 create table public.payouts (
   id uuid primary key default gen_random_uuid(),
@@ -234,6 +254,8 @@ create table public.payout_transfers (
   amount int not null check (amount > 0),
   razorpay_transfer_id text unique,
   status public.transfer_status not null default 'pending',
+  attempts int not null default 0,
+  next_attempt_at timestamptz,
   last_error text,
   created_at timestamptz not null default now(),
   transferred_at timestamptz
@@ -510,6 +532,7 @@ as $$
 $$;
 
 -- Splits a payout greedily across the booking's paid payments: visit fee first, then balance payments in order.
+-- Transfers that were already attempted (attempts > 0) may exist at Razorpay, so they are never discarded.
 create or replace function public._allocate_payout(p_payout_id uuid)
 returns void
 language plpgsql
@@ -524,9 +547,9 @@ declare
   v_take int;
 begin
   select * into po from public.payouts where id = p_payout_id for update;
-  delete from public.payout_transfers where payout_id = po.id and status in ('pending', 'failed');
-  v_remaining := po.amount - coalesce((select sum(amount) from public.payout_transfers
-                                        where payout_id = po.id and status in ('processing', 'transferred')), 0);
+  delete from public.payout_transfers
+   where payout_id = po.id and status in ('pending', 'failed') and attempts = 0;
+  v_remaining := po.amount - coalesce((select sum(amount) from public.payout_transfers where payout_id = po.id), 0);
   for pm in
     select p.id, p.amount
       from public.payments p
@@ -534,8 +557,9 @@ begin
      order by (p.purpose <> 'visit_fee'), p.paid_at, p.id
   loop
     exit when v_remaining <= 0;
-    v_avail := pm.amount - coalesce((select sum(t.amount) from public.payout_transfers t
-                                       where t.source_payment_id = pm.id and t.status <> 'failed'), 0);
+    v_avail := pm.amount
+      - coalesce((select sum(t.amount) from public.payout_transfers t where t.source_payment_id = pm.id), 0)
+      - coalesce((select sum(r.amount) from public.refunds r where r.payment_id = pm.id and r.status <> 'failed'), 0);
     v_take := least(v_avail, v_remaining);
     if v_take > 0 then
       insert into public.payout_transfers (payout_id, source_payment_id, amount) values (po.id, pm.id, v_take);
@@ -604,12 +628,83 @@ security definer
 set search_path = public
 as $$
 begin
-  update public.payments set status = 'failed'
+  update public.payments set status = 'failed', cancel_link_pending = true
    where booking_id = p_booking_id and status = 'created'
      and quote_id in (select id from public.quotes where booking_id = p_booking_id
                        and status in ('sent', 'approved_pending_payment'));
   update public.quotes set status = 'superseded'
    where booking_id = p_booking_id and status in ('sent', 'approved_pending_payment');
+end;
+$$;
+
+-- Queues a refund of up to p_amount against one payment. Rows never actually paid are marked failed instead.
+-- Returns the amount queued.
+create or replace function public._queue_refund(p_payment_id uuid, p_amount int, p_reason text)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  p public.payments;
+  v_refundable int;
+  v_amount int;
+begin
+  select * into p from public.payments where id = p_payment_id for update;
+  if p.razorpay_payment_id is null then
+    update public.payments set status = 'failed' where id = p.id and status <> 'failed';
+    return 0;
+  end if;
+  v_refundable := p.amount - coalesce((select sum(amount) from public.refunds
+                                        where payment_id = p.id and status <> 'failed'), 0);
+  v_amount := least(p_amount, v_refundable);
+  if v_amount <= 0 then
+    return 0;
+  end if;
+  insert into public.refunds (payment_id, amount, reason) values (p.id, v_amount, p_reason);
+  if v_amount = v_refundable then
+    update public.payments set status = 'refund_pending' where id = p.id;
+  end if;
+  return v_amount;
+end;
+$$;
+
+-- Fully refunds every paid payment of a booking. Returns the total queued.
+create or replace function public._refund_booking_payments(p_booking_id uuid, p_reason text)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  v_total int := 0;
+begin
+  for r in select id, amount from public.payments where booking_id = p_booking_id and status = 'paid' order by paid_at loop
+    v_total := v_total + public._queue_refund(r.id, r.amount, p_reason);
+  end loop;
+  return v_total;
+end;
+$$;
+
+-- Refunds p_amount across a booking's paid payments, latest balance payment first. Returns the total queued.
+create or replace function public._refund_partial(p_booking_id uuid, p_amount int, p_reason text)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r record;
+  v_remaining int := p_amount;
+begin
+  for r in select id, amount from public.payments
+            where booking_id = p_booking_id and status = 'paid' and razorpay_payment_id is not null
+            order by (purpose = 'visit_fee'), paid_at desc loop
+    exit when v_remaining <= 0;
+    v_remaining := v_remaining - public._queue_refund(r.id, v_remaining, p_reason);
+  end loop;
+  return p_amount - v_remaining;
 end;
 $$;
 
@@ -890,7 +985,7 @@ begin
   perform public._assert(b.provider_id = v_uid, 'only the provider can decline');
   perform public._assert(b.status = 'requested', 'booking is not awaiting acceptance');
   update public.bookings set cancelled_reason = p_reason where id = b.id;
-  update public.payments set status = 'refund_pending' where booking_id = b.id and status = 'paid';
+  perform public._refund_booking_payments(b.id, 'declined by provider');
   perform public._set_status(b.id, 'declined', v_uid, p_reason);
 end;
 $$;
@@ -1187,13 +1282,13 @@ begin
   perform public._assert(b.status in ('pending_payment', 'requested', 'accepted', 'en_route', 'awaiting_payment'),
                          'booking can no longer be cancelled');
   update public.bookings set cancelled_reason = p_reason where id = b.id;
-  update public.payments set status = 'failed' where booking_id = b.id and status = 'created';
+  update public.payments set status = 'failed', cancel_link_pending = true where booking_id = b.id and status = 'created';
   perform public._close_open_quotes(b.id);
   if b.status in ('en_route', 'awaiting_payment') then
     -- Chargeable cancellation: visit fee is forfeited to the provider.
     perform public._create_payout(b.id, b.visit_fee, b.visit_fee, now() + interval '24 hours');
   else
-    update public.payments set status = 'refund_pending' where booking_id = b.id and status = 'paid';
+    perform public._refund_booking_payments(b.id, 'cancelled by customer');
   end if;
   perform public._set_status(b.id, 'cancelled', v_uid, p_reason);
 end;
@@ -1212,6 +1307,10 @@ begin
   perform public._assert(b.customer_id = v_uid, 'only the customer can raise a dispute');
   perform public._assert(b.status in ('in_progress', 'completion_requested', 'completed'), 'dispute not allowed in this state');
   perform public._assert(coalesce(trim(p_reason), '') <> '', 'reason is required');
+  -- Lock the payout and its transfers so the payout cron cannot claim them concurrently.
+  perform 1 from public.payouts where booking_id = b.id for update;
+  perform 1 from public.payout_transfers t
+   where t.payout_id in (select id from public.payouts where booking_id = b.id) for update;
   perform public._assert(not exists (
     select 1 from public.payout_transfers t join public.payouts po on po.id = t.payout_id
      where po.booking_id = b.id and t.status in ('processing', 'transferred')
@@ -1341,6 +1440,7 @@ declare
   v_uid uuid := public._require_uid();
   b public.bookings := public._lock_booking(p_booking_id);
   po public.payouts;
+  v_refunded int;
 begin
   perform public._assert(public._is_admin(), 'admin only');
   perform public._assert(b.status = 'disputed', 'booking is not disputed');
@@ -1349,8 +1449,8 @@ begin
     update public.payout_transfers set status = 'failed', last_error = 'dispute: full refund'
      where status = 'pending' and payout_id in (select id from public.payouts where booking_id = b.id);
     update public.payouts set status = 'reversed', amount = 0 where booking_id = b.id;
-    update public.payments set status = 'refund_pending' where booking_id = b.id and status = 'paid';
-    update public.bookings set refund_amount = public._paid_total(b.id) where id = b.id;
+    v_refunded := public._refund_booking_payments(b.id, 'dispute: full refund');
+    update public.bookings set refund_amount = refund_amount + v_refunded where id = b.id;
     perform public._set_status(b.id, 'refunded', v_uid, coalesce(p_note, 'dispute: full refund'));
   else
     if not exists (select 1 from public.payouts where booking_id = b.id) then
@@ -1361,6 +1461,8 @@ begin
     select * into po from public.payouts where booking_id = b.id for update;
     if p_outcome = 'partial_refund' then
       perform public._assert(p_refund_amount > 0 and p_refund_amount <= po.amount, 'invalid refund amount');
+      v_refunded := public._refund_partial(b.id, p_refund_amount, 'dispute: partial refund');
+      perform public._assert(v_refunded = p_refund_amount, 'refund exceeds refundable payments');
       update public.payouts set amount = amount - p_refund_amount where id = po.id;
       update public.bookings set refund_amount = refund_amount + p_refund_amount where id = b.id;
     end if;
@@ -1418,7 +1520,7 @@ begin
     return;
   end if;
 
-  update public.payments x set status = 'failed' where x.booking_id = b.id and x.status = 'created';
+  update public.payments x set status = 'failed', cancel_link_pending = true where x.booking_id = b.id and x.status = 'created';
   insert into public.payments (booking_id, quote_id, purpose, amount)
   values (b.id, v_quote, v_purpose, v_amount)
   returning * into p;
@@ -1437,6 +1539,8 @@ declare
   p public.payments;
   b public.bookings;
   q public.quotes;
+  v_required int;
+  v_accept boolean;
 begin
   if exists (select 1 from public.payments where razorpay_payment_id = p_payment_id) then
     return jsonb_build_object('ok', true, 'duplicate', true);
@@ -1450,25 +1554,38 @@ begin
   end if;
 
   b := public._lock_booking(p.booking_id);
-  update public.payments set status = 'paid', razorpay_payment_id = p_payment_id, paid_at = now() where id = p.id;
 
-  if b.status in ('cancelled', 'expired', 'declined', 'closed_no_work', 'refunded') then
-    update public.payments set status = 'refund_pending' where id = p.id;
-    perform public._log_event(b.id, null, 'late payment ' || p_payment_id || ' marked for refund');
-  elsif p.purpose = 'visit_fee' and b.status = 'pending_payment' then
-    perform public._set_status(b.id, 'requested', null, 'visit fee paid');
-  elsif p.purpose = 'balance' and p.quote_id is not null then
-    select * into q from public.quotes where id = p.quote_id for update;
-    if q.status = 'approved_pending_payment'
-       and public._paid_total(b.id) >= public._required_total(q.total, b.visit_fee, b.platform_fee) then
-      perform public._activate_quote(b.id, q.id);
-      if b.status = 'awaiting_payment' then
-        perform public._set_status(b.id, 'in_progress', null, 'balance paid');
-      else
-        perform public._log_event(b.id, null, 'change order v' || q.version || ' paid');
+  -- Only a live ('created') link for a still-open obligation may count towards the booking.
+  if p.status = 'created' then
+    if p.purpose = 'visit_fee' and b.status = 'pending_payment' then
+      v_required := b.visit_fee;
+    elsif p.purpose = 'balance' and p.quote_id is not null then
+      select * into q from public.quotes where id = p.quote_id for update;
+      if q.status = 'approved_pending_payment' then
+        v_required := public._required_total(q.total, b.visit_fee, b.platform_fee);
       end if;
+    end if;
+  end if;
+  v_accept := v_required is not null and public._paid_total(b.id) + p.amount <= v_required;
+
+  update public.payments
+     set status = 'paid', razorpay_payment_id = p_payment_id, paid_at = now(), cancel_link_pending = false
+   where id = p.id;
+
+  if not v_accept then
+    perform public._queue_refund(p.id, p.amount, 'stale or excess payment');
+    perform public._log_event(b.id, null, 'payment ' || p_payment_id || ' not owed; queued for refund');
+    return jsonb_build_object('ok', true, 'booking_id', b.id, 'refund', true);
+  end if;
+
+  if p.purpose = 'visit_fee' then
+    perform public._set_status(b.id, 'requested', null, 'visit fee paid');
+  elsif public._paid_total(b.id) >= v_required then
+    perform public._activate_quote(b.id, q.id);
+    if b.status = 'awaiting_payment' then
+      perform public._set_status(b.id, 'in_progress', null, 'balance paid');
     else
-      perform public._log_event(b.id, null, 'payment ' || p_payment_id || ' received for inactive quote');
+      perform public._log_event(b.id, null, 'change order v' || q.version || ' paid');
     end if;
   end if;
   return jsonb_build_object('ok', true, 'booking_id', b.id);
@@ -1488,7 +1605,7 @@ begin
   for r in select id from public.bookings
             where status = 'requested' and updated_at < now() - interval '15 minutes'
             for update skip locked loop
-    update public.payments set status = 'refund_pending' where booking_id = r.id and status = 'paid';
+    perform public._refund_booking_payments(r.id, 'request expired');
     perform public._set_status(r.id, 'expired', null, 'not accepted within 15 minutes');
     n := n + 1;
   end loop;
@@ -1518,7 +1635,7 @@ $$;
 
 create or replace function public.claim_due_transfers(p_limit int default 20)
 returns table (
-  transfer_id uuid, payout_id uuid, booking_id uuid, amount int, razorpay_payment_id text, account_id text
+  transfer_id uuid, payout_id uuid, booking_id uuid, amount int, razorpay_payment_id text, account_id text, attempts int
 )
 language sql
 security definer
@@ -1534,17 +1651,18 @@ as $$
          join public.bookings b on b.id = po.booking_id
          join public.providers pr on pr.id = po.provider_id
         where t.status = 'pending'
+          and (t.next_attempt_at is null or t.next_attempt_at <= now())
           and po.status = 'pending'
           and po.release_after <= now()
           and b.status <> 'disputed'
           and pr.razorpay_account_id is not null
         order by po.release_after
         limit p_limit
-        for update of t skip locked
+        for update of t, po skip locked
      )
     returning pt.*
   )
-  select c.id, c.payout_id, po.booking_id, c.amount, pm.razorpay_payment_id, pr.razorpay_account_id
+  select c.id, c.payout_id, po.booking_id, c.amount, pm.razorpay_payment_id, pr.razorpay_account_id, c.attempts
     from claimed c
     join public.payouts po on po.id = c.payout_id
     join public.providers pr on pr.id = po.provider_id
@@ -1569,27 +1687,159 @@ begin
     return;
   end if;
   if not exists (select 1 from public.payout_transfers where payout_id = v_payout and status <> 'transferred') then
+    -- Never overwrite a frozen (disputed) or otherwise non-pending payout.
     update public.payouts set status = 'transferred', transferred_at = now()
-     where id = v_payout returning booking_id into v_booking;
-    if exists (select 1 from public.bookings where id = v_booking and status = 'completed') then
+     where id = v_payout and status = 'pending'
+    returning booking_id into v_booking;
+    if v_booking is not null and exists (select 1 from public.bookings where id = v_booking and status = 'completed') then
       perform public._set_status(v_booking, 'closed', null, 'payout transferred');
     end if;
   end if;
 end;
 $$;
 
+-- A failed attempt is retried with exponential backoff (5, 10, 20, 40 min); after 5 attempts the transfer is
+-- marked failed and the payout flagged ('failed') for an admin, who can call retry_payout().
 create or replace function public.fail_transfer(p_transfer_id uuid, p_error text)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_payout uuid;
+  v_status text;
 begin
-  update public.payout_transfers set status = 'failed', last_error = left(p_error, 2000)
-   where id = p_transfer_id and status = 'processing';
-  update public.payouts set status = 'failed'
-   where id = (select payout_id from public.payout_transfers where id = p_transfer_id) and status = 'pending';
+  update public.payout_transfers
+     set attempts = attempts + 1,
+         last_error = left(p_error, 2000),
+         status = case when attempts + 1 >= 5 then 'failed'::public.transfer_status else 'pending'::public.transfer_status end,
+         next_attempt_at = case when attempts + 1 >= 5 then null
+                                else now() + interval '5 minutes' * power(2, attempts) end
+   where id = p_transfer_id and status = 'processing'
+  returning payout_id, status::text into v_payout, v_status;
+  if v_status = 'failed' then
+    update public.payouts set status = 'failed' where id = v_payout and status = 'pending';
+  end if;
 end;
+$$;
+
+create or replace function public.retry_payout(p_payout_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.payout_transfers set status = 'pending', next_attempt_at = null
+   where payout_id = p_payout_id and status = 'failed';
+  update public.payouts set status = 'pending' where id = p_payout_id and status = 'failed';
+end;
+$$;
+
+-- Refund processing ------------------------------------------------------------------------------
+create or replace function public.claim_due_refunds(p_limit int default 20)
+returns table (
+  refund_id uuid, payment_id uuid, booking_id uuid, razorpay_payment_id text, amount int, is_full boolean, attempts int
+)
+language sql
+security definer
+set search_path = public
+as $$
+  with claimed as (
+    update public.refunds r
+       set status = 'processing'
+     where r.id in (
+       select x.id from public.refunds x
+        where x.status = 'pending' and (x.next_attempt_at is null or x.next_attempt_at <= now())
+        order by x.created_at
+        limit p_limit
+        for update skip locked
+     )
+    returning r.*
+  ),
+  flagged as (
+    update public.payments p
+       set status = 'refund_processing'
+      from claimed c
+     where p.id = c.payment_id and p.status = 'refund_pending'
+    returning p.id
+  )
+  select c.id, c.payment_id, p.booking_id, p.razorpay_payment_id, c.amount, c.amount = p.amount, c.attempts
+    from claimed c
+    join public.payments p on p.id = c.payment_id;
+$$;
+
+create or replace function public.complete_refund(p_refund_id uuid, p_razorpay_refund_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_payment uuid;
+begin
+  update public.refunds
+     set status = 'refunded', razorpay_refund_id = p_razorpay_refund_id, processed_at = now(), last_error = null
+   where id = p_refund_id and status = 'processing'
+  returning payment_id into v_payment;
+  if v_payment is null then
+    return;
+  end if;
+  update public.payments p
+     set status = 'refunded'
+   where p.id = v_payment
+     and p.status in ('refund_pending', 'refund_processing')
+     and (select coalesce(sum(amount), 0) from public.refunds where payment_id = p.id and status = 'refunded') >= p.amount;
+end;
+$$;
+
+create or replace function public.fail_refund(p_refund_id uuid, p_error text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_payment uuid;
+begin
+  update public.refunds
+     set attempts = attempts + 1,
+         last_error = left(p_error, 2000),
+         status = case when attempts + 1 >= 5 then 'failed'::public.refund_status else 'pending'::public.refund_status end,
+         next_attempt_at = case when attempts + 1 >= 5 then null
+                                else now() + interval '5 minutes' * power(2, attempts) end
+   where id = p_refund_id and status = 'processing'
+  returning payment_id into v_payment;
+  update public.payments set status = 'refund_pending' where id = v_payment and status = 'refund_processing';
+end;
+$$;
+
+-- Payment links retired before being paid; the Edge Functions cancel them at Razorpay.
+create or replace function public.claim_link_cancellations(p_booking_id uuid default null, p_limit int default 50)
+returns table (payment_id uuid, razorpay_link_id text)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.id, p.razorpay_link_id
+    from public.payments p
+   where p.cancel_link_pending
+     and p.razorpay_link_id is not null
+     and p.razorpay_payment_id is null
+     and (p_booking_id is null or p.booking_id = p_booking_id)
+   order by p.created_at
+   limit p_limit;
+$$;
+
+create or replace function public.mark_link_cancelled(p_payment_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.payments set cancel_link_pending = false where id = p_payment_id;
 $$;
 
 -- Linked-account (Route) status drives KYC; there is intentionally no manual "mark verified" RPC.
@@ -1631,6 +1881,7 @@ alter table public.quote_items enable row level security;
 alter table public.payments enable row level security;
 alter table public.payouts enable row level security;
 alter table public.payout_transfers enable row level security;
+alter table public.refunds enable row level security;
 alter table public.reviews enable row level security;
 alter table public.messages enable row level security;
 alter table public.booking_events enable row level security;
@@ -1691,7 +1942,7 @@ create policy rate_card_write on public.rate_card_items for all to authenticated
 
 -- Booking-related data is read-only to clients; every mutation goes through an RPC.
 revoke insert, update, delete on public.bookings, public.quotes, public.quote_items, public.payments,
-  public.payouts, public.payout_transfers, public.reviews, public.booking_events from anon, authenticated;
+  public.payouts, public.payout_transfers, public.refunds, public.reviews, public.booking_events from anon, authenticated;
 
 create policy bookings_participants on public.bookings for select to authenticated
   using (customer_id = auth.uid() or provider_id = auth.uid());
@@ -1705,6 +1956,9 @@ create policy payments_participants on public.payments for select to authenticat
 create policy payouts_provider on public.payouts for select to authenticated using (provider_id = auth.uid());
 create policy payout_transfers_provider on public.payout_transfers for select to authenticated using (
   exists (select 1 from public.payouts po where po.id = payout_id and po.provider_id = auth.uid())
+);
+create policy refunds_participants on public.refunds for select to authenticated using (
+  exists (select 1 from public.payments p where p.id = payment_id and public._is_participant(p.booking_id))
 );
 create policy reviews_public on public.reviews for select using (true);
 create policy booking_events_participants on public.booking_events for select to authenticated
@@ -1766,6 +2020,9 @@ revoke execute on function
   public._activate_quote(uuid, uuid),
   public._close_open_quotes(uuid),
   public._finalize_completion(uuid, uuid, text),
+  public._queue_refund(uuid, int, text),
+  public._refund_booking_payments(uuid, text),
+  public._refund_partial(uuid, int, text),
   public.handle_new_user(),
   public.refresh_provider_rating(),
   public.set_address_location(),
@@ -1776,6 +2033,12 @@ revoke execute on function
   public.claim_due_transfers(int),
   public.complete_transfer(uuid, text),
   public.fail_transfer(uuid, text),
+  public.retry_payout(uuid),
+  public.claim_due_refunds(int),
+  public.complete_refund(uuid, text),
+  public.fail_refund(uuid, text),
+  public.claim_link_cancellations(uuid, int),
+  public.mark_link_cancelled(uuid),
   public.sync_provider_kyc(uuid, text, text)
 from public, anon, authenticated;
 
@@ -1791,6 +2054,12 @@ grant execute on function
   public.claim_due_transfers(int),
   public.complete_transfer(uuid, text),
   public.fail_transfer(uuid, text),
+  public.retry_payout(uuid),
+  public.claim_due_refunds(int),
+  public.complete_refund(uuid, text),
+  public.fail_refund(uuid, text),
+  public.claim_link_cancellations(uuid, int),
+  public.mark_link_cancelled(uuid),
   public.sync_provider_kyc(uuid, text, text)
 to service_role;
 

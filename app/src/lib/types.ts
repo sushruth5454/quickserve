@@ -23,7 +23,7 @@ export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
 export type QuoteItemKind = 'labour' | 'part' | 'other';
 export type PaymentPurpose = 'visit_fee' | 'balance' | 'fixed';
-export type PaymentStatus = 'created' | 'paid' | 'failed' | 'refund_pending' | 'refunded';
+export type PaymentStatus = 'created' | 'paid' | 'failed' | 'refund_pending' | 'refund_processing' | 'refunded';
 export type PayoutStatus = 'pending' | 'frozen' | 'transferred' | 'failed' | 'reversed' | 'partially_reversed';
 export type SortOption = 'recommended' | 'rating' | 'price' | 'distance' | 'experience';
 
