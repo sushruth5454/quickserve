@@ -49,7 +49,9 @@
           "photosPermission": "QuickServe lets you attach photos of the problem or of parts bills to a booking.",
           "cameraPermission": "QuickServe uses the camera so you can take photos of the problem or of parts bills."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-font"
     ]
   }
 }

@@ -8,7 +8,7 @@ Specs: [`docs/01-PRD.md`](docs/01-PRD.md), [`docs/03-Pricing-Payments-Commission
 [`docs/04-Architecture-Implementation-Plan.md`](docs/04-Architecture-Implementation-Plan.md).
 
 ```
-app/        Expo (SDK 58) + Expo Router, TypeScript strict
+app/        Expo SDK 57 (runs in App Store Expo Go) + Expo Router, TypeScript strict
 supabase/   migrations/0001_init.sql, seed.sql, Edge Functions, SQL tests
 ```
 
@@ -121,25 +121,58 @@ $$);
 header `x-cron-secret`) or "SQL snippet" jobs. Check runs with `select * from cron.job_run_details order by start_time desc limit 20;`.
 ## 3. Mobile app
 
+The app targets **Expo SDK 57** (React Native 0.86, React 19.2) so it runs in the App Store / Play Store **Expo Go**.
+It only uses libraries bundled in Expo Go (no custom native modules, no dev client).
+
 > **Using a personal machine / public npm.** The `package-lock.json` files in this repo were generated through a
 > corporate npm proxy, so their `resolved` URLs will not work elsewhere. On a personal machine:
 >
-> ```powershell
-> npm config set registry https://registry.npmjs.org/
-> Remove-Item app\package-lock.json, supabase\tests\package-lock.json
-> cd app; npm install; npx expo install --fix
-> cd ..\supabase\tests; npm install
+> ```sh
+> cd app
+> rm -rf node_modules package-lock.json
+> npm install                      # tilde ranges resolve the newest SDK 57 patches (expo 57.0.30, expo-router 57.0.28, …)
+> npx expo install --check         # should report everything up to date
 > ```
->
-> `npx expo install --fix` also aligns every Expo package with SDK 58 and moves `react-native` from the 0.88 RC to the
-> stable version Expo SDK 58 expects once the public registry has it (after which `app/.npmrc`'s `legacy-peer-deps` is no longer needed).
 
-```powershell
+### Try it on an iPhone in demo mode (no backend needed)
+
+```sh
+git pull
 cd app
-Copy-Item .env.example .env      # fill EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY
+rm -rf node_modules package-lock.json
 npm install
-npx expo start                   # dev build (expo-dev-client); use `npx expo start --go` for Expo Go
+echo "EXPO_PUBLIC_DEMO_MODE=1" > .env
+npx expo start --go              # add --tunnel if the phone is not on the same Wi-Fi
 ```
+
+Scan the QR code with the iPhone camera → opens in Expo Go.
+
+**Demo mode** (`EXPO_PUBLIC_DEMO_MODE=1`, or automatically when the Supabase env vars are missing) swaps
+`src/lib/api.ts` to an in-memory backend (`src/lib/demo/`) with the same interface, so screens never branch:
+
+- Any 10-digit phone, OTP **123456**. The demo user is both a customer and a verified provider; switch roles from the **Me** tab.
+- Seed data: 11 categories and ~15 Vijayawada providers with rate cards, ratings and reviews; customer bookings in
+  every state (incl. **#QS1042 with a quote awaiting approval**, #QS1043 en route with start code **4821**, a completed
+  job waiting for a review); provider requests with a 15-minute countdown, active jobs and payout history.
+- Provider side: start code **1234** and completion code **4321** for the demo customer's jobs.
+- Payments open a simulated checkout sheet instead of Razorpay; state advances locally with simulated latency and the
+  same guards/money math as the SQL RPCs. Bookings reset to the seed when the app restarts (the sign-in is remembered).
+
+### Connect to Supabase
+
+```sh
+cd app
+cp .env.example .env              # fill EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY, set EXPO_PUBLIC_DEMO_MODE=0
+npx expo start --go
+```
+
+### UI
+
+Design system in `app/src/theme` (light/dark palettes, Inter type scale, spacing, radii, elevation, motion) and
+components in `app/src/components/ui` (Button, Input, OTPInput, BottomSheet, SegmentedControl, Skeleton, Toast,
+StatusTimeline, …). Screenshots of every screen (iPhone 15 viewport, demo mode, light + dark) are in
+[`docs/design/screens/`](docs/design/screens/); they are produced from the web build
+(`EXPO_PUBLIC_DEMO_MODE=1 npx expo export --platform web`), which exists only for previews.
 
 Only the Supabase URL and anon key ship in the app. Razorpay keys never do.
 
@@ -169,7 +202,7 @@ npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SUPABASE_
 npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value <anon-key> --visibility plaintext
 # repeat env:create for the development and production environments
 
-npx eas-cli@latest build -p android --profile development   # dev client APK
+npx eas-cli@latest build -p android --profile development   # internal APK, development env (no dev client — use Expo Go day to day)
 npx eas-cli@latest build -p android --profile preview       # installable APK for testers
 npx eas-cli@latest build -p android --profile production    # AAB for Google Play
 npx eas-cli@latest build -p ios --profile production        # App Store build (no Mac needed)

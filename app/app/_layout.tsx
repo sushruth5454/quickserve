@@ -1,41 +1,78 @@
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
+import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
+import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
+import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Loading } from '../src/components/Screen';
+import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/components/ui';
 import { AuthProvider, useAuth } from '../src/lib/auth';
-import { colors } from '../src/lib/theme';
+import { PaymentProvider } from '../src/lib/payments';
+import { ThemeProvider, useTheme } from '../src/theme';
 
 function RootNavigator() {
   const { session, loading, choosingRole } = useAuth();
-  if (loading) return <Loading />;
+  const t = useTheme();
+  if (loading) return <FullScreenLoader />;
   const signedIn = !!session;
   return (
     <Stack
       screenOptions={{
-        headerTintColor: colors.primary,
-        headerTitleStyle: { color: colors.text },
-        contentStyle: { backgroundColor: colors.bg },
+        headerShown: false,
+        contentStyle: { backgroundColor: t.colors.bg },
+        animation: 'slide_from_right',
       }}
     >
       <Stack.Protected guard={!signedIn || choosingRole}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !choosingRole}>
-        <Stack.Screen name="(customer)" options={{ headerShown: false }} />
-        <Stack.Screen name="(provider)" options={{ headerShown: false }} />
-        <Stack.Screen name="booking/[id]" options={{ title: 'Booking' }} />
+        <Stack.Screen name="(customer)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="(provider)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="category/[slug]" />
+        <Stack.Screen name="provider/[id]" />
+        <Stack.Screen name="book/[providerServiceId]" />
+        <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="quote/[bookingId]" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="jobs" />
       </Stack.Protected>
     </Stack>
   );
 }
 
-export default function RootLayout() {
+function ThemedApp() {
+  const t = useTheme();
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <StatusBar style="dark" />
-        <RootNavigator />
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ToastProvider>
+      <ConfirmProvider>
+        <AuthProvider>
+          <PaymentProvider>
+            <StatusBar style={t.dark ? 'light' : 'dark'} />
+            <RootNavigator />
+          </PaymentProvider>
+        </AuthProvider>
+      </ConfirmProvider>
+    </ToastProvider>
+  );
+}
+
+export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>{fontsLoaded || fontError ? <ThemedApp /> : <FullScreenLoader />}</ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

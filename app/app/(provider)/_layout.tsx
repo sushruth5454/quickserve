@@ -1,15 +1,41 @@
-import { Stack } from 'expo-router';
-import { colors } from '../../src/lib/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Redirect, Tabs } from 'expo-router';
+import { useAuth } from '../../src/lib/auth';
+import { useTabScreenOptions } from '../../src/components/tabOptions';
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
 
-export default function ProviderLayout() {
+export default function ProviderTabs() {
+  const { activeRole } = useAuth();
+  const screenOptions = useTabScreenOptions();
+  if (activeRole === 'customer') return <Redirect href="/" />;
   return (
-    <Stack screenOptions={{ headerTintColor: colors.primary, contentStyle: { backgroundColor: colors.bg } }}>
-      <Stack.Screen name="dashboard" options={{ title: 'Pro dashboard' }} />
-      <Stack.Screen name="jobs" options={{ title: 'All jobs' }} />
-      <Stack.Screen name="earnings" options={{ title: 'Earnings' }} />
-      <Stack.Screen name="onboarding" options={{ title: 'Provider profile' }} />
-    </Stack>
+    <Tabs screenOptions={screenOptions}>
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Jobs',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="earnings"
+        options={{
+          title: 'Earnings',
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="pro-account"
+        options={{
+          title: 'Me',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={25} color={color} />
+          ),
+        }}
+      />
+    </Tabs>
   );
 }

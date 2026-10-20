@@ -1,44 +1,47 @@
-import { router, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { RatingStars } from '../../src/components/RatingStars';
-import { ErrorText, Screen, Section } from '../../src/components/Screen';
-import { listCategories, listTopRated, signOut, type TopRatedProvider } from '../../src/lib/api';
-import { colors, font, minTouch, radius, spacing } from '../../src/lib/theme';
-import type { Category } from '../../src/lib/types';
-
-const ICONS: Record<string, string> = {
-  snowflake: '❄️',
-  zap: '⚡',
-  droplet: '🚰',
-  home: '🧹',
-  database: '🛢️',
-  truck: '🚗',
-  bike: '🏍️',
-  tv: '📺',
-  bug: '🐜',
-  hammer: '🔨',
-  brush: '🖌️',
-};
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CategoryIcon } from '../../src/components/CategoryIcon';
+import { RatingInline, VerifiedMark } from '../../src/components/ProviderCard';
+import { StatusPill, activeStatuses } from '../../src/components/status';
+import { ProgressBar } from '../../src/components/StatusTimeline';
+import { Avatar, Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
+import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
+import { useCurrentLocation } from '../../src/lib/location';
+import type { Booking, Category } from '../../src/lib/types';
+import { useTheme } from '../../src/theme';
 
 export default function CustomerHome() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const t = useTheme();
+  const insets = useSafeAreaInsets();
+  const location = useCurrentLocation();
+  const [categories, setCategories] = useState<Category[] | null>(null);
   const [topRated, setTopRated] = useState<TopRatedProvider[]>([]);
+  const [active, setActive] = useState<Booking | null>(null);
+  const [firstName, setFirstName] = useState('');
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setRefreshing(true);
     setError(null);
     try {
-      const [c, t] = await Promise.all([listCategories(), listTopRated()]);
+      const [c, tr, bookings, profile] = await Promise.all([
+        listCategories(),
+        listTopRated(),
+        listMyBookings().catch(() => [] as Booking[]),
+        getMyProfile().catch(() => null),
+      ]);
       setCategories(c);
-      setTopRated(t);
+      setTopRated(tr);
+      setActive(bookings.find((b) => activeStatuses.includes(b.status) && b.status !== 'pending_payment') ?? null);
+      setFirstName(profile?.full_name?.split(' ')[0] ?? '');
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setRefreshing(false);
     }
   }, []);
 
@@ -46,124 +49,251 @@ export default function CustomerHome() {
     void load();
   }, [load]);
 
+  const refresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
   const filtered = useMemo(
-    () => categories.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())),
+    () => (categories ?? []).filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())),
     [categories, query],
   );
 
+  const openCategory = (c: Category) => router.push({ pathname: '/category/[slug]', params: { slug: c.slug, name: c.name } });
+
   return (
-    <Screen refreshing={refreshing} onRefresh={load}>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <HeaderLink label="Bookings" onPress={() => router.push('/bookings')} />
-              <HeaderLink label="Pro" onPress={() => router.push('/dashboard')} />
-              <HeaderLink label="Sign out" onPress={() => void signOut()} />
-            </View>
-          ),
-        }}
-      />
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="What do you need fixed?"
-        placeholderTextColor={colors.muted}
-        style={styles.search}
-        accessibilityLabel="Search services"
-      />
-      <ErrorText message={error} />
-      <Section title="Services">
-        <View style={styles.grid}>
-          {filtered.map((c) => (
-            <Pressable
-              key={c.id}
-              accessibilityRole="button"
-              accessibilityLabel={c.name}
-              onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: c.slug, name: c.name } })}
-              style={({ pressed }) => [styles.tile, pressed && { borderColor: colors.primary }]}
-            >
-              <Text style={styles.icon}>{ICONS[c.icon] ?? '🛠️'}</Text>
-              <Text style={styles.tileLabel} numberOfLines={2}>
-                {c.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </Section>
-      <Section title="Top rated near you">
-        {topRated.length === 0 && <Text style={font.caption}>No rated providers yet.</Text>}
-        {topRated.map((p) => (
+    <Screen inTabs padded={false} refreshing={refreshing} onRefresh={refresh} gap={t.spacing.xxl}>
+      {/* Header */}
+      <View style={{ paddingTop: insets.top + t.spacing.sm, paddingHorizontal: t.spacing.lg, gap: t.spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
           <Pressable
-            key={p.id}
             accessibilityRole="button"
-            onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.id } })}
-            style={styles.topRow}
+            accessibilityLabel={`Service location: ${location.area ?? 'Locating'}, ${location.city ?? ''}. Tap to refresh.`}
+            onPress={() => void location.refresh()}
+            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, minHeight: 48 }}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={font.heading}>{p.profiles?.full_name || 'Provider'}</Text>
-              <Text style={font.caption}>
-                {p.city} • {p.years_experience} yrs • {p.jobs_completed} jobs
-              </Text>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: t.colors.primarySoft,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="location" size={20} color={t.colors.primary} />
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <RatingStars value={Number(p.rating_avg)} size={14} />
-              <Text style={font.caption}>
-                {Number(p.rating_avg).toFixed(1)} ({p.rating_count})
+            <View style={{ flex: 1 }}>
+              <Text variant="caption" color="muted">
+                Home
               </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text variant="subhead" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {location.area ?? (location.loading ? 'Locating…' : 'Set your location')}
+                  {location.city ? `, ${location.city}` : ''}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={t.colors.text} />
+              </View>
             </View>
           </Pressable>
-        ))}
-      </Section>
+          <IconButton icon="notifications-outline" accessibilityLabel="Notifications" onPress={() => router.push('/bookings')} variant="surface" badge={!!active} />
+        </View>
+
+        <View style={{ gap: 4 }}>
+          <Text variant="title1" accessibilityRole="header">
+            {firstName ? `Hi ${firstName} 👋` : 'Hi there 👋'}
+          </Text>
+          <Text variant="body" color="muted">
+            What do you need fixed today?
+          </Text>
+        </View>
+
+        <View
+          style={[
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: t.spacing.sm,
+              minHeight: 52,
+              borderRadius: t.radii.lg,
+              backgroundColor: t.colors.surface,
+              borderWidth: 1,
+              borderColor: t.colors.border,
+              paddingHorizontal: t.spacing.lg,
+            },
+            t.shadows.sm,
+          ]}
+        >
+          <Ionicons name="search" size={20} color={t.colors.muted} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder='Search "AC repair", "plumber"…'
+            placeholderTextColor={t.colors.subtle}
+            accessibilityLabel="Search services"
+            returnKeyType="search"
+            style={{ flex: 1, minHeight: 48, color: t.colors.text, fontFamily: t.fontFamily.regular, fontSize: 16 }}
+          />
+          {query ? <IconButton icon="close-circle" accessibilityLabel="Clear search" onPress={() => setQuery('')} color="subtle" size={20} /> : null}
+        </View>
+      </View>
+
+      {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+
+      {/* Active booking */}
+      {active ? (
+        <View style={{ paddingHorizontal: t.spacing.lg }}>
+          <Card
+            onPress={() => router.push({ pathname: '/booking/[id]', params: { id: active.id } })}
+            accessibilityLabel={`Active booking ${active.categories?.name ?? ''}`}
+            elevation="md"
+            gap={t.spacing.md}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+              <CategoryIcon icon={categories?.find((c) => c.slug === active.categories?.slug)?.icon} size={44} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="caption" color="muted">
+                  Active booking · #{active.id.slice(0, 8)}
+                </Text>
+                <Text variant="bodyStrong" numberOfLines={1}>
+                  {active.categories?.name ?? 'Booking'}
+                </Text>
+              </View>
+              <StatusPill status={active.status} />
+            </View>
+            <ProgressBar status={active.status} />
+          </Card>
+        </View>
+      ) : null}
+
+      {/* Categories */}
+      <View style={{ paddingHorizontal: t.spacing.lg }}>
+        <Section title="What do you need?">
+          {!categories ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <View key={i} style={{ width: '25%', alignItems: 'center', gap: 8 }}>
+                  <Skeleton width={60} height={60} radius={18} />
+                  <Skeleton width={52} height={10} />
+                </View>
+              ))}
+            </View>
+          ) : filtered.length === 0 ? (
+            <EmptyState compact icon="search" title="No matching service" message={`We don't have "${query}" yet. Try another word.`} />
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
+              {filtered.map((c, i) => (
+                <Animated.View key={c.id} entering={FadeInDown.delay(i * 25).duration(260)} style={{ width: '25%' }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={c.name}
+                    onPress={() => openCategory(c)}
+                    style={({ pressed }) => ({ alignItems: 'center', gap: 8, opacity: pressed ? 0.6 : 1, paddingHorizontal: 2 })}
+                  >
+                    <CategoryIcon icon={c.icon} size={60} />
+                    <Text variant="caption" align="center" numberOfLines={2} style={{ color: t.colors.textSecondary, minHeight: 36 }}>
+                      {c.name}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </View>
+          )}
+        </Section>
+      </View>
+
+      {/* Guarantee banner */}
+      <View style={{ paddingHorizontal: t.spacing.lg }}>
+        <LinearGradient
+          colors={[t.colors.heroFrom, t.colors.heroTo]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ borderRadius: t.radii.xl, padding: t.spacing.xl, flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg, overflow: 'hidden' }}
+        >
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text variant="micro" uppercase style={{ color: 'rgba(255,255,255,0.8)' }}>
+              QuickServe promise
+            </Text>
+            <Text variant="title3" style={{ color: '#FFFFFF' }}>
+              No surprise bills. Ever.
+            </Text>
+            <Text variant="caption" style={{ color: 'rgba(255,255,255,0.88)' }}>
+              Approve an itemised quote before work starts. Your money is held until the job is done.
+            </Text>
+          </View>
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: 'rgba(255,255,255,0.16)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="shield-checkmark" size={34} color="#FFFFFF" />
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Top rated */}
+      <View style={{ gap: t.spacing.md }}>
+        <View style={{ paddingHorizontal: t.spacing.lg }}>
+          <Section title="Top rated near you" subtitle="Verified pros with the best reviews">
+            {null}
+          </Section>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.md, paddingBottom: 6 }}
+          decelerationRate="fast"
+          snapToInterval={232 + t.spacing.md}
+        >
+          {!categories
+            ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} width={232} height={150} radius={t.radii.lg} />)
+            : topRated.map((p) => (
+                <Card
+                  key={p.id}
+                  onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.id } })}
+                  accessibilityLabel={`${p.profiles?.full_name}, rated ${Number(p.rating_avg).toFixed(1)}`}
+                  style={{ width: 232 }}
+                  gap={t.spacing.md}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+                    <Avatar name={p.profiles?.full_name ?? 'Provider'} uri={p.profiles?.avatar_url} size={48} online={p.is_online} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text variant="subhead" numberOfLines={1} style={{ flexShrink: 1 }}>
+                          {p.profiles?.full_name || 'Provider'}
+                        </Text>
+                        <VerifiedMark size={14} />
+                      </View>
+                      <RatingInline value={Number(p.rating_avg)} count={p.rating_count} />
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                    <Stat label="Jobs" value={String(p.jobs_completed)} />
+                    <Stat label="Experience" value={`${p.years_experience} yrs`} />
+                  </View>
+                </Card>
+              ))}
+        </ScrollView>
+      </View>
     </Screen>
   );
 }
 
-function HeaderLink({ label, onPress }: { label: string; onPress: () => void }) {
+function Stat({ label, value }: { label: string; value: string }) {
+  const t = useTheme();
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.headerLink} hitSlop={8}>
-      <Text style={{ color: colors.primary, fontWeight: '600' }}>{label}</Text>
-    </Pressable>
+    <View style={{ flex: 1, backgroundColor: t.colors.surfaceAlt, borderRadius: t.radii.sm, paddingVertical: 8, paddingHorizontal: 10 }}>
+      <Text variant="micro" color="muted" uppercase>
+        {label}
+      </Text>
+      <Text variant="subhead">{value}</Text>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  headerActions: { flexDirection: 'row', gap: spacing.md },
-  headerLink: { minHeight: minTouch, justifyContent: 'center' },
-  search: {
-    minHeight: minTouch,
-    borderRadius: radius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    fontSize: 16,
-    color: colors.text,
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  tile: {
-    width: '30%',
-    flexGrow: 1,
-    minHeight: 96,
-    borderRadius: radius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  icon: { fontSize: 28 },
-  tileLabel: { ...font.caption, color: colors.text, textAlign: 'center', fontWeight: '600' },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radius,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    minHeight: minTouch,
-  },
-});

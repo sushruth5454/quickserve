@@ -1,14 +1,15 @@
 import { Stack } from 'expo-router';
-import { colors } from '../../src/lib/theme';
+import { useTheme } from '../../src/theme';
 
 export const unstable_settings = { initialRouteName: 'login' };
 
 export default function AuthLayout() {
+  const t = useTheme();
   return (
-    <Stack screenOptions={{ headerTintColor: colors.primary, contentStyle: { backgroundColor: colors.bg } }}>
-      <Stack.Screen name="login" options={{ title: 'Sign in' }} />
-      <Stack.Screen name="verify" options={{ title: 'Verify' }} />
-      <Stack.Screen name="role" options={{ title: 'Welcome', headerBackVisible: false }} />
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.colors.bg }, animation: 'slide_from_right' }}>
+      <Stack.Screen name="login" />
+      <Stack.Screen name="verify" />
+      <Stack.Screen name="role" options={{ gestureEnabled: false }} />
     </Stack>
   );
 }

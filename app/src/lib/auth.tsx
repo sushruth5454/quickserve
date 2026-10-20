@@ -1,40 +1,61 @@
-import type { Session } from '@supabase/supabase-js';
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { supabase } from './supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { getSession, onAuthChange, type AuthSession } from './api';
+
+export type ActiveRole = 'customer' | 'provider';
 
 interface AuthState {
-  session: Session | null;
+  session: AuthSession | null;
   userId: string | null;
   loading: boolean;
   /** True between OTP verification and the role-selection step of a fresh login. */
   choosingRole: boolean;
   setChoosingRole: (v: boolean) => void;
+  /** Which tab set the user is in; remembered across launches. */
+  activeRole: ActiveRole;
+  setActiveRole: (r: ActiveRole) => void;
 }
 
+const ROLE_KEY = 'quickserve.activeRole';
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [choosingRole, setChoosingRole] = useState(false);
+  const [activeRole, setRole] = useState<ActiveRole>('customer');
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
+    Promise.all([getSession(), AsyncStorage.getItem(ROLE_KEY).catch(() => null)]).then(([s, role]) => {
       if (!mounted) return;
-      setSession(data.session);
+      setSession(s);
+      if (role === 'provider' || role === 'customer') setRole(role);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    const unsubscribe = onAuthChange((next) => setSession(next));
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
+  const setActiveRole = useCallback((r: ActiveRole) => {
+    setRole(r);
+    void AsyncStorage.setItem(ROLE_KEY, r).catch(() => undefined);
+  }, []);
+
   const value = useMemo<AuthState>(
-    () => ({ session, userId: session?.user.id ?? null, loading, choosingRole, setChoosingRole }),
-    [session, loading, choosingRole],
+    () => ({
+      session,
+      userId: session?.userId ?? null,
+      loading,
+      choosingRole,
+      setChoosingRole,
+      activeRole,
+      setActiveRole,
+    }),
+    [session, loading, choosingRole, activeRole, setActiveRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
