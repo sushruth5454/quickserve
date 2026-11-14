@@ -176,7 +176,7 @@ export default function Earnings() {
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 96, gap: 6 }} accessibilityRole="adjustable" accessibilityLabel="Earnings chart">
             {bars.map((b, i) => {
-              const h = b.value > 0 ? Math.max(8, Math.round((b.value / max) * 112)) : 4;
+              const h = b.value > 0 ? Math.max(8, Math.round((b.value / max) * 88)) : 4;
               const isSel = i === selected;
               return (
                 <Pressable
