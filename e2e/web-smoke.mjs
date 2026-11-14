@@ -546,7 +546,7 @@ await step('new-pro-payouts', async () => {
 await step('new-pro-submit', async () => {
   await page.getByRole('checkbox').first().click();
   await page.getByText('Submit profile', { exact: true }).first().click();
-  await page.getByLabel(/^Provider status: /).first().waitFor();
+  await page.waitForURL((u) => new URL(u).pathname === '/dashboard');
 });
 await step('new-pro-dashboard-status', async () => {
   await go('/dashboard');
