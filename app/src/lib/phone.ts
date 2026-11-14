@@ -6,9 +6,9 @@ export function normalizeIndianPhone(input: string): string | null {
   return null;
 }
 
-/** "+919876543210" → "+91 98765 43210". */
-export function formatPhone(e164: string | undefined | null): string {
-  if (!e164) return '';
-  const m = /^\+91(\d{5})(\d{5})$/.exec(e164);
-  return m ? `+91 ${m[1]} ${m[2]}` : e164;
+/** "+919876543210" or "919876543210" (Supabase stores phones without "+") → "+91 98765 43210". */
+export function formatPhone(phone: string | undefined | null): string {
+  if (!phone) return '';
+  const m = /^\+91(\d{5})(\d{5})$/.exec(normalizeIndianPhone(phone) ?? '');
+  return m ? `+91 ${m[1]} ${m[2]}` : phone;
 }

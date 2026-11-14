@@ -12,7 +12,12 @@ function hashHue(seed: string): string {
 }
 
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  // Ignore leading punctuation, e.g. "Chandra Sekhar (PestGuard)" → "CP", not "C(".
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .map((p) => p.replace(/^[^\w\u0900-\u0DFF]+/, ''))
+    .filter(Boolean);
   if (parts.length === 0) return '?';
   const first = parts[0]![0] ?? '';
   const last = parts.length > 1 ? (parts[parts.length - 1]![0] ?? '') : '';
