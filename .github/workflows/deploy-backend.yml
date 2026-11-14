@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**', 'supabase/functions/**', 'supabase/seed.sql']
+    paths: ['supabase/migrations/**', 'supabase/functions/**']
 
 concurrency: deploy-backend
 
@@ -40,8 +40,8 @@ jobs:
       - name: Link project
         run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
-      - name: Apply database migrations and demo seed
-        run: supabase db push --include-seed --password "$SUPABASE_DB_PASSWORD" --yes
+      - name: Apply database migrations
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
 
       - name: Set function secrets (only those provided)
         run: |
