@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
-import { MetaLine, RatingInline, VerifiedMark } from '../../src/components/ProviderCard';
+import { TopRatedCard, TopRatedCardSkeleton } from '../../src/components/TopRatedCard';
 import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
-import { Avatar, Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
+import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
 import { useCurrentLocation } from '../../src/lib/location';
 import type { Booking, Category } from '../../src/lib/types';
@@ -18,6 +18,7 @@ import { useTheme } from '../../src/theme';
 export default function CustomerHome() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const location = useCurrentLocation();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [topRated, setTopRated] = useState<TopRatedProvider[]>([]);
@@ -62,6 +63,8 @@ export default function CustomerHome() {
 
   const openCategory = (c: Category) => router.push({ pathname: '/category/[slug]', params: { slug: c.slug, name: c.name } });
   const gutter = { paddingHorizontal: t.spacing.lg };
+  // ~72% of the screen so the next card peeks; capped for tablets/web.
+  const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
 
   return (
     <Screen inTabs padded={false} refreshing={refreshing} onRefresh={refresh} gap={t.spacing.section}>
@@ -237,46 +240,40 @@ export default function CustomerHome() {
       </View>
 
       {/* Top rated */}
-      <View style={{ gap: t.spacing.md }}>
-        <View style={gutter}>
-          <Section title="Top rated near you" subtitle="Verified pros with the best reviews">
-            {null}
-          </Section>
+      {categories && topRated.length === 0 ? null : (
+        <View style={{ gap: t.spacing.md }}>
+          <View style={gutter}>
+            <Section
+              title="Top rated near you"
+              subtitle="Verified pros with the best reviews"
+              actionLabel="See all"
+              onAction={() => router.push('/top-rated')}
+            >
+              {null}
+            </Section>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.md, paddingTop: 2, paddingBottom: t.spacing.sm }}
+            decelerationRate="fast"
+            snapToInterval={cardWidth + t.spacing.md}
+            snapToAlignment="start"
+            disableIntervalMomentum
+          >
+            {!categories
+              ? [0, 1].map((i) => <TopRatedCardSkeleton key={i} width={cardWidth} />)
+              : topRated.map((p) => (
+                  <TopRatedCard
+                    key={p.id}
+                    provider={p}
+                    width={cardWidth}
+                    onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.id } })}
+                  />
+                ))}
+          </ScrollView>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.md, paddingBottom: 4 }}
-          decelerationRate="fast"
-          snapToInterval={240 + t.spacing.md}
-        >
-          {!categories
-            ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} width={240} height={96} radius={t.radii.lg} />)
-            : topRated.map((p) => (
-                <Card
-                  key={p.id}
-                  onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.id } })}
-                  accessibilityLabel={`${p.profiles?.full_name}, rated ${Number(p.rating_avg).toFixed(1)}`}
-                  style={{ width: 240 }}
-                  gap={t.spacing.sm}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                    <Avatar name={p.profiles?.full_name ?? 'Provider'} uri={p.profiles?.avatar_url} size={44} online={p.is_online} />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text variant="calloutStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
-                          {p.profiles?.full_name || 'Provider'}
-                        </Text>
-                        <VerifiedMark size={14} />
-                      </View>
-                      <RatingInline value={Number(p.rating_avg)} count={p.rating_count} />
-                    </View>
-                  </View>
-                  <MetaLine items={[`${p.jobs_completed} jobs`, `${p.years_experience} yrs experience`]} />
-                </Card>
-              ))}
-        </ScrollView>
-      </View>
+      )}
     </Screen>
   );
 }

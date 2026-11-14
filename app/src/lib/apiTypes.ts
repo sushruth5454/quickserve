@@ -41,6 +41,15 @@ export interface TopRatedProvider {
   years_experience: number;
   is_online: boolean;
   profiles: { full_name: string; avatar_url: string | null } | null;
+  /** Active services, for the card's category/skill/visit-fee line. Optional so older callers still type-check. */
+  provider_services?: TopRatedService[];
+}
+
+export interface TopRatedService {
+  visit_fee: number;
+  skill_level: SkillLevel;
+  active: boolean;
+  categories: { name: string; slug: string } | null;
 }
 
 export interface ProviderDetail {

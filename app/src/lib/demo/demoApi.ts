@@ -590,6 +590,9 @@ export const demoApi: Api = {
         years_experience: p.years_experience,
         is_online: p.is_online,
         profiles: { full_name: nameOf(p.id), avatar_url: null },
+        provider_services: db.services
+          .filter((s) => s.provider_id === p.id && s.active)
+          .map((s) => ({ visit_fee: s.visit_fee, skill_level: s.skill_level, active: s.active, categories: categoryOf(s.category_id) })),
       }));
   },
 

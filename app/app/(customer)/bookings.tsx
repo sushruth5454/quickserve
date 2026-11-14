@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CategoryIcon, iconForSlug } from '../../src/components/CategoryIcon';
 import { activeStatuses, nextStepCopy, StatusPill } from '../../src/components/status';
@@ -97,31 +97,13 @@ export default function MyBookings() {
                       #{b.id.slice(0, 8)} · {fmtDate(b.created_at)}
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                    <Text variant="calloutStrong" tabular>
-                      {formatINR(b.total_amount ?? b.visit_fee)}
-                    </Text>
-                    <Text variant="caption" color="muted">
-                      {b.total_amount ? 'Total' : 'Visit fee'}
-                    </Text>
-                  </View>
+                  <StatusPill status={b.status} />
                 </View>
                 {b.description ? (
-                  <Text variant="footnote" color="textSecondary" numberOfLines={2}>
+                  <Text variant="footnote" color="textSecondary" numberOfLines={1}>
                     {b.description}
                   </Text>
                 ) : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
-                  <StatusPill status={b.status} />
-                  {b.scheduled_at ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
-                      <Ionicons name="calendar-outline" size={14} color={t.colors.muted} />
-                      <Text variant="footnote" color="muted" numberOfLines={1}>
-                        {fmtDate(b.scheduled_at)}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
                 {tab === 'active' ? (
                   <View style={{ gap: 6 }}>
                     <ProgressBar status={b.status} showLabel={false} />
@@ -131,7 +113,9 @@ export default function MyBookings() {
                       </Text>
                     ) : null}
                   </View>
-                ) : (
+                ) : null}
+                <AmountRow booking={b} />
+                {tab === 'active' ? null : (
                   <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: 2 }}>
                     {b.status === 'completed' ? (
                       <Button title="Rate" size="sm" variant="secondary" leftIcon="star-outline" onPress={() => open(b)} style={{ flex: 1 }} />
@@ -160,5 +144,40 @@ export default function MyBookings() {
         })
       )}
     </Screen>
+  );
+}
+
+/** Amount + schedule on one hairline-separated row, like a receipt footer. */
+function AmountRow({ booking: b }: { booking: Booking }) {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: t.spacing.sm,
+        paddingTop: t.spacing.sm,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: t.colors.border,
+      }}
+    >
+      <Text variant="footnote" color="muted">
+        {b.total_amount ? 'Total ' : 'Visit fee '}
+        <Text variant="subheadStrong" color="text" tabular>
+          {formatINR(b.total_amount ?? b.visit_fee)}
+        </Text>
+      </Text>
+      {b.scheduled_at ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
+          <Ionicons name="calendar-outline" size={14} color={t.colors.muted} />
+          <Text variant="footnote" color="muted" numberOfLines={1}>
+            {fmtDate(b.scheduled_at)}
+          </Text>
+        </View>
+      ) : (
+        <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
+      )}
+    </View>
   );
 }

@@ -98,7 +98,17 @@ await step('home', async () => {
   await go('/');
   await visible('AC Repair');
 });
-const categories = await rest('categories?select=slug,name&order=sort_order').catch(() => []);
+await optional('home-top-rated', async () => {
+  await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
+  await page.mouse.move(195, 420);
+  await page.mouse.wheel(0, 200);
+  await snap('home-top-rated');
+});
+await step('top-rated-see-all', async () => {
+  await page.getByText('See all', { exact: true }).first().click();
+  await page.waitForURL(/\/top-rated$/);
+  await page.getByText(/verified pros?$/).first().waitFor();
+});const categories = await rest('categories?select=slug,name&order=sort_order').catch(() => []);
 for (const c of categories) {
   await step(`category-${c.slug}`, async () => {
     await go(`/category/${c.slug}?name=${encodeURIComponent(c.name)}`);
@@ -194,7 +204,17 @@ for (const [name, path, wait] of [
     else await page.getByText(/^Booking #|verified pros? near|pros nearby yet/).first().waitFor();
   });
 }
-await page.emulateMedia({ colorScheme: 'light' });
+await optional('dark-home-top-rated', async () => {
+  await go('/');
+  await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
+  await page.mouse.move(195, 420);
+  await page.mouse.wheel(0, 200);
+  await snap('dark-home-top-rated');
+});
+await step('dark-top-rated-see-all', async () => {
+  await go('/top-rated');
+  await page.getByText(/verified pros?$/).first().waitFor();
+});await page.emulateMedia({ colorScheme: 'light' });
 await step('me-customer-again', async () => {
   await go('/account');
   await visible('Switch to provider mode');

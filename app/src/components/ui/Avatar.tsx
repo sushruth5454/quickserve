@@ -7,7 +7,7 @@ import { Text } from './Text';
 // Calm, distinguishable hues. No red/orange: those read as error/warning next to a name.
 const HUES = ['#1E5EFF', '#6172F3', '#7A5AF8', '#0E9384', '#0086C9', '#C11574', '#4E5BA6', '#B54708'];
 
-function hashHue(seed: string): string {
+export function hashHue(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return HUES[h % HUES.length] ?? HUES[0]!;

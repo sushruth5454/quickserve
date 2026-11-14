@@ -1,4 +1,4 @@
-export { Avatar, initials, lighten } from './Avatar';
+export { Avatar, hashHue, initials, lighten } from './Avatar';
 export { Badge, Chip, Dot, toneColors, type Tone } from './Badge';
 export { BottomSheet } from './BottomSheet';
 export { Button, type ButtonProps, type ButtonVariant, type IconName } from './Button';

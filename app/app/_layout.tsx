@@ -51,6 +51,7 @@ function RootNavigator() {
         <Stack.Screen name="quote/[bookingId]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="jobs" />
+        <Stack.Screen name="top-rated" />
       </Stack.Protected>
       <Stack.Screen name="info/[topic]" />
     </Stack>

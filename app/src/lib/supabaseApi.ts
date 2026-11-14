@@ -131,7 +131,9 @@ export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
   const { data: auth } = await supabase.auth.getSession();
   let query = supabase
     .from('providers')
-    .select('id, city, rating_avg, rating_count, jobs_completed, years_experience, is_online, profiles(full_name, avatar_url)')
+    .select(
+      'id, city, rating_avg, rating_count, jobs_completed, years_experience, is_online, profiles(full_name, avatar_url), provider_services(visit_fee, skill_level, active, categories(name, slug))',
+    )
     .eq('kyc_status', 'verified')
     .eq('suspended', false)
     .gt('rating_count', 0);
