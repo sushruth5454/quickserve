@@ -143,6 +143,10 @@ creates or pays bookings.
 - **Privacy**: Gemini receives area/city only, saved-address labels, the user's own history and public pro listings;
   text is PII-redacted (voice audio cannot be). No phones, house numbers or other users' data.
 - **Demo mode**: `src/lib/demo/demoAssistant.ts` answers offline with scripted rules (text only).
+- **v2 experience**: live progress steps streamed (SSE) from the real server work, with a Stop button; a voice
+  transcript preview (original + English) before sending; photo diagnosis (EXIF/GPS stripped server-side, private
+  bucket); a provider job brief built from the whole conversation; support handoff; feedback; history and resume;
+  read-aloud; and analytics (`AI_PHOTOS_ENABLED`, `AI_STREAMING_ENABLED`, `AI_DAILY_PHOTO_LIMIT`, `EXPO_PUBLIC_SUPPORT_*`).
 
 Full reference (env table, data sent, failure modes, observability SQL, policy update procedure, production-readiness
 checklist and blockers): [`docs/06-AI-Assistant.md`](docs/06-AI-Assistant.md).
