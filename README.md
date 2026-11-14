@@ -126,33 +126,26 @@ header `x-cron-secret`) or "SQL snippet" jobs. Check runs with `select * from cr
 ### AI assistant
 
 "Ask QuickServe AI" (Home card, sparkles button on category results, route `/assistant`) lets a customer describe a
-problem by text or voice (English, Hindi, Telugu, Hinglish/Tenglish) and get a diagnosis, data-backed typical prices,
-1-3 recommended pros and a **booking draft**. "Review & pay" opens the normal Book screen pre-filled (description,
-problem chips, slot, address); the customer always confirms and pays there. The AI never creates or pays bookings.
+problem by text or voice (English, Hindi, Telugu, Hinglish/Tenglish) and get a diagnosis with a confidence level,
+data-backed typical prices, 1-3 recommended pros and a **booking draft**. "Review & pay" opens the normal Book screen
+pre-filled (description, problem chips, slot, address); the customer always confirms and pays there. The AI never
+creates or pays bookings.
 
-- **Architecture**: app (`app/app/assistant.tsx`, `src/lib/assistant/*`) → edge function `ai-assistant` (JWT verified at
-  the gateway and again in code) → Gemini `generateContent` with function calling over read-only server-side tools:
-  `list_categories`, `search_providers` (the existing RPC, called with the user's JWT), `get_my_history`,
-  `get_price_estimate` (SQL `ai_price_estimate`: active pros' visit fees + completed/approved job totals; no data → says
-  so), `draft_booking` (validates the pro, clamps the slot to the Book screen's 2-hour windows within 7 days, uses the
-  selected address) and a final `respond`. Cards (safety, diagnosis, estimate, providers, draft) are assembled
-  server-side from tool results, so prices and pros are never model-invented. Response contract:
-  `{ conversation_id, reply_text, language, quick_replies[], cards[], transcript?, usage, limits }`.
-- **Voice**: `expo-audio` records up to 60 s (AAC .m4a), uploaded as base64 and understood by Gemini in the same call
-  (transcript shown as the user's message). Mic is hidden on web and in demo mode.
-- **Secret**: `GEMINI_API_KEY` (function secret; CI sets it from the GitHub secret of the same name).
-- **Models**: primary `gemini-3.8-flash` (12 s per call), automatic fallback to `gemini-3.5-flash-lite` on
-  429/5xx/timeouts (retried once), with a 5-minute per-instance cooldown for the primary after a failure. Constants in
-  `supabase/functions/ai-assistant/gemini.ts`. `thinkingLevel: low`, `maxOutputTokens: 2048`; Gemini 3 ignores
-  `temperature`, so behaviour is pinned by the system prompt (`prompt.ts`). Whole request budget ~50 s.
-- **Rate limits**: 30 messages and 10 voice messages per user per IST day (`AI_DAILY_MESSAGE_LIMIT`,
-  `AI_DAILY_VOICE_LIMIT`), counted from `ai_messages` user rows.
-- **Storage**: `ai_conversations` / `ai_messages` (migration `0004`): owner-only read via RLS, writes only by the
-  function (service role). Assistant rows keep cards, tool calls, model and token usage.
-- **Privacy**: Gemini only receives area/city-level location, saved-address labels + area (never house numbers), the
-  user's own booking history (service, date, pro name, rating given) and public pro listings. No phone numbers or
-  other customers' data.
-- **Demo mode**: `src/lib/demo/demoAssistant.ts` answers offline with keyword rules over the demo data (text only).
+- **Architecture**: app → edge function `ai-assistant` (JWT verified at the gateway and in code) → Gemini function
+  calling over read-only server-side tools (`list_categories`, `search_providers` with the user's JWT, `get_my_history`,
+  `get_price_estimate`, `draft_booking`). Cards are built server-side from tool results, so prices and pros are never
+  model-invented.
+- **Skills/policies**: versioned rule files in `supabase/functions/ai-assistant/policies/` (`POLICY_VERSION` stored on
+  every reply) with deterministic guardrails in code; `deno test` + `deno check` gate every deploy.
+- **Config**: secret `GEMINI_API_KEY`; models (`AI_PRIMARY_MODEL` default `gemini-3.8-flash`, `AI_FALLBACK_MODEL` default
+  `gemini-3.5-flash-lite`), timeouts, limits (30 messages / 10 voice per user per day, 6 per minute), CORS origins and
+  kill switches are all function env vars. App flag `EXPO_PUBLIC_AI_ASSISTANT=false` hides it.
+- **Privacy**: Gemini receives area/city only, saved-address labels, the user's own history and public pro listings;
+  text is PII-redacted (voice audio cannot be). No phones, house numbers or other users' data.
+- **Demo mode**: `src/lib/demo/demoAssistant.ts` answers offline with scripted rules (text only).
+
+Full reference (env table, data sent, failure modes, observability SQL, policy update procedure, production-readiness
+checklist and blockers): [`docs/06-AI-Assistant.md`](docs/06-AI-Assistant.md).
 ## 3. Mobile app
 
 The app targets **Expo SDK 57** (React Native 0.86, React 19.2) so it runs in the App Store / Play Store **Expo Go**.

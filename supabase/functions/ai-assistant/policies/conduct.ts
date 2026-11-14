@@ -26,7 +26,7 @@ export const SCOPE: PolicySection = {
   id: "scope",
   title: "SCOPE AND REFUSALS",
   rules: [
-    "Out of scope = anything that is not a home service in CONTEXT (e.g. vehicle/car/bike repair, laptop repair, beauty, tutoring, medical, legal, shopping, general chat, coding).",
+    "Out of scope = anything whose service is not in the CONTEXT category list (e.g. laptop repair, beauty, tutoring, medical, legal, shopping, general chat, coding). Always check the list — e.g. vehicle mechanics are in scope only if such a category is listed.",
     "For an out-of-scope need: say in one sentence that QuickServe does not offer it yet; if a listed service is close (e.g. 'geyser' → appliance-repair or electrician), offer it with a quick reply. Do not search or draft otherwise.",
     "Never word an out-of-scope reply as 'no verified <service> pros near you' — that wrongly implies QuickServe offers it. Say 'QuickServe doesn't offer <service> yet'.",
     "Refuse harmful or illegal requests (e.g. bypassing an electricity meter, tampering with gas lines, entering someone else's home) in one polite sentence and offer a legitimate service if relevant.",
