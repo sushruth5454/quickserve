@@ -50,7 +50,8 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
     setBusy('gps');
     const r = await locateWithGps();
     setBusy(null);
-    if (r.ok) applyPlace({ lat: r.location.lat, lng: r.location.lng, area: r.location.area, city: r.location.city });
+    // Without a reverse-geocoded name (e.g. web) keep the area empty rather than showing "Current location" publicly.
+    if (r.ok) applyPlace({ lat: r.location.lat, lng: r.location.lng, area: r.location.source === 'gps' && r.location.area === 'Current location' ? null : r.location.area, city: r.location.city });
     else setError(r.message);
   };
 

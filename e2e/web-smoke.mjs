@@ -532,12 +532,12 @@ await step('new-pro-portfolio', async () => {
 await step('new-pro-payouts', async () => {
   // Razorpay Route / RazorpayX are not enabled on the test account yet: the function must answer with the
   // "temporarily unavailable" state instead of failing, and onboarding continues.
-  await page.getByLabel('Name as on PAN / bank account').first().fill('KIRAN TEST PRO');
-  await page.getByLabel('PAN').first().fill('ABCPK1234F');
-  await page.getByLabel('Email').first().fill('kiran.e2e@example.com');
-  await page.getByLabel('Bank account number').first().fill('123456789012');
-  await page.getByLabel('Re-enter account number').first().fill('123456789012');
-  await page.getByLabel('IFSC').first().fill('HDFC0000001');
+  await page.getByLabel('Name as on PAN / bank account', { exact: true }).first().fill('KIRAN TEST PRO');
+  await page.getByLabel('PAN', { exact: true }).first().fill('ABCPK1234F');
+  await page.getByLabel('Email', { exact: true }).first().fill('kiran.e2e@example.com');
+  await page.getByLabel('Bank account number', { exact: true }).first().fill('123456789012');
+  await page.getByLabel('Re-enter account number', { exact: true }).first().fill('123456789012');
+  await page.getByLabel('IFSC', { exact: true }).first().fill('HDFC0000001');
   await page.getByText('Verify & save', { exact: true }).first().click();
   await page.getByText(/temporarily unavailable|Verifying|Verified/).first().waitFor({ timeout: 45000 });
   await page.getByText('Continue', { exact: true }).first().click();
