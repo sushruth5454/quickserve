@@ -1032,10 +1032,14 @@ export const demoApi: Api = {
     p.is_online = online;
   },
 
-  async listMyServices(): Promise<ProviderService[]> {
+  async listMyServices(includeInactive = false): Promise<ProviderService[]> {
     await wait();
     const me = uid();
-    return clone(db.services.filter((s) => s.provider_id === me).map((s) => ({ ...s, categories: categoryOf(s.category_id) })));
+    return clone(
+      db.services
+        .filter((s) => s.provider_id === me && (includeInactive || s.active))
+        .map((s) => ({ ...s, categories: categoryOf(s.category_id) })),
+    );
   },
 
   async upsertService(input: ServiceInput) {
@@ -1057,7 +1061,9 @@ export const demoApi: Api = {
   async deleteService(id) {
     await wait();
     const me = uid();
-    db.services = db.services.filter((s) => !(s.id === id && s.provider_id === me));
+    // Same as the real backend: deactivate (bookings keep referencing the row).
+    const s = db.services.find((x) => x.id === id && x.provider_id === me);
+    if (s) s.active = false;
   },
 
   async addRateCardItem(providerServiceId, title, price) {

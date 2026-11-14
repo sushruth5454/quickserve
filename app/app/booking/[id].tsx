@@ -300,7 +300,7 @@ export default function BookingDetail() {
   } else if (s === 'en_route' || s === 'completion_requested') {
     footer = (
       <Button
-        title="Verify code"
+        title={s === 'en_route' ? 'Verify start code' : 'Verify completion code'}
         size="lg"
         fullWidth
         disabled={otp.length !== 4}
@@ -313,7 +313,7 @@ export default function BookingDetail() {
   } else if (s === 'in_progress') {
     footer = (
       <Button
-        title="Mark job done"
+        title="Request completion"
         leftIcon="checkmark-done"
         size="lg"
         fullWidth
@@ -485,7 +485,7 @@ export default function BookingDetail() {
                 </View>
               ) : (
                 <Text variant="footnote" color="muted">
-                  {isCustomer ? 'Your pro' : 'Customer'}
+                  {isCustomer ? 'Your pro' : 'Customer · number hidden, use chat'}
                 </Text>
               )}
             </View>

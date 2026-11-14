@@ -151,7 +151,8 @@ export interface Api {
   getMyProvider(): Promise<Provider | null>;
   upsertProviderProfile(input: ProviderProfileInput): Promise<void>;
   setOnline(online: boolean): Promise<void>;
-  listMyServices(): Promise<ProviderService[]>;
+  /** Active services only unless includeInactive (for the Me > My services toggle list). */
+  listMyServices(includeInactive?: boolean): Promise<ProviderService[]>;
   upsertService(input: ServiceInput): Promise<void>;
   deleteService(id: string): Promise<void>;
   addRateCardItem(providerServiceId: string, title: string, price: number): Promise<void>;

@@ -270,9 +270,15 @@ await step('switch-to-provider', async () => {
   await page.waitForURL(/\/dashboard$/);
   await page.getByText(/New requests|Active jobs|Waiting for requests|You're offline/).first().waitFor();
 });
+await step('dashboard-next-job', async () => {
+  await visible('Next job');
+  await page.getByText(/^You're (online|offline)$/).first().waitFor();
+});
+await optional('dashboard-scrolled', () => snapScrolled('dashboard-scrolled', 700));
 await step('earnings', async () => {
   await go('/earnings');
   await visible('Earnings');
+  await page.getByText(/^\d+% commission$/).first().waitFor();
 });
 await optional('earnings-scrolled', () => snapScrolled('earnings-scrolled', 700));
 for (const [n, label] of [
@@ -292,7 +298,16 @@ await step('provider-booking-fb4', async () => {
 await step('quote-editor-fb4', async () => {
   await go(`/quote/${seeded('fb', 4)}?changeOrder=0`);
   await page.getByText('Send to customer', { exact: true }).first().waitFor();
+  await visible('Add from my rate card');
 });
+await step('quote-editor-rate-card-pick', async () => {
+  await page.getByLabel(/^Add MCB replacement, /).first().click();
+  await page.getByLabel('Line 1 description').first().waitFor();
+  const values = await page.getByLabel(/^Line \d+ description$/).evaluateAll((els) => els.map((e) => e.value));
+  if (!values.includes('MCB replacement')) throw new Error(`rate card item not added: ${values.join(', ')}`);
+  await visible('You receive');
+});
+await optional('quote-editor-scrolled', () => snapScrolled('quote-editor-scrolled', 900));
 await step('job-history', async () => {
   await go('/jobs');
   await visible('Job history');
@@ -304,13 +319,18 @@ await step('onboarding', async () => {
 await step('me-provider', async () => {
   await go('/pro-account');
   await visible('Switch to customer mode');
+  await visible('My services');
+  await page.getByLabel(/^Edit (AC Repair|Electrician)$/).first().waitFor();
 });
+await optional('me-provider-scrolled', () => snapScrolled('me-provider-scrolled', 800));
 
 // ---------- Provider, dark mode ----------
 await page.emulateMedia({ colorScheme: 'dark' });
 for (const [name, path, wait] of [
   ['dark-dashboard', '/dashboard', null],
   ['dark-earnings', '/earnings', 'Earnings'],
+  ['dark-quote-editor-fb4', `/quote/${seeded('fb', 4)}?changeOrder=0`, 'Send to customer'],
+  ['dark-me-provider', '/pro-account', 'Switch to customer mode'],
   ['dark-provider-booking-fb4', `/booking/${seeded('fb', 4)}`, null],
 ]) {
   await step(name, async () => {

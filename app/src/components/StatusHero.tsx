@@ -6,87 +6,69 @@ import type { BookingEvent, BookingStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { StatusPill } from './status';
 import { StatusTimeline } from './StatusTimeline';
+import { stepperModel } from '../lib/bookingSteps';
 import { Card, Text } from './ui';
-
-const STEPS = ['Booked', 'Accepted', 'Arrived', 'Quote', 'Work', 'Done'] as const;
-
-/** Index of the step currently in play (−1 = not on the happy path, e.g. cancelled). Done = all steps complete. */
-export function stepIndex(status: BookingStatus): number {
-  switch (status) {
-    case 'pending_payment':
-    case 'requested':
-      return 0;
-    case 'accepted':
-    case 'en_route':
-      return 2;
-    case 'inspecting':
-    case 'quote_sent':
-    case 'awaiting_payment':
-      return 3;
-    case 'in_progress':
-    case 'completion_requested':
-      return 4;
-    case 'completed':
-    case 'closed':
-      return STEPS.length;
-    default:
-      return -1;
-  }
-}
-
-/** Steps strictly before `current` are done. "accepted" counts the Accepted step as done (current = Arrived). */
-function doneCount(status: BookingStatus): number {
-  if (status === 'pending_payment') return 0;
-  if (status === 'requested') return 1;
-  return stepIndex(status);
-}
 
 export interface HeroCopy {
   title: string;
   subtitle?: string;
 }
 
-/** Compact horizontal stepper: Booked → Accepted → Arrived → Quote → Work → Done. */
-export function MiniStepper({ status }: { status: BookingStatus }) {
+/** Compact horizontal stepper. The step matching the current status is the filled ring; side states end in a marker. */
+export function MiniStepper({ status, history = [] }: { status: BookingStatus; history?: BookingStatus[] }) {
   const t = useTheme();
-  const done = doneCount(status);
-  const all = done >= STEPS.length;
+  const model = stepperModel(status, history);
+  const n = model.steps.length;
+  const endColor = model.endTone === 'danger' ? t.colors.danger : t.colors.muted;
+  const current = model.steps.find((s) => s.state === 'current' || s.state === 'end');
   return (
     <View
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={all ? 'All steps done' : `Step ${Math.min(done + 1, STEPS.length)} of ${STEPS.length}: ${STEPS[Math.min(done, STEPS.length - 1)]}`}
+      accessibilityLabel={current ? `Current step: ${current.label}` : 'All steps done'}
       style={{ flexDirection: 'row' }}
     >
-      {STEPS.map((label, i) => {
-        const isDone = i < done;
-        const isCurrent = i === done && !all;
-        const color = isDone || isCurrent ? t.colors.primary : t.colors.outline;
+      {model.steps.map((step, i) => {
+        const done = step.state === 'done';
+        const ring = step.state === 'current' ? t.colors.primary : step.state === 'end' ? endColor : done ? t.colors.primary : t.colors.outline;
+        // A connector is "filled" when the step it leads into has been reached.
+        const leftFilled = step.state !== 'todo';
+        const rightFilled = model.steps[i + 1] ? model.steps[i + 1]!.state !== 'todo' : false;
+        const lineColor = (filled: boolean, toEnd: boolean) => (filled ? (toEnd ? endColor : t.colors.primary) : t.colors.border);
         return (
-          <View key={label} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+          <View key={`${step.label}-${i}`} style={{ flex: 1, alignItems: 'center', gap: 6 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' }}>
-              <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : i <= done ? t.colors.primary : t.colors.border }} />
+              <View style={{ flex: 1, height: 2, backgroundColor: i === 0 ? 'transparent' : lineColor(leftFilled, step.state === 'end') }} />
               <View
                 style={{
                   width: 18,
                   height: 18,
                   borderRadius: 9,
-                  borderWidth: isDone ? 0 : 2,
-                  borderColor: color,
-                  backgroundColor: isDone ? t.colors.primary : t.colors.surface,
+                  borderWidth: done || step.state === 'end' ? 0 : 2,
+                  borderColor: ring,
+                  backgroundColor: done ? t.colors.primary : step.state === 'end' ? endColor : t.colors.surface,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                {isDone ? <Ionicons name="checkmark" size={12} color={t.colors.onPrimary} /> : null}
-                {isCurrent ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: t.colors.primary }} /> : null}
+                {done ? <Ionicons name="checkmark" size={12} color={t.colors.onPrimary} /> : null}
+                {step.state === 'end' ? <Ionicons name={model.endTone === 'danger' ? 'alert' : 'close'} size={12} color="#FFFFFF" /> : null}
+                {step.state === 'current' ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.colors.primary }} /> : null}
               </View>
               <View
-                style={{ flex: 1, height: 2, backgroundColor: i === STEPS.length - 1 ? 'transparent' : i < done ? t.colors.primary : t.colors.border }}
+                style={{
+                  flex: 1,
+                  height: 2,
+                  backgroundColor: i === n - 1 ? 'transparent' : lineColor(rightFilled, model.steps[i + 1]?.state === 'end'),
+                }}
               />
             </View>
-            <Text variant="micro" color={isCurrent ? 'primaryText' : isDone ? 'textSecondary' : 'muted'} numberOfLines={1}>
-              {label}
+            <Text
+              variant={step.state === 'current' || step.state === 'end' ? 'captionStrong' : 'micro'}
+              color={step.state === 'current' ? 'primaryText' : step.state === 'end' ? (model.endTone === 'danger' ? 'dangerText' : 'textSecondary') : done ? 'textSecondary' : 'muted'}
+              numberOfLines={1}
+            >
+              {step.label}
             </Text>
           </View>
         );
@@ -94,12 +76,11 @@ export function MiniStepper({ status }: { status: BookingStatus }) {
     </View>
   );
 }
-
 /** Status-first hero: pill, plain-language title + subtitle, compact stepper, collapsible full timeline. */
 export function StatusHero({ status, copy, events }: { status: BookingStatus; copy: HeroCopy; events: BookingEvent[] }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const onPath = stepIndex(status) >= 0;
+  const history = events.map((e) => e.to_status);
   return (
     <Card variant="elevated" gap={t.spacing.lg}>
       <View style={{ gap: t.spacing.sm }}>
@@ -113,7 +94,7 @@ export function StatusHero({ status, copy, events }: { status: BookingStatus; co
           </Text>
         ) : null}
       </View>
-      {onPath ? <MiniStepper status={status} /> : null}
+      <MiniStepper status={status} history={history} />
       {events.length > 0 ? (
         <View style={{ gap: t.spacing.md }}>
           <Pressable

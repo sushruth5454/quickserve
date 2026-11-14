@@ -1,60 +1,80 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
+import Animated, { FadeInDown, LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
-import { HeroAmount } from '../../src/components/Money';
-import { MetaItem } from '../../src/components/ProviderCard';
 import { StatusPill } from '../../src/components/status';
-import { Badge, Button, Card, EmptyState, ErrorState, InlineAlert, Screen, Section, SkeletonCard, Text, useConfirm, useToast } from '../../src/components/ui';
-import { acceptBooking, declineBooking, getMyProfile, getMyProvider, getProviderJobs, listMyPayouts, listCategories, setOnline } from '../../src/lib/api';
+import { BottomSheet, Button, Card, Divider, ErrorState, IconButton, InlineAlert, LIST_INSET, Screen, Section, SkeletonCard, Text, TextArea, useToast } from '../../src/components/ui';
+import {
+  acceptBooking,
+  declineBooking,
+  getBooking,
+  getMyProfile,
+  getMyProvider,
+  getProviderJobs,
+  listCategories,
+  listMyPayouts,
+  setOnline,
+  signedPhotoUrls,
+  startTrip,
+} from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
-import { formatINR } from '../../src/lib/money';
+import { commissionRateBp, formatINR, settleVisitOnly } from '../../src/lib/money';
+import { pct, providerStats } from '../../src/lib/providerInsights';
+import { bookingRef, scheduleLabel } from '../../src/lib/schedule';
 import type { BookingStatus, Category, Payout, Provider, ProviderJob } from '../../src/lib/types';
-import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
-const ACTIVE: BookingStatus[] = [
-  'accepted',
+/** Active statuses in the order a pro should look at them (most time-critical first). */
+const ACTIVE_PRIORITY: BookingStatus[] = [
   'en_route',
-  'inspecting',
-  'quote_sent',
-  'awaiting_payment',
-  'in_progress',
   'completion_requested',
+  'inspecting',
+  'in_progress',
+  'accepted',
+  'awaiting_payment',
+  'quote_sent',
   'disputed',
 ];
 
-const NEXT_STEP: Partial<Record<BookingStatus, string>> = {
-  accepted: 'Start trip',
-  en_route: 'Enter start code',
-  inspecting: 'Send quote',
-  quote_sent: 'Awaiting approval',
-  awaiting_payment: 'Awaiting payment',
-  in_progress: 'Mark done',
-  completion_requested: 'Enter completion code',
-  disputed: 'On hold',
+type IconName = keyof typeof Ionicons.glyphMap;
+
+const NEXT_STEP: Partial<Record<BookingStatus, { label: string; icon: IconName; primary: boolean }>> = {
+  accepted: { label: 'Start trip', icon: 'navigate', primary: true },
+  en_route: { label: 'Enter start code', icon: 'keypad-outline', primary: true },
+  inspecting: { label: 'Send quote', icon: 'receipt-outline', primary: true },
+  quote_sent: { label: 'Awaiting approval', icon: 'hourglass-outline', primary: false },
+  awaiting_payment: { label: 'Awaiting payment', icon: 'hourglass-outline', primary: false },
+  in_progress: { label: 'Mark complete', icon: 'checkmark-done', primary: true },
+  completion_requested: { label: 'Enter completion code', icon: 'keypad-outline', primary: true },
+  disputed: { label: 'On hold · view', icon: 'alert-circle-outline', primary: false },
 };
 
 const RESPONSE_WINDOW_MS = 15 * 60 * 1000;
+const DECLINE_REASONS = ['Too far', 'Busy right now', 'Not my skill', 'Other'] as const;
+
+const openBooking = (id: string) => router.push({ pathname: '/booking/[id]', params: { id } });
+const firstName = (name: string) => (name || 'Customer').split(' ')[0] ?? name;
 
 export default function ProviderDashboard() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const confirm = useConfirm();
   const [provider, setProvider] = useState<Provider | null>(null);
-  const [firstName, setFirstName] = useState('');
+  const [me, setMe] = useState('');
   const [jobs, setJobs] = useState<ProviderJob[] | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [photos, setPhotos] = useState<Record<string, string[]>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [declining, setDeclining] = useState<ProviderJob | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -73,8 +93,18 @@ export default function ProviderDashboard() {
       setJobs(j);
       setPayouts(po);
       setCategories(cats);
-      setFirstName(profile?.full_name?.split(' ')[0] ?? '');
+      setMe(profile?.full_name?.split(' ')[0] ?? '');
       setError(null);
+      // Problem photos for open requests (RLS lets the assigned pro read the booking and its photos).
+      const incoming = j.filter((x) => x.status === 'requested');
+      const entries = await Promise.all(
+        incoming.map(async (x) => {
+          const b = await getBooking(x.booking_id).catch(() => null);
+          const urls = b?.photos.length ? await signedPhotoUrls(b.photos).catch(() => []) : [];
+          return [x.booking_id, urls] as const;
+        }),
+      );
+      setPhotos(Object.fromEntries(entries));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -105,37 +135,48 @@ export default function ProviderDashboard() {
       await load();
       toast({ message: msg, tone: 'success' });
     } catch (e) {
+      haptics.error();
       setError((e as Error).message);
     } finally {
       setBusyId(null);
     }
   };
 
-  const decline = async (j: ProviderJob) => {
-    const ok = await confirm({
-      title: 'Decline this request?',
-      message: 'The customer gets a full refund. Declining often lowers your ranking.',
-      confirmLabel: 'Decline',
-      destructive: true,
-    });
-    if (ok) void act(j.booking_id, () => declineBooking(j.booking_id), 'Request declined');
-  };
-
+  const rateBp = provider
+    ? commissionRateBp({ jobsCompleted: provider.jobs_completed, providerCreatedAt: new Date(provider.created_at), at: new Date(now) })
+    : 1200;
   const iconFor = (name: string) => categories.find((c) => c.name === name)?.icon;
   const incoming = (jobs ?? []).filter((j) => j.status === 'requested');
-  const active = (jobs ?? []).filter((j) => ACTIVE.includes(j.status));
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
-  const todayPayouts = payouts.filter((p) => new Date(p.created_at) >= startOfDay && p.status !== 'reversed');
-  const today = todayPayouts.reduce((a, p) => a + p.amount, 0);
+  const active = useMemo(
+    () =>
+      (jobs ?? [])
+        .filter((j) => ACTIVE_PRIORITY.includes(j.status))
+        .sort(
+          (a, b) =>
+            ACTIVE_PRIORITY.indexOf(a.status) - ACTIVE_PRIORITY.indexOf(b.status) ||
+            (a.scheduled_at ?? a.created_at).localeCompare(b.scheduled_at ?? b.created_at),
+        ),
+    [jobs],
+  );
+  const [next, ...rest] = active;
+  const stats = useMemo(() => providerStats((jobs ?? []).map((j) => j.status)), [jobs]);
+  const sod = new Date(now);
+  sod.setHours(0, 0, 0, 0);
+  const today = payouts.filter((p) => new Date(p.created_at) >= sod && p.status !== 'reversed').reduce((a, p) => a + p.amount, 0);
   const online = !!provider?.is_online;
   const gutter = { paddingHorizontal: t.spacing.lg };
+
+  const primaryAction = (j: ProviderJob) => {
+    if (j.status === 'accepted') return void act(j.booking_id, () => startTrip(j.booking_id), `${firstName(j.customer_name)} has been told you're on the way`);
+    if (j.status === 'inspecting') return router.push({ pathname: '/quote/[bookingId]', params: { bookingId: j.booking_id, changeOrder: '0' } });
+    openBooking(j.booking_id);
+  };
 
   return (
     <Screen
       inTabs
       padded={false}
-      gap={t.spacing.section}
+      gap={t.spacing.xl}
       refreshing={refreshing}
       onRefresh={async () => {
         setRefreshing(true);
@@ -144,17 +185,16 @@ export default function ProviderDashboard() {
       }}
     >
       <View style={[gutter, { paddingTop: insets.top + t.spacing.md, gap: t.spacing.lg }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-          <View style={{ flex: 1 }}>
-            <Text variant="footnote" color="muted">
-              {new Date(now).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </Text>
-            <Text variant="title1" accessibilityRole="header" numberOfLines={1}>
-              {firstName ? `Hi ${firstName}` : 'Your jobs'}
-            </Text>
-          </View>
-          <OnlineToggle online={online} onChange={(v) => void toggleOnline(v)} />
+        <View style={{ gap: 2 }}>
+          <Text variant="footnote" color="muted">
+            {new Date(now).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </Text>
+          <Text variant="title1" accessibilityRole="header" numberOfLines={1}>
+            {me ? `Hi ${me}` : 'Your jobs'}
+          </Text>
         </View>
+
+        <OnlineCard online={online} radiusKm={provider?.service_radius_km ?? null} onChange={(v) => void toggleOnline(v)} disabled={!provider} />
 
         {provider && provider.kyc_status !== 'verified' ? (
           <InlineAlert
@@ -166,231 +206,456 @@ export default function ProviderDashboard() {
         {provider?.suspended ? <InlineAlert title="Account suspended" message="Contact support to restore access." /> : null}
         {error ? <InlineAlert message={error} /> : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Today's earnings ${formatINR(today)}. Open earnings`}
-          onPress={() => router.navigate('/earnings')}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-          <LinearGradient
-            colors={[t.colors.heroFrom, t.colors.heroTo]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ borderRadius: t.radii.lg, padding: t.spacing.xl, gap: t.spacing.lg }}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ gap: 2 }}>
-                <Text variant="footnote" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                  Today's earnings
-                </Text>
-                <HeroAmount paise={today} light />
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                <Text variant="footnoteStrong" style={{ color: '#FFFFFF' }}>
-                  Earnings
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-              </View>
-            </View>
-            <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.18)', paddingTop: t.spacing.md }}>
-              <HeroStat label="Jobs today" value={String(todayPayouts.length)} />
-              <HeroStat label="Active" value={String(active.length)} />
-              <HeroStat label="Rating" value={Number(provider?.rating_avg ?? 0).toFixed(1)} icon="star" />
-              <HeroStat label="Total jobs" value={String(provider?.jobs_completed ?? 0)} />
-            </View>
-          </LinearGradient>
-        </Pressable>
+        <StatsStrip
+          items={[
+            { label: 'Today', value: formatINR(today), onPress: () => router.navigate('/earnings') },
+            { label: 'Rating', value: provider && provider.rating_count > 0 ? Number(provider.rating_avg).toFixed(1) : '—', icon: 'star' },
+            { label: 'Acceptance', value: pct(stats.acceptance) },
+            { label: 'Completion', value: pct(stats.completion) },
+          ]}
+        />
       </View>
 
+      {/* Requests first: they expire. */}
       <View style={gutter}>
-        <Section
-          title="New requests"
-          subtitle={incoming.length ? 'Respond within 15 minutes' : undefined}
-          action={incoming.length ? <Badge label={`${incoming.length} new`} tone="primary" /> : undefined}
-        >
+        <Section title="New requests" subtitle={incoming.length ? 'Accept within 15 minutes or the request expires' : undefined}>
           {!jobs ? (
-            <SkeletonCard lines={4} />
-          ) : error && !jobs ? (
-            <ErrorState message={error} onRetry={() => void load()} compact />
+            error ? (
+              <ErrorState message={error} onRetry={() => void load()} compact />
+            ) : (
+              <SkeletonCard lines={3} />
+            )
           ) : incoming.length === 0 ? (
-            <Card>
-              <EmptyState
-                compact
-                icon={online ? 'radio-outline' : 'moon-outline'}
-                title={online ? 'Waiting for requests' : "You're offline"}
-                message={online ? "We'll notify you as soon as a customer nearby books you." : 'Go online to start receiving jobs.'}
-              />
-            </Card>
+            <WaitingRow online={online} />
           ) : (
-            incoming.map((j) => {
-              const left = Math.max(0, new Date(j.created_at).getTime() + RESPONSE_WINDOW_MS - now);
-              const mm = Math.floor(left / 60000);
-              const ss = Math.floor((left % 60000) / 1000);
-              const urgent = left < 3 * 60 * 1000;
-              return (
-                <Animated.View key={j.booking_id} entering={FadeInDown.duration(240)} layout={LinearTransition}>
-                  <Card variant="elevated" style={{ borderColor: urgent ? t.colors.danger : t.colors.border }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                      <CategoryIcon icon={iconFor(j.category_name)} size={44} />
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text variant="title3" numberOfLines={1}>
-                          {j.category_name}
-                        </Text>
-                        <Text variant="footnote" color="muted" numberOfLines={1}>
-                          {j.customer_name || 'Customer'} · {j.area}
-                        </Text>
-                      </View>
-                      <Badge
-                        label={left > 0 ? `${mm}:${String(ss).padStart(2, '0')}` : 'Expired'}
-                        tone={urgent ? 'danger' : 'warning'}
-                        icon="timer-outline"
-                        size="md"
-                      />
-                    </View>
-                    <Text variant="callout" color="textSecondary" numberOfLines={3}>
-                      “{j.description || 'No description'}”
-                    </Text>
-                    <View style={{ flexDirection: 'row', columnGap: t.spacing.lg, rowGap: 4, flexWrap: 'wrap' }}>
-                      {j.distance_km != null ? <MetaItem icon="navigate-outline" label={`${j.distance_km} km away`} /> : null}
-                      <MetaItem
-                        icon="time-outline"
-                        label={j.scheduled_at ? new Date(j.scheduled_at).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'ASAP'}
-                      />
-                      <MetaItem icon="checkmark-circle-outline" label={`${formatINR(j.visit_fee)} visit paid`} />
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
-                      <Button title="Decline" variant="outline" style={{ flex: 1 }} disabled={busyId === j.booking_id} onPress={() => void decline(j)} />
-                      <Button
-                        title="Accept"
-                        style={{ flex: 2 }}
-                        loading={busyId === j.booking_id}
-                        onPress={() => void act(j.booking_id, () => acceptBooking(j.booking_id), 'Accepted! Start your trip when ready.')}
-                      />
-                    </View>
-                  </Card>
-                </Animated.View>
-              );
-            })
-          )}
-        </Section>
-      </View>
-
-      <View style={gutter}>
-        <Section title="Active jobs" actionLabel="All jobs" onAction={() => router.push('/jobs')}>
-          {!jobs ? (
-            <SkeletonCard lines={2} />
-          ) : active.length === 0 ? (
-            <Text variant="callout" color="muted">
-              No active jobs right now.
-            </Text>
-          ) : (
-            active.map((j) => (
-              <Card
+            incoming.map((j) => (
+              <RequestCard
                 key={j.booking_id}
-                onPress={() => router.push({ pathname: '/booking/[id]', params: { id: j.booking_id } })}
-                accessibilityLabel={`${j.category_name} for ${j.customer_name}. Next: ${NEXT_STEP[j.status] ?? ''}`}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                  <CategoryIcon icon={iconFor(j.category_name)} size={40} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text variant="calloutStrong" numberOfLines={1}>
-                      {j.customer_name || 'Customer'}
-                    </Text>
-                    <Text variant="footnote" color="muted" numberOfLines={1}>
-                      {bookingRef(j.booking_id)}
-                    </Text>
-                  </View>
-                  <StatusPill status={j.status} />
-                </View>
-                {j.address_line ?? j.area ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="location-outline" size={14} color={t.colors.muted} />
-                    <Text variant="footnote" color="textSecondary" numberOfLines={1} style={{ flex: 1 }}>
-                      {j.address_line ? `${j.address_line}, ${j.area}` : j.area}
-                    </Text>
-                  </View>
-                ) : null}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: t.colors.surfaceAlt,
-                    borderRadius: t.radii.sm,
-                    paddingHorizontal: t.spacing.md,
-                    minHeight: 40,
-                  }}
-                >
-                  <Text variant="footnote" color="muted">
-                    Next step
-                  </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <Text variant="subheadStrong" color="primaryText">
-                      {NEXT_STEP[j.status]}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={t.colors.primaryText} />
-                  </View>
-                </View>
-              </Card>
+                job={j}
+                icon={iconFor(j.category_name)}
+                photos={photos[j.booking_id] ?? []}
+                now={now}
+                minEarning={settleVisitOnly({ visitFee: j.visit_fee, rateBp }).payout}
+                busy={busyId === j.booking_id}
+                onAccept={() => void act(j.booking_id, () => acceptBooking(j.booking_id), 'Accepted! Start your trip when ready.')}
+                onDecline={() => setDeclining(j)}
+              />
             ))
           )}
         </Section>
       </View>
+
+      {next ? (
+        <View style={gutter}>
+          <Section title="Next job">
+            <NextJobCard
+              job={next}
+              icon={iconFor(next.category_name)}
+              busy={busyId === next.booking_id}
+              onPrimary={() => primaryAction(next)}
+              onChat={() => router.push({ pathname: '/chat/[bookingId]', params: { bookingId: next.booking_id } })}
+              onNavigate={
+                next.lat != null && next.lng != null
+                  ? () =>
+                      void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${next.lat},${next.lng}`).catch(() =>
+                        toast({ message: 'Could not open maps.', tone: 'error' }),
+                      )
+                  : null
+              }
+            />
+          </Section>
+        </View>
+      ) : null}
+
+      <View style={gutter}>
+        <Section title={next ? 'Other active jobs' : 'Active jobs'} actionLabel="All jobs" onAction={() => router.push('/jobs')}>
+          {!jobs ? (
+            <SkeletonCard lines={2} />
+          ) : rest.length === 0 ? (
+            <Text variant="footnote" color="muted">
+              {next ? 'No other active jobs.' : 'No active jobs right now.'}
+            </Text>
+          ) : (
+            <Card padding={0} gap={0}>
+              {rest.map((j, i) => (
+                <View key={j.booking_id}>
+                  {i > 0 ? <Divider inset={LIST_INSET + 8} /> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${j.category_name} for ${j.customer_name}. Next: ${NEXT_STEP[j.status]?.label ?? ''}`}
+                    onPress={() => openBooking(j.booking_id)}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: t.spacing.md,
+                      paddingHorizontal: t.spacing.lg,
+                      paddingVertical: t.spacing.md,
+                      backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
+                    })}
+                  >
+                    <CategoryIcon icon={iconFor(j.category_name)} size={40} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text variant="calloutStrong" numberOfLines={1}>
+                        {firstName(j.customer_name)} · {j.category_name}
+                      </Text>
+                      <Text variant="footnote" color="muted" numberOfLines={1}>
+                        Next: {NEXT_STEP[j.status]?.label ?? '—'}
+                      </Text>
+                    </View>
+                    <StatusPill status={j.status} />
+                  </Pressable>
+                </View>
+              ))}
+            </Card>
+          )}
+        </Section>
+      </View>
+
+      <DeclineSheet
+        job={declining}
+        busy={!!declining && busyId === declining.booking_id}
+        onClose={() => setDeclining(null)}
+        onConfirm={(reason) => {
+          const j = declining;
+          if (!j) return;
+          setDeclining(null);
+          void act(j.booking_id, () => declineBooking(j.booking_id, reason), 'Request declined · the customer is refunded');
+        }}
+      />
     </Screen>
   );
 }
 
-function OnlineToggle({ online, onChange }: { online: boolean; onChange: (v: boolean) => void }) {
+function OnlineCard({ online, radiusKm, onChange, disabled }: { online: boolean; radiusKm: number | null; onChange: (v: boolean) => void; disabled: boolean }) {
   const t = useTheme();
-  const seg = (value: boolean, label: string) => {
-    const selected = online === value;
-    return (
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: t.spacing.md,
+        padding: t.spacing.lg,
+        borderRadius: t.radii.lg,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: online ? t.colors.success : t.colors.border,
+        backgroundColor: online ? t.colors.successSoft : t.colors.surface,
+      }}
+    >
       <View
         style={{
-          flexDirection: 'row',
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: online ? t.colors.success : t.colors.surfaceAlt,
           alignItems: 'center',
-          gap: 6,
-          paddingHorizontal: 12,
-          height: 34,
-          borderRadius: 17,
-          backgroundColor: selected ? t.colors.segmentThumb : 'transparent',
-          boxShadow: selected && !t.dark ? '0px 1px 2px rgba(16,24,40,0.08)' : undefined,
+          justifyContent: 'center',
         }}
       >
-        {value ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: selected ? t.colors.success : t.colors.outline }} /> : null}
-        <Text variant={selected ? 'subheadStrong' : 'subhead'} color={selected ? 'text' : 'muted'}>
-          {label}
+        <Ionicons name={online ? 'radio' : 'moon-outline'} size={20} color={online ? '#FFFFFF' : t.colors.textSecondary} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="calloutStrong" color={online ? 'successText' : 'text'}>
+          {online ? "You're online" : "You're offline"}
+        </Text>
+        <Text variant="footnote" color={online ? 'successText' : 'muted'}>
+          {online
+            ? `Receiving requests${radiusKm ? ` within ${radiusKm} km` : ''}`
+            : "Customers can't book you right now"}
         </Text>
       </View>
-    );
-  };
-  return (
-    <Pressable
-      accessibilityRole="switch"
-      accessibilityState={{ checked: online }}
-      accessibilityLabel={online ? 'You are online. Double tap to go offline' : 'You are offline. Double tap to go online'}
-      onPress={() => onChange(!online)}
-      hitSlop={4}
-      style={{ flexDirection: 'row', padding: 3, borderRadius: 20, backgroundColor: t.colors.surfaceAlt, minHeight: 40 }}
-    >
-      {seg(true, 'Online')}
-      {seg(false, 'Offline')}
-    </Pressable>
+      <Switch
+        value={online}
+        onValueChange={onChange}
+        disabled={disabled}
+        trackColor={{ true: t.colors.success, false: t.colors.outline }}
+        thumbColor="#FFFFFF"
+        accessibilityLabel={online ? 'Online. Turn off to stop receiving requests' : 'Offline. Turn on to receive requests'}
+      />
+    </View>
   );
 }
 
-function HeroStat({ label, value, icon }: { label: string; value: string; icon?: keyof typeof Ionicons.glyphMap }) {
+function StatsStrip({ items }: { items: { label: string; value: string; icon?: IconName; onPress?: () => void }[] }) {
+  const t = useTheme();
   return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        {icon ? <Ionicons name={icon} size={14} color="#FEC84B" /> : null}
-        <Text variant="title3" tabular style={{ color: '#FFFFFF' }}>
-          {value}
-        </Text>
-      </View>
-      <Text variant="caption" style={{ color: 'rgba(255,255,255,0.8)' }}>
-        {label}
+    <Card padding={0} gap={0} style={{ flexDirection: 'row' }}>
+      {items.map((it, i) => (
+        <Pressable
+          key={it.label}
+          disabled={!it.onPress}
+          onPress={it.onPress}
+          accessibilityRole={it.onPress ? 'button' : 'text'}
+          accessibilityLabel={`${it.label}: ${it.value}`}
+          style={({ pressed }) => ({
+            flex: 1,
+            paddingVertical: t.spacing.md,
+            paddingHorizontal: t.spacing.sm,
+            alignItems: 'center',
+            gap: 2,
+            borderLeftWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
+            borderLeftColor: t.colors.border,
+            backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
+          })}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            {it.icon ? <Ionicons name={it.icon} size={13} color={t.colors.star} /> : null}
+            <Text variant="calloutStrong" tabular numberOfLines={1} adjustsFontSizeToFit>
+              {it.value}
+            </Text>
+          </View>
+          <Text variant="caption" color="muted" numberOfLines={1}>
+            {it.label}
+          </Text>
+        </Pressable>
+      ))}
+    </Card>
+  );
+}
+
+function WaitingRow({ online }: { online: boolean }) {
+  const t = useTheme();
+  const reduce = useReducedMotion();
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (online && !reduce) pulse.value = withRepeat(withTiming(0.35, { duration: 900 }), -1, true);
+    else pulse.value = 1;
+  }, [online, reduce, pulse]);
+  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  return (
+    <Card padding={t.spacing.md} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+      <Animated.View
+        style={[
+          { width: 10, height: 10, borderRadius: 5, marginHorizontal: 4, backgroundColor: online ? t.colors.success : t.colors.outline },
+          style,
+        ]}
+      />
+      <Text variant="footnote" color="textSecondary" style={{ flex: 1 }}>
+        {online ? 'Waiting for requests — we’ll notify you when a customer nearby books you.' : 'Go online to start receiving requests.'}
+      </Text>
+    </Card>
+  );
+}
+
+function CountdownRing({ leftMs }: { leftMs: number }) {
+  const t = useTheme();
+  const size = 52;
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const frac = Math.max(0, Math.min(1, leftMs / RESPONSE_WINDOW_MS));
+  const urgent = leftMs < 3 * 60 * 1000;
+  const color = leftMs <= 0 ? t.colors.outline : urgent ? t.colors.danger : t.colors.warning;
+  const mm = Math.floor(leftMs / 60000);
+  const ss = Math.floor((leftMs % 60000) / 1000);
+  return (
+    <View
+      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      accessible
+      accessibilityLabel={leftMs > 0 ? `${mm} minutes ${ss} seconds left to accept` : 'Expired'}
+    >
+      <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={t.colors.border} strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${c} ${c}`}
+          strokeDashoffset={c * (1 - frac)}
+        />
+      </Svg>
+      <Text variant="captionStrong" color={urgent ? 'dangerText' : 'text'} tabular maxFontSizeMultiplier={1}>
+        {leftMs > 0 ? `${mm}:${String(ss).padStart(2, '0')}` : '0:00'}
       </Text>
     </View>
+  );
+}
+
+function RequestCard(props: {
+  job: ProviderJob;
+  icon: string | undefined;
+  photos: string[];
+  now: number;
+  minEarning: number;
+  busy: boolean;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  const t = useTheme();
+  const j = props.job;
+  const left = Math.max(0, new Date(j.created_at).getTime() + RESPONSE_WINDOW_MS - props.now);
+  return (
+    <Animated.View entering={FadeInDown.duration(240)} layout={LinearTransition}>
+      <Card variant="elevated" gap={t.spacing.md}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+          <CategoryIcon icon={props.icon} size={44} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="title3" numberOfLines={1}>
+              {j.category_name}
+            </Text>
+            <Text variant="footnote" color="muted" numberOfLines={1}>
+              {firstName(j.customer_name)} · {j.area}
+              {j.distance_km != null ? ` · ${j.distance_km} km` : ''}
+            </Text>
+          </View>
+          <CountdownRing leftMs={left} />
+        </View>
+        <Text variant="callout" color="textSecondary" numberOfLines={2}>
+          {j.description || 'No description'}
+        </Text>
+        {props.photos.length ? (
+          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+            {props.photos.slice(0, 4).map((u) => (
+              <Image key={u} source={{ uri: u }} style={{ width: 56, height: 56, borderRadius: t.radii.sm }} contentFit="cover" accessibilityLabel="Problem photo" />
+            ))}
+          </View>
+        ) : null}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: t.spacing.sm,
+            paddingVertical: t.spacing.sm,
+            paddingHorizontal: t.spacing.md,
+            borderRadius: t.radii.sm,
+            backgroundColor: t.colors.surfaceAlt,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+            <Ionicons name="time-outline" size={14} color={t.colors.muted} />
+            <Text variant="footnote" color="textSecondary" numberOfLines={1}>
+              {j.scheduled_at ? scheduleLabel(j.scheduled_at) : 'As soon as possible'}
+            </Text>
+          </View>
+          <Text variant="footnote" color="muted" numberOfLines={1}>
+            You earn{' '}
+            <Text variant="footnoteStrong" color="successText" tabular>
+              {formatINR(props.minEarning)}+
+            </Text>
+          </Text>
+        </View>
+        <Text variant="caption" color="muted">
+          Exact address is shared after you accept · {bookingRef(j.booking_id)}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
+          <Button title="Decline" variant="outline" size="lg" style={{ flex: 1 }} disabled={props.busy} onPress={props.onDecline} />
+          <Button title="Accept" size="lg" style={{ flex: 2 }} loading={props.busy} disabled={left <= 0} onPress={props.onAccept} />
+        </View>
+      </Card>
+    </Animated.View>
+  );
+}
+
+function NextJobCard(props: {
+  job: ProviderJob;
+  icon: string | undefined;
+  busy: boolean;
+  onPrimary: () => void;
+  onChat: () => void;
+  onNavigate: (() => void) | null;
+}) {
+  const t = useTheme();
+  const j = props.job;
+  const step = NEXT_STEP[j.status];
+  return (
+    <Card variant="elevated" gap={t.spacing.lg} onPress={() => openBooking(j.booking_id)} accessibilityLabel={`Next job: ${j.category_name} for ${j.customer_name}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+        <CategoryIcon icon={props.icon} size={48} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="title3" numberOfLines={1}>
+            {firstName(j.customer_name)} · {j.category_name}
+          </Text>
+          <Text variant="footnote" color="muted" numberOfLines={1}>
+            {bookingRef(j.booking_id)}
+          </Text>
+        </View>
+        <StatusPill status={j.status} />
+      </View>
+      <View style={{ gap: t.spacing.sm }}>
+        <Meta icon="time-outline" text={j.scheduled_at ? scheduleLabel(j.scheduled_at) : 'As soon as possible'} />
+        <Meta
+          icon="location-outline"
+          text={`${j.address_line ? `${j.address_line}, ` : ''}${j.area}${j.distance_km != null ? ` · ${j.distance_km} km away` : ''}`}
+        />
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+        <Button
+          title={step?.label ?? 'View job'}
+          leftIcon={step?.icon}
+          variant={step?.primary ? 'primary' : 'outline'}
+          size="lg"
+          loading={props.busy}
+          onPress={props.onPrimary}
+          style={{ flex: 1 }}
+        />
+        {props.onNavigate ? <IconButton icon="navigate-outline" variant="neutral" visualSize={52} accessibilityLabel="Navigate" onPress={props.onNavigate} /> : null}
+        <IconButton icon="chatbubble-ellipses-outline" variant="tonal" visualSize={52} accessibilityLabel="Chat with customer" onPress={props.onChat} />
+      </View>
+    </Card>
+  );
+}
+
+function Meta({ icon, text }: { icon: IconName; text: string }) {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.sm }}>
+      <Ionicons name={icon} size={16} color={t.colors.muted} style={{ marginTop: 2 }} />
+      <Text variant="callout" color="textSecondary" style={{ flex: 1 }}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function DeclineSheet({ job, busy, onClose, onConfirm }: { job: ProviderJob | null; busy: boolean; onClose: () => void; onConfirm: (reason: string) => void }) {
+  const t = useTheme();
+  const [reason, setReason] = useState<(typeof DECLINE_REASONS)[number]>('Busy right now');
+  const [other, setOther] = useState('');
+  useEffect(() => {
+    if (job) {
+      setReason('Busy right now');
+      setOther('');
+    }
+  }, [job]);
+  const final = reason === 'Other' ? other.trim() : reason;
+  return (
+    <BottomSheet
+      visible={!!job}
+      onClose={onClose}
+      title="Decline this request?"
+      subtitle="The customer gets a full refund. Frequent declines lower your ranking."
+      footer={<Button title="Decline request" variant="destructive" size="lg" fullWidth loading={busy} disabled={!final} onPress={() => onConfirm(final)} />}
+    >
+      <View style={{ marginHorizontal: -t.spacing.sm }}>
+        {DECLINE_REASONS.map((r) => {
+          const sel = r === reason;
+          return (
+            <Pressable
+              key={r}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: sel }}
+              onPress={() => setReason(r)}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: t.spacing.md,
+                minHeight: 52,
+                paddingHorizontal: t.spacing.sm,
+                borderRadius: t.radii.md,
+                backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
+              })}
+            >
+              <Ionicons name={sel ? 'radio-button-on' : 'radio-button-off'} size={22} color={sel ? t.colors.primary : t.colors.outline} />
+              <Text variant="body">{r}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {reason === 'Other' ? <TextArea placeholder="Add a short reason" value={other} onChangeText={setOther} maxLength={200} /> : null}
+    </BottomSheet>
   );
 }

@@ -8,6 +8,7 @@ import { getMyProfile, getMyProvider, isDemoMode, signOut } from '../lib/api';
 import { formatPhone } from '../lib/phone';
 import type { Profile, Provider } from '../lib/types';
 import { useTheme } from '../theme';
+import { ProviderMeSections } from './ProviderMeSections';
 import { Avatar, Card, Divider, Header, LIST_INSET, ListItem, Screen, Skeleton, Text, useConfirm, useToast } from './ui';
 
 export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
@@ -89,8 +90,6 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
         <Group title="Work">
           <ListItem icon="id-card-outline" title="Provider profile" subtitle="Bio, skills, fees and payout details" chevron onPress={() => router.push('/onboarding')} />
           <Divider inset={LIST_INSET} />
-          <ListItem icon="list-outline" title="Job history" subtitle="All requests and completed jobs" chevron onPress={() => router.push('/jobs')} />
-          <Divider inset={LIST_INSET} />
           <ListItem icon="swap-horizontal" title="Switch to customer mode" subtitle="Book services for your home" chevron onPress={switchRole} />
         </Group>
       ) : (
@@ -105,6 +104,8 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
         </Group>
       )}
 
+      {mode === 'provider' && provider ? <ProviderMeSections provider={provider} /> : null}
+
       <Group title="Account">
         {mode === 'customer' ? (
           <>
@@ -113,12 +114,7 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
             <ListItem icon="card-outline" title="Payment methods" subtitle="UPI, cards and netbanking at checkout" chevron onPress={() => soon('Saved payment methods')} />
             <Divider inset={LIST_INSET} />
           </>
-        ) : (
-          <>
-            <ListItem icon="wallet-outline" title="Payout account" subtitle="Bank or UPI via our payment partner" chevron onPress={() => router.push('/onboarding')} />
-            <Divider inset={LIST_INSET} />
-          </>
-        )}
+        ) : null}
         <ListItem icon="notifications-outline" title="Notifications" chevron onPress={() => void notifications()} />
         <Divider inset={LIST_INSET} />
         <ListItem icon="language-outline" title="Language" value="English" chevron onPress={() => soon('Hindi and Telugu')} />

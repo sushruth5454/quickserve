@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { Fragment, useCallback, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { HeroAmount } from '../../src/components/Money';
 import {
   Badge,
@@ -9,7 +10,6 @@ import {
   EmptyState,
   ErrorState,
   Header,
-  InlineAlert,
   Screen,
   SegmentedControl,
   Skeleton,
@@ -17,10 +17,11 @@ import {
   Text,
   type Tone,
 } from '../../src/components/ui';
-import { listMyPayouts } from '../../src/lib/api';
+import { getMyProvider, listMyPayouts } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
-import type { Payout, PayoutStatus } from '../../src/lib/types';
+import { tierProgress } from '../../src/lib/providerInsights';
+import type { Payout, PayoutStatus, Provider } from '../../src/lib/types';
 import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
@@ -56,6 +57,7 @@ type Period = 'week' | 'month';
 export default function Earnings() {
   const t = useTheme();
   const [payouts, setPayouts] = useState<Payout[] | null>(null);
+  const [provider, setProvider] = useState<Provider | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>('week');
@@ -63,7 +65,9 @@ export default function Earnings() {
 
   const load = useCallback(async () => {
     try {
-      setPayouts(await listMyPayouts());
+      const [po, pr] = await Promise.all([listMyPayouts(), getMyProvider()]);
+      setPayouts(po);
+      setProvider(pr);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -111,6 +115,9 @@ export default function Earnings() {
       paid: sum(list.filter((p) => p.status === 'transferred')),
       commission: list.reduce((acc, p) => acc + p.commission + p.gst_on_commission, 0),
       gross: list.reduce((acc, p) => acc + p.gross, 0),
+      nextRelease: list
+        .filter((p) => p.status === 'pending')
+        .sort((a, b) => a.release_after.localeCompare(b.release_after))[0] ?? null,
     };
   }, [payouts]);
 
@@ -219,15 +226,41 @@ export default function Earnings() {
         <MiniStat label="Paid to bank" value={summary.paid} loading={!payouts} />
       </View>
 
-      <InlineAlert
-        tone="neutral"
-        title="How payouts work"
-        message={`Commission is charged on labour only — parts are passed through at 0%. Payouts reach your bank 24 hours after the customer confirms completion. Commission + GST so far: ${formatINR(summary.commission)} on ${formatINR(summary.gross)} billed.`}
-      />
+      {provider ? <TierCard provider={provider} /> : <SkeletonCard avatar={false} lines={2} />}
+
+      <Card padding={0} gap={0}>
+        <InfoLine
+          icon="business-outline"
+          title="Payout account"
+          value={
+            provider?.razorpay_account_id && provider.kyc_status === 'verified'
+              ? 'Linked · verified'
+              : provider?.kyc_status === 'rejected'
+                ? 'Verification failed'
+                : 'Verification pending'
+          }
+          tone={provider?.razorpay_account_id && provider.kyc_status === 'verified' ? 'success' : 'warning'}
+          onPress={() => router.push('/onboarding')}
+        />
+        <Divider inset={t.spacing.lg + 32 + t.spacing.md} />
+        <InfoLine
+          icon="calendar-outline"
+          title="Next payout"
+          value={
+            summary.nextRelease
+              ? `${formatINR(summary.nextRelease.amount)} on ${fmtWhen(summary.nextRelease.release_after)}`
+              : 'Nothing pending'
+          }
+        />
+      </Card>
+      <Text variant="footnote" color="muted" style={{ marginTop: -t.spacing.sm, paddingHorizontal: t.spacing.xs }}>
+        Payouts are released 24 hours after the customer confirms completion. Commission applies to labour only — parts pass
+        through at 0%. Fees so far: {formatINR(summary.commission)} on {formatINR(summary.gross)} billed.
+      </Text>
 
       <View style={{ gap: t.spacing.md }}>
         <Text variant="title3" accessibilityRole="header">
-          Payouts
+          Jobs & payouts
         </Text>
         {!payouts ? (
           Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} avatar={false} lines={2} />)
@@ -263,7 +296,7 @@ export default function Earnings() {
                           <Badge label={label} tone={tone} dot />
                         </View>
                         <Text variant="footnote" color="muted" tabular numberOfLines={1}>
-                          {`Billed ${formatINR(p.gross)} · Fees −\u00A0${formatINR(p.commission + p.gst_on_commission)}`}
+                          {`Billed ${formatINR(p.gross)} · Fees −\u00A0${formatINR(p.commission + p.gst_on_commission)} · Net ${formatINR(p.amount)}`}
                         </Text>
                         <Text variant="footnote" color="muted" numberOfLines={1}>
                           {`${bookingRef(p.booking_id)} · `}
@@ -300,5 +333,104 @@ function MiniStat({ label, value, loading }: { label: string; value: number; loa
         </Text>
       )}
     </Card>
+  );
+}
+
+function TierCard({ provider }: { provider: Provider }) {
+  const t = useTheme();
+  const tier = tierProgress({ jobsCompleted: provider.jobs_completed, createdAt: new Date(provider.created_at), at: new Date() });
+  const rate = tier.rateBp / 100;
+  const title = tier.freeUntil ? '0% commission' : `${rate}% commission`;
+  const sub = tier.freeUntil
+    ? `Free period until ${tier.freeUntil.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Then 12%, falling to 10% at 50 jobs.`
+    : tier.nextRateBp != null && tier.jobsToNext != null
+      ? `${tier.jobsToNext} more completed in-app job${tier.jobsToNext === 1 ? '' : 's'} to ${tier.nextRateBp / 100}%`
+      : 'You are on the lowest commission tier.';
+  return (
+    <Card gap={t.spacing.md}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="trending-down" size={20} color={t.colors.primaryText} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="calloutStrong">{title}</Text>
+          <Text variant="footnote" color="muted">
+            {sub}
+          </Text>
+        </View>
+        <Text variant="title3" tabular>
+          {provider.jobs_completed}
+          <Text variant="footnote" color="muted">
+            {' '}
+            jobs
+          </Text>
+        </Text>
+      </View>
+      {!tier.freeUntil ? (
+        <View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityValue={{ min: 0, max: 100, now: Math.round(tier.progress * 100) }}
+          style={{ height: 8, borderRadius: 4, backgroundColor: t.colors.surfaceAlt, overflow: 'hidden' }}
+        >
+          <View style={{ width: `${Math.round(tier.progress * 100)}%`, height: '100%', borderRadius: 4, backgroundColor: t.colors.primary }} />
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        {[
+          ['12%', '0–49'],
+          ['10%', '50–199'],
+          ['8%', '200+'],
+        ].map(([r, jobs]) => {
+          const on = !tier.freeUntil && `${rate}%` === r;
+          return (
+            <View key={r} style={{ alignItems: 'center', flex: 1 }}>
+              <Text variant={on ? 'subheadStrong' : 'subhead'} color={on ? 'primaryText' : 'muted'}>
+                {r}
+              </Text>
+              <Text variant="caption" color="muted">
+                {jobs} jobs
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </Card>
+  );
+}
+
+function InfoLine(props: { icon: keyof typeof Ionicons.glyphMap; title: string; value: string; tone?: 'success' | 'warning'; onPress?: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable
+      disabled={!props.onPress}
+      onPress={props.onPress}
+      accessibilityRole={props.onPress ? 'button' : 'text'}
+      accessibilityLabel={`${props.title}: ${props.value}`}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: t.spacing.md,
+        paddingHorizontal: t.spacing.lg,
+        paddingVertical: t.spacing.md,
+        backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
+      })}
+    >
+      <View style={{ width: 32, height: 32, borderRadius: t.radii.sm, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={props.icon} size={18} color={t.colors.textSecondary} />
+      </View>
+      <Text variant="body" style={{ flex: 1 }}>
+        {props.title}
+      </Text>
+      <Text
+        variant="footnoteStrong"
+        color={props.tone === 'success' ? 'successText' : props.tone === 'warning' ? 'warningText' : 'textSecondary'}
+        numberOfLines={1}
+        style={{ flexShrink: 1 }}
+      >
+        {props.value}
+      </Text>
+      {props.onPress ? <Ionicons name="chevron-forward" size={16} color={t.colors.subtle} /> : null}
+    </Pressable>
   );
 }

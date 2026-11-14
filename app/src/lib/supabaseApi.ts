@@ -386,16 +386,11 @@ export async function upsertProviderProfile(input: ProviderProfileInput): Promis
 
 export const setOnline = (online: boolean) => rpcVoid('set_provider_online', { p_online: online });
 
-export async function listMyServices(): Promise<ProviderService[]> {
+export async function listMyServices(includeInactive = false): Promise<ProviderService[]> {
   const uid = await requireUserId();
-  return unwrap(
-    await supabase
-      .from('provider_services')
-      .select('*, categories(name, slug), rate_card_items(*)')
-      .eq('provider_id', uid)
-      .eq('active', true)
-      .order('created_at'),
-  );
+  let q = supabase.from('provider_services').select('*, categories(name, slug), rate_card_items(*)').eq('provider_id', uid);
+  if (!includeInactive) q = q.eq('active', true);
+  return unwrap(await q.order('created_at'));
 }
 
 export async function upsertService(input: ServiceInput): Promise<void> {
