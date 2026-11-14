@@ -18,6 +18,7 @@ import {
   Text,
 } from '../../src/components/ui';
 import { searchProviders } from '../../src/lib/api';
+import { aiAssistantEnabled } from '../../src/lib/config';
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
@@ -111,6 +112,7 @@ export default function CategoryProviders() {
             title={name ?? 'Providers'}
             subtitle={subtitle}
             right={
+              aiAssistantEnabled ? (
               <IconButton
                 icon="sparkles"
                 variant="tonal"
@@ -120,6 +122,7 @@ export default function CategoryProviders() {
                 accessibilityHint="Describe your problem and get a recommended pro and a pre-filled booking"
                 onPress={() => router.push({ pathname: '/assistant', params: { category: slug, name: name ?? '' } })}
               />
+              ) : undefined
             }
           />
         }

@@ -23,6 +23,8 @@ export interface DiagnosisCard {
   likely_issues: string[];
   pro_checks: string[];
   safety_tip: string | null;
+  /** How sure the model is from the description alone (server defaults to 'low'). */
+  confidence: 'low' | 'medium' | 'high';
   category_slug: string | null;
 }
 

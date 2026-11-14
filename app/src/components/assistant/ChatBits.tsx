@@ -46,7 +46,19 @@ export function UserBubble({ text, voice, pending }: { text: string; voice?: boo
   );
 }
 
-export function AssistantBubble({ text, error, onRetry }: { text: string; error?: boolean; onRetry?: () => void }) {
+export function AssistantBubble({
+  text,
+  error,
+  onRetry,
+  actionLabel,
+  onAction,
+}: {
+  text: string;
+  error?: boolean;
+  onRetry?: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: t.spacing.sm }}>
@@ -67,6 +79,7 @@ export function AssistantBubble({ text, error, onRetry }: { text: string; error?
           {text}
         </Text>
         {onRetry ? <Button title="Try again" size="sm" variant="outline" leftIcon="refresh" onPress={onRetry} /> : null}
+        {actionLabel && onAction ? <Button title={actionLabel} size="sm" variant="outline" onPress={onAction} /> : null}
       </View>
     </View>
   );

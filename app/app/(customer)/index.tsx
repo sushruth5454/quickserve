@@ -11,6 +11,7 @@ import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/s
 import { ProgressBar } from '../../src/components/StatusTimeline';
 import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
+import { aiAssistantEnabled } from '../../src/lib/config';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import type { Booking, Category } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
@@ -145,6 +146,7 @@ export default function CustomerHome() {
           ) : null}
         </View>
 
+        {aiAssistantEnabled ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Ask QuickServe AI"
@@ -177,6 +179,7 @@ export default function CustomerHome() {
           </View>
           <Ionicons name="mic-outline" size={20} color={t.colors.primaryText} />
         </Pressable>
+        ) : null}
       </View>
 
       {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
@@ -229,9 +232,9 @@ export default function CustomerHome() {
               compact
               icon="search"
               title="No matching service"
-              message={`We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.`}
-              actionLabel="Ask QuickServe AI"
-              onAction={() => router.push({ pathname: '/assistant', params: { q: query.trim() } })}
+              message={aiAssistantEnabled ? `We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.` : `We don't have "${query}" yet. Try another word.`}
+              actionLabel={aiAssistantEnabled ? 'Ask QuickServe AI' : undefined}
+              onAction={aiAssistantEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
             />
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg, marginHorizontal: -t.spacing.xs }}>

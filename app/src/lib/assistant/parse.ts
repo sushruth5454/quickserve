@@ -53,6 +53,7 @@ function parseDiagnosis(c: Obj): DiagnosisCard | null {
     likely_issues: likely,
     pro_checks: checks,
     safety_tip: strOrNull(c.safety_tip, 300),
+    confidence: c.confidence === 'high' || c.confidence === 'medium' ? c.confidence : 'low',
     category_slug: strOrNull(c.category_slug, 40),
   };
 }
@@ -195,4 +196,36 @@ export function parseAssistantReply(v: unknown): AssistantReply {
     transcript: strOrNull(o.transcript, 800),
     limits,
   };
+}
+
+export type AssistantErrorKind = 'offline' | 'retry' | 'limited' | 'disabled' | 'auth' | 'input';
+
+export interface MappedAssistantError {
+  message: string;
+  code: string;
+  kind: AssistantErrorKind;
+  requestId: string | null;
+}
+
+const LIMITED = ['rate_limited', 'voice_limited', 'slow_down'];
+const DISABLED = ['ai_disabled', 'not_configured', 'voice_disabled', 'origin_not_allowed'];
+const INPUT = ['too_long', 'bad_audio', 'audio_too_long', 'empty', 'too_large', 'bad_request'];
+
+/**
+ * Turns a failed call into what the chat shows: a friendly message and what the user can do next
+ * (retry, wait, use the normal booking flow, sign in again, or fix the input).
+ */
+export function mapAssistantError(status: number | null, body: unknown): MappedAssistantError {
+  const o = isObj(body) ? body : {};
+  const code = str(o.code, 40) || (status == null ? 'network' : status === 401 ? 'unauthorized' : status === 429 ? 'rate_limited' : status >= 500 ? 'ai_unavailable' : 'internal');
+  const requestId = strOrNull(o.request_id, 64);
+  const server = str(o.error, 300);
+  if (status == null || code === 'network') {
+    return { message: "You're offline or the connection dropped. Check your internet and try again.", code: 'network', kind: 'offline', requestId };
+  }
+  if (code === 'unauthorized') return { message: server || 'Please sign in again.', code, kind: 'auth', requestId };
+  if (LIMITED.includes(code)) return { message: server || 'You have reached the AI message limit for now.', code, kind: 'limited', requestId };
+  if (DISABLED.includes(code)) return { message: server || 'QuickServe AI is not available right now. You can still book from the service list.', code, kind: 'disabled', requestId };
+  if (INPUT.includes(code)) return { message: server || 'Please check your message and try again.', code, kind: 'input', requestId };
+  return { message: server || 'QuickServe AI is unavailable right now. Please try again.', code, kind: 'retry', requestId };
 }

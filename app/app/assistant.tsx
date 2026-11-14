@@ -1,13 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { DiagnosisCardView, DraftCardView, EstimateCardView, ProvidersCardView, SafetyCardView } from '../src/components/assistant/AssistantCards';
 import { AssistantBubble, QuickReplies, StarterList, TypingIndicator, UserBubble } from '../src/components/assistant/ChatBits';
 import { Composer } from '../src/components/assistant/Composer';
-import { Header, IconButton, Screen, Text, useToast } from '../src/components/ui';
+import { EmptyState, Header, IconButton, Screen, Text, useToast } from '../src/components/ui';
 import { getMyProfile, listMyBookings } from '../src/lib/api';
 import { AssistantError, sendToAssistant } from '../src/lib/assistant/client';
+import type { AssistantErrorKind } from '../src/lib/assistant/parse';
+import { aiAssistantEnabled } from '../src/lib/config';
+import { locationTitle } from '../src/lib/locationModel';
 import { draftToBookParams } from '../src/lib/assistant/prefill';
 import { starterPrompts, type StarterPrompt } from '../src/lib/assistant/suggestions';
 import type { AssistantCard, DraftCard, ProviderPick } from '../src/lib/assistant/types';
@@ -17,7 +21,7 @@ import { useTheme } from '../src/theme';
 type Msg =
   | { id: string; role: 'user'; text: string; voice?: boolean; pending?: boolean }
   | { id: string; role: 'assistant'; text: string; cards: AssistantCard[]; quickReplies: string[] }
-  | { id: string; role: 'error'; text: string; retry: Retry | null };
+  | { id: string; role: 'error'; text: string; retry: Retry | null; kind: AssistantErrorKind; requestId: string | null };
 
 type Retry = { message?: string; audio?: { data: string; mimeType: string; durationMs: number } };
 
@@ -83,9 +87,12 @@ export default function AssistantScreen() {
           toast({ message: `${reply.limits.messages_left} AI messages left today`, tone: 'warning' });
         }
       } catch (e) {
-        const err = e instanceof AssistantError ? e : new AssistantError('Something went wrong. Please try again.', 'internal');
-        const retryable = !['rate_limited', 'voice_limited', 'too_long', 'bad_audio', 'audio_too_long'].includes(err.code);
-        setMessages((m) => [...m.filter((x) => x.id !== userId || !voice), { id: nextId(), role: 'error', text: err.message, retry: retryable ? input : null }]);
+        const err = e instanceof AssistantError ? e : new AssistantError('Something went wrong. Please try again.', 'internal', 'retry');
+        const retryable = err.kind === 'retry' || err.kind === 'offline';
+        setMessages((m) => [
+          ...m.filter((x) => x.id !== userId || !voice),
+          { id: nextId(), role: 'error', text: err.message, retry: retryable ? input : null, kind: err.kind, requestId: err.requestId },
+        ]);
       } finally {
         setBusy(false);
         scrollToEnd();
@@ -115,6 +122,20 @@ export default function AssistantScreen() {
     setMessages([]);
     setConversationId(null);
   };
+
+  if (!aiAssistantEnabled) {
+    return (
+      <Screen header={<Header title="QuickServe AI" />}>
+        <EmptyState
+          icon="sparkles-outline"
+          title="QuickServe AI is not available"
+          message="You can still find a pro and book from the service list."
+          actionLabel="Browse services"
+          onAction={() => router.replace('/')}
+        />
+      </Screen>
+    );
+  }
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
   const quickReplies = !busy && lastAssistant?.role === 'assistant' && messages[messages.length - 1] === lastAssistant ? lastAssistant.quickReplies : [];
@@ -146,6 +167,30 @@ export default function AssistantScreen() {
         </View>
       }
     >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Service location: ${locationTitle(location)}. Tap to change.`}
+        onPress={() => router.push('/location')}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: t.spacing.sm,
+          alignSelf: 'center',
+          paddingHorizontal: t.spacing.md,
+          paddingVertical: 6,
+          borderRadius: t.radii.pill,
+          backgroundColor: t.colors.surfaceAlt,
+          opacity: pressed ? 0.7 : 1,
+        })}
+      >
+        <Ionicons name="location-outline" size={14} color={t.colors.textSecondary} />
+        <Text variant="caption" color="textSecondary" numberOfLines={1}>
+          Pros near {locationTitle(location)}
+        </Text>
+        <Text variant="captionStrong" color="primaryText">
+          Change
+        </Text>
+      </Pressable>
       <AssistantBubble
         text={`Hi${firstName ? ` ${firstName}` : ''}! Tell me what's wrong, in English, हिंदी or తెలుగు. I'll suggest the right pro, show typical prices and prepare the booking for you to review.`}
       />
@@ -156,7 +201,13 @@ export default function AssistantScreen() {
           {m.role === 'user' ? (
             <UserBubble text={m.text} voice={m.voice} pending={m.pending} />
           ) : m.role === 'error' ? (
-            <AssistantBubble text={m.text} error onRetry={m.retry ? () => void send(m.retry!) : undefined} />
+            <AssistantBubble
+              text={m.requestId ? ` (Ref )` : m.text}
+              error
+              onRetry={m.retry ? () => void send(m.retry!) : undefined}
+              actionLabel={m.kind === 'limited' || m.kind === 'disabled' ? 'Browse services' : m.kind === 'auth' ? 'Sign in again' : undefined}
+              onAction={m.kind === 'limited' || m.kind === 'disabled' ? () => router.replace('/') : m.kind === 'auth' ? () => router.replace('/login') : undefined}
+            />
           ) : (
             <>
               {m.text ? <AssistantBubble text={m.text} /> : null}

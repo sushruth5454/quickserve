@@ -74,8 +74,12 @@ export function SafetyCardView({ card }: { card: SafetyCard }) {
 export function DiagnosisCardView({ card }: { card: DiagnosisCard }) {
   const t = useTheme();
   return (
-    <Card gap={t.spacing.md} accessibilityLabel={`Diagnosis: ${card.title}`}>
+    <Card gap={t.spacing.md} accessibilityLabel={`Diagnosis: ${card.title}. Confidence ${card.confidence}`}>
       <CardTitle icon="medkit-outline" title={card.title} />
+      <Badge
+        label={card.confidence === 'high' ? 'Likely cause is clear' : card.confidence === 'medium' ? 'A few possible causes' : 'Needs an on-site check'}
+        tone={card.confidence === 'high' ? 'success' : card.confidence === 'medium' ? 'info' : 'neutral'}
+      />
       {card.likely_issues.length ? (
         <View style={{ gap: 6 }}>
           <Text variant="overline" color="muted">
@@ -285,6 +289,9 @@ export function DraftCardView({ card, onReview }: { card: DraftCard; onReview: (
       />
       <DraftRow icon="wallet-outline" label="Pay now" value={`${formatINR(card.provider.visit_fee)} visit fee · rest after you approve the quote`} />
       <Button title="Review & pay" leftIcon="arrow-forward-circle" onPress={onReview} fullWidth accessibilityHint="Opens checkout with these details. Nothing is booked until you pay." />
+      <Text variant="caption" color="muted" align="center">
+        The pro's fee and availability are re-checked at checkout.
+      </Text>
     </Card>
   );
 }

@@ -16,3 +16,7 @@ export const isDemoMode = /^(1|true|yes)$/i.test(demoFlag.trim()) || !isSupabase
  * the location from the picker. (The provider onboarding base location is still pinned.)
  */
 export const forceTestLocation = /^(1|true|yes)$/i.test((process.env.EXPO_PUBLIC_FORCE_TEST_LOCATION ?? '').trim());
+
+/** QuickServe AI entry points (Home card, category button, /assistant). On unless EXPO_PUBLIC_AI_ASSISTANT=0/false/off.
+ * The server has its own kill switch (AI_ASSISTANT_ENABLED); this flag only hides the UI. */
+export const aiAssistantEnabled = !/^(0|false|no|off)$/i.test((process.env.EXPO_PUBLIC_AI_ASSISTANT ?? '').trim());

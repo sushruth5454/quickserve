@@ -165,6 +165,7 @@ export async function demoAssistant(req: AssistantRequest): Promise<AssistantRep
     likely_issues: chips.length ? chips : ['Needs an on-site check'],
     pro_checks: ['Inspects the problem on site', 'Sends an itemised quote before any work'],
     safety_tip: emergency ? 'Keep the area switched off until the pro arrives.' : null,
+    confidence: chips.length ? 'medium' : 'low',
     category_slug: rule.slug,
   });
 

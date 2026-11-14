@@ -1,4 +1,4 @@
-import { parseAssistantReply, parseSlot } from '../assistant/parse';
+import { mapAssistantError, parseAssistantReply, parseSlot } from '../assistant/parse';
 import { composeDescription, draftToBookParams, readBookPrefill, slotParam } from '../assistant/prefill';
 import { monthsBetween, starterPrompts } from '../assistant/suggestions';
 import type { DraftCard } from '../assistant/types';
@@ -122,5 +122,38 @@ describe('starterPrompts', () => {
   it('has only defaults without history and counts whole months', () => {
     expect(starterPrompts([], new Date()).every((p) => p.icon !== 'refresh')).toBe(true);
     expect(monthsBetween('2026-04-20T00:00:00Z', new Date(2026, 10, 14))).toBe(6);
+  });
+});
+
+describe('production-shaped failures', () => {
+  it('maps every server/network failure to a user action', () => {
+    expect(mapAssistantError(null, null)).toMatchObject({ kind: 'offline', code: 'network' });
+    expect(mapAssistantError(429, { code: 'rate_limited', error: 'You have used today\'s 30 AI messages.', request_id: 'r1' })).toEqual({
+      kind: 'limited',
+      code: 'rate_limited',
+      message: "You have used today's 30 AI messages.",
+      requestId: 'r1',
+    });
+    expect(mapAssistantError(429, { code: 'slow_down' }).kind).toBe('limited');
+    expect(mapAssistantError(503, { code: 'ai_disabled' }).kind).toBe('disabled');
+    expect(mapAssistantError(503, { code: 'ai_unavailable', error: 'busy' })).toMatchObject({ kind: 'retry', message: 'busy' });
+    expect(mapAssistantError(504, null)).toMatchObject({ kind: 'retry', code: 'ai_unavailable' });
+    expect(mapAssistantError(401, null).kind).toBe('auth');
+    expect(mapAssistantError(400, { code: 'audio_too_long' }).kind).toBe('input');
+    expect(mapAssistantError(502, '<html>bad gateway</html>').kind).toBe('retry');
+  });
+
+  it('defaults diagnosis confidence to low and drops cards with invented ids or fees', () => {
+    const r = parseAssistantReply({
+      reply_text: 'x',
+      cards: [
+        { type: 'diagnosis', title: 'AC', likely_issues: ['Filter'], pro_checks: [], confidence: 'certain' },
+        { type: 'providers', category_slug: 'ac-repair', providers: [{ provider_id: 'p', provider_service_id: 'ps', visit_fee: 'cheap' }] },
+        { type: 'estimate', category_slug: 'ac-repair', visit_fee: { min: -5, median: 1, max: 2, count: 1 }, typical_total: null },
+      ],
+    });
+    expect(r.cards[0]).toMatchObject({ type: 'diagnosis', confidence: 'low' });
+    expect(r.cards.find((c) => c.type === 'providers')).toBeUndefined();
+    expect(r.cards.find((c) => c.type === 'estimate')).toMatchObject({ visit_fee: null });
   });
 });
