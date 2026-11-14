@@ -11,6 +11,8 @@ import { skillLabel } from './ProviderCard';
 import { BottomSheet, Button, Card, Chip, Divider, InlineAlert, Input, LIST_INSET, ListItem, RatingStars, SegmentedControl, Skeleton, Text, useToast } from './ui';
 
 const LEVELS: SkillLevel[] = ['beginner', 'skilled', 'expert', 'certified'];
+/** react-native-web paints the ON thumb teal unless ctiveThumbColor is set (not in the RN types). */
+const webSwitchThumb = { activeThumbColor: '#FFFFFF' } as object;
 
 /** Provider-only sections of the Me tab: services (with active toggle + edit), work settings, reviews received. */
 export function ProviderMeSections({ provider }: { provider: Provider }) {
@@ -93,6 +95,7 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
                   onValueChange={(v) => void toggle(s, v)}
                   trackColor={{ true: t.colors.success, false: t.colors.outline }}
                   thumbColor="#FFFFFF"
+                  {...webSwitchThumb}
                   accessibilityLabel={`${s.categories?.name ?? 'Service'} ${s.active ? 'active' : 'paused'}`}
                 />
               </View>

@@ -373,8 +373,8 @@ export default function QuoteEditorScreen() {
           Breakdown
         </Text>
         <PriceRow label="Labour" amount={settlement.subtotals.labour} />
-        <PriceRow label="Parts" amount={settlement.subtotals.parts} hint="No commission" />
-        <PriceRow label="Other" amount={settlement.subtotals.other} hint="No commission" />
+        {settlement.subtotals.parts > 0 ? <PriceRow label="Parts" amount={settlement.subtotals.parts} hint="No commission" /> : null}
+        {settlement.subtotals.other > 0 ? <PriceRow label="Other" amount={settlement.subtotals.other} hint="No commission" /> : null}
         <Divider style={{ marginVertical: 2 }} />
         <PriceRow label="Quote total" amount={settlement.subtotals.total} />
         <PriceRow

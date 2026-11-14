@@ -55,6 +55,8 @@ const NEXT_STEP: Partial<Record<BookingStatus, { label: string; icon: IconName; 
 };
 
 const RESPONSE_WINDOW_MS = 15 * 60 * 1000;
+/** react-native-web paints the ON thumb teal unless ctiveThumbColor is set (not in the RN types). */
+const webSwitchThumb = { activeThumbColor: '#FFFFFF' } as object;
 const DECLINE_REASONS = ['Too far', 'Busy right now', 'Not my skill', 'Other'] as const;
 
 const openBooking = (id: string) => router.push({ pathname: '/booking/[id]', params: { id } });
@@ -369,6 +371,7 @@ function OnlineCard({ online, radiusKm, onChange, disabled }: { online: boolean;
         disabled={disabled}
         trackColor={{ true: t.colors.success, false: t.colors.outline }}
         thumbColor="#FFFFFF"
+        {...webSwitchThumb}
         accessibilityLabel={online ? 'Online. Turn off to stop receiving requests' : 'Offline. Turn on to receive requests'}
       />
     </View>
@@ -567,38 +570,35 @@ function NextJobCard(props: {
         <CategoryIcon icon={props.icon} size={48} />
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="title3" numberOfLines={1}>
-            {firstName(j.customer_name)} · {j.category_name}
+            {firstName(j.customer_name)}
           </Text>
           <Text variant="footnote" color="muted" numberOfLines={1}>
-            {bookingRef(j.booking_id)}
+            {j.category_name} · {bookingRef(j.booking_id)}
           </Text>
         </View>
-        <StatusPill status={j.status} />
+        {props.onNavigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Navigate" onPress={props.onNavigate} /> : null}
+        <IconButton icon="chatbubble-ellipses-outline" variant="tonal" accessibilityLabel="Chat with customer" onPress={props.onChat} />
       </View>
       <View style={{ gap: t.spacing.sm }}>
+        <StatusPill status={j.status} />
         <Meta icon="time-outline" text={j.scheduled_at ? scheduleLabel(j.scheduled_at) : 'As soon as possible'} />
         <Meta
           icon="location-outline"
           text={`${j.address_line ? `${j.address_line}, ` : ''}${j.area}${j.distance_km != null ? ` · ${j.distance_km} km away` : ''}`}
         />
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-        <Button
-          title={step?.label ?? 'View job'}
-          leftIcon={step?.icon}
-          variant={step?.primary ? 'primary' : 'outline'}
-          size="lg"
-          loading={props.busy}
-          onPress={props.onPrimary}
-          style={{ flex: 1 }}
-        />
-        {props.onNavigate ? <IconButton icon="navigate-outline" variant="neutral" visualSize={52} accessibilityLabel="Navigate" onPress={props.onNavigate} /> : null}
-        <IconButton icon="chatbubble-ellipses-outline" variant="tonal" visualSize={52} accessibilityLabel="Chat with customer" onPress={props.onChat} />
-      </View>
+      <Button
+        title={step?.label ?? 'View job'}
+        leftIcon={step?.icon}
+        variant={step?.primary ? 'primary' : 'outline'}
+        size="lg"
+        fullWidth
+        loading={props.busy}
+        onPress={props.onPrimary}
+      />
     </Card>
   );
 }
-
 function Meta({ icon, text }: { icon: IconName; text: string }) {
   const t = useTheme();
   return (

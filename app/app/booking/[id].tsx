@@ -485,13 +485,19 @@ export default function BookingDetail() {
                 </View>
               ) : (
                 <Text variant="footnote" color="muted">
-                  {isCustomer ? 'Your pro' : 'Customer · number hidden, use chat'}
+                  {isCustomer ? 'Your pro' : 'Customer'}
                 </Text>
               )}
             </View>
             <IconButton icon="chatbubble-ellipses-outline" variant="tonal" accessibilityLabel={`Chat with ${first}`} onPress={openChat} />
             <IconButton icon="call-outline" variant="neutral" accessibilityLabel="Call" accessibilityHint="Masked calling is coming soon" onPress={call} />
             {navigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Open in Maps" onPress={() => void navigate()} /> : null}
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="lock-closed-outline" size={13} color={t.colors.muted} />
+            <Text variant="caption" color="muted" style={{ flex: 1 }}>
+              Phone numbers stay private · use chat (masked calling coming soon)
+            </Text>
           </View>
           <Divider />
           <InfoRow

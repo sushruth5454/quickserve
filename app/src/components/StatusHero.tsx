@@ -64,7 +64,8 @@ export function MiniStepper({ status, history = [] }: { status: BookingStatus; h
               />
             </View>
             <Text
-              variant={step.state === 'current' || step.state === 'end' ? 'captionStrong' : 'micro'}
+              variant="micro"
+              style={step.state === 'current' || step.state === 'end' ? { fontFamily: t.fontFamily.semibold } : undefined}
               color={step.state === 'current' ? 'primaryText' : step.state === 'end' ? (model.endTone === 'danger' ? 'dangerText' : 'textSecondary') : done ? 'textSecondary' : 'muted'}
               numberOfLines={1}
             >

@@ -4,11 +4,11 @@ import { providerStats, tierProgress } from '../providerInsights';
 const states = (s: ReturnType<typeof stepperModel>) => s.steps.map((x) => `${x.label}:${x.state}`);
 
 describe('stepperModel', () => {
-  it('marks Accepted as current (not On the way) for an accepted booking', () => {
+  it('marks Accepted as current (not En route) for an accepted booking', () => {
     expect(states(stepperModel('accepted'))).toEqual([
       'Booked:done',
       'Accepted:current',
-      'On the way:todo',
+      'En route:todo',
       'Quote:todo',
       'Work:todo',
       'Done:todo',
@@ -17,7 +17,7 @@ describe('stepperModel', () => {
 
   it.each([
     ['requested', 'Booked'],
-    ['en_route', 'On the way'],
+    ['en_route', 'En route'],
     ['awaiting_payment', 'Quote'],
     ['completion_requested', 'Work'],
   ] as const)('%s → current step %s', (status, label) => {
@@ -30,7 +30,7 @@ describe('stepperModel', () => {
 
   it('ends side states with a marker after the furthest step reached', () => {
     const m = stepperModel('cancelled', ['requested', 'accepted', 'en_route', 'cancelled']);
-    expect(states(m)).toEqual(['Booked:done', 'Accepted:done', 'On the way:done', 'Cancelled:end']);
+    expect(states(m)).toEqual(['Booked:done', 'Accepted:done', 'En route:done', 'Cancelled:end']);
     expect(m.endTone).toBe('neutral');
     expect(states(stepperModel('declined', ['requested', 'declined']))).toEqual(['Booked:done', 'Declined:end']);
     expect(stepperModel('disputed', ['in_progress', 'completed', 'disputed']).steps).toHaveLength(6);

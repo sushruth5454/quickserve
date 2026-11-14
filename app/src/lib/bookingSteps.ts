@@ -1,7 +1,7 @@
-/** Pure model for the compact booking stepper (Booked → Accepted → On the way → Quote → Work → Done). */
+/** Pure model for the compact booking stepper (Booked → Accepted → En route → Quote → Work → Done). */
 import type { BookingStatus } from './types';
 
-export const STEP_LABELS = ['Booked', 'Accepted', 'On the way', 'Quote', 'Work', 'Done'] as const;
+export const STEP_LABELS = ['Booked', 'Accepted', 'En route', 'Quote', 'Work', 'Done'] as const;
 
 export type StepState = 'done' | 'current' | 'todo' | 'end';
 export type EndTone = 'danger' | 'neutral';
@@ -41,7 +41,7 @@ export function reachedStep(history: BookingStatus[]): number {
 
 /**
  * - Happy path: steps before the current one are done, the current one is the filled ring, the rest are grey.
- *   'accepted' → Accepted is current (On the way is still to come).
+ *   'accepted' → Accepted is current (En route is still to come).
  * - Completed/closed: every step is done.
  * - Side states: steps up to the furthest one reached are done, followed by a coloured end marker
  *   ("Cancelled", "Declined"…); the remaining happy-path steps are dropped.
