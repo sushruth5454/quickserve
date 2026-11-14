@@ -184,3 +184,69 @@ Realistic part-time total to a **production pilot: ~14–18 weeks**. A clickable
 1. Launch city? (Affects GST registration state and the field-onboarding plan.)
 2. Company entity: sole proprietorship vs Pvt Ltd (Razorpay live mode needs business KYC; see doc 05).
 3. Final brand name and trademark check ("QuickServe" is a placeholder and likely taken).
+
+## 11. Product roadmap — PM review (Nov 2026)
+
+Each item is tagged with the goal it serves: **A** = adoption (getting users), **U** = usage and retention, **R** = revenue, **T** = trust.
+Priority: **Now** = before public launch, **Next** = first 3 months after launch, **Later** = after that.
+
+### 11.1 Get customers in (adoption)
+| Feature | Why | Goal | Priority |
+|---|---|---|---|
+| **Browse before login**: show categories, pros, prices and reviews; ask for the phone number only at Book | Removes the biggest drop-off point | A | Now |
+| **WhatsApp booking and updates** (WhatsApp Business API): status updates, quote approval links and reminders on WhatsApp | Most Indian households live on WhatsApp; push notifications get ignored or switched off | A U | Now |
+| **Hindi + Telugu UI**, plus an English/Hindi/Telugu toggle in Me | Tier-2/3 cities, and providers' first language | A | Now |
+| **Referral**: give ₹100 / get ₹100 in wallet credit, for both customers and providers | Cheapest way to acquire users; works through apartment WhatsApp groups | A | Now |
+| **First-booking offer**: ₹0 visit fee on the first booking (platform-funded, max ₹199) | Lowers the risk of trying the app | A | Now |
+| **Apartment/society partnerships**: a society code gives a discount and a "Trusted in Sai Residency" badge on pros | Dense demand and word of mouth | A T | Next |
+
+### 11.2 Easier to book, more reasons to come back (UX and retention)
+| Feature | Why | Goal | Priority |
+|---|---|---|---|
+| **Instant booking ("Find me a pro")**: broadcast to the top 5 nearby pros; the first to accept wins (PRD B12, moved up from P1) | Customers want a fix, not to compare profiles; also fixes cases where a single pro doesn't respond | U | Now |
+| **Fixed-price packages** for standard jobs (AC jet service ₹599, tank cleaning per 1,000 L, 2BHK deep clean), alongside visit-fee + quote | Price certainty converts better; no quote step needed | U R | Now |
+| **Push notifications + in-app notification centre** | Every booking state change needs to reach the user | U | Now |
+| **Live pro tracking** while on the way (ETA on a map) | Reduces "where is he?" calls and cancellations | U T | Next |
+| **Reschedule** (customer or pro proposes a new slot, the other accepts) instead of cancel and rebook | Fewer lost bookings | U | Next |
+| **Favourite pros + "Book again"** with the same pro (1 tap from Home) | Repeat jobs are the core retention loop | U | Now |
+| **Smart reminders**: AC service every 6 months, water tank every 3 months, RO filter every 6 months, pest control yearly | Brings users back without paid marketing | U R | Next |
+| **Wallet** (refunds, referral credit and cashback land here; can be used at checkout) | Faster refunds and money stays on the platform | U R | Next |
+| **Photo-based quote estimate**: upload a photo and get a likely issue and price range before booking (ties into the AI assistant) | Confidence before paying the visit fee | U | Next |
+| **AI booking assistant** (chat/voice: describe the issue → suggested pros → pre-filled booking) | Lowest-effort booking path; see the `ai-assistant` todo | A U | On hold (founder decides start) |
+
+### 11.3 Revenue streams (beyond the 12% commission and ₹29 platform fee)
+| Stream | How it works | Goal | Priority |
+|---|---|---|---|
+| **QuickServe Plus membership** (₹149/quarter or ₹499/year): no platform fee, 15% off visit fees, extended 30-day warranty, priority pros | Recurring revenue and retention; pays for itself after about 5 bookings | R U | Next |
+| **AMC / maintenance plans**: e.g. AC (2 services + priority repairs per year), water tank (4 cleans/year), RO purifier | Predictable recurring revenue and steady work for pros | R | Next |
+| **Pro Boost (featured listing)**: a pro pays to appear in "Featured" slots, clearly labelled; ranking stays merit-based | Ad revenue from the supply side | R | Later |
+| **Pro subscription** (₹299/month for 8% commission + more leads + instant payouts) | Revenue from high-volume pros; reduces leakage | R | Later |
+| **Instant payout fee** (1%, or free for Pro subscribers) instead of waiting 24 h | Small fee; providers value cash flow | R | Next |
+| **Parts margin**: partner with local wholesalers; pros buy parts through the app at a discount, and the platform keeps a small margin | Revenue and genuine-parts trust | R T | Later |
+| **B2B / bulk**: offices, PGs/hostels, property managers, gated societies (monthly invoice, SLAs) | Larger repeat orders | R | Later |
+| **Extended warranty / damage protection add-on** at checkout (₹29–₹49, via an insurer partner) | Attach revenue and trust | R T | Later |
+| **EMI / pay later** for jobs over ₹3,000 (Razorpay EMI/BNPL) | Unlocks painting and appliance jobs | R | Later |
+
+### 11.4 Supply side (providers)
+| Feature | Why | Goal | Priority |
+|---|---|---|---|
+| **Availability calendar + working hours** (PRD P5) | Fewer declines and expiries | U | Now |
+| **Demand heatmap + "busy hours" tips** | More jobs for pros, faster acceptance for customers | U | Next |
+| **Skill certification courses** (paid, brand partnerships) → "Certified" badge | Quality, and a revenue line | T R | Later |
+| **Provider referral bonus** | Supply growth in each new area | A | Now |
+| **Tools and parts discounts, accident insurance** for active pros | Loyalty, so pros stay on the platform | U T | Later |
+
+### 11.5 Trust and operations
+| Feature | Why | Goal | Priority |
+|---|---|---|---|
+| **Police/background verification** for in-home categories (PRD 5.9) | Required before a public launch | T | Now |
+| **Admin console** (KYC review, disputes, refunds, payouts, bans, category pricing) | Ops can't run from SQL | T | Now |
+| **Photo reviews + review tags** ("On time", "Clean work") | Richer trust signals | T | Next |
+| **Masked calling** (Exotel/Knowlarity) | Privacy, plus less leakage | T R | Next |
+| **Funnel analytics** (PostHog: search → view → book → pay → review) and a cohort dashboard | Decide what to build next with data | — | Now |
+
+### 11.6 Suggested build order
+1. **Launch blockers:** browse before login, push + notification centre, background verification flow, admin console, analytics, Hindi/Telugu.
+2. **Growth:** WhatsApp updates, referral + first-booking offer, instant booking, fixed-price packages, favourites/book again.
+3. **Monetise and retain:** Plus membership, AMC plans, wallet, reminders, instant payout fee.
+4. **Scale:** live tracking, reschedule, Pro Boost, Pro subscription, B2B, parts, EMI, AI assistant (whenever the founder says go).
