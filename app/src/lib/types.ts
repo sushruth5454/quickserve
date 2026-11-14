@@ -169,6 +169,8 @@ export interface Payment {
   status: PaymentStatus;
   created_at: string;
   paid_at: string | null;
+  /** Partial or full refunds queued against this payment. */
+  refunds?: { amount: number; status: 'pending' | 'processing' | 'refunded' | 'failed' }[];
 }
 
 export interface Payout {

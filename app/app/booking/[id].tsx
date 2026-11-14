@@ -153,7 +153,10 @@ export default function BookingDetail() {
 
   const { booking, quotes, payments } = data;
   const isCustomer = booking.customer_id === userId;
-  const paid = payments.filter((p) => p.status === 'paid').reduce((acc, p) => acc + p.amount, 0);
+  // Net of partial refunds (e.g. a change order that lowered the total), matching the server's amount owed.
+  const paid = payments
+    .filter((p) => p.status === 'paid')
+    .reduce((acc, p) => acc + p.amount - (p.refunds ?? []).filter((r) => r.status !== 'failed').reduce((s, r) => s + r.amount, 0), 0);
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;

@@ -128,13 +128,17 @@ export async function searchProviders(
 }
 
 export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
+  const { data: auth } = await supabase.auth.getSession();
+  let query = supabase
+    .from('providers')
+    .select('id, city, rating_avg, rating_count, jobs_completed, years_experience, is_online, profiles(full_name, avatar_url)')
+    .eq('kyc_status', 'verified')
+    .eq('suspended', false)
+    .gt('rating_count', 0);
+  // Like search_providers, never suggest the signed-in user's own provider profile.
+  if (auth.session) query = query.neq('id', auth.session.user.id);
   return unwrap(
-    await supabase
-      .from('providers')
-      .select('id, city, rating_avg, rating_count, jobs_completed, years_experience, is_online, profiles(full_name, avatar_url)')
-      .eq('kyc_status', 'verified')
-      .eq('suspended', false)
-      .gt('rating_count', 0)
+    await query
       .order('rating_avg', { ascending: false })
       .order('rating_count', { ascending: false })
       .limit(limit)
@@ -228,7 +232,11 @@ export async function getQuotes(bookingId: string): Promise<Quote[]> {
 
 export async function getPayments(bookingId: string): Promise<Payment[]> {
   return unwrap(
-    await supabase.from('payments').select('*').eq('booking_id', bookingId).order('created_at', { ascending: true }),
+    await supabase
+      .from('payments')
+      .select('*, refunds(amount, status)')
+      .eq('booking_id', bookingId)
+      .order('created_at', { ascending: true }),
   );
 }
 
@@ -352,6 +360,7 @@ export async function listMyServices(): Promise<ProviderService[]> {
       .from('provider_services')
       .select('*, categories(name, slug), rate_card_items(*)')
       .eq('provider_id', uid)
+      .eq('active', true)
       .order('created_at'),
   );
 }
@@ -374,8 +383,9 @@ export async function upsertService(input: ServiceInput): Promise<void> {
   );
 }
 
+// Soft delete: past bookings reference the service row, so it is deactivated (hidden from search) instead.
 export async function deleteService(id: string): Promise<void> {
-  unwrap(await supabase.from('provider_services').delete().eq('id', id));
+  unwrap(await supabase.from('provider_services').update({ active: false }).eq('id', id));
 }
 
 export async function addRateCardItem(providerServiceId: string, title: string, price: number): Promise<void> {
