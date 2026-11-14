@@ -464,7 +464,7 @@ export function composeReply(i: ComposeInput) {
     if (picks.length) cards.push({ type: "providers", category_slug: i.slug, category_name: i.categoryName ?? i.slug, providers: picks });
   }
 
-  if (i.draft && r.show_draft !== false) cards.push(i.draft);
+  if (i.draft && r.show_draft !== false) cards.push(i.draft as unknown as Record<string, unknown>);
 
   const noPros = !!i.slug && !!i.searchRows && i.searchRows.length === 0 && !i.draft;
   const fallbackText = noPros
