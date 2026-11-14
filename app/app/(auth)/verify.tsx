@@ -60,18 +60,32 @@ export default function VerifyScreen() {
   };
 
   return (
-    <Screen header={<Header />} background={t.colors.surface} contentStyle={{ paddingHorizontal: t.spacing.xxl }} gap={t.spacing.xxl}>
+    <Screen
+      header={<Header />}
+      background={t.colors.surface}
+      gutter={t.spacing.xxl}
+      gap={t.spacing.xxl}
+      footer={
+        <Button title="Verify & continue" onPress={() => void submit()} loading={busy} disabled={code.length !== 6} size="lg" fullWidth />
+      }
+    >
       <View style={{ gap: t.spacing.sm }}>
         <Text variant="title1" accessibilityRole="header">
           Verify your number
         </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6 }}>
           <Text variant="body" color="muted">
             Enter the code sent to
           </Text>
           <Text variant="bodyStrong">{formatPhone(phone)}</Text>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
-            <Text variant="subhead" color="primary">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit phone number"
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text variant="callout" color="primaryText" style={{ fontFamily: t.fontFamily.semibold }}>
               Edit
             </Text>
           </Pressable>
@@ -91,19 +105,21 @@ export default function VerifyScreen() {
       />
 
       <InlineAlert message={error} />
-      {isDemoMode ? <InlineAlert tone="info" icon="sparkles" message="Demo mode: the code is 123456." /> : null}
 
-      <Button title="Verify & continue" onPress={() => void submit()} loading={busy} disabled={code.length !== 6} size="lg" fullWidth />
-
-      <View style={{ alignItems: 'center' }}>
+      <View style={{ alignItems: 'center', minHeight: 48, justifyContent: 'center' }}>
         {left > 0 ? (
           <Text variant="callout" color="muted">
-            Resend code in <Text variant="subhead">0:{String(left).padStart(2, '0')}</Text>
+            Resend code in{' '}
+            <Text variant="calloutStrong" color="textSecondary" tabular>
+              0:{String(left).padStart(2, '0')}
+            </Text>
           </Text>
         ) : (
           <Button title="Resend code" variant="ghost" onPress={() => void resend()} leftIcon="refresh" />
         )}
       </View>
+
+      {isDemoMode ? <InlineAlert tone="warning" icon="flask-outline" message="Demo mode: the code is 123456." /> : null}
     </Screen>
   );
 }

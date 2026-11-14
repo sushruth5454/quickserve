@@ -90,37 +90,33 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
         subtitle={stage === 'done' ? undefined : 'Demo mode — no real money moves'}
         footer={
           stage === 'choose' && link ? (
-            <View style={{ gap: t.spacing.xs }}>
-              <Button title={`Pay ${formatINR(link.amount)}`} onPress={() => void confirm()} leftIcon="lock-closed" size="lg" fullWidth />
-              <Button title="Cancel" variant="ghost" onPress={() => finish('cancelled')} fullWidth />
-            </View>
+            <Button title={`Pay ${formatINR(link.amount)}`} onPress={() => void confirm()} leftIcon="lock-closed" size="lg" fullWidth />
           ) : undefined
         }
       >
         {link && stage !== 'done' ? (
           <View style={{ gap: t.spacing.lg }}>
-            <View
-              style={{
-                borderRadius: t.radii.lg,
-                padding: t.spacing.lg,
-                backgroundColor: t.colors.primarySoft,
-                gap: 4,
-              }}
-            >
-              <Text variant="caption" color="primary">
-                {PURPOSE[link.purpose]} · Booking #{link.bookingId}
+            <View style={{ alignItems: 'center', gap: 4, paddingVertical: t.spacing.sm }}>
+              <Text variant="footnote" color="muted" align="center">
+                {PURPOSE[link.purpose]}
               </Text>
               <Text variant="display" tabular>
                 {formatINR(link.amount)}
               </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="shield-checkmark" size={14} color={t.colors.success} />
-                <Text variant="caption" color="successText">
+              <Text variant="caption" color="muted">
+                Booking #{link.bookingId.slice(0, 8)}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <Ionicons name="shield-checkmark-outline" size={14} color={t.colors.successText} />
+                <Text variant="footnote" color="successText">
                   Held safely by QuickServe until the job is done
                 </Text>
               </View>
             </View>
             <View style={{ gap: t.spacing.sm }}>
+              <Text variant="subheadStrong" color="textSecondary">
+                Pay with
+              </Text>
               {METHODS.map((m) => {
                 const selected = method === m.id;
                 return (
@@ -133,29 +129,34 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
                       haptics.select();
                       setMethod(m.id);
                     }}
-                    style={{
+                    style={({ pressed }) => ({
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: t.spacing.md,
                       minHeight: 60,
-                      paddingHorizontal: t.spacing.lg,
+                      paddingHorizontal: selected ? t.spacing.lg - 1 : t.spacing.lg,
                       borderRadius: t.radii.md,
                       borderWidth: selected ? 2 : 1,
-                      borderColor: selected ? t.colors.primary : t.colors.border,
-                      backgroundColor: t.colors.surface,
-                    }}
+                      borderColor: selected ? t.colors.primary : t.colors.borderStrong,
+                      backgroundColor: selected ? t.colors.primarySoft : pressed ? t.colors.surfaceAlt : t.colors.surface,
+                    })}
                   >
-                    <Ionicons name={m.icon} size={22} color={selected ? t.colors.primary : t.colors.muted} />
+                    <Ionicons name={m.icon} size={22} color={selected ? t.colors.primaryText : t.colors.textSecondary} />
                     <View style={{ flex: 1 }}>
                       <Text variant="bodyStrong">{m.label}</Text>
-                      <Text variant="caption" color="muted">
+                      <Text variant="footnote" color="muted">
                         {m.sub}
                       </Text>
                     </View>
-                    <Ionicons
-                      name={selected ? 'radio-button-on' : 'radio-button-off'}
-                      size={22}
-                      color={selected ? t.colors.primary : t.colors.borderStrong}
+                    <View
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: selected ? 6 : 1.5,
+                        borderColor: selected ? t.colors.primary : t.colors.outline,
+                        backgroundColor: t.colors.surface,
+                      }}
                     />
                   </Pressable>
                 );

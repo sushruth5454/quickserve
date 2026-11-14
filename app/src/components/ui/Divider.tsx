@@ -1,4 +1,4 @@
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '../../theme';
 
 export function Divider({ inset = 0, dashed, style }: { inset?: number; dashed?: boolean; style?: StyleProp<ViewStyle> }) {
@@ -10,12 +10,10 @@ export function Divider({ inset = 0, dashed, style }: { inset?: number; dashed?:
       style={[
         dashed
           ? { borderTopWidth: 1, borderStyle: 'dashed', borderColor: t.colors.borderStrong }
-          : { height: StyleSheetHairline, backgroundColor: t.colors.border },
+          : { height: StyleSheet.hairlineWidth, backgroundColor: t.colors.borderStrong },
         { marginLeft: inset },
         style,
       ]}
     />
   );
 }
-
-const StyleSheetHairline = 1;

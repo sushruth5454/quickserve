@@ -6,10 +6,14 @@ import { useTheme } from '../../theme';
 import type { IconName } from './Button';
 import { Text } from './Text';
 
+/** Left inset for dividers between list rows with a leading icon tile: 16 padding + 32 tile + 12 gap. */
+export const LIST_INSET = 60;
+
 interface Props {
   title: string;
   subtitle?: string;
   icon?: IconName;
+  /** Deprecated: list icons are neutral. Ignored. */
   iconTint?: string;
   left?: ReactNode;
   right?: ReactNode;
@@ -18,40 +22,40 @@ interface Props {
   destructive?: boolean;
   onPress?: () => void;
   accessibilityHint?: string;
+  testID?: string;
 }
 
-export function ListItem({ title, subtitle, icon, iconTint, left, right, value, chevron, destructive, onPress, accessibilityHint }: Props) {
+export function ListItem({ title, subtitle, icon, left, right, value, chevron, destructive, onPress, accessibilityHint, testID }: Props) {
   const t = useTheme();
-  const tint = destructive ? t.colors.danger : (iconTint ?? t.colors.primary);
   const content = (
     <>
       {left ??
         (icon ? (
           <View
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: t.radii.md,
-              backgroundColor: destructive ? t.colors.dangerSoft : tint + (t.dark ? '2E' : '17'),
+              width: 32,
+              height: 32,
+              borderRadius: t.radii.sm,
+              backgroundColor: destructive ? t.colors.dangerSoft : t.colors.surfaceAlt,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Ionicons name={icon} size={20} color={tint} />
+            <Ionicons name={icon} size={18} color={destructive ? t.colors.dangerText : t.colors.textSecondary} />
           </View>
         ) : null)}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="bodyStrong" color={destructive ? 'dangerText' : 'text'} numberOfLines={2}>
+        <Text variant="body" color={destructive ? 'dangerText' : 'text'} numberOfLines={2}>
           {title}
         </Text>
         {subtitle ? (
-          <Text variant="caption" color="muted" numberOfLines={3}>
+          <Text variant="footnote" color="muted" numberOfLines={2}>
             {subtitle}
           </Text>
         ) : null}
       </View>
       {value ? (
-        <Text variant="callout" color="muted">
+        <Text variant="callout" color="muted" numberOfLines={1}>
           {value}
         </Text>
       ) : null}
@@ -63,15 +67,16 @@ export function ListItem({ title, subtitle, icon, iconTint, left, right, value, 
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: t.spacing.md,
-    minHeight: 60,
+    minHeight: subtitle ? 64 : 52,
     paddingVertical: t.spacing.md,
     paddingHorizontal: t.spacing.lg,
   };
   if (!onPress) return <View style={rowStyle}>{content}</View>;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={subtitle ? `${title}. ${subtitle}` : title}
+      accessibilityLabel={[title, subtitle, value].filter(Boolean).join('. ')}
       accessibilityHint={accessibilityHint}
       onPress={() => {
         haptics.select();

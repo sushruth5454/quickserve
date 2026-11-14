@@ -1,5 +1,5 @@
 import { Text as RNText, type TextProps as RNTextProps, type TextStyle } from 'react-native';
-import { useTheme, type Palette, type TypographyVariant } from '../../theme';
+import { maxFontScale, useTheme, type Palette, type TypographyVariant } from '../../theme';
 
 export type TextColor = keyof Palette;
 
@@ -19,13 +19,13 @@ export function Text({
   uppercase,
   tabular,
   style,
-  maxFontSizeMultiplier = 1.6,
+  maxFontSizeMultiplier,
   ...rest
 }: TextProps) {
   const t = useTheme();
   return (
     <RNText
-      maxFontSizeMultiplier={maxFontSizeMultiplier}
+      maxFontSizeMultiplier={maxFontSizeMultiplier ?? maxFontScale[variant]}
       style={[
         t.typography[variant],
         { color: t.colors[color] },

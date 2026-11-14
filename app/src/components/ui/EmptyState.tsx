@@ -10,6 +10,9 @@ interface EmptyProps {
   message?: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
+  /** Deprecated: empty states use a neutral disc. Ignored. */
   tone?: keyof Pick<Palette, 'primary' | 'danger' | 'warning' | 'success'>;
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -21,17 +24,17 @@ export function EmptyState({
   message,
   actionLabel,
   onAction,
-  tone = 'primary',
+  secondaryLabel,
+  onSecondary,
   compact,
   style,
 }: EmptyProps) {
   const t = useTheme();
-  const soft = { primary: t.colors.primarySoft, danger: t.colors.dangerSoft, warning: t.colors.warningSoft, success: t.colors.successSoft }[tone];
-  const size = compact ? 56 : 80;
+  const size = compact ? 48 : 64;
   return (
     <View
       style={[
-        { alignItems: 'center', paddingVertical: compact ? t.spacing.xl : t.spacing.huge, paddingHorizontal: t.spacing.xl, gap: t.spacing.sm },
+        { alignItems: 'center', paddingVertical: compact ? t.spacing.lg : t.spacing.huge, paddingHorizontal: t.spacing.xl, gap: t.spacing.sm },
         style,
       ]}
     >
@@ -40,24 +43,27 @@ export function EmptyState({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: soft,
+          backgroundColor: t.colors.surfaceAlt,
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: t.spacing.sm,
+          marginBottom: t.spacing.xs,
         }}
       >
-        <Ionicons name={icon} size={size * 0.45} color={t.colors[tone]} />
+        <Ionicons name={icon} size={compact ? 22 : 28} color={t.colors.muted} />
       </View>
       <Text variant="title3" align="center" accessibilityRole="header">
         {title}
       </Text>
       {message ? (
-        <Text variant="callout" color="muted" align="center" style={{ maxWidth: 300 }}>
+        <Text variant="callout" color="muted" align="center" style={{ maxWidth: 280 }}>
           {message}
         </Text>
       ) : null}
-      {actionLabel && onAction ? (
-        <Button title={actionLabel} onPress={onAction} variant="secondary" size="sm" style={{ marginTop: t.spacing.md }} />
+      {(actionLabel && onAction) || (secondaryLabel && onSecondary) ? (
+        <View style={{ alignItems: 'center', gap: t.spacing.xs, marginTop: t.spacing.md }}>
+          {actionLabel && onAction ? <Button title={actionLabel} onPress={onAction} variant="outline" /> : null}
+          {secondaryLabel && onSecondary ? <Button title={secondaryLabel} onPress={onSecondary} variant="ghost" /> : null}
+        </View>
       ) : null}
     </View>
   );
@@ -77,7 +83,6 @@ export function ErrorState({
   return (
     <EmptyState
       icon="cloud-offline-outline"
-      tone="danger"
       title={title}
       message={message ?? 'Check your connection and try again.'}
       actionLabel={onRetry ? 'Try again' : undefined}
@@ -87,7 +92,7 @@ export function ErrorState({
   );
 }
 
-/** Inline, dismiss-free error banner for form/action errors. */
+/** Inline, dismiss-free banner for form/action errors and contextual notes. */
 export function InlineAlert({
   message,
   tone = 'danger',
@@ -95,7 +100,7 @@ export function InlineAlert({
   title,
 }: {
   message: string | null | undefined;
-  tone?: 'danger' | 'warning' | 'info' | 'success';
+  tone?: 'danger' | 'warning' | 'info' | 'success' | 'neutral';
   icon?: IconName;
   title?: string;
 }) {
@@ -104,8 +109,9 @@ export function InlineAlert({
   const map = {
     danger: { bg: t.colors.dangerSoft, fg: t.colors.dangerText, icon: 'alert-circle' as IconName },
     warning: { bg: t.colors.warningSoft, fg: t.colors.warningText, icon: 'warning' as IconName },
-    info: { bg: t.colors.primarySoft, fg: t.colors.primary, icon: 'information-circle' as IconName },
+    info: { bg: t.colors.primarySoft, fg: t.colors.primaryText, icon: 'information-circle' as IconName },
     success: { bg: t.colors.successSoft, fg: t.colors.successText, icon: 'checkmark-circle' as IconName },
+    neutral: { bg: t.colors.surfaceAlt, fg: t.colors.textSecondary, icon: 'information-circle-outline' as IconName },
   }[tone];
   return (
     <View
@@ -115,18 +121,19 @@ export function InlineAlert({
         gap: t.spacing.sm,
         backgroundColor: map.bg,
         borderRadius: t.radii.md,
-        padding: t.spacing.md,
+        paddingVertical: t.spacing.md,
+        paddingHorizontal: t.spacing.md,
         alignItems: 'flex-start',
       }}
     >
       <Ionicons name={icon ?? map.icon} size={18} color={map.fg} style={{ marginTop: 1 }} />
       <View style={{ flex: 1, gap: 2 }}>
         {title ? (
-          <Text variant="subhead" style={{ color: map.fg }}>
+          <Text variant="subheadStrong" style={{ color: map.fg }}>
             {title}
           </Text>
         ) : null}
-        <Text variant="caption" style={{ color: map.fg }}>
+        <Text variant="footnote" style={{ color: tone === 'neutral' ? t.colors.textSecondary : map.fg }}>
           {message}
         </Text>
       </View>

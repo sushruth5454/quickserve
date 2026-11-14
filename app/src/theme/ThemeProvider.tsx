@@ -3,6 +3,7 @@ import { StyleSheet, useColorScheme, type ImageStyle, type TextStyle, type ViewS
 import {
   darkPalette,
   fontFamily,
+  iconSize,
   lightPalette,
   minTouch,
   motion,
@@ -21,6 +22,7 @@ export interface Theme {
   typography: typeof typography;
   fontFamily: typeof fontFamily;
   shadows: ReturnType<typeof shadows>;
+  iconSize: typeof iconSize;
   motion: typeof motion;
   minTouch: number;
 }
@@ -34,6 +36,7 @@ function buildTheme(dark: boolean): Theme {
     typography,
     fontFamily,
     shadows: shadows(dark),
+    iconSize,
     motion,
     minTouch,
   };

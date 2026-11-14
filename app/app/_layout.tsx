@@ -2,7 +2,6 @@ import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
 import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
 import { useFonts } from 'expo-font';
 import { router, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,12 +19,14 @@ function RootNavigator() {
   const segments = useSegments();
   const signedIn = !!session;
   const inAuthGroup = segments[0] === '(auth)';
+  // Public pages (safety, terms, privacy) are linked from the login screen.
+  const onPublicPage = segments[0] === 'info';
 
   // Signed out anywhere outside the auth screens (cold start on a deep link or "/", or right after logout):
   // the protected routes no longer match, so send the user to the login screen instead of "Unmatched Route".
   useEffect(() => {
-    if (!loading && !signedIn && !inAuthGroup) router.replace('/login');
-  }, [loading, signedIn, inAuthGroup]);
+    if (!loading && !signedIn && !inAuthGroup && !onPublicPage) router.replace('/login');
+  }, [loading, signedIn, inAuthGroup, onPublicPage]);
 
   if (loading) return <FullScreenLoader />;
   return (
@@ -46,10 +47,12 @@ function RootNavigator() {
         <Stack.Screen name="provider/[id]" />
         <Stack.Screen name="book/[providerServiceId]" />
         <Stack.Screen name="booking/[id]" />
+        <Stack.Screen name="chat/[bookingId]" />
         <Stack.Screen name="quote/[bookingId]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="jobs" />
       </Stack.Protected>
+      <Stack.Screen name="info/[topic]" />
     </Stack>
   );
 }
@@ -76,7 +79,6 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    Inter_800ExtraBold,
   });
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

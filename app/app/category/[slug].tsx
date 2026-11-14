@@ -1,20 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, Switch, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ProviderCard, skillLabel } from '../../src/components/ProviderCard';
 import {
   BottomSheet,
   Button,
   Chip,
+  Dot,
   EmptyState,
   ErrorState,
   Header,
   InlineAlert,
   Screen,
-  SegmentedControl,
-  SkeletonCard,
+  SkeletonProviderCard,
   Text,
 } from '../../src/components/ui';
 import { searchProviders } from '../../src/lib/api';
@@ -33,7 +33,7 @@ const SORTS: { value: SortOption; label: string; icon: keyof typeof Ionicons.gly
 ];
 const LEVELS: SkillLevel[] = ['skilled', 'expert', 'certified'];
 const FEES = [99, 199, 299];
-type RatingKey = 'any' | '3.5' | '4' | '4.5';
+const RATINGS = [3.5, 4, 4.5];
 
 const DEFAULT_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, skillLevel: null, maxVisitFee: null, onlineOnly: false };
 
@@ -43,11 +43,13 @@ export default function CategoryProviders() {
   const location = useCurrentLocation();
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
   const [draft, setDraft] = useState<SearchFilters>(DEFAULT_FILTERS);
+  const [draftCount, setDraftCount] = useState<number | null>(null);
   const [results, setResults] = useState<ProviderSearchResult[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'sort' | 'filter' | null>(null);
+  const chipsRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -66,6 +68,26 @@ export default function CategoryProviders() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    chipsRef.current?.scrollTo({ x: 0, animated: true });
+  }, [filters]);
+
+  // Live result count for the filter sheet CTA ("Show 3 pros").
+  useEffect(() => {
+    if (sheet !== 'filter' || !slug) return;
+    let alive = true;
+    setDraftCount(null);
+    const id = setTimeout(() => {
+      searchProviders(slug, location.coords, draft)
+        .then((r) => alive && setDraftCount(r.length))
+        .catch(() => alive && setDraftCount(null));
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [sheet, draft, slug, location.coords]);
+
   const activeCount =
     (filters.minRating != null ? 1 : 0) +
     (filters.skillLevel ? 1 : 0) +
@@ -77,16 +99,14 @@ export default function CategoryProviders() {
 
   const sortLabel = SORTS.find((s) => s.value === filters.sort)?.label ?? 'Sort';
   const count = results?.length ?? 0;
+  const where = location.area ?? 'you';
+  const subtitle =
+    loading && !results ? 'Finding verified pros…' : count > 0 ? `${count} verified pro${count === 1 ? '' : 's'} near ${where}` : `Near ${where}`;
 
   return (
     <>
       <Screen
-        header={
-          <Header
-            title={name ?? 'Providers'}
-            subtitle={loading && !results ? 'Finding verified pros…' : `${count} verified pro${count === 1 ? '' : 's'} near ${location.area ?? 'you'}`}
-          />
-        }
+        header={<Header title={name ?? 'Providers'} subtitle={subtitle} />}
         padded={false}
         gap={0}
         stickyHeaderIndices={[0]}
@@ -97,17 +117,26 @@ export default function CategoryProviders() {
           setRefreshing(false);
         }}
       >
-        <View style={{ backgroundColor: t.colors.bg, paddingBottom: t.spacing.md, borderBottomWidth: 1, borderBottomColor: t.colors.border }}>
+        <View
+          style={{
+            backgroundColor: t.colors.bg,
+            paddingVertical: t.spacing.sm,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: t.colors.borderStrong,
+          }}
+        >
           <ScrollView
+            ref={chipsRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm, paddingTop: t.spacing.xs }}
+            contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm, paddingVertical: 4 }}
           >
             <Chip
               label={sortLabel}
               icon="swap-vertical"
               trailingIcon="chevron-down"
               selected={filters.sort !== 'recommended'}
+              check={false}
               onPress={() => setSheet('sort')}
               accessibilityLabel={`Sort: ${sortLabel}`}
             />
@@ -116,15 +145,25 @@ export default function CategoryProviders() {
               icon="options-outline"
               count={activeCount}
               selected={activeCount > 0}
+              check={false}
               onPress={() => {
                 setDraft(filters);
                 setSheet('filter');
               }}
             />
-            <Chip label="4★ & up" selected={filters.minRating === 4} onPress={() => toggle('minRating', 4)} />
-            <Chip label="Online now" icon="radio-button-on" selected={filters.onlineOnly} onPress={() => toggle('onlineOnly', true)} />
+            <Chip label="4.0+" icon="star" selected={filters.minRating === 4} onPress={() => toggle('minRating', 4)} accessibilityLabel="Rated 4.0 and up" />
+            <Chip
+              label="Online now"
+              leading={<Dot color={t.colors.success} />}
+              selected={filters.onlineOnly}
+              onPress={() => toggle('onlineOnly', true)}
+            />
             <Chip label="Expert" selected={filters.skillLevel === 'expert'} onPress={() => toggle('skillLevel', 'expert')} />
-            <Chip label="Visit ≤ ₹199" selected={filters.maxVisitFee === rupeesToPaise(199)} onPress={() => toggle('maxVisitFee', rupeesToPaise(199))} />
+            <Chip
+              label="Visit up to ₹199"
+              selected={filters.maxVisitFee === rupeesToPaise(199)}
+              onPress={() => toggle('maxVisitFee', rupeesToPaise(199))}
+            />
           </ScrollView>
         </View>
 
@@ -133,18 +172,22 @@ export default function CategoryProviders() {
           {error ? (
             <ErrorState message={error} onRetry={() => void load()} />
           ) : loading && !results ? (
-            Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+            Array.from({ length: 3 }).map((_, i) => <SkeletonProviderCard key={i} />)
           ) : count === 0 ? (
             <EmptyState
               icon="people-outline"
-              title="No pros match these filters"
-              message="Try removing a filter or widening your search. New pros join every week."
-              actionLabel={activeCount > 0 ? 'Clear filters' : undefined}
-              onAction={() => setFilters((f) => ({ ...DEFAULT_FILTERS, sort: f.sort }))}
+              title={activeCount > 0 ? 'No pros match these filters' : `No ${(name ?? 'service').toLowerCase()} pros nearby yet`}
+              message={
+                activeCount > 0
+                  ? 'Try removing a filter to see more verified pros.'
+                  : 'New pros join every week. Try another service or check back soon.'
+              }
+              actionLabel={activeCount > 0 ? 'Clear filters' : 'Browse services'}
+              onAction={() => (activeCount > 0 ? setFilters((f) => ({ ...DEFAULT_FILTERS, sort: f.sort })) : router.navigate('/'))}
             />
           ) : (
             results!.map((p, i) => (
-              <Animated.View key={p.provider_service_id} entering={FadeInDown.delay(Math.min(i, 6) * 50).duration(280)}>
+              <Animated.View key={p.provider_service_id} entering={FadeInDown.delay(Math.min(i, 6) * 40).duration(240)}>
                 <ProviderCard
                   provider={p}
                   onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.provider_id } })}
@@ -157,7 +200,7 @@ export default function CategoryProviders() {
       </Screen>
 
       <BottomSheet visible={sheet === 'sort'} onClose={() => setSheet(null)} title="Sort by">
-        <View accessibilityRole="radiogroup" style={{ gap: 4 }}>
+        <View accessibilityRole="radiogroup" style={{ marginHorizontal: -t.spacing.sm }}>
           {SORTS.map((s) => {
             const selected = filters.sort === s.value;
             return (
@@ -174,17 +217,17 @@ export default function CategoryProviders() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   gap: t.spacing.md,
-                  minHeight: 56,
-                  paddingHorizontal: t.spacing.md,
+                  minHeight: 52,
+                  paddingHorizontal: t.spacing.sm,
                   borderRadius: t.radii.md,
-                  backgroundColor: selected ? t.colors.primarySoft : pressed ? t.colors.surfaceAlt : 'transparent',
+                  backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
                 })}
               >
-                <Ionicons name={s.icon} size={20} color={selected ? t.colors.primary : t.colors.muted} />
-                <Text variant={selected ? 'bodyStrong' : 'body'} color={selected ? 'primary' : 'text'} style={{ flex: 1 }}>
+                <Ionicons name={s.icon} size={20} color={t.colors.textSecondary} />
+                <Text variant={selected ? 'bodyStrong' : 'body'} style={{ flex: 1 }}>
                   {s.label}
                 </Text>
-                {selected ? <Ionicons name="checkmark" size={20} color={t.colors.primary} /> : null}
+                {selected ? <Ionicons name="checkmark" size={22} color={t.colors.primaryText} /> : null}
               </Pressable>
             );
           })}
@@ -199,7 +242,7 @@ export default function CategoryProviders() {
           <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
             <Button title="Reset" variant="outline" onPress={() => setDraft({ ...DEFAULT_FILTERS, sort: draft.sort })} style={{ flex: 1 }} />
             <Button
-              title="Show results"
+              title={draftCount == null ? 'Show results' : draftCount === 0 ? 'No matches' : `Show ${draftCount} pro${draftCount === 1 ? '' : 's'}`}
               onPress={() => {
                 setFilters(draft);
                 setSheet(null);
@@ -210,17 +253,18 @@ export default function CategoryProviders() {
         }
       >
         <FilterGroup title="Minimum rating">
-          <SegmentedControl<RatingKey>
-            options={[
-              { value: 'any', label: 'Any' },
-              { value: '3.5', label: '3.5+' },
-              { value: '4', label: '4.0+' },
-              { value: '4.5', label: '4.5+' },
-            ]}
-            value={draft.minRating == null ? 'any' : (String(draft.minRating) as RatingKey)}
-            onChange={(v) => setDraft((d) => ({ ...d, minRating: v === 'any' ? null : Number(v) }))}
-            accessibilityLabel="Minimum rating"
-          />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+            <Chip label="Any" selected={draft.minRating == null} onPress={() => setDraft((d) => ({ ...d, minRating: null }))} />
+            {RATINGS.map((r) => (
+              <Chip
+                key={r}
+                label={`${r.toFixed(1)}+`}
+                icon="star"
+                selected={draft.minRating === r}
+                onPress={() => setDraft((d) => ({ ...d, minRating: r }))}
+              />
+            ))}
+          </View>
         </FilterGroup>
         <FilterGroup title="Skill level">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
@@ -244,17 +288,19 @@ export default function CategoryProviders() {
           </View>
         </FilterGroup>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, minHeight: 56 }}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 2 }}>
             <Text variant="bodyStrong">Online now</Text>
-            <Text variant="caption" color="muted">
+            <Text variant="footnote" color="muted">
               Pros who can respond in minutes
             </Text>
           </View>
           <Switch
             value={draft.onlineOnly}
             onValueChange={(v) => setDraft((d) => ({ ...d, onlineOnly: v }))}
-            trackColor={{ true: t.colors.success, false: t.colors.borderStrong }}
+            trackColor={{ true: t.colors.primary, false: t.colors.outline }}
             thumbColor="#FFFFFF"
+            ios_backgroundColor={t.colors.outline}
+            {...({ activeThumbColor: '#FFFFFF' } as object)}
             accessibilityLabel="Online now only"
           />
         </View>
@@ -263,11 +309,11 @@ export default function CategoryProviders() {
   );
 }
 
-function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
   const t = useTheme();
   return (
-    <View style={{ gap: t.spacing.sm }}>
-      <Text variant="subhead" color="textSecondary">
+    <View style={{ gap: t.spacing.md }}>
+      <Text variant="subheadStrong" color="textSecondary">
         {title}
       </Text>
       {children}

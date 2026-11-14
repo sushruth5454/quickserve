@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { CategoryIcon } from '../src/components/CategoryIcon';
 import { activeStatuses, StatusPill } from '../src/components/status';
-import { Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonCard, Text } from '../src/components/ui';
+import { Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonBookingCard, Text } from '../src/components/ui';
 import { getProviderJobs, listCategories } from '../src/lib/api';
 import { formatINR } from '../src/lib/money';
 import type { Category, ProviderJob } from '../src/lib/types';
@@ -53,6 +53,7 @@ export default function ProviderJobs() {
               ]}
               value={filter}
               onChange={setFilter}
+              accessibilityLabel="Job filter"
             />
           </View>
         </Header>
@@ -68,7 +69,7 @@ export default function ProviderJobs() {
       {error && !jobs ? (
         <ErrorState message={error} onRetry={() => void load()} />
       ) : !jobs ? (
-        Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} lines={2} />)
+        Array.from({ length: 5 }).map((_, i) => <SkeletonBookingCard key={i} />)
       ) : list.length === 0 ? (
         <EmptyState icon="briefcase-outline" title="No jobs here yet" message="Stay online to receive requests from customers nearby." />
       ) : (
@@ -77,24 +78,31 @@ export default function ProviderJobs() {
             key={j.booking_id}
             onPress={() => router.push({ pathname: '/booking/[id]', params: { id: j.booking_id } })}
             accessibilityLabel={`${j.category_name} for ${j.customer_name}`}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}
+            style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md }}
           >
-            <CategoryIcon icon={categories.find((c) => c.name === j.category_name)?.icon} size={42} />
+            <CategoryIcon icon={categories.find((c) => c.name === j.category_name)?.icon} size={44} />
             <View style={{ flex: 1, gap: 3 }}>
-              <Text variant="bodyStrong" numberOfLines={1}>
+              <Text variant="calloutStrong" numberOfLines={1}>
                 {j.customer_name || 'Customer'}
               </Text>
-              <Text variant="caption" color="muted" numberOfLines={1}>
-                {j.category_name} · {new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · {j.area}
+              <Text variant="footnote" color="muted" numberOfLines={1}>
+                {j.category_name} · {new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
               </Text>
-              <StatusPill status={j.status} />
+              {j.area ? (
+                <Text variant="footnote" color="muted" numberOfLines={1}>
+                  {j.area}
+                </Text>
+              ) : null}
+              <View style={{ marginTop: 4 }}>
+                <StatusPill status={j.status} />
+              </View>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text variant="subhead" tabular>
+            <View style={{ alignItems: 'flex-end', gap: 2 }}>
+              <Text variant="calloutStrong" tabular>
                 {formatINR(j.visit_fee)}
               </Text>
-              <Text variant="micro" color="muted" uppercase>
-                Visit
+              <Text variant="caption" color="muted">
+                Visit fee
               </Text>
             </View>
           </Card>

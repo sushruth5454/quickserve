@@ -8,9 +8,13 @@ interface Props {
   icon: IconName;
   onPress: () => void;
   accessibilityLabel: string;
-  variant?: 'plain' | 'tonal' | 'surface' | 'glass';
+  accessibilityHint?: string;
+  /** `neutral`: quiet grey disc for back/close/utility actions. `tonal`: primary-tinted. `glass`: over imagery/gradients. */
+  variant?: 'plain' | 'neutral' | 'tonal' | 'surface' | 'glass';
   color?: keyof Palette;
   size?: number;
+  /** Visible diameter; the touch target is always padded to 48pt with hitSlop. */
+  visualSize?: number;
   disabled?: boolean;
   badge?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -21,58 +25,68 @@ export function IconButton({
   icon,
   onPress,
   accessibilityLabel,
+  accessibilityHint,
   variant = 'plain',
-  color = 'text',
-  size = 22,
+  color,
+  size,
+  visualSize,
   disabled,
   badge,
   style,
 }: Props) {
   const t = useTheme();
+  const d = visualSize ?? (variant === 'neutral' || variant === 'surface' ? 40 : t.minTouch);
+  const slop = Math.max(0, Math.ceil((t.minTouch - d) / 2));
   const bg: Record<NonNullable<Props['variant']>, string> = {
     plain: 'transparent',
+    neutral: t.colors.surfaceAlt,
     tonal: t.colors.primarySoft,
     surface: t.colors.surface,
-    glass: 'rgba(255,255,255,0.18)',
+    glass: 'rgba(16,24,40,0.32)',
   };
+  const fg =
+    variant === 'glass'
+      ? '#FFFFFF'
+      : t.colors[color ?? (variant === 'neutral' ? 'textSecondary' : variant === 'tonal' ? 'primaryText' : 'text')];
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
-      hitSlop={4}
+      hitSlop={slop + 2}
       onPress={() => {
         haptics.tap();
         onPress();
       }}
       style={({ pressed }) => [
         {
-          width: t.minTouch,
-          height: t.minTouch,
-          borderRadius: t.minTouch / 2,
+          width: d,
+          height: d,
+          borderRadius: d / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: bg[variant],
-          opacity: disabled ? 0.4 : pressed ? 0.6 : 1,
+          backgroundColor: pressed && variant === 'plain' ? t.colors.surfaceAlt : bg[variant],
+          opacity: disabled ? 0.4 : pressed && variant !== 'plain' ? 0.7 : 1,
         },
         variant === 'surface' ? [t.shadows.sm, { borderWidth: 1, borderColor: t.colors.border }] : null,
         style,
       ]}
     >
-      <Ionicons name={icon} size={size} color={variant === 'glass' ? '#FFFFFF' : t.colors[color]} />
+      <Ionicons name={icon} size={size ?? (d <= 32 ? 18 : 20)} color={fg} />
       {badge ? (
         <View
           style={{
             position: 'absolute',
-            top: 12,
-            right: 12,
-            width: 9,
-            height: 9,
-            borderRadius: 5,
+            top: d * 0.2,
+            right: d * 0.2,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
             backgroundColor: t.colors.danger,
-            borderWidth: 2,
-            borderColor: variant === 'glass' ? t.colors.primary : t.colors.surface,
+            borderWidth: 1.5,
+            borderColor: bg[variant] === 'transparent' ? t.colors.bg : bg[variant],
           }}
         />
       ) : null}

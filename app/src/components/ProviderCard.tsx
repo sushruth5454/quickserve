@@ -14,25 +14,18 @@ export const skillLabel: Record<SkillLevel, string> = {
 
 export const skillTone: Record<SkillLevel, Tone> = {
   beginner: 'neutral',
-  skilled: 'info',
-  expert: 'primary',
+  skilled: 'neutral',
+  expert: 'neutral',
   certified: 'success',
 };
 
 export function SkillBadge({ level }: { level: SkillLevel }) {
-  return (
-    <Badge
-      label={skillLabel[level]}
-      tone={skillTone[level]}
-      icon={level === 'certified' ? 'ribbon' : level === 'expert' ? 'flash' : undefined}
-      uppercase
-    />
-  );
+  return <Badge label={skillLabel[level]} tone={skillTone[level]} icon={level === 'certified' ? 'ribbon-outline' : undefined} />;
 }
 
 export function VerifiedMark({ size = 16 }: { size?: number }) {
   const t = useTheme();
-  return <Ionicons name="checkmark-circle" size={size} color={t.colors.success} accessibilityLabel="Verified" />;
+  return <Ionicons name="checkmark-circle" size={size} color={t.colors.primary} accessibilityLabel="Verified" />;
 }
 
 export function RatingInline({ value, count }: { value: number; count: number }) {
@@ -44,8 +37,8 @@ export function RatingInline({ value, count }: { value: number; count: number })
       accessibilityLabel={`Rated ${value.toFixed(1)} out of 5 from ${count} reviews`}
     >
       <Ionicons name="star" size={14} color={t.colors.star} />
-      <Text variant="captionStrong">{value.toFixed(1)}</Text>
-      <Text variant="caption" color="muted">
+      <Text variant="footnoteStrong">{value.toFixed(1)}</Text>
+      <Text variant="footnote" color="muted">
         ({count})
       </Text>
     </View>
@@ -56,11 +49,20 @@ export function MetaItem({ icon, label }: { icon: keyof typeof Ionicons.glyphMap
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Ionicons name={icon} size={13} color={t.colors.muted} />
-      <Text variant="caption" color="muted">
+      <Ionicons name={icon} size={14} color={t.colors.muted} />
+      <Text variant="footnote" color="muted" numberOfLines={1}>
         {label}
       </Text>
     </View>
+  );
+}
+
+/** "a · b · c" meta line with consistent separators. */
+export function MetaLine({ items }: { items: (string | null | undefined | false)[] }) {
+  return (
+    <Text variant="footnote" color="muted" numberOfLines={1}>
+      {items.filter(Boolean).join('  ·  ')}
+    </Text>
   );
 }
 
@@ -76,14 +78,13 @@ export function ProviderCard({ provider: p, onPress, onBook }: Props) {
   return (
     <Card
       onPress={onPress}
-      padding={t.spacing.lg}
       gap={t.spacing.md}
       accessibilityLabel={`${p.full_name}, verified, ${skillLabel[p.skill_level]}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews, visit fee ${formatINR(p.visit_fee)}`}
       accessibilityHint="Opens provider details"
     >
       <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
-        <Avatar name={p.full_name} uri={p.avatar_url} size={56} online={p.is_online} />
-        <View style={{ flex: 1, gap: 5 }}>
+        <Avatar name={p.full_name} uri={p.avatar_url} size={52} online={p.is_online} />
+        <View style={{ flex: 1, gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text variant="title3" numberOfLines={1} style={{ flexShrink: 1 }}>
               {p.full_name || 'Provider'}
@@ -94,11 +95,13 @@ export function ProviderCard({ provider: p, onPress, onBook }: Props) {
             <RatingInline value={rating} count={p.rating_count} />
             <SkillBadge level={p.skill_level} />
           </View>
-          <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-            {p.distance_km != null ? <MetaItem icon="location-outline" label={`${p.distance_km.toFixed(1)} km`} /> : null}
-            <MetaItem icon="briefcase-outline" label={`${p.jobs_completed} jobs`} />
-            <MetaItem icon="time-outline" label={`${p.years_experience} yrs`} />
-          </View>
+          <MetaLine
+            items={[
+              p.distance_km != null && `${p.distance_km.toFixed(1)} km`,
+              `${p.jobs_completed} jobs`,
+              `${p.years_experience} yrs exp.`,
+            ]}
+          />
         </View>
       </View>
       <View
@@ -106,12 +109,13 @@ export function ProviderCard({ provider: p, onPress, onBook }: Props) {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: t.spacing.md,
           paddingTop: t.spacing.md,
           borderTopWidth: 1,
           borderTopColor: t.colors.border,
         }}
       >
-        <View>
+        <View style={{ flex: 1 }}>
           <Text variant="caption" color="muted">
             Visit fee
           </Text>
@@ -119,12 +123,12 @@ export function ProviderCard({ provider: p, onPress, onBook }: Props) {
             <Text variant="title3" tabular>
               {formatINR(p.visit_fee)}
             </Text>
-            <Text variant="caption" color="muted">
+            <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
               adjusted in bill
             </Text>
           </View>
         </View>
-        <Button title="Book" size="sm" onPress={onBook} rightIcon="arrow-forward" accessibilityLabel={`Book ${p.full_name}`} />
+        <Button title="Book" size="sm" onPress={onBook} accessibilityLabel={`Book ${p.full_name}`} style={{ minWidth: 88 }} />
       </View>
     </Card>
   );

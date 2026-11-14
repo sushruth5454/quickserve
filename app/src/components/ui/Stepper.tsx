@@ -15,7 +15,7 @@ interface StepperProps {
   label?: string;
 }
 
-/** Quantity stepper: [−] value [+] with 44pt buttons. */
+/** Quantity stepper: one outlined control [−  value  +] with 44pt buttons. */
 export function Stepper({ value, onChange, min = 0, max = 999, step = 1, label = 'Quantity' }: StepperProps) {
   const t = useTheme();
   const btn = (icon: 'remove' | 'add', disabled: boolean, next: number) => (
@@ -24,22 +24,20 @@ export function Stepper({ value, onChange, min = 0, max = 999, step = 1, label =
       accessibilityLabel={`${icon === 'add' ? 'Increase' : 'Decrease'} ${label.toLowerCase()}`}
       accessibilityState={{ disabled }}
       disabled={disabled}
-      hitSlop={4}
+      hitSlop={2}
       onPress={() => {
         haptics.select();
         onChange(next);
       }}
       style={({ pressed }) => ({
         width: 44,
-        height: 44,
-        borderRadius: t.radii.sm + 2,
+        height: 42,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: pressed ? t.colors.primarySoft : t.colors.surface,
-        opacity: disabled ? 0.35 : 1,
+        backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
       })}
     >
-      <Ionicons name={icon} size={20} color={t.colors.primary} />
+      <Ionicons name={icon} size={20} color={disabled ? t.colors.subtle : t.colors.primaryText} />
     </Pressable>
   );
   return (
@@ -54,15 +52,17 @@ export function Stepper({ value, onChange, min = 0, max = 999, step = 1, label =
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: t.colors.surfaceAlt,
+        height: 44,
+        backgroundColor: t.colors.surface,
         borderRadius: t.radii.md,
-        padding: 2,
-        gap: 2,
+        borderWidth: 1,
+        borderColor: t.colors.outline,
+        overflow: 'hidden',
         alignSelf: 'flex-start',
       }}
     >
       {btn('remove', value - step < min, Math.max(min, +(value - step).toFixed(2)))}
-      <Text variant="bodyStrong" tabular style={{ minWidth: 32, textAlign: 'center' }}>
+      <Text variant="title3" tabular style={{ minWidth: 40, textAlign: 'center' }}>
         {value}
       </Text>
       {btn('add', value + step > max, Math.min(max, +(value + step).toFixed(2)))}
@@ -70,7 +70,7 @@ export function Stepper({ value, onChange, min = 0, max = 999, step = 1, label =
   );
 }
 
-/** Horizontal wizard progress: numbered dots joined by a filling rail. */
+/** Horizontal wizard progress: numbered dots joined by a filling rail (single accent). */
 export function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   const t = useTheme();
   return (
@@ -87,25 +87,25 @@ export function StepIndicator({ steps, current }: { steps: string[]; current: nu
             <View style={{ alignItems: 'center', gap: 6, width: 72 }}>
               <View
                 style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 16,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: done ? t.colors.success : active ? t.colors.primary : t.colors.surfaceAlt,
-                  borderWidth: active ? 4 : 0,
-                  borderColor: t.colors.primarySoft,
+                  backgroundColor: done || active ? t.colors.primary : t.colors.surface,
+                  borderWidth: done || active ? 0 : 1.5,
+                  borderColor: t.colors.outline,
                 }}
               >
                 {done ? (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
                 ) : (
                   <Text variant="captionStrong" style={{ color: active ? '#FFFFFF' : t.colors.muted }}>
                     {i + 1}
                   </Text>
                 )}
               </View>
-              <Text variant="caption" color={active ? 'text' : 'muted'} align="center" numberOfLines={1}>
+              <Text variant={active ? 'captionStrong' : 'caption'} color={active ? 'text' : 'muted'} align="center" numberOfLines={1}>
                 {label}
               </Text>
             </View>
@@ -122,8 +122,8 @@ function Rail({ filled }: { filled: boolean }) {
   const p = useDerivedValue(() => withTiming(filled ? 1 : 0, { duration: 300 }), [filled]);
   const fill = useAnimatedStyle(() => ({ width: `${p.value * 100}%` }));
   return (
-    <View style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: t.colors.border, marginTop: 15, marginHorizontal: -14 }}>
-      <Animated.View style={[{ height: 3, borderRadius: 2, backgroundColor: t.colors.success }, fill]} />
+    <View style={{ flex: 1, height: 2, borderRadius: 1, backgroundColor: t.colors.border, marginTop: 11, marginHorizontal: -18 }}>
+      <Animated.View style={[{ height: 2, borderRadius: 1, backgroundColor: t.colors.primary }, fill]} />
     </View>
   );
 }

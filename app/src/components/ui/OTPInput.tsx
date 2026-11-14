@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -27,13 +28,14 @@ interface Props {
  */
 export function OTPInput({ length = 6, value, onChange, onComplete, error, autoFocus, accessibilityLabel, secure }: Props) {
   const t = useTheme();
+  const reduceMotion = useReducedMotion();
   const ref = useRef<ComponentRef<typeof TextInput>>(null);
   const [focused, setFocused] = useState(false);
   const shake = useSharedValue(0);
   const caret = useSharedValue(1);
 
   useEffect(() => {
-    if (error) {
+    if (error && !reduceMotion) {
       shake.value = withSequence(
         withTiming(-8, { duration: 50 }),
         withTiming(8, { duration: 50 }),
@@ -42,11 +44,12 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
         withTiming(0, { duration: 50 }),
       );
     }
-  }, [error, shake]);
+  }, [error, shake, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) return;
     caret.value = withRepeat(withSequence(withTiming(0, { duration: 500 }), withTiming(1, { duration: 500 })), -1);
-  }, [caret]);
+  }, [caret, reduceMotion]);
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
   const caretStyle = useAnimatedStyle(() => ({ opacity: caret.value }));
@@ -57,10 +60,16 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
     if (digits.length === length) onComplete?.(digits);
   };
 
-  const boxSize = length > 4 ? 50 : 60;
+  const maxBox = length > 4 ? 52 : 64;
   return (
-    <Pressable onPress={() => ref.current?.focus()} accessible={false}>
-      <Animated.View style={[{ flexDirection: 'row', gap: length > 4 ? 8 : 12, justifyContent: 'center' }, rowStyle]}>
+    <Pressable
+      onPress={() => ref.current?.focus()}
+      accessible={false}
+      style={{ alignSelf: 'stretch', backgroundColor: 'transparent' }}
+    >
+      <Animated.View
+        style={[{ flexDirection: 'row', gap: t.spacing.sm, justifyContent: 'center', alignSelf: 'stretch' }, rowStyle]}
+      >
         {Array.from({ length }).map((_, i) => {
           const ch = value[i];
           const isActive = focused && (i === value.length || (i === length - 1 && value.length === length));
@@ -68,11 +77,12 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
             <View
               key={i}
               style={{
-                width: boxSize,
-                height: boxSize + 6,
+                flex: 1,
+                maxWidth: maxBox,
+                height: 56,
                 borderRadius: t.radii.md,
                 borderWidth: isActive || error ? 2 : 1,
-                borderColor: error ? t.colors.danger : isActive ? t.colors.primary : ch ? t.colors.borderStrong : t.colors.border,
+                borderColor: error ? t.colors.danger : isActive ? t.colors.primary : t.colors.outline,
                 backgroundColor: error ? t.colors.dangerSoft : t.colors.surface,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -80,11 +90,11 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
               }}
             >
               {ch ? (
-                <Text variant="title1" maxFontSizeMultiplier={1.2}>
+                <Text variant="title1" tabular style={{ fontFamily: t.fontFamily.semibold }} maxFontSizeMultiplier={1.2}>
                   {secure ? '•' : ch}
                 </Text>
               ) : isActive ? (
-                <Animated.View style={[{ width: 2, height: 24, backgroundColor: t.colors.primary }, caretStyle]} />
+                <Animated.View style={[{ width: 2, height: 24, borderRadius: 1, backgroundColor: t.colors.primary }, caretStyle]} />
               ) : null}
             </View>
           );
@@ -103,7 +113,20 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
         autoFocus={autoFocus}
         caretHidden
         accessibilityLabel={accessibilityLabel ?? `${length}-digit code`}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.011, color: 'transparent', backgroundColor: 'transparent', borderWidth: 0 }}
+        style={
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            opacity: Platform.OS === 'web' ? 0.011 : 0,
+            color: 'transparent',
+            backgroundColor: 'transparent',
+            borderWidth: 0,
+            outlineStyle: 'none',
+          } as never
+        }
       />
     </Pressable>
   );

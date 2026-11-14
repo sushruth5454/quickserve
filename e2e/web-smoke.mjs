@@ -55,6 +55,20 @@ const go = async (path) => {
   await page.goto(BASE + path);
   await page.waitForLoadState('networkidle').catch(() => undefined);
 };
+// Scrolls the screen's main scroll view (react-native-web renders it as an overflow div) and takes an extra shot.
+async function snapScrolled(name, dy = 640) {
+  await page.mouse.move(195, 420);
+  await page.mouse.wheel(0, dy);
+  await page.waitForTimeout(400);
+  await snap(name);
+}
+const optional = async (name, fn) => {
+  try {
+    await fn();
+  } catch (e) {
+    console.log(`  (optional ${name} skipped: ${String(e?.message ?? e).split('\n')[0]})`);
+  }
+};
 
 async function rest(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
@@ -88,7 +102,7 @@ const categories = await rest('categories?select=slug,name&order=sort_order').ca
 for (const c of categories) {
   await step(`category-${c.slug}`, async () => {
     await go(`/category/${c.slug}?name=${encodeURIComponent(c.name)}`);
-    await page.getByText(/verified pros? near/).first().waitFor();
+    await page.getByText(/verified pros? near|pros nearby yet|No pros match/).first().waitFor();
   });
 }
 await step('category-sort-sheet', async () => {
@@ -106,19 +120,21 @@ await step('category-filter-sheet', async () => {
 });
 await step('category-filter-applied', async () => {
   await page.getByText('Expert', { exact: true }).last().click();
-  await page.getByText('Show results', { exact: true }).click();
-  await page.getByText(/verified pros? near|No pros match/).first().waitFor();
+  await page.getByText(/^(Show \d+ pros?|Show results|No matches)$/).first().click();
+  await page.getByText(/verified pros? near|pros nearby yet|No pros match/).first().waitFor();
 });
 await step('provider-detail', async () => {
   await go(`/provider/${RAVI}`);
   await visible('Ratings & reviews');
 });
+await optional('provider-detail-scrolled', () => snapScrolled('provider-detail-scrolled', 900));
 const raviServices = await rest(`provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`).catch(() => []);
 await step('book-screen', async () => {
   if (!raviServices[0]) throw new Error('no active service for Ravi');
   await go(`/book/${raviServices[0].id}`);
   await page.getByText(/& book$/).first().waitFor();
 });
+await optional('book-screen-scrolled', () => snapScrolled('book-screen-scrolled', 800));
 await step('bookings-active', async () => {
   await go('/bookings');
   await visible('My bookings');
@@ -127,19 +143,25 @@ await step('bookings-past', async () => {
   await page.getByText('Past', { exact: true }).first().click();
   await page.waitForTimeout(500);
 });
-for (const [n, label] of [
-  [6, 'quote'],
+for (const [n, label, scrolled] of [
+  [1, 'pending-payment'],
+  [3, 'start-code'],
+  [6, 'quote', true],
+  [7, 'awaiting-payment'],
+  [8, 'change-order', true],
   [9, 'end-otp'],
-  [10, 'review-form'],
+  [10, 'review-form', true],
+  [11, 'closed'],
   [16, 'disputed'],
 ]) {
   await step(`booking-fc${n}-${label}`, async () => {
     await go(`/booking/${seeded('fc', n)}`);
     await page.getByText(/^Booking #/).first().waitFor();
   });
+  if (scrolled) await optional(`booking-fc${n}-scrolled`, () => snapScrolled(`booking-fc${n}-${label}-scrolled`, 900));
 }
 await step('booking-chat-send', async () => {
-  await go(`/booking/${seeded('fc', 9)}`);
+  await go(`/chat/${seeded('fc', 9)}`);
   const box = page.getByLabel('Message', { exact: true }).first();
   await box.waitFor();
   await box.fill('QA-E2E web chat');
@@ -147,6 +169,33 @@ await step('booking-chat-send', async () => {
   await page.getByText('QA-E2E web chat').first().waitFor();
 });
 await step('me-customer', async () => {
+  await go('/account');
+  await visible('Switch to provider mode');
+});
+await optional('me-customer-scrolled', () => snapScrolled('me-customer-scrolled', 900));
+await step('info-safety', async () => {
+  await go('/info/safety');
+  await visible('Safety & guarantee');
+});
+
+// ---------- Customer, dark mode ----------
+await page.emulateMedia({ colorScheme: 'dark' });
+for (const [name, path, wait] of [
+  ['dark-home', '/', 'AC Repair'],
+  ['dark-category', '/category/ac-repair?name=AC%20Repair', null],
+  ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
+  ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
+  ['dark-bookings', '/bookings', 'My bookings'],
+  ['dark-me-customer', '/account', 'Switch to provider mode'],
+]) {
+  await step(name, async () => {
+    await go(path);
+    if (wait) await visible(wait);
+    else await page.getByText(/^Booking #|verified pros? near|pros nearby yet/).first().waitFor();
+  });
+}
+await page.emulateMedia({ colorScheme: 'light' });
+await step('me-customer-again', async () => {
   await go('/account');
   await visible('Switch to provider mode');
 });
@@ -161,6 +210,17 @@ await step('earnings', async () => {
   await go('/earnings');
   await visible('Earnings');
 });
+await optional('earnings-scrolled', () => snapScrolled('earnings-scrolled', 700));
+for (const [n, label] of [
+  [1, 'request'],
+  [3, 'accepted'],
+  [6, 'completion-code'],
+]) {
+  await step(`provider-booking-fb${n}-${label}`, async () => {
+    await go(`/booking/${seeded('fb', n)}`);
+    await page.getByText(/^Booking #/).first().waitFor();
+  });
+}
 await step('provider-booking-fb4', async () => {
   await go(`/booking/${seeded('fb', 4)}`);
   await page.getByText(/^Booking #/).first().waitFor();
@@ -178,6 +238,25 @@ await step('onboarding', async () => {
   await visible('Provider profile');
 });
 await step('me-provider', async () => {
+  await go('/pro-account');
+  await visible('Switch to customer mode');
+});
+
+// ---------- Provider, dark mode ----------
+await page.emulateMedia({ colorScheme: 'dark' });
+for (const [name, path, wait] of [
+  ['dark-dashboard', '/dashboard', null],
+  ['dark-earnings', '/earnings', 'Earnings'],
+  ['dark-provider-booking-fb4', `/booking/${seeded('fb', 4)}`, null],
+]) {
+  await step(name, async () => {
+    await go(path);
+    if (wait) await visible(wait);
+    else await page.getByText(/^Booking #|New requests|Active jobs/).first().waitFor();
+  });
+}
+await page.emulateMedia({ colorScheme: 'light' });
+await step('me-provider-light', async () => {
   await go('/pro-account');
   await visible('Switch to customer mode');
 });

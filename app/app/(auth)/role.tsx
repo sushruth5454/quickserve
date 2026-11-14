@@ -1,6 +1,6 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState, type ComponentProps } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/ui';
 import { getMyProfile, getMyProvider, updateMyProfile } from '../../src/lib/api';
@@ -8,23 +8,19 @@ import { useAuth, type ActiveRole } from '../../src/lib/auth';
 import { haptics } from '../../src/lib/haptics';
 import { useTheme } from '../../src/theme';
 
-type Mc = ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-const ROLES: { role: ActiveRole; title: string; subtitle: string; icons: Mc[]; tint: string; bullets: string[] }[] = [
+const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bullets: string[] }[] = [
   {
     role: 'customer',
     title: 'I need a service',
     subtitle: 'Book verified pros near you',
-    icons: ['air-conditioner', 'flash', 'pipe-wrench', 'broom'],
-    tint: '#1E5EFF',
+    icon: 'home-outline',
     bullets: ['Transparent itemised quotes', 'Pay only after you approve'],
   },
   {
     role: 'provider',
     title: 'I provide services',
     subtitle: 'Get jobs nearby and get paid in-app',
-    icons: ['briefcase-variant', 'wallet', 'star-circle', 'map-marker-radius'],
-    tint: '#12B76A',
+    icon: 'briefcase-outline',
     bullets: ['0% commission for your first 30 days', 'Weekly payouts to your bank'],
   },
 ];
@@ -68,9 +64,9 @@ export default function RoleScreen() {
     <Screen
       safeTop
       background={t.colors.surface}
-      contentStyle={{ paddingHorizontal: t.spacing.xxl }}
-      gap={t.spacing.xl}
-      footer={<Button title="Continue" onPress={() => void proceed()} loading={busy} size="lg" fullWidth rightIcon="arrow-forward" />}
+      gutter={t.spacing.xxl}
+      gap={t.spacing.xxl}
+      footer={<Button title="Continue" onPress={() => void proceed()} loading={busy} size="lg" fullWidth />}
     >
       <View style={{ gap: t.spacing.sm, marginTop: t.spacing.lg }}>
         <Text variant="title1" accessibilityRole="header">
@@ -82,6 +78,9 @@ export default function RoleScreen() {
       </View>
       <Input label="Your name" placeholder="Priya Sharma" value={name} onChangeText={setName} autoComplete="name" leftIcon="person-outline" />
       <View accessibilityRole="radiogroup" style={{ gap: t.spacing.md }}>
+        <Text variant="subhead" color="textSecondary">
+          How will you use QuickServe?
+        </Text>
         {ROLES.map((r) => {
           const selected = role === r.role;
           return (
@@ -94,67 +93,68 @@ export default function RoleScreen() {
                 haptics.select();
                 setRole(r.role);
               }}
-              style={({ pressed }) => [
-                {
-                  borderRadius: t.radii.xl,
-                  borderWidth: 2,
-                  borderColor: selected ? r.tint : t.colors.border,
-                  backgroundColor: selected ? r.tint + (t.dark ? '1F' : '0D') : t.colors.surface,
-                  padding: t.spacing.lg,
-                  gap: t.spacing.md,
-                  transform: [{ scale: pressed ? 0.99 : 1 }],
-                },
-                selected ? t.shadows.md : null,
-              ]}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: t.spacing.md,
+                borderRadius: t.radii.lg,
+                borderWidth: selected ? 2 : 1,
+                borderColor: selected ? t.colors.primary : t.colors.borderStrong,
+                backgroundColor: selected ? t.colors.primarySoft : pressed ? t.colors.surfaceAlt : t.colors.surface,
+                padding: selected ? t.spacing.lg - 1 : t.spacing.lg,
+              })}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row' }}>
-                  {r.icons.map((ic, i) => (
-                    <View
-                      key={ic}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
-                        marginLeft: i === 0 ? 0 : -10,
-                        backgroundColor: t.dark ? t.colors.surfaceAlt : '#FFFFFF',
-                        borderWidth: 2,
-                        borderColor: r.tint + '33',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <MaterialCommunityIcons name={ic} size={22} color={r.tint} />
-                    </View>
-                  ))}
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: t.radii.md,
+                  backgroundColor: selected ? t.colors.surface : t.colors.surfaceAlt,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name={r.icon} size={20} color={selected ? t.colors.primaryText : t.colors.textSecondary} />
+              </View>
+              <View style={{ flex: 1, gap: 6 }}>
+                <View style={{ gap: 2 }}>
+                  <Text variant="title3">{r.title}</Text>
+                  <Text variant="footnote" color="muted">
+                    {r.subtitle}
+                  </Text>
                 </View>
-                <Ionicons
-                  name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={26}
-                  color={selected ? r.tint : t.colors.borderStrong}
-                />
-              </View>
-              <View style={{ gap: 2 }}>
-                <Text variant="title3">{r.title}</Text>
-                <Text variant="callout" color="muted">
-                  {r.subtitle}
-                </Text>
-              </View>
-              <View style={{ gap: 6 }}>
                 {r.bullets.map((b) => (
-                  <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Ionicons name="checkmark" size={16} color={r.tint} />
-                    <Text variant="caption" color="textSecondary">
+                  <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="checkmark" size={14} color={t.colors.muted} />
+                    <Text variant="footnote" color="textSecondary">
                       {b}
                     </Text>
                   </View>
                 ))}
               </View>
+              <Radio selected={selected} />
             </Pressable>
           );
         })}
       </View>
       <InlineAlert message={error} />
     </Screen>
+  );
+}
+
+function Radio({ selected }: { selected: boolean }) {
+  const t = useTheme();
+  return (
+    <View
+      style={{
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: selected ? 6 : 1.5,
+        borderColor: selected ? t.colors.primary : t.colors.outline,
+        backgroundColor: t.colors.surface,
+        marginTop: 2,
+      }}
+    />
   );
 }

@@ -48,32 +48,33 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       <BottomSheet visible={visible} onClose={() => finish(false)}>
         {opts ? (
-          <View style={{ alignItems: 'center', gap: t.spacing.md, paddingTop: t.spacing.sm }}>
+          <View style={{ alignItems: 'center', gap: t.spacing.sm, paddingTop: t.spacing.xs }}>
             <View
               style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
+                width: 48,
+                height: 48,
+                borderRadius: 24,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: opts.destructive ? t.colors.dangerSoft : t.colors.primarySoft,
+                backgroundColor: opts.destructive ? t.colors.dangerSoft : t.colors.surfaceAlt,
+                marginBottom: t.spacing.xs,
               }}
             >
               <Ionicons
                 name={opts.icon ?? (opts.destructive ? 'warning-outline' : 'help-circle-outline')}
-                size={28}
-                color={opts.destructive ? t.colors.danger : t.colors.primary}
+                size={24}
+                color={opts.destructive ? t.colors.dangerText : t.colors.textSecondary}
               />
             </View>
-            <Text variant="title2" align="center" accessibilityRole="header">
+            <Text variant="title3" align="center" accessibilityRole="header">
               {opts.title}
             </Text>
             {opts.message ? (
-              <Text variant="body" color="muted" align="center">
+              <Text variant="callout" color="muted" align="center" style={{ maxWidth: 340 }}>
                 {opts.message}
               </Text>
             ) : null}
-            <View style={{ alignSelf: 'stretch', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
+            <View style={{ alignSelf: 'stretch', gap: t.spacing.xs, marginTop: t.spacing.md }}>
               <Button
                 title={opts.confirmLabel ?? 'Confirm'}
                 variant={opts.destructive ? 'destructive' : 'primary'}

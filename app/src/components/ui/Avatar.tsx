@@ -1,14 +1,25 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '../../theme';
 import { Text } from './Text';
 
-const HUES = ['#1E5EFF', '#7A5AF8', '#EE46BC', '#F79009', '#12B76A', '#0BA5EC', '#F04438', '#6172F3'];
+// Calm, distinguishable hues. No red/orange: those read as error/warning next to a name.
+const HUES = ['#1E5EFF', '#6172F3', '#7A5AF8', '#0E9384', '#0086C9', '#C11574', '#4E5BA6', '#B54708'];
 
 function hashHue(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return HUES[h % HUES.length] ?? HUES[0]!;
+}
+
+export function lighten(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 export function initials(name: string): string {
@@ -36,7 +47,7 @@ interface Props {
 export function Avatar({ name, uri, size = 48, online, verified, style }: Props) {
   const t = useTheme();
   const hue = hashHue(name || '?');
-  const badge = Math.max(12, Math.round(size * 0.28));
+  const badge = Math.max(14, Math.round(size * 0.3));
   return (
     <View style={[{ width: size, height: size }, style]} accessible accessibilityLabel={`${name} avatar`}>
       {uri ? (
@@ -48,24 +59,26 @@ export function Avatar({ name, uri, size = 48, online, verified, style }: Props)
         />
       ) : (
         <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: t.colors.surface }}>
-        <View
-          style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: hue + (t.dark ? '33' : '1F'),
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text
-            variant="bodyStrong"
-            style={{ color: t.dark ? '#FFFFFF' : hue, fontSize: size * 0.36, lineHeight: size * 0.44 }}
-            maxFontSizeMultiplier={1}
+          <View
+            style={{
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: t.dark ? t.colors.surfaceRaised : hue + '1A',
+              borderWidth: t.dark ? 1 : 0,
+              borderColor: t.colors.border,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            {initials(name)}
-          </Text>
-        </View>
+            <Text
+              variant="bodyStrong"
+              style={{ color: t.dark ? lighten(hue, 0.45) : hue, fontSize: size * 0.38, lineHeight: size * 0.46 }}
+              maxFontSizeMultiplier={1}
+            >
+              {initials(name)}
+            </Text>
+          </View>
         </View>
       )}
       {online ? (
@@ -92,16 +105,14 @@ export function Avatar({ name, uri, size = 48, online, verified, style }: Props)
             width: badge,
             height: badge,
             borderRadius: badge / 2,
-            backgroundColor: t.colors.success,
+            backgroundColor: t.colors.primary,
             borderWidth: 2,
             borderColor: t.colors.surface,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: badge * 0.55, lineHeight: badge * 0.7 }} maxFontSizeMultiplier={1}>
-            ✓
-          </Text>
+          <Ionicons name="checkmark" size={Math.round(badge * 0.6)} color="#FFFFFF" />
         </View>
       ) : null}
     </View>

@@ -6,8 +6,8 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
-import { RatingInline, VerifiedMark } from '../../src/components/ProviderCard';
-import { StatusPill, activeStatuses } from '../../src/components/status';
+import { MetaLine, RatingInline, VerifiedMark } from '../../src/components/ProviderCard';
+import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
 import { Avatar, Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
@@ -61,52 +61,52 @@ export default function CustomerHome() {
   );
 
   const openCategory = (c: Category) => router.push({ pathname: '/category/[slug]', params: { slug: c.slug, name: c.name } });
+  const gutter = { paddingHorizontal: t.spacing.lg };
 
   return (
-    <Screen inTabs padded={false} refreshing={refreshing} onRefresh={refresh} gap={t.spacing.xxl}>
+    <Screen inTabs padded={false} refreshing={refreshing} onRefresh={refresh} gap={t.spacing.section}>
       {/* Header */}
-      <View style={{ paddingTop: insets.top + t.spacing.sm, paddingHorizontal: t.spacing.lg, gap: t.spacing.lg }}>
+      <View style={[gutter, { paddingTop: insets.top + t.spacing.sm, gap: t.spacing.xl }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Service location: ${location.area ?? 'Locating'}, ${location.city ?? ''}. Tap to refresh.`}
             onPress={() => void location.refresh()}
-            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, minHeight: 48 }}
+            style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, minHeight: 48, opacity: pressed ? 0.7 : 1 })}
           >
             <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: t.colors.primarySoft,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Ionicons name="location" size={20} color={t.colors.primary} />
+              <Ionicons name="location-outline" size={20} color={t.colors.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text variant="caption" color="muted">
                 Home
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text variant="subhead" numberOfLines={1} style={{ flexShrink: 1 }}>
+                <Text variant="calloutStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
                   {location.area ?? (location.loading ? 'Locating…' : 'Set your location')}
                   {location.city ? `, ${location.city}` : ''}
                 </Text>
-                <Ionicons name="chevron-down" size={16} color={t.colors.text} />
+                <Ionicons name="chevron-down" size={16} color={t.colors.muted} />
               </View>
             </View>
           </Pressable>
-          <IconButton icon="notifications-outline" accessibilityLabel="Notifications" onPress={() => router.push('/bookings')} variant="surface" badge={!!active} />
+          <IconButton
+            icon="notifications-outline"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push('/bookings')}
+            variant="neutral"
+            badge={!!active}
+          />
         </View>
 
         <View style={{ gap: 4 }}>
           <Text variant="title1" accessibilityRole="header">
-            {firstName ? `Hi ${firstName} 👋` : 'Hi there 👋'}
+            {firstName ? `Hi ${firstName}` : 'Hi there'}
           </Text>
           <Text variant="body" color="muted">
-            What do you need fixed today?
+            What do you need help with today?
           </Text>
         </View>
 
@@ -116,12 +116,13 @@ export default function CustomerHome() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: t.spacing.sm,
-              minHeight: 52,
-              borderRadius: t.radii.lg,
+              minHeight: 48,
+              borderRadius: t.radii.md,
               backgroundColor: t.colors.surface,
               borderWidth: 1,
-              borderColor: t.colors.border,
-              paddingHorizontal: t.spacing.lg,
+              borderColor: t.colors.borderStrong,
+              paddingLeft: t.spacing.md,
+              paddingRight: t.spacing.xs,
             },
             t.shadows.sm,
           ]}
@@ -131,12 +132,14 @@ export default function CustomerHome() {
             value={query}
             onChangeText={setQuery}
             placeholder='Search "AC repair", "plumber"…'
-            placeholderTextColor={t.colors.subtle}
+            placeholderTextColor={t.colors.muted}
             accessibilityLabel="Search services"
             returnKeyType="search"
-            style={{ flex: 1, minHeight: 48, color: t.colors.text, fontFamily: t.fontFamily.regular, fontSize: 16 }}
+            style={{ flex: 1, minHeight: 44, color: t.colors.text, fontFamily: t.fontFamily.regular, fontSize: 16, outlineStyle: 'none' } as never}
           />
-          {query ? <IconButton icon="close-circle" accessibilityLabel="Clear search" onPress={() => setQuery('')} color="subtle" size={20} /> : null}
+          {query ? (
+            <IconButton icon="close-circle" accessibilityLabel="Clear search" onPress={() => setQuery('')} color="muted" size={20} visualSize={40} />
+          ) : null}
         </View>
       </View>
 
@@ -144,12 +147,11 @@ export default function CustomerHome() {
 
       {/* Active booking */}
       {active ? (
-        <View style={{ paddingHorizontal: t.spacing.lg }}>
+        <View style={gutter}>
           <Card
+            variant="elevated"
             onPress={() => router.push({ pathname: '/booking/[id]', params: { id: active.id } })}
-            accessibilityLabel={`Active booking ${active.categories?.name ?? ''}`}
-            elevation="md"
-            gap={t.spacing.md}
+            accessibilityLabel={`Active booking ${active.categories?.name ?? ''}. ${nextStepCopy[active.status] ?? ''}`}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
               <CategoryIcon icon={categories?.find((c) => c.slug === active.categories?.slug)?.icon} size={44} />
@@ -163,19 +165,25 @@ export default function CustomerHome() {
               </View>
               <StatusPill status={active.status} />
             </View>
-            <ProgressBar status={active.status} />
+            <ProgressBar status={active.status} showLabel={false} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+              <Text variant="footnote" color="textSecondary" style={{ flex: 1 }} numberOfLines={2}>
+                {nextStepCopy[active.status] ?? 'View booking details'}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={t.colors.subtle} />
+            </View>
           </Card>
         </View>
       ) : null}
 
       {/* Categories */}
-      <View style={{ paddingHorizontal: t.spacing.lg }}>
-        <Section title="What do you need?">
+      <View style={gutter}>
+        <Section title="Services">
           {!categories ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
               {Array.from({ length: 8 }).map((_, i) => (
                 <View key={i} style={{ width: '25%', alignItems: 'center', gap: 8 }}>
-                  <Skeleton width={60} height={60} radius={18} />
+                  <Skeleton width={64} height={64} radius={t.radii.lg} />
                   <Skeleton width={52} height={10} />
                 </View>
               ))}
@@ -183,17 +191,17 @@ export default function CustomerHome() {
           ) : filtered.length === 0 ? (
             <EmptyState compact icon="search" title="No matching service" message={`We don't have "${query}" yet. Try another word.`} />
           ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg, marginHorizontal: -t.spacing.xs }}>
               {filtered.map((c, i) => (
-                <Animated.View key={c.id} entering={FadeInDown.delay(i * 25).duration(260)} style={{ width: '25%' }}>
+                <Animated.View key={c.id} entering={FadeInDown.delay(i * 20).duration(240)} style={{ width: '25%', paddingHorizontal: t.spacing.xs }}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={c.name}
                     onPress={() => openCategory(c)}
-                    style={({ pressed }) => ({ alignItems: 'center', gap: 8, opacity: pressed ? 0.6 : 1, paddingHorizontal: 2 })}
+                    style={({ pressed }) => ({ alignItems: 'center', gap: 8, opacity: pressed ? 0.6 : 1 })}
                   >
-                    <CategoryIcon icon={c.icon} size={60} />
-                    <Text variant="caption" align="center" numberOfLines={2} style={{ color: t.colors.textSecondary, minHeight: 36 }}>
+                    <CategoryIcon icon={c.icon} size={64} />
+                    <Text variant="caption" color="textSecondary" align="center" numberOfLines={2} style={{ height: 32 }}>
                       {c.name}
                     </Text>
                   </Pressable>
@@ -205,42 +213,32 @@ export default function CustomerHome() {
       </View>
 
       {/* Guarantee banner */}
-      <View style={{ paddingHorizontal: t.spacing.lg }}>
+      <View style={gutter}>
         <LinearGradient
           colors={[t.colors.heroFrom, t.colors.heroTo]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={{ borderRadius: t.radii.xl, padding: t.spacing.xl, flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg, overflow: 'hidden' }}
+          style={{ borderRadius: t.radii.lg, padding: t.spacing.xl, flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}
         >
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text variant="micro" uppercase style={{ color: 'rgba(255,255,255,0.8)' }}>
-              QuickServe promise
-            </Text>
+          <View style={{ flex: 1, gap: 4 }}>
             <Text variant="title3" style={{ color: '#FFFFFF' }}>
-              No surprise bills. Ever.
+              No surprise bills
             </Text>
-            <Text variant="caption" style={{ color: 'rgba(255,255,255,0.88)' }}>
+            <Text variant="footnote" style={{ color: 'rgba(255,255,255,0.9)' }}>
               Approve an itemised quote before work starts. Your money is held until the job is done.
             </Text>
           </View>
           <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              backgroundColor: 'rgba(255,255,255,0.16)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Ionicons name="shield-checkmark" size={34} color="#FFFFFF" />
+            <Ionicons name="shield-checkmark-outline" size={24} color="#FFFFFF" />
           </View>
         </LinearGradient>
       </View>
 
       {/* Top rated */}
       <View style={{ gap: t.spacing.md }}>
-        <View style={{ paddingHorizontal: t.spacing.lg }}>
+        <View style={gutter}>
           <Section title="Top rated near you" subtitle="Verified pros with the best reviews">
             {null}
           </Section>
@@ -248,25 +246,25 @@ export default function CustomerHome() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.md, paddingBottom: 6 }}
+          contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.md, paddingBottom: 4 }}
           decelerationRate="fast"
-          snapToInterval={232 + t.spacing.md}
+          snapToInterval={240 + t.spacing.md}
         >
           {!categories
-            ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} width={232} height={150} radius={t.radii.lg} />)
+            ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} width={240} height={96} radius={t.radii.lg} />)
             : topRated.map((p) => (
                 <Card
                   key={p.id}
                   onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.id } })}
                   accessibilityLabel={`${p.profiles?.full_name}, rated ${Number(p.rating_avg).toFixed(1)}`}
-                  style={{ width: 232 }}
-                  gap={t.spacing.md}
+                  style={{ width: 240 }}
+                  gap={t.spacing.sm}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                    <Avatar name={p.profiles?.full_name ?? 'Provider'} uri={p.profiles?.avatar_url} size={48} online={p.is_online} />
+                    <Avatar name={p.profiles?.full_name ?? 'Provider'} uri={p.profiles?.avatar_url} size={44} online={p.is_online} />
                     <View style={{ flex: 1, gap: 2 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text variant="subhead" numberOfLines={1} style={{ flexShrink: 1 }}>
+                        <Text variant="calloutStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
                           {p.profiles?.full_name || 'Provider'}
                         </Text>
                         <VerifiedMark size={14} />
@@ -274,26 +272,11 @@ export default function CustomerHome() {
                       <RatingInline value={Number(p.rating_avg)} count={p.rating_count} />
                     </View>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                    <Stat label="Jobs" value={String(p.jobs_completed)} />
-                    <Stat label="Experience" value={`${p.years_experience} yrs`} />
-                  </View>
+                  <MetaLine items={[`${p.jobs_completed} jobs`, `${p.years_experience} yrs experience`]} />
                 </Card>
               ))}
         </ScrollView>
       </View>
     </Screen>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  const t = useTheme();
-  return (
-    <View style={{ flex: 1, backgroundColor: t.colors.surfaceAlt, borderRadius: t.radii.sm, paddingVertical: 8, paddingHorizontal: 10 }}>
-      <Text variant="micro" color="muted" uppercase>
-        {label}
-      </Text>
-      <Text variant="subhead">{value}</Text>
-    </View>
   );
 }

@@ -5,6 +5,7 @@ import { useTheme, type Elevation } from '../../theme';
 
 interface CardProps {
   children: ReactNode;
+  /** Default `outlined` (flat, 1px border) for dense lists; `elevated` adds a soft shadow for hero/floating content. */
   variant?: 'elevated' | 'outlined' | 'filled' | 'tinted';
   tint?: string;
   padding?: number;
@@ -18,7 +19,7 @@ interface CardProps {
 
 export function Card({
   children,
-  variant = 'elevated',
+  variant = 'outlined',
   tint,
   padding,
   elevation = 'sm',
@@ -32,7 +33,7 @@ export function Card({
   const base: ViewStyle = {
     borderRadius: t.radii.lg,
     padding: padding ?? t.spacing.lg,
-    gap: gap ?? t.spacing.sm,
+    gap: gap ?? t.spacing.md,
     backgroundColor:
       variant === 'filled' ? t.colors.surfaceAlt : variant === 'tinted' ? (tint ?? t.colors.primarySoft) : t.colors.surface,
     borderWidth: variant === 'filled' || variant === 'tinted' ? 0 : 1,
@@ -49,12 +50,7 @@ export function Card({
         haptics.select();
         onPress();
       }}
-      style={({ pressed }) => [
-        base,
-        shadow,
-        pressed && { backgroundColor: t.colors.surfaceAlt, transform: [{ scale: 0.99 }] },
-        style,
-      ]}
+      style={({ pressed }) => [base, shadow, pressed && { backgroundColor: t.colors.surfaceAlt }, style]}
     >
       {children}
     </Pressable>

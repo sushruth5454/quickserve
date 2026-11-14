@@ -5,9 +5,10 @@ import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { kindLabel } from '../../src/components/QuoteView';
 import {
+  Badge,
+  BottomSheet,
   Button,
   Card,
-  Chip,
   Divider,
   ErrorState,
   Header,
@@ -37,6 +38,11 @@ interface Line {
 }
 
 const KINDS: QuoteItemKind[] = ['labour', 'part', 'other'];
+const KIND_ICON: Record<QuoteItemKind, keyof typeof Ionicons.glyphMap> = {
+  labour: 'construct-outline',
+  part: 'hardware-chip-outline',
+  other: 'ellipsis-horizontal-circle-outline',
+};
 const PLACEHOLDER: Record<QuoteItemKind, string> = {
   labour: 'e.g. Gas refill, wiring work',
   part: 'e.g. Capacitor 45uF',
@@ -59,6 +65,7 @@ export default function QuoteEditorScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -131,178 +138,205 @@ export default function QuoteEditorScreen() {
   }
 
   const pct = rateBp / 100;
+  const menuLine = lines.find((l) => l.key === menuFor) ?? null;
+  const menuIndex = menuLine ? lines.indexOf(menuLine) : -1;
 
   return (
-    <Screen
-      header={<Header title={title} subtitle={`${booking.categories?.name ?? 'Job'} · #${booking.id.slice(0, 8)}`} />}
-      footer={
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
-          <View>
-            <Text variant="caption" color="muted">
-              You receive
-            </Text>
+    <>
+      <Screen
+        header={<Header title={title} subtitle={`${booking.categories?.name ?? 'Job'} · #${booking.id.slice(0, 8)}`} />}
+        footer={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
+            <View>
+              <Text variant="caption" color="muted">
+                You receive
+              </Text>
+              <Text variant="title2" tabular>
+                {formatINR(settlement.providerPayout)}
+              </Text>
+            </View>
+            <Button
+              title={isChangeOrder ? 'Send change order' : 'Send to customer'}
+              size="lg"
+              onPress={() => void submit()}
+              loading={submitting}
+              style={{ flex: 1 }}
+            />
+          </View>
+        }
+      >
+        {isChangeOrder ? (
+          <InlineAlert tone="info" message="List the full revised scope. The customer only pays the difference over what they already paid." />
+        ) : null}
+
+        <View style={{ gap: t.spacing.md }}>
+          {lines.map((l, i) => {
+            const p = parsed[i]!;
+            const lineTotal = Number.isFinite(p.unit_price) ? Math.round(l.qty * p.unit_price) : 0;
+            const titleErr = showErrors && !l.title.trim() ? 'Required' : null;
+            const priceErr = showErrors && !Number.isFinite(p.unit_price) ? 'Required' : null;
+            return (
+              <Animated.View key={l.key} entering={FadeInDown.duration(200)} exiting={FadeOut.duration(150)} layout={LinearTransition}>
+                <Card gap={t.spacing.md}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+                    <Badge label={kindLabel[l.kind]} icon={KIND_ICON[l.kind]} size="md" />
+                    <Text variant="footnote" color="muted" style={{ flex: 1 }}>
+                      Item {i + 1}
+                    </Text>
+                    <IconButton
+                      icon="ellipsis-horizontal"
+                      accessibilityLabel={`More options for item ${i + 1}`}
+                      onPress={() => setMenuFor(l.key)}
+                      visualSize={36}
+                      color="textSecondary"
+                    />
+                  </View>
+                  <Input
+                    placeholder={PLACEHOLDER[l.kind]}
+                    value={l.title}
+                    onChangeText={(v) => update(l.key, { title: v })}
+                    accessibilityLabel={`Line ${i + 1} description`}
+                    error={titleErr}
+                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md }}>
+                    <View style={{ gap: 6 }}>
+                      <Text variant="subhead" color="textSecondary">
+                        Qty
+                      </Text>
+                      <Stepper value={l.qty} min={1} max={100} onChange={(v) => update(l.key, { qty: v })} label={`Line ${i + 1} quantity`} />
+                    </View>
+                    <Input
+                      label="Unit price"
+                      prefix="₹"
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                      value={l.unitPrice}
+                      onChangeText={(v) => update(l.key, { unitPrice: v.replace(/[^\d.]/g, '') })}
+                      accessibilityLabel={`Line ${i + 1} unit price in rupees`}
+                      containerStyle={{ flex: 1 }}
+                      error={priceErr}
+                    />
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
+                    <Text variant="footnote" color="muted" style={{ flex: 1 }}>
+                      {l.kind === 'labour' ? `${pct}% commission applies` : 'No commission · passed through at cost'}
+                    </Text>
+                    <Text variant="calloutStrong" tabular>
+                      {formatINR(lineTotal)}
+                    </Text>
+                  </View>
+                  {l.kind === 'part' && lineTotal > 50000 ? (
+                    <InlineAlert tone="warning" icon="camera-outline" message="Parts above ₹500 need a bill photo — share it in the booking chat." />
+                  ) : null}
+                </Card>
+              </Animated.View>
+            );
+          })}
+
+          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+            {KINDS.map((k) => (
+              <Button
+                key={k}
+                title={kindLabel[k]}
+                leftIcon="add"
+                variant="outline"
+                size="sm"
+                onPress={() => setLines((ls) => [...ls, newLine(k)])}
+                accessibilityLabel={`Add ${kindLabel[k].toLowerCase()} line`}
+                style={{ flex: 1 }}
+              />
+            ))}
+          </View>
+        </View>
+
+        <TextArea label="Note for the customer (optional)" placeholder="Explain what you found and why" value={note} onChangeText={setNote} maxLength={500} />
+
+        <Card variant="elevated" gap={10}>
+          <Text variant="title3" style={{ marginBottom: 2 }}>
+            Summary
+          </Text>
+          {settlement.subtotals.labour > 0 ? <PriceRow label="Labour" amount={settlement.subtotals.labour} /> : null}
+          {settlement.subtotals.parts > 0 ? <PriceRow label="Parts" amount={settlement.subtotals.parts} /> : null}
+          {settlement.subtotals.other > 0 ? <PriceRow label="Other" amount={settlement.subtotals.other} /> : null}
+          <PriceRow label="Quote total" amount={settlement.subtotals.total} />
+          <PriceRow
+            label="Customer pays"
+            amount={settlement.customerTotal}
+            hint={`Incl. ${formatINR(booking.platform_fee)} platform fee; ${formatINR(booking.visit_fee)} visit fee already paid`}
+            emphasis="muted"
+          />
+          <Divider style={{ marginVertical: 2 }} />
+          <PriceRow label={`Commission (${pct}% of labour)`} amount={-settlement.commission} emphasis="muted" />
+          <PriceRow label="GST on commission (18%)" amount={-settlement.gst} emphasis="muted" />
+          <Divider dashed style={{ marginVertical: 2 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text variant="title3">You receive</Text>
             <Text variant="title2" color="successText" tabular>
               {formatINR(settlement.providerPayout)}
             </Text>
           </View>
-          <Button
-            title={isChangeOrder ? 'Send change order' : 'Send to customer'}
-            rightIcon="send"
-            size="lg"
-            onPress={() => void submit()}
-            loading={submitting}
-            style={{ flex: 1 }}
-          />
-        </View>
-      }
-    >
-      {isChangeOrder ? (
-        <InlineAlert
-          tone="info"
-          message="List the full revised scope. The customer only pays the difference over what they already paid."
-        />
-      ) : null}
-
-      <View style={{ flexDirection: 'row', gap: t.spacing.sm, flexWrap: 'wrap' }}>
-        {KINDS.map((k) => (
-          <Chip
-            key={k}
-            label={kindLabel[k]}
-            icon="add"
-            onPress={() => setLines((ls) => [...ls, newLine(k)])}
-            accessibilityLabel={`Add ${kindLabel[k].toLowerCase()} line`}
-          />
-        ))}
-      </View>
-
-      {lines.map((l, i) => {
-        const p = parsed[i]!;
-        const lineTotal = Number.isFinite(p.unit_price) ? Math.round(l.qty * p.unit_price) : 0;
-        const titleErr = showErrors && !l.title.trim() ? 'Required' : null;
-        const priceErr = showErrors && !Number.isFinite(p.unit_price) ? 'Required' : null;
-        return (
-          <Animated.View key={l.key} entering={FadeInDown.duration(220)} exiting={FadeOut.duration(150)} layout={LinearTransition}>
-            <Card gap={t.spacing.md}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.xs }}>
-                <View style={{ flexDirection: 'row', gap: 6, flex: 1, flexWrap: 'wrap' }}>
-                  {KINDS.map((k) => (
-                    <KindPill key={k} label={kindLabel[k]} selected={l.kind === k} onPress={() => update(l.key, { kind: k })} />
-                  ))}
-                </View>
-                {lines.length > 1 ? (
-                  <IconButton
-                    icon="trash-outline"
-                    color="danger"
-                    size={20}
-                    accessibilityLabel={`Remove line ${i + 1}`}
-                    onPress={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}
-                  />
-                ) : null}
-              </View>
-              <Input
-                placeholder={PLACEHOLDER[l.kind]}
-                value={l.title}
-                onChangeText={(v) => update(l.key, { title: v })}
-                accessibilityLabel={`Line ${i + 1} description`}
-                error={titleErr}
-              />
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md }}>
-                <View style={{ gap: 6 }}>
-                  <Text variant="captionStrong" color="textSecondary">
-                    Qty
-                  </Text>
-                  <Stepper value={l.qty} min={1} max={100} onChange={(v) => update(l.key, { qty: v })} label={`Line ${i + 1} quantity`} />
-                </View>
-                <Input
-                  label="Unit price"
-                  prefix="₹"
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  value={l.unitPrice}
-                  onChangeText={(v) => update(l.key, { unitPrice: v.replace(/[^\d.]/g, '') })}
-                  accessibilityLabel={`Line ${i + 1} unit price in rupees`}
-                  containerStyle={{ flex: 1 }}
-                  error={priceErr}
-                />
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text variant="caption" color="muted">
-                  {l.kind === 'labour' ? `${pct}% commission applies` : 'No commission · passed through at cost'}
-                </Text>
-                <Text variant="bodyStrong" tabular>
-                  {formatINR(lineTotal)}
-                </Text>
-              </View>
-              {l.kind === 'part' && lineTotal > 50000 ? (
-                <InlineAlert tone="warning" icon="camera-outline" message="Parts above ₹500 need a bill photo — share it in the booking chat." />
-              ) : null}
-            </Card>
-          </Animated.View>
-        );
-      })}
-
-      <TextArea label="Note for the customer (optional)" placeholder="Explain what you found and why" value={note} onChangeText={setNote} maxLength={500} />
-
-      <Card gap={t.spacing.md} elevation="md">
-        <Text variant="title3">Summary</Text>
-        {settlement.subtotals.labour > 0 ? <PriceRow label="Labour" amount={settlement.subtotals.labour} /> : null}
-        {settlement.subtotals.parts > 0 ? <PriceRow label="Parts" amount={settlement.subtotals.parts} /> : null}
-        {settlement.subtotals.other > 0 ? <PriceRow label="Other" amount={settlement.subtotals.other} /> : null}
-        <PriceRow label="Quote total" amount={settlement.subtotals.total} emphasis="normal" />
-        <PriceRow
-          label="Customer pays"
-          amount={settlement.customerTotal}
-          hint={`Incl. ${formatINR(booking.platform_fee)} platform fee; ${formatINR(booking.visit_fee)} visit fee already paid`}
-          emphasis="muted"
-        />
-        <Divider />
-        <PriceRow label={`Commission (${pct}% of labour)`} amount={-settlement.commission} emphasis="muted" />
-        <PriceRow label="GST on commission (18%)" amount={-settlement.gst} emphasis="muted" />
-        <Divider dashed />
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="wallet" size={18} color={t.colors.success} />
-            <Text variant="title3">You receive</Text>
-          </View>
-          <Text variant="title2" color="successText" tabular>
-            {formatINR(settlement.providerPayout)}
+          <Text variant="footnote" color="muted">
+            {rateBp === 0 ? 'You are in your 0% commission period. ' : ''}Paid to your bank 24 hours after completion, before
+            statutory TDS/TCS.
           </Text>
-        </View>
-        <Text variant="caption" color="muted">
-          {rateBp === 0 ? 'You are in your 0% commission period. ' : ''}Paid to your bank 24 hours after completion, before
-          statutory TDS/TCS.
-        </Text>
-      </Card>
-      <InlineAlert message={error} />
-    </Screen>
-  );
-}
+        </Card>
+        <InlineAlert message={error} />
+      </Screen>
 
-function KindPill({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  const t = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={label}
-      hitSlop={{ top: 8, bottom: 8 }}
-      onPress={() => {
-        haptics.select();
-        onPress();
-      }}
-      style={{
-        minHeight: 32,
-        paddingHorizontal: 12,
-        borderRadius: t.radii.pill,
-        justifyContent: 'center',
-        backgroundColor: selected ? t.colors.primarySoft : t.colors.surfaceAlt,
-        borderWidth: 1,
-        borderColor: selected ? t.colors.primary : 'transparent',
-      }}
-    >
-      <Text variant="captionStrong" color={selected ? 'primary' : 'muted'}>
-        {label}
-      </Text>
-    </Pressable>
+      <BottomSheet visible={!!menuLine} onClose={() => setMenuFor(null)} title={menuLine ? `Item ${menuIndex + 1}` : undefined}>
+        {menuLine ? (
+          <View style={{ gap: t.spacing.md }}>
+            <Text variant="subheadStrong" color="textSecondary">
+              Type
+            </Text>
+            <View style={{ marginHorizontal: -t.spacing.sm }}>
+              {KINDS.map((k) => {
+                const selected = menuLine.kind === k;
+                return (
+                  <Pressable
+                    key={k}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    onPress={() => {
+                      haptics.select();
+                      update(menuLine.key, { kind: k });
+                      setMenuFor(null);
+                    }}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: t.spacing.md,
+                      minHeight: 52,
+                      paddingHorizontal: t.spacing.sm,
+                      borderRadius: t.radii.md,
+                      backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
+                    })}
+                  >
+                    <Ionicons name={KIND_ICON[k]} size={20} color={t.colors.textSecondary} />
+                    <Text variant={selected ? 'bodyStrong' : 'body'} style={{ flex: 1 }}>
+                      {kindLabel[k]}
+                    </Text>
+                    {selected ? <Ionicons name="checkmark" size={22} color={t.colors.primaryText} /> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            {lines.length > 1 ? (
+              <Button
+                title="Remove item"
+                variant="destructiveGhost"
+                leftIcon="trash-outline"
+                onPress={() => {
+                  setLines((ls) => ls.filter((x) => x.key !== menuLine.key));
+                  setMenuFor(null);
+                }}
+              />
+            ) : null}
+          </View>
+        ) : (
+          <View />
+        )}
+      </BottomSheet>
+    </>
   );
 }

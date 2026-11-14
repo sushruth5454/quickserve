@@ -14,9 +14,9 @@ export const statusLabel: Record<BookingStatus, string> = {
   completion_requested: 'Completion requested',
   completed: 'Completed',
   closed: 'Closed',
-  closed_no_work: 'Closed — quote rejected',
+  closed_no_work: 'Closed · no work',
   declined: 'Declined by provider',
-  expired: 'Expired (not accepted in time)',
+  expired: 'Expired',
   cancelled: 'Cancelled',
   disputed: 'Under dispute',
   refunded: 'Refunded',
@@ -43,15 +43,19 @@ export const statusShort: Record<BookingStatus, string> = {
   refunded: 'Refunded',
 };
 
+/**
+ * warning = the customer needs to act · primary = in progress · success = done ·
+ * neutral = ended without work · danger = disputed/declined.
+ */
 export const statusTone: Record<BookingStatus, Tone> = {
   pending_payment: 'warning',
-  requested: 'warning',
+  requested: 'primary',
   accepted: 'primary',
   en_route: 'primary',
   inspecting: 'primary',
   quote_sent: 'warning',
   awaiting_payment: 'warning',
-  in_progress: 'info',
+  in_progress: 'primary',
   completion_requested: 'warning',
   completed: 'success',
   closed: 'success',
@@ -61,6 +65,20 @@ export const statusTone: Record<BookingStatus, Tone> = {
   cancelled: 'neutral',
   disputed: 'danger',
   refunded: 'neutral',
+};
+
+/** One-line "what happens next" copy for booking cards. */
+export const nextStepCopy: Partial<Record<BookingStatus, string>> = {
+  pending_payment: 'Pay the visit fee to send your request',
+  requested: 'Waiting for the pro to accept · usually ~15 min',
+  accepted: 'Pro confirmed · share the start code on arrival',
+  en_route: 'Pro is on the way · keep your start code ready',
+  inspecting: 'Pro is inspecting the problem',
+  quote_sent: 'Review and approve the quote',
+  awaiting_payment: 'Pay the balance to start work',
+  in_progress: 'Work in progress · payment held safely',
+  completion_requested: 'Check the work and share the completion code',
+  disputed: 'Support is reviewing your report',
 };
 
 export const terminalStatuses: BookingStatus[] = ['closed', 'closed_no_work', 'declined', 'expired', 'cancelled', 'refunded'];

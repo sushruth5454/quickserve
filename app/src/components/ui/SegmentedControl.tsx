@@ -15,6 +15,7 @@ interface Option<T extends string> {
 }
 
 interface Props<T extends string> {
+  /** Up to 3 options; use chips for 4 or more. */
   options: Option<T>[];
   value: T;
   onChange: (v: T) => void;
@@ -26,7 +27,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
   const t = useTheme();
   const [width, setWidth] = useState(0);
   const index = Math.max(0, options.findIndex((o) => o.value === value));
-  const segment = width > 0 ? (width - 8) / options.length : 0;
+  const segment = width > 0 ? (width - 6) / options.length : 0;
   const x = useSharedValue(0);
 
   useEffect(() => {
@@ -45,8 +46,8 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
           flexDirection: 'row',
           backgroundColor: t.colors.surfaceAlt,
           borderRadius: t.radii.md,
-          padding: 4,
-          minHeight: 48,
+          padding: 3,
+          minHeight: 44,
         },
         style,
       ]}
@@ -56,12 +57,12 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
           style={[
             {
               position: 'absolute',
-              top: 4,
-              bottom: 4,
-              left: 4,
+              top: 3,
+              bottom: 3,
+              left: 3,
               width: segment,
-              borderRadius: t.radii.sm + 2,
-              backgroundColor: t.dark ? t.colors.border : t.colors.surface,
+              borderRadius: t.radii.sm,
+              backgroundColor: t.colors.segmentThumb,
             },
             t.shadows.sm,
             thumb,
@@ -80,10 +81,16 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
               if (!selected) haptics.select();
               onChange(o.value);
             }}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, minHeight: 40 }}
+            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, minHeight: 38, paddingHorizontal: 6 }}
           >
-            {o.icon ? <Ionicons name={o.icon} size={16} color={selected ? t.colors.primary : t.colors.muted} /> : null}
-            <Text variant="subhead" color={selected ? 'text' : 'muted'} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+            {o.icon ? <Ionicons name={o.icon} size={16} color={selected ? t.colors.text : t.colors.muted} /> : null}
+            <Text
+              variant={selected ? 'subheadStrong' : 'subhead'}
+              color={selected ? 'text' : 'muted'}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.3}
+              style={{ flexShrink: 1 }}
+            >
               {o.label}
             </Text>
             {o.badge ? (
@@ -98,7 +105,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
                   justifyContent: 'center',
                 }}
               >
-                <Text variant="micro" style={{ color: '#FFFFFF' }}>
+                <Text variant="micro" style={{ color: selected ? '#FFFFFF' : t.colors.textSecondary }}>
                   {o.badge}
                 </Text>
               </View>

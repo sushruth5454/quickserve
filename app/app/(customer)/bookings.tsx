@@ -1,11 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CategoryIcon, iconForSlug } from '../../src/components/CategoryIcon';
-import { activeStatuses, StatusPill } from '../../src/components/status';
+import { activeStatuses, nextStepCopy, StatusPill } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
-import { Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonCard, Text } from '../../src/components/ui';
+import { Button, Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonBookingCard, Text } from '../../src/components/ui';
 import { listMyBookings } from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
 import type { Booking } from '../../src/lib/types';
@@ -40,6 +41,7 @@ export default function MyBookings() {
   const active = (bookings ?? []).filter((b) => activeStatuses.includes(b.status));
   const past = (bookings ?? []).filter((b) => !activeStatuses.includes(b.status));
   const list = tab === 'active' ? active : past;
+  const open = (b: Booking) => router.push({ pathname: '/booking/[id]', params: { id: b.id } });
 
   return (
     <Screen
@@ -70,7 +72,7 @@ export default function MyBookings() {
       {error && !bookings ? (
         <ErrorState message={error} onRetry={() => void load()} />
       ) : !bookings ? (
-        Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={3} />)
+        Array.from({ length: 4 }).map((_, i) => <SkeletonBookingCard key={i} />)
       ) : list.length === 0 ? (
         <EmptyState
           icon={tab === 'active' ? 'calendar-outline' : 'time-outline'}
@@ -80,49 +82,82 @@ export default function MyBookings() {
           onAction={() => router.navigate('/')}
         />
       ) : (
-        list.map((b, i) => (
-          <Animated.View key={b.id} entering={FadeInDown.delay(Math.min(i, 6) * 40).duration(260)}>
-            <Card
-              onPress={() => router.push({ pathname: '/booking/[id]', params: { id: b.id } })}
-              accessibilityLabel={`${b.categories?.name ?? 'Booking'}, ${b.status.replaceAll('_', ' ')}`}
-              gap={t.spacing.md}
-            >
-              <View style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'center' }}>
-                <CategoryIcon icon={iconForSlug(b.categories?.slug)} size={46} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="bodyStrong" numberOfLines={1}>
-                    {b.categories?.name ?? 'Booking'}
-                  </Text>
-                  <Text variant="caption" color="muted">
-                    #{b.id.slice(0, 8)} · {fmtDate(b.created_at)}
-                  </Text>
+        list.map((b, i) => {
+          const done = b.status === 'completed' || b.status === 'closed';
+          return (
+            <Animated.View key={b.id} entering={FadeInDown.delay(Math.min(i, 6) * 30).duration(240)}>
+              <Card onPress={() => open(b)} accessibilityLabel={`${b.categories?.name ?? 'Booking'}, ${b.status.replaceAll('_', ' ')}`}>
+                <View style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'center' }}>
+                  <CategoryIcon icon={iconForSlug(b.categories?.slug)} size={44} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text variant="bodyStrong" numberOfLines={1}>
+                      {b.categories?.name ?? 'Booking'}
+                    </Text>
+                    <Text variant="footnote" color="muted" numberOfLines={1}>
+                      #{b.id.slice(0, 8)} · {fmtDate(b.created_at)}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                    <Text variant="calloutStrong" tabular>
+                      {formatINR(b.total_amount ?? b.visit_fee)}
+                    </Text>
+                    <Text variant="caption" color="muted">
+                      {b.total_amount ? 'Total' : 'Visit fee'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text variant="subhead" tabular>
-                    {formatINR(b.total_amount ?? b.visit_fee)}
-                  </Text>
-                  <Text variant="micro" color="muted" uppercase>
-                    {b.total_amount ? 'Total' : 'Visit fee'}
-                  </Text>
-                </View>
-              </View>
-              {b.description ? (
-                <Text variant="callout" color="textSecondary" numberOfLines={2}>
-                  {b.description}
-                </Text>
-              ) : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <StatusPill status={b.status} />
-                {b.scheduled_at ? (
-                  <Text variant="caption" color="muted">
-                    Scheduled {fmtDate(b.scheduled_at)}
+                {b.description ? (
+                  <Text variant="footnote" color="textSecondary" numberOfLines={2}>
+                    {b.description}
                   </Text>
                 ) : null}
-              </View>
-              {tab === 'active' ? <ProgressBar status={b.status} /> : null}
-            </Card>
-          </Animated.View>
-        ))
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
+                  <StatusPill status={b.status} />
+                  {b.scheduled_at ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
+                      <Ionicons name="calendar-outline" size={14} color={t.colors.muted} />
+                      <Text variant="footnote" color="muted" numberOfLines={1}>
+                        {fmtDate(b.scheduled_at)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                {tab === 'active' ? (
+                  <View style={{ gap: 6 }}>
+                    <ProgressBar status={b.status} showLabel={false} />
+                    {nextStepCopy[b.status] ? (
+                      <Text variant="footnote" color="muted" numberOfLines={1}>
+                        {nextStepCopy[b.status]}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: 2 }}>
+                    {b.status === 'completed' ? (
+                      <Button title="Rate" size="sm" variant="secondary" leftIcon="star-outline" onPress={() => open(b)} style={{ flex: 1 }} />
+                    ) : null}
+                    <Button
+                      title="Book again"
+                      size="sm"
+                      variant="outline"
+                      leftIcon="refresh"
+                      onPress={() => router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: b.provider_service_id } })}
+                      style={{ flex: 1 }}
+                    />
+                    <Button
+                      title={done ? 'Receipt' : 'Details'}
+                      size="sm"
+                      variant="outline"
+                      leftIcon={done ? 'receipt-outline' : 'document-text-outline'}
+                      onPress={() => open(b)}
+                      style={{ flex: 1 }}
+                    />
+                  </View>
+                )}
+              </Card>
+            </Animated.View>
+          );
+        })
       )}
     </Screen>
   );

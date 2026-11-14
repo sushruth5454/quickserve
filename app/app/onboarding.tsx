@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import { CategoryIcon, iconForSlug } from '../src/components/CategoryIcon';
 import { SkillBadge, skillLabel } from '../src/components/ProviderCard';
 import {
   Badge,
+  BottomSheet,
   Button,
   Card,
   Chip,
@@ -14,6 +15,7 @@ import {
   IconButton,
   InlineAlert,
   Input,
+  ListItem,
   Screen,
   SegmentedControl,
   StepIndicator,
@@ -145,6 +147,18 @@ export default function ProviderOnboarding() {
     }
   };
 
+  // An unsaved skill form blocks "Continue" so the two primary actions never compete.
+  const formDirty = categoryId != null || labourRate !== '';
+
+  const editService = (s: ProviderService) => {
+    setCategoryId(s.category_id);
+    setLevel(s.skill_level);
+    setVisitFee(String(s.visit_fee / 100));
+    setLabourRate(String(s.labour_rate / 100));
+    setRateUnit(s.rate_unit);
+    scrollRef.current?.scrollToEnd({ animated: true });
+  };
+
   const finish = () => {
     setActiveRole('provider');
     router.replace('/dashboard');
@@ -159,7 +173,7 @@ export default function ProviderOnboarding() {
         <Button
           title="Continue"
           rightIcon="arrow-forward"
-          disabled={services.length === 0}
+          disabled={services.length === 0 || formDirty}
           onPress={() => setStep(2)}
           style={{ flex: 2 }}
           size="lg"
@@ -168,14 +182,14 @@ export default function ProviderOnboarding() {
     ) : (
       <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
         <Button title="Back" variant="outline" onPress={() => setStep(1)} style={{ flex: 1 }} size="lg" />
-        <Button title="Go to dashboard" rightIcon="checkmark" onPress={finish} style={{ flex: 2 }} size="lg" variant="success" />
+        <Button title="Go to dashboard" rightIcon="checkmark" onPress={finish} style={{ flex: 2 }} size="lg" />
       </View>
     );
 
   return (
     <Screen
       header={
-        <Header title={provider ? 'Provider profile' : 'Become a provider'} subtitle={`Step ${step + 1} of ${STEPS.length}`}>
+        <Header title={provider ? 'Provider profile' : 'Become a provider'}>
           <View style={{ paddingHorizontal: t.spacing.xl, paddingBottom: t.spacing.md }}>
             <StepIndicator steps={STEPS} current={step} />
           </View>
@@ -206,20 +220,20 @@ export default function ProviderOnboarding() {
           <Input label="City" value={city} onChangeText={setCity} leftIcon="business-outline" />
           <View style={{ flexDirection: 'row', gap: t.spacing.lg }}>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text variant="captionStrong" color="textSecondary">
+              <Text variant="subhead" color="textSecondary">
                 Service radius (km)
               </Text>
               <Stepper value={radiusKm} min={1} max={100} step={1} onChange={setRadiusKm} label="Service radius" />
             </View>
             <View style={{ flex: 1, gap: 6 }}>
-              <Text variant="captionStrong" color="textSecondary">
+              <Text variant="subhead" color="textSecondary">
                 Years of experience
               </Text>
               <Stepper value={years} min={0} max={60} onChange={setYears} label="Years of experience" />
             </View>
           </View>
           <View style={{ gap: t.spacing.sm }}>
-            <Text variant="captionStrong" color="textSecondary">
+            <Text variant="subhead" color="textSecondary">
               Languages you speak
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
@@ -233,15 +247,19 @@ export default function ProviderOnboarding() {
               ))}
             </View>
           </View>
-          <Card variant="outlined" style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-            <Ionicons name={location.coords ? 'location' : 'location-outline'} size={22} color={location.coords ? t.colors.success : t.colors.muted} />
-            <View style={{ flex: 1 }}>
-              <Text variant="subhead">Base location</Text>
-              <Text variant="caption" color="muted">
+          <Card style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+            <View
+              style={{ width: 40, height: 40, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name={location.coords ? 'location' : 'location-outline'} size={20} color={t.colors.textSecondary} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="calloutStrong">Base location</Text>
+              <Text variant="footnote" color="muted">
                 {location.coords ? `Set · ${location.area ?? location.city ?? 'current position'}` : 'Used to match you with nearby customers'}
               </Text>
             </View>
-            <Button title={location.coords ? 'Update' : 'Set'} size="sm" variant="secondary" onPress={() => void location.refresh()} loading={location.loading} />
+            <Button title={location.coords ? 'Update' : 'Set'} size="sm" variant="outline" onPress={() => void location.refresh()} loading={location.loading} />
           </Card>
         </Animated.View>
       ) : null}
@@ -258,6 +276,7 @@ export default function ProviderOnboarding() {
             <ServiceCard
               key={s.id}
               service={s}
+              onEdit={() => editService(s)}
               onDelete={async () => {
                 const ok = await confirm({ title: `Remove ${s.categories?.name}?`, message: 'Customers will no longer find you for this service.', confirmLabel: 'Remove', destructive: true });
                 if (!ok) return;
@@ -270,7 +289,7 @@ export default function ProviderOnboarding() {
               }}
             />
           ))}
-          <Card gap={t.spacing.lg} elevation="md">
+          <Card gap={t.spacing.lg} variant="elevated">
             <Text variant="title3">{services.length ? 'Add another skill' : 'Add your first skill'}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: t.spacing.sm }}>
               {categories.map((c) => {
@@ -288,15 +307,14 @@ export default function ProviderOnboarding() {
               })}
             </ScrollView>
             <View style={{ gap: t.spacing.sm }}>
-              <Text variant="captionStrong" color="textSecondary">
+              <Text variant="subhead" color="textSecondary">
                 Skill level
               </Text>
-              <SegmentedControl<SkillLevel>
-                options={LEVELS.map((l) => ({ value: l, label: skillLabel[l] }))}
-                value={level}
-                onChange={setLevel}
-                accessibilityLabel="Skill level"
-              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }} accessibilityRole="radiogroup" accessibilityLabel="Skill level">
+                {LEVELS.map((l) => (
+                  <Chip key={l} label={skillLabel[l]} selected={level === l} onPress={() => setLevel(l)} />
+                ))}
+              </View>
             </View>
             <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
               <Input
@@ -318,16 +336,21 @@ export default function ProviderOnboarding() {
                 containerStyle={{ flex: 1 }}
               />
             </View>
-            <SegmentedControl<RateUnit>
-              options={[
-                { value: 'job', label: 'Per job' },
-                { value: 'hour', label: 'Per hour' },
-              ]}
-              value={rateUnit}
-              onChange={setRateUnit}
-              accessibilityLabel="Labour rate unit"
-            />
-            <Button title="Save skill" leftIcon="add-circle" onPress={() => void addService()} loading={saving} variant="secondary" />
+            <View style={{ gap: t.spacing.sm }}>
+              <Text variant="subhead" color="textSecondary">
+                Labour charged
+              </Text>
+              <SegmentedControl<RateUnit>
+                options={[
+                  { value: 'job', label: 'Per job' },
+                  { value: 'hour', label: 'Per hour' },
+                ]}
+                value={rateUnit}
+                onChange={setRateUnit}
+                accessibilityLabel="Labour charged per"
+              />
+            </View>
+            <Button title="Save skill" leftIcon="checkmark" onPress={() => void addService()} loading={saving} />
           </Card>
         </Animated.View>
       ) : null}
@@ -359,35 +382,50 @@ export default function ProviderOnboarding() {
                 <Ionicons
                   name={provider?.kyc_status === 'verified' ? 'checkmark-circle' : 'ellipse-outline'}
                   size={22}
-                  color={provider?.kyc_status === 'verified' ? t.colors.success : t.colors.borderStrong}
+                  color={provider?.kyc_status === 'verified' ? t.colors.success : t.colors.outline}
                 />
                 <View style={{ flex: 1 }}>
-                  <Text variant="subhead">{title}</Text>
-                  <Text variant="caption" color="muted">
+                  <Text variant="calloutStrong">{title}</Text>
+                  <Text variant="footnote" color="muted">
                     {sub}
                   </Text>
                 </View>
               </View>
             ))}
           </Card>
-          <Card variant="tinted" tint={t.colors.successSoft} gap={t.spacing.sm}>
-            <Text variant="title3" color="successText">
-              Simple, fair commission
-            </Text>
+          <Card gap={0} padding={0}>
+            <View style={{ padding: t.spacing.lg, paddingBottom: t.spacing.md, gap: 2 }}>
+              <Text variant="title3">Simple, fair commission</Text>
+              <Text variant="footnote" color="muted">
+                Charged on labour only
+              </Text>
+            </View>
             {[
               ['First 30 days', '0%'],
-              ['Standard', '12% of labour'],
-              ['After 50 jobs', '10% of labour'],
-              ['After 200 jobs', '8% of labour'],
+              ['Standard', '12%'],
+              ['After 50 jobs', '10%'],
+              ['After 200 jobs', '8%'],
             ].map(([k, v]) => (
-              <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View
+                key={k}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: t.spacing.lg,
+                  paddingVertical: t.spacing.md,
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: t.colors.borderStrong,
+                }}
+              >
                 <Text variant="callout" color="textSecondary">
                   {k}
                 </Text>
-                <Text variant="subhead">{v}</Text>
+                <Text variant="calloutStrong" tabular>
+                  {v}
+                </Text>
               </View>
             ))}
-            <Text variant="caption" color="muted">
+            <Text variant="footnote" color="muted" style={{ padding: t.spacing.lg, paddingTop: t.spacing.sm }}>
               Parts are always passed through at 0%. 18% GST applies on commission only.
             </Text>
           </Card>
@@ -397,12 +435,18 @@ export default function ProviderOnboarding() {
   );
 }
 
-function ServiceCard(props: { service: ProviderService; onDelete: () => void; onAddRate: (title: string, price: number) => void }) {
+function ServiceCard(props: {
+  service: ProviderService;
+  onEdit: () => void;
+  onDelete: () => void;
+  onAddRate: (title: string, price: number) => void;
+}) {
   const t = useTheme();
   const { service: s } = props;
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [adding, setAdding] = useState(false);
+  const [menu, setMenu] = useState(false);
   return (
     <Card gap={t.spacing.md}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
@@ -411,19 +455,47 @@ function ServiceCard(props: { service: ProviderService; onDelete: () => void; on
           <Text variant="title3">{s.categories?.name}</Text>
           <SkillBadge level={s.skill_level} />
         </View>
-        <IconButton icon="trash-outline" color="danger" size={20} accessibilityLabel={`Remove ${s.categories?.name}`} onPress={props.onDelete} />
+        <IconButton
+          icon="ellipsis-horizontal"
+          visualSize={36}
+          color="textSecondary"
+          accessibilityLabel={`More options for ${s.categories?.name}`}
+          onPress={() => setMenu(true)}
+        />
       </View>
-      <Text variant="callout" color="textSecondary">
+      <Text variant="footnote" color="textSecondary">
         Visit {formatINR(s.visit_fee)} · Labour {formatINR(s.labour_rate)}/{s.rate_unit}
       </Text>
       {(s.rate_card_items ?? []).map((r) => (
         <View key={r.id} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text variant="callout">{r.title}</Text>
-          <Text variant="subhead" tabular>
+          <Text variant="calloutStrong" tabular>
             {formatINR(r.price)}
           </Text>
         </View>
       ))}
+      <BottomSheet visible={menu} onClose={() => setMenu(false)} title={s.categories?.name ?? 'Skill'}>
+        <View style={{ marginHorizontal: -t.spacing.xl }}>
+          <ListItem
+            icon="create-outline"
+            title="Edit skill"
+            subtitle="Change level, visit fee or labour rate"
+            onPress={() => {
+              setMenu(false);
+              props.onEdit();
+            }}
+          />
+          <ListItem
+            icon="trash-outline"
+            title="Remove skill"
+            destructive
+            onPress={() => {
+              setMenu(false);
+              props.onDelete();
+            }}
+          />
+        </View>
+      </BottomSheet>
       {adding ? (
         <View style={{ gap: t.spacing.sm }}>
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>

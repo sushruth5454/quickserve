@@ -2,22 +2,23 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { View } from 'react-native';
 import { useTheme } from '../theme';
+import { lighten } from './ui';
 
 type McIcon = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-/** Category `icon` keys from the database → vector icon + brand tint. */
+/** Category `icon` keys from the database → vector icon + glyph tint (tiles themselves are neutral). */
 export const CATEGORY_VISUALS: Record<string, { icon: McIcon; tint: string }> = {
-  snowflake: { icon: 'air-conditioner', tint: '#0BA5EC' },
-  zap: { icon: 'flash', tint: '#F79009' },
+  snowflake: { icon: 'air-conditioner', tint: '#0086C9' },
+  zap: { icon: 'flash', tint: '#B54708' },
   droplet: { icon: 'pipe-wrench', tint: '#1E5EFF' },
-  home: { icon: 'broom', tint: '#12B76A' },
-  database: { icon: 'storage-tank', tint: '#06AED4' },
+  home: { icon: 'broom', tint: '#067647' },
+  database: { icon: 'storage-tank', tint: '#0E7090' },
   truck: { icon: 'car-wrench', tint: '#475467' },
-  bike: { icon: 'motorbike', tint: '#7A5AF8' },
-  tv: { icon: 'washing-machine', tint: '#6172F3' },
-  bug: { icon: 'bug', tint: '#D92D20' },
-  hammer: { icon: 'hammer-wrench', tint: '#B54708' },
-  brush: { icon: 'format-paint', tint: '#EE46BC' },
+  bike: { icon: 'motorbike', tint: '#6941C6' },
+  tv: { icon: 'washing-machine', tint: '#444CE7' },
+  bug: { icon: 'bug', tint: '#B42318' },
+  hammer: { icon: 'hammer-wrench', tint: '#93370D' },
+  brush: { icon: 'format-paint', tint: '#C11574' },
 };
 
 export function categoryVisual(icon: string | undefined | null) {
@@ -42,6 +43,7 @@ export function iconForSlug(slug: string | undefined | null): string {
   return SLUG_TO_ICON[slug ?? ''] ?? '';
 }
 
+/** Neutral tile + tinted glyph: one surface colour for every category so the grid doesn't read as a rainbow. */
 export function CategoryIcon({ icon, size = 52, radius }: { icon: string | undefined | null; size?: number; radius?: number }) {
   const t = useTheme();
   const v = categoryVisual(icon);
@@ -50,22 +52,13 @@ export function CategoryIcon({ icon, size = 52, radius }: { icon: string | undef
       style={{
         width: size,
         height: size,
-        borderRadius: radius ?? size * 0.32,
-        backgroundColor: v.tint + (t.dark ? '2B' : '17'),
+        borderRadius: radius ?? (size >= 56 ? t.radii.lg : t.radii.md),
+        backgroundColor: t.dark ? t.colors.surfaceRaised : t.colors.surfaceAlt,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <MaterialCommunityIcons name={v.icon} size={size * 0.5} color={t.dark ? lighten(v.tint) : v.tint} />
+      <MaterialCommunityIcons name={v.icon} size={Math.round(size * 0.46)} color={t.dark ? lighten(v.tint, 0.5) : v.tint} />
     </View>
   );
-}
-
-function lighten(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const mix = (c: number) => Math.round(c + (255 - c) * 0.35);
-  const r = mix((n >> 16) & 255);
-  const g = mix((n >> 8) & 255);
-  const b = mix(n & 255);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }

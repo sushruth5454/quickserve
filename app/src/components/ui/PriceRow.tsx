@@ -24,22 +24,26 @@ export function PriceRow({ label, amount, hint, icon, emphasis = 'normal' }: Pri
     <View
       accessible
       accessibilityLabel={`${label}: ${formatted}${hint ? `. ${hint}` : ''}`}
-      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md, paddingVertical: total ? 2 : 0 }}
+      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md }}
     >
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {icon ? <Ionicons name={icon} size={15} color={t.colors.muted} /> : null}
-          <Text variant={total ? 'title3' : 'callout'} color={total ? 'text' : emphasis === 'muted' ? 'muted' : 'textSecondary'} style={{ flexShrink: 1 }}>
+          {icon ? <Ionicons name={icon} size={16} color={t.colors.muted} /> : null}
+          <Text
+            variant={total ? 'title3' : 'callout'}
+            color={total ? 'text' : emphasis === 'muted' ? 'muted' : 'textSecondary'}
+            style={{ flexShrink: 1 }}
+          >
             {label}
           </Text>
         </View>
         {hint ? (
-          <Text variant="caption" color="muted">
+          <Text variant="footnote" color="muted">
             {hint}
           </Text>
         ) : null}
       </View>
-      <Text variant={total ? 'title3' : 'bodyStrong'} color={color} tabular>
+      <Text variant={total ? 'title3' : 'calloutStrong'} color={color} tabular>
         {formatted}
       </Text>
     </View>
@@ -50,15 +54,15 @@ export function PriceRow({ label, amount, hint, icon, emphasis = 'normal' }: Pri
 export function PriceBreakdown({ lines, total }: { lines: PriceLine[]; total?: PriceLine }) {
   const t = useTheme();
   return (
-    <View style={{ gap: t.spacing.md }}>
+    <View style={{ gap: 10 }}>
       {lines.map((l) => (
         <PriceRow key={l.label} {...l} />
       ))}
       {total ? (
-        <>
+        <View style={{ gap: t.spacing.md, paddingTop: 2 }}>
           <Divider dashed />
           <PriceRow {...total} emphasis="total" />
-        </>
+        </View>
       ) : null}
     </View>
   );

@@ -2,13 +2,13 @@ import { View } from 'react-native';
 import { amountDue, formatINR, requiredTotal } from '../lib/money';
 import type { Quote, QuoteItemKind, QuoteStatus } from '../lib/types';
 import { useTheme } from '../theme';
-import { Badge, Button, Card, Divider, InlineAlert, PriceRow, Text, type Tone } from './ui';
+import { Badge, Card, Divider, InlineAlert, PriceRow, Text, type Tone } from './ui';
 
 const statusText: Record<QuoteStatus, [string, Tone]> = {
   sent: ['Awaiting approval', 'warning'],
   approved_pending_payment: ['Approved · payment due', 'warning'],
   approved: ['Approved', 'success'],
-  rejected: ['Rejected', 'danger'],
+  rejected: ['Declined', 'danger'],
   superseded: ['Replaced', 'neutral'],
 };
 
@@ -22,64 +22,50 @@ interface Props {
   counterpartName?: string;
   /** [min, max] typical total in rupees for this category. */
   typical?: [number, number] | null;
-  canRespond?: boolean;
-  busy?: boolean;
-  onApprove?: () => void;
-  onReject?: () => void;
   title?: string;
 }
 
-export function QuoteView({
-  quote,
-  visitFee,
-  platformFee,
-  alreadyPaid,
-  typical,
-  canRespond,
-  busy,
-  onApprove,
-  onReject,
-  title,
-}: Props) {
+/** Itemised quote. Approve/decline actions live in the screen's sticky footer, not inside the card. */
+export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpartName, typical, title }: Props) {
   const t = useTheme();
   const total = requiredTotal(quote.total, visitFee, platformFee);
   const due = amountDue({ quoteTotal: quote.total, visitFee, platformFee, alreadyPaid });
   const open = quote.status === 'sent' || quote.status === 'approved_pending_payment';
   const [label, tone] = statusText[quote.status];
   const aboveTypical = typical ? total > typical[1] * 100 : false;
+  const count = (k: QuoteItemKind) => quote.quote_items.filter((i) => i.kind === k).length;
+  const first = counterpartName?.split(' ')[0];
+  const heading =
+    title ?? (quote.is_change_order ? 'Change order' : quote.version > 1 ? 'Revised quote' : 'Quote');
 
   return (
-    <Card gap={t.spacing.md} elevation="md">
+    <Card gap={t.spacing.lg} variant="elevated">
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
         <View style={{ flex: 1 }}>
-          <Text variant="title3">{title ?? `${quote.is_change_order ? 'Change order' : 'Quote'} v${quote.version}`}</Text>
-          <Text variant="caption" color="muted">
+          <Text variant="title3">{heading}</Text>
+          <Text variant="footnote" color="muted">
             {quote.quote_items.length} item{quote.quote_items.length === 1 ? '' : 's'}
           </Text>
         </View>
-        <Badge label={label} tone={tone} dot />
+        {quote.status !== 'sent' ? <Badge label={label} tone={tone} dot /> : null}
       </View>
 
       <View style={{ gap: t.spacing.md }}>
         {quote.quote_items.map((item) => (
-          <View key={item.id} style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'flex-start' }}>
+          <View key={item.id} style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start' }}>
+            <Badge label={kindLabel[item.kind]} style={{ marginTop: 0 }} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="micro" color="muted" uppercase>
-                {kindLabel[item.kind]}
-              </Text>
               <Text variant="callout" numberOfLines={2}>
                 {item.title}
-                {Number(item.qty) !== 1 ? (
-                  <Text variant="callout" color="muted">{`  × ${item.qty}`}</Text>
-                ) : null}
+                {Number(item.qty) !== 1 ? <Text variant="callout" color="muted">{`  × ${item.qty}`}</Text> : null}
               </Text>
               {item.bill_photo_url ? (
-                <Text variant="caption" color="primary">
+                <Text variant="footnote" color="primaryText">
                   Bill photo attached
                 </Text>
               ) : null}
             </View>
-            <Text variant="bodyStrong" tabular>
+            <Text variant="calloutStrong" tabular>
               {formatINR(Math.round(Number(item.qty) * item.unit_price))}
             </Text>
           </View>
@@ -87,34 +73,33 @@ export function QuoteView({
       </View>
 
       {quote.note ? (
-        <View style={{ backgroundColor: t.colors.surfaceAlt, borderRadius: t.radii.sm, padding: t.spacing.md }}>
-          <Text variant="caption" color="textSecondary">
-            “{quote.note}”
+        <View style={{ backgroundColor: t.colors.surfaceAlt, borderRadius: t.radii.sm, padding: t.spacing.md, gap: 2 }}>
+          <Text variant="captionStrong" color="muted">
+            {first ? `Note from ${first}` : 'Note'}
+          </Text>
+          <Text variant="footnote" color="textSecondary">
+            {quote.note}
           </Text>
         </View>
       ) : null}
 
       <Divider />
-      <View style={{ gap: t.spacing.sm }}>
-        {quote.subtotal_labour > 0 ? <PriceRow label="Labour" amount={quote.subtotal_labour} /> : null}
-        {quote.subtotal_parts > 0 ? <PriceRow label="Parts" amount={quote.subtotal_parts} hint="Passed through at cost" /> : null}
-        {quote.subtotal_other > 0 ? <PriceRow label="Other" amount={quote.subtotal_other} /> : null}
+      <View style={{ gap: 10 }}>
+        {count('labour') >= 2 && quote.subtotal_labour > 0 ? <PriceRow label="Labour" amount={quote.subtotal_labour} /> : null}
+        {count('part') >= 2 && quote.subtotal_parts > 0 ? <PriceRow label="Parts" amount={quote.subtotal_parts} hint="Passed through at cost" /> : null}
+        {count('other') >= 2 && quote.subtotal_other > 0 ? <PriceRow label="Other" amount={quote.subtotal_other} /> : null}
         <PriceRow label="Platform fee" amount={platformFee} />
         {visitFee > quote.total ? <PriceRow label="Minimum visit charge" amount={visitFee - quote.total} emphasis="muted" /> : null}
-        <PriceRow label="Total" amount={total} emphasis="normal" />
+        <PriceRow label="Total" amount={total} />
         {alreadyPaid > 0 ? (
           <PriceRow label="Paid so far (incl. visit fee)" amount={-Math.min(alreadyPaid, total)} emphasis="credit" />
         ) : null}
       </View>
       {open ? (
-        <>
+        <View style={{ gap: t.spacing.md }}>
           <Divider dashed />
-          <PriceRow
-            label={quote.is_change_order ? 'Extra to pay now' : 'Pay now to start work'}
-            amount={due}
-            emphasis="total"
-          />
-        </>
+          <PriceRow label={quote.is_change_order ? 'Extra to pay now' : 'Pay now to start work'} amount={due} emphasis="total" />
+        </View>
       ) : null}
 
       {typical && quote.status === 'sent' ? (
@@ -126,20 +111,6 @@ export function QuoteView({
         ) : (
           <InlineAlert tone="success" icon="shield-checkmark" message="Within the typical range for this job." />
         )
-      ) : null}
-
-      {canRespond && quote.status === 'sent' ? (
-        <View style={{ flexDirection: 'row', gap: t.spacing.md, marginTop: t.spacing.xs }}>
-          <Button title="Reject" variant="outline" onPress={() => onReject?.()} disabled={busy} style={{ flex: 1 }} />
-          <Button
-            title={due > 0 ? 'Approve & pay' : 'Approve'}
-            variant="success"
-            leftIcon="checkmark-circle"
-            onPress={() => onApprove?.()}
-            loading={busy}
-            style={{ flex: 1.6 }}
-          />
-        </View>
       ) : null}
     </Card>
   );

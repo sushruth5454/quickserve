@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { useAuth } from '../../src/lib/auth';
-import { useTabScreenOptions } from '../../src/components/tabOptions';
+import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
 
 export const unstable_settings = { initialRouteName: 'index' };
 
@@ -15,25 +14,21 @@ export default function CustomerTabs() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color as string} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="home-outline" activeName="home" focused={focused} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
           title: 'Bookings',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color as string} />
-          ),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="calendar-outline" activeName="calendar" focused={focused} color={color as string} />,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: 'Me',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={25} color={color as string} />
-          ),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="person-circle-outline" activeName="person-circle" focused={focused} color={color as string} />,
         }}
       />
     </Tabs>
