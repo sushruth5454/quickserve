@@ -211,7 +211,8 @@ export async function addAddress(input: NewAddressInput): Promise<SavedAddress> 
   ) as SavedAddress;
 }
 
-// ---------- Booking ----------export async function createBooking(input: CreateBookingInput): Promise<string> {
+// ---------- Booking ----------
+export async function createBooking(input: CreateBookingInput): Promise<string> {
   return unwrap(
     await supabase.rpc('create_booking', {
       p_provider_service_id: input.providerServiceId,
