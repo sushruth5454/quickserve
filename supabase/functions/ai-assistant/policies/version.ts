@@ -1,9 +1,13 @@
 // Versioning for the assistant's skills/policies. Bump POLICY_VERSION on ANY change to a file in policies/ and add a
 // changelog line; the version is stored on every assistant message (ai_messages.payload.policy_version) for audit.
 
-export const POLICY_VERSION = "2026.11.14-1";
+export const POLICY_VERSION = "2026.11.14-2";
 
 export const CHANGELOG: { version: string; summary: string }[] = [
+  {
+    version: "2026.11.14-2",
+    summary: "SCOPE: vehicle repair listed as out of scope; out-of-scope replies must say 'not offered yet', not 'no pros near you'.",
+  },
   {
     version: "2026.11.14-1",
     summary:

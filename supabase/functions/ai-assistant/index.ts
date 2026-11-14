@@ -29,6 +29,7 @@ import { functionDeclarations, POLICY_VERSION, systemPrompt } from "./policies/i
 import { INJECTION_REMINDER, looksLikeInjection } from "./policies/security.ts";
 import { toolCallAllowed } from "./policies/tools.ts";
 
+const MIN_AUDIO_BASE64_CHARS = 1400;
 const AUDIO_MIME: Record<string, string> = {
   "audio/m4a": "audio/m4a",
   "audio/x-m4a": "audio/m4a",
@@ -381,6 +382,8 @@ Deno.serve(async (req) => {
       const data = typeof audioIn.data === "string" ? audioIn.data.replace(/^data:[^,]+,/, "").replace(/\s+/g, "") : "";
       if (!mime || !data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new HttpError(400, "bad_audio", "That recording format is not supported.");
       if (data.length > cfg.maxAudioBase64Chars) throw new HttpError(400, "audio_too_long", "Voice messages can be up to 60 seconds.");
+      // ~1 KB of audio is well under half a second of any supported codec: reject before spending a model call.
+      if (data.length < MIN_AUDIO_BASE64_CHARS) throw new HttpError(400, "bad_audio", "That recording was too short. Hold the mic and speak, or type instead.");
       audio = { data, mimeType: mime };
     }
     if (!text && !audio) throw new HttpError(400, "empty", "Type or say what you need help with.");
@@ -520,11 +523,18 @@ Deno.serve(async (req) => {
         if (!(e instanceof GeminiError)) throw e;
         lastErr = e;
         attempts.push({ model: plan.model, ms: Date.now() - t0, error: e.message.slice(0, 80) });
-        if (plan.model === cfg.primaryModel && cfg.fallbackModel) primaryCooldownUntil = Date.now() + cfg.primaryCooldownMs;
+        if (plan.model === cfg.primaryModel && cfg.fallbackModel && e.status !== 400) primaryCooldownUntil = Date.now() + cfg.primaryCooldownMs;
         if (!e.fallback) break;
       }
     }
     if (!result) {
+      // Every model rejected the request itself (HTTP 400): with audio this means an unreadable/corrupt recording.
+      const allRejected = attempts.length > 0 && attempts.every((a) => a.error?.startsWith("HTTP 400") || a.error === "skipped (cooldown)") &&
+        attempts.some((a) => a.error?.startsWith("HTTP 400"));
+      if (audio && allRejected) {
+        log("warn", { event: "audio_rejected", request_id: requestId, attempts, ms: Date.now() - started });
+        throw new HttpError(400, "bad_audio", "We couldn't understand that recording. Please try again or type your message.");
+      }
       const timedOut = Date.now() - started > cfg.requestBudgetMs - 5000 || /timeout|budget/.test(lastErr?.message ?? "");
       await admin.from("ai_messages").insert({ conversation_id: conversationId, user_id: uid, role: "error", payload: { request_id: requestId, attempts } });
       log("error", { event: "model_unavailable", request_id: requestId, attempts, ms: Date.now() - started });
