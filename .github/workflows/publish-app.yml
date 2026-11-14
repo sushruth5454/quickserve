@@ -23,6 +23,7 @@ jobs:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_FORCE_TEST_LOCATION: ${{ vars.EXPO_PUBLIC_FORCE_TEST_LOCATION }}
       UPDATE_MESSAGE: ${{ github.event.head_commit.message || 'Manual publish' }}
       TARGET_SDK: ${{ inputs.sdk || '58' }}
     steps:

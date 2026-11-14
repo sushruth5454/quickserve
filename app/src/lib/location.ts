@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
 import type { Coords } from './api';
-import { isDemoMode } from './config';
+import { forceTestLocation, isDemoMode } from './config';
 
 export interface LocationState {
   coords: Coords | null;
@@ -33,8 +33,8 @@ export function useCurrentLocation(auto = true): LocationState {
     setLoading(true);
     setError(null);
     try {
-      if (isDemoMode) {
-        // Demo data is centred on Vijayawada; skip the OS permission prompt.
+      if (isDemoMode || forceTestLocation) {
+        // Demo/seed data is centred on Vijayawada; skip the OS permission prompt.
         setCoords(DEMO_LOCATION.coords);
         setCity(DEMO_LOCATION.city);
         setArea(DEMO_LOCATION.area);
