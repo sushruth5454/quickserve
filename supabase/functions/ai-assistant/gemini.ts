@@ -4,11 +4,20 @@
 
 export const PRIMARY_MODEL = "gemini-3.8-flash";
 export const FALLBACK_MODEL = "gemini-3.5-flash-lite";
-export const MODELS = [PRIMARY_MODEL, FALLBACK_MODEL] as const;
 export const THINKING_LEVEL = "low";
 export const MAX_OUTPUT_TOKENS = 2048;
-/** Per generateContent call. */
-export const CALL_TIMEOUT_MS = 25_000;
+/** Per generateContent call. The primary gets less time: if it is that slow it is overloaded, and the fallback is fast. */
+export const CALL_TIMEOUT_MS = 15_000;
+export const PRIMARY_CALL_TIMEOUT_MS = 12_000;
+/** After the primary fails, skip it for this long (per function instance) so users don't wait for it again. */
+export const PRIMARY_COOLDOWN_MS = 5 * 60_000;
+
+/** Attempt plan: primary once, then the fallback (retried once after a short pause on 429/503/timeouts). */
+export const ATTEMPTS: { model: string; callTimeoutMs: number; backoffMs?: number }[] = [
+  { model: PRIMARY_MODEL, callTimeoutMs: PRIMARY_CALL_TIMEOUT_MS },
+  { model: FALLBACK_MODEL, callTimeoutMs: CALL_TIMEOUT_MS },
+  { model: FALLBACK_MODEL, callTimeoutMs: CALL_TIMEOUT_MS, backoffMs: 1200 },
+];
 
 const API = "https://generativelanguage.googleapis.com/v1beta/models";
 

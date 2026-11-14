@@ -4,7 +4,7 @@
 // The assistant never creates or pays for bookings: draft cards hand off to the app's normal checkout.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json, requireEnv } from "../_shared/razorpay.ts";
-import { type Content, FALLBACK_MODEL, GeminiError, generateContent, MAX_OUTPUT_TOKENS, MODELS, type Part, THINKING_LEVEL } from "./gemini.ts";
+import { ATTEMPTS, type Content, FALLBACK_MODEL, GeminiError, generateContent, MAX_OUTPUT_TOKENS, type Part, PRIMARY_COOLDOWN_MS, PRIMARY_MODEL, THINKING_LEVEL } from "./gemini.ts";
 import {
   areaFromLine,
   clampList,
@@ -51,6 +51,9 @@ const LANGS = ["en", "hi", "te", "hinglish", "tenglish", "other"];
 const SORTS = ["recommended", "rating", "price", "distance", "experience"];
 const HAZARDS = Object.keys(EMERGENCY_NUMBERS);
 const DEFAULT_LOCATION = { area: "Benz Circle", city: "Vijayawada", lat: 16.4995, lng: 80.656 };
+
+/** Per-instance circuit breaker for the primary model. */
+let primaryCooldownUntil = 0;
 
 class HttpError extends Error {
   constructor(
@@ -276,7 +279,16 @@ interface Respond {
   model: string;
 }
 
-async function runAgent(model: string, ctx: Ctx, state: State, system: string, contents: Content[], apiKey: string, deadline: number): Promise<Respond> {
+async function runAgent(
+  model: string,
+  ctx: Ctx,
+  state: State,
+  system: string,
+  contents: Content[],
+  apiKey: string,
+  deadline: number,
+  callTimeoutMs: number,
+): Promise<Respond> {
   const tools = [{ functionDeclarations: functionDeclarations(ctx.categories.map((c) => c.slug)) }];
   const convo = [...contents];
   for (let step = 0; step < MAX_STEPS; step++) {
@@ -293,7 +305,7 @@ async function runAgent(model: string, ctx: Ctx, state: State, system: string, c
         generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: THINKING_LEVEL } },
       },
       apiKey,
-      Math.min(remaining, 25_000),
+      Math.min(remaining, callTimeoutMs),
     );
     state.usage.calls += 1;
     state.usage.input += res.usageMetadata?.promptTokenCount ?? 0;
@@ -563,16 +575,23 @@ Deno.serve(async (req) => {
     let lastErr: GeminiError | null = null;
     const usageTotal = { input: 0, output: 0, calls: 0 };
     const attempts: { model: string; ms: number; error?: string }[] = [];
-    for (const model of MODELS) {
+    for (const plan of ATTEMPTS) {
+      const model = plan.model;
+      if (model === PRIMARY_MODEL && Date.now() < primaryCooldownUntil) {
+        attempts.push({ model, ms: 0, error: "skipped: cooling down after a recent failure" });
+        continue;
+      }
+      if (plan.backoffMs) await new Promise((r) => setTimeout(r, plan.backoffMs));
       if (deadline - Date.now() < 4000) break;
       state = newState();
       const t0 = Date.now();
       try {
-        result = await runAgent(model, ctx, state, system, contents, apiKey, deadline);
+        result = await runAgent(model, ctx, state, system, contents, apiKey, deadline, plan.callTimeoutMs);
         attempts.push({ model, ms: Date.now() - t0 });
         break;
       } catch (e) {
-        attempts.push({ model, ms: Date.now() - t0, error: e instanceof GeminiError ? e.message.slice(0, 160) : 'internal' });
+        attempts.push({ model, ms: Date.now() - t0, error: e instanceof GeminiError ? e.message.slice(0, 160) : "internal" });
+        if (model === PRIMARY_MODEL) primaryCooldownUntil = Date.now() + PRIMARY_COOLDOWN_MS;
         usageTotal.input += state.usage.input;
         usageTotal.output += state.usage.output;
         usageTotal.calls += state.usage.calls;
