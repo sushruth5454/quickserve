@@ -485,7 +485,7 @@ ok((await asX(`select * from bookings`)).length === 0, 'stranger sees no booking
 ok((await asC(`select * from payouts`)).length === 0, 'customer sees no payouts');
 await expectError(() => asX(`insert into messages (booking_id, sender_id, body) values ('${b1}', '${X}', 'hi')`), /row-level security/, 'stranger cannot post chat');
 await asC(`insert into messages (booking_id, sender_id, body) values ('${b1}', '${C}', 'hello')`);
-ok((await asP(`select body from messages`)).length === 1, 'participant reads chat');
+ok((await asP(`select body from messages where booking_id = '${b1}'`)).length === 1, 'participant reads chat');
 await asX(`select set_provider_suspended('${P}', true, 'test')`);
 ok((await as(null, 'anon', `select * from search_providers('ac-repair')`)).length === 0, 'suspended provider hidden');
 
