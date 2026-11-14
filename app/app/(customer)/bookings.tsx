@@ -90,14 +90,16 @@ export default function MyBookings() {
                 <View style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'center' }}>
                   <CategoryIcon icon={iconForSlug(b.categories?.slug)} size={44} />
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Text variant="bodyStrong" numberOfLines={1}>
-                      {b.categories?.name ?? 'Booking'}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
+                      <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
+                        {b.categories?.name ?? 'Booking'}
+                      </Text>
+                      <StatusPill status={b.status} />
+                    </View>
                     <Text variant="footnote" color="muted" numberOfLines={1}>
                       #{b.id.slice(0, 8)} · {fmtDate(b.created_at)}
                     </Text>
                   </View>
-                  <StatusPill status={b.status} />
                 </View>
                 {b.description ? (
                   <Text variant="footnote" color="textSecondary" numberOfLines={1}>
@@ -114,7 +116,7 @@ export default function MyBookings() {
                     ) : null}
                   </View>
                 ) : null}
-                <AmountRow booking={b} />
+                <AmountRow booking={b} chevron={tab === 'active'} />
                 {tab === 'active' ? null : (
                   <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: 2 }}>
                     {b.status === 'completed' ? (
@@ -148,7 +150,7 @@ export default function MyBookings() {
 }
 
 /** Amount + schedule on one hairline-separated row, like a receipt footer. */
-function AmountRow({ booking: b }: { booking: Booking }) {
+function AmountRow({ booking: b, chevron }: { booking: Booking; chevron: boolean }) {
   const t = useTheme();
   return (
     <View
@@ -175,9 +177,9 @@ function AmountRow({ booking: b }: { booking: Booking }) {
             {fmtDate(b.scheduled_at)}
           </Text>
         </View>
-      ) : (
+      ) : chevron ? (
         <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
-      )}
+      ) : null}
     </View>
   );
 }

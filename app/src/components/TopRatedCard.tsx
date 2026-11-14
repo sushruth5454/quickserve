@@ -25,7 +25,8 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
   const hue = hashHue(name);
   const rating = Number(p.rating_avg);
   const { lead, more } = headline(p);
-  const service = lead ? [lead.categories?.name, skillLabel[lead.skill_level]].filter(Boolean).join(' · ') : `${p.years_experience} yrs experience`;
+  const category = lead?.categories?.name ? `${lead.categories.name}${more > 0 ? ` +${more}` : ''}` : null;
+  const service = lead ? [category, skillLabel[lead.skill_level]].filter(Boolean).join(' · ') : `${p.years_experience} yrs experience`;
 
   return (
     <Pressable
@@ -57,7 +58,9 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
               justifyContent: 'center',
             }}
           >
-            <Avatar name={name} uri={p.profiles?.avatar_url} size={64} online={p.is_online} />
+            <View style={{ padding: 3, borderRadius: 40, backgroundColor: t.colors.surface }}>
+              <Avatar name={name} uri={p.profiles?.avatar_url} size={64} online={p.is_online} />
+            </View>
             <View
               style={{
                 position: 'absolute',
@@ -85,7 +88,6 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
             </Text>
             <Text variant="footnote" color="textSecondary" numberOfLines={1}>
               {service}
-              {more > 0 ? ` +${more}` : ''}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
               <Ionicons name="star" size={13} color={t.colors.star} />
@@ -125,6 +127,68 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
           </View>
         </>
       )}
+    </Pressable>
+  );
+}
+
+/** Full-width list row for the "See all" screen: same data as the carousel card, list density. */
+export function TopRatedRow({ provider: p, onPress }: { provider: TopRatedProvider; onPress: () => void }) {
+  const t = useTheme();
+  const name = p.profiles?.full_name || 'Provider';
+  const rating = Number(p.rating_avg);
+  const { lead, more } = headline(p);
+  const category = lead?.categories?.name ? `${lead.categories.name}${more > 0 ? ` +${more}` : ''}` : null;
+  const service = lead ? [category, skillLabel[lead.skill_level]].filter(Boolean).join(' · ') : `${p.years_experience} yrs experience`;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, verified, ${service}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews`}
+      style={({ pressed }) => [
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: t.spacing.md,
+          padding: t.spacing.lg,
+          borderRadius: t.radii.lg,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: t.colors.border,
+          backgroundColor: pressed ? t.colors.surfaceAlt : t.colors.surface,
+        },
+      ]}
+    >
+      <Avatar name={name} uri={p.profiles?.avatar_url} size={52} online={p.is_online} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text variant="calloutStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
+            {name}
+          </Text>
+          <Ionicons name="checkmark-circle" size={15} color={t.colors.primary} accessibilityLabel="Verified" />
+        </View>
+        <Text variant="footnote" color="textSecondary" numberOfLines={1}>
+          {service}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Ionicons name="star" size={13} color={t.colors.star} />
+          <Text variant="footnoteStrong" tabular>
+            {rating.toFixed(1)}
+          </Text>
+          <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
+            {`(${p.rating_count})  ·  ${p.jobs_completed} jobs`}
+          </Text>
+        </View>
+      </View>
+      {lead ? (
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text variant="caption" color="muted">
+            from
+          </Text>
+          <Text variant="subheadStrong" tabular>
+            {formatINR(lead.visit_fee)}
+          </Text>
+        </View>
+      ) : null}
+      <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
     </Pressable>
   );
 }

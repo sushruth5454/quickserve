@@ -1,15 +1,12 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { useWindowDimensions } from 'react-native';
-import { TopRatedCard, TopRatedCardSkeleton } from '../src/components/TopRatedCard';
-import { EmptyState, ErrorState, Header, Screen } from '../src/components/ui';
+import { TopRatedRow } from '../src/components/TopRatedCard';
+import { EmptyState, ErrorState, Header, Screen, SkeletonProviderCard } from '../src/components/ui';
 import { listTopRated, type TopRatedProvider } from '../src/lib/api';
 import { useTheme } from '../src/theme';
 
 export default function TopRatedScreen() {
   const t = useTheme();
-  const { width } = useWindowDimensions();
-  const cardWidth = Math.min(width, 640) - t.spacing.lg * 2;
   const [list, setList] = useState<TopRatedProvider[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,15 +40,14 @@ export default function TopRatedScreen() {
       {error && !list ? (
         <ErrorState message={error} onRetry={() => void load()} />
       ) : !list ? (
-        [0, 1].map((i) => <TopRatedCardSkeleton key={i} width={cardWidth} />)
+        [0, 1, 2].map((i) => <SkeletonProviderCard key={i} />)
       ) : list.length === 0 ? (
         <EmptyState icon="star-outline" title="No rated pros yet" message="Pros appear here once customers rate their work." />
       ) : (
         list.map((p) => (
-          <TopRatedCard
+          <TopRatedRow
             key={p.id}
             provider={p}
-            width={cardWidth}
             onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.id } })}
           />
         ))
