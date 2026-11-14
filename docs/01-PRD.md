@@ -250,3 +250,6 @@ Priority: **Now** = before public launch, **Next** = first 3 months after launch
 2. **Growth:** WhatsApp updates, referral + first-booking offer, instant booking, fixed-price packages, favourites/book again.
 3. **Monetise and retain:** Plus membership, AMC plans, wallet, reminders, instant payout fee.
 4. **Scale:** live tracking, reschedule, Pro Boost, Pro subscription, B2B, parts, EMI, AI assistant (whenever the founder says go).
+
+### 11.7 Scope expansion: all local services
+QuickServe is expanding from home repairs to **all common local services**: beauty, events and weddings, photography, catering, learning, care, auto, pets and moving. Each category maps to a fulfilment archetype (fixed package, inspect→quote, proposal + milestones, time-based) through configuration. The design, phased task list, rules and open decisions are in `07-Multi-Category-Expansion-Plan.md`.
