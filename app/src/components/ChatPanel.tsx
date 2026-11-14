@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { listMessages, sendMessage, subscribeToMessages } from '../lib/api';
 import { haptics } from '../lib/haptics';
@@ -187,6 +187,7 @@ export function ChatComposer({
           accessibilityLabel="Message"
           maxLength={2000}
           multiline
+          numberOfLines={Platform.OS === 'web' ? 1 : undefined}
           onSubmitEditing={() => void submit()}
           returnKeyType="send"
           submitBehavior="submit"

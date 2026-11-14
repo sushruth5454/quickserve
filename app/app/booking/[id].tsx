@@ -376,7 +376,7 @@ export default function BookingDetail() {
             style={{ flex: 1 }}
           />
           {navigate ? (
-            <Button title="Navigate" variant="outline" size="sm" leftIcon="navigate-outline" onPress={() => void navigate()} style={{ flex: 1 }} />
+            <Button title="Map" variant="outline" size="sm" leftIcon="navigate-outline" onPress={() => void navigate()} style={{ flex: 1 }} />
           ) : null}
         </View>
         <Divider />

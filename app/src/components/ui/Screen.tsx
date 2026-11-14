@@ -24,7 +24,7 @@ import { useToastOffset } from './Toast';
 
 /** Bottom tab bar height incl. the home-indicator inset (iOS 49, Android 64 per M3, web 56). */
 export function tabBarHeight(insets: EdgeInsets): number {
-  const base = Platform.OS === 'ios' ? 49 : Platform.OS === 'android' ? 64 : 56;
+  const base = Platform.OS === 'ios' ? 49 : Platform.OS === 'android' ? 64 : 64;
   return base + insets.bottom;
 }
 

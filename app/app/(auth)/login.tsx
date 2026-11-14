@@ -135,10 +135,16 @@ export default function LoginScreen() {
           <InlineAlert tone="warning" icon="flask-outline" title="Demo mode" message="Use any valid Indian mobile number. The code is 123456." />
         ) : null}
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 6, rowGap: 4 }}>
-          {['KYC-verified pros', 'Quote before work', 'Secure payments'].map((x, i) => (
-            <View key={x} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {i > 0 ? <Text variant="footnote" color="muted">·</Text> : null}
+        <View style={{ gap: t.spacing.sm, paddingTop: t.spacing.xs }}>
+          {(
+          [
+            ['shield-checkmark-outline', 'KYC-verified pros'],
+            ['document-text-outline', 'Itemised quote before any work'],
+            ['lock-closed-outline', 'Payments held until the job is done'],
+          ] as const
+          ).map(([icon, x]) => (
+            <View key={x} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+              <Ionicons name={icon} size={18} color={t.colors.success} />
               <Text variant="footnote" color="textSecondary">
                 {x}
               </Text>

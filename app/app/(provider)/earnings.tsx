@@ -261,11 +261,11 @@ export default function Earnings() {
                           </Text>
                           <Badge label={label} tone={tone} dot />
                         </View>
-                        <Text variant="footnote" color="muted" tabular numberOfLines={2}>
-                          #{p.booking_id.slice(0, 8)} · Billed {formatINR(p.gross)} · Commission −{formatINR(p.commission)} · GST −
-                          {formatINR(p.gst_on_commission)}
+                        <Text variant="footnote" color="muted" tabular numberOfLines={1}>
+                          {`Billed ${formatINR(p.gross)} · Fees −\u00A0${formatINR(p.commission + p.gst_on_commission)}`}
                         </Text>
-                        <Text variant="footnote" color="muted">
+                        <Text variant="footnote" color="muted" numberOfLines={1}>
+                          {`#${p.booking_id.slice(0, 8)} · `}
                           {p.transferred_at
                             ? `Paid ${fmtWhen(p.transferred_at)}`
                             : p.status === 'pending'
