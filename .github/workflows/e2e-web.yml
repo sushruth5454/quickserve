@@ -1,0 +1,70 @@
+name: E2E web smoke test
+
+on:
+  workflow_dispatch:
+
+concurrency: e2e-web
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_FORCE_TEST_LOCATION: '1'
+      TARGET_SDK: '58'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install app dependencies (public npm, same as publish-app)
+        working-directory: app
+        run: |
+          rm -f package-lock.json
+          npm config set registry https://registry.npmjs.org/
+          npm install --no-audit --no-fund --legacy-peer-deps
+          CURRENT=$(node -p 'require("expo/package.json").version.split(".")[0]')
+          if [ "$CURRENT" != "$TARGET_SDK" ]; then
+            npm install "expo@~$TARGET_SDK.0.0" --no-audit --no-fund --legacy-peer-deps
+            CI=1 npx expo install --fix -- --legacy-peer-deps
+          fi
+          CI=1 npx expo install react-native-web react-dom @expo/metro-runtime -- --legacy-peer-deps
+          node -p '"Using expo " + require("expo/package.json").version'
+
+      - name: Build web
+        working-directory: app
+        run: npx expo export --platform web --output-dir dist
+
+      - name: Serve web build
+        working-directory: app
+        run: |
+          npx --yes serve@14 -s dist -l 8081 > ../serve.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:8081 > /dev/null && exit 0; sleep 1; done
+          cat ../serve.log; exit 1
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Run smoke test
+        working-directory: e2e
+        env:
+          BASE_URL: http://localhost:8081
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          SHOTS_DIR: ${{ github.workspace }}/e2e-shots
+        run: node web-smoke.mjs
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e-shots
