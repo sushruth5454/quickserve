@@ -90,6 +90,30 @@ Razorpay Route lets a marketplace collect a payment and **transfer** part of it 
 
 Outside India, the same design maps to **Stripe Connect (Express accounts, separate charges & transfers)**.
 
+### 5.1 Payout rails: Route vs Payouts fallback (RBI eligibility, verified 2026-11-14)
+Since the RBI Payment Aggregator guidelines of September 2025, Razorpay enables **Route** only for businesses that meet both conditions:
+- **Turnover:** domestic turnover above ₹40 lakh in FY25 or FY26, proven with GST-3B returns. First-year businesses can submit a self-declaration instead.
+- **Payer-payee transparency:** the linked account must directly serve the customer.
+
+New accounts don't see Route in the Dashboard until Razorpay Support enables it (review takes 5–7 business days). Sources: https://razorpay.com/docs/payments/route/dashboard, https://razorpay.com/docs/payments/route/faqs.
+
+So QuickServe supports **two payout rails behind one interface**, selected by server config `app_config.payout_rail ∈ {'route','payouts'}`:
+
+| | `route` (preferred) | `payouts` (fallback until eligible) |
+|---|---|---|
+| Collection | Payment Links into our account (unchanged) | Same |
+| Provider onboarding | Razorpay **Linked Account** (Razorpay does KYC); `kyc_status` comes from linked-account webhooks | Our own payout-beneficiary verification: PAN verification + **bank account validation (penny drop)** via RazorpayX, stored as a **Fund Account** (contact + bank/UPI); `kyc_status` comes from validation results |
+| Release | `POST /payments/{id}/transfers` per `payout_transfers` row (source-payment capped) | RazorpayX **Payout** to the fund account per release tranche, from the platform's RazorpayX current account; the same `payout_transfers` rows, with `source_payment_id` kept for accounting |
+| Refund after release | Transfer reversal | No reversal: recovered as **provider receivable** (debt) from future payouts (§3.12 C9 of doc 07) |
+| Holds | `on_hold` transfers (doc 07 §3.7) | Funds stay in the platform account until release |
+
+**Implications of the fallback (CA must confirm before going live):**
+- The full customer payment settles to QuickServe first. That may make QuickServe the **supplier of record** for GST, so GST would be due on the full job value rather than only on the commission. It also adds TDS on payouts.
+- Funds held for others raise PA/escrow questions; keep hold periods short and payouts regular.
+- RazorpayX payouts cost a per-payout fee; include it in contribution margins.
+
+**Decision:** build both rails behind a `PayoutRail` server module (`supabase/functions/_shared/payout-rail.ts`) with the same entitlement, allocation and release logic. Switching rails is a config change for **new** payouts only; in-flight payouts finish on the rail they started on (`payout_transfers.rail` snapshot). Apply for Route now; launch on `payouts` if Route is refused, and move to `route` once turnover passes ₹40 lakh.
+
 ## 6. Anti-leakage (stopping people from paying offline)
 - The **7-day QuickServe Guarantee** (free rework; if rework isn't possible, a labour refund up to ₹2,000; same definition as PRD §5.9) applies only to in-app-paid jobs.
 - Ratings and reviews only count for in-app-paid jobs, so providers need them to rank.
