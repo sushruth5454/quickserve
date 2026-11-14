@@ -174,7 +174,7 @@ export default function Earnings() {
           <Text variant="footnote" color="textSecondary" tabular>
             {sel ? `${sel.long} · ${formatINR(sel.value)}` : ' '}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 6 }} accessibilityRole="adjustable" accessibilityLabel="Earnings chart">
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 96, gap: 6 }} accessibilityRole="adjustable" accessibilityLabel="Earnings chart">
             {bars.map((b, i) => {
               const h = b.value > 0 ? Math.max(8, Math.round((b.value / max) * 112)) : 4;
               const isSel = i === selected;

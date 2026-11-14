@@ -546,7 +546,7 @@ function RequestCard(props: {
         </Text>
         <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
           <Button title="Decline" variant="outline" size="lg" style={{ flex: 1 }} disabled={props.busy} onPress={props.onDecline} />
-          <Button title="Accept" size="lg" style={{ flex: 2 }} loading={props.busy} disabled={left <= 0} onPress={props.onAccept} />
+          <Button title="Accept" size="lg" style={{ flex: 1.4 }} loading={props.busy} disabled={left <= 0} onPress={props.onAccept} />
         </View>
       </Card>
     </Animated.View>

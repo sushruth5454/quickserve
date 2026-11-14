@@ -470,7 +470,7 @@ export default function BookingDetail() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
             <Avatar name={data.counterpart} size={44} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="calloutStrong" numberOfLines={2}>
+              <Text variant="calloutStrong" numberOfLines={1}>
                 {data.counterpart}
               </Text>
               {isCustomer && pro && pro.rating_count > 0 ? (
