@@ -4,8 +4,9 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { Inter_800ExtraBold } from '@expo-google-fonts/inter/800ExtraBold';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/components/ui';
@@ -16,8 +17,15 @@ import { ThemeProvider, useTheme } from '../src/theme';
 function RootNavigator() {
   const { session, loading, choosingRole } = useAuth();
   const t = useTheme();
-  if (loading) return <FullScreenLoader />;
   const signedIn = !!session;
+  const wasSignedIn = useRef(signedIn);
+
+  useEffect(() => {
+    if (wasSignedIn.current && !signedIn) router.replace('/login');
+    wasSignedIn.current = signedIn;
+  }, [signedIn]);
+
+  if (loading) return <FullScreenLoader />;
   return (
     <Stack
       screenOptions={{

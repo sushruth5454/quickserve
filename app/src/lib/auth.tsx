@@ -33,7 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (role === 'provider' || role === 'customer') setRole(role);
       setLoading(false);
     });
-    const unsubscribe = onAuthChange((next) => setSession(next));
+    const unsubscribe = onAuthChange((next) => {
+      setSession(next);
+      if (!next) {
+        // Signed out: the next login starts fresh on the customer side.
+        setChoosingRole(false);
+        setRole('customer');
+        void AsyncStorage.removeItem(ROLE_KEY).catch(() => undefined);
+      }
+    });
     return () => {
       mounted = false;
       unsubscribe();
