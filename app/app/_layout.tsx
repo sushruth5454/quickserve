@@ -54,6 +54,7 @@ function RootNavigator() {
         <Stack.Screen name="jobs" />
         <Stack.Screen name="top-rated" />
         <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="assistant" />
       </Stack.Protected>
       <Stack.Screen name="info/[topic]" />
     </Stack>

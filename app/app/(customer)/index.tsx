@@ -144,6 +144,39 @@ export default function CustomerHome() {
             <IconButton icon="close-circle" accessibilityLabel="Clear search" onPress={() => setQuery('')} color="muted" size={20} visualSize={40} />
           ) : null}
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ask QuickServe AI"
+          accessibilityHint="Describe the problem by text or voice and get a pre-filled booking"
+          onPress={() => router.push('/assistant')}
+          style={({ pressed }) => [
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: t.spacing.md,
+              padding: t.spacing.md,
+              borderRadius: t.radii.lg,
+              backgroundColor: t.colors.primarySoft,
+              borderWidth: 1,
+              borderColor: t.dark ? t.colors.border : 'transparent',
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="sparkles" size={22} color={t.colors.onPrimary} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="calloutStrong" color="primaryText">
+              Ask QuickServe AI
+            </Text>
+            <Text variant="footnote" color="textSecondary" numberOfLines={2}>
+              Describe the problem, or speak in English, हिंदी or తెలుగు
+            </Text>
+          </View>
+          <Ionicons name="mic-outline" size={20} color={t.colors.primaryText} />
+        </Pressable>
       </View>
 
       {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
@@ -192,7 +225,14 @@ export default function CustomerHome() {
               ))}
             </View>
           ) : filtered.length === 0 ? (
-            <EmptyState compact icon="search" title="No matching service" message={`We don't have "${query}" yet. Try another word.`} />
+            <EmptyState
+              compact
+              icon="search"
+              title="No matching service"
+              message={`We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.`}
+              actionLabel="Ask QuickServe AI"
+              onAction={() => router.push({ pathname: '/assistant', params: { q: query.trim() } })}
+            />
           ) : (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg, marginHorizontal: -t.spacing.xs }}>
               {filtered.map((c, i) => (

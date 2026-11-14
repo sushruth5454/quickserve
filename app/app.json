@@ -50,6 +50,12 @@
           "cameraPermission": "QuickServe uses the camera so you can take photos of the problem or of parts bills."
         }
       ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "QuickServe uses the microphone so you can describe a problem to QuickServe AI by voice."
+        }
+      ],
       "expo-image",
       "expo-font"
     ]

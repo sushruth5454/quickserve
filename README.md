@@ -58,9 +58,11 @@ npx supabase secrets set `
   RAZORPAY_KEY_SECRET=xxx `
   RAZORPAY_WEBHOOK_SECRET=choose-a-long-random-string `
   CRON_SECRET=another-long-random-string `
+  GEMINI_API_KEY=xxx `
   PAYMENT_CALLBACK_URL=https://<your-domain>/payment-complete   # optional
 
 npx supabase functions deploy create-payment
+npx supabase functions deploy ai-assistant
 npx supabase functions deploy razorpay-webhook --no-verify-jwt
 npx supabase functions deploy release-payouts --no-verify-jwt
 npx supabase functions deploy process-refunds --no-verify-jwt
@@ -71,6 +73,7 @@ npx supabase functions deploy process-refunds --no-verify-jwt
 | `create-payment` | Authenticated customer → computes the amount server-side (`prepare_payment`: visit fee, initial balance or change-order increment) → creates a Razorpay **Payment Link** → returns `short_url`. |
 | `razorpay-webhook` | Verifies `X-Razorpay-Signature` (HMAC-SHA256 of the raw body, constant-time compare). On `payment_link.paid` calls `record_payment_paid` (idempotent by `razorpay_payment_id`). |
 | `release-payouts` | Cron: expires 15-min-old requests, auto-confirms completions after 24h, cancels retired payment links, then creates one Route transfer per due `payout_transfers` row (`POST /v1/payments/{payment_id}/transfers`, `notes.transfer_id` set). Failed attempts back off (5→40 min); retries first look the transfer up by `notes.transfer_id` so a timed-out request is never paid twice. After 5 failures the payout is flagged `failed`; fix the cause and run `select retry_payout('<payout id>')`. Requires header `x-cron-secret`. |
+| `ai-assistant` | Authenticated customer → QuickServe AI booking assistant (Gemini). See [AI assistant](#ai-assistant). |
 | `process-refunds` | Cron: cancels retired payment links, claims queued `refunds` rows (`claim_due_refunds`) and calls `POST /v1/payments/{id}/refund` with `X-Refund-Idempotency: <refund row id>`; full refunds move the payment to `refunded`. Requires header `x-cron-secret`. |
 
 ### Razorpay (test mode)
@@ -119,6 +122,37 @@ $$);
 
 **Option B — Supabase Dashboard → Integrations → Cron**: create the same jobs as "Supabase Edge Function" (POST,
 header `x-cron-secret`) or "SQL snippet" jobs. Check runs with `select * from cron.job_run_details order by start_time desc limit 20;`.
+
+### AI assistant
+
+"Ask QuickServe AI" (Home card, sparkles button on category results, route `/assistant`) lets a customer describe a
+problem by text or voice (English, Hindi, Telugu, Hinglish/Tenglish) and get a diagnosis, data-backed typical prices,
+1-3 recommended pros and a **booking draft**. "Review & pay" opens the normal Book screen pre-filled (description,
+problem chips, slot, address); the customer always confirms and pays there. The AI never creates or pays bookings.
+
+- **Architecture**: app (`app/app/assistant.tsx`, `src/lib/assistant/*`) → edge function `ai-assistant` (JWT verified at
+  the gateway and again in code) → Gemini `generateContent` with function calling over read-only server-side tools:
+  `list_categories`, `search_providers` (the existing RPC, called with the user's JWT), `get_my_history`,
+  `get_price_estimate` (SQL `ai_price_estimate`: active pros' visit fees + completed/approved job totals; no data → says
+  so), `draft_booking` (validates the pro, clamps the slot to the Book screen's 2-hour windows within 7 days, uses the
+  selected address) and a final `respond`. Cards (safety, diagnosis, estimate, providers, draft) are assembled
+  server-side from tool results, so prices and pros are never model-invented. Response contract:
+  `{ conversation_id, reply_text, language, quick_replies[], cards[], transcript?, usage, limits }`.
+- **Voice**: `expo-audio` records up to 60 s (AAC .m4a), uploaded as base64 and understood by Gemini in the same call
+  (transcript shown as the user's message). Mic is hidden on web and in demo mode.
+- **Secret**: `GEMINI_API_KEY` (function secret; CI sets it from the GitHub secret of the same name).
+- **Models**: primary `gemini-3.8-flash` (12 s per call), automatic fallback to `gemini-3.5-flash-lite` on
+  429/5xx/timeouts (retried once), with a 5-minute per-instance cooldown for the primary after a failure. Constants in
+  `supabase/functions/ai-assistant/gemini.ts`. `thinkingLevel: low`, `maxOutputTokens: 2048`; Gemini 3 ignores
+  `temperature`, so behaviour is pinned by the system prompt (`prompt.ts`). Whole request budget ~50 s.
+- **Rate limits**: 30 messages and 10 voice messages per user per IST day (`AI_DAILY_MESSAGE_LIMIT`,
+  `AI_DAILY_VOICE_LIMIT`), counted from `ai_messages` user rows.
+- **Storage**: `ai_conversations` / `ai_messages` (migration `0004`): owner-only read via RLS, writes only by the
+  function (service role). Assistant rows keep cards, tool calls, model and token usage.
+- **Privacy**: Gemini only receives area/city-level location, saved-address labels + area (never house numbers), the
+  user's own booking history (service, date, pro name, rating given) and public pro listings. No phone numbers or
+  other customers' data.
+- **Demo mode**: `src/lib/demo/demoAssistant.ts` answers offline with keyword rules over the demo data (text only).
 ## 3. Mobile app
 
 The app targets **Expo SDK 57** (React Native 0.86, React 19.2) so it runs in the App Store / Play Store **Expo Go**.

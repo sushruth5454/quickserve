@@ -188,6 +188,30 @@ await step('book-screen-ready', async () => {
   await page.getByText(/arrives .* between 10 am–12 pm/).first().waitFor();
 });
 await optional('book-screen-scrolled', () => snapScrolled('book-screen-scrolled', 800));
+
+// ---------- QuickServe AI (live Gemini via the ai-assistant function; nothing is booked or paid) ----------
+await step('assistant-open-from-home', async () => {
+  await go('/');
+  await page.getByLabel('Ask QuickServe AI').first().click();
+  await page.waitForURL(/\/assistant$/);
+  await visible('QuickServe AI');
+  await page.getByLabel('Message QuickServe AI').first().waitFor();
+});
+await step('assistant-draft-card', async () => {
+  await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
+  await page.getByLabel('Send message').first().click();
+  await page.getByText('Review & pay', { exact: true }).first().waitFor({ timeout: 120000 });
+  await page.getByText('Booking draft', { exact: true }).first().waitFor();
+});
+await optional('assistant-draft-scrolled', () => snapScrolled('assistant-draft-scrolled', 600));
+await step('assistant-review-prefills-book', async () => {
+  await page.getByText('Review & pay', { exact: true }).first().click();
+  await page.waitForURL(/\/book\//);
+  await page.getByText(/^Pre-filled by QuickServe AI/).first().waitFor();
+  const desc = await page.getByLabel('Describe the problem').first().inputValue();
+  if (!/cool|AC/i.test(desc)) throw new Error(`description not pre-filled: "${desc}"`);
+  await page.getByText(/arrives .* between 6–8 pm/).first().waitFor();
+});
 await step('bookings-active', async () => {
   await go('/bookings');
   await visible('My bookings');

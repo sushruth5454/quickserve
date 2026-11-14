@@ -7,7 +7,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../../src/components/AddressEditor';
 import { skillLabel } from '../../src/components/ProviderCard';
 import { Avatar, Button, Card, Chip, Divider, ErrorState, Header, InlineAlert, PriceRow, Screen, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
-import { createBooking, getProviderService, uploadJobPhoto, type ProviderServiceWithProvider } from '../../src/lib/api';
+import { createBooking, getProviderService, listMyAddresses, uploadJobPhoto, type ProviderServiceWithProvider } from '../../src/lib/api';
+import { readBookPrefill } from '../../src/lib/assistant/prefill';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { fromSavedAddress } from '../../src/lib/locationModel';
 import { formatINR, PLATFORM_FEE_PAISE } from '../../src/lib/money';
@@ -42,17 +43,25 @@ export default function BookScreen() {
   const t = useTheme();
   const toast = useToast();
   const pay = usePayment();
-  const { providerServiceId } = useLocalSearchParams<{ providerServiceId: string }>();
+  const { providerServiceId, ...prefillParams } = useLocalSearchParams<{
+    providerServiceId: string;
+    from?: string;
+    description?: string;
+    slot?: string;
+    addressId?: string;
+  }>();
   const { location, setLocation } = useSelectedLocation();
   const [service, setService] = useState<ProviderServiceWithProvider | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [photos, setPhotos] = useState<{ uri: string; mimeType: string }[]>([]);
-  const [mode, setMode] = useState<'asap' | 'schedule'>('asap');
   const now = useMemo(() => new Date(), []);
   const days = useMemo(() => nextDays(now, 7), [now]);
-  const [dayIndex, setDayIndex] = useState(() => firstAvailableDay(days, now));
-  const [hour, setHour] = useState<number | null>(null);
+  // Draft hand-off from QuickServe AI (src/lib/assistant/prefill.ts); read once so the user's edits stick.
+  const [prefill] = useState(() => readBookPrefill(prefillParams, days, now));
+  const [description, setDescription] = useState(prefill.description ?? '');
+  const [photos, setPhotos] = useState<{ uri: string; mimeType: string }[]>([]);
+  const [mode, setMode] = useState<'asap' | 'schedule'>(prefill.mode ?? 'asap');
+  const [dayIndex, setDayIndex] = useState(() => prefill.dayIndex ?? firstAvailableDay(days, now));
+  const [hour, setHour] = useState<number | null>(prefill.hour);
   const [editorOpen, setEditorOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +74,19 @@ export default function BookScreen() {
       .catch((e: Error) => setLoadError(e.message));
   };
   useEffect(load, [providerServiceId]);
+
+  // The draft used a saved address that is not the current selection (e.g. changed since): switch to it.
+  useEffect(() => {
+    const id = prefill.addressId;
+    if (!id || location.addressId === id) return;
+    listMyAddresses()
+      .then((list) => {
+        const a = list.find((x) => x.id === id);
+        if (a) setLocation(fromSavedAddress(a));
+      })
+      .catch(() => undefined);
+    // Only on arrival from the assistant.
+  }, []);
 
   const day = days[dayIndex] ?? days[0]!;
   // Drop a picked window that is no longer available on the newly selected day.
@@ -184,6 +206,16 @@ export default function BookScreen() {
         }
       >
         {/* Service summary */}
+        {prefill.fromAssistant ? (
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, padding: t.spacing.md, borderRadius: t.radii.md, backgroundColor: t.colors.primarySoft }}
+          >
+            <Ionicons name="sparkles" size={16} color={t.colors.primaryText} />
+            <Text variant="footnote" color="textSecondary" style={{ flex: 1 }}>
+              Pre-filled by QuickServe AI. Check the details, then pay the visit fee to send the request.
+            </Text>
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
           <Avatar name={providerName} size={48} />
           <View style={{ flex: 1, gap: 2 }}>

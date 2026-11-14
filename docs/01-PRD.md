@@ -212,7 +212,7 @@ Priority: **Now** = before public launch, **Next** = first 3 months after launch
 | **Smart reminders**: AC service every 6 months, water tank every 3 months, RO filter every 6 months, pest control yearly | Brings users back without paid marketing | U R | Next |
 | **Wallet** (refunds, referral credit and cashback land here; can be used at checkout) | Faster refunds and money stays on the platform | U R | Next |
 | **Photo-based quote estimate**: upload a photo and get a likely issue and price range before booking (ties into the AI assistant) | Confidence before paying the visit fee | U | Next |
-| **AI booking assistant** (chat/voice: describe the issue → suggested pros → pre-filled booking) | Lowest-effort booking path; see the `ai-assistant` todo | A U | On hold (founder decides start) |
+| **AI booking assistant** (chat/voice: describe the issue → suggested pros → pre-filled booking) | Lowest-effort booking path; Gemini, English/Hindi/Telugu, see README "AI assistant" | A U | Built (v1) |
 
 ### 11.3 Revenue streams (beyond the 12% commission and ₹29 platform fee)
 | Stream | How it works | Goal | Priority |

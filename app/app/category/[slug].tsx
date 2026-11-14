@@ -12,6 +12,7 @@ import {
   EmptyState,
   ErrorState,
   Header,
+  IconButton,
   Screen,
   SkeletonProviderCard,
   Text,
@@ -105,7 +106,23 @@ export default function CategoryProviders() {
   return (
     <>
       <Screen
-        header={<Header title={name ?? 'Providers'} subtitle={subtitle} />}
+        header={
+          <Header
+            title={name ?? 'Providers'}
+            subtitle={subtitle}
+            right={
+              <IconButton
+                icon="sparkles"
+                variant="tonal"
+                color="primaryText"
+                size={20}
+                accessibilityLabel="Ask QuickServe AI"
+                accessibilityHint="Describe your problem and get a recommended pro and a pre-filled booking"
+                onPress={() => router.push({ pathname: '/assistant', params: { category: slug, name: name ?? '' } })}
+              />
+            }
+          />
+        }
         padded={false}
         gap={0}
         stickyHeaderIndices={[0]}
