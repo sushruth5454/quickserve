@@ -201,7 +201,7 @@ export default function BookScreen() {
                     {rating.toFixed(1)}
                   </Text>
                   <Text variant="footnote" color="muted">
-                    ({ratingCount}) ·{' '}
+                    ({ratingCount}) ·
                   </Text>
                 </>
               ) : null}
@@ -318,7 +318,7 @@ export default function BookScreen() {
                       disabled={!any}
                       onPress={() => setDayIndex(i)}
                       style={{
-                        width: 64,
+                        width: 76,
                         paddingVertical: t.spacing.sm,
                         borderRadius: t.radii.md,
                         borderWidth: sel ? 1.5 : 1,

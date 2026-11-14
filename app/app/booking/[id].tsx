@@ -470,7 +470,7 @@ export default function BookingDetail() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
             <Avatar name={data.counterpart} size={44} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="calloutStrong" numberOfLines={1}>
+              <Text variant="calloutStrong" numberOfLines={2}>
                 {data.counterpart}
               </Text>
               {isCustomer && pro && pro.rating_count > 0 ? (
@@ -506,7 +506,7 @@ export default function BookingDetail() {
           <InfoRow
             icon="calendar-outline"
             label="When"
-            text={booking.scheduled_at ? scheduleLabel(booking.scheduled_at) : `As soon as possible · booked ${scheduleLabel(booking.created_at)}`}
+            text={booking.scheduled_at ? scheduleLabel(booking.scheduled_at) : `As soon as possible (requested ${fmt(booking.created_at)})`}
           />
           {booking.description ? <InfoRow icon="construct-outline" label="Issue" text={booking.description} /> : null}
           {data.photoUrls.length > 0 ? (

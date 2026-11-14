@@ -8,7 +8,7 @@ import { StatusPill } from './status';
 import { StatusTimeline } from './StatusTimeline';
 import { Card, Text } from './ui';
 
-const STEPS = ['Requested', 'Accepted', 'Arrived', 'Quote', 'Work', 'Done'] as const;
+const STEPS = ['Booked', 'Accepted', 'Arrived', 'Quote', 'Work', 'Done'] as const;
 
 /** Index of the step currently in play (−1 = not on the happy path, e.g. cancelled). Done = all steps complete. */
 export function stepIndex(status: BookingStatus): number {
@@ -46,7 +46,7 @@ export interface HeroCopy {
   subtitle?: string;
 }
 
-/** Compact horizontal stepper: Requested → Accepted → Arrived → Quote → Work → Done. */
+/** Compact horizontal stepper: Booked → Accepted → Arrived → Quote → Work → Done. */
 export function MiniStepper({ status }: { status: BookingStatus }) {
   const t = useTheme();
   const done = doneCount(status);

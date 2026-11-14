@@ -13,7 +13,6 @@ import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Te
 import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import type { Booking, Category } from '../../src/lib/types';
-import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 export default function CustomerHome() {
@@ -161,7 +160,7 @@ export default function CustomerHome() {
               <CategoryIcon icon={categories?.find((c) => c.slug === active.categories?.slug)?.icon} size={44} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="caption" color="muted">
-                  Active booking · {bookingRef(active.id)}
+                  Active booking
                 </Text>
                 <Text variant="bodyStrong" numberOfLines={1}>
                   {active.categories?.name ?? 'Booking'}

@@ -102,7 +102,7 @@ export default function MyBookings() {
                       <StatusPill status={b.status} />
                     </View>
                     <Text variant="footnote" color="muted" numberOfLines={1}>
-                      {b.providers?.profiles?.full_name ?? 'Your pro'} · {bookingRef(b.id)}
+                      {bookingRef(b.id)} · {b.providers?.profiles?.full_name ?? 'Your pro'}
                     </Text>
                   </View>
                 </View>
