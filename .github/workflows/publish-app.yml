@@ -2,6 +2,11 @@ name: Publish app to Expo Go (EAS Update)
 
 on:
   workflow_dispatch:
+    inputs:
+      sdk:
+        description: 'Expo SDK major version supported by the Expo Go app on your phone'
+        default: '58'
+        required: true
   push:
     branches: [main]
     paths: ['app/**']
@@ -19,7 +24,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       UPDATE_MESSAGE: ${{ github.event.head_commit.message || 'Manual publish' }}
-      SDK_RUNTIME: exposdk:57.0.0
+      TARGET_SDK: ${{ inputs.sdk || '58' }}
     steps:
       - name: Check required secrets
         working-directory: .
@@ -48,20 +53,39 @@ jobs:
         run: |
           rm -f package-lock.json
           npm config set registry https://registry.npmjs.org/
-          npm install --no-audit --no-fund
-          npx expo install expo-updates
+          npm install --no-audit --no-fund --legacy-peer-deps
+          CURRENT=$(node -p 'require("expo/package.json").version.split(".")[0]')
+          if [ "$CURRENT" != "$TARGET_SDK" ]; then
+            echo "Upgrading Expo SDK $CURRENT -> $TARGET_SDK to match Expo Go"
+            npm install "expo@~$TARGET_SDK.0.0" --no-audit --no-fund --legacy-peer-deps
+            CI=1 npx expo install --fix -- --legacy-peer-deps
+          fi
+          CI=1 npx expo install expo-updates -- --legacy-peer-deps
+          node -p '"Using expo " + require("expo/package.json").version + ", react-native " + require("react-native/package.json").version'
+
+      - name: Typecheck and unit tests
+        run: |
+          npx tsc --noEmit
+          npx jest --watchAll=false
+
+      - name: Upload resolved package.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: resolved-package-json
+          path: app/package.json
 
       - name: Link EAS project
         run: eas init --non-interactive --force
 
-      - name: Point updates at Expo Go (SDK 57)
+      - name: Point updates at Expo Go SDK
         run: |
           node -e '
             const fs = require("fs");
+            const sdk = require("expo/package.json").version.split(".")[0];
             const cfg = JSON.parse(fs.readFileSync("app.json", "utf8"));
             const id = cfg.expo.extra && cfg.expo.extra.eas && cfg.expo.extra.eas.projectId;
             if (!id) { console.error("No EAS projectId after eas init"); process.exit(1); }
-            cfg.expo.runtimeVersion = process.env.SDK_RUNTIME;
+            cfg.expo.runtimeVersion = "exposdk:" + sdk + ".0.0";
             cfg.expo.updates = { url: "https://u.expo.dev/" + id };
             fs.writeFileSync("app.json", JSON.stringify(cfg, null, 2) + "\n");
             fs.appendFileSync(process.env.GITHUB_ENV, "EAS_PROJECT_ID=" + id + "\n");
