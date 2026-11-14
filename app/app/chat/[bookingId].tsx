@@ -6,6 +6,7 @@ import { ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../s
 import { getBooking, getProfileName } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import type { Booking } from '../../src/lib/types';
+import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 const CHAT_CLOSED = new Set(['pending_payment', 'declined', 'expired', 'cancelled']);
@@ -53,7 +54,7 @@ export default function ChatScreen() {
       header={
         <Header
           title={name}
-          subtitle={booking ? `${booking.categories?.name ?? 'Booking'} · #${booking.id.slice(0, 8)}` : undefined}
+          subtitle={booking ? `${booking.categories?.name ?? 'Booking'} · ${bookingRef(booking.id)}` : undefined}
           onBack={back}
         />
       }

@@ -4,11 +4,12 @@ import { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CategoryIcon, iconForSlug } from '../../src/components/CategoryIcon';
-import { activeStatuses, nextStepCopy, StatusPill } from '../../src/components/status';
+import { activeStatuses, nextStepCopy, StatusPill, statusShort } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
 import { Button, Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonBookingCard, Text } from '../../src/components/ui';
 import { listMyBookings } from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
+import { bookingRef, scheduleLabel } from '../../src/lib/schedule';
 import type { Booking } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 
@@ -86,7 +87,11 @@ export default function MyBookings() {
           const done = b.status === 'completed' || b.status === 'closed';
           return (
             <Animated.View key={b.id} entering={FadeInDown.delay(Math.min(i, 6) * 30).duration(240)}>
-              <Card onPress={() => open(b)} accessibilityLabel={`${b.categories?.name ?? 'Booking'}, ${b.status.replaceAll('_', ' ')}`}>
+              <Card
+                onPress={() => open(b)}
+                gap={t.spacing.md}
+                accessibilityLabel={`${b.categories?.name ?? 'Booking'} with ${b.providers?.profiles?.full_name ?? 'your pro'}, ${statusShort[b.status]}`}
+              >
                 <View style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'center' }}>
                   <CategoryIcon icon={iconForSlug(b.categories?.slug)} size={44} />
                   <View style={{ flex: 1, gap: 2 }}>
@@ -97,7 +102,7 @@ export default function MyBookings() {
                       <StatusPill status={b.status} />
                     </View>
                     <Text variant="footnote" color="muted" numberOfLines={1}>
-                      #{b.id.slice(0, 8)} · {fmtDate(b.created_at)}
+                      {b.providers?.profiles?.full_name ?? 'Your pro'} · {bookingRef(b.id)}
                     </Text>
                   </View>
                 </View>
@@ -110,7 +115,7 @@ export default function MyBookings() {
                   <View style={{ gap: 6 }}>
                     <ProgressBar status={b.status} showLabel={false} />
                     {nextStepCopy[b.status] ? (
-                      <Text variant="footnote" color="muted" numberOfLines={1}>
+                      <Text variant="footnoteStrong" color="textSecondary" numberOfLines={1}>
                         {nextStepCopy[b.status]}
                       </Text>
                     ) : null}
@@ -174,12 +179,17 @@ function AmountRow({ booking: b, chevron }: { booking: Booking; chevron: boolean
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
           <Ionicons name="calendar-outline" size={14} color={t.colors.muted} />
           <Text variant="footnote" color="muted" numberOfLines={1}>
-            {fmtDate(b.scheduled_at)}
+            {scheduleLabel(b.scheduled_at)}
           </Text>
         </View>
-      ) : chevron ? (
-        <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
-      ) : null}
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
+          <Text variant="footnote" color="muted" numberOfLines={1}>
+            {fmtDate(b.created_at)}
+          </Text>
+          {chevron ? <Ionicons name="chevron-forward" size={16} color={t.colors.muted} /> : null}
+        </View>
+      )}
     </View>
   );
 }

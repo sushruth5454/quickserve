@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/components/ui';
 import { AuthProvider, useAuth } from '../src/lib/auth';
+import { LocationProvider } from '../src/lib/locationContext';
 import { PaymentProvider } from '../src/lib/payments';
 import { ThemeProvider, useTheme } from '../src/theme';
 
@@ -52,6 +53,7 @@ function RootNavigator() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="jobs" />
         <Stack.Screen name="top-rated" />
+        <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} />
       </Stack.Protected>
       <Stack.Screen name="info/[topic]" />
     </Stack>
@@ -64,10 +66,12 @@ function ThemedApp() {
     <ToastProvider>
       <ConfirmProvider>
         <AuthProvider>
-          <PaymentProvider>
-            <StatusBar style={t.dark ? 'light' : 'dark'} />
-            <RootNavigator />
-          </PaymentProvider>
+          <LocationProvider>
+            <PaymentProvider>
+              <StatusBar style={t.dark ? 'light' : 'dark'} />
+              <RootNavigator />
+            </PaymentProvider>
+          </LocationProvider>
         </AuthProvider>
       </ConfirmProvider>
     </ToastProvider>

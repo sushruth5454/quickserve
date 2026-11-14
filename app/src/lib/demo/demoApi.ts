@@ -22,6 +22,7 @@ import type {
   Booking,
   BookingStatus,
   Message,
+  NewAddressInput,
   OtpResult,
   Payment,
   Provider,
@@ -32,6 +33,7 @@ import type {
   QuoteItemDraft,
   Review,
   ReviewInput,
+  SavedAddress,
   SearchFilters,
 } from '../types';
 import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBooking, type DemoDb } from './seed';
@@ -76,6 +78,21 @@ function uid(): string {
   return session.userId;
 }
 
+// Saved addresses per user (demo only; reset with the rest of the demo state on account deletion).
+let addressBook: Record<string, SavedAddress[]> = {};
+
+function myAddresses(): SavedAddress[] {
+  const me = uid();
+  if (!addressBook[me]) {
+    const created = new Date(Date.now() - 90 * 86400000).toISOString();
+    addressBook[me] = [
+      { id: `addr-${me}-home`, label: 'Home', line1: 'Flat 302, Sri Sai Residency, Benz Circle', city: 'Vijayawada', lat: 16.5, lng: 80.651, is_default: true, created_at: created },
+      { id: `addr-${me}-office`, label: 'Office', line1: '4th Floor, iHub Towers, MG Road, Labbipet', city: 'Vijayawada', lat: 16.504, lng: 80.642, is_default: false, created_at: created },
+    ];
+  }
+  return addressBook[me]!;
+}
+
 function later(fn: () => void, ms: number) {
   if (!autopilot) return;
   const t = setTimeout(() => {
@@ -108,7 +125,12 @@ function nameOf(userId: string): string {
 
 function publicBooking(b: DemoBooking): Booking {
   const { address: _a, secrets: _s, ...rest } = b;
-  return clone({ ...rest, categories: categoryOf(b.category_id) });
+  const pro = db.providers.find((p) => p.id === b.provider_id);
+  return clone({
+    ...rest,
+    categories: categoryOf(b.category_id),
+    providers: pro ? { rating_avg: pro.rating_avg, rating_count: pro.rating_count, profiles: { full_name: nameOf(pro.id) } } : null,
+  });
 }
 
 function publicProvider(p: DemoDb['providers'][number]): Provider {
@@ -498,6 +520,7 @@ export const demoApi: Api = {
     await wait();
     clearTimers();
     db = buildSeed();
+    addressBook = {};
     await setSession(null);
   },
 
@@ -618,7 +641,35 @@ export const demoApi: Api = {
   async getProviderService(id): Promise<ProviderServiceWithProvider> {
     await wait();
     const s = db.services.find((x) => x.id === id) ?? fail('Service not found');
-    return clone({ ...s, categories: categoryOf(s.category_id), providers: { profiles: { full_name: nameOf(s.provider_id) } } });
+    const pro = db.providers.find((x) => x.id === s.provider_id);
+    return clone({
+      ...s,
+      categories: categoryOf(s.category_id),
+      providers: { rating_avg: pro?.rating_avg ?? 0, rating_count: pro?.rating_count ?? 0, profiles: { full_name: nameOf(s.provider_id) } },
+    });
+  },
+
+  async listMyAddresses() {
+    await wait();
+    return clone(myAddresses());
+  },
+
+  async addAddress(input: NewAddressInput) {
+    await wait();
+    assert(input.line1.trim() !== '' && input.city.trim() !== '', 'address is required');
+    const list = myAddresses();
+    const a: SavedAddress = {
+      id: `addr-${uid()}-${idSeq++}`,
+      label: input.label.trim() || 'Other',
+      line1: input.line1.trim(),
+      city: input.city.trim(),
+      lat: input.lat,
+      lng: input.lng,
+      is_default: list.length === 0,
+      created_at: new Date().toISOString(),
+    };
+    list.push(a);
+    return clone(a);
   },
 
   async createBooking(input: CreateBookingInput) {

@@ -5,8 +5,8 @@ import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'reac
 import { Linking, ScrollView, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { QuoteView } from '../../src/components/QuoteView';
-import { StatusPill } from '../../src/components/status';
-import { StatusTimeline } from '../../src/components/StatusTimeline';
+import { statusLabel } from '../../src/components/status';
+import { StatusHero, type HeroCopy } from '../../src/components/StatusHero';
 import {
   Avatar,
   Badge,
@@ -15,7 +15,10 @@ import {
   Divider,
   ErrorState,
   Header,
+  IconButton,
   InlineAlert,
+  LIST_INSET,
+  ListItem,
   OTPInput,
   RatingStars,
   Screen,
@@ -35,6 +38,7 @@ import { haptics } from '../../src/lib/haptics';
 import { amountDue, formatINR } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
+import { bookingRef, dayLabel, scheduleLabel } from '../../src/lib/schedule';
 import type { Booking, BookingAddress, BookingEvent, BookingOtps, Payment, PaymentStatus, Quote, Review, ReviewInput } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 
@@ -334,15 +338,37 @@ export default function BookingDetail() {
             : null;
   const canReport = isCustomer && (s === 'in_progress' || s === 'completion_requested' || s === 'completed');
 
+  const startCode = otps?.start_otp ?? null;
+  const endCode = otps?.end_otp ?? null;
+  const hero = heroCopy({
+    status: s,
+    isCustomer,
+    first,
+    visitFee: booking.visit_fee,
+    startCode,
+    endCode,
+    changeOrderOpen: s === 'in_progress' && !!openQuote,
+    cancelledReason: booking.cancelled_reason,
+  });
+  const pro = booking.providers;
+  const helpItems: { key: string; title: string; icon: keyof typeof Ionicons.glyphMap; destructive?: boolean; onPress: () => void }[] = [
+    {
+      key: 'help',
+      title: 'Get help with this booking',
+      icon: 'help-buoy-outline',
+      onPress: () =>
+        void Linking.openURL(`mailto:support@quickserve.app?subject=${encodeURIComponent(`Booking ${bookingRef(booking.id)}`)}`).catch(() =>
+          toast({ message: 'Email support@quickserve.app' }),
+        ),
+    },
+    { key: 'safety', title: 'Safety & guarantee', icon: 'shield-checkmark-outline', onPress: () => router.push({ pathname: '/info/[topic]', params: { topic: 'safety' } }) },
+  ];
+  if (canReport && !disputeOpen) helpItems.push({ key: 'report', title: 'Report a problem', icon: 'flag-outline', onPress: () => setDisputeOpen(true) });
+  if (cancelAction) helpItems.push({ key: 'cancel', title: cancelAction[0], icon: 'close-circle-outline', destructive: true, onPress: () => void cancel(cancelAction[1]) });
+
   return (
     <Screen
-      header={
-        <Header
-          title={booking.categories?.name ?? 'Booking'}
-          subtitle={`Booking #${booking.id.slice(0, 8)}`}
-          right={<StatusPill status={booking.status} />}
-        />
-      }
+      header={<Header title={booking.categories?.name ?? 'Booking'} subtitle={`${bookingRef(booking.id)} · ${dayLabel(new Date(booking.created_at))}`} />}
       footer={footer}
       refreshing={refreshing}
       onRefresh={async () => {
@@ -351,79 +377,26 @@ export default function BookingDetail() {
         setRefreshing(false);
       }}
     >
-      {/* Who, where, when + contact bar */}
-      <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-          <Avatar name={data.counterpart} size={48} />
-          <View style={{ flex: 1 }}>
-            <Text variant="caption" color="muted">
-              {isCustomer ? 'Your pro' : 'Customer'}
-            </Text>
-            <Text variant="title3" numberOfLines={1}>
-              {data.counterpart}
-            </Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-          <Button title="Chat" variant="secondary" size="sm" leftIcon="chatbubble-ellipses-outline" onPress={openChat} style={{ flex: 1 }} />
-          <Button
-            title="Call"
-            variant="outline"
-            size="sm"
-            leftIcon="call-outline"
-            onPress={call}
-            accessibilityHint="Masked calling is coming soon"
-            style={{ flex: 1 }}
-          />
-          {navigate ? (
-            <Button title="Map" variant="outline" size="sm" leftIcon="navigate-outline" onPress={() => void navigate()} style={{ flex: 1 }} />
-          ) : null}
-        </View>
-        <Divider />
-        <InfoRow
-          icon="location-outline"
-          text={
-            data.address?.address_line
-              ? `${data.address.address_line}, ${data.address.area}`
-              : `${data.address?.area ?? '—'} · exact address after you accept`
-          }
-        />
-        <InfoRow icon="time-outline" text={booking.scheduled_at ? `Scheduled · ${fmt(booking.scheduled_at)}` : `As soon as possible · booked ${fmt(booking.created_at)}`} />
-        {booking.description ? <InfoRow icon="chatbox-ellipses-outline" text={`“${booking.description}”`} /> : null}
-        {data.photoUrls.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: t.spacing.sm }}>
-            {data.photoUrls.map((u) => (
-              <Image key={u} source={{ uri: u }} style={{ width: 72, height: 72, borderRadius: t.radii.md }} contentFit="cover" accessibilityLabel="Problem photo" />
-            ))}
-          </ScrollView>
-        ) : null}
-      </Card>
-
+      <StatusHero status={s} copy={hero} events={data.events} />
       <InlineAlert message={actionError} />
 
-      {/* ---------- customer state ---------- */}
-      {isCustomer && s === 'pending_payment' ? (
-        <InlineAlert
-          tone="warning"
-          title="Pay the visit fee to send your request"
-          message={`${first} is notified as soon as the ${formatINR(booking.visit_fee)} visit fee is paid. It's adjusted in your final bill.`}
-        />
-      ) : null}
-      {isCustomer && s === 'requested' ? (
-        <InlineAlert
-          tone="neutral"
-          icon="hourglass-outline"
-          title={`Waiting for ${first} to accept`}
-          message="Pros respond within 15 minutes. If not, your visit fee is refunded automatically."
-        />
-      ) : null}
+      {/* ---------- customer actions ---------- */}
       {isCustomer && (s === 'accepted' || s === 'en_route') ? (
         <OtpCard
           title="Start code"
-          hint={`Share this code with ${first} only when they arrive at your door.`}
-          code={otps?.start_otp ?? null}
+          hint={`Share only when ${first} is at your door.`}
+          code={startCode}
           locked={!!otps?.start_locked}
           onRegenerate={() => void run(() => api.regenerateOtp(booking.id, 'start'), 'New code generated')}
+        />
+      ) : null}
+      {isCustomer && s === 'completion_requested' ? (
+        <OtpCard
+          title="Completion code"
+          hint={`Share only if you're happy with the work. Auto-confirms 24 hours after ${first} marked it done.`}
+          code={endCode}
+          locked={!!otps?.end_locked}
+          onRegenerate={() => void run(() => api.regenerateOtp(booking.id, 'end'), 'New code generated')}
         />
       ) : null}
       {customerRespondsToQuote && openQuote ? (
@@ -445,57 +418,18 @@ export default function BookingDetail() {
         </View>
       ) : null}
       {isCustomer && pendingPaymentQuote && dueForPending > 0 ? (
-        <QuoteView
-          quote={pendingPaymentQuote}
-          visitFee={booking.visit_fee}
-          platformFee={booking.platform_fee}
-          alreadyPaid={paid}
-          counterpartName={data.counterpart}
-        />
-      ) : null}
-      {isCustomer && s === 'completion_requested' ? (
-        <View style={{ gap: t.spacing.sm }}>
-          <OtpCard
-            title="Completion code"
-            hint={`Check the work first. Share this code with ${first} only if you're satisfied.`}
-            code={otps?.end_otp ?? null}
-            locked={!!otps?.end_locked}
-            onRegenerate={() => void run(() => api.regenerateOtp(booking.id, 'end'), 'New code generated')}
-          />
-          <Text variant="footnote" color="muted" align="center">
-            The job auto-confirms 24 hours after {first} marks it done.
-          </Text>
-        </View>
+        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
       ) : null}
       {isCustomer && (s === 'completed' || s === 'closed') && !review ? (
         <ReviewForm name={first} busy={busy} onSubmit={(r) => void run(() => api.submitReview(booking.id, r), 'Thanks for your review!')} />
       ) : null}
-      {isCustomer && review ? (
-        <Card gap={t.spacing.sm}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text variant="title3">Your review</Text>
-            <RatingStars value={review.rating} size={16} />
-          </View>
-          {review.comment ? (
-            <Text variant="callout" color="textSecondary">
-              {review.comment}
-            </Text>
-          ) : null}
-        </Card>
-      ) : null}
 
-      {/* ---------- provider state ---------- */}
-      {!isCustomer && s === 'requested' ? (
-        <InlineAlert tone="neutral" message="Accept or decline this request from your Jobs tab within 15 minutes." />
-      ) : null}
+      {/* ---------- provider actions ---------- */}
       {!isCustomer && (s === 'en_route' || s === 'completion_requested') ? (
         <Card variant="elevated" gap={t.spacing.lg}>
-          <View style={{ gap: 2 }}>
-            <Text variant="title3">{s === 'en_route' ? 'Arrived?' : 'Finish the job'}</Text>
-            <Text variant="callout" color="muted">
-              Ask the customer for their 4-digit {s === 'en_route' ? 'start' : 'completion'} code.
-            </Text>
-          </View>
+          <Text variant="subheadStrong" color="textSecondary" align="center">
+            {s === 'en_route' ? 'Start code' : 'Completion code'} from {first}
+          </Text>
           <OTPInput
             length={4}
             value={otp}
@@ -517,70 +451,90 @@ export default function BookingDetail() {
           ) : null}
         </Card>
       ) : null}
-      {!isCustomer && s === 'inspecting' ? (
-        <InlineAlert
-          tone="neutral"
-          icon="receipt-outline"
-          title="Send an itemised quote"
-          message="List labour, parts and any other charges. The customer approves and pays before work starts."
-        />
-      ) : null}
       {!isCustomer && s === 'quote_sent' ? (
-        <Card gap={t.spacing.md}>
-          <View style={{ gap: 2 }}>
-            <Text variant="title3">Quote sent — waiting for approval</Text>
-            <Text variant="callout" color="muted">
-              Sending a new quote replaces the open one.
-            </Text>
-          </View>
-          <Button title="Revise quote" leftIcon="create-outline" variant="outline" onPress={() => openEditor(false)} style={{ alignSelf: 'flex-start' }} />
-        </Card>
-      ) : null}
-      {!isCustomer && s === 'awaiting_payment' ? (
-        <InlineAlert tone="warning" title="Quote approved" message="Waiting for the customer's payment before work starts." />
+        <Button title="Revise quote" leftIcon="create-outline" variant="outline" onPress={() => openEditor(false)} />
       ) : null}
       {!isCustomer && s === 'in_progress' ? (
-        <View style={{ gap: t.spacing.sm }}>
-          {openQuote ? <InlineAlert tone="info" message="A change order is waiting for the customer's approval." /> : null}
-          <Button title="Send change order" variant="outline" leftIcon="add-circle-outline" onPress={() => openEditor(true)} />
-        </View>
+        <Button title="Send change order" variant="outline" leftIcon="add-circle-outline" onPress={() => openEditor(true)} />
       ) : null}
-      {!isCustomer && s === 'completed' ? (
-        <InlineAlert tone="success" title="Job complete" message="Your payout is released after the 24-hour dispute window." />
-      ) : null}
-      {!isCustomer && s === 'disputed' ? (
-        <InlineAlert tone="danger" title="Customer raised a dispute" message="Your payout is on hold until support resolves it." />
-      ) : null}
-
       {openQuote && !customerRespondsToQuote ? (
         <QuoteView quote={openQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
       ) : null}
       {pendingPaymentQuote && !isCustomer ? (
-        <QuoteView
-          quote={pendingPaymentQuote}
-          visitFee={booking.visit_fee}
-          platformFee={booking.platform_fee}
-          alreadyPaid={paid}
-          counterpartName={data.counterpart}
-        />
+        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
       ) : null}
 
-      <Section title="Progress">
-        <Card>
-          <StatusTimeline status={booking.status} events={data.events} />
+      {/* ---------- details ---------- */}
+      <Section title="Booking details">
+        <Card gap={t.spacing.md}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+            <Avatar name={data.counterpart} size={44} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="calloutStrong" numberOfLines={1}>
+                {data.counterpart}
+              </Text>
+              {isCustomer && pro && pro.rating_count > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="star" size={13} color={t.colors.star} />
+                  <Text variant="footnoteStrong" tabular>
+                    {Number(pro.rating_avg).toFixed(1)}
+                  </Text>
+                  <Text variant="footnote" color="muted">
+                    ({pro.rating_count}) · Your pro
+                  </Text>
+                </View>
+              ) : (
+                <Text variant="footnote" color="muted">
+                  {isCustomer ? 'Your pro' : 'Customer'}
+                </Text>
+              )}
+            </View>
+            <IconButton icon="chatbubble-ellipses-outline" variant="tonal" accessibilityLabel={`Chat with ${first}`} onPress={openChat} />
+            <IconButton icon="call-outline" variant="neutral" accessibilityLabel="Call" accessibilityHint="Masked calling is coming soon" onPress={call} />
+            {navigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Open in Maps" onPress={() => void navigate()} /> : null}
+          </View>
+          <Divider />
+          <InfoRow
+            icon="location-outline"
+            label="Address"
+            text={
+              data.address?.address_line
+                ? `${data.address.address_line}, ${data.address.area}`
+                : `${data.address?.area ?? '—'} · full address after you accept`
+            }
+          />
+          <InfoRow
+            icon="calendar-outline"
+            label="When"
+            text={booking.scheduled_at ? scheduleLabel(booking.scheduled_at) : `As soon as possible · booked ${scheduleLabel(booking.created_at)}`}
+          />
+          {booking.description ? <InfoRow icon="construct-outline" label="Issue" text={booking.description} /> : null}
+          {data.photoUrls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: t.spacing.sm, paddingLeft: 30 }}>
+              {data.photoUrls.map((u) => (
+                <Image key={u} source={{ uri: u }} style={{ width: 64, height: 64, borderRadius: t.radii.md }} contentFit="cover" accessibilityLabel="Problem photo" />
+              ))}
+            </ScrollView>
+          ) : null}
         </Card>
       </Section>
 
+      {isCustomer && review ? (
+        <Section title="Your review">
+          <Card gap={t.spacing.sm}>
+            <RatingStars value={review.rating} size={18} />
+            {review.comment ? (
+              <Text variant="callout" color="textSecondary">
+                {review.comment}
+              </Text>
+            ) : null}
+          </Card>
+        </Section>
+      ) : null}
+
       {approvedQuote && !shownQuoteIds.has(approvedQuote.id) ? (
         <Section title="Approved scope">
-          <QuoteView
-            quote={approvedQuote}
-            visitFee={booking.visit_fee}
-            platformFee={booking.platform_fee}
-            alreadyPaid={paid}
-            counterpartName={data.counterpart}
-            title="Quote"
-          />
+          <QuoteView quote={approvedQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} title="Quote" />
         </Section>
       ) : null}
 
@@ -597,7 +551,7 @@ export default function BookingDetail() {
               const [label, tone] = PAYMENT_STATUS[p.status];
               return (
                 <Fragment key={p.id}>
-                  {i > 0 ? <Divider inset={t.spacing.lg} /> : null}
+                  {i > 0 ? <Divider inset={LIST_INSET} /> : null}
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, paddingHorizontal: t.spacing.lg, paddingVertical: t.spacing.md }}>
                     <View
                       style={{ width: 32, height: 32, borderRadius: t.radii.sm, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
@@ -605,7 +559,7 @@ export default function BookingDetail() {
                       <Ionicons name={p.purpose === 'visit_fee' ? 'home-outline' : 'construct-outline'} size={18} color={t.colors.textSecondary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text variant="calloutStrong">{p.purpose === 'visit_fee' ? 'Visit fee' : 'Job payment'}</Text>
+                      <Text variant="body">{p.purpose === 'visit_fee' ? 'Visit fee' : 'Job payment'}</Text>
                       <Text variant="footnote" color="muted">
                         {fmt(p.paid_at ?? p.created_at)}
                       </Text>
@@ -625,46 +579,131 @@ export default function BookingDetail() {
         <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start', paddingHorizontal: t.spacing.xs }}>
           <Ionicons name="shield-checkmark-outline" size={16} color={t.colors.successText} style={{ marginTop: 1 }} />
           <Text variant="footnote" color="muted" style={{ flex: 1 }}>
-            Payments are held by QuickServe and released to the pro 24 hours after completion.
+            Held by QuickServe and released to the pro 24 hours after completion.
           </Text>
         </View>
       </Section>
 
-      {canReport ? (
-        disputeOpen ? (
-          <Animated.View entering={FadeInDown.duration(200)}>
-            <Card gap={t.spacing.md}>
-              <View style={{ gap: 2 }}>
-                <Text variant="title3">Report a problem</Text>
-                <Text variant="footnote" color="muted">
-                  Payment to the pro is paused while our support team reviews it.
-                </Text>
-              </View>
-              <TextArea label="What went wrong?" value={reason} onChangeText={setReason} maxLength={500} />
-              <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
-                <Button title="Back" variant="outline" onPress={() => setDisputeOpen(false)} style={{ flex: 1 }} />
-                <Button
-                  title="Raise dispute"
-                  variant="destructive"
-                  disabled={!reason.trim()}
-                  loading={busy}
-                  onPress={() => void run(() => api.disputeBooking(booking.id, reason.trim()), 'Dispute raised')}
-                  style={{ flex: 2 }}
-                />
-              </View>
-            </Card>
-          </Animated.View>
-        ) : (
-          <Button title="Report a problem" variant="outline" leftIcon="flag-outline" onPress={() => setDisputeOpen(true)} />
-        )
+      {canReport && disputeOpen ? (
+        <Animated.View entering={FadeInDown.duration(200)}>
+          <Card gap={t.spacing.md}>
+            <View style={{ gap: 2 }}>
+              <Text variant="title3">Report a problem</Text>
+              <Text variant="footnote" color="muted">
+                Payment to the pro is paused while our support team reviews it.
+              </Text>
+            </View>
+            <TextArea label="What went wrong?" value={reason} onChangeText={setReason} maxLength={500} />
+            <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
+              <Button title="Back" variant="outline" onPress={() => setDisputeOpen(false)} style={{ flex: 1 }} />
+              <Button
+                title="Raise dispute"
+                variant="destructive"
+                disabled={!reason.trim()}
+                loading={busy}
+                onPress={() => void run(() => api.disputeBooking(booking.id, reason.trim()), 'Dispute raised')}
+                style={{ flex: 2 }}
+              />
+            </View>
+          </Card>
+        </Animated.View>
       ) : null}
-      {cancelAction ? (
-        <Button title={cancelAction[0]} variant="destructiveGhost" onPress={() => void cancel(cancelAction[1])} disabled={busy} />
-      ) : null}
+
+      <Section title="Help">
+        <Card padding={0} gap={0}>
+          {helpItems.map((h, i) => (
+            <Fragment key={h.key}>
+              {i > 0 ? <Divider inset={LIST_INSET} /> : null}
+              <ListItem title={h.title} icon={h.icon} destructive={h.destructive} chevron={!h.destructive} onPress={busy ? undefined : h.onPress} />
+            </Fragment>
+          ))}
+        </Card>
+      </Section>
     </Screen>
   );
 }
 
+function heroCopy(p: {
+  status: Booking['status'];
+  isCustomer: boolean;
+  first: string;
+  visitFee: number;
+  startCode: string | null;
+  endCode: string | null;
+  changeOrderOpen: boolean;
+  cancelledReason: string | null;
+}): HeroCopy {
+  const { first } = p;
+  const refundLine = 'Any payment you made is refunded — see Payments below.';
+  if (p.isCustomer) {
+    switch (p.status) {
+      case 'pending_payment':
+        return { title: 'Pay the visit fee to send your request', subtitle: `${first} is notified as soon as the ${formatINR(p.visitFee)} visit fee is paid. It's adjusted in your final bill.` };
+      case 'requested':
+        return { title: `Waiting for ${first} to accept`, subtitle: 'Pros respond within 15 minutes. If not, your visit fee is refunded automatically.' };
+      case 'accepted':
+        return { title: `${first} accepted your booking`, subtitle: p.startCode ? `Share code ${p.startCode} when ${first} arrives.` : `Share your start code when ${first} arrives.` };
+      case 'en_route':
+        return { title: `${first} is on the way`, subtitle: p.startCode ? `Share code ${p.startCode} when they arrive.` : 'Keep your start code ready.' };
+      case 'inspecting':
+        return { title: `${first} is inspecting the problem`, subtitle: "You'll get an itemised quote to approve before any work starts." };
+      case 'quote_sent':
+        return { title: `${first} sent a quote — review & approve`, subtitle: 'Nothing more is charged until you approve.' };
+      case 'awaiting_payment':
+        return { title: 'Pay the balance to start work', subtitle: 'Your payment is held safely until the job is done.' };
+      case 'in_progress':
+        return p.changeOrderOpen
+          ? { title: `${first} sent a change order`, subtitle: 'Review the extra work below. Declining keeps the approved scope.' }
+          : { title: 'Work in progress', subtitle: 'Your payment is held safely until you confirm the job is done.' };
+      case 'completion_requested':
+        return { title: `${first} marked the job done`, subtitle: p.endCode ? `Check the work, then share code ${p.endCode}.` : 'Check the work, then share your completion code.' };
+      case 'completed':
+      case 'closed':
+        return { title: 'Job completed', subtitle: 'Thanks for booking with QuickServe.' };
+      case 'closed_no_work':
+        return { title: 'Closed — no work done', subtitle: 'The quote was declined, so only the inspection was charged.' };
+      case 'declined':
+        return { title: `${first} couldn't take this job`, subtitle: refundLine };
+      case 'expired':
+        return { title: 'Request expired', subtitle: refundLine };
+      case 'cancelled':
+        return { title: 'Booking cancelled', subtitle: p.cancelledReason ?? 'See Payments below for any refund.' };
+      case 'disputed':
+        return { title: 'Support is reviewing your report', subtitle: 'Payment to the pro is paused until it is resolved.' };
+      case 'refunded':
+        return { title: 'Refunded', subtitle: 'Your payment has been refunded.' };
+    }
+  }
+  switch (p.status) {
+    case 'requested':
+      return { title: `New request from ${first}`, subtitle: 'Accept or decline from your Jobs tab within 15 minutes.' };
+    case 'accepted':
+      return { title: `Head to ${first}'s address`, subtitle: 'Tap Start trip when you leave.' };
+    case 'en_route':
+      return { title: 'Arrived? Enter the start code', subtitle: `Ask ${first} for the 4-digit start code.` };
+    case 'inspecting':
+      return { title: 'Inspect and send a quote', subtitle: 'List labour, parts and other charges. The customer approves and pays before work starts.' };
+    case 'quote_sent':
+      return { title: 'Quote sent — waiting for approval', subtitle: 'Sending a new quote replaces the open one.' };
+    case 'awaiting_payment':
+      return { title: 'Quote approved', subtitle: `Waiting for ${first}'s payment before work starts.` };
+    case 'in_progress':
+      return p.changeOrderOpen
+        ? { title: 'Work in progress', subtitle: `A change order is waiting for ${first}'s approval.` }
+        : { title: 'Work in progress', subtitle: 'Mark the job done when you finish.' };
+    case 'completion_requested':
+      return { title: 'Enter the completion code', subtitle: `Ask ${first} for the 4-digit completion code.` };
+    case 'completed':
+    case 'closed':
+      return { title: 'Job complete', subtitle: 'Your payout is released after the 24-hour dispute window.' };
+    case 'disputed':
+      return { title: 'Customer raised a dispute', subtitle: 'Your payout is on hold until support resolves it.' };
+    case 'cancelled':
+      return { title: 'Booking cancelled', subtitle: p.cancelledReason ?? undefined };
+    default:
+      return { title: statusLabel[p.status] };
+  }
+}
 function AmountFooter({ label, amount, children }: { label: string; amount: number; children: ReactNode }) {
   const t = useTheme();
   return (
@@ -682,14 +721,19 @@ function AmountFooter({ label, amount, children }: { label: string; amount: numb
   );
 }
 
-function InfoRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+function InfoRow({ icon, label, text }: { icon: keyof typeof Ionicons.glyphMap; label: string; text: string }) {
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'flex-start' }}>
-      <Ionicons name={icon} size={18} color={t.colors.muted} style={{ marginTop: 1 }} />
-      <Text variant="callout" color="textSecondary" style={{ flex: 1 }}>
-        {text}
-      </Text>
+      <Ionicons name={icon} size={18} color={t.colors.muted} style={{ marginTop: 2 }} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="caption" color="muted">
+          {label}
+        </Text>
+        <Text variant="callout" color="text">
+          {text}
+        </Text>
+      </View>
     </View>
   );
 }

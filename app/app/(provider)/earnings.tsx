@@ -21,6 +21,7 @@ import { listMyPayouts } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
 import type { Payout, PayoutStatus } from '../../src/lib/types';
+import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 const statusText: Record<PayoutStatus, [string, Tone]> = {
@@ -265,7 +266,7 @@ export default function Earnings() {
                           {`Billed ${formatINR(p.gross)} · Fees −\u00A0${formatINR(p.commission + p.gst_on_commission)}`}
                         </Text>
                         <Text variant="footnote" color="muted" numberOfLines={1}>
-                          {`#${p.booking_id.slice(0, 8)} · `}
+                          {`${bookingRef(p.booking_id)} · `}
                           {p.transferred_at
                             ? `Paid ${fmtWhen(p.transferred_at)}`
                             : p.status === 'pending'

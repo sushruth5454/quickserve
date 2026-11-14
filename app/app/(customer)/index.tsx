@@ -11,15 +11,16 @@ import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/s
 import { ProgressBar } from '../../src/components/StatusTimeline';
 import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
-import { useCurrentLocation } from '../../src/lib/location';
+import { useSelectedLocation } from '../../src/lib/locationContext';
 import type { Booking, Category } from '../../src/lib/types';
+import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 export default function CustomerHome() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const location = useCurrentLocation();
+  const { location } = useSelectedLocation();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [topRated, setTopRated] = useState<TopRatedProvider[]>([]);
   const [active, setActive] = useState<Booking | null>(null);
@@ -73,23 +74,23 @@ export default function CustomerHome() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Service location: ${location.area ?? 'Locating'}, ${location.city ?? ''}. Tap to refresh.`}
-            onPress={() => void location.refresh()}
+            accessibilityLabel={`Service location: ${[location.label, location.area, location.city].filter(Boolean).join(', ')}. Tap to change.`}
+            onPress={() => router.push('/location')}
             style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, minHeight: 48, opacity: pressed ? 0.7 : 1 })}
           >
             <View
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Ionicons name="location-outline" size={20} color={t.colors.textSecondary} />
+              <Ionicons name={location.source === 'gps' ? 'navigate' : 'location'} size={20} color={t.colors.primaryText} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text variant="caption" color="muted">
-                Home
+              <Text variant="caption" color="muted" numberOfLines={1}>
+                {location.label ?? (location.source === 'gps' ? 'Current location' : 'Service location')}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Text variant="calloutStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
-                  {location.area ?? (location.loading ? 'Locating…' : 'Set your location')}
-                  {location.city ? `, ${location.city}` : ''}
+                  {location.area}
+                  {location.city && location.city !== location.area ? `, ${location.city}` : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={t.colors.muted} />
               </View>
@@ -160,7 +161,7 @@ export default function CustomerHome() {
               <CategoryIcon icon={categories?.find((c) => c.slug === active.categories?.slug)?.icon} size={44} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="caption" color="muted">
-                  Active booking · #{active.id.slice(0, 8)}
+                  Active booking · {bookingRef(active.id)}
                 </Text>
                 <Text variant="bodyStrong" numberOfLines={1}>
                   {active.categories?.name ?? 'Booking'}

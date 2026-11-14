@@ -18,6 +18,7 @@ import type {
   BookingOtps,
   Category,
   Message,
+  NewAddressInput,
   OtpResult,
   Payment,
   Payout,
@@ -31,6 +32,7 @@ import type {
   RateUnit,
   Review,
   ReviewInput,
+  SavedAddress,
   SearchFilters,
   SkillLevel,
 } from './types';
@@ -174,14 +176,42 @@ export async function getProviderService(id: string): Promise<ProviderServiceWit
   return unwrap(
     await supabase
       .from('provider_services')
-      .select('*, categories(name, slug), providers(profiles(full_name))')
+      .select('*, categories(name, slug), providers(rating_avg, rating_count, profiles(full_name))')
       .eq('id', id)
       .single(),
   );
 }
 
-// ---------- Booking ----------
-export async function createBooking(input: CreateBookingInput): Promise<string> {
+// ---------- Saved addresses ----------
+const ADDRESS_COLUMNS = 'id, label, line1, city, lat, lng, is_default, created_at';
+
+export async function listMyAddresses(): Promise<SavedAddress[]> {
+  const uid = await requireUserId();
+  // create_booking snapshots every booking's address with label 'Booking'; those are not user-saved addresses.
+  return unwrap(
+    await supabase
+      .from('addresses')
+      .select(ADDRESS_COLUMNS)
+      .eq('user_id', uid)
+      .neq('label', 'Booking')
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: true }),
+  ) as SavedAddress[];
+}
+
+export async function addAddress(input: NewAddressInput): Promise<SavedAddress> {
+  const uid = await requireUserId();
+  // The addresses_set_location trigger fills the geography column from lat/lng.
+  return unwrap(
+    await supabase
+      .from('addresses')
+      .insert({ user_id: uid, label: input.label.trim() || 'Other', line1: input.line1.trim(), city: input.city.trim(), lat: input.lat, lng: input.lng })
+      .select(ADDRESS_COLUMNS)
+      .single(),
+  ) as SavedAddress;
+}
+
+// ---------- Booking ----------export async function createBooking(input: CreateBookingInput): Promise<string> {
   return unwrap(
     await supabase.rpc('create_booking', {
       p_provider_service_id: input.providerServiceId,
@@ -209,7 +239,7 @@ export async function createPayment(bookingId: string): Promise<PaymentLinkRespo
   return data;
 }
 
-const BOOKING_SELECT = '*, categories(name, slug)';
+const BOOKING_SELECT = '*, categories(name, slug), providers(rating_avg, rating_count, profiles(full_name))';
 
 export async function listMyBookings(): Promise<Booking[]> {
   const uid = await requireUserId();

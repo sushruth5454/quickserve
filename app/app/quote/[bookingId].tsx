@@ -27,6 +27,7 @@ import { getBooking, getMyProvider, getQuotes, sendQuote } from '../../src/lib/a
 import { haptics } from '../../src/lib/haptics';
 import { commissionRateBp, formatINR, rupeesToPaise, settleQuotedJob, type LineInput } from '../../src/lib/money';
 import type { Booking, Provider, QuoteItemDraft, QuoteItemKind } from '../../src/lib/types';
+import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 interface Line {
@@ -144,7 +145,7 @@ export default function QuoteEditorScreen() {
   return (
     <>
       <Screen
-        header={<Header title={title} subtitle={`${booking.categories?.name ?? 'Job'} · #${booking.id.slice(0, 8)}`} />}
+        header={<Header title={title} subtitle={`${booking.categories?.name ?? 'Job'} · ${bookingRef(booking.id)}`} />}
         footer={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
             <View>

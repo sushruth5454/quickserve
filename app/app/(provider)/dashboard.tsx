@@ -14,6 +14,7 @@ import { acceptBooking, declineBooking, getMyProfile, getMyProvider, getProvider
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
 import type { BookingStatus, Category, Payout, Provider, ProviderJob } from '../../src/lib/types';
+import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 const ACTIVE: BookingStatus[] = [
@@ -296,7 +297,7 @@ export default function ProviderDashboard() {
                       {j.customer_name || 'Customer'}
                     </Text>
                     <Text variant="footnote" color="muted" numberOfLines={1}>
-                      #{j.booking_id.slice(0, 8)}
+                      {bookingRef(j.booking_id)}
                     </Text>
                   </View>
                   <StatusPill status={j.status} />

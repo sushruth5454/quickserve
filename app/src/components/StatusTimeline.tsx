@@ -51,9 +51,17 @@ export function flowLabel(status: BookingStatus): string | undefined {
  * Booking progress. Collapsed by default: a "n steps done" summary, the active step (with its hint) and the next
  * step. Completed bookings collapse to a single row. Times show the date only when it differs from the first event.
  */
-export function StatusTimeline({ status, events = [] }: { status: BookingStatus; events?: BookingEvent[] }) {
+export function StatusTimeline({
+  status,
+  events = [],
+  initiallyExpanded = false,
+}: {
+  status: BookingStatus;
+  events?: BookingEvent[];
+  initiallyExpanded?: boolean;
+}) {
   const t = useTheme();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const side = SIDE_ICON[status];
   if (side) {
     const c = toneColors(t.colors, statusTone[status]);

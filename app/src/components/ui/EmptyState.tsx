@@ -98,11 +98,16 @@ export function InlineAlert({
   tone = 'danger',
   icon,
   title,
+  actionLabel,
+  onAction,
 }: {
   message: string | null | undefined;
   tone?: 'danger' | 'warning' | 'info' | 'success' | 'neutral';
   icon?: IconName;
   title?: string;
+  /** Optional inline text action ("Open Settings", "Retry"). */
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   const t = useTheme();
   if (!message) return null;
@@ -136,6 +141,17 @@ export function InlineAlert({
         <Text variant="footnote" style={{ color: tone === 'neutral' ? t.colors.textSecondary : map.fg }}>
           {message}
         </Text>
+        {actionLabel && onAction ? (
+          <Text
+            variant="subheadStrong"
+            accessibilityRole="button"
+            onPress={onAction}
+            suppressHighlighting
+            style={{ color: map.fg, textDecorationLine: 'underline', marginTop: 4, alignSelf: 'flex-start' }}
+          >
+            {actionLabel}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

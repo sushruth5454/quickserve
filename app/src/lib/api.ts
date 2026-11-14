@@ -22,6 +22,8 @@ export const {
   getMyProfile,
   updateMyProfile,
   listCategories,
+  listMyAddresses,
+  addAddress,
   searchProviders,
   listTopRated,
   getProviderDetail,

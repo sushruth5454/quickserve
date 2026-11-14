@@ -12,14 +12,13 @@ import {
   EmptyState,
   ErrorState,
   Header,
-  InlineAlert,
   Screen,
   SkeletonProviderCard,
   Text,
 } from '../../src/components/ui';
 import { searchProviders } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
-import { useCurrentLocation } from '../../src/lib/location';
+import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
 import type { ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
@@ -40,7 +39,7 @@ const DEFAULT_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, s
 export default function CategoryProviders() {
   const t = useTheme();
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
-  const location = useCurrentLocation();
+  const { location: place, coords } = useSelectedLocation();
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
   const [draft, setDraft] = useState<SearchFilters>(DEFAULT_FILTERS);
   const [draftCount, setDraftCount] = useState<number | null>(null);
@@ -56,13 +55,13 @@ export default function CategoryProviders() {
     setLoading(true);
     setError(null);
     try {
-      setResults(await searchProviders(slug, location.coords, filters));
+      setResults(await searchProviders(slug, coords, filters));
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [slug, location.coords, filters]);
+  }, [slug, coords, filters]);
 
   useEffect(() => {
     void load();
@@ -78,7 +77,7 @@ export default function CategoryProviders() {
     let alive = true;
     setDraftCount(null);
     const id = setTimeout(() => {
-      searchProviders(slug, location.coords, draft)
+      searchProviders(slug, coords, draft)
         .then((r) => alive && setDraftCount(r.length))
         .catch(() => alive && setDraftCount(null));
     }, 250);
@@ -86,7 +85,7 @@ export default function CategoryProviders() {
       alive = false;
       clearTimeout(id);
     };
-  }, [sheet, draft, slug, location.coords]);
+  }, [sheet, draft, slug, coords]);
 
   const activeCount =
     (filters.minRating != null ? 1 : 0) +
@@ -99,7 +98,7 @@ export default function CategoryProviders() {
 
   const sortLabel = SORTS.find((s) => s.value === filters.sort)?.label ?? 'Sort';
   const count = results?.length ?? 0;
-  const where = location.area ?? 'you';
+  const where = place.area;
   const subtitle =
     loading && !results ? 'Finding verified pros…' : count > 0 ? `${count} verified pro${count === 1 ? '' : 's'} near ${where}` : `Near ${where}`;
 
@@ -168,7 +167,6 @@ export default function CategoryProviders() {
         </View>
 
         <View style={{ padding: t.spacing.lg, gap: t.spacing.md }}>
-          {location.error ? <InlineAlert tone="warning" message={location.error} /> : null}
           {error ? (
             <ErrorState message={error} onRetry={() => void load()} />
           ) : loading && !results ? (

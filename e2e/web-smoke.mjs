@@ -108,7 +108,42 @@ await step('top-rated-see-all', async () => {
   await page.getByText('See all', { exact: true }).first().click();
   await page.waitForURL(/\/top-rated$/);
   await page.getByText(/verified pros?$/).first().waitFor();
-});const categories = await rest('categories?select=slug,name&order=sort_order').catch(() => []);
+});
+
+// ---------- Location picker ----------
+await step('location-picker', async () => {
+  await go('/');
+  await page.getByLabel(/^Service location:/).first().click();
+  await page.waitForURL(/\/location$/);
+  await visible('Select location');
+  await visible('Popular areas in Vijayawada');
+  await page.getByText(/^Flat 302, Sri Sai Residency/).first().waitFor();
+});
+await step('location-search-fallback', async () => {
+  await page.getByLabel('Search for an area or address').first().fill('Pata');
+  await visible('Patamata');
+});
+await step('location-pick-area', async () => {
+  await page.getByText('Patamata', { exact: true }).first().click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
+  await page.getByText(/^Patamata, Vijayawada$/).first().waitFor();
+});
+await step('location-search-providers', async () => {
+  await go('/category/ac-repair?name=AC%20Repair');
+  await page.getByText(/verified pros? near Patamata/).first().waitFor();
+});
+await step('location-add-address-sheet', async () => {
+  await go('/location');
+  await page.getByText('Add new address', { exact: true }).first().click();
+  await visible('House / flat no., street, landmark');
+});
+await step('location-pick-saved-home', async () => {
+  await go('/location');
+  await page.getByText(/^Flat 302, Sri Sai Residency/).first().click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
+  await page.getByText(/^Benz Circle, Vijayawada$/).first().waitFor();
+});
+const categories = await rest('categories?select=slug,name&order=sort_order').catch(() => []);
 for (const c of categories) {
   await step(`category-${c.slug}`, async () => {
     await go(`/category/${c.slug}?name=${encodeURIComponent(c.name)}`);
@@ -143,6 +178,14 @@ await step('book-screen', async () => {
   if (!raviServices[0]) throw new Error('no active service for Ravi');
   await go(`/book/${raviServices[0].id}`);
   await page.getByText(/& book$/).first().waitFor();
+  await visible('Price details');
+});
+await step('book-screen-ready', async () => {
+  await page.getByLabel('Describe the problem').first().fill('Split AC not cooling, only the fan runs');
+  await page.getByText('Schedule', { exact: true }).first().click();
+  await page.getByLabel(/^Tomorrow, /).first().click();
+  await page.getByText('10 am–12 pm', { exact: true }).first().click();
+  await page.getByText(/arrives .* between 10 am–12 pm/).first().waitFor();
 });
 await optional('book-screen-scrolled', () => snapScrolled('book-screen-scrolled', 800));
 await step('bookings-active', async () => {
@@ -166,7 +209,7 @@ for (const [n, label, scrolled] of [
 ]) {
   await step(`booking-fc${n}-${label}`, async () => {
     await go(`/booking/${seeded('fc', n)}`);
-    await page.getByText(/^Booking #/).first().waitFor();
+    await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
   });
   if (scrolled) await optional(`booking-fc${n}-scrolled`, () => snapScrolled(`booking-fc${n}-${label}-scrolled`, 900));
 }
@@ -196,12 +239,13 @@ for (const [name, path, wait] of [
   ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
   ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
   ['dark-bookings', '/bookings', 'My bookings'],
+  ['dark-location-picker', '/location', 'Popular areas in Vijayawada'],
   ['dark-me-customer', '/account', 'Switch to provider mode'],
 ]) {
   await step(name, async () => {
     await go(path);
     if (wait) await visible(wait);
-    else await page.getByText(/^Booking #|verified pros? near|pros nearby yet/).first().waitFor();
+    else await page.getByText(/^QS-[0-9A-F]{8} · |verified pros? near|pros nearby yet/).first().waitFor();
   });
 }
 await optional('dark-home-top-rated', async () => {
@@ -238,12 +282,12 @@ for (const [n, label] of [
 ]) {
   await step(`provider-booking-fb${n}-${label}`, async () => {
     await go(`/booking/${seeded('fb', n)}`);
-    await page.getByText(/^Booking #/).first().waitFor();
+    await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
   });
 }
 await step('provider-booking-fb4', async () => {
   await go(`/booking/${seeded('fb', 4)}`);
-  await page.getByText(/^Booking #/).first().waitFor();
+  await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
 });
 await step('quote-editor-fb4', async () => {
   await go(`/quote/${seeded('fb', 4)}?changeOrder=0`);
@@ -272,7 +316,7 @@ for (const [name, path, wait] of [
   await step(name, async () => {
     await go(path);
     if (wait) await visible(wait);
-    else await page.getByText(/^Booking #|New requests|Active jobs/).first().waitFor();
+    else await page.getByText(/^QS-[0-9A-F]{8} · |New requests|Active jobs/).first().waitFor();
   });
 }
 await page.emulateMedia({ colorScheme: 'light' });

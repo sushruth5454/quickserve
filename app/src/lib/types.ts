@@ -125,6 +125,8 @@ export interface Booking {
   completion_requested_at: string | null;
   completed_at: string | null;
   categories?: Pick<Category, 'name' | 'slug'> | null;
+  /** The pro, embedded for customer-facing lists (null if the provider is no longer public). */
+  providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
 }
 
 export interface QuoteItem {
@@ -240,6 +242,26 @@ export interface BookingOtps {
   start_locked: boolean;
   end_otp: string | null;
   end_locked: boolean;
+}
+
+/** A customer's saved address (ddresses rows, excluding the per-booking 'Booking' snapshots). */
+export interface SavedAddress {
+  id: string;
+  label: string;
+  line1: string;
+  city: string;
+  lat: number;
+  lng: number;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface NewAddressInput {
+  label: string;
+  line1: string;
+  city: string;
+  lat: number;
+  lng: number;
 }
 
 export interface BookingAddress {

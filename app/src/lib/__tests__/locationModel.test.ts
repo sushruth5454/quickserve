@@ -1,0 +1,84 @@
+import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
+import { bookingRef, firstAvailableDay, nextDays, windowAvailable, windowLabel } from '../schedule';
+import type { SavedAddress } from '../types';
+
+const addr = (over: Partial<SavedAddress>): SavedAddress => ({
+  id: 'a1',
+  label: 'Home',
+  line1: 'Flat 302, Sri Sai Residency, Benz Circle',
+  city: 'Vijayawada',
+  lat: 16.5,
+  lng: 80.651,
+  is_default: false,
+  created_at: '2026-01-01T00:00:00Z',
+  ...over,
+});
+
+describe('parseStoredLocation', () => {
+  it('round-trips a valid selection', () => {
+    const l = fromSavedAddress(addr({}));
+    expect(parseStoredLocation(JSON.stringify(l))).toEqual(l);
+  });
+
+  it.each([
+    null,
+    '',
+    'not json',
+    '42',
+    JSON.stringify({ ...DEFAULT_LOCATION, lat: 120 }),
+    JSON.stringify({ ...DEFAULT_LOCATION, source: 'teleport' }),
+    JSON.stringify({ ...DEFAULT_LOCATION, area: '  ' }),
+  ])('rejects malformed input %p', (raw) => {
+    expect(parseStoredLocation(raw)).toBeNull();
+  });
+});
+
+describe('saved addresses', () => {
+  it('derives the neighbourhood from the address line, skipping the city', () => {
+    expect(areaFromLine('4th Floor, iHub Towers, MG Road, Labbipet, Vijayawada', 'Vijayawada')).toBe('Labbipet');
+    expect(areaFromLine('Vijayawada', 'Vijayawada')).toBe('Vijayawada');
+  });
+
+  it('puts the default address first, then oldest first', () => {
+    const list = sortAddresses([
+      addr({ id: 'new', created_at: '2026-03-01T00:00:00Z' }),
+      addr({ id: 'old', created_at: '2026-02-01T00:00:00Z' }),
+      addr({ id: 'def', is_default: true, created_at: '2026-04-01T00:00:00Z' }),
+    ]);
+    expect(list.map((a) => a.id)).toEqual(['def', 'old', 'new']);
+  });
+
+  it('matches saved selections by address id only', () => {
+    const a = fromSavedAddress(addr({ id: 'x' }));
+    expect(sameLocation(a, fromSavedAddress(addr({ id: 'x', lat: 1 })))).toBe(true);
+    expect(sameLocation(a, { ...a, addressId: null, source: 'area' })).toBe(false);
+  });
+});
+
+describe('schedule', () => {
+  const now = new Date(2026, 10, 14, 15, 30); // Sat 14 Nov, 3:30 pm local
+
+  it('labels the next 7 days', () => {
+    const days = nextDays(now);
+    expect(days).toHaveLength(7);
+    expect(days.map((d) => d.label).slice(0, 3)).toEqual(['Today', 'Tomorrow', 'Mon']);
+  });
+
+  it('needs an hour of lead time before a window starts', () => {
+    expect(windowAvailable(now, 16, now)).toBe(false); // starts in 30 min
+    expect(windowAvailable(now, 18, now)).toBe(true);
+  });
+
+  it('skips today when no window is left', () => {
+    const late = new Date(2026, 10, 14, 19, 30);
+    expect(firstAvailableDay(nextDays(late), late)).toBe(1);
+  });
+
+  it('formats windows and booking references', () => {
+    expect(windowLabel(8)).toBe('8–10 am');
+    expect(windowLabel(10)).toBe('10 am–12 pm');
+    expect(windowLabel(18)).toBe('6–8 pm');
+    expect(bookingRef('fc000006-5eed-5eed-8000-000000000000')).toBe('QS-FC000006');
+    expect(bookingRef('QS1042')).toBe('QS-1042');
+  });
+});

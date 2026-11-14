@@ -16,8 +16,10 @@ import type {
   Quote,
   QuoteItemDraft,
   RateUnit,
+  NewAddressInput,
   Review,
   ReviewInput,
+  SavedAddress,
   SearchFilters,
   SkillLevel,
 } from './types';
@@ -59,7 +61,7 @@ export interface ProviderDetail {
 }
 
 export type ProviderServiceWithProvider = ProviderService & {
-  providers: { profiles: { full_name: string } | null } | null;
+  providers: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
 };
 
 export interface CreateBookingInput {
@@ -113,6 +115,9 @@ export interface Api {
   listTopRated(limit?: number): Promise<TopRatedProvider[]>;
   getProviderDetail(providerId: string): Promise<ProviderDetail>;
   getProviderService(id: string): Promise<ProviderServiceWithProvider>;
+  // saved addresses
+  listMyAddresses(): Promise<SavedAddress[]>;
+  addAddress(input: NewAddressInput): Promise<SavedAddress>;
   // booking
   createBooking(input: CreateBookingInput): Promise<string>;
   createPayment(bookingId: string): Promise<PaymentLinkResponse>;

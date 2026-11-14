@@ -13,6 +13,7 @@ const statusText: Record<QuoteStatus, [string, Tone]> = {
 };
 
 export const kindLabel: Record<QuoteItemKind, string> = { labour: 'Labour', part: 'Part', other: 'Other' };
+const groupLabel: Record<QuoteItemKind, string> = { labour: 'Labour', part: 'Parts', other: 'Other charges' };
 
 interface Props {
   quote: Quote;
@@ -33,7 +34,9 @@ export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpa
   const open = quote.status === 'sent' || quote.status === 'approved_pending_payment';
   const [label, tone] = statusText[quote.status];
   const aboveTypical = typical ? total > typical[1] * 100 : false;
-  const count = (k: QuoteItemKind) => quote.quote_items.filter((i) => i.kind === k).length;
+  const groups = (['labour', 'part', 'other'] as const)
+    .map((kind) => ({ kind, items: quote.quote_items.filter((i) => i.kind === kind) }))
+    .filter((g) => g.items.length > 0);
   const first = counterpartName?.split(' ')[0];
   const heading =
     title ?? (quote.is_change_order ? 'Change order' : quote.version > 1 ? 'Revised quote' : 'Quote');
@@ -50,28 +53,32 @@ export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpa
         {quote.status !== 'sent' ? <Badge label={label} tone={tone} dot /> : null}
       </View>
 
-      <View style={{ gap: t.spacing.md }}>
-        {quote.quote_items.map((item) => (
-          <View key={item.id} style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start' }}>
-            <Badge label={kindLabel[item.kind]} style={{ marginTop: 0 }} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="callout" numberOfLines={2}>
-                {item.title}
-                {Number(item.qty) !== 1 ? <Text variant="callout" color="muted">{`  × ${item.qty}`}</Text> : null}
-              </Text>
-              {item.bill_photo_url ? (
-                <Text variant="footnote" color="primaryText">
-                  Bill photo attached
-                </Text>
-              ) : null}
-            </View>
-            <Text variant="calloutStrong" tabular>
-              {formatINR(Math.round(Number(item.qty) * item.unit_price))}
+      <View style={{ gap: t.spacing.lg }}>
+        {groups.map((g) => (
+          <View key={g.kind} style={{ gap: t.spacing.sm }}>
+            <Text variant="overline" color="muted">
+              {groupLabel[g.kind]}
             </Text>
+            {g.items.map((item) => (
+              <View key={item.id} style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'flex-start' }}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="callout">{item.title}</Text>
+                  {Number(item.qty) !== 1 || item.bill_photo_url ? (
+                    <Text variant="footnote" color="muted">
+                      {[Number(item.qty) !== 1 ? `${item.qty} × ${formatINR(item.unit_price)}` : null, item.bill_photo_url ? 'Bill photo attached' : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text variant="callout" tabular>
+                  {formatINR(Math.round(Number(item.qty) * item.unit_price))}
+                </Text>
+              </View>
+            ))}
           </View>
         ))}
       </View>
-
       {quote.note ? (
         <View style={{ backgroundColor: t.colors.surfaceAlt, borderRadius: t.radii.sm, padding: t.spacing.md, gap: 2 }}>
           <Text variant="captionStrong" color="muted">
@@ -85,9 +92,7 @@ export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpa
 
       <Divider />
       <View style={{ gap: 10 }}>
-        {count('labour') >= 2 && quote.subtotal_labour > 0 ? <PriceRow label="Labour" amount={quote.subtotal_labour} /> : null}
-        {count('part') >= 2 && quote.subtotal_parts > 0 ? <PriceRow label="Parts" amount={quote.subtotal_parts} hint="Passed through at cost" /> : null}
-        {count('other') >= 2 && quote.subtotal_other > 0 ? <PriceRow label="Other" amount={quote.subtotal_other} /> : null}
+        <PriceRow label="Subtotal" amount={quote.total} />
         <PriceRow label="Platform fee" amount={platformFee} />
         {visitFee > quote.total ? <PriceRow label="Minimum visit charge" amount={visitFee - quote.total} emphasis="muted" /> : null}
         <PriceRow label="Total" amount={total} />
@@ -98,7 +103,7 @@ export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpa
       {open ? (
         <View style={{ gap: t.spacing.md }}>
           <Divider dashed />
-          <PriceRow label={quote.is_change_order ? 'Extra to pay now' : 'Pay now to start work'} amount={due} emphasis="total" />
+          <PriceRow label={quote.is_change_order ? 'Extra to pay now' : 'To pay now'} amount={due} emphasis="total" />
         </View>
       ) : null}
 

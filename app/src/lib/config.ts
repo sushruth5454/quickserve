@@ -11,7 +11,8 @@ export const isSupabaseConfigured = supabaseUrl.length > 0 && supabaseAnonKey.le
 export const isDemoMode = /^(1|true|yes)$/i.test(demoFlag.trim()) || !isSupabaseConfigured;
 
 /**
- * Testing aid: EXPO_PUBLIC_FORCE_TEST_LOCATION=1 pins the device location to the Vijayawada test area
- * (where the seed data lives) instead of using GPS. Never set this for store builds.
+ * Testing aid: EXPO_PUBLIC_FORCE_TEST_LOCATION=1 makes the Vijayawada test area (where the seed data lives) the
+ * initial customer location instead of asking for GPS on first run. It is only a default: the user can still change
+ * the location from the picker. (The provider onboarding base location is still pinned.)
  */
 export const forceTestLocation = /^(1|true|yes)$/i.test((process.env.EXPO_PUBLIC_FORCE_TEST_LOCATION ?? '').trim());
