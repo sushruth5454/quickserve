@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, View, type ScrollView as ScrollViewType } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
+import { ScrollView, View } from 'react-native';
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import { CategoryIcon, iconForSlug } from '../src/components/CategoryIcon';
 import { SkillBadge, skillLabel } from '../src/components/ProviderCard';
@@ -50,7 +50,7 @@ export default function ProviderOnboarding() {
   const { setActiveRole } = useAuth();
   const location = useCurrentLocation(false);
   const [step, setStep] = useState(0);
-  const scrollRef = useRef<ScrollViewType>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });

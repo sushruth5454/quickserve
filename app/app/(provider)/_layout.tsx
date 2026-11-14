@@ -16,7 +16,7 @@ export default function ProviderTabs() {
         options={{
           title: 'Jobs',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} size={24} color={color as string} />
           ),
         }}
       />
@@ -24,7 +24,7 @@ export default function ProviderTabs() {
         name="earnings"
         options={{
           title: 'Earnings',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -32,7 +32,7 @@ export default function ProviderTabs() {
         options={{
           title: 'Me',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={25} color={color} />
+            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={25} color={color as string} />
           ),
         }}
       />

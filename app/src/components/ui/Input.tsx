@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, useState, type ReactNode } from 'react';
+import { forwardRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useTheme } from '../../theme';
 import type { IconName } from './Button';
@@ -17,7 +17,7 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   size?: 'md' | 'lg';
 }
 
-export const Input = forwardRef<TextInput, InputProps>(function Input(
+export const Input = forwardRef<ComponentRef<typeof TextInput>, InputProps>(function Input(
   { label, helper, error, prefix, leftIcon, right, containerStyle, inputStyle, size = 'md', multiline, onFocus, onBlur, ...rest },
   ref,
 ) {
@@ -106,7 +106,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   );
 });
 
-export const TextArea = forwardRef<TextInput, InputProps & { showCount?: boolean }>(function TextArea(
+export const TextArea = forwardRef<ComponentRef<typeof TextInput>, InputProps & { showCount?: boolean }>(function TextArea(
   { showCount = true, maxLength, value, helper, ...rest },
   ref,
 ) {

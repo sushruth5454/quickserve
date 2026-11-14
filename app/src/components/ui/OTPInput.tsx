@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -27,7 +27,7 @@ interface Props {
  */
 export function OTPInput({ length = 6, value, onChange, onComplete, error, autoFocus, accessibilityLabel, secure }: Props) {
   const t = useTheme();
-  const ref = useRef<TextInput>(null);
+  const ref = useRef<ComponentRef<typeof TextInput>>(null);
   const [focused, setFocused] = useState(false);
   const shake = useSharedValue(0);
   const caret = useSharedValue(1);

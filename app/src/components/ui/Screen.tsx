@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import type { ReactNode, Ref } from 'react';
+import type { ComponentRef, ReactNode, Ref } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -33,7 +33,7 @@ interface ScreenProps {
   contentStyle?: StyleProp<ViewStyle>;
   stickyHeaderIndices?: number[];
   scrollProps?: Partial<ScrollViewProps>;
-  scrollRef?: Ref<ScrollView>;
+  scrollRef?: Ref<ComponentRef<typeof ScrollView>>;
   background?: string;
 }
 

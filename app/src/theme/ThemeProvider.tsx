@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet, useColorScheme, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
 import {
   darkPalette,
   fontFamily,
@@ -54,11 +54,13 @@ export function useTheme(): Theme {
   return useContext(ThemeContext);
 }
 
+type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle };
+
 /**
  * Creates a themed style hook. Styles are computed once per theme (light/dark) and cached.
  *   const useStyles = makeStyles((t) => ({ root: { backgroundColor: t.colors.bg } }));
  */
-export function makeStyles<T extends StyleSheet.NamedStyles<T>>(factory: (t: Theme) => T) {
+export function makeStyles<T extends NamedStyles<T>>(factory: (t: Theme) => T) {
   const cache = new WeakMap<Theme, T>();
   return function useStyles(): T {
     const theme = useTheme();

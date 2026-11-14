@@ -15,7 +15,7 @@ export default function CustomerTabs() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -23,7 +23,7 @@ export default function CustomerTabs() {
         options={{
           title: 'Bookings',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color as string} />
           ),
         }}
       />
@@ -32,7 +32,7 @@ export default function CustomerTabs() {
         options={{
           title: 'Me',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={25} color={color} />
+            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={25} color={color as string} />
           ),
         }}
       />
