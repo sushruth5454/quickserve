@@ -164,6 +164,8 @@ Reason-specific overrides (all policies):
 - `platform` (admin/safety): admin chooses the outcome inside an audited RPC.
 
 ### 3.9 Availability and double-booking
+> **Status (Nov 2026):** `provider_availability`, `provider_time_off`, `categories.requires_docs` / `recommended_docs`, `provider_documents` and the per-provider advisory lock in `create_booking` exist since migration `0009` (provider onboarding, [doc 08](08-Provider-Onboarding.md)). Not yet built: `bookings.service_window` / `exclusive` overlap checks (today: whole 2-hour windows inside working hours + `max_jobs_per_day`).
+
 - `provider_availability(provider_id, weekday, start_time, end_time)` for regular hours.
 - `provider_time_off(provider_id, tstzrange)`.
 - `bookings.service_window tstzrange` and `bookings.exclusive boolean` (snapshotted from the category). Postgres exclusion constraints can't express "conflicts if **either** row is exclusive", so enforce it in the reservation function: under a per-provider advisory lock (`pg_advisory_xact_lock(hashtext(provider_id::text))`), reject the new booking if any **occupying** booking overlaps its window and either booking is exclusive. Occupying statuses: `pending_payment` (only while its payment hold is unexpired), `requested`, `accepted`, `confirmed`, `en_route`, `inspecting`, `quote_sent`, `awaiting_payment`, `in_progress`, `completion_requested`. Cancellation, expiry and decline release availability atomically.

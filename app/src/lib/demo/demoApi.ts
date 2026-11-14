@@ -1217,3 +1217,6 @@ export const demoControls = {
   db: () => db,
 };
 
+
+/** Read access for the demo provider-onboarding mirror (demo/demoOnboarding.ts); demo mode only. */
+export const demoInternals = { db: (): DemoDb => db, uid: (): string => uid(), wait: (): Promise<void> => wait() };

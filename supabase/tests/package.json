@@ -4,7 +4,7 @@
   "description": "Parses the migration with libpg_query and runs the state machine against PGlite (PostGIS/Supabase schemas stubbed).",
   "scripts": {
     "parse": "node parse.cjs",
-    "test": "node parse.cjs && node parse.cjs ../migrations/0007_chat_unread_notifications.sql && node parse.cjs ../migrations/0010_notification_freshness.sql && node migration.test.mjs"
+    "test": "node parse.cjs && node parse.cjs ../migrations/0007_chat_unread_notifications.sql && node parse.cjs ../migrations/0010_notification_freshness.sql && node parse.cjs ../migrations/0008_provider_kyc_status_values.sql && node parse.cjs ../migrations/0009_provider_onboarding.sql && node parse.cjs ../migrations/0011_payout_rails.sql && node migration.test.mjs && node provider_onboarding.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",

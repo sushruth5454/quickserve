@@ -2,14 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
+import { Pressable, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon, iconForSlug } from '../../src/components/CategoryIcon';
 import { SkillBadge, VerifiedMark } from '../../src/components/ProviderCard';
-import { Avatar, Button, Card, Divider, ErrorState, IconButton, RatingStars, Screen, Section, Skeleton, Text } from '../../src/components/ui';
+import { Avatar, Button, Card, Divider, ErrorState, IconButton, InlineAlert, RatingStars, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getProviderDetail, type ProviderDetail } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
+import { onboardingApi, type PublicProfile } from '../../src/lib/onboarding';
+import { summarizeHours, todayLabel } from '../../src/lib/onboarding/availability';
 import type { Review } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 
@@ -21,7 +25,9 @@ function avg(reviews: Review[], key: 'punctuality' | 'quality' | 'behaviour' | '
 export default function ProviderDetailScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, preview } = useLocalSearchParams<{ id: string; preview?: string }>();
+  const isPreview = preview === '1';
+  const [pub, setPub] = useState<PublicProfile | null>(null);
   const [detail, setDetail] = useState<ProviderDetail | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +37,8 @@ export default function ProviderDetailScreen() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const d = await getProviderDetail(id);
+      const [d, pp] = await Promise.all([getProviderDetail(id), onboardingApi.getPublicProfile(id).catch(() => null)]);
+      setPub(pp);
       setDetail(d);
       setSelected((s) => s ?? d.services[0]?.id ?? null);
       setError(null);
@@ -83,6 +90,17 @@ export default function ProviderDetailScreen() {
     ['Fair price', avg(reviews, 'pricing')],
   ] as const;
   const visibleReviews = showAll ? reviews : reviews.slice(0, 4);
+  const now = new Date();
+  const today = pub ? todayLabel(pub.hours, now, { onLeaveUntil: pub.on_leave_until }) : null;
+  const hours = pub ? summarizeHours(pub.hours) : [];
+  const unavailable = !!pub && (pub.paused || !!pub.on_leave_until);
+  const idVerified = pub ? pub.badges.id_verified : false;
+  const payoutVerified = pub ? pub.badges.payout_verified : provider.kyc_status === 'verified';
+  const share = async () => {
+    haptics.tap();
+    const url = Linking.createURL(`/provider/${provider.id}`);
+    await Share.share({ message: `Book ${name} on QuickServe: ${url}`, url }).catch(() => undefined);
+  };
   const gutter = { paddingHorizontal: t.spacing.lg };
 
   return (
@@ -96,7 +114,7 @@ export default function ProviderDetailScreen() {
         setRefreshing(false);
       }}
       footer={
-        service ? (
+        service && !isPreview ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
             <View style={{ flexShrink: 1 }}>
               <Text variant="caption" color="muted" numberOfLines={1}>
@@ -110,6 +128,7 @@ export default function ProviderDetailScreen() {
               title={`Book ${first}`}
               size="lg"
               style={{ flex: 1 }}
+              disabled={unavailable}
               onPress={() => router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } })}
             />
           </View>
@@ -126,7 +145,7 @@ export default function ProviderDetailScreen() {
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <IconButton icon="chevron-back" accessibilityLabel="Go back" onPress={back} variant="glass" visualSize={40} />
-            <IconButton icon="share-outline" accessibilityLabel="Share profile" onPress={() => haptics.tap()} variant="glass" visualSize={40} size={20} />
+            <IconButton icon="share-outline" accessibilityLabel="Share profile" onPress={() => void share()} variant="glass" visualSize={40} size={20} />
           </View>
         </LinearGradient>
         <View style={{ alignItems: 'center', marginTop: -48, paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}>
@@ -137,11 +156,9 @@ export default function ProviderDetailScreen() {
             <Text variant="title1" accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 1 }}>
               {name}
             </Text>
-            <VerifiedMark size={20} />
+            {payoutVerified ? <VerifiedMark size={20} /> : null}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', columnGap: 10, rowGap: 4 }}>
-            <MetaChip icon="shield-checkmark-outline" label="KYC verified" />
-            <Text variant="footnote" color="muted">·</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: provider.is_online ? t.colors.success : t.colors.outline }} />
               <Text variant="footnote" color="textSecondary">
@@ -153,6 +170,33 @@ export default function ProviderDetailScreen() {
           </View>
         </View>
       </View>
+
+      {isPreview || unavailable || pub?.badges ? (
+        <View style={[gutter, { gap: t.spacing.md }]}>
+          {isPreview ? (
+            <InlineAlert
+              tone="info"
+              title="Preview"
+              message={pub?.live ? 'This is how customers see your profile.' : 'This is how customers will see your profile once you are live.'}
+            />
+          ) : null}
+          {unavailable ? (
+            <InlineAlert tone="warning" title="Not taking bookings right now" message={today?.startsWith('On leave') ? today : `${first} has paused new bookings for now.`} />
+          ) : null}
+          {pub ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: t.spacing.sm }}>
+              {idVerified ? <TrustBadge icon="id-card-outline" label="ID verified" /> : null}
+              {pub.badges.payout_verified ? <TrustBadge icon="shield-checkmark-outline" label="Bank verified" /> : null}
+              {pub.badges.police_verified ? <TrustBadge icon="ribbon-outline" label="Police verified" /> : null}
+              {pub.credentials
+                .filter((cr) => cr !== 'Police verification certificate')
+                .map((cr) => (
+                  <TrustBadge key={cr} icon="document-text-outline" label={cr} />
+                ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Stats */}
       <View style={gutter}>
@@ -182,6 +226,33 @@ export default function ProviderDetailScreen() {
           </View>
         ) : null}
       </View>
+
+      {pub && (hours.length > 0 || pub.base_area || pub.service_radius_km) ? (
+        <View style={[gutter, { gap: t.spacing.sm }]}>
+          <Text variant="title3" accessibilityRole="header">
+            Area & hours
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <Ionicons name="navigate-circle-outline" size={16} color={t.colors.muted} />
+            <Text variant="footnote" color="textSecondary" style={{ flex: 1 }}>
+              Serves within {pub.service_radius_km} km of {[pub.base_area, pub.city].filter(Boolean).join(', ')}
+            </Text>
+          </View>
+          {today ? (
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              <Ionicons name="time-outline" size={16} color={t.colors.muted} />
+              <Text variant="footnoteStrong" color={today.startsWith('Available') ? 'successText' : 'textSecondary'}>
+                {today}
+              </Text>
+            </View>
+          ) : null}
+          {hours.map((h) => (
+            <Text key={h} variant="footnote" color="muted" style={{ paddingLeft: 22 }}>
+              {h}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       {/* Services */}
       <View style={gutter}>
@@ -219,6 +290,15 @@ export default function ProviderDetailScreen() {
                   <Pill label="Visit fee" value={formatINR(s.visit_fee)} />
                   <Pill label={`Labour per ${s.rate_unit}`} value={formatINR(s.labour_rate)} />
                 </View>
+                {(() => {
+                  const sp = pub?.specialisations.find((x) => x.category_id === s.category_id);
+                  const tags = [...(sp?.labels ?? []), ...(sp?.brands ?? [])];
+                  return tags.length ? (
+                    <Text variant="footnote" color="textSecondary">
+                      {tags.join(' · ')}
+                    </Text>
+                  ) : null;
+                })()}
                 {(s.rate_card_items ?? []).length > 0 ? (
                   <View style={{ gap: t.spacing.sm }}>
                     <Text variant="footnoteStrong" color="muted">
@@ -248,6 +328,31 @@ export default function ProviderDetailScreen() {
           </View>
         </Section>
       </View>
+
+      {pub && pub.portfolio.length > 0 ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Text variant="title3" accessibilityRole="header" style={gutter}>
+            Work photos
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: t.spacing.sm, paddingHorizontal: t.spacing.lg }}>
+            {pub.portfolio.map((ph) => (
+              <View key={ph.file_path} style={{ width: 160, gap: 4 }}>
+                <Image
+                  source={{ uri: onboardingApi.publicUrl('portfolio', ph.file_path) }}
+                  style={{ width: 160, height: 160, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt }}
+                  contentFit="cover"
+                  accessibilityLabel={ph.caption || 'Work photo'}
+                />
+                {ph.caption ? (
+                  <Text variant="caption" color="muted" numberOfLines={2}>
+                    {ph.caption}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Ratings */}
       <View style={gutter}>
@@ -360,6 +465,20 @@ export default function ProviderDetailScreen() {
         </Section>
       </View>
     </Screen>
+  );
+}
+
+function TrustBadge({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  const t = useTheme();
+  return (
+    <View
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: t.colors.successSoft, borderRadius: t.radii.pill, paddingHorizontal: 10, paddingVertical: 4 }}
+    >
+      <Ionicons name={icon} size={13} color={t.colors.successText} />
+      <Text variant="captionStrong" color="successText">
+        {label}
+      </Text>
+    </View>
   );
 }
 

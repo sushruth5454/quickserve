@@ -10,6 +10,8 @@ const ANON = process.env.SUPABASE_ANON_KEY;
 const PHONE = '9999999999';
 const OTP = '123456';
 const RAVI = '11111111-1111-1111-1111-111111111111';
+// Fresh-provider onboarding user: test OTP number reset by e2e-web.yml before each run (no seed data).
+const NEW_PRO_PHONE = process.env.NEW_PRO_PHONE ?? '9000000301';
 const seeded = (prefix, n) => `${prefix}${String(n).padStart(6, '0')}-5eed-5eed-8000-000000000000`;
 
 mkdirSync(SHOTS, { recursive: true });
@@ -384,9 +386,34 @@ await step('job-history', async () => {
   await go('/jobs');
   await visible('Job history');
 });
-await step('onboarding', async () => {
+// Provider onboarding v2 (docs/08): an already-submitted provider resumes at the review step; sections are editable.
+await step('onboarding-resume-review', async () => {
   await go('/onboarding');
-  await visible('Provider profile');
+  await visible('Your profile');
+  await page.getByText(/^Profile \d+% complete$/).first().waitFor();
+});
+await step('provider-profile-hub', async () => {
+  await go('/provider-profile');
+  await visible('Profile strength');
+  await visible('Holiday mode');
+});
+for (const [section, title] of [
+  ['basics', 'Tell customers about you'],
+  ['services', 'Services & skills'],
+  ['area', 'Where do you work?'],
+  ['hours', 'When can you work?'],
+  ['portfolio', 'Your work & credentials'],
+  ['payouts', 'Payouts & verification'],
+]) {
+  await step(`provider-profile-${section}`, async () => {
+    await go(`/provider-profile/${section}`);
+    await page.getByText(title, { exact: true }).first().waitFor();
+  });
+}
+await step('provider-profile-preview', async () => {
+  await go('/provider-profile');
+  await page.getByText('Preview', { exact: true }).first().click();
+  await page.getByText(/^This is how customers (will )?see your profile/).first().waitFor();
 });
 await step('me-provider', async () => {
   await go('/pro-account');
@@ -431,6 +458,103 @@ await step('logout-login-screen', async () => {
 await step('after-logout-deep-link', async () => {
   await go('/dashboard');
   await page.getByLabel('Mobile number, India plus 91').waitFor();
+});
+
+// ---------- Brand-new provider: signup -> 7-step onboarding -> submit (docs/08) ----------
+// A 1x1 PNG is enough: the app resizes it client-side before uploading to the public avatars/portfolio buckets.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+async function chooseImage(trigger) {
+  const chooser = page.waitForEvent('filechooser');
+  await trigger();
+  await (await chooser).setFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PNG });
+}
+await step('new-pro-login', async () => {
+  await go('/');
+  await page.getByLabel('Mobile number, India plus 91').fill(NEW_PRO_PHONE);
+  await page.getByText('Send OTP', { exact: true }).click();
+  await visible('Verify your number');
+  await page.getByLabel('6-digit verification code').fill(OTP);
+  await visible('Welcome to QuickServe');
+});
+await step('new-pro-role', async () => {
+  await optional('name', () => page.getByLabel('Your name').first().fill('Kiran Test Pro', { timeout: 3000 }));
+  await page.getByLabel(/^I provide services\./).first().click();
+  await page.getByText('Continue', { exact: true }).click();
+  await visible('Tell customers about you');
+});
+await step('new-pro-basics', async () => {
+  await chooseImage(async () => {
+    await page.getByLabel('Change profile photo').first().click();
+    await page.getByText('Choose from gallery', { exact: true }).first().click();
+  });
+  const name = page.getByLabel('Full name').first();
+  if (!(await name.inputValue())) await name.fill('Kiran Test Pro');
+  await page.getByText('Telugu', { exact: true }).first().click();
+  await page.getByLabel('Short bio').first().fill('AC technician for 6 years. Split and window AC service, gas refills and installations.');
+  await page.getByText('Save & continue', { exact: true }).first().click();
+  await visible('Services & skills');
+});
+await step('new-pro-services', async () => {
+  await page.getByText('AC Repair', { exact: true }).first().click();
+  await optional('specialisation', () => page.getByText('Split AC', { exact: true }).first().click({ timeout: 3000 }));
+  await page.getByLabel('Visit fee').first().fill('199');
+  await page.getByLabel('Labour / job').first().fill('499');
+  await page.getByText('Local prices in', { exact: false }).first().waitFor();
+  await page.getByText('Save service', { exact: true }).first().click();
+  await page.getByText(/^Visit ₹199 · Labour ₹499\/job$/).first().waitFor();
+  await page.getByText('Continue', { exact: true }).first().click();
+  await visible('Where do you work?');
+});
+await step('new-pro-area', async () => {
+  await page.getByText('Use my current location', { exact: true }).first().click();
+  await page.getByText(/^Covers about /).first().waitFor();
+  const city = page.getByLabel('City').first();
+  if (!(await city.inputValue())) await city.fill('Vijayawada');
+  await page.getByText('8 km', { exact: true }).first().click();
+  await page.getByText('Save & continue', { exact: true }).first().click();
+  await visible('When can you work?');
+});
+await step('new-pro-hours', async () => {
+  await page.getByText('Mon–Sat, 9 am–7 pm', { exact: true }).first().click();
+  await page.getByText('9 am–7 pm', { exact: true }).first().waitFor();
+  await page.getByText('Save & continue', { exact: true }).first().click();
+  await visible('Your work & credentials');
+});
+await step('new-pro-portfolio', async () => {
+  await chooseImage(async () => {
+    await page.getByText('Add work photo', { exact: true }).first().click();
+    await page.getByText('Choose from gallery', { exact: true }).first().click();
+  });
+  await page.getByText('Work photos (1/12)', { exact: true }).first().waitFor();
+  await page.getByText('Continue', { exact: true }).first().click();
+  await visible('Payouts & verification');
+});
+await step('new-pro-payouts', async () => {
+  // Razorpay Route / RazorpayX are not enabled on the test account yet: the function must answer with the
+  // "temporarily unavailable" state instead of failing, and onboarding continues.
+  await page.getByLabel('Name as on PAN / bank account').first().fill('KIRAN TEST PRO');
+  await page.getByLabel('PAN').first().fill('ABCPK1234F');
+  await page.getByLabel('Email').first().fill('kiran.e2e@example.com');
+  await page.getByLabel('Bank account number').first().fill('123456789012');
+  await page.getByLabel('Re-enter account number').first().fill('123456789012');
+  await page.getByLabel('IFSC').first().fill('HDFC0000001');
+  await page.getByText('Verify & save', { exact: true }).first().click();
+  await page.getByText(/temporarily unavailable|Verifying|Verified/).first().waitFor({ timeout: 45000 });
+  await page.getByText('Continue', { exact: true }).first().click();
+  await visible('Review & submit');
+});
+await step('new-pro-submit', async () => {
+  await page.getByRole('checkbox').first().click();
+  await page.getByText('Submit profile', { exact: true }).first().click();
+  await page.getByLabel(/^Provider status: /).first().waitFor();
+});
+await step('new-pro-dashboard-status', async () => {
+  await go('/dashboard');
+  await page.getByText(/^(Under review|Action needed|You are live)$/).first().waitFor();
+});
+await step('new-pro-hub', async () => {
+  await go('/provider-profile');
+  await visible('Profile strength');
 });
 
 await browser.close();

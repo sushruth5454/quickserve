@@ -1,37 +1,25 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import {
-  cancelRetiredLinks,
-  json,
-  razorpay,
-  razorpayRequest,
-  requireEnv,
-  timingSafeEqual,
-} from "../_shared/razorpay.ts";
+import { cancelRetiredLinks, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
+import { type RailName } from "../_shared/payout-rail.ts";
+import { PAYOUT_ACCOUNT_COLUMNS, railsFromEnv, refreshBeneficiary, type PayoutAccountRow } from "../_shared/payout-beneficiary.ts";
 
 interface DueTransfer {
   transfer_id: string;
   payout_id: string;
   booking_id: string;
+  provider_id: string;
   amount: number;
-  razorpay_payment_id: string;
-  account_id: string;
+  gross_amount: number;
+  rail: RailName;
+  razorpay_payment_id: string | null;
+  account_id: string | null;
+  fund_account_id: string | null;
   attempts: number;
+  idempotency_key: string;
 }
 
-interface TransferCollection {
-  items: { id: string; notes?: Record<string, string> | unknown[] }[];
-}
-
-/** Finds a transfer created by an earlier (possibly timed-out) attempt via notes.transfer_id. */
-async function findExistingTransfer(t: DueTransfer): Promise<string | null> {
-  const res = await razorpayRequest<TransferCollection>("GET", `/payments/${t.razorpay_payment_id}/transfers`);
-  const match = (res.items ?? []).find(
-    (item) => !Array.isArray(item.notes) && item.notes?.transfer_id === t.transfer_id,
-  );
-  return match?.id ?? null;
-}
-
-// Cron entry point: see README "Scheduled jobs".
+// Cron entry point: see README "Scheduled jobs". Each payout_transfers row is released on the rail snapshotted when it
+// was created (docs/03 §5.1); receivables were already netted by claim_due_transfers.
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   const secret = req.headers.get("x-cron-secret") ?? "";
@@ -40,6 +28,7 @@ Deno.serve(async (req) => {
   const admin = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false },
   });
+  const rails = railsFromEnv();
 
   const expired = await admin.rpc("expire_stale_requests");
   if (expired.error) console.error("expire_stale_requests", expired.error);
@@ -47,50 +36,62 @@ Deno.serve(async (req) => {
   if (confirmed.error) console.error("auto_confirm_completions", confirmed.error);
   const linksCancelled = await cancelRetiredLinks(admin);
 
+  // Resume beneficiary verifications that were blocked while the gateway product was unavailable.
+  let resumed = 0;
+  const { data: blocked } = await admin
+    .from("provider_payout_accounts")
+    .select(PAYOUT_ACCOUNT_COLUMNS)
+    .eq("last_error", "gateway_unavailable")
+    .limit(10);
+  for (const row of (blocked ?? []) as PayoutAccountRow[]) {
+    try {
+      const r = await refreshBeneficiary(admin, rails, row);
+      if (r.state === "updated") resumed++;
+      if (r.state === "unavailable") break; // still unavailable for everyone; try again next run
+    } catch (e) {
+      console.error("resume beneficiary failed", row.provider_id, e instanceof Error ? e.message : e);
+    }
+  }
+
   const { data: due, error } = await admin.rpc("claim_due_transfers", { p_limit: 50 });
   if (error) return json({ error: error.message }, 500);
 
-  const results: { transfer_id: string; ok: boolean; error?: string }[] = [];
+  const results: { transfer_id: string; rail: RailName; ok: boolean; error?: string }[] = [];
   for (const t of (due ?? []) as DueTransfer[]) {
-    let transferId: string | null = null;
+    let externalId: string;
     try {
-      // A previous attempt may have succeeded at Razorpay even though we saw an error (e.g. timeout).
-      if (t.attempts > 0) transferId = await findExistingTransfer(t);
-      if (!transferId) {
-        const res = await razorpay<TransferCollection>(`/payments/${t.razorpay_payment_id}/transfers`, {
-          transfers: [
-            {
-              account: t.account_id,
-              amount: t.amount,
-              currency: "INR",
-              notes: { booking_id: t.booking_id, payout_id: t.payout_id, transfer_id: t.transfer_id },
-            },
-          ],
-        });
-        transferId = res.items?.[0]?.id ?? null;
-        if (!transferId) throw new Error("no transfer id in response");
-      }
+      const r = await rails[t.rail].release({
+        transferId: t.transfer_id,
+        payoutId: t.payout_id,
+        bookingId: t.booking_id,
+        amount: t.amount,
+        attempts: t.attempts,
+        idempotencyKey: t.idempotency_key,
+        razorpayPaymentId: t.razorpay_payment_id,
+        accountId: t.account_id,
+        fundAccountId: t.fund_account_id,
+      });
+      externalId = r.externalId;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      console.error("transfer attempt failed", t.transfer_id, message);
+      console.error("release attempt failed", t.rail, t.transfer_id, message);
       const failed = await admin.rpc("fail_transfer", { p_transfer_id: t.transfer_id, p_error: message });
       if (failed.error) console.error("fail_transfer", failed.error);
-      results.push({ transfer_id: t.transfer_id, ok: false, error: message });
+      results.push({ transfer_id: t.transfer_id, rail: t.rail, ok: false, error: message });
       continue;
     }
-    // The money has moved; if recording fails the row stays 'processing' for reconciliation (never re-POSTed blindly).
-    const done = await admin.rpc("complete_transfer", {
-      p_transfer_id: t.transfer_id,
-      p_razorpay_transfer_id: transferId,
-    });
-    if (done.error) console.error("complete_transfer failed; needs reconciliation", t.transfer_id, transferId, done.error);
-    results.push({ transfer_id: t.transfer_id, ok: !done.error });
+    // The money has moved (or is queued at the gateway); if recording fails the row stays 'processing' for
+    // reconciliation and is never re-sent blindly.
+    const done = await admin.rpc("complete_transfer", { p_transfer_id: t.transfer_id, p_razorpay_transfer_id: externalId });
+    if (done.error) console.error("complete_transfer failed; needs reconciliation", t.transfer_id, externalId, done.error);
+    results.push({ transfer_id: t.transfer_id, rail: t.rail, ok: !done.error });
   }
 
   return json({
     expired: expired.data ?? 0,
     auto_confirmed: confirmed.data ?? 0,
     links_cancelled: linksCancelled,
+    beneficiaries_resumed: resumed,
     processed: results.length,
     results,
   });

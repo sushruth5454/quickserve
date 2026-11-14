@@ -97,6 +97,22 @@ All money is stored in **integer paise**.
 - **Privacy**: push bodies are masked by `_mask_preview` (emails, UPI ids, links, 8+ digit numbers) and clipped; data
   carries only ids and an in-app route. The app follows only `/chat|booking|quote/<id>` routes from a payload.
 
+### Provider onboarding, go-live and payout rails (migrations 0008, 0009, 0011)
+Spec: [08-Provider-Onboarding.md](08-Provider-Onboarding.md).
+- New tables: `category_skills`, `document_types`, `provider_availability`, `provider_time_off` (doc 07 §3.9),
+  `provider_portfolio`, `provider_documents` (private bucket `provider-docs`), `provider_payout_accounts`,
+  `provider_onboarding_events`, `app_config` (`payout_rail`), `provider_receivables` + recoveries.
+  `payout_transfers` gains `rail` (snapshot), `gateway_status`, `utr`, `recovered_amount`, `idempotency_seq`.
+- **One go-live predicate** `_provider_is_live(provider)` (payout verified, submitted, not suspended/deactivated,
+  ≥ 1 active service with required docs approved) used by `search_providers`, `create_booking` and the RLS read
+  policies. `create_booking` also rejects windows outside working hours, during time off, when paused or when
+  `max_jobs_per_day` is reached (`provider_unavailable: …`), under a per-provider advisory lock.
+- **Column privacy**: `providers` is readable column-by-column; `base_location`, `razorpay_account_id`, gender and
+  onboarding/review fields are private (owner reads via `get_my_provider()`; public profile via
+  `get_provider_public_profile()`).
+- **Payout rails**: `supabase/functions/_shared/payout-rail.ts` (Route linked accounts | RazorpayX contact + fund
+  account + penny drop + payouts), used by `provider-payout-account`, `release-payouts` and `razorpay-webhook`.
+
 ### Booking state machine (canonical — enforced by RPCs; PRD B4 refers here)
 Final `booking_status` enum: `pending_payment, requested, accepted, en_route, inspecting, quote_sent, awaiting_payment, in_progress, completion_requested, completed, closed, closed_no_work, declined, expired, cancelled, disputed, refunded`.
 ```

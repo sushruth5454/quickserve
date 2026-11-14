@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hmacSha256Hex, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
+import { handleRailWebhook, isRailEvent, type RailWebhookEvent, type RpcClient } from "../_shared/payout-rail.ts";
 
 interface RazorpayEvent {
   event: string;
@@ -14,8 +15,14 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text();
   const signature = req.headers.get("X-Razorpay-Signature") ?? "";
-  const expected = await hmacSha256Hex(requireEnv("RAZORPAY_WEBHOOK_SECRET"), rawBody);
-  if (!signature || !timingSafeEqual(signature, expected)) {
+  // RazorpayX (payouts / fund account validation) webhooks are configured in the X dashboard and may use their own
+  // secret (RAZORPAYX_WEBHOOK_SECRET); either valid signature is accepted.
+  const secrets = [requireEnv("RAZORPAY_WEBHOOK_SECRET"), Deno.env.get("RAZORPAYX_WEBHOOK_SECRET") ?? ""].filter(Boolean);
+  let valid = false;
+  for (const s of secrets) {
+    if (signature && timingSafeEqual(signature, await hmacSha256Hex(s, rawBody))) valid = true;
+  }
+  if (!valid) {
     return json({ error: "invalid signature" }, 401);
   }
 
@@ -29,6 +36,13 @@ Deno.serve(async (req) => {
   const admin = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false },
   });
+
+  if (isRailEvent(event.event)) {
+    // Linked-account activation (product.route.*), bank validation (fund_account.validation.*), RazorpayX payout.*.
+    const r = await handleRailWebhook(admin as unknown as RpcClient, event as unknown as RailWebhookEvent);
+    if (r.status >= 500) console.error("rail webhook failed", event.event, r.body);
+    return json(r.body, r.status);
+  }
 
   switch (event.event) {
     case "payment_link.paid": {
@@ -50,7 +64,7 @@ Deno.serve(async (req) => {
     // TODO(chargebacks): handle payment.dispute.created / payment.dispute.lost by freezing the payout
     // and, if already transferred, reversing it via POST /v1/transfers/{id}/reversals
     // (payouts.status -> reversed / partially_reversed).
-    // TODO(kyc): handle linked-account status events and call rpc('sync_provider_kyc', ...).
+    // Linked-account status events are handled above via handleRailWebhook (sync_provider_payout_status).
     default:
       return json({ received: true, ignored: event.event });
   }

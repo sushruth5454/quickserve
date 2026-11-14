@@ -5,7 +5,8 @@ water-tank cleaners, mechanics…), pay a visit fee, approve an itemized on-site
 **before work starts**, and review the job. QuickServe takes a commission on labour only.
 
 Specs: [`docs/01-PRD.md`](docs/01-PRD.md), [`docs/03-Pricing-Payments-Commission.md`](docs/03-Pricing-Payments-Commission.md),
-[`docs/04-Architecture-Implementation-Plan.md`](docs/04-Architecture-Implementation-Plan.md).
+[`docs/04-Architecture-Implementation-Plan.md`](docs/04-Architecture-Implementation-Plan.md),
+[`docs/08-Provider-Onboarding.md`](docs/08-Provider-Onboarding.md) (provider onboarding, go-live rule, payout rails).
 
 ```
 app/        Expo SDK 57 (runs in App Store Expo Go) + Expo Router, TypeScript strict
@@ -59,10 +60,13 @@ npx supabase secrets set `
   RAZORPAY_WEBHOOK_SECRET=choose-a-long-random-string `
   CRON_SECRET=another-long-random-string `
   GEMINI_API_KEY=xxx `
+  RAZORPAYX_ACCOUNT_NUMBER=xxx `                       # RazorpayX payouts rail (customer identifier of the X account)
+  RAZORPAYX_WEBHOOK_SECRET=xxx `                       # optional, if the X webhook uses its own secret
   PAYMENT_CALLBACK_URL=https://<your-domain>/payment-complete   # optional
 
 npx supabase functions deploy create-payment
 npx supabase functions deploy ai-assistant
+npx supabase functions deploy provider-payout-account
 npx supabase functions deploy razorpay-webhook --no-verify-jwt
 npx supabase functions deploy release-payouts --no-verify-jwt
 npx supabase functions deploy process-refunds --no-verify-jwt
@@ -73,7 +77,8 @@ npx supabase functions deploy send-notifications --no-verify-jwt
 |---|---|
 | `create-payment` | Authenticated customer → computes the amount server-side (`prepare_payment`: visit fee, initial balance or change-order increment) → creates a Razorpay **Payment Link** → returns `short_url`. |
 | `razorpay-webhook` | Verifies `X-Razorpay-Signature` (HMAC-SHA256 of the raw body, constant-time compare). On `payment_link.paid` calls `record_payment_paid` (idempotent by `razorpay_payment_id`). |
-| `release-payouts` | Cron: expires 15-min-old requests, auto-confirms completions after 24h, cancels retired payment links, then creates one Route transfer per due `payout_transfers` row (`POST /v1/payments/{payment_id}/transfers`, `notes.transfer_id` set). Failed attempts back off (5→40 min); retries first look the transfer up by `notes.transfer_id` so a timed-out request is never paid twice. After 5 failures the payout is flagged `failed`; fix the cause and run `select retry_payout('<payout id>')`. Requires header `x-cron-secret`. |
+| `release-payouts` | Cron: expires 15-min-old requests, auto-confirms completions after 24h, cancels retired payment links, then releases each due `payout_transfers` row on its snapshotted rail (Route transfer, or RazorpayX payout with `X-Payout-Idempotency`; refund debts in `provider_receivables` are netted first; doc 08 §7) (`POST /v1/payments/{payment_id}/transfers`, `notes.transfer_id` set). Failed attempts back off (5→40 min); retries first look the transfer up by `notes.transfer_id` so a timed-out request is never paid twice. After 5 failures the payout is flagged `failed`; fix the cause and run `select retry_payout('<payout id>')`. Requires header `x-cron-secret`. |
+| `provider-payout-account` | Authenticated provider → payout beneficiary on the active rail (`app_config.payout_rail`): Route linked account (`/v2/accounts` + stakeholder + route product) or RazorpayX contact + fund account + penny-drop validation. Actions `status` / `submit` / `refresh`. Stores only ids, status, bank last 4 + IFSC. "Not enabled" gateway errors become the provider state *Payouts setup temporarily unavailable*. See [doc 08](docs/08-Provider-Onboarding.md). |
 | `ai-assistant` | Authenticated customer → QuickServe AI booking assistant (Gemini). See [AI assistant](#ai-assistant). |
 | `process-refunds` | Cron: cancels retired payment links, claims queued `refunds` rows (`claim_due_refunds`) and calls `POST /v1/payments/{id}/refund` with `X-Refund-Idempotency: <refund row id>`; full refunds move the payment to `refunded`. Requires header `x-cron-secret`. |
 | `send-notifications` | Push sender for the `notifications` outbox (chat messages, booking updates) via the Expo Push API: batches of 100, tickets, receipts, retries, dead-token cleanup. Kicked by `pg_net` on every new outbox row and by cron. Requires header `x-cron-secret`. See [Notifications](#notifications). |
@@ -85,9 +90,11 @@ npx supabase functions deploy send-notifications --no-verify-jwt
    - Secret: the `RAZORPAY_WEBHOOK_SECRET` above
    - Events: `payment_link.paid`. A payment on a link that is no longer owed (retired, superseded or exceeding the
      booking total) is recorded and queued for refund automatically.
-2. Enable **Route** and create a Linked Account per provider. The account id and its activation status drive
-   `providers.kyc_status` via the service-role RPC `sync_provider_kyc(provider_id, account_id, status)`; there is no
-   manual "mark verified" switch.
+2. Provider payouts run on a **rail** (`app_config.payout_rail`, default `payouts` = RazorpayX; `route` once Razorpay
+   enables Route). Providers create their own beneficiary from the app (`provider-payout-account`); webhooks
+   `product.route.*`, `fund_account.validation.*` and `payout.processed|failed|reversed` drive `providers.kyc_status`
+   (`sync_provider_payout_status`) and `payout_transfers`. There is no manual "mark verified" switch. Founder actions
+   (enable Route / activate RazorpayX, webhook events): [doc 08 §12](docs/08-Provider-Onboarding.md).
 
 ### Scheduled jobs
 

@@ -54,18 +54,23 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
     }
   };
 
-  const kycText = provider.razorpay_account_id && provider.kyc_status === 'verified' ? 'Verified' : provider.kyc_status === 'rejected' ? 'Action needed' : 'Pending';
+  const kycText =
+    provider.kyc_status === 'verified'
+      ? 'Verified'
+      : provider.kyc_status === 'rejected' || provider.kyc_status === 'needs_clarification' || provider.kyc_status === 'suspended'
+        ? 'Action needed'
+        : 'Pending';
 
   return (
     <>
-      <Group title="My services" action={{ label: 'Add', onPress: () => router.push('/onboarding') }}>
+      <Group title="My services" action={{ label: 'Add', onPress: () => router.push('/provider-profile/services') }}>
         {!services ? (
           <View style={{ padding: t.spacing.lg, gap: t.spacing.sm }}>
             <Skeleton width="60%" height={14} />
             <Skeleton width="40%" height={12} />
           </View>
         ) : services.length === 0 ? (
-          <ListItem icon="add-circle-outline" title="Add your first service" subtitle="Pick a category and set your fees" chevron onPress={() => router.push('/onboarding')} />
+          <ListItem icon="add-circle-outline" title="Add your first service" subtitle="Pick a category and set your fees" chevron onPress={() => router.push('/provider-profile/services')} />
         ) : (
           services.map((s, i) => (
             <Fragment key={s.id}>
@@ -105,9 +110,9 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
       </Group>
 
       <Group title="Work settings">
-        <ListItem icon="navigate-circle-outline" title="Service radius" value={`${provider.service_radius_km} km`} chevron onPress={() => router.push('/onboarding')} />
+        <ListItem icon="navigate-circle-outline" title="Service radius" value={`${provider.service_radius_km} km`} chevron onPress={() => router.push('/provider-profile/area')} />
         <Divider inset={LIST_INSET} />
-        <ListItem icon="shield-checkmark-outline" title="Payout account & KYC" value={kycText} chevron onPress={() => router.push('/onboarding')} />
+        <ListItem icon="shield-checkmark-outline" title="Payout account & KYC" value={kycText} chevron onPress={() => router.push('/provider-profile/payouts')} />
         <Divider inset={LIST_INSET} />
         <ListItem icon="list-outline" title="Job history" chevron onPress={() => router.push('/jobs')} />
       </Group>

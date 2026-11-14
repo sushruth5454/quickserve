@@ -17,6 +17,8 @@ import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
 import { dayLabel, firstAvailableDay, nextDays, WINDOW_START_HOURS, windowAvailable, windowLabel, windowStart } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
+import { onboardingApi, type ProviderSchedule } from '../../src/lib/onboarding';
+import { asapAvailable, windowFits } from '../../src/lib/onboarding/availability';
 
 const QUICK_ISSUES: Record<string, string[]> = {
   'ac-repair': ['Not cooling', 'Water leaking', 'Making noise', 'Bad smell', 'Gas refill', 'Service due'],
@@ -59,12 +61,20 @@ export default function BookScreen() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Provider working hours / time off / full days (migration 0009). null = unknown or unrestricted.
+  const [sched, setSched] = useState<ProviderSchedule | null>(null);
 
   const load = () => {
     if (!providerServiceId) return;
     setLoadError(null);
     getProviderService(providerServiceId)
-      .then(setService)
+      .then((s) => {
+        setService(s);
+        onboardingApi
+          .getProviderSchedule(s.provider_id)
+          .then(setSched)
+          .catch(() => setSched(null));
+      })
       .catch((e: Error) => setLoadError(e.message));
   };
   useEffect(load, [providerServiceId]);
@@ -83,10 +93,23 @@ export default function BookScreen() {
   }, []);
 
   const day = days[dayIndex] ?? days[0]!;
+  // A window is offered only if it meets the lead time AND lies inside the provider's hours (create_booking re-checks).
+  const slotOk = (date: Date, h: number) => windowAvailable(date, h, new Date()) && windowFits(sched, windowStart(date, h));
+  const dayOk = (date: Date) => WINDOW_START_HOURS.some((h) => slotOk(date, h));
+  const asapOk = asapAvailable(sched, new Date());
   // Drop a picked window that is no longer available on the newly selected day.
   useEffect(() => {
-    if (hour != null && !windowAvailable(day.date, hour, new Date())) setHour(null);
-  }, [day, hour]);
+    if (hour != null && !slotOk(day.date, hour)) setHour(null);
+  }, [day, hour, sched]);
+  // Once the schedule loads: move off ASAP / an unavailable day.
+  useEffect(() => {
+    if (!sched) return;
+    if (!asapAvailable(sched, new Date())) setMode('schedule');
+    if (!dayOk(day.date)) {
+      const i = days.findIndex((d) => dayOk(d.date));
+      if (i >= 0) setDayIndex(i);
+    }
+  }, [sched]);
 
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
@@ -314,8 +337,9 @@ export default function BookScreen() {
             <ModeCard
               icon="flash-outline"
               title="As soon as possible"
-              subtitle="Pros accept in ~15 min"
+              subtitle={asapOk ? 'Pros accept in ~15 min' : 'Not available right now'}
               selected={mode === 'asap'}
+              disabled={!asapOk}
               onPress={() => setMode('asap')}
             />
             <ModeCard icon="calendar-outline" title="Schedule" subtitle="Pick a day & time" selected={mode === 'schedule'} onPress={() => setMode('schedule')} />
@@ -329,7 +353,7 @@ export default function BookScreen() {
                 contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}
               >
                 {days.map((d, i) => {
-                  const any = WINDOW_START_HOURS.some((h) => windowAvailable(d.date, h, new Date()));
+                  const any = dayOk(d.date);
                   const sel = i === dayIndex;
                   return (
                     <Pressable
@@ -363,7 +387,7 @@ export default function BookScreen() {
               </ScrollView>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
                 {WINDOW_START_HOURS.map((h) => {
-                  const ok = windowAvailable(day.date, h, new Date());
+                  const ok = slotOk(day.date, h);
                   const sel = hour === h;
                   return (
                     <Pressable
@@ -502,13 +526,14 @@ function Block({ title, hint, children }: { title: string; hint?: string; childr
   );
 }
 
-function ModeCard(props: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; selected: boolean; onPress: () => void }) {
+function ModeCard(props: { icon: keyof typeof Ionicons.glyphMap; title: string; subtitle: string; selected: boolean; disabled?: boolean; onPress: () => void }) {
   const t = useTheme();
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ checked: props.selected }}
+      accessibilityState={{ checked: props.selected, disabled: !!props.disabled }}
       accessibilityLabel={`${props.title}. ${props.subtitle}`}
+      disabled={props.disabled}
       onPress={props.onPress}
       style={({ pressed }) => ({
         flex: 1,
@@ -518,6 +543,7 @@ function ModeCard(props: { icon: keyof typeof Ionicons.glyphMap; title: string; 
         borderColor: props.selected ? t.colors.primary : t.colors.border,
         backgroundColor: props.selected ? t.colors.primarySoft : pressed ? t.colors.surfaceAlt : t.colors.surface,
         gap: 4,
+        opacity: props.disabled ? 0.45 : 1,
       })}
     >
       <Ionicons name={props.icon} size={20} color={props.selected ? t.colors.primaryText : t.colors.textSecondary} />

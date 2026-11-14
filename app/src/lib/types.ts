@@ -18,7 +18,7 @@ export type BookingStatus =
   | 'refunded';
 
 export type SkillLevel = 'beginner' | 'skilled' | 'expert' | 'certified';
-export type KycStatus = 'pending' | 'verified' | 'rejected';
+export type KycStatus = 'pending' | 'verified' | 'rejected' | 'under_review' | 'needs_clarification' | 'suspended';
 export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
 export type QuoteItemKind = 'labour' | 'part' | 'other';

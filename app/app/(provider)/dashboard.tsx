@@ -32,6 +32,8 @@ import { registerForPush } from '../../src/lib/push';
 import type { BookingStatus, Category, Payout, Provider, ProviderJob } from '../../src/lib/types';
 import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
+import { GoLiveStatusCard } from '../../src/features/providerOnboarding/GoLiveStatusCard';
+import { onboardingApi, type DocumentType, type GoLive } from '../../src/lib/onboarding';
 
 /** Active statuses in the order a pro should look at them (most time-critical first). */
 const ACTIVE_PRIORITY: BookingStatus[] = [
@@ -81,6 +83,7 @@ export default function ProviderDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [declining, setDeclining] = useState<ProviderJob | null>(null);
+  const [goLive, setGoLive] = useState<{ status: GoLive; docTypes: DocumentType[] } | null>(null);
   const { userId } = useAuth();
   const unread = useUnread();
   const refreshUnread = unread.refresh;
@@ -98,6 +101,10 @@ export default function ProviderDashboard() {
         return;
       }
       setProvider(p);
+      // Go-live status (docs/08): shown until the provider is live; failures here never block the dashboard.
+      void Promise.all([onboardingApi.getOnboarding(), onboardingApi.getCatalog()])
+        .then(([s, cat]) => setGoLive({ status: s.go_live, docTypes: cat.docTypes }))
+        .catch(() => undefined);
       const [j, po, profile, cats] = await Promise.all([getProviderJobs(), listMyPayouts(), getMyProfile(), listCategories()]);
       setJobs(j);
       setPayouts(po);
@@ -208,12 +215,15 @@ export default function ProviderDashboard() {
 
         <OnlineCard online={online} radiusKm={provider?.service_radius_km ?? null} onChange={(v) => void toggleOnline(v)} disabled={!provider} />
 
-        {provider && provider.kyc_status !== 'verified' ? (
-          <InlineAlert
-            tone="warning"
-            title="Not visible in search yet"
-            message={`Verification happens with our payment partner during payout setup. Status: ${provider.kyc_status}.`}
+        {goLive && (goLive.status.state !== 'live' || goLive.status.paused) ? (
+          <GoLiveStatusCard
+            goLive={goLive.status}
+            docTypes={goLive.docTypes}
+            onFix={(s) => router.push({ pathname: '/provider-profile/[section]', params: { section: s } })}
+            onContinue={() => router.push('/onboarding')}
           />
+        ) : !goLive && provider && provider.kyc_status !== 'verified' ? (
+          <InlineAlert tone="warning" title="Not visible in search yet" message="Finish your provider profile and payout setup to go live." />
         ) : null}
         {provider?.suspended ? <InlineAlert title="Account suspended" message="Contact support to restore access." /> : null}
         {error ? <InlineAlert message={error} /> : null}

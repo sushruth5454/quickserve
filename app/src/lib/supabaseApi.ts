@@ -145,6 +145,7 @@ export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
     )
     .eq('kyc_status', 'verified')
     .eq('suspended', false)
+    .eq('paused', false)
     .gt('rating_count', 0);
   // Like search_providers, never suggest the signed-in user's own provider profile.
   if (auth.session) query = query.neq('id', auth.session.user.id);
@@ -157,9 +158,14 @@ export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
   );
 }
 
+/** Columns granted to anon/authenticated on public.providers (migration 0009). */
+const PUBLIC_PROVIDER_COLUMNS =
+  'id, bio, city, service_radius_km, years_experience, languages, kyc_status, suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, created_at, paused, base_area, timezone';
+
 export async function getProviderDetail(providerId: string): Promise<ProviderDetail> {
   const [provider, services, reviews] = await Promise.all([
-    supabase.from('providers').select('*, profiles(full_name, avatar_url)').eq('id', providerId).single(),
+    // Column privileges (migration 0009) expose only public provider columns; base location and payout ids stay private.
+    supabase.from('providers').select(`${PUBLIC_PROVIDER_COLUMNS}, profiles(full_name, avatar_url)`).eq('id', providerId).single(),
     supabase
       .from('provider_services')
       .select('*, categories(name, slug), rate_card_items(*)')
@@ -173,7 +179,7 @@ export async function getProviderDetail(providerId: string): Promise<ProviderDet
       .limit(50),
   ]);
   return {
-    provider: unwrap(provider) as ProviderDetail['provider'],
+    provider: { razorpay_account_id: null, ...(unwrap(provider) as object) } as ProviderDetail['provider'],
     services: unwrap(services) as ProviderService[],
     reviews: unwrap(reviews) as Review[],
   };
@@ -374,8 +380,9 @@ export async function submitReview(bookingId: string, r: ReviewInput): Promise<s
 
 // ---------- Provider ----------
 export async function getMyProvider(): Promise<Provider | null> {
-  const uid = await requireUserId();
-  return unwrap(await supabase.from('providers').select('*').eq('id', uid).maybeSingle<Provider>());
+  await requireUserId();
+  // Own row incl. private columns via RPC (select('*') is blocked by column privileges since migration 0009).
+  return unwrap(await supabase.rpc('get_my_provider')) as Provider | null;
 }
 
 export async function upsertProviderProfile(input: ProviderProfileInput): Promise<void> {

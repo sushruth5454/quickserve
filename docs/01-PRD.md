@@ -55,15 +55,17 @@ Priorities: P0 = must ship, P1 = should ship in v1.x, P2 = later.
 | A4 | Location permission → set home address (map pin + text). Multiple saved addresses. | P0 |
 
 ### 5.2 Provider registration & profile
+Full spec, statuses and the go-live rule: **[08-Provider-Onboarding.md](08-Provider-Onboarding.md)** (7-step resumable onboarding, every step editable later under Me → Provider profile).
+
 | ID | Requirement | Pri |
 |---|---|---|
-| P1 | Profile: name, photo, city, service radius (km), languages, years of experience, short bio. | P0 |
-| P2 | Skills: pick 1..n **service categories** (AC repair, electrician, plumber, house cleaning, water-tank cleaning, car/bike mechanic, appliance repair, pest control, carpenter, painter). For each skill: **skill level** (Beginner / Skilled / Expert / Certified), **visit/inspection fee**, **hourly or base labour rate**, and an optional rate card of common jobs ("Gas refill — ₹2,500"). | P0 |
-| P3 | KYC: identity and payout KYC are done **through the payment partner's linked-account onboarding** (Razorpay Route). QuickServe stores only `kyc_status (pending/verified/rejected)`, the vendor reference, the verification timestamp, and the rejection reason. **We never store Aadhaar numbers or ID images.** Unverified providers are **not shown** in search. | P0 |
-| P4 | Payout details: UPI ID or bank account (via the payment gateway's linked-account onboarding). | P0 |
-| P5 | Availability toggle (Online / Offline) + weekly working hours. | P0 |
-| P6 | Portfolio photos (before/after). | P1 |
-| P7 | Skill certificates upload → "Certified" badge after admin check. | P1 |
+| P1 | Profile: name, photo (camera/gallery, face visible), optional gender (private), city + base location + service radius (km), languages, years of experience, short bio (30–500 chars). | P0 |
+| P2 | Skills: pick 1..n **service categories** from the server catalogue (AC repair, electrician, plumber, house cleaning, water-tank cleaning, car/bike mechanic, appliance repair, pest control, carpenter, painter). For each skill: **skill level** (Beginner / Skilled / Expert / Certified), **specialisations / brands / tools** (config table `category_skills`), **visit/inspection fee**, **hourly or base labour rate** with local price guidance from real data (≥ 5 data points, otherwise "No local data yet"), and an optional rate card of common jobs ("Gas refill — ₹2,500"). | P0 |
+| P3 | KYC / payout verification runs through the payment partner behind a **payout rail**: Razorpay Route linked account (PAN + bank) or RazorpayX contact + fund account + penny-drop name match (default until Route is enabled). QuickServe stores only the status, vendor references, bank last 4 + IFSC and the rejection/clarification reason. **We never store Aadhaar, full PAN or full account numbers.** A provider is **live** (searchable/bookable) only when payout is verified, profile submitted, required category documents approved, and not suspended/deactivated (`_provider_is_live`). | P0 |
+| P4 | Payout details: bank account + IFSC (UPI is a follow-up on the payouts rail). | P0 |
+| P5 | Online toggle (accepting now) + **weekly working hours** (multiple slots/day), time off, max jobs per day, holiday mode. Booking only offers and accepts windows inside the hours (server-enforced in `create_booking`). | P0 |
+| P6 | Portfolio: up to 12 work photos with captions. | P1 |
+| P7 | Documents (police verification, licences, certificates) in a private bucket, reviewed by admins; config-driven per category (`requires_docs` / `recommended_docs`). Badges on the public profile. | P1 |
 
 ### 5.3 Discovery & search (customer)
 | ID | Requirement | Pri |
