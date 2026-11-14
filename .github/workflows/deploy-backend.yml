@@ -50,16 +50,16 @@ jobs:
             [ -n "${!v}" ] && args+=("$v=${!v}")
           done
           if [ ${#args[@]} -gt 0 ]; then
-            supabase secrets set --project-ref "$PROJECT_REF" "${args[@]}"
+            supabase secrets set --project-ref "$PROJECT_REF" --yes "${args[@]}"
           else
             echo "No Razorpay/cron secrets yet; payments won't work until they're added."
           fi
 
       - name: Deploy Edge Functions
         run: |
-          supabase functions deploy create-payment --project-ref "$PROJECT_REF"
+          supabase functions deploy create-payment --project-ref "$PROJECT_REF" --yes
           for f in razorpay-webhook release-payouts process-refunds; do
-            supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF"
+            supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF" --yes
           done
 
       - name: Summary
