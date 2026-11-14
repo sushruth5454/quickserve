@@ -1,39 +1,34 @@
-// QuickServe AI booking assistant. Verifies the caller's JWT, rate-limits per user, runs a Gemini function-calling loop
-// over read-only server-side tools and returns a strict JSON contract:
+// QuickServe AI booking assistant. Verifies the caller's JWT, applies kill switch / CORS / abuse limits, runs a Gemini
+// function-calling loop over read-only tools that query Postgres AS THE USER (RLS), and returns a strict JSON contract:
 //   { conversation_id, reply_text, language, quick_replies[], cards[], transcript?, usage, limits, request_id }
-// The assistant never creates or pays for bookings: draft cards hand off to the app's normal checkout.
+// The assistant never creates or pays for bookings: draft cards hand off to the app's normal checkout, where
+// create_booking re-validates everything. All tunables come from env (config.ts).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, json, requireEnv } from "../_shared/razorpay.ts";
-import { ATTEMPTS, type Content, FALLBACK_MODEL, GeminiError, generateContent, MAX_OUTPUT_TOKENS, type Part, PRIMARY_COOLDOWN_MS, PRIMARY_MODEL, THINKING_LEVEL } from "./gemini.ts";
+import { type AiConfig, attemptPlan, corsFor, loadConfig } from "./config.ts";
+import { type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
 import {
   areaFromLine,
-  clampList,
   clampText,
-  EMERGENCY_NUMBERS,
-  estimateCard,
+  composeReply,
+  type DraftCard,
   estimateForModel,
   filterChips,
-  istMidnight,
+  MarketClock,
   normalizeSlot,
   type PastBooking,
   type PriceStats,
   PROBLEM_CHIPS,
-  type ProviderPick,
-  rankProviders,
+  redactPII,
+  serviceProblem,
+  type ServiceRow,
   type SearchRow,
-  type Slot,
+  summarize,
+  toContents,
 } from "./logic.ts";
-import { functionDeclarations, systemPrompt } from "./prompt.ts";
+import { functionDeclarations, POLICY_VERSION, systemPrompt } from "./policies/index.ts";
+import { INJECTION_REMINDER, looksLikeInjection } from "./policies/security.ts";
+import { toolCallAllowed } from "./policies/tools.ts";
 
-const DAILY_MESSAGE_LIMIT = Number(Deno.env.get("AI_DAILY_MESSAGE_LIMIT") ?? 30);
-const DAILY_VOICE_LIMIT = Number(Deno.env.get("AI_DAILY_VOICE_LIMIT") ?? 10);
-/** Whole-request budget for the model loop (the client waits up to 60 s). */
-const REQUEST_BUDGET_MS = 50_000;
-const MAX_STEPS = 6;
-const MAX_TEXT = 1000;
-/** ~1.5 MB of audio: 60 s of AAC at the HIGH_QUALITY preset is ~1 MB. */
-const MAX_AUDIO_B64 = 2_100_000;
-const HISTORY_ROWS = 10;
 const AUDIO_MIME: Record<string, string> = {
   "audio/m4a": "audio/m4a",
   "audio/x-m4a": "audio/m4a",
@@ -47,10 +42,7 @@ const AUDIO_MIME: Record<string, string> = {
   "audio/ogg": "audio/ogg",
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LANGS = ["en", "hi", "te", "hinglish", "tenglish", "other"];
 const SORTS = ["recommended", "rating", "price", "distance", "experience"];
-const HAZARDS = Object.keys(EMERGENCY_NUMBERS);
-const DEFAULT_LOCATION = { area: "Benz Circle", city: "Vijayawada", lat: 16.4995, lng: 80.656 };
 
 /** Per-instance circuit breaker for the primary model. */
 let primaryCooldownUntil = 0;
@@ -65,27 +57,25 @@ class HttpError extends Error {
   }
 }
 
+/** One JSON line per request/event; never message text, audio, tokens or keys. */
+function log(level: "info" | "warn" | "error", event: Record<string, unknown>) {
+  const line = JSON.stringify({ fn: "ai-assistant", level, ...event });
+  if (level === "error") console.error(line);
+  else if (level === "warn") console.warn(line);
+  else console.log(line);
+}
+
 interface Ctx {
   uid: string;
   now: Date;
+  clock: MarketClock;
+  cfg: AiConfig;
   admin: SupabaseClient;
   userClient: SupabaseClient;
   categories: { slug: string; name: string }[];
   history: PastBooking[];
-  location: { area: string; city: string; lat: number; lng: number };
-  address: { address_id: string | null; label: string | null; area: string; city: string; needs_full_address: boolean };
-}
-
-interface DraftCard {
-  type: "draft";
-  category_slug: string;
-  category_name: string;
-  provider: { provider_id: string; provider_service_id: string; name: string; visit_fee: number; rating_avg: number; rating_count: number };
-  description_en: string;
-  description_original: string;
-  problem_chips: string[];
-  slot: Slot;
-  address: Ctx["address"];
+  location: { area: string; city: string; lat: number; lng: number } | null;
+  address: DraftCard["address"] | null;
 }
 
 interface State {
@@ -93,7 +83,7 @@ interface State {
   estimates: Map<string, PriceStats | null>;
   draft: DraftCard | null;
   lastSlug: string | null;
-  tools: { name: string; args: unknown; error?: string }[];
+  tools: { name: string; error?: string }[];
   usage: { input: number; output: number; calls: number };
 }
 
@@ -102,9 +92,9 @@ const newState = (): State => ({ searches: new Map(), estimates: new Map(), draf
 const num = (v: unknown, min: number, max: number): number | null =>
   typeof v === "number" && Number.isFinite(v) && v >= min && v <= max ? v : null;
 
-// ---------- data loaders (all scoped to the caller) ----------
-async function loadHistory(admin: SupabaseClient, uid: string): Promise<PastBooking[]> {
-  const { data, error } = await admin
+// ---------- data loaders: the user's own JWT, so RLS scopes every row ----------
+async function loadHistory(db: SupabaseClient, uid: string): Promise<PastBooking[]> {
+  const { data, error } = await db
     .from("bookings")
     .select("created_at, status, provider_id, provider_service_id, categories(slug, name), providers(profiles(full_name)), reviews(rating)")
     .eq("customer_id", uid)
@@ -128,18 +118,18 @@ async function loadHistory(admin: SupabaseClient, uid: string): Promise<PastBook
 }
 
 async function searchPros(ctx: Ctx, state: State, slug: string, opts: Record<string, unknown> = {}): Promise<SearchRow[]> {
+  if (!ctx.location) return [];
   const lat = num(opts.lat, -90, 90);
   const lng = num(opts.lng, -180, 180);
   // Model-supplied coordinates are only honoured near the selected location (it has no reason to search elsewhere).
   const useOwn = lat != null && lng != null && Math.abs(lat - ctx.location.lat) < 0.5 && Math.abs(lng - ctx.location.lng) < 0.5;
-  const minRating = num(opts.min_rating, 1, 5);
-  const maxFee = num(opts.max_visit_fee_rupees, 0, 5000);
+  const maxFee = num(opts.max_visit_fee_rupees, 0, 100_000);
   const { data, error } = await ctx.userClient.rpc("search_providers", {
     p_category_slug: slug,
     p_lat: useOwn ? lat : ctx.location.lat,
     p_lng: useOwn ? lng : ctx.location.lng,
     p_sort: SORTS.includes(opts.sort as string) ? opts.sort : "recommended",
-    p_min_rating: minRating,
+    p_min_rating: num(opts.min_rating, 1, 5),
     p_max_visit_fee: maxFee == null ? null : Math.round(maxFee * 100),
     p_online_only: opts.online_only === true,
     p_limit: 10,
@@ -153,46 +143,50 @@ async function searchPros(ctx: Ctx, state: State, slug: string, opts: Record<str
 
 async function priceStats(ctx: Ctx, state: State, slug: string): Promise<PriceStats | null> {
   if (state.estimates.has(slug)) return state.estimates.get(slug) ?? null;
-  const { data, error } = await ctx.admin.rpc("ai_price_estimate", { p_category_slug: slug });
+  const since = new Date(ctx.now.getTime() - ctx.cfg.priceLookbackDays * 86_400_000).toISOString();
+  // Aggregates across all customers' jobs, so it runs as service role and returns only counts/percentiles.
+  const { data, error } = await ctx.admin.rpc("ai_price_estimate", { p_category_slug: slug, p_since: since });
   if (error) throw error;
   const stats = (data ?? null) as PriceStats | null;
   state.estimates.set(slug, stats);
   return stats;
 }
 
+function validSlug(ctx: Ctx, v: unknown): string | null {
+  return typeof v === "string" && ctx.categories.some((c) => c.slug === v) ? v : null;
+}
+
 async function draftBooking(ctx: Ctx, state: State, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (!ctx.address) return { error: "The customer has not set a service location. Ask them to set it first." };
   const slug = validSlug(ctx, args.category_slug);
   if (!slug) return { error: "Unknown category_slug." };
   const psId = typeof args.provider_service_id === "string" && UUID.test(args.provider_service_id) ? args.provider_service_id : null;
   if (!psId) return { error: "provider_service_id must be one returned by search_providers or the history." };
-  const description = clampText(args.description_en, 250);
+  const description = clampText(redactPII(String(args.description_en ?? "")), 250);
   if (!description) return { error: "description_en is required." };
-  const { data: ps } = await ctx.admin
+  const { data } = await ctx.userClient
     .from("provider_services")
-    .select("id, provider_id, visit_fee, active, categories!inner(slug, name), providers!inner(kyc_status, suspended, rating_avg, rating_count, profiles(full_name))")
+    .select("id, provider_id, visit_fee, active, categories(slug, name), providers(kyc_status, suspended, rating_avg, rating_count, profiles(full_name))")
     .eq("id", psId)
     .maybeSingle();
-  // deno-lint-ignore no-explicit-any
-  const p = ps as any;
-  if (!p || !p.active || p.providers?.kyc_status !== "verified" || p.providers?.suspended || p.provider_id === ctx.uid) {
-    return { error: "That pro is not available for booking now. Pick another pro from search_providers." };
-  }
-  if (p.categories?.slug !== slug) return { error: `That provider_service_id is for ${p.categories?.name}, not ${slug}.` };
-  const slot = normalizeSlot({ type: args.slot_type, date: args.slot_date, start_hour: args.slot_start_hour }, ctx.now);
+  const row = (data ?? null) as unknown as ServiceRow | null;
+  const problem = serviceProblem(row, slug, ctx.uid);
+  if (problem || !row) return { error: problem ?? "Not available." };
+  const slot = normalizeSlot({ type: args.slot_type, date: args.slot_date, start_hour: args.slot_start_hour }, ctx.now, ctx.clock);
   const draft: DraftCard = {
     type: "draft",
     category_slug: slug,
-    category_name: p.categories.name,
+    category_name: row.categories?.name ?? slug,
     provider: {
-      provider_id: p.provider_id,
-      provider_service_id: p.id,
-      name: p.providers?.profiles?.full_name ?? "Pro",
-      visit_fee: p.visit_fee,
-      rating_avg: Math.round(Number(p.providers?.rating_avg ?? 0) * 10) / 10,
-      rating_count: p.providers?.rating_count ?? 0,
+      provider_id: row.provider_id,
+      provider_service_id: row.id,
+      name: row.providers?.profiles?.full_name ?? "Pro",
+      visit_fee: row.visit_fee,
+      rating_avg: Math.round(Number(row.providers?.rating_avg ?? 0) * 10) / 10,
+      rating_count: row.providers?.rating_count ?? 0,
     },
     description_en: description,
-    description_original: clampText(args.description_original, 300),
+    description_original: clampText(redactPII(String(args.description_original ?? "")), 300),
     problem_chips: filterChips(slug, args.problem_chips),
     slot,
     address: ctx.address,
@@ -207,13 +201,9 @@ async function draftBooking(ctx: Ctx, state: State, args: Record<string, unknown
       slot: slot.label,
       ...(slot.adjusted ? { slot_note: `Adjusted (${slot.adjusted}); tell the customer the slot shown.` } : {}),
       address: [ctx.address.label, ctx.address.area].filter(Boolean).join(", "),
-      next: "The customer reviews and pays in checkout. Now call respond.",
+      next: "Not booked. The customer reviews and pays in checkout. Now call respond.",
     },
   };
-}
-
-function validSlug(ctx: Ctx, v: unknown): string | null {
-  return typeof v === "string" && ctx.categories.some((c) => c.slug === v) ? v : null;
 }
 
 async function execTool(ctx: Ctx, state: State, name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -223,7 +213,7 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
     case "get_my_history":
       return {
         result: ctx.history.map((h) => ({
-          date: h.booking_date.slice(0, 10),
+          date: ctx.clock.dateKey(new Date(h.booking_date)),
           service: h.category_slug,
           pro: h.provider_name,
           provider_service_id: h.provider_service_id,
@@ -232,6 +222,7 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
         })),
       };
     case "search_providers": {
+      if (!ctx.location) return { error: "The customer has not set a service location. Ask them to set it in the app." };
       const slug = validSlug(ctx, args.category_slug);
       if (!slug) return { error: "Unknown category_slug. Use list_categories." };
       const rows = await searchPros(ctx, state, slug, args);
@@ -255,7 +246,7 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
             customer_rating: rated.get(r.provider_id) ?? null,
           })),
           problem_chips: PROBLEM_CHIPS[slug] ?? [],
-          ...(rows.length ? {} : { note: "No verified pros serve this location yet." }),
+          ...(rows.length ? {} : { note: "No verified pros serve this location for this service yet. Tell the customer; do not draft." }),
         },
       };
     }
@@ -264,7 +255,7 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
       if (!slug) return { error: "Unknown category_slug." };
       const stats = await priceStats(ctx, state, slug);
       state.lastSlug = slug;
-      return stats ? { result: estimateForModel(stats) } : { error: "No price data for this service." };
+      return stats ? { result: estimateForModel(stats, ctx.cfg.minPriceSamples) } : { error: "No price data for this service." };
     }
     case "draft_booking":
       return draftBooking(ctx, state, args);
@@ -274,11 +265,6 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
 }
 
 // ---------- model loop ----------
-interface Respond {
-  args: Record<string, unknown>;
-  model: string;
-}
-
 async function runAgent(
   model: string,
   ctx: Ctx,
@@ -288,21 +274,26 @@ async function runAgent(
   apiKey: string,
   deadline: number,
   callTimeoutMs: number,
-): Promise<Respond> {
+): Promise<{ args: Record<string, unknown>; model: string }> {
   const tools = [{ functionDeclarations: functionDeclarations(ctx.categories.map((c) => c.slug)) }];
   const convo = [...contents];
-  for (let step = 0; step < MAX_STEPS; step++) {
-    const last = step === MAX_STEPS - 1;
+  const used = new Map<string, number>();
+  for (let step = 0; step < ctx.cfg.maxSteps; step++) {
+    const last = step === ctx.cfg.maxSteps - 1;
     const remaining = deadline - Date.now();
     if (remaining < 2000) throw new GeminiError("request budget exhausted", 0, false);
     const res = await generateContent(
+      ctx.cfg.apiBase,
       model,
       {
         systemInstruction: { parts: [{ text: system }] },
         contents: convo,
         tools,
         toolConfig: { functionCallingConfig: last ? { mode: "ANY", allowedFunctionNames: ["respond"] } : { mode: "ANY" } },
-        generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, thinkingConfig: { thinkingLevel: THINKING_LEVEL } },
+        generationConfig: {
+          maxOutputTokens: ctx.cfg.maxOutputTokens,
+          ...(ctx.cfg.thinkingLevel ? { thinkingConfig: { thinkingLevel: ctx.cfg.thinkingLevel } } : {}),
+        },
       },
       apiKey,
       Math.min(remaining, callTimeoutMs),
@@ -312,26 +303,26 @@ async function runAgent(
     state.usage.output += (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
     const cand = res.candidates?.[0];
     const parts: Part[] = cand?.content?.parts ?? [];
-    const calls = parts.filter((p) => p.functionCall);
+    const calls = parts.filter((p) => p.functionCall && typeof p.functionCall.name === "string");
     if (!calls.length) {
       const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("").trim();
       if (text) return { args: { reply_text: text }, model };
-      throw new GeminiError(`no output (finishReason ${cand?.finishReason ?? res.promptFeedback?.blockReason ?? "none"})`, 0, true);
+      throw new GeminiError(`no output (${cand?.finishReason ?? res.promptFeedback?.blockReason ?? "empty"})`, 0, true);
     }
     convo.push({ role: "model", parts });
-    const others = calls.filter((c) => c.functionCall!.name !== "respond");
     const responses: Part[] = [];
-    for (const c of others) {
+    for (const c of calls.filter((x) => x.functionCall!.name !== "respond")) {
       const { name, id } = c.functionCall!;
-      const args = (c.functionCall!.args ?? {}) as Record<string, unknown>;
+      const args = (c.functionCall!.args && typeof c.functionCall!.args === "object" ? c.functionCall!.args : {}) as Record<string, unknown>;
       let response: Record<string, unknown>;
+      const denied = toolCallAllowed(name, used);
       try {
-        response = await execTool(ctx, state, name, args);
+        response = denied ? { error: denied } : await execTool(ctx, state, name, args);
       } catch (e) {
-        console.error(`tool ${name} failed`, (e as Error).message);
+        log("warn", { event: "tool_failed", tool: name, error: (e as Error).message?.slice(0, 160) });
         response = { error: "Temporary problem fetching data. Answer without it." };
       }
-      state.tools.push({ name, args, ...(typeof response.error === "string" ? { error: response.error } : {}) });
+      state.tools.push({ name, ...(typeof response.error === "string" ? { error: response.error.slice(0, 120) } : {}) });
       responses.push({ functionResponse: { name, ...(id ? { id } : {}), response } });
     }
     const respond = calls.find((c) => c.functionCall!.name === "respond");
@@ -341,158 +332,83 @@ async function runAgent(
   throw new GeminiError("no respond call within step limit", 0, true);
 }
 
-// ---------- response assembly ----------
-async function buildCards(ctx: Ctx, state: State, r: Record<string, unknown>) {
-  const slug = validSlug(ctx, r.category_slug) ?? state.draft?.category_slug ?? state.lastSlug;
-  const cards: Record<string, unknown>[] = [];
-
-  const safety = (r.safety ?? null) as Record<string, unknown> | null;
-  const safetySteps = clampList(safety?.steps, 5, 180);
-  if (safety && safetySteps.length) {
-    const hazard = HAZARDS.includes(safety.hazard as string) ? (safety.hazard as string) : "other";
-    cards.push({ type: "safety", hazard, title: clampText(safety.title, 80) || "Stay safe first", steps: safetySteps, emergency: EMERGENCY_NUMBERS[hazard] });
-  }
-
-  const dx = (r.diagnosis ?? null) as Record<string, unknown> | null;
-  const issues = clampList(dx?.likely_issues, 4, 140);
-  const checks = clampList(dx?.pro_checks, 4, 140);
-  if (dx && (issues.length || checks.length)) {
-    cards.push({
-      type: "diagnosis",
-      title: clampText(dx.title, 80) || "What might be wrong",
-      likely_issues: issues,
-      pro_checks: checks,
-      safety_tip: clampText(dx.safety_tip, 220) || null,
-      category_slug: slug,
-    });
-  }
-
-  if (slug && (r.show_estimate === true || state.draft)) {
-    const stats = await priceStats(ctx, state, slug).catch(() => null);
-    if (stats) cards.push(estimateCard(stats));
-  }
-
-  if (slug && (r.show_providers === true || state.draft)) {
-    const rows = state.searches.get(slug) ?? (await searchPros(ctx, state, slug).catch(() => [] as SearchRow[]));
-    const draftPro = state.draft?.category_slug === slug ? state.draft.provider : null;
-    let picks: ProviderPick[] = rankProviders(rows, ctx.history, ctx.now, draftPro?.provider_service_id);
-    if (draftPro && !picks.some((p) => p.provider_service_id === draftPro.provider_service_id)) {
-      // Drafted from history but outside today's search radius: still show it first.
-      const past = ctx.history.find((h) => h.provider_id === draftPro.provider_id);
-      picks = [
-        {
-          provider_id: draftPro.provider_id,
-          provider_service_id: draftPro.provider_service_id,
-          name: draftPro.name,
-          skill_level: "",
-          visit_fee: draftPro.visit_fee,
-          rating_avg: draftPro.rating_avg,
-          rating_count: draftPro.rating_count,
-          jobs_completed: 0,
-          distance_km: null,
-          is_online: false,
-          previously_booked: !!past,
-          reason: past ? `You booked ${draftPro.name.split(" ")[0]} before` : "Your pick",
-        },
-        ...picks,
-      ].slice(0, 3);
-    }
-    if (picks.length) {
-      cards.push({ type: "providers", category_slug: slug, category_name: ctx.categories.find((c) => c.slug === slug)?.name ?? slug, providers: picks });
-    }
-  }
-
-  if (state.draft && r.show_draft !== false) cards.push(state.draft);
-  return cards;
-}
-
-/** Compact memory of what was shown, so follow-ups ("make it 4 pm") can refer back to it. */
-function summarize(cards: Record<string, unknown>[]): string {
-  const bits: string[] = [];
-  for (const c of cards) {
-    if (c.type === "draft") {
-      const d = c as unknown as DraftCard;
-      bits.push(`draft ${d.category_name} with ${d.provider.name} [provider_service_id ${d.provider.provider_service_id}], ${d.slot.label}, "${d.description_en}"`);
-    } else if (c.type === "providers") {
-      bits.push(`pros: ${(c.providers as ProviderPick[]).map((p) => `${p.name} [${p.provider_service_id}]`).join(", ")}`);
-    } else bits.push(String(c.type));
-  }
-  return bits.length ? `[shown: ${bits.join("; ")}]` : "";
-}
-
-function toContents(rows: { role: string; content: string; payload: Record<string, unknown> | null }[]): Content[] {
-  const out: Content[] = [];
-  for (const row of rows) {
-    const role = row.role === "assistant" ? "model" : "user";
-    const summary = row.role === "assistant" && typeof row.payload?.summary === "string" ? `\n${row.payload.summary}` : "";
-    const text = `${row.content}${summary}`.trim();
-    if (!text) continue;
-    const prev = out[out.length - 1];
-    if (prev && prev.role === role) prev.parts.push({ text });
-    else out.push({ role, parts: [{ text }] });
-  }
-  // History must start with a user turn.
-  while (out.length && out[0]!.role !== "user") out.shift();
-  return out;
-}
-
 // ---------- handler ----------
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+  const cfg = loadConfig((n) => Deno.env.get(n));
+  const cors = corsFor(req.headers.get("Origin"), cfg);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors.headers, "Content-Type": "application/json", "Cache-Control": "no-store" } });
+
+  if (req.method === "OPTIONS") return new Response(cors.allowed ? "ok" : "forbidden", { status: cors.allowed ? 200 : 403, headers: cors.headers });
   const requestId = crypto.randomUUID();
   const started = Date.now();
+  let uid: string | null = null;
 
   try {
-    const supabaseUrl = requireEnv("SUPABASE_URL");
-    const admin = createClient(supabaseUrl, requireEnv("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+    if (!cors.allowed) throw new HttpError(403, "origin_not_allowed", "This origin is not allowed.");
+    if (req.method !== "POST") throw new HttpError(405, "method_not_allowed", "Method not allowed.");
+    if (!cfg.enabled) throw new HttpError(503, "ai_disabled", "QuickServe AI is switched off right now. You can still book from the service list.");
+    const declared = Number(req.headers.get("Content-Length") ?? 0);
+    if (declared > cfg.maxAudioBase64Chars + 200_000) throw new HttpError(413, "too_large", "That message is too large.");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!supabaseUrl || !serviceKey || !anonKey || !apiKey) {
+      log("error", { event: "misconfigured", request_id: requestId, missing: { supabase: !supabaseUrl || !serviceKey || !anonKey, gemini: !apiKey } });
+      throw new HttpError(503, "not_configured", "QuickServe AI is not available right now.");
+    }
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-    if (!token) throw new HttpError(401, "unauthorized", "Please sign in again.");
+    if (!token || token === anonKey) throw new HttpError(401, "unauthorized", "Please sign in again.");
     const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData.user) throw new HttpError(401, "unauthorized", "Please sign in again.");
-    const uid = userData.user.id;
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) throw new HttpError(503, "not_configured", "QuickServe AI is not available right now.");
-    const userClient = createClient(supabaseUrl, requireEnv("SUPABASE_ANON_KEY"), {
-      auth: { persistSession: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
+    uid = userData.user.id;
+    const userClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
 
     // ---- input ----
-    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const text = typeof body.message === "string" ? body.message.trim() : "";
-    if (text.length > MAX_TEXT) throw new HttpError(400, "too_long", `Please keep messages under ${MAX_TEXT} characters.`);
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") throw new HttpError(400, "bad_request", "Invalid request.");
+    const rawText = typeof body.message === "string" ? body.message.trim() : "";
+    if (rawText.length > cfg.maxTextChars) throw new HttpError(400, "too_long", `Please keep messages under ${cfg.maxTextChars} characters.`);
+    const text = redactPII(rawText);
     const audioIn = (body.audio ?? null) as { data?: unknown; mime_type?: unknown } | null;
     let audio: { data: string; mimeType: string } | null = null;
     if (audioIn) {
+      if (!cfg.voiceEnabled) throw new HttpError(403, "voice_disabled", "Voice messages are switched off right now. Please type instead.");
       const mime = AUDIO_MIME[String(audioIn.mime_type ?? "").toLowerCase()];
-      const data = typeof audioIn.data === "string" ? audioIn.data.replace(/^data:[^,]+,/, "") : "";
-      if (!mime || !data || !/^[A-Za-z0-9+/=\r\n]+$/.test(data.slice(0, 2000))) throw new HttpError(400, "bad_audio", "That recording format is not supported.");
-      if (data.length > MAX_AUDIO_B64) throw new HttpError(400, "audio_too_long", "Voice messages can be up to 60 seconds.");
+      const data = typeof audioIn.data === "string" ? audioIn.data.replace(/^data:[^,]+,/, "").replace(/\s+/g, "") : "";
+      if (!mime || !data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new HttpError(400, "bad_audio", "That recording format is not supported.");
+      if (data.length > cfg.maxAudioBase64Chars) throw new HttpError(400, "audio_too_long", "Voice messages can be up to 60 seconds.");
       audio = { data, mimeType: mime };
     }
     if (!text && !audio) throw new HttpError(400, "empty", "Type or say what you need help with.");
-    const loc = (body.location ?? {}) as Record<string, unknown>;
+    const loc = (body.location && typeof body.location === "object" ? body.location : {}) as Record<string, unknown>;
     const lat = num(loc.lat, -90, 90);
     const lng = num(loc.lng, -180, 180);
 
-    // ---- rate limits (IST day) ----
+    // ---- abuse limits ----
     const now = new Date();
-    const since = istMidnight(now).toISOString();
-    const [all, voice] = await Promise.all([
-      admin.from("ai_messages").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("role", "user").gte("created_at", since),
-      admin.from("ai_messages").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("role", "user").eq("input_kind", "voice").gte("created_at", since),
+    const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
+    const since = clock.midnight(now).toISOString();
+    const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
+    const userRows = () => admin.from("ai_messages").select("id", { count: "exact", head: true }).eq("user_id", uid!).eq("role", "user");
+    const [all, voice, burst] = await Promise.all([
+      userRows().gte("created_at", since),
+      userRows().eq("input_kind", "voice").gte("created_at", since),
+      userRows().gte("created_at", minuteAgo),
     ]);
+    if (all.error || voice.error || burst.error) throw all.error ?? voice.error ?? burst.error;
     const usedAll = all.count ?? 0;
     const usedVoice = voice.count ?? 0;
-    if (usedAll >= DAILY_MESSAGE_LIMIT) {
-      throw new HttpError(429, "rate_limited", `You've used today's ${DAILY_MESSAGE_LIMIT} AI messages. You can still book from the service list, or try again tomorrow.`);
+    if (usedAll >= cfg.dailyMessageLimit) {
+      throw new HttpError(429, "rate_limited", `You've used today's ${cfg.dailyMessageLimit} AI messages. You can still book from the service list, or try again tomorrow.`);
     }
-    if (audio && usedVoice >= DAILY_VOICE_LIMIT) {
-      throw new HttpError(429, "voice_limited", `You've used today's ${DAILY_VOICE_LIMIT} voice messages. You can keep typing.`);
-    }
+    if (audio && usedVoice >= cfg.dailyVoiceLimit) throw new HttpError(429, "voice_limited", `You've used today's ${cfg.dailyVoiceLimit} voice messages. You can keep typing.`);
+    if ((burst.count ?? 0) >= cfg.perMinuteLimit) throw new HttpError(429, "slow_down", "You're sending messages very quickly. Please wait a moment.");
 
-    // ---- conversation + context ----
+    // ---- conversation + context (catalog, history, addresses via RLS) ----
     let conversationId = typeof body.conversation_id === "string" && UUID.test(body.conversation_id) ? body.conversation_id : null;
     if (conversationId) {
       const { data } = await admin.from("ai_conversations").select("id").eq("id", conversationId).eq("user_id", uid).maybeSingle();
@@ -503,41 +419,48 @@ Deno.serve(async (req) => {
       if (error) throw error;
       conversationId = data.id as string;
     }
-
     const [cats, history, addrs, prior] = await Promise.all([
-      admin.from("categories").select("slug, name").eq("active", true).order("sort_order"),
-      loadHistory(admin, uid),
-      admin.from("addresses").select("id, label, line1, city, lat, lng, is_default, created_at").eq("user_id", uid).neq("label", "Booking").order("created_at"),
-      admin
-        .from("ai_messages")
-        .select("role, content, payload")
-        .eq("conversation_id", conversationId)
-        .in("role", ["user", "assistant"])
-        .order("created_at", { ascending: false })
-        .limit(HISTORY_ROWS),
+      userClient.from("categories").select("slug, name").eq("active", true).order("sort_order"),
+      loadHistory(userClient, uid),
+      userClient.from("addresses").select("id, label, line1, city, lat, lng, is_default, created_at").eq("user_id", uid).neq("label", "Booking").order("created_at"),
+      cfg.historyRows
+        ? admin
+            .from("ai_messages")
+            .select("role, content, payload")
+            .eq("conversation_id", conversationId)
+            .eq("user_id", uid)
+            .in("role", ["user", "assistant"])
+            .order("created_at", { ascending: false })
+            .limit(cfg.historyRows)
+        : Promise.resolve({ data: [] }),
     ]);
     if (cats.error) throw cats.error;
     const saved = (addrs.data ?? []) as { id: string; label: string; line1: string; city: string; lat: number; lng: number; is_default: boolean }[];
     const chosen = typeof loc.address_id === "string" ? saved.find((a) => a.id === loc.address_id) : undefined;
-    const fallback = saved.find((a) => a.is_default) ?? null;
+    const fallbackAddr = saved.find((a) => a.is_default) ?? null;
+    // Location: what the app sends (validated), else the user's default saved address, else none (no city is assumed).
     const location =
       lat != null && lng != null
-        ? { area: clampText(loc.area, 60) || "your area", city: clampText(loc.city, 40) || "Vijayawada", lat, lng }
-        : fallback
-          ? { area: areaFromLine(fallback.line1, fallback.city), city: fallback.city, lat: fallback.lat, lng: fallback.lng }
-          : DEFAULT_LOCATION;
-    const addressRow = chosen ?? (lat == null ? fallback : undefined);
+        ? { area: clampText(loc.area, 60) || "Selected location", city: clampText(loc.city, 40), lat, lng }
+        : fallbackAddr
+          ? { area: areaFromLine(fallbackAddr.line1, fallbackAddr.city), city: fallbackAddr.city, lat: fallbackAddr.lat, lng: fallbackAddr.lng }
+          : null;
+    const addressRow = chosen ?? (lat == null ? fallbackAddr : undefined);
     const ctx: Ctx = {
       uid,
       now,
+      clock,
+      cfg,
       admin,
       userClient,
-      categories: cats.data ?? [],
+      categories: (cats.data ?? []) as { slug: string; name: string }[],
       history,
       location,
       address: addressRow
         ? { address_id: addressRow.id, label: addressRow.label, area: areaFromLine(addressRow.line1, addressRow.city), city: addressRow.city, needs_full_address: false }
-        : { address_id: null, label: null, area: location.area, city: location.city, needs_full_address: true },
+        : location
+          ? { address_id: null, label: null, area: location.area, city: location.city, needs_full_address: true }
+          : null,
     };
 
     const { data: userRow, error: insErr } = await admin
@@ -549,8 +472,9 @@ Deno.serve(async (req) => {
 
     const system = systemPrompt({
       now,
+      clock,
       categories: ctx.categories,
-      location: { area: location.area, city: location.city, label: ctx.address.label },
+      location: location ? { area: location.area, city: location.city, label: ctx.address?.label ?? null } : null,
       savedAddresses: saved.map((a) => ({ label: a.label, area: areaFromLine(a.line1, a.city), city: a.city })),
       history,
     });
@@ -564,21 +488,21 @@ Deno.serve(async (req) => {
           },
         ]
       : [{ text }];
-    const contents = toContents(((prior.data ?? []) as { role: string; content: string; payload: Record<string, unknown> }[]).reverse());
-    if (contents.length && contents[contents.length - 1]!.role === "user") contents.pop(); // unanswered (failed) turn
+    const injection = looksLikeInjection(text);
+    if (injection) userParts.push({ text: INJECTION_REMINDER });
+    const contents: Content[] = toContents(((prior.data ?? []) as { role: string; content: string; payload: Record<string, unknown> }[]).reverse());
     contents.push({ role: "user", parts: userParts });
 
     // ---- model loop with fallback ----
-    const deadline = started + REQUEST_BUDGET_MS;
-    let result: Respond | null = null;
+    const deadline = started + cfg.requestBudgetMs;
+    let result: { args: Record<string, unknown>; model: string } | null = null;
     let state = newState();
     let lastErr: GeminiError | null = null;
     const usageTotal = { input: 0, output: 0, calls: 0 };
     const attempts: { model: string; ms: number; error?: string }[] = [];
-    for (const plan of ATTEMPTS) {
-      const model = plan.model;
-      if (model === PRIMARY_MODEL && Date.now() < primaryCooldownUntil) {
-        attempts.push({ model, ms: 0, error: "skipped: cooling down after a recent failure" });
+    for (const plan of attemptPlan(cfg)) {
+      if (plan.model === cfg.primaryModel && cfg.fallbackModel && Date.now() < primaryCooldownUntil) {
+        attempts.push({ model: plan.model, ms: 0, error: "skipped (cooldown)" });
         continue;
       }
       if (plan.backoffMs) await new Promise((r) => setTimeout(r, plan.backoffMs));
@@ -586,47 +510,57 @@ Deno.serve(async (req) => {
       state = newState();
       const t0 = Date.now();
       try {
-        result = await runAgent(model, ctx, state, system, contents, apiKey, deadline, plan.callTimeoutMs);
-        attempts.push({ model, ms: Date.now() - t0 });
+        result = await runAgent(plan.model, ctx, state, system, contents, apiKey, deadline, plan.callTimeoutMs);
+        attempts.push({ model: plan.model, ms: Date.now() - t0 });
         break;
       } catch (e) {
-        attempts.push({ model, ms: Date.now() - t0, error: e instanceof GeminiError ? e.message.slice(0, 160) : "internal" });
-        if (model === PRIMARY_MODEL) primaryCooldownUntil = Date.now() + PRIMARY_COOLDOWN_MS;
         usageTotal.input += state.usage.input;
         usageTotal.output += state.usage.output;
         usageTotal.calls += state.usage.calls;
         if (!(e instanceof GeminiError)) throw e;
         lastErr = e;
-        console.warn(`[ai-assistant ${requestId}] ${model} failed: ${e.message}`);
+        attempts.push({ model: plan.model, ms: Date.now() - t0, error: e.message.slice(0, 80) });
+        if (plan.model === cfg.primaryModel && cfg.fallbackModel) primaryCooldownUntil = Date.now() + cfg.primaryCooldownMs;
         if (!e.fallback) break;
       }
     }
     if (!result) {
-      const timedOut = Date.now() - started > REQUEST_BUDGET_MS - 5000 || /timeout|budget/.test(lastErr?.message ?? "");
-      await admin.from("ai_messages").insert({
-        conversation_id: conversationId,
-        user_id: uid,
-        role: "error",
-        payload: { request_id: requestId, error: (lastErr?.message ?? "unknown").slice(0, 300), attempts },
-      });
-      console.error(`[ai-assistant ${requestId}] all models failed: ${lastErr?.message}`);
+      const timedOut = Date.now() - started > cfg.requestBudgetMs - 5000 || /timeout|budget/.test(lastErr?.message ?? "");
+      await admin.from("ai_messages").insert({ conversation_id: conversationId, user_id: uid, role: "error", payload: { request_id: requestId, attempts } });
+      log("error", { event: "model_unavailable", request_id: requestId, attempts, ms: Date.now() - started });
       throw new HttpError(
         timedOut ? 504 : 503,
         timedOut ? "timeout" : "ai_unavailable",
-        timedOut ? "That took too long. Please try again." : "QuickServe AI is busy right now. Please try again in a minute.",
+        timedOut ? "That took too long. Please try again." : "QuickServe AI is busy right now. Please try again in a minute, or book from the service list.",
       );
     }
     usageTotal.input += state.usage.input;
     usageTotal.output += state.usage.output;
     usageTotal.calls += state.usage.calls;
 
-    // ---- validated response ----
+    // ---- validated reply: pros/prices/drafts only from tool results ----
     const r = result.args;
-    const cards = await buildCards(ctx, state, r);
-    const language = LANGS.includes(r.language as string) ? (r.language as string) : "en";
-    const replyText = clampText(r.reply_text, 700) || (cards.length ? "Here's what I found." : "Sorry, I didn't catch that. Could you describe the problem again?");
-    const quickReplies = clampList(r.quick_replies, 4, 40);
-    const transcript = audio ? clampText(r.transcript, 600) || null : null;
+    const slug = validSlug(ctx, r.category_slug) ?? state.draft?.category_slug ?? state.lastSlug;
+    if (slug && (r.show_providers === true || state.draft) && !state.searches.has(slug) && ctx.location) {
+      await searchPros(ctx, state, slug).catch(() => undefined);
+    }
+    const stats = slug && (r.show_estimate === true || state.draft) ? await priceStats(ctx, state, slug).catch(() => null) : null;
+    const reply = composeReply({
+      respond: r,
+      slug,
+      categoryName: ctx.categories.find((c) => c.slug === slug)?.name ?? null,
+      draft: state.draft,
+      searchRows: slug ? (state.searches.get(slug) ?? null) : null,
+      stats,
+      history,
+      now,
+      clock,
+      minPriceSamples: cfg.minPriceSamples,
+      priceLookbackDays: cfg.priceLookbackDays,
+      isVoice: !!audio,
+      userText: text,
+    });
+    const transcript = reply.transcript ? redactPII(reply.transcript) : null;
 
     const { data: asstRow } = await admin
       .from("ai_messages")
@@ -634,8 +568,8 @@ Deno.serve(async (req) => {
         conversation_id: conversationId,
         user_id: uid,
         role: "assistant",
-        content: replyText,
-        payload: { request_id: requestId, language, quick_replies: quickReplies, cards, transcript, summary: summarize(cards), tools: state.tools, calls: usageTotal.calls, attempts },
+        content: reply.reply_text,
+        payload: { request_id: requestId, policy_version: POLICY_VERSION, guardrails: reply.guardrails, injection_flag: injection, language: reply.language, quick_replies: reply.quick_replies, cards: reply.cards, transcript, summary: summarize(reply.cards), tools: state.tools, calls: usageTotal.calls, attempts },
         model: result.model,
         input_tokens: usageTotal.input,
         output_tokens: usageTotal.output,
@@ -644,27 +578,48 @@ Deno.serve(async (req) => {
       .single();
     await Promise.all([
       transcript ? admin.from("ai_messages").update({ content: transcript }).eq("id", userRow.id) : Promise.resolve(),
-      admin.from("ai_conversations").update({ updated_at: new Date().toISOString(), language }).eq("id", conversationId),
+      admin.from("ai_conversations").update({ updated_at: new Date().toISOString(), language: reply.language }).eq("id", conversationId),
     ]);
+    log("info", {
+      event: "reply",
+      request_id: requestId,
+      user: uid,
+      model: result.model,
+      attempts,
+      calls: usageTotal.calls,
+      tokens_in: usageTotal.input,
+      tokens_out: usageTotal.output,
+      cards: reply.cards.map((c) => c.type),
+      tools: state.tools.map((t) => (t.error ? `${t.name}!` : t.name)),
+      voice: !!audio,
+      has_location: !!location,
+      policy_version: POLICY_VERSION,
+      guardrails: reply.guardrails,
+      injection_flag: injection,
+      ms: Date.now() - started,
+    });
 
+    const { guardrails: _g, ...publicReply } = reply;
     return json({
       conversation_id: conversationId,
       message_id: asstRow?.id ?? null,
       request_id: requestId,
-      reply_text: replyText,
-      language,
-      quick_replies: quickReplies,
-      cards,
+      policy_version: POLICY_VERSION,
+      ...publicReply,
       transcript,
       model: result.model,
-      fallback_used: result.model === FALLBACK_MODEL,
-      attempts: attempts.map((a) => ({ model: a.model, ms: a.ms, ...(a.error ? { error: a.error.split(':')[0] } : {}) })),
+      fallback_used: result.model !== cfg.primaryModel,
+      attempts: attempts.map((a) => ({ model: a.model, ms: a.ms, ...(a.error ? { error: a.error.split(":")[0] } : {}) })),
       usage: { input_tokens: usageTotal.input, output_tokens: usageTotal.output, model_calls: usageTotal.calls, ms: Date.now() - started },
-      limits: { messages_left: Math.max(0, DAILY_MESSAGE_LIMIT - usedAll - 1), voice_left: Math.max(0, DAILY_VOICE_LIMIT - usedVoice - (audio ? 1 : 0)) },
+      limits: { messages_left: Math.max(0, cfg.dailyMessageLimit - usedAll - 1), voice_left: Math.max(0, cfg.dailyVoiceLimit - usedVoice - (audio ? 1 : 0)) },
+      location_set: !!location,
     });
   } catch (e) {
-    if (e instanceof HttpError) return json({ error: e.message, code: e.code, request_id: requestId }, e.status);
-    console.error(`[ai-assistant ${requestId}]`, e instanceof Error ? e.message : e);
+    if (e instanceof HttpError) {
+      log(e.status >= 500 ? "error" : "info", { event: "rejected", request_id: requestId, user: uid, code: e.code, status: e.status });
+      return json({ error: e.message, code: e.code, request_id: requestId }, e.status);
+    }
+    log("error", { event: "internal", request_id: requestId, user: uid, error: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200) });
     return json({ error: "Something went wrong. Please try again.", code: "internal", request_id: requestId }, 500);
   }
 });

@@ -34,6 +34,16 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # AI assistant: policy/guardrail/config unit tests + type check gate every backend deploy.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Test and type-check ai-assistant
+        run: |
+          deno test supabase/functions/ai-assistant
+          deno check supabase/functions/ai-assistant/index.ts
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
