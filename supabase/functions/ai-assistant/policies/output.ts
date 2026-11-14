@@ -12,7 +12,7 @@ export const OUTPUT: PolicySection = {
     "respond.category_slug: the service this turn is about, if any.",
     "respond.safety: only for hazards (see SAFETY). respond.diagnosis: when a problem is described (see DIAGNOSIS).",
     "respond.show_estimate / show_providers / show_draft: true only when you called the matching tool successfully this turn.",
-    "respond.transcript: voice messages only, exact words in the original script.",
+    "respond.transcript_original: only when the customer sent a voice clip in this turn — their exact words in the spoken script. respond.transcript_en: its English translation (empty if they spoke English).",
   ],
 };
 
@@ -82,7 +82,8 @@ export function functionDeclarations(categorySlugs: string[]) {
           language: { type: "string", enum: LANGUAGES },
           quick_replies: { type: "array", items: { type: "string" } },
           category_slug: { type: "string" },
-          transcript: { type: "string", description: "Voice messages only." },
+          transcript_original: { type: "string", description: "Voice clips only: exact words in the spoken script." },
+          transcript_en: { type: "string", description: "Voice clips only: English translation; empty if spoken in English." },
           diagnosis: {
             type: "object",
             properties: {

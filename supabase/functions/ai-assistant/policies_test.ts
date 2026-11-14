@@ -3,10 +3,12 @@ import { assert, assertEquals, assertFalse, assertMatch, assertNotMatch } from "
 import { MarketClock } from "./logic.ts";
 import { claimsBooking, DRAFT_READY_TEXT, draftReadyText } from "./policies/booking.ts";
 import { functionDeclarations, POLICY_SECTIONS, renderContext, systemPrompt } from "./policies/index.ts";
+import { asksForHuman, detectFrustration, handoffReason, isActionChip, quickRepliesFor } from "./policies/handoff.ts";
 import { detectLanguage } from "./policies/language.ts";
 import { DEFAULT_SAFETY, detectHazard } from "./policies/safety.ts";
 import { looksLikeInjection, sanitizeReply } from "./policies/security.ts";
 import { TOOL_POLICY, toolCallAllowed } from "./policies/tools.ts";
+import { TRANSCRIBE_DECLARATION, TRANSCRIPTION, transcriptionPrompt } from "./policies/transcription.ts";
 import { CHANGELOG, POLICY_VERSION } from "./policies/version.ts";
 
 const clock = new MarketClock(330, "IST");
@@ -127,4 +129,40 @@ Deno.test("prompt-injection heuristics", () => {
 Deno.test("reply sanitizer strips links, markdown and phone numbers", () => {
   assertEquals(sanitizeReply("**Call** +91 98765 43210 or visit https://evil.example now"), "Call or visit now");
   assertEquals(sanitizeReply("Dial 112 in an emergency"), "Dial 112 in an emergency");
+});
+
+Deno.test("handoff: safety > asked for a human > frustration > low confidence; multilingual", () => {
+  assertEquals(handoffReason({ userText: "I want customer care", hasSafety: true, diagnosisConfidence: "low" }), "safety");
+  assertEquals(handoffReason({ userText: "मुझे कस्टमर केयर से बात करनी है", hasSafety: false, diagnosisConfidence: null }), "asked_human");
+  assertEquals(handoffReason({ userText: "ఇది పనికిరాని సమాధానం", hasSafety: false, diagnosisConfidence: "high" }), "frustrated");
+  assertEquals(handoffReason({ userText: "bilkul bakwas", hasSafety: false, diagnosisConfidence: null }), "frustrated");
+  assertEquals(handoffReason({ userText: "AC not cooling", hasSafety: false, diagnosisConfidence: "low" }), "low_confidence");
+  assertEquals(handoffReason({ userText: "AC not cooling", hasSafety: false, diagnosisConfidence: "medium" }), null);
+  assert(asksForHuman("can a real person call me"));
+  assertFalse(detectFrustration("the fan is making noise"));
+});
+
+Deno.test("quick replies: never book/pay/confirm/cancel chips (en/hi/te); derived from the structured result; max 4", () => {
+  for (const chip of ["Book now", "Pay ₹199", "Confirm booking", "Cancel it", "अभी बुक करें", "పేమెంట్ చేయి", "బుక్ చేయండి"]) assert(isActionChip(chip), chip);
+  for (const chip of ["Tomorrow morning", "Show other pros", "Change the time", "समय बदलें", "ఇతర ప్రోలను చూపించు"]) assertFalse(isActionChip(chip), chip);
+  assertEquals(quickRepliesFor(["Book now", "Evening slot"], { hasDraft: true, hasProviders: true, nothingFound: false, language: "en" }), [
+    "Evening slot",
+    "Change the time",
+    "Show other pros",
+  ]);
+  assertEquals(quickRepliesFor([], { hasDraft: false, hasProviders: true, nothingFound: false, language: "hi" }), ["सस्ते विकल्प दिखाएं"]);
+  assertEquals(quickRepliesFor(["a", "b", "c", "d", "e"], { hasDraft: true, hasProviders: false, nothingFound: false, language: "te" }).length, 4);
+  assertEquals(quickRepliesFor(["Show other pros"], { hasDraft: true, hasProviders: false, nothingFound: false, language: "en" }), ["Show other pros", "Change the time"]);
+});
+
+Deno.test("transcription policy: transcribe-only, versioned, schema requires clarity", () => {
+  const p = transcriptionPrompt();
+  assertMatch(p, new RegExp(`v${POLICY_VERSION.replace(/\./g, "\\.")}`));
+  assertMatch(p, /Do not answer/);
+  assert(TRANSCRIPTION.rules.every((r) => !r.includes("\n")));
+  assertEquals(TRANSCRIBE_DECLARATION.parameters.required, ["transcript_original", "language", "clarity"]);
+  // The chat respond schema carries both transcript fields for raw voice clips.
+  const respond = functionDeclarations(["plumber"]).find((f) => f.name === "respond")!;
+  const props = (respond.parameters as { properties: Record<string, unknown> }).properties;
+  assert("transcript_original" in props && "transcript_en" in props && !("transcript" in props));
 });

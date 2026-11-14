@@ -4,6 +4,9 @@
 export interface AiConfig {
   enabled: boolean;
   voiceEnabled: boolean;
+  photosEnabled: boolean;
+  /** Stream progress stages as server-sent events when the client asks (Accept: text/event-stream). */
+  streamingEnabled: boolean;
   primaryModel: string;
   fallbackModel: string | null;
   primaryCallTimeoutMs: number;
@@ -16,9 +19,13 @@ export interface AiConfig {
   thinkingLevel: string | null;
   dailyMessageLimit: number;
   dailyVoiceLimit: number;
+  dailyPhotoLimit: number;
   perMinuteLimit: number;
   maxTextChars: number;
   maxAudioBase64Chars: number;
+  /** Decoded bytes; the ai-photos bucket caps objects at 4 MB. */
+  maxImageBytes: number;
+  photoRetentionDays: number;
   historyRows: number;
   /** Marketplace time zone as a fixed UTC offset (India: +330). Used for "today", slots and the daily limit. */
   tzOffsetMinutes: number;
@@ -59,6 +66,8 @@ export function loadConfig(get: Get): AiConfig {
   return {
     enabled: bool(get, "AI_ASSISTANT_ENABLED", true),
     voiceEnabled: bool(get, "AI_VOICE_ENABLED", true),
+    photosEnabled: bool(get, "AI_PHOTOS_ENABLED", true),
+    streamingEnabled: bool(get, "AI_STREAMING_ENABLED", true),
     primaryModel: MODEL_ID.test(primary) ? primary : "gemini-3.8-flash",
     fallbackModel: fallback && MODEL_ID.test(fallback) ? fallback : null,
     primaryCallTimeoutMs: int(get, "AI_PRIMARY_CALL_TIMEOUT_MS", 12_000, 2_000, 60_000),
@@ -71,10 +80,13 @@ export function loadConfig(get: Get): AiConfig {
     thinkingLevel: ["none", "off", ""].includes(thinking) ? null : thinking,
     dailyMessageLimit: int(get, "AI_DAILY_MESSAGE_LIMIT", 30, 0, 10_000),
     dailyVoiceLimit: int(get, "AI_DAILY_VOICE_LIMIT", 10, 0, 10_000),
+    dailyPhotoLimit: int(get, "AI_DAILY_PHOTO_LIMIT", 10, 0, 10_000),
     perMinuteLimit: int(get, "AI_PER_MINUTE_LIMIT", 6, 1, 600),
     maxTextChars: int(get, "AI_MAX_TEXT_CHARS", 1000, 50, 4000),
     // ~1.5 MB of audio: 60 s of AAC at the app's HIGH_QUALITY preset is ~1 MB.
     maxAudioBase64Chars: int(get, "AI_MAX_AUDIO_BASE64_CHARS", 2_100_000, 10_000, 10_000_000),
+    maxImageBytes: int(get, "AI_MAX_IMAGE_BYTES", 3_000_000, 50_000, 4_000_000),
+    photoRetentionDays: int(get, "AI_PHOTO_RETENTION_DAYS", 30, 1, 365),
     historyRows: int(get, "AI_HISTORY_ROWS", 10, 0, 40),
     tzOffsetMinutes: int(get, "APP_TZ_OFFSET_MINUTES", 330, -720, 840),
     tzLabel: str(get, "APP_TZ_LABEL", "IST"),

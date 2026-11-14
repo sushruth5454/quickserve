@@ -40,9 +40,18 @@ export function errorSummary(status: number, text: string): string {
   return `HTTP ${status}${m ? ` ${m[1]}` : ""}`;
 }
 
-export async function generateContent(apiBase: string, model: string, body: unknown, apiKey: string, timeoutMs: number): Promise<GenerateResponse> {
+export class AbortedError extends Error {
+  constructor() {
+    super("aborted by client");
+  }
+}
+
+export async function generateContent(apiBase: string, model: string, body: unknown, apiKey: string, timeoutMs: number, signal?: AbortSignal): Promise<GenerateResponse> {
+  if (signal?.aborted) throw new AbortedError();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), Math.max(1000, timeoutMs));
+  const onAbort = () => ctrl.abort();
+  signal?.addEventListener("abort", onAbort);
   let res: Response;
   try {
     res = await fetch(`${apiBase}/models/${encodeURIComponent(model)}:generateContent`, {
@@ -52,9 +61,11 @@ export async function generateContent(apiBase: string, model: string, body: unkn
       signal: ctrl.signal,
     });
   } catch (_e) {
+    if (signal?.aborted) throw new AbortedError();
     throw new GeminiError(ctrl.signal.aborted ? `timeout after ${timeoutMs} ms` : "network error", 0, true);
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "");

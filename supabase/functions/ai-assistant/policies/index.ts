@@ -3,7 +3,8 @@
 import type { MarketClock, PastBooking } from "../logic.ts";
 import { BOOKING } from "./booking.ts";
 import { GROUNDING, PRIVACY, RANKING, SCOPE } from "./conduct.ts";
-import { DIAGNOSIS } from "./diagnosis.ts";
+import { DIAGNOSIS, PHOTOS } from "./diagnosis.ts";
+import { FOLLOW_UPS, HANDOFF } from "./handoff.ts";
 import { CLARIFY, INTAKE } from "./intake.ts";
 import { LANGUAGE } from "./language.ts";
 import { OUTPUT } from "./output.ts";
@@ -16,7 +17,7 @@ import { type PolicySection, POLICY_VERSION } from "./version.ts";
 export { POLICY_VERSION };
 
 /** Order matters: identity → safety → process → data rules → security → output. */
-export const POLICY_SECTIONS: PolicySection[] = [ROLE, SAFETY, INTAKE, CLARIFY, DIAGNOSIS, LANGUAGE, BOOKING, RANKING, GROUNDING, PRIVACY, TOOLS, SCOPE, SECURITY, OUTPUT];
+export const POLICY_SECTIONS: PolicySection[] = [ROLE, SAFETY, INTAKE, CLARIFY, DIAGNOSIS, PHOTOS, LANGUAGE, BOOKING, RANKING, GROUNDING, PRIVACY, TOOLS, SCOPE, HANDOFF, SECURITY, FOLLOW_UPS, OUTPUT];
 
 export function renderPolicies(sections: PolicySection[] = POLICY_SECTIONS): string {
   return sections.map((s) => `## ${s.title}\n${s.rules.map((r, i) => `${i + 1}. ${r}`).join("\n")}`).join("\n\n");
@@ -52,7 +53,7 @@ const STATUS_TEXT: Record<string, string> = {
   refunded: "refunded",
 };
 
-/** Only the fields listed here ever reach the model (see docs/05-AI-Assistant.md "Data sent to Gemini"). */
+/** Only the fields listed here ever reach the model (see docs/06-AI-Assistant.md "Data sent to Gemini"). */
 export function renderContext(c: PromptContext): string {
   const today = c.clock.dateKey(c.now);
   const where = c.location ? `${c.location.label ? `${c.location.label}, ` : ""}${c.location.area}${c.location.city ? `, ${c.location.city}` : ""}` : "not set";

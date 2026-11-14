@@ -2,9 +2,11 @@
 // redaction, provider ranking, service validation and card assembly from tool results + the model's final answer.
 import { claimsBooking, draftReadyText } from "./policies/booking.ts";
 import { CONFIDENCE_LEVELS } from "./policies/diagnosis.ts";
+import { type HandoffReason, handoffReason, quickRepliesFor } from "./policies/handoff.ts";
 import { detectLanguage, type Language, LANGUAGES } from "./policies/language.ts";
 import { DEFAULT_SAFETY, detectHazard } from "./policies/safety.ts";
 import { sanitizeReply } from "./policies/security.ts";
+import { CLARITY_LEVELS } from "./policies/transcription.ts";
 
 /** Start hours of the Book screen's 2-hour windows (app/src/lib/schedule.ts WINDOW_START_HOURS). */
 export const WINDOW_START_HOURS = [8, 10, 12, 14, 16, 18] as const;
@@ -392,6 +394,8 @@ export interface ComposeInput {
   isVoice: boolean;
   /** The customer's latest (redacted) text, for deterministic safety/language guardrails. */
   userText: string;
+  /** A photo was attached this turn (diagnosis confidence is capped at medium). */
+  hasPhoto?: boolean;
 }
 
 const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
@@ -403,7 +407,8 @@ const obj = (v: unknown): Record<string, unknown> | null => (v && typeof v === "
 export function composeReply(i: ComposeInput) {
   const r = obj(i.respond) ?? {};
   const cards: Record<string, unknown>[] = [];
-  const transcript = i.isVoice ? clampText(r.transcript, 600) || null : null;
+  const voice = i.isVoice ? cleanTranscript(r.transcript_original ?? r.transcript, r.transcript_en) : null;
+  const transcript = voice?.transcript_original ?? null;
   const heard = `${i.userText} ${transcript ?? ""}`.trim();
   const language: Language = LANGUAGES.includes(r.language as Language) ? (r.language as Language) : detectLanguage(heard);
   const lang3 = language === "hi" ? "hi" : language === "te" ? "te" : "en";
@@ -424,13 +429,15 @@ export function composeReply(i: ComposeInput) {
   const issues = clampList(dx?.likely_issues, 4, 140).map(sanitizeReply).filter(Boolean);
   const checks = clampList(dx?.pro_checks, 4, 140).map(sanitizeReply).filter(Boolean);
   if (dx && (issues.length || checks.length)) {
+    let confidence = (CONFIDENCE_LEVELS as readonly string[]).includes(dx.confidence as string) ? (dx.confidence as string) : "low";
+    if (i.hasPhoto && confidence === "high") confidence = "medium"; // a photo is still not an inspection
     cards.push({
       type: "diagnosis",
       title: sanitizeReply(clampText(dx.title, 80)) || "What might be wrong",
       likely_issues: issues,
       pro_checks: checks,
       safety_tip: sanitizeReply(clampText(dx.safety_tip, 220)) || null,
-      confidence: (CONFIDENCE_LEVELS as readonly string[]).includes(dx.confidence as string) ? dx.confidence : "low",
+      confidence,
       category_slug: i.slug,
     });
   }
@@ -478,14 +485,82 @@ export function composeReply(i: ComposeInput) {
   // Guardrail: the AI never books or charges; replace any reply that claims otherwise.
   const replaced = !!replyText && claimsBooking(replyText);
   if (!replyText || replaced) replyText = fallbackText;
+  const diagnosis = cards.find((c) => c.type === "diagnosis");
+  const handoff: HandoffReason | null = handoffReason({
+    userText: heard,
+    hasSafety: cards.some((c) => c.type === "safety"),
+    diagnosisConfidence: diagnosis ? String(diagnosis.confidence) : null,
+  });
   return {
     reply_text: replyText,
     language,
-    quick_replies: clampList(r.quick_replies, 4, 40).map(sanitizeReply).filter(Boolean),
+    quick_replies: quickRepliesFor(clampList(r.quick_replies, 6, 40).map(sanitizeReply).filter(Boolean), {
+      hasDraft: cards.some((c) => c.type === "draft"),
+      hasProviders: cards.some((c) => c.type === "providers"),
+      nothingFound: !cards.length,
+      language,
+    }),
     transcript,
+    transcript_en: voice?.transcript_en ?? null,
+    handoff: handoff ? { reason: handoff } : null,
     cards,
     guardrails: { safety_added: cards.some((c) => c.source === "policy"), reply_replaced: replaced },
   };
+}
+
+/** Voice transcripts: clamped, PII-redacted; the English line is dropped when empty or identical to the original. */
+export function cleanTranscript(original: unknown, english: unknown): { transcript_original: string; transcript_en: string | null } | null {
+  const o = redactPII(clampText(original, 600));
+  if (!o) return null;
+  const en = redactPII(clampText(english, 800));
+  return { transcript_original: o, transcript_en: en && en.toLowerCase() !== o.toLowerCase() ? en : null };
+}
+
+export type Clarity = (typeof CLARITY_LEVELS)[number];
+
+export interface Transcription {
+  transcript_original: string;
+  transcript_en: string | null;
+  language: Language;
+  clarity: Clarity;
+}
+
+/**
+ * Validates the model's `transcribe` call. Malformed output never becomes a confident transcript: an empty
+ * transcript is always "unclear", an invalid clarity is "partial", and English speech gets no translation line.
+ */
+export function parseTranscription(args: unknown): Transcription {
+  const a = obj(args) ?? {};
+  const t = cleanTranscript(a.transcript_original, a.transcript_en);
+  const original = t?.transcript_original ?? "";
+  const language: Language = LANGUAGES.includes(a.language as Language) ? (a.language as Language) : original ? detectLanguage(original) : "other";
+  let clarity: Clarity = (CLARITY_LEVELS as readonly string[]).includes(a.clarity as string) ? (a.clarity as Clarity) : "partial";
+  if (!original) clarity = "unclear";
+  return { transcript_original: original, transcript_en: language === "en" ? null : (t?.transcript_en ?? null), language, clarity };
+}
+
+export interface VoiceMeta {
+  transcript_original: string;
+  transcript_en: string | null;
+  edited: boolean;
+}
+
+/**
+ * A chat message that came from a reviewed voice transcript. The customer may have edited it, so the sent text is the
+ * source of truth; the English translation is kept only if they did not edit (it would no longer match).
+ */
+export function voiceMeta(v: unknown, sentText: string): VoiceMeta | null {
+  const o = obj(v);
+  if (!o || !sentText) return null;
+  const edited = o.edited === true;
+  const en = edited ? "" : redactPII(clampText(o.transcript_en, 800));
+  return { transcript_original: sentText, transcript_en: en && en.toLowerCase() !== sentText.toLowerCase() ? en : null, edited };
+}
+
+/** Short history-list title from the first message (already redacted). */
+export function conversationTitle(text: string): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  return t.length > 60 ? `${t.slice(0, 57).trimEnd()}…` : t;
 }
 
 /** Compact memory of what was shown, so follow-ups ("make it 4 pm") can refer back to it. */

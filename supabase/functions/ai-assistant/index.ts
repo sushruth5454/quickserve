@@ -1,20 +1,26 @@
-// QuickServe AI booking assistant. Verifies the caller's JWT, applies kill switch / CORS / abuse limits, runs a Gemini
-// function-calling loop over read-only tools that query Postgres AS THE USER (RLS), and returns a strict JSON contract:
-//   { conversation_id, reply_text, language, quick_replies[], cards[], transcript?, usage, limits, request_id }
+// QuickServe AI booking assistant. Verifies the caller's JWT, applies kill switches / CORS / abuse limits and serves:
+//   mode "transcribe": voice clip → { transcript_original, transcript_en, language, clarity } for the customer to review
+//   mode "chat" (default): Gemini function calling over read-only tools that query Postgres AS THE USER (RLS); with
+//     `Accept: text/event-stream` it streams truthful progress stages ({type:"stage"}) and then {type:"final"}.
 // The assistant never creates or pays for bookings: draft cards hand off to the app's normal checkout, where
-// create_booking re-validates everything. All tunables come from env (config.ts).
+// create_booking re-validates everything. All tunables come from env (config.ts). Docs: docs/06-AI-Assistant.md.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { decodeBase64, encodeBase64 } from "jsr:@std/encoding@1/base64";
+import { allRejected, type AttemptRecord, runAgent, withFallback } from "./agent.ts";
 import { type AiConfig, attemptPlan, corsFor, loadConfig } from "./config.ts";
-import { type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
+import { AbortedError, type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
+import { type ImageMime, ImageFormatError, sniffImage, stripImageMetadata } from "./image.ts";
 import {
   areaFromLine,
   clampText,
   composeReply,
+  conversationTitle,
   type DraftCard,
   estimateForModel,
   filterChips,
   MarketClock,
   normalizeSlot,
+  parseTranscription,
   type PastBooking,
   type PriceStats,
   PROBLEM_CHIPS,
@@ -24,10 +30,13 @@ import {
   type SearchRow,
   summarize,
   toContents,
+  voiceMeta,
+  type VoiceMeta,
 } from "./logic.ts";
 import { functionDeclarations, POLICY_VERSION, systemPrompt } from "./policies/index.ts";
 import { INJECTION_REMINDER, looksLikeInjection } from "./policies/security.ts";
-import { toolCallAllowed } from "./policies/tools.ts";
+import { TRANSCRIBE_DECLARATION, transcriptionPrompt } from "./policies/transcription.ts";
+import { type StageEvent, StageTracker } from "./stages.ts";
 
 const MIN_AUDIO_BASE64_CHARS = 1400;
 const AUDIO_MIME: Record<string, string> = {
@@ -44,9 +53,11 @@ const AUDIO_MIME: Record<string, string> = {
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SORTS = ["recommended", "rating", "price", "distance", "experience"];
+const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
+const PHOTO_BUCKET = "ai-photos";
 
-/** Per-instance circuit breaker for the primary model. */
-let primaryCooldownUntil = 0;
+/** Per-instance circuit breaker for the primary model (shared by chat and transcription). */
+const primaryCooldown = { until: 0 };
 
 class HttpError extends Error {
   constructor(
@@ -58,7 +69,7 @@ class HttpError extends Error {
   }
 }
 
-/** One JSON line per request/event; never message text, audio, tokens or keys. */
+/** One JSON line per request/event; never message text, audio, images, tokens or keys. */
 function log(level: "info" | "warn" | "error", event: Record<string, unknown>) {
   const line = JSON.stringify({ fn: "ai-assistant", level, ...event });
   if (level === "error") console.error(line);
@@ -265,72 +276,602 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
   }
 }
 
-// ---------- model loop ----------
-async function runAgent(
-  model: string,
-  ctx: Ctx,
-  state: State,
-  system: string,
-  contents: Content[],
-  apiKey: string,
-  deadline: number,
-  callTimeoutMs: number,
-): Promise<{ args: Record<string, unknown>; model: string }> {
-  const tools = [{ functionDeclarations: functionDeclarations(ctx.categories.map((c) => c.slug)) }];
-  const convo = [...contents];
-  const used = new Map<string, number>();
-  for (let step = 0; step < ctx.cfg.maxSteps; step++) {
-    const last = step === ctx.cfg.maxSteps - 1;
-    const remaining = deadline - Date.now();
-    if (remaining < 2000) throw new GeminiError("request budget exhausted", 0, false);
-    const res = await generateContent(
-      ctx.cfg.apiBase,
-      model,
-      {
-        systemInstruction: { parts: [{ text: system }] },
-        contents: convo,
-        tools,
-        toolConfig: { functionCallingConfig: last ? { mode: "ANY", allowedFunctionNames: ["respond"] } : { mode: "ANY" } },
-        generationConfig: {
-          maxOutputTokens: ctx.cfg.maxOutputTokens,
-          ...(ctx.cfg.thinkingLevel ? { thinkingConfig: { thinkingLevel: ctx.cfg.thinkingLevel } } : {}),
-        },
-      },
-      apiKey,
-      Math.min(remaining, callTimeoutMs),
-    );
-    state.usage.calls += 1;
-    state.usage.input += res.usageMetadata?.promptTokenCount ?? 0;
-    state.usage.output += (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
-    const cand = res.candidates?.[0];
-    const parts: Part[] = cand?.content?.parts ?? [];
-    const calls = parts.filter((p) => p.functionCall && typeof p.functionCall.name === "string");
-    if (!calls.length) {
-      const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("").trim();
-      if (text) return { args: { reply_text: text }, model };
-      throw new GeminiError(`no output (${cand?.finishReason ?? res.promptFeedback?.blockReason ?? "empty"})`, 0, true);
-    }
-    convo.push({ role: "model", parts });
-    const responses: Part[] = [];
-    for (const c of calls.filter((x) => x.functionCall!.name !== "respond")) {
-      const { name, id } = c.functionCall!;
-      const args = (c.functionCall!.args && typeof c.functionCall!.args === "object" ? c.functionCall!.args : {}) as Record<string, unknown>;
-      let response: Record<string, unknown>;
-      const denied = toolCallAllowed(name, used);
-      try {
-        response = denied ? { error: denied } : await execTool(ctx, state, name, args);
-      } catch (e) {
-        log("warn", { event: "tool_failed", tool: name, error: (e as Error).message?.slice(0, 160) });
-        response = { error: "Temporary problem fetching data. Answer without it." };
-      }
-      state.tools.push({ name, ...(typeof response.error === "string" ? { error: response.error.slice(0, 120) } : {}) });
-      responses.push({ functionResponse: { name, ...(id ? { id } : {}), response } });
-    }
-    const respond = calls.find((c) => c.functionCall!.name === "respond");
-    if (respond) return { args: (respond.functionCall!.args ?? {}) as Record<string, unknown>, model };
-    convo.push({ role: "user", parts: responses });
+
+// ---------- shared request helpers ----------
+type Json = Record<string, unknown>;
+const obj = (v: unknown): Json | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : null);
+
+interface Auth {
+  uid: string;
+  admin: SupabaseClient;
+  userClient: SupabaseClient;
+}
+
+function parseAudio(cfg: AiConfig, v: unknown): { data: string; mimeType: string } | null {
+  const a = obj(v);
+  if (!a) return null;
+  if (!cfg.voiceEnabled) throw new HttpError(403, "voice_disabled", "Voice messages are switched off right now. Please type instead.");
+  const mime = AUDIO_MIME[String(a.mime_type ?? "").toLowerCase()];
+  const data = typeof a.data === "string" ? a.data.replace(/^data:[^,]+,/, "").replace(/\s+/g, "") : "";
+  if (!mime || !data || !B64.test(data)) throw new HttpError(400, "bad_audio", "That recording format is not supported.");
+  if (data.length > cfg.maxAudioBase64Chars) throw new HttpError(400, "audio_too_long", "Voice messages can be up to 60 seconds.");
+  // ~1 KB of audio is well under half a second of any supported codec: reject before spending a model call.
+  if (data.length < MIN_AUDIO_BASE64_CHARS) throw new HttpError(400, "bad_audio", "That recording was too short. Hold the mic and speak, or type instead.");
+  return { data, mimeType: mime };
+}
+
+/** Photo: decoded, size-checked, sniffed (JPEG/PNG only) and stripped of EXIF/GPS/text metadata before any use. */
+function parseImage(cfg: AiConfig, v: unknown): { bytes: Uint8Array; mime: ImageMime; removed: string[] } | null {
+  const im = obj(v);
+  if (!im) return null;
+  if (!cfg.photosEnabled) throw new HttpError(403, "photos_disabled", "Photos are switched off right now. Please describe the problem instead.");
+  const data = typeof im.data === "string" ? im.data.replace(/^data:[^,]+,/, "").replace(/\s+/g, "") : "";
+  if (!data || !B64.test(data)) throw new HttpError(400, "bad_image", "That photo could not be read. Please use a JPG or PNG photo.");
+  if (data.length > Math.ceil((cfg.maxImageBytes * 4) / 3) + 4) {
+    throw new HttpError(400, "image_too_large", `Photos can be up to ${Math.floor(cfg.maxImageBytes / 1_000_000)} MB.`);
   }
-  throw new GeminiError("no respond call within step limit", 0, true);
+  let raw: Uint8Array;
+  try {
+    raw = decodeBase64(data);
+  } catch {
+    throw new HttpError(400, "bad_image", "That photo could not be read. Please use a JPG or PNG photo.");
+  }
+  const mime = sniffImage(raw);
+  if (!mime) throw new HttpError(400, "bad_image", "Please use a JPG or PNG photo.");
+  try {
+    return { ...stripImageMetadata(raw, mime), mime };
+  } catch (e) {
+    if (e instanceof ImageFormatError) throw new HttpError(400, "bad_image", "That photo looks damaged. Please take it again.");
+    throw e;
+  }
+}
+
+/** Counts today's (market day) and last-minute usage: chat messages, voice and photo events. */
+async function usageCounts(admin: SupabaseClient, uid: string, now: Date, clock: MarketClock) {
+  const since = clock.midnight(now).toISOString();
+  const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
+  const msgs = () => admin.from("ai_messages").select("id", { count: "exact", head: true }).eq("user_id", uid).eq("role", "user");
+  const usage = (kinds: string[]) => admin.from("ai_usage").select("id", { count: "exact", head: true }).eq("user_id", uid).in("kind", kinds);
+  const [all, voice, photos, burstMsgs, burstVoice] = await Promise.all([
+    msgs().gte("created_at", since),
+    usage(["transcribe", "voice_chat"]).gte("created_at", since),
+    usage(["photo"]).gte("created_at", since),
+    msgs().gte("created_at", minuteAgo),
+    usage(["transcribe"]).gte("created_at", minuteAgo),
+  ]);
+  const err = all.error ?? voice.error ?? photos.error ?? burstMsgs.error ?? burstVoice.error;
+  if (err) throw err;
+  return { messages: all.count ?? 0, voice: voice.count ?? 0, photos: photos.count ?? 0, burst: (burstMsgs.count ?? 0) + (burstVoice.count ?? 0) };
+}
+
+function modelFailure(attempts: AttemptRecord[], lastErr: GeminiError | null, started: number, cfg: AiConfig, budgetMs = cfg.requestBudgetMs): HttpError {
+  const timedOut = Date.now() - started > budgetMs - 5000 || /timeout|budget/.test(lastErr?.message ?? "");
+  return new HttpError(
+    timedOut ? 504 : 503,
+    timedOut ? "timeout" : "ai_unavailable",
+    timedOut ? "That took too long. Please try again." : "QuickServe AI is busy right now. Please try again in a minute, or book from the service list.",
+  );
+}
+
+// ---------- mode: transcribe (voice preview) ----------
+async function transcribe(cfg: AiConfig, auth: Auth, body: Json, apiKey: string, requestId: string, started: number, signal: AbortSignal) {
+  const audio = parseAudio(cfg, body.audio);
+  if (!audio) throw new HttpError(400, "empty", "Hold the mic and say what you need help with.");
+  const now = new Date();
+  const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
+  const used = await usageCounts(auth.admin, auth.uid, now, clock);
+  if (used.voice >= cfg.dailyVoiceLimit) throw new HttpError(429, "voice_limited", `You've used today's ${cfg.dailyVoiceLimit} voice messages. You can keep typing.`);
+  if (used.burst >= cfg.perMinuteLimit) throw new HttpError(429, "slow_down", "You're sending messages very quickly. Please wait a moment.");
+  // Counted before the model call so failed or abusive attempts still count. The audio itself is never stored.
+  const ins = await auth.admin.from("ai_usage").insert({ user_id: auth.uid, kind: "transcribe", request_id: requestId });
+  if (ins.error) throw ins.error;
+
+  const budget = Math.min(cfg.requestBudgetMs, 30_000);
+  const usage = { input: 0, output: 0, calls: 0 };
+  const fb = await withFallback(
+    {
+      plan: attemptPlan(cfg),
+      primaryModel: cfg.primaryModel,
+      hasFallback: !!cfg.fallbackModel,
+      cooldown: primaryCooldown,
+      cooldownMs: cfg.primaryCooldownMs,
+      deadline: started + budget,
+      signal,
+    },
+    async (model, callTimeoutMs) => {
+      const res = await generateContent(
+        cfg.apiBase,
+        model,
+        {
+          systemInstruction: { parts: [{ text: transcriptionPrompt() }] },
+          contents: [{ role: "user", parts: [{ inlineData: { mimeType: audio.mimeType, data: audio.data } }, { text: "Transcribe this voice message." }] }],
+          tools: [{ functionDeclarations: [TRANSCRIBE_DECLARATION] }],
+          toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["transcribe"] } },
+          generationConfig: { maxOutputTokens: 1024, ...(cfg.thinkingLevel ? { thinkingConfig: { thinkingLevel: cfg.thinkingLevel } } : {}) },
+        },
+        apiKey,
+        Math.min(callTimeoutMs, started + budget - Date.now()),
+        signal,
+      );
+      usage.calls += 1;
+      usage.input += res.usageMetadata?.promptTokenCount ?? 0;
+      usage.output += (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
+      const call = (res.candidates?.[0]?.content?.parts ?? []).find((p) => p.functionCall?.name === "transcribe");
+      if (!call) throw new GeminiError("no transcription", 0, true);
+      return parseTranscription(call.functionCall!.args);
+    },
+  );
+  if (!fb.result) {
+    if (allRejected(fb.attempts)) {
+      log("warn", { event: "audio_rejected", mode: "transcribe", request_id: requestId, attempts: fb.attempts });
+      throw new HttpError(400, "bad_audio", "We couldn't understand that recording. Please try again or type your message.");
+    }
+    log("error", { event: "model_unavailable", mode: "transcribe", request_id: requestId, attempts: fb.attempts, ms: Date.now() - started });
+    throw modelFailure(fb.attempts, fb.lastError, started, cfg, budget);
+  }
+  const t = fb.result;
+  log("info", {
+    event: "transcribed",
+    request_id: requestId,
+    user: auth.uid,
+    model: fb.model,
+    attempts: fb.attempts,
+    language: t.language,
+    clarity: t.clarity,
+    tokens_in: usage.input,
+    tokens_out: usage.output,
+    ms: Date.now() - started,
+  });
+  return {
+    request_id: requestId,
+    policy_version: POLICY_VERSION,
+    ...t,
+    model: fb.model,
+    fallback_used: fb.model !== cfg.primaryModel,
+    usage: { input_tokens: usage.input, output_tokens: usage.output, model_calls: usage.calls, ms: Date.now() - started },
+    limits: { voice_left: Math.max(0, cfg.dailyVoiceLimit - used.voice - 1) },
+  };
+}
+
+// ---------- mode: chat ----------
+interface Prepared {
+  cfg: AiConfig;
+  apiKey: string;
+  requestId: string;
+  started: number;
+  uid: string;
+  admin: SupabaseClient;
+  ctx: Ctx;
+  conversationId: string;
+  isNewConversation: boolean;
+  userRowId: number;
+  text: string;
+  audio: { data: string; mimeType: string } | null;
+  voice: VoiceMeta | null;
+  photo: { path: string | null; mime: ImageMime; bytes: number } | null;
+  system: string;
+  contents: Content[];
+  injection: boolean;
+  used: { messages: number; voice: number; photos: number };
+}
+
+async function prepareChat(cfg: AiConfig, auth: Auth, body: Json, apiKey: string, requestId: string, started: number): Promise<Prepared> {
+  const { uid, admin, userClient } = auth;
+  const rawText = typeof body.message === "string" ? body.message.trim() : "";
+  if (rawText.length > cfg.maxTextChars) throw new HttpError(400, "too_long", `Please keep messages under ${cfg.maxTextChars} characters.`);
+  const text = redactPII(rawText);
+  const audio = parseAudio(cfg, body.audio);
+  const image = parseImage(cfg, body.image);
+  if (audio && image) throw new HttpError(400, "bad_request", "Send a photo with text, not with a voice clip.");
+  const voice = audio ? null : voiceMeta(body.voice, text);
+  if (!text && !audio && !image) throw new HttpError(400, "empty", "Type or say what you need help with.");
+  const loc = obj(body.location) ?? {};
+  const lat = num(loc.lat, -90, 90);
+  const lng = num(loc.lng, -180, 180);
+
+  // ---- abuse limits (before any model call) ----
+  const now = new Date();
+  const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
+  const used = await usageCounts(admin, uid, now, clock);
+  if (used.messages >= cfg.dailyMessageLimit) {
+    throw new HttpError(429, "rate_limited", `You've used today's ${cfg.dailyMessageLimit} AI messages. You can still book from the service list, or try again tomorrow.`);
+  }
+  if (audio && used.voice >= cfg.dailyVoiceLimit) throw new HttpError(429, "voice_limited", `You've used today's ${cfg.dailyVoiceLimit} voice messages. You can keep typing.`);
+  if (image && used.photos >= cfg.dailyPhotoLimit) throw new HttpError(429, "photo_limited", `You've used today's ${cfg.dailyPhotoLimit} photos. You can describe the problem instead.`);
+  if (used.burst >= cfg.perMinuteLimit) throw new HttpError(429, "slow_down", "You're sending messages very quickly. Please wait a moment.");
+
+  // ---- conversation + context (catalog, history, addresses via RLS) ----
+  let conversationId = typeof body.conversation_id === "string" && UUID.test(body.conversation_id) ? body.conversation_id : null;
+  if (conversationId) {
+    const { data } = await admin.from("ai_conversations").select("id").eq("id", conversationId).eq("user_id", uid).maybeSingle();
+    if (!data) conversationId = null;
+  }
+  const isNewConversation = !conversationId;
+  if (!conversationId) {
+    const title = conversationTitle(text || (image ? "Photo of the problem" : "Voice message"));
+    const { data, error } = await admin.from("ai_conversations").insert({ user_id: uid, title }).select("id").single();
+    if (error) throw error;
+    conversationId = data.id as string;
+  }
+  const [cats, history, addrs, prior] = await Promise.all([
+    userClient.from("categories").select("slug, name").eq("active", true).order("sort_order"),
+    loadHistory(userClient, uid),
+    userClient.from("addresses").select("id, label, line1, city, lat, lng, is_default, created_at").eq("user_id", uid).neq("label", "Booking").order("created_at"),
+    cfg.historyRows
+      ? admin
+          .from("ai_messages")
+          .select("role, content, payload")
+          .eq("conversation_id", conversationId)
+          .eq("user_id", uid)
+          .in("role", ["user", "assistant"])
+          .order("created_at", { ascending: false })
+          .limit(cfg.historyRows)
+      : Promise.resolve({ data: [] }),
+  ]);
+  if (cats.error) throw cats.error;
+  const saved = (addrs.data ?? []) as { id: string; label: string; line1: string; city: string; lat: number; lng: number; is_default: boolean }[];
+  const chosen = typeof loc.address_id === "string" ? saved.find((a) => a.id === loc.address_id) : undefined;
+  const fallbackAddr = saved.find((a) => a.is_default) ?? null;
+  // Location: what the app sends (validated), else the user's default saved address, else none (no city is assumed).
+  const location =
+    lat != null && lng != null
+      ? { area: clampText(loc.area, 60) || "Selected location", city: clampText(loc.city, 40), lat, lng }
+      : fallbackAddr
+        ? { area: areaFromLine(fallbackAddr.line1, fallbackAddr.city), city: fallbackAddr.city, lat: fallbackAddr.lat, lng: fallbackAddr.lng }
+        : null;
+  const addressRow = chosen ?? (lat == null ? fallbackAddr : undefined);
+  const ctx: Ctx = {
+    uid,
+    now,
+    clock,
+    cfg,
+    admin,
+    userClient,
+    categories: (cats.data ?? []) as { slug: string; name: string }[],
+    history,
+    location,
+    address: addressRow
+      ? { address_id: addressRow.id, label: addressRow.label, area: areaFromLine(addressRow.line1, addressRow.city), city: addressRow.city, needs_full_address: false }
+      : location
+        ? { address_id: null, label: null, area: location.area, city: location.city, needs_full_address: true }
+        : null,
+  };
+
+  // ---- photo: stored (metadata-stripped) in the owner's private folder; old photos purged per retention ----
+  let photo: Prepared["photo"] = null;
+  if (image) {
+    const path = `${uid}/${requestId}.${image.mime === "image/png" ? "png" : "jpg"}`;
+    const up = await admin.storage.from(PHOTO_BUCKET).upload(path, image.bytes, { contentType: image.mime, upsert: false });
+    if (up.error) log("warn", { event: "photo_store_failed", request_id: requestId, error: up.error.message.slice(0, 120) });
+    photo = { path: up.error ? null : path, mime: image.mime, bytes: image.bytes.length };
+    await admin.from("ai_usage").insert({ user_id: uid, kind: "photo", request_id: requestId });
+    void purgeOldPhotos(admin, uid, cfg.photoRetentionDays, requestId);
+  }
+  if (audio) await admin.from("ai_usage").insert({ user_id: uid, kind: "voice_chat", request_id: requestId });
+
+  const { data: userRow, error: insErr } = await admin
+    .from("ai_messages")
+    .insert({
+      conversation_id: conversationId,
+      user_id: uid,
+      role: "user",
+      input_kind: audio || voice ? "voice" : "text",
+      content: text || (image ? "(photo)" : "(voice message)"),
+      payload: { request_id: requestId, ...(voice ? { voice } : {}), ...(photo ? { photo } : {}) },
+    })
+    .select("id")
+    .single();
+  if (insErr) throw insErr;
+
+  const system = systemPrompt({
+    now,
+    clock,
+    categories: ctx.categories,
+    location: location ? { area: location.area, city: location.city, label: ctx.address?.label ?? null } : null,
+    savedAddresses: saved.map((a) => ({ label: a.label, area: areaFromLine(a.line1, a.city), city: a.city })),
+    history,
+  });
+  const userParts: Part[] = audio
+    ? [
+        { inlineData: { mimeType: audio.mimeType, data: audio.data } },
+        {
+          text: text
+            ? `Voice message from the customer (audio above). They also typed: ${text}`
+            : "Voice message from the customer (audio above). Put their exact words in respond.transcript_original and an English translation in respond.transcript_en, then help them.",
+        },
+      ]
+    : image
+      ? [
+          { inlineData: { mimeType: image.mime, data: encodeBase64(image.bytes) } },
+          { text: text || "Photo from the customer showing the problem (see PHOTOS). Say briefly what is visible and relevant, then help them." },
+        ]
+      : [{ text }];
+  const injection = looksLikeInjection(text);
+  if (injection) userParts.push({ text: INJECTION_REMINDER });
+  const contents: Content[] = toContents(((prior.data ?? []) as { role: string; content: string; payload: Json }[]).reverse());
+  contents.push({ role: "user", parts: userParts });
+
+  return {
+    cfg,
+    apiKey,
+    requestId,
+    started,
+    uid,
+    admin,
+    ctx,
+    conversationId,
+    isNewConversation,
+    userRowId: userRow.id as number,
+    text,
+    audio,
+    voice,
+    photo,
+    system,
+    contents,
+    injection,
+    used,
+  };
+}
+
+/** Retention: deletes this customer's diagnosis photos older than AI_PHOTO_RETENTION_DAYS (best effort, logged). */
+async function purgeOldPhotos(admin: SupabaseClient, uid: string, days: number, requestId: string) {
+  try {
+    const cutoff = Date.now() - days * 86_400_000;
+    const { data, error } = await admin.storage.from(PHOTO_BUCKET).list(uid, { limit: 100, sortBy: { column: "created_at", order: "asc" } });
+    if (error) throw error;
+    const old = (data ?? []).filter((f) => f.created_at && Date.parse(f.created_at) < cutoff).map((f) => `${uid}/${f.name}`);
+    if (old.length) {
+      const rm = await admin.storage.from(PHOTO_BUCKET).remove(old);
+      if (rm.error) throw rm.error;
+      log("info", { event: "photos_purged", request_id: requestId, user: uid, count: old.length });
+    }
+  } catch (e) {
+    log("warn", { event: "photo_purge_failed", request_id: requestId, error: (e as Error).message?.slice(0, 120) });
+  }
+}
+
+async function runChat(p: Prepared, stages: StageTracker, signal: AbortSignal, streamed: boolean) {
+  const { cfg, ctx, admin, uid, requestId, started } = p;
+  const deadline = started + cfg.requestBudgetMs;
+  let state = newState();
+  const usageTotal = { input: 0, output: 0, calls: 0 };
+  const fb = await withFallback(
+    {
+      plan: attemptPlan(cfg),
+      primaryModel: cfg.primaryModel,
+      hasFallback: !!cfg.fallbackModel,
+      cooldown: primaryCooldown,
+      cooldownMs: cfg.primaryCooldownMs,
+      deadline,
+      signal,
+    },
+    async (model, callTimeoutMs, executedBefore) => {
+      state = newState();
+      try {
+        return await runAgent(
+          model,
+          p.system,
+          p.contents,
+          state,
+          {
+            generate: (m, body, timeoutMs, sig) => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
+            execTool: (name, args) => execTool(ctx, state, name, args),
+            stages,
+            signal,
+            maxSteps: cfg.maxSteps,
+            maxOutputTokens: cfg.maxOutputTokens,
+            thinkingLevel: cfg.thinkingLevel,
+            functionDeclarations: functionDeclarations(ctx.categories.map((c) => c.slug)),
+            onToolError: (name, e) => log("warn", { event: "tool_failed", request_id: requestId, tool: name, error: e.message?.slice(0, 160) }),
+          },
+          deadline,
+          callTimeoutMs,
+          executedBefore ? "backup" : "understanding",
+        );
+      } finally {
+        usageTotal.input += state.usage.input;
+        usageTotal.output += state.usage.output;
+        usageTotal.calls += state.usage.calls;
+      }
+    },
+  );
+  const attempts = fb.attempts;
+  if (!fb.result) {
+    if ((p.audio || p.photo) && allRejected(attempts)) {
+      log("warn", { event: p.audio ? "audio_rejected" : "image_rejected", request_id: requestId, attempts, ms: Date.now() - started });
+      throw p.audio
+        ? new HttpError(400, "bad_audio", "We couldn't understand that recording. Please try again or type your message.")
+        : new HttpError(400, "bad_image", "That photo couldn't be processed. Please try another photo or describe the problem.");
+    }
+    await admin.from("ai_messages").insert({ conversation_id: p.conversationId, user_id: uid, role: "error", payload: { request_id: requestId, attempts } });
+    log("error", { event: "model_unavailable", request_id: requestId, attempts, ms: Date.now() - started });
+    throw modelFailure(attempts, fb.lastError, started, cfg);
+  }
+  const result = fb.result;
+
+  // ---- validated reply: pros/prices/drafts only from tool results ----
+  const r = result.args;
+  const slug = validSlug(ctx, r.category_slug) ?? state.draft?.category_slug ?? state.lastSlug;
+  if (slug && (r.show_providers === true || state.draft) && !state.searches.has(slug) && ctx.location) {
+    await stages.run("pros", () => searchPros(ctx, state, slug)).catch(() => undefined);
+  }
+  const wantStats = !!slug && (r.show_estimate === true || !!state.draft);
+  const stats = wantStats
+    ? await (state.estimates.has(slug!) ? priceStats(ctx, state, slug!) : stages.run("pricing", () => priceStats(ctx, state, slug!))).catch(() => null)
+    : null;
+  const reply = composeReply({
+    respond: r,
+    slug,
+    categoryName: ctx.categories.find((c) => c.slug === slug)?.name ?? null,
+    draft: state.draft,
+    searchRows: slug ? (state.searches.get(slug) ?? null) : null,
+    stats,
+    history: ctx.history,
+    now: ctx.now,
+    clock: ctx.clock,
+    minPriceSamples: cfg.minPriceSamples,
+    priceLookbackDays: cfg.priceLookbackDays,
+    isVoice: !!p.audio,
+    userText: p.text,
+    hasPhoto: !!p.photo,
+  });
+  // The customer's turn as shown in the chat: a reviewed transcript (voice preview) or what the model heard (raw clip).
+  const turnVoice: VoiceMeta | null = p.voice ??
+    (p.audio && reply.transcript ? { transcript_original: reply.transcript, transcript_en: reply.transcript_en, edited: false } : null);
+  const stageSummary = stages.summary();
+
+  const { data: asstRow } = await admin
+    .from("ai_messages")
+    .insert({
+      conversation_id: p.conversationId,
+      user_id: uid,
+      role: "assistant",
+      content: reply.reply_text,
+      payload: {
+        request_id: requestId,
+        policy_version: POLICY_VERSION,
+        guardrails: reply.guardrails,
+        injection_flag: p.injection,
+        language: reply.language,
+        quick_replies: reply.quick_replies,
+        cards: reply.cards,
+        handoff: reply.handoff,
+        summary: summarize(reply.cards),
+        tools: state.tools,
+        calls: usageTotal.calls,
+        attempts,
+        stages: stageSummary,
+      },
+      model: result.model,
+      input_tokens: usageTotal.input,
+      output_tokens: usageTotal.output,
+    })
+    .select("id")
+    .single();
+  await Promise.all([
+    p.audio && turnVoice
+      ? admin.from("ai_messages").update({ content: turnVoice.transcript_original, payload: { request_id: requestId, voice: turnVoice } }).eq("id", p.userRowId)
+      : Promise.resolve(),
+    admin
+      .from("ai_conversations")
+      .update({
+        updated_at: new Date().toISOString(),
+        language: reply.language,
+        ...(p.isNewConversation && p.audio && turnVoice ? { title: conversationTitle(turnVoice.transcript_original) } : {}),
+      })
+      .eq("id", p.conversationId),
+  ]);
+  log("info", {
+    event: "reply",
+    request_id: requestId,
+    user: uid,
+    model: result.model,
+    attempts,
+    calls: usageTotal.calls,
+    tokens_in: usageTotal.input,
+    tokens_out: usageTotal.output,
+    cards: reply.cards.map((c) => c.type),
+    tools: state.tools.map((t) => (t.error ? `${t.name}!` : t.name)),
+    stages: stageSummary.map((s) => `${s.key}:${s.ms}${s.ok ? "" : "!"}`),
+    streamed,
+    voice: p.audio ? "clip" : p.voice ? (p.voice.edited ? "transcript_edited" : "transcript") : null,
+    photo: !!p.photo,
+    handoff: reply.handoff?.reason ?? null,
+    has_location: !!ctx.location,
+    policy_version: POLICY_VERSION,
+    guardrails: reply.guardrails,
+    injection_flag: p.injection,
+    ms: Date.now() - started,
+  });
+
+  const { guardrails: _g, transcript: _t, transcript_en: _te, ...publicReply } = reply;
+  return {
+    conversation_id: p.conversationId,
+    message_id: asstRow?.id ?? null,
+    user_message_id: p.userRowId,
+    request_id: requestId,
+    policy_version: POLICY_VERSION,
+    ...publicReply,
+    // The customer's own turn: original words (+ English) for voice, so the chat bubble shows what they said.
+    user_turn: {
+      voice: !!turnVoice,
+      transcript_original: turnVoice?.transcript_original ?? null,
+      transcript_en: turnVoice?.transcript_en ?? null,
+      photo: !!p.photo,
+    },
+    transcript_original: turnVoice?.transcript_original ?? null,
+    transcript_en: turnVoice?.transcript_en ?? null,
+    transcript: turnVoice?.transcript_original ?? null, // v1 clients
+    model: result.model,
+    fallback_used: result.model !== cfg.primaryModel,
+    attempts: attempts.map((a) => ({ model: a.model, ms: a.ms, ...(a.error ? { error: a.error.split(":")[0] } : {}) })),
+    stages: stageSummary,
+    usage: { input_tokens: usageTotal.input, output_tokens: usageTotal.output, model_calls: usageTotal.calls, ms: Date.now() - started },
+    limits: {
+      messages_left: Math.max(0, cfg.dailyMessageLimit - p.used.messages - 1),
+      voice_left: Math.max(0, cfg.dailyVoiceLimit - p.used.voice - (p.audio ? 1 : 0)),
+      photos_left: Math.max(0, cfg.dailyPhotoLimit - p.used.photos - (p.photo ? 1 : 0)),
+    },
+    location_set: !!ctx.location,
+  };
+}
+
+// ---------- transport ----------
+/** Server-sent events: `data: {json}\n\n` per event, comment pings every 10 s; client disconnect aborts the work. */
+function sseResponse(headers: Record<string, string>, reqSignal: AbortSignal, run: (send: (e: unknown) => void, signal: AbortSignal) => Promise<void>): Response {
+  const enc = new TextEncoder();
+  const ctrl = new AbortController();
+  let closed = false;
+  const onReqAbort = () => ctrl.abort();
+  reqSignal.addEventListener("abort", onReqAbort);
+  const stream = new ReadableStream<Uint8Array>({
+    async start(c) {
+      const write = (s: string) => {
+        if (closed) return;
+        try {
+          c.enqueue(enc.encode(s));
+        } catch {
+          closed = true;
+          ctrl.abort();
+        }
+      };
+      const ping = setInterval(() => write(": ping\n\n"), 10_000);
+      try {
+        await run((e) => write(`data: ${JSON.stringify(e)}\n\n`), ctrl.signal);
+      } finally {
+        clearInterval(ping);
+        reqSignal.removeEventListener("abort", onReqAbort);
+        if (!closed) {
+          closed = true;
+          try {
+            c.close();
+          } catch {
+            // already closed by the runtime
+          }
+        }
+      }
+    },
+    cancel() {
+      closed = true;
+      ctrl.abort();
+    },
+  });
+  return new Response(stream, {
+    headers: { ...headers, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" },
+  });
+}
+
+function errorResult(e: unknown, requestId: string, uid: string | null): { status: number; body: Json } {
+  if (e instanceof AbortedError) {
+    log("info", { event: "client_aborted", request_id: requestId, user: uid });
+    return { status: 499, body: { error: "Stopped.", code: "aborted", request_id: requestId } };
+  }
+  if (e instanceof HttpError) {
+    log(e.status >= 500 ? "error" : "info", { event: "rejected", request_id: requestId, user: uid, code: e.code, status: e.status });
+    return { status: e.status, body: { error: e.message, code: e.code, request_id: requestId } };
+  }
+  log("error", { event: "internal", request_id: requestId, user: uid, error: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200) });
+  return { status: 500, body: { error: "Something went wrong. Please try again.", code: "internal", request_id: requestId } };
 }
 
 // ---------- handler ----------
@@ -350,7 +891,9 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") throw new HttpError(405, "method_not_allowed", "Method not allowed.");
     if (!cfg.enabled) throw new HttpError(503, "ai_disabled", "QuickServe AI is switched off right now. You can still book from the service list.");
     const declared = Number(req.headers.get("Content-Length") ?? 0);
-    if (declared > cfg.maxAudioBase64Chars + 200_000) throw new HttpError(413, "too_large", "That message is too large.");
+    if (declared > Math.max(cfg.maxAudioBase64Chars, Math.ceil((cfg.maxImageBytes * 4) / 3)) + 200_000) {
+      throw new HttpError(413, "too_large", "That message is too large.");
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -366,270 +909,34 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData.user) throw new HttpError(401, "unauthorized", "Please sign in again.");
     uid = userData.user.id;
-    const userClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
-
-    // ---- input ----
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body || typeof body !== "object") throw new HttpError(400, "bad_request", "Invalid request.");
-    const rawText = typeof body.message === "string" ? body.message.trim() : "";
-    if (rawText.length > cfg.maxTextChars) throw new HttpError(400, "too_long", `Please keep messages under ${cfg.maxTextChars} characters.`);
-    const text = redactPII(rawText);
-    const audioIn = (body.audio ?? null) as { data?: unknown; mime_type?: unknown } | null;
-    let audio: { data: string; mimeType: string } | null = null;
-    if (audioIn) {
-      if (!cfg.voiceEnabled) throw new HttpError(403, "voice_disabled", "Voice messages are switched off right now. Please type instead.");
-      const mime = AUDIO_MIME[String(audioIn.mime_type ?? "").toLowerCase()];
-      const data = typeof audioIn.data === "string" ? audioIn.data.replace(/^data:[^,]+,/, "").replace(/\s+/g, "") : "";
-      if (!mime || !data || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new HttpError(400, "bad_audio", "That recording format is not supported.");
-      if (data.length > cfg.maxAudioBase64Chars) throw new HttpError(400, "audio_too_long", "Voice messages can be up to 60 seconds.");
-      // ~1 KB of audio is well under half a second of any supported codec: reject before spending a model call.
-      if (data.length < MIN_AUDIO_BASE64_CHARS) throw new HttpError(400, "bad_audio", "That recording was too short. Hold the mic and speak, or type instead.");
-      audio = { data, mimeType: mime };
-    }
-    if (!text && !audio) throw new HttpError(400, "empty", "Type or say what you need help with.");
-    const loc = (body.location && typeof body.location === "object" ? body.location : {}) as Record<string, unknown>;
-    const lat = num(loc.lat, -90, 90);
-    const lng = num(loc.lng, -180, 180);
-
-    // ---- abuse limits ----
-    const now = new Date();
-    const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
-    const since = clock.midnight(now).toISOString();
-    const minuteAgo = new Date(now.getTime() - 60_000).toISOString();
-    const userRows = () => admin.from("ai_messages").select("id", { count: "exact", head: true }).eq("user_id", uid!).eq("role", "user");
-    const [all, voice, burst] = await Promise.all([
-      userRows().gte("created_at", since),
-      userRows().eq("input_kind", "voice").gte("created_at", since),
-      userRows().gte("created_at", minuteAgo),
-    ]);
-    if (all.error || voice.error || burst.error) throw all.error ?? voice.error ?? burst.error;
-    const usedAll = all.count ?? 0;
-    const usedVoice = voice.count ?? 0;
-    if (usedAll >= cfg.dailyMessageLimit) {
-      throw new HttpError(429, "rate_limited", `You've used today's ${cfg.dailyMessageLimit} AI messages. You can still book from the service list, or try again tomorrow.`);
-    }
-    if (audio && usedVoice >= cfg.dailyVoiceLimit) throw new HttpError(429, "voice_limited", `You've used today's ${cfg.dailyVoiceLimit} voice messages. You can keep typing.`);
-    if ((burst.count ?? 0) >= cfg.perMinuteLimit) throw new HttpError(429, "slow_down", "You're sending messages very quickly. Please wait a moment.");
-
-    // ---- conversation + context (catalog, history, addresses via RLS) ----
-    let conversationId = typeof body.conversation_id === "string" && UUID.test(body.conversation_id) ? body.conversation_id : null;
-    if (conversationId) {
-      const { data } = await admin.from("ai_conversations").select("id").eq("id", conversationId).eq("user_id", uid).maybeSingle();
-      if (!data) conversationId = null;
-    }
-    if (!conversationId) {
-      const { data, error } = await admin.from("ai_conversations").insert({ user_id: uid }).select("id").single();
-      if (error) throw error;
-      conversationId = data.id as string;
-    }
-    const [cats, history, addrs, prior] = await Promise.all([
-      userClient.from("categories").select("slug, name").eq("active", true).order("sort_order"),
-      loadHistory(userClient, uid),
-      userClient.from("addresses").select("id, label, line1, city, lat, lng, is_default, created_at").eq("user_id", uid).neq("label", "Booking").order("created_at"),
-      cfg.historyRows
-        ? admin
-            .from("ai_messages")
-            .select("role, content, payload")
-            .eq("conversation_id", conversationId)
-            .eq("user_id", uid)
-            .in("role", ["user", "assistant"])
-            .order("created_at", { ascending: false })
-            .limit(cfg.historyRows)
-        : Promise.resolve({ data: [] }),
-    ]);
-    if (cats.error) throw cats.error;
-    const saved = (addrs.data ?? []) as { id: string; label: string; line1: string; city: string; lat: number; lng: number; is_default: boolean }[];
-    const chosen = typeof loc.address_id === "string" ? saved.find((a) => a.id === loc.address_id) : undefined;
-    const fallbackAddr = saved.find((a) => a.is_default) ?? null;
-    // Location: what the app sends (validated), else the user's default saved address, else none (no city is assumed).
-    const location =
-      lat != null && lng != null
-        ? { area: clampText(loc.area, 60) || "Selected location", city: clampText(loc.city, 40), lat, lng }
-        : fallbackAddr
-          ? { area: areaFromLine(fallbackAddr.line1, fallbackAddr.city), city: fallbackAddr.city, lat: fallbackAddr.lat, lng: fallbackAddr.lng }
-          : null;
-    const addressRow = chosen ?? (lat == null ? fallbackAddr : undefined);
-    const ctx: Ctx = {
+    const auth: Auth = {
       uid,
-      now,
-      clock,
-      cfg,
       admin,
-      userClient,
-      categories: (cats.data ?? []) as { slug: string; name: string }[],
-      history,
-      location,
-      address: addressRow
-        ? { address_id: addressRow.id, label: addressRow.label, area: areaFromLine(addressRow.line1, addressRow.city), city: addressRow.city, needs_full_address: false }
-        : location
-          ? { address_id: null, label: null, area: location.area, city: location.city, needs_full_address: true }
-          : null,
+      userClient: createClient(supabaseUrl, anonKey, { auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } }),
     };
 
-    const { data: userRow, error: insErr } = await admin
-      .from("ai_messages")
-      .insert({ conversation_id: conversationId, user_id: uid, role: "user", input_kind: audio ? "voice" : "text", content: text || "(voice message)" })
-      .select("id")
-      .single();
-    if (insErr) throw insErr;
+    const body = obj(await req.json().catch(() => null));
+    if (!body) throw new HttpError(400, "bad_request", "Invalid request.");
+    if (body.mode === "transcribe") return json(await transcribe(cfg, auth, body, apiKey, requestId, started, req.signal));
 
-    const system = systemPrompt({
-      now,
-      clock,
-      categories: ctx.categories,
-      location: location ? { area: location.area, city: location.city, label: ctx.address?.label ?? null } : null,
-      savedAddresses: saved.map((a) => ({ label: a.label, area: areaFromLine(a.line1, a.city), city: a.city })),
-      history,
-    });
-    const userParts: Part[] = audio
-      ? [
-          { inlineData: { mimeType: audio.mimeType, data: audio.data } },
-          {
-            text: text
-              ? `Voice message from the customer (audio above). They also typed: ${text}`
-              : "Voice message from the customer (audio above). Put an exact transcript in respond.transcript, then help them.",
-          },
-        ]
-      : [{ text }];
-    const injection = looksLikeInjection(text);
-    if (injection) userParts.push({ text: INJECTION_REMINDER });
-    const contents: Content[] = toContents(((prior.data ?? []) as { role: string; content: string; payload: Record<string, unknown> }[]).reverse());
-    contents.push({ role: "user", parts: userParts });
+    // Validation, limits and context happen before streaming starts, so those errors keep real HTTP status codes.
+    const prepared = await prepareChat(cfg, auth, body, apiKey, requestId, started);
+    const wantsStream = cfg.streamingEnabled && (req.headers.get("Accept") ?? "").includes("text/event-stream");
+    if (!wantsStream) return json(await runChat(prepared, new StageTracker(() => {}, started), req.signal, false));
 
-    // ---- model loop with fallback ----
-    const deadline = started + cfg.requestBudgetMs;
-    let result: { args: Record<string, unknown>; model: string } | null = null;
-    let state = newState();
-    let lastErr: GeminiError | null = null;
-    const usageTotal = { input: 0, output: 0, calls: 0 };
-    const attempts: { model: string; ms: number; error?: string }[] = [];
-    for (const plan of attemptPlan(cfg)) {
-      if (plan.model === cfg.primaryModel && cfg.fallbackModel && Date.now() < primaryCooldownUntil) {
-        attempts.push({ model: plan.model, ms: 0, error: "skipped (cooldown)" });
-        continue;
-      }
-      if (plan.backoffMs) await new Promise((r) => setTimeout(r, plan.backoffMs));
-      if (deadline - Date.now() < 4000) break;
-      state = newState();
-      const t0 = Date.now();
+    const userId = uid;
+    return sseResponse(cors.headers, req.signal, async (send, signal) => {
+      send({ type: "start", request_id: requestId, conversation_id: prepared.conversationId, policy_version: POLICY_VERSION });
       try {
-        result = await runAgent(plan.model, ctx, state, system, contents, apiKey, deadline, plan.callTimeoutMs);
-        attempts.push({ model: plan.model, ms: Date.now() - t0 });
-        break;
+        const out = await runChat(prepared, new StageTracker((e: StageEvent) => send(e), started), signal, true);
+        send({ type: "final", ...out });
       } catch (e) {
-        usageTotal.input += state.usage.input;
-        usageTotal.output += state.usage.output;
-        usageTotal.calls += state.usage.calls;
-        if (!(e instanceof GeminiError)) throw e;
-        lastErr = e;
-        attempts.push({ model: plan.model, ms: Date.now() - t0, error: e.message.slice(0, 80) });
-        if (plan.model === cfg.primaryModel && cfg.fallbackModel && e.status !== 400) primaryCooldownUntil = Date.now() + cfg.primaryCooldownMs;
-        if (!e.fallback) break;
+        const r = errorResult(e, requestId, userId);
+        if (r.status !== 499) send({ type: "error", status: r.status, ...r.body });
       }
-    }
-    if (!result) {
-      // Every model rejected the request itself (HTTP 400): with audio this means an unreadable/corrupt recording.
-      const allRejected = attempts.length > 0 && attempts.every((a) => a.error?.startsWith("HTTP 400") || a.error === "skipped (cooldown)") &&
-        attempts.some((a) => a.error?.startsWith("HTTP 400"));
-      if (audio && allRejected) {
-        log("warn", { event: "audio_rejected", request_id: requestId, attempts, ms: Date.now() - started });
-        throw new HttpError(400, "bad_audio", "We couldn't understand that recording. Please try again or type your message.");
-      }
-      const timedOut = Date.now() - started > cfg.requestBudgetMs - 5000 || /timeout|budget/.test(lastErr?.message ?? "");
-      await admin.from("ai_messages").insert({ conversation_id: conversationId, user_id: uid, role: "error", payload: { request_id: requestId, attempts } });
-      log("error", { event: "model_unavailable", request_id: requestId, attempts, ms: Date.now() - started });
-      throw new HttpError(
-        timedOut ? 504 : 503,
-        timedOut ? "timeout" : "ai_unavailable",
-        timedOut ? "That took too long. Please try again." : "QuickServe AI is busy right now. Please try again in a minute, or book from the service list.",
-      );
-    }
-    usageTotal.input += state.usage.input;
-    usageTotal.output += state.usage.output;
-    usageTotal.calls += state.usage.calls;
-
-    // ---- validated reply: pros/prices/drafts only from tool results ----
-    const r = result.args;
-    const slug = validSlug(ctx, r.category_slug) ?? state.draft?.category_slug ?? state.lastSlug;
-    if (slug && (r.show_providers === true || state.draft) && !state.searches.has(slug) && ctx.location) {
-      await searchPros(ctx, state, slug).catch(() => undefined);
-    }
-    const stats = slug && (r.show_estimate === true || state.draft) ? await priceStats(ctx, state, slug).catch(() => null) : null;
-    const reply = composeReply({
-      respond: r,
-      slug,
-      categoryName: ctx.categories.find((c) => c.slug === slug)?.name ?? null,
-      draft: state.draft,
-      searchRows: slug ? (state.searches.get(slug) ?? null) : null,
-      stats,
-      history,
-      now,
-      clock,
-      minPriceSamples: cfg.minPriceSamples,
-      priceLookbackDays: cfg.priceLookbackDays,
-      isVoice: !!audio,
-      userText: text,
-    });
-    const transcript = reply.transcript ? redactPII(reply.transcript) : null;
-
-    const { data: asstRow } = await admin
-      .from("ai_messages")
-      .insert({
-        conversation_id: conversationId,
-        user_id: uid,
-        role: "assistant",
-        content: reply.reply_text,
-        payload: { request_id: requestId, policy_version: POLICY_VERSION, guardrails: reply.guardrails, injection_flag: injection, language: reply.language, quick_replies: reply.quick_replies, cards: reply.cards, transcript, summary: summarize(reply.cards), tools: state.tools, calls: usageTotal.calls, attempts },
-        model: result.model,
-        input_tokens: usageTotal.input,
-        output_tokens: usageTotal.output,
-      })
-      .select("id")
-      .single();
-    await Promise.all([
-      transcript ? admin.from("ai_messages").update({ content: transcript }).eq("id", userRow.id) : Promise.resolve(),
-      admin.from("ai_conversations").update({ updated_at: new Date().toISOString(), language: reply.language }).eq("id", conversationId),
-    ]);
-    log("info", {
-      event: "reply",
-      request_id: requestId,
-      user: uid,
-      model: result.model,
-      attempts,
-      calls: usageTotal.calls,
-      tokens_in: usageTotal.input,
-      tokens_out: usageTotal.output,
-      cards: reply.cards.map((c) => c.type),
-      tools: state.tools.map((t) => (t.error ? `${t.name}!` : t.name)),
-      voice: !!audio,
-      has_location: !!location,
-      policy_version: POLICY_VERSION,
-      guardrails: reply.guardrails,
-      injection_flag: injection,
-      ms: Date.now() - started,
-    });
-
-    const { guardrails: _g, ...publicReply } = reply;
-    return json({
-      conversation_id: conversationId,
-      message_id: asstRow?.id ?? null,
-      request_id: requestId,
-      policy_version: POLICY_VERSION,
-      ...publicReply,
-      transcript,
-      model: result.model,
-      fallback_used: result.model !== cfg.primaryModel,
-      attempts: attempts.map((a) => ({ model: a.model, ms: a.ms, ...(a.error ? { error: a.error.split(":")[0] } : {}) })),
-      usage: { input_tokens: usageTotal.input, output_tokens: usageTotal.output, model_calls: usageTotal.calls, ms: Date.now() - started },
-      limits: { messages_left: Math.max(0, cfg.dailyMessageLimit - usedAll - 1), voice_left: Math.max(0, cfg.dailyVoiceLimit - usedVoice - (audio ? 1 : 0)) },
-      location_set: !!location,
     });
   } catch (e) {
-    if (e instanceof HttpError) {
-      log(e.status >= 500 ? "error" : "info", { event: "rejected", request_id: requestId, user: uid, code: e.code, status: e.status });
-      return json({ error: e.message, code: e.code, request_id: requestId }, e.status);
-    }
-    log("error", { event: "internal", request_id: requestId, user: uid, error: e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200) });
-    return json({ error: "Something went wrong. Please try again.", code: "internal", request_id: requestId }, 500);
+    const r = errorResult(e, requestId, uid);
+    return json(r.body, r.status);
   }
 });

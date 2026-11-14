@@ -2,12 +2,15 @@
 // reply assembly from malformed model output and production-shaped edge cases. Run: deno test supabase/functions/ai-assistant
 import { assert, assertEquals, assertMatch, assertNotMatch } from "jsr:@std/assert@1";
 import {
+  cleanTranscript,
   composeReply,
   type ComposeInput,
+  conversationTitle,
   type DraftCard,
   estimateCard,
   MarketClock,
   normalizeSlot,
+  parseTranscription,
   type PastBooking,
   type PriceStats,
   rankProviders,
@@ -16,6 +19,7 @@ import {
   serviceProblem,
   type ServiceRow,
   toContents,
+  voiceMeta,
 } from "./logic.ts";
 
 const clock = new MarketClock(330, "IST");
@@ -212,4 +216,57 @@ Deno.test("history → model contents: alternating, starts with user, drops unan
   ]);
   assertEquals(c.map((x) => x.role), ["user", "model"]);
   assertEquals(c[1]!.parts[0]!.text, "Draft ready\n[shown: draft]");
+});
+
+Deno.test("transcription: validated fields, clarity from content, no English line for English speech", () => {
+  const hi = parseTranscription({ transcript_original: "मेरे किचन का नल लीक हो रहा है", transcript_en: "My kitchen tap is leaking", language: "hi", clarity: "clear" });
+  assertEquals(hi, { transcript_original: "मेरे किचन का नल लीक हो रहा है", transcript_en: "My kitchen tap is leaking", language: "hi", clarity: "clear" });
+  const en = parseTranscription({ transcript_original: "AC not cooling", transcript_en: "AC not cooling", language: "en", clarity: "clear" });
+  assertEquals(en.transcript_en, null);
+  // Malformed model output never becomes a confident transcript.
+  assertEquals(parseTranscription({ transcript_original: "", clarity: "clear" }).clarity, "unclear");
+  assertEquals(parseTranscription(null), { transcript_original: "", transcript_en: null, language: "other", clarity: "unclear" });
+  const odd = parseTranscription({ transcript_original: "నల్లా … లీక్", clarity: "maybe", language: "xx" });
+  assertEquals([odd.clarity, odd.language], ["partial", "te"]);
+  // Spoken numbers never survive into the transcript.
+  assertNotMatch(parseTranscription({ transcript_original: "call me on 98480 12345", language: "en", clarity: "clear" }).transcript_original, /98480/);
+  assertEquals(parseTranscription({ transcript_original: "x".repeat(900), language: "en", clarity: "clear" }).transcript_original.length, 600);
+});
+
+Deno.test("voice meta: sent text is the source of truth; edits drop the stale translation", () => {
+  assertEquals(voiceMeta({ transcript_en: "My tap is leaking", edited: false }, "मेरा नल लीक हो रहा है"), {
+    transcript_original: "मेरा नल लीक हो रहा है",
+    transcript_en: "My tap is leaking",
+    edited: false,
+  });
+  assertEquals(voiceMeta({ transcript_en: "My tap is leaking", edited: true }, "मेरा नल और शावर लीक है")!.transcript_en, null);
+  assertEquals(voiceMeta(null, "text"), null);
+  assertEquals(voiceMeta({ transcript_en: "x" }, ""), null);
+  assertEquals(cleanTranscript("  ", "x"), null);
+});
+
+Deno.test("composeReply: voice clip returns original + English transcript; handoff and chips are deterministic", () => {
+  const v = composeReply(input({ respond: { reply_text: "ok", transcript_original: "నల్లా లీక్ అవుతోంది", transcript_en: "The tap is leaking" }, isVoice: true }));
+  assertEquals([v.transcript, v.transcript_en], ["నల్లా లీక్ అవుతోంది", "The tap is leaking"]);
+  // v1 field name still accepted from the model.
+  assertEquals(composeReply(input({ respond: { reply_text: "ok", transcript: "tap leaking" }, isVoice: true })).transcript_en, null);
+  const sparks = composeReply(input({ respond: { reply_text: "Switch off the mains" }, userText: "sparks from the switch board" }));
+  assertEquals(sparks.handoff, { reason: "safety" });
+  const human = composeReply(input({ respond: { reply_text: "ok" }, userText: "I want to talk to customer care" }));
+  assertEquals(human.handoff, { reason: "asked_human" });
+  const vague = composeReply(input({ respond: { reply_text: "Maybe", diagnosis: { likely_issues: ["Unclear"], pro_checks: ["Inspect"] } }, userText: "it is weird" }));
+  assertEquals(vague.handoff, { reason: "low_confidence" });
+  const r = composeReply(input({ respond: { reply_text: "Draft ready", quick_replies: ["Book now", "Pay ₹199", "Tomorrow morning"] }, slug: "ac-repair", draft, searchRows: [row("a")], stats: stats() }));
+  assertEquals(r.quick_replies, ["Tomorrow morning", "Change the time", "Show other pros"]);
+});
+
+Deno.test("composeReply: a photo caps diagnosis confidence at medium", () => {
+  const dx = { reply_text: "I can see a leak", diagnosis: { likely_issues: ["Worn washer"], pro_checks: ["Joint"], confidence: "high" } };
+  assertEquals(composeReply(input({ respond: dx, hasPhoto: true })).cards[0]!.confidence, "medium");
+  assertEquals(composeReply(input({ respond: dx })).cards[0]!.confidence, "high");
+});
+
+Deno.test("conversation titles are short single lines", () => {
+  assertEquals(conversationTitle("AC not\ncooling"), "AC not cooling");
+  assertEquals(conversationTitle("a".repeat(100)).length, 58);
 });
