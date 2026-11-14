@@ -17,7 +17,7 @@ const mmss = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-function VoiceComposer({ busy, onSend, onVoice, onVoiceError }: ComposerProps) {
+function VoiceComposer({ busy, onSend, onVoice, onVoiceError, onMicDenied, onStop, attach, canSendEmpty }: ComposerProps) {
   const t = useTheme();
   // HIGH_QUALITY records AAC in an .m4a container on iOS and Android (a format Gemini accepts as audio/m4a).
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -29,7 +29,8 @@ function VoiceComposer({ busy, onSend, onVoice, onVoiceError }: ComposerProps) {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) {
-        onVoiceError('Microphone access is off. Allow it in Settings to talk to QuickServe AI, or type instead.');
+        if (onMicDenied) onMicDenied();
+        else onVoiceError('Microphone access is off. Allow it in Settings to talk to QuickServe AI, or type instead.');
         return;
       }
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
@@ -145,6 +146,9 @@ function VoiceComposer({ busy, onSend, onVoice, onVoiceError }: ComposerProps) {
     <TextComposer
       busy={busy}
       onSend={onSend}
+      onStop={onStop}
+      attach={attach}
+      canSendEmpty={canSendEmpty}
       mic={
         <Pressable
           accessibilityRole="button"
@@ -171,5 +175,9 @@ function VoiceComposer({ busy, onSend, onVoice, onVoiceError }: ComposerProps) {
 }
 
 export function Composer(props: ComposerProps) {
-  return isDemoMode ? <TextComposer busy={props.busy} onSend={props.onSend} /> : <VoiceComposer {...props} />;
+  return isDemoMode ? (
+    <TextComposer busy={props.busy} onSend={props.onSend} onStop={props.onStop} attach={props.attach} canSendEmpty={props.canSendEmpty} />
+  ) : (
+    <VoiceComposer {...props} />
+  );
 }

@@ -6,7 +6,8 @@
 import { WINDOW_START_HOURS, windowAvailable, type DayOption } from '../schedule';
 import type { DraftCard, DraftSlot } from './types';
 
-export const DESCRIPTION_MAX = 500;
+/** Book screen description limit (the job brief is ≤ ~600 chars plus the problem-chip line). */
+export const DESCRIPTION_MAX = 800;
 
 export interface BookPrefillParams {
   providerServiceId: string;
@@ -27,24 +28,45 @@ export interface BookPrefill {
   addressId: string | null;
 }
 
-const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-
 /**
- * Problem chips first (comma-separated, so the Book screen pre-selects them), then the English description; the
- * customer's own words are kept when they differ (e.g. Hindi/Telugu), so the pro sees both.
+ * Book screen description from a draft: the problem chips on the first line (the Book screen pre-selects them), then
+ * the server-rendered job brief (Issue / Customer reported / Details / AI assessment). Never the last chat message.
  */
-export function composeDescription(d: Pick<DraftCard, 'problem_chips' | 'description_en' | 'description_original'>, max = DESCRIPTION_MAX): string {
-  const chips = d.problem_chips.filter((c) => !same(c, d.description_en));
-  const base = [...chips, d.description_en.trim()].filter(Boolean).join(', ');
-  const original = d.description_original.trim();
-  if (!original || same(original, d.description_en)) return base.slice(0, max);
-  const prefix = `${base}\nCustomer's words: "`;
-  const room = max - prefix.length - 1;
-  if (room < 12) return base.slice(0, max);
-  const quoted = original.length > room ? `${original.slice(0, room - 1)}…` : original;
-  return `${prefix}${quoted}"`;
+export function composeDescription(d: Pick<DraftCard, 'problem_chips' | 'description'>, max = DESCRIPTION_MAX): string {
+  const chips = d.problem_chips.map((c) => c.trim()).filter(Boolean).join(', ');
+  const body = d.description.trim();
+  const text = chips && body ? `${chips}\n${body}` : chips || body;
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+const BRIEF_LINE = /^(Issue|Customer reported|In English|Details|AI assessment|- )/;
+
+/** The first line holds the comma-separated problem chips unless it is already part of a job brief. */
+function chipLine(description: string): { chips: string[]; rest: string[] } {
+  const lines = description.split('\n');
+  const head = lines[0] ?? '';
+  if (BRIEF_LINE.test(head)) return { chips: [], rest: lines };
+  return {
+    chips: head
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean),
+    rest: lines.slice(1),
+  };
+}
+
+export function selectedChips(description: string): Set<string> {
+  return new Set(chipLine(description).chips.map((c) => c.toLowerCase()));
+}
+
+/** Toggles a problem chip on the first line only, so a multi-line job brief is never rewritten or mangled. */
+export function toggleChip(description: string, chip: string, max = DESCRIPTION_MAX): string {
+  const { chips, rest } = chipLine(description);
+  const on = chips.some((c) => c.toLowerCase() === chip.toLowerCase());
+  const next = on ? chips.filter((c) => c.toLowerCase() !== chip.toLowerCase()) : [...chips, chip];
+  const lines = [next.join(', '), ...rest].filter((l, i) => i > 0 || l);
+  return lines.join('\n').slice(0, max);
+}
 export function slotParam(s: DraftSlot): string {
   return s.type === 'asap' ? 'asap' : `${s.date}@${s.start_hour}`;
 }

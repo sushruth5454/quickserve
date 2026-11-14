@@ -8,15 +8,30 @@ export interface ComposerProps {
   onSend: (text: string) => void;
   onVoice: (audio: { data: string; mimeType: string; durationMs: number }) => void;
   onVoiceError: (message: string) => void;
+  /** Microphone permission was refused: the screen shows how to enable it in Settings. */
+  onMicDenied?: () => void;
+  /** Shown instead of Send while the assistant works. */
+  onStop?: () => void;
+  /** Left slot (photo attach button). */
+  attach?: ReactNode;
+  /** A photo is attached, so an empty text can still be sent. */
+  canSendEmpty?: boolean;
 }
 
 export const MAX_MESSAGE = 1000;
 
 /** Text box + send button; `mic` is the voice button slot (native only). */
-export function TextComposer({ busy, onSend, mic }: Pick<ComposerProps, 'busy' | 'onSend'> & { mic?: ReactNode }) {
+export function TextComposer({
+  busy,
+  onSend,
+  mic,
+  onStop,
+  attach,
+  canSendEmpty,
+}: Pick<ComposerProps, 'busy' | 'onSend' | 'onStop' | 'attach' | 'canSendEmpty'> & { mic?: ReactNode }) {
   const t = useTheme();
   const [text, setText] = useState('');
-  const canSend = !!text.trim() && !busy;
+  const canSend = (!!text.trim() || !!canSendEmpty) && !busy;
   const submit = () => {
     if (!canSend) return;
     onSend(text.trim());
@@ -24,6 +39,7 @@ export function TextComposer({ busy, onSend, mic }: Pick<ComposerProps, 'busy' |
   };
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: t.spacing.sm }}>
+      {attach}
       <View
         style={{
           flex: 1,
@@ -62,7 +78,26 @@ export function TextComposer({ busy, onSend, mic }: Pick<ComposerProps, 'busy' |
           }
         />
       </View>
-      {mic && !text.trim() ? (
+      {busy && onStop ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Stop generating"
+          onPress={onStop}
+          hitSlop={4}
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: pressed ? t.colors.surfaceAlt : t.colors.surface,
+            borderWidth: 1.5,
+            borderColor: t.colors.borderStrong,
+          })}
+        >
+          <Ionicons name="stop" size={18} color={t.colors.text} />
+        </Pressable>
+      ) : mic && !text.trim() && !canSendEmpty ? (
         mic
       ) : (
         <Pressable

@@ -8,7 +8,8 @@ import { AddressEditorSheet, addressIcon } from '../../src/components/AddressEdi
 import { skillLabel } from '../../src/components/ProviderCard';
 import { Avatar, Button, Card, Chip, Divider, ErrorState, Header, InlineAlert, PriceRow, Screen, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
 import { createBooking, getProviderService, listMyAddresses, uploadJobPhoto, type ProviderServiceWithProvider } from '../../src/lib/api';
-import { readBookPrefill } from '../../src/lib/assistant/prefill';
+import { track } from '../../src/lib/analytics';
+import { DESCRIPTION_MAX, readBookPrefill, selectedChips, toggleChip } from '../../src/lib/assistant/prefill';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { fromSavedAddress } from '../../src/lib/locationModel';
 import { formatINR, PLATFORM_FEE_PAISE } from '../../src/lib/money';
@@ -16,8 +17,6 @@ import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
 import { dayLabel, firstAvailableDay, nextDays, WINDOW_START_HOURS, windowAvailable, windowLabel, windowStart } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
-
-const DESCRIPTION_MAX = 500;
 
 const QUICK_ISSUES: Record<string, string[]> = {
   'ac-repair': ['Not cooling', 'Water leaking', 'Making noise', 'Bad smell', 'Gas refill', 'Service due'],
@@ -33,11 +32,6 @@ const QUICK_ISSUES: Record<string, string[]> = {
   painter: ['Full home', 'One room', 'Touch-ups', 'Waterproofing'],
 };
 
-const parts = (text: string) =>
-  text
-    .split(',')
-    .map((p) => p.trim())
-    .filter(Boolean);
 
 export default function BookScreen() {
   const t = useTheme();
@@ -100,14 +94,9 @@ export default function BookScreen() {
     if (asset) setPhotos((p) => [...p, { uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' }].slice(0, 4));
   };
 
-  const selectedIssues = new Set(parts(description).map((p) => p.toLowerCase()));
-  const toggleIssue = (q: string) =>
-    setDescription((d) => {
-      const list = parts(d);
-      const on = list.some((p) => p.toLowerCase() === q.toLowerCase());
-      const next = on ? list.filter((p) => p.toLowerCase() !== q.toLowerCase()) : [...list, q];
-      return next.join(', ').slice(0, DESCRIPTION_MAX);
-    });
+  // Chips live on the first line, so an AI job brief below it is never rewritten (src/lib/assistant/prefill.ts).
+  const selectedIssues = selectedChips(description);
+  const toggleIssue = (q: string) => setDescription((d) => toggleChip(d, q));
 
   const hasAddress = !!location.addressId && !!location.line1;
   const scheduledAt = mode === 'asap' ? null : hour != null ? windowStart(day.date, hour) : undefined;
@@ -134,6 +123,7 @@ export default function BookScreen() {
         scheduledAt,
         photos: paths,
       });
+      if (prefill.fromAssistant) track('draft_to_booking_conversion', { category: service.categories?.slug ?? null, edited: description.trim() !== (prefill.description ?? '').trim() });
       const result = await pay(bookingId).catch((e: Error) => {
         toast({ message: e.message, tone: 'error' });
         return 'cancelled' as const;

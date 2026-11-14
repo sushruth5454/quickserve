@@ -20,3 +20,13 @@ export const forceTestLocation = /^(1|true|yes)$/i.test((process.env.EXPO_PUBLIC
 /** QuickServe AI entry points (Home card, category button, /assistant). On unless EXPO_PUBLIC_AI_ASSISTANT=0/false/off.
  * The server has its own kill switch (AI_ASSISTANT_ENABLED); this flag only hides the UI. */
 export const aiAssistantEnabled = !/^(0|false|no|off)$/i.test((process.env.EXPO_PUBLIC_AI_ASSISTANT ?? '').trim());
+
+/**
+ * Human support contacts for the assistant's "Talk to support" handoff. Email defaults to the address already shown in
+ * the app's terms/privacy screens; phone/WhatsApp are shown only when configured (digits only, with country code).
+ */
+export const supportContact = {
+  email: (process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? '').trim() || 'support@quickserve.app',
+  phone: (process.env.EXPO_PUBLIC_SUPPORT_PHONE ?? '').replace(/[^\d+]/g, '') || null,
+  whatsapp: (process.env.EXPO_PUBLIC_SUPPORT_WHATSAPP ?? '').replace(/\D/g, '') || null,
+};

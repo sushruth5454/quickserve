@@ -232,7 +232,7 @@ export function ProvidersCardView({
   );
 }
 
-function DraftRow({ icon, label, value, hint }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; hint?: string }) {
+function DraftRow({ icon, label, value, hint, note }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; hint?: string; note?: string }) {
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'flex-start' }}>
@@ -244,6 +244,11 @@ function DraftRow({ icon, label, value, hint }: { icon: keyof typeof Ionicons.gl
         <Text variant="subhead" color="text">
           {value}
         </Text>
+        {note ? (
+          <Text variant="caption" color="textSecondary">
+            {note}
+          </Text>
+        ) : null}
         {hint ? (
           <Text variant="caption" color="warningText">
             {hint}
@@ -272,7 +277,36 @@ export function DraftCardView({ card, onReview }: { card: DraftCard; onReview: (
         <Badge label="Not booked yet" tone="neutral" />
       </View>
       <Divider />
-      <DraftRow icon="document-text-outline" label="Problem" value={card.description_en} />
+      {card.brief ? (
+        <>
+          <DraftRow icon="construct-outline" label="Issue" value={card.brief.issue_summary} />
+          <DraftRow
+            icon="chatbubble-outline"
+            label="You reported"
+            value={`“${card.brief.customer_reported}”`}
+            note={card.brief.customer_reported_en ? `In English: “${card.brief.customer_reported_en}”` : undefined}
+          />
+          {card.brief.details.length ? (
+            <View style={{ marginLeft: 30, gap: 2 }} accessibilityLabel={`Details: ${card.brief.details.join('. ')}`}>
+              {card.brief.details.map((d) => (
+                <Text key={d} variant="caption" color="textSecondary">
+                  • {d}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+          {card.brief.likely_cause ? (
+            <DraftRow
+              icon="sparkles-outline"
+              label={`AI assessment · ${card.brief.likely_cause_confidence ?? 'low'} confidence`}
+              value={card.brief.likely_cause}
+              note="To be confirmed by the pro on inspection"
+            />
+          ) : null}
+        </>
+      ) : (
+        <DraftRow icon="document-text-outline" label="Problem" value={card.description} />
+      )}
       {card.problem_chips.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 30 }}>
           {card.problem_chips.map((c) => (

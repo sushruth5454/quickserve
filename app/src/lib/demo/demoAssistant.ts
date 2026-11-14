@@ -124,7 +124,19 @@ export async function demoAssistant(req: AssistantRequest): Promise<AssistantRep
   const now = new Date();
   const bookings: Booking[] = await demoApi.listMyBookings().catch(() => []);
   const conversation_id = req.conversationId ?? `demo-${now.getTime()}`;
-  const base = { conversation_id, language: lang, transcript: null, limits: null } as const;
+  const base: Omit<AssistantReply, 'reply_text' | 'quick_replies' | 'cards'> = {
+    conversation_id,
+    message_id: null,
+    request_id: null,
+    language: lang,
+    transcript: null,
+    user_turn: null,
+    handoff: null,
+    stages: [],
+    fallback_used: false,
+    elapsed_ms: null,
+    limits: null,
+  };
 
   const again = AGAIN.test(text);
   let rule = RULES.find((r) => r.re.test(text));
@@ -212,12 +224,24 @@ export async function demoAssistant(req: AssistantRequest): Promise<AssistantRep
   cards.push({ type: 'providers', category_slug: rule.slug, category_name: rule.name, providers: picks });
 
   const pro = picks[0]!;
+  // Demo mode is single-turn and keyword-based, so the brief is the matched problem plus the customer's own words.
+  const brief = {
+    issue_summary: chips.length ? `${rule.name}: ${chips.join(', ')}` : `${rule.name} needed`,
+    customer_reported: text,
+    customer_reported_en: null,
+    details: [],
+    likely_cause: null,
+    likely_cause_confidence: null,
+  };
+  const description = `Issue: ${brief.issue_summary}\nCustomer reported: "${text}"`;
   const draft: DraftCard = {
     type: 'draft',
     category_slug: rule.slug,
     category_name: rule.name,
     provider: { provider_id: pro.provider_id, provider_service_id: pro.provider_service_id, name: pro.name, visit_fee: pro.visit_fee, rating_avg: pro.rating_avg, rating_count: pro.rating_count },
-    description_en: chips.length ? `${chips.join(', ')}. Customer request via QuickServe AI.` : `${rule.name} needed. Customer request via QuickServe AI.`,
+    brief,
+    description,
+    description_en: description,
     description_original: text,
     problem_chips: chips,
     slot: emergency ? { type: 'asap', label: 'As soon as possible' } : slotFromText(text, now),

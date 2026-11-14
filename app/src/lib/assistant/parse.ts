@@ -6,13 +6,20 @@ import type {
   AssistantCard,
   AssistantLanguage,
   AssistantReply,
+  Clarity,
   DiagnosisCard,
   DraftCard,
   DraftSlot,
   EstimateCard,
+  HandoffReason,
+  JobBrief,
   ProviderPick,
   ProvidersCard,
   SafetyCard,
+  StageEvent,
+  StageSummaryItem,
+  Transcription,
+  UserTurn,
 } from './types';
 
 type Obj = Record<string, unknown>;
@@ -123,12 +130,31 @@ export function parseSlot(v: unknown): DraftSlot | null {
   return { type: 'window', date, start_hour: hour, starts_at: str(v.starts_at, 40), label: str(v.label, 60) || date };
 }
 
+const CONFIDENCE = ['low', 'medium', 'high'] as const;
+
+export function parseBrief(v: unknown): JobBrief | null {
+  if (!isObj(v)) return null;
+  const issue = str(v.issue_summary, 160);
+  const reported = str(v.customer_reported, 320);
+  if (!issue || !reported) return null;
+  const cause = strOrNull(v.likely_cause, 160);
+  const conf = CONFIDENCE.find((x) => x === v.likely_cause_confidence) ?? null;
+  return {
+    issue_summary: issue,
+    customer_reported: reported,
+    customer_reported_en: strOrNull(v.customer_reported_en, 320),
+    details: strList(v.details, 6, 120),
+    likely_cause: cause,
+    likely_cause_confidence: cause ? (conf ?? 'low') : null,
+  };
+}
+
 function parseDraft(c: Obj): DraftCard | null {
   const p = isObj(c.provider) ? c.provider : null;
   const slot = parseSlot(c.slot);
   const a = isObj(c.address) ? c.address : null;
   const slug = str(c.category_slug, 40);
-  const desc = str(c.description_en, 500);
+  const desc = str(c.description, 700) || str(c.description_en, 700);
   if (!p || !slot || !a || !slug || !desc) return null;
   const psId = str(p.provider_service_id, 64);
   const fee = int(p.visit_fee);
@@ -145,7 +171,9 @@ function parseDraft(c: Obj): DraftCard | null {
       rating_avg: num(p.rating_avg) ?? 0,
       rating_count: int(p.rating_count) ?? 0,
     },
-    description_en: desc,
+    brief: parseBrief(c.brief),
+    description: desc,
+    description_en: str(c.description_en, 700) || desc,
     description_original: str(c.description_original, 500),
     problem_chips: strList(c.problem_chips, 6, 40),
     slot,
@@ -186,19 +214,81 @@ export function parseAssistantReply(v: unknown): AssistantReply {
     .map(parseCard)
     .filter((c): c is AssistantCard => !!c)
     .sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type));
-  const limits = isObj(o.limits) ? { messages_left: int(o.limits.messages_left) ?? 0, voice_left: int(o.limits.voice_left) ?? 0 } : null;
+  const limits = isObj(o.limits)
+    ? { messages_left: int(o.limits.messages_left) ?? 0, voice_left: int(o.limits.voice_left) ?? 0, photos_left: int(o.limits.photos_left) }
+    : null;
+  const handoff = isObj(o.handoff) && HANDOFF.includes(o.handoff.reason as HandoffReason) ? { reason: o.handoff.reason as HandoffReason } : null;
+  const usage = isObj(o.usage) ? o.usage : {};
   return {
     conversation_id: strOrNull(o.conversation_id, 64),
+    message_id: int(o.message_id),
+    request_id: strOrNull(o.request_id, 64),
     reply_text: str(o.reply_text, 1200) || (cards.length ? '' : 'Sorry, something went wrong. Please try again.'),
     language: LANGS.includes(o.language as AssistantLanguage) ? (o.language as AssistantLanguage) : 'en',
     quick_replies: strList(o.quick_replies, 4, 40),
     cards,
+    handoff,
+    user_turn: parseUserTurn(o.user_turn, o.transcript),
     transcript: strOrNull(o.transcript, 800),
+    stages: parseStageSummary(o.stages),
+    fallback_used: o.fallback_used === true,
+    elapsed_ms: int(usage.ms),
     limits,
   };
 }
 
-export type AssistantErrorKind = 'offline' | 'retry' | 'limited' | 'disabled' | 'auth' | 'input';
+const HANDOFF: HandoffReason[] = ['safety', 'low_confidence', 'frustrated', 'asked_human'];
+
+function parseUserTurn(v: unknown, legacyTranscript: unknown): UserTurn | null {
+  if (isObj(v)) {
+    return {
+      voice: v.voice === true,
+      transcript_original: strOrNull(v.transcript_original, 800),
+      transcript_en: strOrNull(v.transcript_en, 800),
+      photo: v.photo === true,
+    };
+  }
+  const t = strOrNull(legacyTranscript, 800);
+  return t ? { voice: true, transcript_original: t, transcript_en: null, photo: false } : null;
+}
+
+function parseStageSummary(v: unknown): StageSummaryItem[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter(isObj)
+    .map((s) => ({ key: str(s.key, 30), ms: int(s.ms) ?? 0, ok: s.ok !== false }))
+    .filter((s) => !!s.key)
+    .slice(0, 30);
+}
+
+/** One streamed progress event; anything malformed is ignored rather than shown. */
+export function parseStageEvent(v: unknown): StageEvent | null {
+  if (!isObj(v) || v.type !== 'stage') return null;
+  const key = str(v.key, 30);
+  const status = v.status === 'active' || v.status === 'done' || v.status === 'failed' ? v.status : null;
+  if (!key || !status) return null;
+  return { key, label: str(v.label, 80), status, t: int(v.t) ?? 0, ms: int(v.ms) };
+}
+
+const CLARITY: Clarity[] = ['clear', 'partial', 'unclear'];
+
+/** Voice preview: an empty transcript is always "unclear", whatever the server said. */
+export function parseTranscription(v: unknown): Transcription {
+  const o = isObj(v) ? v : {};
+  const original = str(o.transcript_original, 800);
+  const clarity = original ? (CLARITY.includes(o.clarity as Clarity) ? (o.clarity as Clarity) : 'partial') : 'unclear';
+  const en = str(o.transcript_en, 800);
+  return {
+    request_id: strOrNull(o.request_id, 64),
+    transcript_original: original,
+    transcript_en: en && en.toLowerCase() !== original.toLowerCase() ? en : null,
+    language: LANGS.includes(o.language as AssistantLanguage) ? (o.language as AssistantLanguage) : 'other',
+    clarity,
+    voice_left: isObj(o.limits) ? int(o.limits.voice_left) : null,
+  };
+}
+
+export type AssistantErrorKind = 'offline' | 'retry' | 'limited' | 'disabled' | 'auth' | 'input' | 'stopped';
 
 export interface MappedAssistantError {
   message: string;
@@ -207,9 +297,9 @@ export interface MappedAssistantError {
   requestId: string | null;
 }
 
-const LIMITED = ['rate_limited', 'voice_limited', 'slow_down'];
-const DISABLED = ['ai_disabled', 'not_configured', 'voice_disabled', 'origin_not_allowed'];
-const INPUT = ['too_long', 'bad_audio', 'audio_too_long', 'empty', 'too_large', 'bad_request'];
+const LIMITED = ['rate_limited', 'voice_limited', 'photo_limited', 'slow_down'];
+const DISABLED = ['ai_disabled', 'not_configured', 'voice_disabled', 'photos_disabled', 'origin_not_allowed'];
+const INPUT = ['too_long', 'bad_audio', 'audio_too_long', 'bad_image', 'image_too_large', 'empty', 'too_large', 'bad_request'];
 
 /**
  * Turns a failed call into what the chat shows: a friendly message and what the user can do next
@@ -220,6 +310,7 @@ export function mapAssistantError(status: number | null, body: unknown): MappedA
   const code = str(o.code, 40) || (status == null ? 'network' : status === 401 ? 'unauthorized' : status === 429 ? 'rate_limited' : status >= 500 ? 'ai_unavailable' : 'internal');
   const requestId = strOrNull(o.request_id, 64);
   const server = str(o.error, 300);
+  if (code === 'aborted') return { message: 'Stopped.', code, kind: 'stopped', requestId };
   if (status == null || code === 'network') {
     return { message: "You're offline or the connection dropped. Check your internet and try again.", code: 'network', kind: 'offline', requestId };
   }

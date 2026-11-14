@@ -196,12 +196,23 @@ await step('assistant-open-from-home', async () => {
   await page.waitForURL(/\/assistant$/);
   await visible('QuickServe AI');
   await page.getByLabel('Message QuickServe AI').first().waitFor();
+  // A recent conversation is resumed automatically; start fresh so old cards can't satisfy the checks below.
+  await page.waitForTimeout(2500);
+  if (await page.getByText('Continuing your last chat').count()) {
+    await page.getByLabel('New chat').first().click();
+    await page.getByText('Continuing your last chat').first().waitFor({ state: 'detached' });
+  }
 });
 await step('assistant-draft-card', async () => {
   await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
   await page.getByLabel('Send message').first().click();
+  // Live progress from real server work (first stage is the model call), then the collapsed summary.
+  await page.getByText(/Understanding your request|Switching to a backup AI model|Working on it/).first().waitFor({ timeout: 30000 });
   await page.getByText('Review & pay', { exact: true }).first().waitFor({ timeout: 120000 });
   await page.getByText('Booking draft', { exact: true }).first().waitFor();
+  await page.getByText(/^Done in \d+\.\ds · \d+ steps?$/).first().waitFor();
+  await page.getByText('Issue', { exact: true }).first().waitFor();
+  await page.getByText('You reported', { exact: true }).first().waitFor();
 });
 await optional('assistant-draft-scrolled', () => snapScrolled('assistant-draft-scrolled', 600));
 await step('assistant-review-prefills-book', async () => {
@@ -210,6 +221,9 @@ await step('assistant-review-prefills-book', async () => {
   await page.getByText(/^Pre-filled by QuickServe AI/).first().waitFor();
   const desc = await page.getByLabel('Describe the problem').first().inputValue();
   if (!/cool|AC/i.test(desc)) throw new Error(`description not pre-filled: "${desc}"`);
+  // Job brief for the pro, not the customer's raw last message; time preferences live in the slot, not the text.
+  if (!/^Issue: /m.test(desc) || !/Customer reported: "/.test(desc)) throw new Error(`description is not a job brief: "${desc}"`);
+  if (/tomorrow evening/i.test(desc.split('\n').find((l) => l.startsWith('Issue:')) ?? '')) throw new Error(`issue line holds the time preference: "${desc}"`);
   await page.getByText(/arrives .* between 6–8 pm/).first().waitFor();
 });
 await step('bookings-active', async () => {
