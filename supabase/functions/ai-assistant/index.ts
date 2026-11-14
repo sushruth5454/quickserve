@@ -562,13 +562,17 @@ Deno.serve(async (req) => {
     let state = newState();
     let lastErr: GeminiError | null = null;
     const usageTotal = { input: 0, output: 0, calls: 0 };
+    const attempts: { model: string; ms: number; error?: string }[] = [];
     for (const model of MODELS) {
       if (deadline - Date.now() < 4000) break;
       state = newState();
+      const t0 = Date.now();
       try {
         result = await runAgent(model, ctx, state, system, contents, apiKey, deadline);
+        attempts.push({ model, ms: Date.now() - t0 });
         break;
       } catch (e) {
+        attempts.push({ model, ms: Date.now() - t0, error: e instanceof GeminiError ? e.message.slice(0, 160) : 'internal' });
         usageTotal.input += state.usage.input;
         usageTotal.output += state.usage.output;
         usageTotal.calls += state.usage.calls;
@@ -584,7 +588,7 @@ Deno.serve(async (req) => {
         conversation_id: conversationId,
         user_id: uid,
         role: "error",
-        payload: { request_id: requestId, error: (lastErr?.message ?? "unknown").slice(0, 300) },
+        payload: { request_id: requestId, error: (lastErr?.message ?? "unknown").slice(0, 300), attempts },
       });
       console.error(`[ai-assistant ${requestId}] all models failed: ${lastErr?.message}`);
       throw new HttpError(
@@ -612,7 +616,7 @@ Deno.serve(async (req) => {
         user_id: uid,
         role: "assistant",
         content: replyText,
-        payload: { request_id: requestId, language, quick_replies: quickReplies, cards, transcript, summary: summarize(cards), tools: state.tools, calls: usageTotal.calls },
+        payload: { request_id: requestId, language, quick_replies: quickReplies, cards, transcript, summary: summarize(cards), tools: state.tools, calls: usageTotal.calls, attempts },
         model: result.model,
         input_tokens: usageTotal.input,
         output_tokens: usageTotal.output,
@@ -635,6 +639,7 @@ Deno.serve(async (req) => {
       transcript,
       model: result.model,
       fallback_used: result.model === FALLBACK_MODEL,
+      attempts: attempts.map((a) => ({ model: a.model, ms: a.ms, ...(a.error ? { error: a.error.split(':')[0] } : {}) })),
       usage: { input_tokens: usageTotal.input, output_tokens: usageTotal.output, model_calls: usageTotal.calls, ms: Date.now() - started },
       limits: { messages_left: Math.max(0, DAILY_MESSAGE_LIMIT - usedAll - 1), voice_left: Math.max(0, DAILY_VOICE_LIMIT - usedVoice - (audio ? 1 : 0)) },
     });
