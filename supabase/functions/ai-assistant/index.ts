@@ -7,6 +7,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { decodeBase64, encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { allRejected, type AttemptRecord, runAgent, withFallback } from "./agent.ts";
+import { buildJobBrief, renderBrief } from "./brief.ts";
 import { type AiConfig, attemptPlan, corsFor, loadConfig } from "./config.ts";
 import { AbortedError, type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
 import { type ImageMime, ImageFormatError, sniffImage, stripImageMetadata } from "./image.ts";
@@ -88,6 +89,12 @@ interface Ctx {
   history: PastBooking[];
   location: { area: string; city: string; lat: number; lng: number } | null;
   address: DraftCard["address"] | null;
+  /** This conversation's customer messages, oldest first (redacted), for the job brief. */
+  customerTexts: string[];
+  lastUserText: string;
+  /** False when the current turn is a raw voice clip (its words are only known to the model). */
+  textsComplete: boolean;
+  hasPhoto: boolean;
 }
 
 interface State {
@@ -174,8 +181,10 @@ async function draftBooking(ctx: Ctx, state: State, args: Record<string, unknown
   if (!slug) return { error: "Unknown category_slug." };
   const psId = typeof args.provider_service_id === "string" && UUID.test(args.provider_service_id) ? args.provider_service_id : null;
   if (!psId) return { error: "provider_service_id must be one returned by search_providers or the history." };
-  const description = clampText(redactPII(String(args.description_en ?? "")), 250);
-  if (!description) return { error: "description_en is required." };
+  // The provider's job brief comes from the whole conversation, never just the last message (brief.ts).
+  const built = buildJobBrief(args, { customerTexts: ctx.customerTexts, lastUserText: ctx.lastUserText, textsComplete: ctx.textsComplete, hasPhoto: ctx.hasPhoto });
+  if ("error" in built) return { error: built.error };
+  const description = renderBrief(built.brief);
   const { data } = await ctx.userClient
     .from("provider_services")
     .select("id, provider_id, visit_fee, active, categories(slug, name), providers(kyc_status, suspended, rating_avg, rating_count, profiles(full_name))")
@@ -197,8 +206,11 @@ async function draftBooking(ctx: Ctx, state: State, args: Record<string, unknown
       rating_avg: Math.round(Number(row.providers?.rating_avg ?? 0) * 10) / 10,
       rating_count: row.providers?.rating_count ?? 0,
     },
+    brief: built.brief,
+    description,
+    // v1 clients read these two fields.
     description_en: description,
-    description_original: clampText(redactPII(String(args.description_original ?? "")), 300),
+    description_original: built.brief.customer_reported,
     problem_chips: filterChips(slug, args.problem_chips),
     slot,
     address: ctx.address,
@@ -209,6 +221,7 @@ async function draftBooking(ctx: Ctx, state: State, args: Record<string, unknown
     result: {
       ok: true,
       pro: draft.provider.name,
+      issue: built.brief.issue_summary,
       visit_fee_rupees: draft.provider.visit_fee / 100,
       slot: slot.label,
       ...(slot.adjusted ? { slot_note: `Adjusted (${slot.adjusted}); tell the customer the slot shown.` } : {}),
@@ -493,7 +506,7 @@ async function prepareChat(cfg: AiConfig, auth: Auth, body: Json, apiKey: string
     if (error) throw error;
     conversationId = data.id as string;
   }
-  const [cats, history, addrs, prior] = await Promise.all([
+  const [cats, history, addrs, prior, customerRows] = await Promise.all([
     userClient.from("categories").select("slug, name").eq("active", true).order("sort_order"),
     loadHistory(userClient, uid),
     userClient.from("addresses").select("id, label, line1, city, lat, lng, is_default, created_at").eq("user_id", uid).neq("label", "Booking").order("created_at"),
@@ -507,8 +520,19 @@ async function prepareChat(cfg: AiConfig, auth: Auth, body: Json, apiKey: string
           .order("created_at", { ascending: false })
           .limit(cfg.historyRows)
       : Promise.resolve({ data: [] }),
+    // Every customer message of this conversation (not just the model's recent window), for the provider job brief.
+    admin
+      .from("ai_messages")
+      .select("content, payload")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", uid)
+      .eq("role", "user")
+      .order("created_at", { ascending: true })
+      .limit(40),
   ]);
   if (cats.error) throw cats.error;
+  const earlier = (customerRows.data ?? []) as { content: string; payload: Json | null }[];
+  const customerTexts = [...earlier.map((r) => r.content), text].filter((c) => c && c !== "(photo)" && c !== "(voice message)");
   const saved = (addrs.data ?? []) as { id: string; label: string; line1: string; city: string; lat: number; lng: number; is_default: boolean }[];
   const chosen = typeof loc.address_id === "string" ? saved.find((a) => a.id === loc.address_id) : undefined;
   const fallbackAddr = saved.find((a) => a.is_default) ?? null;
@@ -535,6 +559,10 @@ async function prepareChat(cfg: AiConfig, auth: Auth, body: Json, apiKey: string
       : location
         ? { address_id: null, label: null, area: location.area, city: location.city, needs_full_address: true }
         : null,
+    customerTexts,
+    lastUserText: text,
+    textsComplete: !audio,
+    hasPhoto: !!image || earlier.some((r) => !!obj(r.payload)?.photo),
   };
 
   // ---- photo: stored (metadata-stripped) in the owner's private folder; old photos purged per retention ----

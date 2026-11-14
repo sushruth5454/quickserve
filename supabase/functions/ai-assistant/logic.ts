@@ -1,6 +1,7 @@
 // Pure helpers for the AI assistant (no I/O, unit-tested in logic_test.ts): marketplace time, slot validation, PII
 // redaction, provider ranking, service validation and card assembly from tool results + the model's final answer.
 import { claimsBooking, draftReadyText } from "./policies/booking.ts";
+import type { JobBrief } from "./brief.ts";
 import { CONFIDENCE_LEVELS } from "./policies/diagnosis.ts";
 import { type HandoffReason, handoffReason, quickRepliesFor } from "./policies/handoff.ts";
 import { detectLanguage, type Language, LANGUAGES } from "./policies/language.ts";
@@ -371,6 +372,10 @@ export interface DraftCard {
   category_slug: string;
   category_name: string;
   provider: { provider_id: string; provider_service_id: string; name: string; visit_fee: number; rating_avg: number; rating_count: number };
+  /** Structured job brief for the pro (brief.ts) and its deterministic rendering. */
+  brief: JobBrief;
+  description: string;
+  /** v1 compatibility: same as `description` / the customer's own report. */
   description_en: string;
   description_original: string;
   problem_chips: string[];
@@ -569,7 +574,7 @@ export function summarize(cards: Record<string, unknown>[]): string {
   for (const c of cards) {
     if (c.type === "draft") {
       const d = c as unknown as DraftCard;
-      bits.push(`draft ${d.category_name} with ${d.provider.name} [provider_service_id ${d.provider.provider_service_id}], ${d.slot.label}, "${d.description_en}"`);
+      bits.push(`draft ${d.category_name} with ${d.provider.name} [provider_service_id ${d.provider.provider_service_id}], ${d.slot.label}, issue: "${d.brief?.issue_summary ?? d.description_en}"`);
     } else if (c.type === "providers") {
       bits.push(`pros: ${(c.providers as ProviderPick[]).map((p) => `${p.name} [${p.provider_service_id}]`).join(", ")}`);
     } else bits.push(String(c.type));

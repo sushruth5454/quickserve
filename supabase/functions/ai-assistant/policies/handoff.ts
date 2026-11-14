@@ -84,10 +84,12 @@ export function quickRepliesFor(
   const l = s.language === "hi" ? "hi" : s.language === "te" ? "te" : "en";
   const c = CONTEXT_CHIPS[l];
   const derived = s.hasDraft ? [c.time, c.others] : s.hasProviders ? [c.cheaper] : s.nothingFound ? [c.describe] : [];
+  // "Change time" and "Change the time" are the same chip.
+  const key = (t: string) => t.toLowerCase().replace(/\b(the|a|an|my)\b/g, "").replace(/[^\p{L}\p{M}\p{N}]+/gu, "");
   const out: string[] = [];
   for (const chip of [...modelChips, ...derived]) {
     const t = chip.trim();
-    if (!t || isActionChip(t) || out.some((o) => o.toLowerCase() === t.toLowerCase())) continue;
+    if (!t || isActionChip(t) || out.some((o) => key(o) === key(t))) continue;
     out.push(t);
     if (out.length === 4) break;
   }

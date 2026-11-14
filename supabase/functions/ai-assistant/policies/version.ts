@@ -1,9 +1,15 @@
 // Versioning for the assistant's skills/policies. Bump POLICY_VERSION on ANY change to a file in policies/ and add a
 // changelog line; the version is stored on every assistant message (ai_messages.payload.policy_version) for audit.
 
-export const POLICY_VERSION = "2026.11.14-4";
+export const POLICY_VERSION = "2026.11.14-5";
 
 export const CHANGELOG: { version: string; summary: string }[] = [
+  {
+    version: "2026.11.14-5",
+    summary:
+      "BOOKING: structured JOB BRIEF for the pro (issue_summary, customer_reported(+_en), details, likely_cause) from the WHOLE conversation; " +
+      "never the last reply; times only in slot fields; brief PII rules. Server validates/repairs and renders the description (brief.ts).",
+  },
   {
     version: "2026.11.14-4",
     summary:

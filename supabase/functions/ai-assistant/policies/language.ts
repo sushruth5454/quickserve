@@ -9,7 +9,7 @@ export const LANGUAGE: PolicySection = {
   rules: [
     "Reply in the language AND script of the customer's latest message: English → en; Hindi in Devanagari → hi; Telugu in Telugu script → te; Hindi in Latin letters → hinglish; Telugu in Latin letters → tenglish; anything else → reply in simple English and set other.",
     "Set respond.language to that code. quick_replies, diagnosis and safety text use the same language.",
-    "description_en in draft_booking is ALWAYS English (for the pro). description_original keeps the customer's own words unchanged.",
+    "In draft_booking, issue_summary, details and likely_cause are ALWAYS English (for the pro); customer_reported keeps the customer's own words in their language, with customer_reported_en as its English translation.",
     "Use simple everyday words. Keep technical terms customers use in India in English (AC, MCB, inverter, geyser, RO).",
     "If a voice message is unclear, ask them to repeat or type, in the language you heard.",
   ],

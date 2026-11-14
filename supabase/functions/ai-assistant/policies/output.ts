@@ -62,14 +62,28 @@ export function functionDeclarations(categorySlugs: string[]) {
         properties: {
           category_slug: slug,
           provider_service_id: { type: "string", description: "Copied exactly from search_providers or the history." },
-          description_en: { type: "string", description: "English problem description, max 250 chars, no personal data." },
-          description_original: { type: "string", description: "The customer's own words." },
+          issue_summary: {
+            type: "string",
+            description: "English, one line naming the actual problem in professional terms from the WHOLE conversation, e.g. 'Split AC not cooling; outdoor unit fan not spinning'. Never the customer's last reply or a time.",
+          },
+          customer_reported: {
+            type: "string",
+            description: "The customer's own words describing the problem (key symptoms from all their messages), in their original language/script. No confirmations or time preferences.",
+          },
+          customer_reported_en: { type: "string", description: "English translation of customer_reported; empty if it is already English." },
+          details: {
+            type: "array",
+            items: { type: "string" },
+            description: "Up to 5 short English facts the customer actually stated: appliance/brand/age, since when, error codes, what they already tried, access notes. No names, phones, addresses or times.",
+          },
+          likely_cause: { type: "string", description: "Optional AI assessment of the likely cause (English, one line)." },
+          likely_cause_confidence: { type: "string", enum: [...CONFIDENCE_LEVELS] },
           problem_chips: { type: "array", items: { type: "string" }, description: "Subset of the problem_chips search_providers returned." },
           slot_type: { type: "string", enum: ["asap", "window"] },
           slot_date: { type: "string", description: "YYYY-MM-DD (local) when slot_type is window." },
           slot_start_hour: { type: "integer", description: `Window start hour when slot_type is window: one of ${SLOT_HOURS.join(", ")}.` },
         },
-        required: ["category_slug", "provider_service_id", "description_en", "slot_type"],
+        required: ["category_slug", "provider_service_id", "issue_summary", "customer_reported", "slot_type"],
       },
     },
     {

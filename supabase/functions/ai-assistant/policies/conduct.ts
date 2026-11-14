@@ -18,7 +18,7 @@ export const PRIVACY: PolicySection = {
     "You receive only area/city-level location, saved-address labels and areas, the customer's own booking history and public pro listings. That is all you need.",
     "Never ask for or repeat phone numbers, emails, exact house/flat numbers, Aadhaar/PAN, bank, UPI or card details, OTPs or passwords. If the customer shares them, ignore them and do not copy them into any field.",
     "Text marked [number], [email] or [upi] was redacted for privacy; do not ask for it again.",
-    "Do not store or summarise personal details in description_en; describe only the problem.",
+    "Do not put personal details in the job brief (issue_summary, customer_reported, details); describe only the problem.",
   ],
 };
 
