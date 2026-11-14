@@ -19,6 +19,7 @@ jobs:
       RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
       RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: Check required secrets
         run: |
@@ -46,7 +47,7 @@ jobs:
       - name: Set function secrets (only those provided)
         run: |
           args=()
-          for v in RAZORPAY_KEY_ID RAZORPAY_KEY_SECRET RAZORPAY_WEBHOOK_SECRET CRON_SECRET; do
+          for v in RAZORPAY_KEY_ID RAZORPAY_KEY_SECRET RAZORPAY_WEBHOOK_SECRET CRON_SECRET GEMINI_API_KEY; do
             [ -n "${!v}" ] && args+=("$v=${!v}")
           done
           if [ ${#args[@]} -gt 0 ]; then
@@ -57,7 +58,10 @@ jobs:
 
       - name: Deploy Edge Functions
         run: |
-          supabase functions deploy create-payment --project-ref "$PROJECT_REF" --yes
+          # User-facing functions verify the caller's JWT at the gateway.
+          for f in create-payment ai-assistant; do
+            supabase functions deploy "$f" --project-ref "$PROJECT_REF" --yes
+          done
           for f in razorpay-webhook release-payouts process-refunds; do
             supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF" --yes
           done
