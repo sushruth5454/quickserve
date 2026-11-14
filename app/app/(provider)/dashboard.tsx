@@ -8,7 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { StatusPill } from '../../src/components/status';
-import { BottomSheet, Button, Card, Divider, ErrorState, IconButton, InlineAlert, LIST_INSET, Screen, Section, SkeletonCard, Text, TextArea, useToast } from '../../src/components/ui';
+import { ChatButton, UnreadMessagesRow } from '../../src/components/UnreadChat';
+import { BottomSheet, Button, Card, CountBadge, Divider, ErrorState, IconButton, InlineAlert, LIST_INSET, Screen, Section, SkeletonCard, Text, TextArea, useToast } from '../../src/components/ui';
 import {
   acceptBooking,
   declineBooking,
@@ -26,7 +27,10 @@ import { haptics } from '../../src/lib/haptics';
 import { commissionRateBp, formatINR, settleVisitOnly } from '../../src/lib/money';
 import { pct, providerStats } from '../../src/lib/providerInsights';
 import { bookingRef, scheduleLabel } from '../../src/lib/schedule';
+import { useAuth } from '../../src/lib/auth';
+import { registerForPush } from '../../src/lib/push';
 import type { BookingStatus, Category, Payout, Provider, ProviderJob } from '../../src/lib/types';
+import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 
 /** Active statuses in the order a pro should look at them (most time-critical first). */
@@ -77,6 +81,9 @@ export default function ProviderDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [declining, setDeclining] = useState<ProviderJob | null>(null);
+  const { userId } = useAuth();
+  const unread = useUnread();
+  const refreshUnread = unread.refresh;
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -110,7 +117,8 @@ export default function ProviderDashboard() {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+    void refreshUnread();
+  }, [refreshUnread]);
 
   useFocusEffect(
     useCallback(() => {
@@ -124,6 +132,8 @@ export default function ProviderDashboard() {
     try {
       await setOnline(value);
       toast({ message: value ? "You're online — new requests will reach you" : "You're offline", tone: value ? 'success' : 'default' });
+      // Going online is when a pro wants to hear about new requests: ask for notification permission here.
+      if (value && userId) void registerForPush(userId, { prompt: true });
     } catch (e) {
       setError((e as Error).message);
       setProvider((p) => (p ? { ...p, is_online: !value } : p));
@@ -239,6 +249,7 @@ export default function ProviderDashboard() {
                 now={now}
                 minEarning={settleVisitOnly({ visitFee: j.visit_fee, rateBp }).payout}
                 busy={busyId === j.booking_id}
+                unread={unread.countFor(j.booking_id)}
                 onAccept={() => void act(j.booking_id, () => acceptBooking(j.booking_id), 'Accepted! Start your trip when ready.')}
                 onDecline={() => setDeclining(j)}
               />
@@ -255,7 +266,7 @@ export default function ProviderDashboard() {
               icon={iconFor(next.category_name)}
               busy={busyId === next.booking_id}
               onPrimary={() => primaryAction(next)}
-              onChat={() => router.push({ pathname: '/chat/[bookingId]', params: { bookingId: next.booking_id } })}
+              unread={unread.countFor(next.booking_id)}
               onNavigate={
                 next.lat != null && next.lng != null
                   ? () =>
@@ -304,6 +315,7 @@ export default function ProviderDashboard() {
                         Next: {NEXT_STEP[j.status]?.label ?? '—'}
                       </Text>
                     </View>
+                    <CountBadge count={unread.countFor(j.booking_id)} />
                     <StatusPill status={j.status} />
                   </Pressable>
                 </View>
@@ -484,6 +496,7 @@ function RequestCard(props: {
   now: number;
   minEarning: number;
   busy: boolean;
+  unread: number;
   onAccept: () => void;
   onDecline: () => void;
 }) {
@@ -509,6 +522,7 @@ function RequestCard(props: {
         <Text variant="callout" color="textSecondary" numberOfLines={2}>
           {j.description || 'No description'}
         </Text>
+        <UnreadMessagesRow bookingId={j.booking_id} count={props.unread} />
         {props.photos.length ? (
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
             {props.photos.slice(0, 4).map((u) => (
@@ -558,7 +572,7 @@ function NextJobCard(props: {
   icon: string | undefined;
   busy: boolean;
   onPrimary: () => void;
-  onChat: () => void;
+  unread: number;
   onNavigate: (() => void) | null;
 }) {
   const t = useTheme();
@@ -577,7 +591,7 @@ function NextJobCard(props: {
           </Text>
         </View>
         {props.onNavigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Navigate" onPress={props.onNavigate} /> : null}
-        <IconButton icon="chatbubble-ellipses-outline" variant="tonal" accessibilityLabel="Chat with customer" onPress={props.onChat} />
+        <ChatButton bookingId={j.booking_id} count={props.unread} accessibilityLabel="Chat with customer" />
       </View>
       <View style={{ gap: t.spacing.sm }}>
         <StatusPill status={j.status} />

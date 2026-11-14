@@ -23,6 +23,7 @@ import type {
   SearchFilters,
   SkillLevel,
 } from './types';
+import type { UnreadCount } from './unread';
 
 export interface Coords {
   lat: number;
@@ -73,6 +74,15 @@ export interface CreateBookingInput {
   scheduledAt: Date | null;
   photos: string[];
 }
+
+export interface ChatReadState {
+  /** When the signed-in user last read this chat (null: never). */
+  my_last_read_at: string | null;
+  /** When the other participant last read it, for "Seen". */
+  other_last_read_at: string | null;
+}
+
+export type PushPlatform = 'ios' | 'android' | 'web';
 
 export interface PaymentLinkResponse {
   short_url: string;
@@ -163,4 +173,14 @@ export interface Api {
   sendMessage(bookingId: string, body: string): Promise<void>;
   subscribeToMessages(bookingId: string, onMessage: (m: Message) => void): () => void;
   subscribeToBooking(bookingId: string, onChange: () => void): () => void;
+  /** Every new message in any of the user's chats (RLS-scoped), for unread badges. */
+  subscribeToMyMessages(onMessage: (m: Message) => void): () => void;
+  // read state & push
+  /** Unread messages per booking for the signed-in user (only bookings with unread > 0). */
+  getUnreadCounts(): Promise<UnreadCount[]>;
+  /** Marks the chat read. viewing: true while open and focused (suppresses pushes), false when leaving. */
+  markChatRead(bookingId: string, viewing?: boolean | null): Promise<void>;
+  getChatReadState(bookingId: string): Promise<ChatReadState>;
+  registerPushDevice(token: string, platform: PushPlatform): Promise<void>;
+  unregisterPushDevice(token: string): Promise<void>;
 }

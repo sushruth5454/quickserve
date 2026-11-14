@@ -12,7 +12,34 @@ import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/compone
 import { AuthProvider, useAuth } from '../src/lib/auth';
 import { LocationProvider } from '../src/lib/locationContext';
 import { PaymentProvider } from '../src/lib/payments';
+import { configureForegroundHandling, registerForPush, resetPushRegistration, setAppBadge, useNotificationRouting } from '../src/lib/push';
+import { UnreadProvider, useUnread } from '../src/lib/unreadContext';
 import { ThemeProvider, useTheme } from '../src/theme';
+
+/** Push plumbing: foreground filter, silent token refresh, tap-to-open routing and the app icon badge. */
+function NotificationsBridge({ ready }: { ready: boolean }) {
+  const { userId } = useAuth();
+  const { activeChat, total } = useUnread();
+  const unreadTotal = total();
+
+  useEffect(() => {
+    configureForegroundHandling(activeChat);
+  }, [activeChat]);
+
+  useEffect(() => {
+    // Only refreshes the token when permission was granted before; the prompt is shown at meaningful moments.
+    if (userId) void registerForPush(userId, { prompt: false });
+    else resetPushRegistration();
+  }, [userId]);
+
+  useNotificationRouting(ready);
+
+  useEffect(() => {
+    void setAppBadge(unreadTotal);
+  }, [unreadTotal]);
+
+  return null;
+}
 
 function RootNavigator() {
   const { session, loading, choosingRole } = useAuth();
@@ -31,33 +58,36 @@ function RootNavigator() {
 
   if (loading) return <FullScreenLoader />;
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: t.colors.bg },
-        animation: 'slide_from_right',
-      }}
-    >
-      <Stack.Protected guard={!signedIn || choosingRole}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-      <Stack.Protected guard={signedIn && !choosingRole}>
-        <Stack.Screen name="(customer)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(provider)" options={{ animation: 'fade' }} />
-        <Stack.Screen name="category/[slug]" />
-        <Stack.Screen name="provider/[id]" />
-        <Stack.Screen name="book/[providerServiceId]" />
-        <Stack.Screen name="booking/[id]" />
-        <Stack.Screen name="chat/[bookingId]" />
-        <Stack.Screen name="quote/[bookingId]" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="jobs" />
-        <Stack.Screen name="top-rated" />
-        <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="assistant" />
-      </Stack.Protected>
-      <Stack.Screen name="info/[topic]" />
-    </Stack>
+    <>
+      <NotificationsBridge ready={signedIn && !choosingRole} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: t.colors.bg },
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Protected guard={!signedIn || choosingRole}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Protected guard={signedIn && !choosingRole}>
+          <Stack.Screen name="(customer)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="(provider)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="category/[slug]" />
+          <Stack.Screen name="provider/[id]" />
+          <Stack.Screen name="book/[providerServiceId]" />
+          <Stack.Screen name="booking/[id]" />
+          <Stack.Screen name="chat/[bookingId]" />
+          <Stack.Screen name="quote/[bookingId]" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="jobs" />
+          <Stack.Screen name="top-rated" />
+          <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="assistant" />
+        </Stack.Protected>
+        <Stack.Screen name="info/[topic]" />
+      </Stack>
+    </>
   );
 }
 
@@ -67,12 +97,14 @@ function ThemedApp() {
     <ToastProvider>
       <ConfirmProvider>
         <AuthProvider>
-          <LocationProvider>
-            <PaymentProvider>
-              <StatusBar style={t.dark ? 'light' : 'dark'} />
-              <RootNavigator />
-            </PaymentProvider>
-          </LocationProvider>
+          <UnreadProvider>
+            <LocationProvider>
+              <PaymentProvider>
+                <StatusBar style={t.dark ? 'light' : 'dark'} />
+                <RootNavigator />
+              </PaymentProvider>
+            </LocationProvider>
+          </UnreadProvider>
         </AuthProvider>
       </ConfirmProvider>
     </ToastProvider>

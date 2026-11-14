@@ -3,6 +3,7 @@ export { Badge, Chip, Dot, toneColors, type Tone } from './Badge';
 export { BottomSheet } from './BottomSheet';
 export { Button, type ButtonProps, type ButtonVariant, type IconName } from './Button';
 export { Card } from './Card';
+export { CountBadge } from './CountBadge';
 export { Divider } from './Divider';
 export { EmptyState, ErrorState, InlineAlert } from './EmptyState';
 export { IconButton } from './IconButton';

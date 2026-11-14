@@ -7,6 +7,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { QuoteView } from '../../src/components/QuoteView';
 import { statusLabel } from '../../src/components/status';
 import { StatusHero, type HeroCopy } from '../../src/components/StatusHero';
+import { ChatButton } from '../../src/components/UnreadChat';
 import {
   Avatar,
   Badge,
@@ -38,8 +39,10 @@ import { haptics } from '../../src/lib/haptics';
 import { amountDue, formatINR } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
+import { registerForPush } from '../../src/lib/push';
 import { bookingRef, dayLabel, scheduleLabel } from '../../src/lib/schedule';
 import type { Booking, BookingAddress, BookingEvent, BookingOtps, Payment, PaymentStatus, Quote, Review, ReviewInput } from '../../src/lib/types';
+import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 
 interface Data {
@@ -74,6 +77,7 @@ export default function BookingDetail() {
   const startPayment = usePayment();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { userId } = useAuth();
+  const unread = useUnread();
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -113,6 +117,12 @@ export default function BookingDetail() {
     if (!id) return;
     return api.subscribeToBooking(id, () => void load());
   }, [id, load]);
+
+  // A live booking is the moment updates matter (acceptance, quotes, chat): ask for notification permission once.
+  const liveBooking = !!data && !['pending_payment', 'declined', 'expired', 'cancelled', 'closed', 'refunded'].includes(data.booking.status);
+  useEffect(() => {
+    if (liveBooking && userId) void registerForPush(userId, { prompt: true });
+  }, [liveBooking, userId]);
 
   const run = useCallback(
     async (fn: () => Promise<unknown>, success?: string) => {
@@ -235,7 +245,6 @@ export default function BookingDetail() {
 
   const openEditor = (changeOrder: boolean) =>
     router.push({ pathname: '/quote/[bookingId]', params: { bookingId: booking.id, changeOrder: changeOrder ? '1' : '0' } });
-  const openChat = () => router.push({ pathname: '/chat/[bookingId]', params: { bookingId: booking.id } });
   const call = () => toast({ message: 'Masked calling is coming soon. Use chat for now — numbers stay private.' });
   const navigate =
     !isCustomer && data.address?.lat != null && data.address?.lng != null
@@ -489,7 +498,7 @@ export default function BookingDetail() {
                 </Text>
               )}
             </View>
-            <IconButton icon="chatbubble-ellipses-outline" variant="tonal" accessibilityLabel={`Chat with ${first}`} onPress={openChat} />
+            <ChatButton bookingId={booking.id} count={unread.countFor(booking.id)} accessibilityLabel={`Chat with ${first}`} />
             <IconButton icon="call-outline" variant="neutral" accessibilityLabel="Call" accessibilityHint="Masked calling is coming soon" onPress={call} />
             {navigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Open in Maps" onPress={() => void navigate()} /> : null}
           </View>

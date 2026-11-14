@@ -6,11 +6,13 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CategoryIcon, iconForSlug } from '../../src/components/CategoryIcon';
 import { activeStatuses, nextStepCopy, StatusPill, statusShort } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
+import { UnreadMessagesRow } from '../../src/components/UnreadChat';
 import { Button, Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonBookingCard, Text } from '../../src/components/ui';
 import { listMyBookings } from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
 import { bookingRef, scheduleLabel } from '../../src/lib/schedule';
 import type { Booking } from '../../src/lib/types';
+import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 
 function fmtDate(iso: string) {
@@ -23,6 +25,8 @@ export default function MyBookings() {
   const [tab, setTab] = useState<'active' | 'past'>('active');
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const unread = useUnread();
+  const refreshUnread = unread.refresh;
 
   const load = useCallback(async () => {
     try {
@@ -31,7 +35,8 @@ export default function MyBookings() {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+    void refreshUnread();
+  }, [refreshUnread]);
 
   useFocusEffect(
     useCallback(() => {
@@ -111,6 +116,7 @@ export default function MyBookings() {
                     {b.description}
                   </Text>
                 ) : null}
+                <UnreadMessagesRow bookingId={b.id} count={unread.countFor(b.id)} />
                 {tab === 'active' ? (
                   <View style={{ gap: 6 }}>
                     <ProgressBar status={b.status} showLabel={false} />

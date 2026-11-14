@@ -76,6 +76,16 @@ async function rest(path) {
   return res.json();
 }
 
+/** Signs a second test user in through the Auth API (fixed test OTP) and returns their access token. */
+async function signInAs(phone) {
+  const headers = { apikey: ANON, 'Content-Type': 'application/json' };
+  const sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
+  if (!sent.ok) throw new Error(`otp ${sent.status}: ${await sent.text()}`);
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers, body: JSON.stringify({ phone, token: OTP, type: 'sms' }) });
+  if (!res.ok) throw new Error(`verify ${res.status}: ${await res.text()}`);
+  return (await res.json()).access_token;
+}
+
 // ---------- Auth (one OTP send per run: the test number is rate limited) ----------
 await step('login', async () => {
   await go('/');
@@ -258,6 +268,30 @@ await step('booking-chat-send', async () => {
   await box.fill('QA-E2E web chat');
   await page.getByLabel('Send message').first().click();
   await page.getByText('QA-E2E web chat').first().waitFor();
+});
+// ---------- Unread: the pro (Ravi, booking fc6) messages the signed-in customer through the API ----------
+const FC6 = seeded('fc', 6);
+const unreadBody = `QA-E2E unread ${Date.now()}`;
+await step('unread-badge-on-booking', async () => {
+  const token = await signInAs('+919000000101');
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: JSON.stringify({ booking_id: FC6, sender_id: RAVI, body: unreadBody }),
+  });
+  if (!res.ok) throw new Error(`send as pro: ${res.status} ${await res.text()}`);
+  await go(`/booking/${FC6}`);
+  await page.getByLabel(/^Chat with .*, \d+ unread$/).first().waitFor();
+});
+await step('unread-chat-divider', async () => {
+  await go(`/chat/${FC6}`);
+  await visible('New messages');
+  await page.getByText(unreadBody).first().waitFor();
+});
+await step('unread-cleared-after-reading', async () => {
+  await page.waitForTimeout(2000);
+  await go(`/booking/${FC6}`);
+  await page.getByLabel(/^Chat with [^,]+$/).first().waitFor();
 });
 await step('me-customer', async () => {
   await go('/account');

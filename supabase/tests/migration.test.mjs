@@ -43,6 +43,9 @@ alter default privileges in schema public grant all on sequences to anon, authen
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
 await db.exec(migration);
+// Later migrations that run on PGlite (0004-0006 are AI-assistant tables covered by Deno tests).
+await db.exec(fs.readFileSync(path.join(here, '..', 'migrations', '0007_chat_unread_notifications.sql'), 'utf8'));
+await db.exec(fs.readFileSync(path.join(here, '..', 'migrations', '0010_notification_freshness.sql'), 'utf8'));
 console.log('migration applied');
 
 const C = '00000000-0000-0000-0000-00000000000c';
@@ -382,6 +385,99 @@ await section('bug5 refunds processed', async () => {
   const [rf] = (await db.query(`select status, attempts from refunds where id = $1`, [pc[0].refund_id])).rows;
   ok(rf.status === 'pending' && rf.attempts === 1, 'bug5: failed refund is retried with backoff');
   ok((await db.query(`select status from payments where razorpay_payment_id = $1`, [pc[0].razorpay_payment_id])).rows[0].status === 'paid', 'bug5: partially refunded payment stays paid');
+});
+
+await section('chat unread, read state and notifications outbox', async () => {
+  const pending = async (uid, kind) => (await db.query(
+    `select * from notifications where user_id = $1 and kind = $2 order by created_at desc`, [uid, kind])).rows;
+  const unreadFor = async (fn, id) => (await fn(`select * from get_unread_counts()`)).find((r) => r.booking_id === id);
+  const send = (fn, uid, id, body) => fn(`insert into messages (booking_id, sender_id, body) values ($1, $2, $3)`, [id, uid, body]);
+
+  const [{ create_booking: n1 }] = await asC(`select create_booking($1, 'x', '1 St', 'Vijayawada', 16.5, 80.6)`, [psId]);
+  await pay(n1);
+  const req = (await pending(P, 'booking_requested')).find((r) => r.booking_id === n1);
+  ok(req && req.status === 'pending' && req.data.url === `/booking/${n1}`, 'outbox: provider notified of new request with deep link');
+  await asP(`select accept_booking('${n1}')`);
+  ok((await pending(C, 'booking_accepted')).some((r) => r.booking_id === n1), 'outbox: customer notified of acceptance');
+  ok(!(await pending(P, 'booking_accepted')).some((r) => r.booking_id === n1), 'outbox: actor is never notified');
+
+  await send(asC, C, n1, 'Call me on +91 98765 43210 or see https://example.com/x');
+  const u1 = await unreadFor(asP, n1);
+  ok(u1 && u1.unread === 1 && u1.role === 'provider', 'unread: message counts for the other participant');
+  ok(!(await unreadFor(asC, n1)), 'unread: sender\'s own message never counts');
+  let [chat] = (await pending(P, 'chat_message')).filter((r) => r.booking_id === n1 && r.status === 'pending');
+  ok(chat && chat.body.includes('[number]') && chat.body.includes('[link]') && !/98765/.test(chat.body), 'outbox: chat preview masks phone and link: ' + chat?.body);
+  ok(chat && chat.data.url === `/chat/${n1}`, 'outbox: chat push deep-links to the chat');
+  await send(asC, C, n1, 'second');
+  [chat] = (await pending(P, 'chat_message')).filter((r) => r.booking_id === n1 && r.status === 'pending');
+  ok((await pending(P, 'chat_message')).filter((r) => r.booking_id === n1).length === 1 && chat.count === 2 && chat.body === 'second',
+    'outbox: pending chat pushes collapse into one row (count 2, latest text)');
+  ok((await unreadFor(asP, n1)).unread === 2, 'unread: two messages');
+
+  // Outsiders
+  ok((await asX(`select * from booking_chat_reads`)).length === 0, 'rls: outsider sees no read state');
+  ok((await asX(`select * from get_chat_read_state('${n1}')`)).length === 0, 'rls: outsider gets no chat read state');
+  ok((await asX(`select * from notifications`)).length === 0, 'rls: outsider sees no notifications');
+  await expectError(() => asX(`select mark_chat_read('${n1}')`), /not a participant/, 'rls: outsider cannot mark read');
+  await expectError(() => asP(`insert into booking_chat_reads (booking_id, user_id) values ('${n1}', '${P}')`), /permission denied/, 'rls: no direct read-state writes');
+  await expectError(() => asP(`update notifications set status = 'sent'`), /permission denied/, 'rls: no direct outbox writes');
+  await expectError(() => asP(`select * from claim_due_notifications()`), /permission denied/, 'rls: clients cannot claim the outbox');
+  ok((await asP(`select * from booking_chat_reads`)).every((r) => r.user_id === P), 'rls: read state is owner-only');
+
+  await asP(`select mark_chat_read('${n1}')`);
+  await asP(`select mark_chat_read('${n1}')`);
+  ok(!(await unreadFor(asP, n1)), 'mark_chat_read clears unread (idempotent)');
+  ok((await pending(P, 'chat_message')).find((r) => r.booking_id === n1).status === 'skipped', 'mark_chat_read drops the pending chat push');
+  const [rs] = await asC(`select * from get_chat_read_state('${n1}')`);
+  ok(rs.other_last_read_at !== null && rs.my_last_read_at !== null, 'read state: sender sees when the other side read (Seen)');
+
+  await asP(`select mark_chat_read('${n1}', true)`);
+  await send(asC, C, n1, 'while viewing');
+  ok(!(await pending(P, 'chat_message')).some((r) => r.booking_id === n1 && r.status === 'pending'), 'presence: no push while the chat is open');
+  await asP(`select mark_chat_read('${n1}', false)`);
+  await send(asC, C, n1, 'after leaving');
+  ok((await pending(P, 'chat_message')).some((r) => r.booking_id === n1 && r.status === 'pending'), 'presence: push again after leaving the chat');
+
+  // Delivery: no device -> skipped; with device -> claimed, sent, ticket stored, receipts resolved, dead tokens removed.
+  await db.exec(`update notifications set status = 'skipped' where status = 'pending' and booking_id <> '${n1}'`);
+  let claimed = await svc(`select * from claim_due_notifications()`);
+  ok(claimed.length === 0 && (await pending(P, 'chat_message')).find((r) => r.booking_id === n1 && r.body === 'after leaving').last_error === 'no_device',
+    'delivery: users without devices are skipped');
+  await expectError(() => asP(`select register_push_device('not-a-token', 'ios')`), /invalid push token/, 'devices: token format validated');
+  const tok = 'ExponentPushToken[test-device-0001]';
+  await asP(`select register_push_device($1, 'android')`, [tok]);
+  await asP(`select register_push_device($1, 'android')`, [tok]);
+  ok((await asP(`select * from push_devices`)).length === 1 && (await asC(`select * from push_devices`)).length === 0, 'devices: idempotent, owner-only');
+  await send(asC, C, n1, 'are you coming?');
+  claimed = await svc(`select * from claim_due_notifications()`);
+  const c1 = claimed.find((r) => r.booking_id === n1);
+  ok(c1 && c1.tokens.length === 1 && c1.tokens[0] === tok && c1.unread === 2 && c1.badge >= 2 && c1.title.length > 0,
+    'delivery: claim returns tokens, fresh unread and badge');
+  ok((await svc(`select * from claim_due_notifications()`)).length === 0, 'delivery: claimed rows are not claimed twice');
+  await svc(`select finish_notification($1, true, null, $2::jsonb, '{}')`, [c1.id, JSON.stringify([{ id: 'tk-1', token: tok }])]);
+  ok((await db.query(`select status, sent_at from notifications where id = $1`, [c1.id])).rows[0].status === 'sent', 'delivery: sent');
+  await send(asC, C, n1, 'retry me');
+  const [c2] = await svc(`select * from claim_due_notifications()`);
+  await svc(`select finish_notification($1, false, 'expo 503')`, [c2.id]);
+  const [r2] = (await db.query(`select status, attempts, next_attempt_at > now() as later from notifications where id = $1`, [c2.id])).rows;
+  ok(r2.status === 'pending' && r2.attempts === 1 && r2.later, 'delivery: failures retry with backoff');
+  await db.exec(`update push_tickets set created_at = now() - interval '20 minutes'`);
+  const due = await svc(`select * from claim_push_receipts()`);
+  ok(due.length === 1 && due[0].ticket_id === 'tk-1', 'receipts: due after 15 minutes');
+  await svc(`select resolve_push_receipts(array['tk-1'], array[$1])`, [tok]);
+  ok((await db.query(`select count(*)::int c from push_tickets`)).rows[0].c === 0 && (await asP(`select * from push_devices`)).length === 0,
+    'receipts: resolved tickets dropped and DeviceNotRegistered token removed');
+  await asP(`select register_push_device($1, 'ios')`, [tok]);
+  await asC(`select register_push_device($1, 'ios')`, [tok]);
+  ok((await asP(`select * from push_devices`)).length === 0 && (await asC(`select * from push_devices`)).length === 1, 'devices: token moves to the user signed in on the device');
+  await asC(`select unregister_push_device($1)`, [tok]);
+  ok((await asC(`select * from push_devices`)).length === 0, 'devices: removed on logout');
+
+  // Seeds/imports/backfills insert back-dated rows: read state updates, but nothing is pushed.
+  const before = (await db.query(`select count(*)::int c from notifications`)).rows[0].c;
+  await db.query(`insert into booking_events (booking_id, actor_id, from_status, to_status, at) values ($1, $2, 'accepted', 'en_route', now() - interval '1 day')`, [n1, P]);
+  await db.query(`insert into messages (booking_id, sender_id, body, created_at) values ($1, $2, 'old import', now() - interval '1 day')`, [n1, P]);
+  ok((await db.query(`select count(*)::int c from notifications`)).rows[0].c === before, 'freshness: back-dated events and messages queue no push');
 });
 
 // ---- RLS spot checks ----

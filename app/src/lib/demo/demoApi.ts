@@ -51,6 +51,9 @@ let idSeq = 1;
 const authListeners = new Set<(s: AuthSession | null) => void>();
 const bookingListeners = new Map<string, Set<() => void>>();
 const messageListeners = new Map<string, Set<(m: Message) => void>>();
+const myMessageListeners = new Set<(m: Message) => void>();
+/** Chat read state per `${userId}:${bookingId}` → ISO time (mirrors booking_chat_reads). */
+let chatReads: Record<string, string> = {};
 const timers = new Set<ReturnType<typeof setTimeout>>();
 
 // ---------- helpers ----------
@@ -455,7 +458,12 @@ const AUTO_REPLIES = [
 function pushMessage(bookingId: string, senderId: string, body: string): Message {
   const m: Message = { id: newId('m'), booking_id: bookingId, sender_id: senderId, body, image_url: null, created_at: nowIso() };
   db.messages.push(m);
+  chatReads[`${senderId}:${bookingId}`] = m.created_at;
   messageListeners.get(bookingId)?.forEach((cb) => cb(clone(m)));
+  const b = db.bookings.find((x) => x.id === bookingId);
+  if (session && b && (b.customer_id === session.userId || b.provider_id === session.userId)) {
+    myMessageListeners.forEach((cb) => cb(clone(m)));
+  }
   return m;
 }
 
@@ -520,6 +528,7 @@ export const demoApi: Api = {
     await wait();
     clearTimers();
     db = buildSeed();
+    chatReads = {};
     addressBook = {};
     await setSession(null);
   },
@@ -1130,6 +1139,50 @@ export const demoApi: Api = {
     bookingListeners.set(bookingId, set);
     return () => set.delete(onChange);
   },
+
+  subscribeToMyMessages(onMessage) {
+    myMessageListeners.add(onMessage);
+    return () => myMessageListeners.delete(onMessage);
+  },
+
+  async getUnreadCounts() {
+    await wait();
+    const me = uid();
+    return db.bookings
+      .filter((b) => b.customer_id === me || b.provider_id === me)
+      .map((b) => {
+        const since = chatReads[`${me}:${b.id}`] ?? '';
+        const unread = db.messages.filter((m) => m.booking_id === b.id && m.sender_id !== me && m.created_at > since);
+        return {
+          booking_id: b.id,
+          role: (b.customer_id === me ? 'customer' : 'provider') as 'customer' | 'provider',
+          unread: unread.length,
+          last_message_at: unread.reduce<string | null>((a, m) => (!a || m.created_at > a ? m.created_at : a), null),
+        };
+      })
+      .filter((r) => r.unread > 0);
+  },
+
+  async markChatRead(bookingId) {
+    const me = uid();
+    const b = findBooking(bookingId);
+    assert(b.customer_id === me || b.provider_id === me, 'not a participant of this booking');
+    const now = nowIso();
+    const key = `${me}:${bookingId}`;
+    if (!chatReads[key] || chatReads[key]! < now) chatReads[key] = now;
+  },
+
+  async getChatReadState(bookingId) {
+    const me = uid();
+    const b = findBooking(bookingId);
+    assert(b.customer_id === me || b.provider_id === me, 'not a participant of this booking');
+    const other = b.customer_id === me ? b.provider_id : b.customer_id;
+    return { my_last_read_at: chatReads[`${me}:${bookingId}`] ?? null, other_last_read_at: chatReads[`${other}:${bookingId}`] ?? null };
+  },
+
+  // Demo mode never registers for push (no backend to send from).
+  async registerPushDevice() {},
+  async unregisterPushDevice() {},
 };
 
 /** Simulates the Razorpay webhook for the booking's live payment link (called by the demo payment sheet). */
@@ -1145,6 +1198,7 @@ export const demoControls = {
   reset(now?: number) {
     clearTimers();
     db = buildSeed(now);
+    chatReads = {};
     session = null;
     sessionLoaded = true;
     bookingSeq = 1046;

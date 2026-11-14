@@ -3,10 +3,12 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { CategoryIcon } from '../src/components/CategoryIcon';
 import { activeStatuses, StatusPill } from '../src/components/status';
+import { UnreadMessagesRow } from '../src/components/UnreadChat';
 import { Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonBookingCard, Text } from '../src/components/ui';
 import { getProviderJobs, listCategories } from '../src/lib/api';
 import { formatINR } from '../src/lib/money';
 import type { Category, ProviderJob } from '../src/lib/types';
+import { useUnread } from '../src/lib/unreadContext';
 import { useTheme } from '../src/theme';
 
 type Filter = 'all' | 'active' | 'done';
@@ -18,6 +20,8 @@ export default function ProviderJobs() {
   const [filter, setFilter] = useState<Filter>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const unread = useUnread();
+  const refreshUnread = unread.refresh;
 
   const load = useCallback(async () => {
     try {
@@ -28,7 +32,8 @@ export default function ProviderJobs() {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+    void refreshUnread();
+  }, [refreshUnread]);
 
   useFocusEffect(
     useCallback(() => {
@@ -96,6 +101,7 @@ export default function ProviderJobs() {
               <View style={{ marginTop: 4 }}>
                 <StatusPill status={j.status} />
               </View>
+              <UnreadMessagesRow bookingId={j.booking_id} count={unread.countFor(j.booking_id)} />
             </View>
             <View style={{ alignItems: 'flex-end', gap: 2 }}>
               <Text variant="calloutStrong" tabular>

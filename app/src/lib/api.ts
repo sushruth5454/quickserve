@@ -68,4 +68,10 @@ export const {
   sendMessage,
   subscribeToMessages,
   subscribeToBooking,
+  subscribeToMyMessages,
+  getUnreadCounts,
+  markChatRead,
+  getChatReadState,
+  registerPushDevice,
+  unregisterPushDevice,
 } = impl;

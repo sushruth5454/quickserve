@@ -70,7 +70,21 @@ export function useChat(bookingId: string | undefined) {
   return { messages, error, sending, send };
 }
 
-export function MessageList({ messages, userId, counterpartName }: { messages: Message[]; userId: string; counterpartName: string }) {
+export function MessageList({
+  messages,
+  userId,
+  counterpartName,
+  newSinceId,
+  seenId,
+}: {
+  messages: Message[];
+  userId: string;
+  counterpartName: string;
+  /** First unread message when the chat was opened: a "New messages" divider goes above it. */
+  newSinceId?: string | null;
+  /** The user's latest message once the other person has read it ("Seen"). */
+  seenId?: string | null;
+}) {
   const t = useTheme();
   if (messages.length === 0) {
     return (
@@ -105,6 +119,7 @@ export function MessageList({ messages, userId, counterpartName }: { messages: M
                 {dayOf(m.created_at)}
               </Text>
             ) : null}
+            {m.id === newSinceId ? <NewMessagesDivider /> : null}
             <Animated.View
               entering={FadeInUp.duration(200)}
               style={{
@@ -141,9 +156,28 @@ export function MessageList({ messages, userId, counterpartName }: { messages: M
                 </Text>
               </View>
             </Animated.View>
+            {m.id === seenId ? (
+              <Text variant="caption" color="muted" accessibilityLabel={`Seen by ${counterpartName}`} style={{ alignSelf: 'flex-end', marginTop: 2, fontSize: 11 }}>
+                Seen
+              </Text>
+            ) : null}
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function NewMessagesDivider() {
+  const t = useTheme();
+  const label = 'New messages';
+  return (
+    <View accessibilityRole="text" accessibilityLabel={label} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, marginVertical: t.spacing.md }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: t.colors.primary, opacity: 0.4 }} />
+      <Text variant="captionStrong" style={{ color: t.colors.primaryText }}>
+        {label}
+      </Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: t.colors.primary, opacity: 0.4 }} />
     </View>
   );
 }

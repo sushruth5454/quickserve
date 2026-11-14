@@ -1,6 +1,8 @@
 import { Linking } from 'react-native';
 import type {
   AuthSession,
+  ChatReadState,
+  PushPlatform,
   Coords,
   CreateBookingInput,
   PaymentLinkResponse,
@@ -36,6 +38,7 @@ import type {
   SearchFilters,
   SkillLevel,
 } from './types';
+import type { UnreadCount } from './unread';
 
 interface Result<T> {
   data?: T | null;
@@ -88,6 +91,10 @@ export async function verifyOtp(phone: string, token: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  // Stop pushes to this device for the departing user (best effort: signing out must work offline too).
+  const token = registeredPushToken;
+  registeredPushToken = null;
+  if (token) await unregisterPushDevice(token).catch(() => undefined);
   unwrap(await supabase.auth.signOut());
 }
 
@@ -469,4 +476,41 @@ export function subscribeToBooking(bookingId: string, onChange: () => void): () 
   return () => {
     void supabase.removeChannel(channel);
   };
+}
+
+export function subscribeToMyMessages(onMessage: (m: Message) => void): () => void {
+  // No filter: Realtime applies the messages RLS policy, so only the user's own chats arrive.
+  const channel = supabase
+    .channel(`my-messages:${Date.now().toString(36)}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => onMessage(payload.new as Message))
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+// ---------- Read state & push devices ----------
+export async function getUnreadCounts(): Promise<UnreadCount[]> {
+  return unwrap(await supabase.rpc('get_unread_counts')) ?? [];
+}
+
+export async function markChatRead(bookingId: string, viewing: boolean | null = null): Promise<void> {
+  await rpcVoid('mark_chat_read', { p_booking_id: bookingId, p_viewing: viewing });
+}
+
+export async function getChatReadState(bookingId: string): Promise<ChatReadState> {
+  const rows = unwrap(await supabase.rpc('get_chat_read_state', { p_booking_id: bookingId })) as ChatReadState[] | null;
+  return rows?.[0] ?? { my_last_read_at: null, other_last_read_at: null };
+}
+
+let registeredPushToken: string | null = null;
+
+export async function registerPushDevice(token: string, platform: PushPlatform): Promise<void> {
+  await rpcVoid('register_push_device', { p_token: token, p_platform: platform });
+  registeredPushToken = token;
+}
+
+export async function unregisterPushDevice(token: string): Promise<void> {
+  await rpcVoid('unregister_push_device', { p_token: token });
+  if (registeredPushToken === token) registeredPushToken = null;
 }

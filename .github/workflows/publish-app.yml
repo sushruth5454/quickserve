@@ -61,7 +61,7 @@ jobs:
             npm install "expo@~$TARGET_SDK.0.0" --no-audit --no-fund --legacy-peer-deps
             CI=1 npx expo install --fix -- --legacy-peer-deps
           fi
-          CI=1 npx expo install expo-updates expo-audio expo-file-system expo-speech -- --legacy-peer-deps
+          CI=1 npx expo install expo-updates expo-audio expo-file-system expo-speech expo-notifications -- --legacy-peer-deps
           node -p '"Using expo " + require("expo/package.json").version + ", react-native " + require("react-native/package.json").version'
 
       - name: Typecheck and unit tests

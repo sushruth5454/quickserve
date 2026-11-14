@@ -66,6 +66,7 @@ npx supabase functions deploy ai-assistant
 npx supabase functions deploy razorpay-webhook --no-verify-jwt
 npx supabase functions deploy release-payouts --no-verify-jwt
 npx supabase functions deploy process-refunds --no-verify-jwt
+npx supabase functions deploy send-notifications --no-verify-jwt
 ```
 
 | Function | Purpose |
@@ -75,6 +76,7 @@ npx supabase functions deploy process-refunds --no-verify-jwt
 | `release-payouts` | Cron: expires 15-min-old requests, auto-confirms completions after 24h, cancels retired payment links, then creates one Route transfer per due `payout_transfers` row (`POST /v1/payments/{payment_id}/transfers`, `notes.transfer_id` set). Failed attempts back off (5→40 min); retries first look the transfer up by `notes.transfer_id` so a timed-out request is never paid twice. After 5 failures the payout is flagged `failed`; fix the cause and run `select retry_payout('<payout id>')`. Requires header `x-cron-secret`. |
 | `ai-assistant` | Authenticated customer → QuickServe AI booking assistant (Gemini). See [AI assistant](#ai-assistant). |
 | `process-refunds` | Cron: cancels retired payment links, claims queued `refunds` rows (`claim_due_refunds`) and calls `POST /v1/payments/{id}/refund` with `X-Refund-Idempotency: <refund row id>`; full refunds move the payment to `refunded`. Requires header `x-cron-secret`. |
+| `send-notifications` | Push sender for the `notifications` outbox (chat messages, booking updates) via the Expo Push API: batches of 100, tickets, receipts, retries, dead-token cleanup. Kicked by `pg_net` on every new outbox row and by cron. Requires header `x-cron-secret`. See [Notifications](#notifications). |
 
 ### Razorpay (test mode)
 
@@ -95,6 +97,7 @@ npx supabase functions deploy process-refunds --no-verify-jwt
 | Auto-confirm completions after 24h (creates payout) | every 15 min | SQL `auto_confirm_completions()` |
 | Release payouts after the 24h dispute window | every 15 min | Edge Function `release-payouts` (also runs the two SQL jobs) |
 | Process refunds and cancel retired payment links | every 10 min | Edge Function `process-refunds` |
+| Send push notifications + check receipts (safety net; new rows are also sent immediately via `pg_net`) | every minute | Edge Function `send-notifications` |
 
 **Option A — `pg_cron` + `pg_net`** (Database → Extensions: enable both). Store the cron secret in Vault first:
 `select vault.create_secret('<CRON_SECRET>', 'cron_secret');`
@@ -114,6 +117,16 @@ $$);
 select cron.schedule('process-refunds', '*/10 * * * *', $$
   select net.http_post(
     url := 'https://<project-ref>.supabase.co/functions/v1/process-refunds',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret',
+      (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret'))
+  );
+$$);
+
+-- Push notifications: immediate delivery needs the project URL in Vault (used by the outbox trigger via pg_net).
+select vault.create_secret('https://<project-ref>.supabase.co', 'project_url');
+select cron.schedule('send-notifications', '* * * * *', $$
+  select net.http_post(
+    url := 'https://<project-ref>.supabase.co/functions/v1/send-notifications',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret',
       (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret'))
   );
@@ -150,6 +163,58 @@ creates or pays bookings.
 
 Full reference (env table, data sent, failure modes, observability SQL, policy update procedure, production-readiness
 checklist and blockers): [`docs/06-AI-Assistant.md`](docs/06-AI-Assistant.md).
+
+### Notifications
+
+Chat unread badges and push notifications (design: [doc 04 §3](docs/04-Architecture-Implementation-Plan.md)).
+
+- **In-app (works everywhere, including Expo Go and web)**: unread badges on booking/job cards, the booking chat button
+  and the Bookings / Jobs tab; a "New messages" divider and "Seen" in the chat; an in-app banner when a message arrives
+  for a chat that is not open. Counts come from `get_unread_counts()` and update live through Supabase Realtime.
+- **Push**: devices register Expo push tokens in `push_devices` (several per user; removed on sign-out and on
+  `DeviceNotRegistered`). The permission prompt is shown only at meaningful moments (opening a chat, viewing a live
+  booking, a pro going online), never at cold start. Events queue rows in the `notifications` outbox; the
+  `send-notifications` function delivers them. Previews are masked (phones, emails, UPI ids, links). Tapping a push
+  opens the chat or booking.
+- **Events pushed today**: new chat message (collapsed per chat: "Ravi · 3 new messages"), new job request (pro),
+  booking accepted / declined / expired, pro on the way, quote or change order received, job marked complete
+  (customer), booking cancelled (pro).
+
+| Where | Unread badges / banners | Remote push |
+|---|---|---|
+| Expo Go, Android (SDK 53+) | Yes | **No**. Expo removed remote push from Expo Go on Android; the app skips registration there. |
+| Expo Go, iOS | Yes | Not supported per Expo's push guides ("use a development build"); the app tries silently and falls back. |
+| Web | Yes | No |
+| EAS development / preview / production build | Yes | Yes, once FCM/APNs credentials are set (below) |
+
+**Production push credentials** (needed for real builds; not needed for Expo Go testing):
+
+1. `npx eas-cli@latest init` (the project id is what `getExpoPushTokenAsync` uses).
+2. **Android (FCM v1)**: create a Firebase project → add an Android app with package `com.quickserve.app` → download
+   `google-services.json` into `app/` and set `"android": { "googleServicesFile": "./google-services.json" }` in
+   `app.json` → Firebase *Project settings → Service accounts → Generate new private key* →
+   `npx eas-cli@latest credentials` → Android → *Google Service Account Key for Push Notifications (FCM V1)* → upload.
+3. **iOS (APNs)**: paid Apple Developer account → `npx eas-cli@latest credentials` → iOS → *Push Notifications: set up
+   a push key* (EAS creates and stores it). The `expo-notifications` config plugin (already in `app.json`) adds the
+   push entitlement at build time.
+4. Build with `eas build` (see [Builds](#builds-eas)) and test with the Expo push tool <https://expo.dev/notifications>.
+5. Optional: enable *Enhanced push security* in the Expo project and store the access token as repository secret
+   `EXPO_PUSH_ACCESS_TOKEN` (deployed as function secret `EXPO_ACCESS_TOKEN`).
+
+**Backend setup**: apply migrations `0007` and `0010`, deploy `send-notifications --no-verify-jwt`, create the Vault
+secret `project_url` and the `send-notifications` cron job ([Scheduled jobs](#scheduled-jobs)).
+
+**Observability**
+
+```sql
+select kind, status, count(*) from notifications where created_at > now() - interval '1 day' group by 1, 2;
+select id, kind, attempts, last_error, next_attempt_at from notifications where status in ('pending', 'failed') order by created_at desc limit 20;
+select count(*) from push_devices;
+```
+
+`skipped` with `last_error` = `read` (already seen), `no_device` (user has no registered device) or `stale_event`
+is normal.
+
 ## 3. Mobile app
 
 The app targets **Expo SDK 57** (React Native 0.86, React 19.2) so it runs in the App Store / Play Store **Expo Go**.

@@ -50,7 +50,7 @@ booking_secrets(booking_id PK, start_otp, end_otp, start_attempts, end_attempts)
          -- NO direct client SELECT. Customer reads OTPs only via RPC get_booking_otps() (end OTP only in
          -- completion_requested). Verified only inside SECURITY DEFINER RPCs; 5 wrong attempts → lock → regenerate.
          -- Provider sees the exact address only after accepting (area/distance before).
-private_user_accounts(user_id PK, phone, expo_push_token)   -- own row only; never exposed via provider directory
+private_user_accounts(user_id PK, phone, expo_push_token)   -- own row only; expo_push_token is legacy (see push_devices)
 quotes(id, booking_id, version int, status 'sent'|'approved'|'rejected'|'superseded',
        subtotal_labour, subtotal_parts, subtotal_other, total, note, created_at)
 quote_items(id, quote_id, kind 'labour'|'part'|'other', title, qty, unit_price, bill_photo_url)
@@ -63,8 +63,39 @@ reviews(id, booking_id UNIQUE, customer_id, provider_id, rating 1..5, punctualit
         behaviour, pricing, comment, photos text[], provider_reply, created_at)
 messages(id, booking_id, sender_id, body, image_url, created_at)
 booking_events(id, booking_id, actor_id, from_status, to_status, at)   -- audit log
+booking_chat_reads(booking_id, user_id, last_read_at, viewing_until)  -- owner-only RLS; written via RPCs/trigger
+push_devices(id, user_id, token UNIQUE, platform, last_seen_at)       -- Expo push tokens, several per user
+notifications(id, user_id, kind, booking_id, title, body, data, collapse_key, count,
+              status 'pending'|'sending'|'sent'|'failed'|'skipped', attempts, next_attempt_at, sent_at, read_at)
+push_tickets(ticket_id PK, notification_id, token, created_at)      -- Expo tickets awaiting receipts (service only)
 ```
 All money is stored in **integer paise**.
+
+### Chat read state, unread counts and notifications (migrations 0007, 0010)
+- **Unread** = messages in a booking from the *other* participant newer than my `booking_chat_reads.last_read_at`.
+  Sending a message marks the chat read for the sender (trigger), so my own messages never count. Existing chats were
+  backfilled to "read up to my own last message".
+- RPCs (participants only): `get_unread_counts()` → `(booking_id, role, unread, last_message_at)` for bookings with
+  unread > 0; `mark_chat_read(booking_id, viewing)` (idempotent, never moves backwards; `viewing=true` sets 45 s
+  presence that the app refreshes every 20 s while the chat is open and focused); `get_chat_read_state(booking_id)`
+  (my and the other side's last read → "New messages" divider and "Seen").
+- App: `UnreadProvider` (`src/lib/unreadContext.tsx`) fetches counts on sign-in, foreground and every 60 s, and updates
+  live from a Realtime subscription on `messages` (RLS-scoped), with a debounced refetch. Badges: booking cards
+  (customer Bookings, provider dashboard and Jobs), booking-detail chat button, Bookings/Jobs tab, app icon (iOS). A
+  message for a chat that is not open shows an in-app banner (works in Expo Go). Demo mode mirrors the same rules.
+- **Outbox**: triggers on `messages` and `booking_events` queue rows in `notifications` (recipient = the other party,
+  never the actor; only for events < 10 min old so seeds/backfills never push). Pending chat rows for the same booking
+  collapse into one (`count`, latest text). Kinds today: `chat_message`, `booking_requested` (provider),
+  `booking_accepted`, `provider_en_route`, `quote_sent`, `change_order_sent`, `completion_requested`,
+  `booking_declined`, `booking_expired` (customer), `booking_cancelled` (provider). No push while the recipient has the
+  chat open (presence) or after they have read it (re-checked at send time).
+- **Delivery**: `send-notifications` Edge Function (x-cron-secret) is kicked by a statement trigger through `pg_net`
+  (vault `project_url` + `cron_secret`) and by a 1-minute cron. It claims due rows (`claim_due_notifications`, SKIP
+  LOCKED), sends ≤100 messages per Expo request (`collapseId`/`tag`/`threadId` per booking, Android channels
+  `messages`/`bookings`, iOS badge = total unread, `data.url` deep link), records tickets, retries failures with backoff
+  (1, 2, 4, 8 min; 5 attempts), checks receipts after 15 min and deletes `DeviceNotRegistered` tokens.
+- **Privacy**: push bodies are masked by `_mask_preview` (emails, UPI ids, links, 8+ digit numbers) and clipped; data
+  carries only ids and an in-app route. The app follows only `/chat|booking|quote/<id>` routes from a payload.
 
 ### Booking state machine (canonical — enforced by RPCs; PRD B4 refers here)
 Final `booking_status` enum: `pending_payment, requested, accepted, en_route, inspecting, quote_sent, awaiting_payment, in_progress, completion_requested, completed, closed, closed_no_work, declined, expired, cancelled, disputed, refunded`.
@@ -129,6 +160,8 @@ quickserve/
 | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` | app `.env` | Public by design; RLS protects data |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Supabase function secrets | **Never** in the app |
 | `SUPABASE_SERVICE_ROLE_KEY` | function secrets only | — |
+| `CRON_SECRET` (+ vault `cron_secret`, `project_url`) | function secrets / Vault | Cron + pg_net calls to `release-payouts`, `process-refunds`, `send-notifications` |
+| `EXPO_ACCESS_TOKEN` (optional) | function secrets | Only if Expo "Enhanced push security" is on |
 
 ## 7. Testing strategy
 - SQL: state-machine tests that run every transition as the wrong actor and expect an error. **Required before live payments (M2 gate)**, not "later": money transitions are the highest-risk code.

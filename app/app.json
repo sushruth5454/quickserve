@@ -56,6 +56,7 @@
           "microphonePermission": "QuickServe uses the microphone so you can describe a problem to QuickServe AI by voice."
         }
       ],
+      "expo-notifications",
       "expo-image",
       "expo-font"
     ]
