@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { cancelRetiredLinks, corsHeaders, json, razorpay, requireEnv } from "../_shared/razorpay.ts";
+import { cancelRetiredLinks, corsHeaders, json, razorpay, RazorpayError, requireEnv } from "../_shared/razorpay.ts";
 
 interface PreparedPayment {
   payment_id: string;
@@ -118,6 +118,10 @@ Deno.serve(async (req) => {
     } catch (e) {
       await admin.from("payments").update({ status: "failed" }).eq("id", prepared.payment_id);
       console.error(e);
+      // 401/429 are account-side (bad keys, test-mode link cap): the customer can only retry later.
+      if (e instanceof RazorpayError && (e.status === 401 || e.status === 429)) {
+        return json({ error: "Online payments are temporarily unavailable. Please try again in a little while." }, 503);
+      }
       return json({ error: "payment provider error" }, 502);
     }
 

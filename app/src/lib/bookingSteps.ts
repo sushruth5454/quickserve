@@ -1,7 +1,23 @@
-/** Pure model for the compact booking stepper (Booked → Accepted → En route → Quote → Work → Done). */
-import type { BookingStatus } from './types';
+/** Pure model for the compact booking stepper (Booked → Accepted → En route → Quote → Work → Done for visits). */
+import type { BookingArchetype, BookingStatus } from './types';
 
 export const STEP_LABELS = ['Booked', 'Accepted', 'En route', 'Quote', 'Work', 'Done'] as const;
+
+/** Steps and the step each happy-path status maps to, per booking type. Inspect & quote is the default. */
+const FLOWS: Partial<Record<BookingArchetype, { labels: readonly string[]; current: Partial<Record<BookingStatus, number>> }>> = {
+  fixed: {
+    labels: ['Booked', 'Accepted', 'En route', 'Work', 'Done'],
+    current: { pending_payment: 0, requested: 0, confirmed: 1, accepted: 1, en_route: 2, in_progress: 3, completion_requested: 3 },
+  },
+  time_based: {
+    labels: ['Booked', 'Accepted', 'Session', 'Done'],
+    current: { pending_payment: 0, requested: 0, confirmed: 1, accepted: 1, en_route: 1, in_progress: 2, completion_requested: 2 },
+  },
+  proposal: {
+    labels: ['Booked', 'Confirmed', 'Event', 'Delivery', 'Done'],
+    current: { pending_payment: 0, confirmed: 1, accepted: 1, en_route: 2, in_progress: 2, delivery_pending: 3, completion_requested: 3 },
+  },
+};
 
 export type StepState = 'done' | 'current' | 'todo' | 'end';
 export type EndTone = 'danger' | 'neutral';
@@ -35,8 +51,14 @@ const END: Partial<Record<BookingStatus, { label: string; tone: EndTone }>> = {
 };
 
 /** Furthest happy-path step a booking reached, from its event history. */
-export function reachedStep(history: BookingStatus[]): number {
-  return history.reduce((max, s) => Math.max(max, CURRENT[s] ?? (s === 'completed' || s === 'closed' ? 5 : -1)), 0);
+export function reachedStep(history: BookingStatus[], archetype?: BookingArchetype | null): number {
+  const flow = flowFor(archetype);
+  const last = flow.labels.length - 1;
+  return history.reduce((max, s) => Math.max(max, flow.current[s] ?? (s === 'completed' || s === 'closed' ? last : -1)), 0);
+}
+
+function flowFor(archetype?: BookingArchetype | null) {
+  return (archetype ? FLOWS[archetype] : undefined) ?? { labels: STEP_LABELS as readonly string[], current: CURRENT };
 }
 
 /**
@@ -46,20 +68,21 @@ export function reachedStep(history: BookingStatus[]): number {
  * - Side states: steps up to the furthest one reached are done, followed by a coloured end marker
  *   ("Cancelled", "Declined"…); the remaining happy-path steps are dropped.
  */
-export function stepperModel(status: BookingStatus, history: BookingStatus[] = []): StepperModel {
+export function stepperModel(status: BookingStatus, history: BookingStatus[] = [], archetype?: BookingArchetype | null): StepperModel {
+  const { labels, current: currentFor } = flowFor(archetype);
   if (status === 'completed' || status === 'closed') {
-    return { steps: STEP_LABELS.map((label) => ({ label, state: 'done' })), endTone: null };
+    return { steps: labels.map((label) => ({ label, state: 'done' })), endTone: null };
   }
   const end = END[status];
   if (end) {
     // Declined/expired can only happen before acceptance; otherwise use the furthest step from the history.
-    const reached = status === 'declined' || status === 'expired' ? 0 : reachedStep(history);
-    const done = STEP_LABELS.slice(0, Math.min(reached, 4) + 1).map((label) => ({ label, state: 'done' as const }));
+    const reached = status === 'declined' || status === 'expired' ? 0 : reachedStep(history, archetype);
+    const done = labels.slice(0, Math.min(reached, labels.length - 2) + 1).map((label) => ({ label, state: 'done' as const }));
     return { steps: [...done, { label: end.label, state: 'end' }], endTone: end.tone };
   }
-  const current = CURRENT[status] ?? 0;
+  const current = currentFor[status] ?? 0;
   return {
-    steps: STEP_LABELS.map((label, i) => ({ label, state: i < current ? 'done' : i === current ? 'current' : 'todo' })),
+    steps: labels.map((label, i) => ({ label, state: i < current ? 'done' : i === current ? 'current' : 'todo' })),
     endTone: null,
   };
 }

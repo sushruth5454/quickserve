@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ComponentRef, type Dispatch, type SetStateAction } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { CategoryIcon, iconForSlug } from '../../components/CategoryIcon';
@@ -220,6 +220,25 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
           onChanged={reload}
         />
       )) : null}
+
+      {!editorOpen && active.some((service) => data.categories.find((item) => item.id === service.category_id)?.archetype === 'proposal') ? (
+        <Card variant="tinted" gap={t.spacing.sm}>
+          <Text variant="calloutStrong">Show your work</Text>
+          <Text variant="footnote" color="textSecondary">
+            {mode === 'wizard'
+              ? 'Creators and event pros get more requests with an Instagram, YouTube or website link. You can add them in the "Your work" step.'
+              : 'Creators and event pros get more requests with an Instagram, YouTube or website link and a few work photos.'}
+          </Text>
+          {mode !== 'wizard' ? (
+            <Button
+              title="Add Instagram, YouTube & website links"
+              variant="outline"
+              leftIcon="link-outline"
+              onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio' } })}
+            />
+          ) : null}
+        </Card>
+      ) : null}
 
       {!editorOpen && removed.length ? (
         <Card gap={t.spacing.sm}>

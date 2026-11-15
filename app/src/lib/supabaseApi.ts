@@ -263,7 +263,11 @@ export async function createSchedulePayment(bookingId: string, scheduleId: strin
   const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
     body: { booking_id: bookingId, schedule_id: scheduleId },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    const detail = ctx ? await ctx.json().catch(() => null) : null;
+    throw new Error((detail as { error?: string } | null)?.error ?? error.message);
+  }
   if (!data) throw new Error('Payment link was not created');
   return data;
 }

@@ -37,6 +37,35 @@ describe('stepperModel', () => {
   });
 });
 
+describe('stepperModel per booking type', () => {
+  const current = (m: ReturnType<typeof stepperModel>) => m.steps.find((s) => s.state === 'current')?.label;
+
+  it('fixed packages skip the quote step', () => {
+    expect(stepperModel('pending_payment', [], 'fixed').steps.map((s) => s.label)).toEqual(['Booked', 'Accepted', 'En route', 'Work', 'Done']);
+    expect(current(stepperModel('in_progress', [], 'fixed'))).toBe('Work');
+  });
+
+  it('time-based bookings show a session step', () => {
+    expect(current(stepperModel('in_progress', [], 'time_based'))).toBe('Session');
+    expect(stepperModel('completed', [], 'time_based').steps.every((s) => s.state === 'done')).toBe(true);
+  });
+
+  it('proposal bookings track confirmation and delivery', () => {
+    expect(current(stepperModel('confirmed', [], 'proposal'))).toBe('Confirmed');
+    expect(current(stepperModel('delivery_pending', [], 'proposal'))).toBe('Delivery');
+    expect(states(stepperModel('cancelled', ['pending_payment', 'confirmed', 'cancelled'], 'proposal'))).toEqual([
+      'Booked:done',
+      'Confirmed:done',
+      'Cancelled:end',
+    ]);
+  });
+
+  it('inspect & quote stays the default', () => {
+    expect(stepperModel('quote_sent', [], 'inspect_quote').steps).toHaveLength(6);
+    expect(current(stepperModel('quote_sent', [], null))).toBe('Quote');
+  });
+});
+
 describe('provider insights', () => {
   const at = new Date('2026-11-14T00:00:00Z');
 

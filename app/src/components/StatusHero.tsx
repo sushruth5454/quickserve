@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import type { BookingEvent, BookingStatus } from '../lib/types';
+import type { BookingArchetype, BookingEvent, BookingStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { StatusPill } from './status';
 import { StatusTimeline } from './StatusTimeline';
@@ -15,9 +15,9 @@ export interface HeroCopy {
 }
 
 /** Compact horizontal stepper. The step matching the current status is the filled ring; side states end in a marker. */
-export function MiniStepper({ status, history = [] }: { status: BookingStatus; history?: BookingStatus[] }) {
+export function MiniStepper({ status, history = [], archetype }: { status: BookingStatus; history?: BookingStatus[]; archetype?: BookingArchetype | null }) {
   const t = useTheme();
-  const model = stepperModel(status, history);
+  const model = stepperModel(status, history, archetype);
   const n = model.steps.length;
   const endColor = model.endTone === 'danger' ? t.colors.danger : t.colors.muted;
   const current = model.steps.find((s) => s.state === 'current' || s.state === 'end');
@@ -78,7 +78,7 @@ export function MiniStepper({ status, history = [] }: { status: BookingStatus; h
   );
 }
 /** Status-first hero: pill, plain-language title + subtitle, compact stepper, collapsible full timeline. */
-export function StatusHero({ status, copy, events }: { status: BookingStatus; copy: HeroCopy; events: BookingEvent[] }) {
+export function StatusHero({ status, copy, events, archetype }: { status: BookingStatus; copy: HeroCopy; events: BookingEvent[]; archetype?: BookingArchetype | null }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const history = events.map((e) => e.to_status);
@@ -95,7 +95,7 @@ export function StatusHero({ status, copy, events }: { status: BookingStatus; co
           </Text>
         ) : null}
       </View>
-      <MiniStepper status={status} history={history} />
+      <MiniStepper status={status} history={history} archetype={archetype} />
       {events.length > 0 ? (
         <View style={{ gap: t.spacing.md }}>
           <Pressable

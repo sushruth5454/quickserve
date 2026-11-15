@@ -57,7 +57,11 @@ export function PaymentScheduleTimeline({ bookingId, canPay }: { bookingId: stri
                 <Text variant="footnote" color="muted">
                   {paid ? item.status.replaceAll('_', ' ') : item.due_at ? new Date(item.due_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : item.due_rule.replaceAll('_', ' ')}
                 </Text>
-                {canPay && due ? <Button title={`Pay ${formatINR(item.amount)}`} onPress={() => void pay(item)} loading={paying === item.id} size="sm" variant="primary" style={{ marginTop: t.spacing.xs, alignSelf: 'flex-start' }} /> : null}
+                {canPay && due ? (
+                  <View style={{ flexDirection: 'row', marginTop: t.spacing.xs }}>
+                    <Button title={`Pay ${formatINR(item.amount)}`} onPress={() => void pay(item)} loading={paying === item.id} size="sm" variant="primary" />
+                  </View>
+                ) : null}
               </View>
             </View>
           );

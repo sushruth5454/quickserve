@@ -86,11 +86,12 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
     setBusy('link');
     setError(null);
     try {
-      await onboardingApi.saveProviderLink({ kind: linkKind, url: parsed.toString(), handle: linkHandle.trim() || null });
+      // Handles are display labels; the server rejects '@' (it reads as a contact handle), so drop a leading one.
+      await onboardingApi.saveProviderLink({ kind: linkKind, url: parsed.toString(), handle: linkHandle.trim().replace(/^@+/, '') || null });
       setLinks(await onboardingApi.listProviderLinks());
       setLinkUrl('');
       setLinkHandle('');
-      toast({ message: 'Link added to your public profile', tone: 'success' });
+      toast({ message: 'Link saved. It shows on your public profile once our team approves it.', tone: 'success' });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -199,7 +200,7 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
             <ListItem
               key={link.id}
               icon="link-outline"
-              title={link.handle || link.kind}
+              title={link.handle || LINK_LABEL[link.kind]}
               subtitle={`${link.url} · ${link.status === 'approved' ? 'Provider-submitted · approved' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Provider-submitted · pending review'}`}
               right={
                 <Button
@@ -216,11 +217,11 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
           ))}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             {(['instagram', 'youtube', 'facebook', 'website', 'behance', 'google_business', 'other'] as ProviderLinkKind[]).map((kind) => (
-              <Chip key={kind} label={kind.replace('_', ' ')} selected={linkKind === kind} onPress={() => setLinkKind(kind)} />
+              <Chip key={kind} label={LINK_LABEL[kind]} selected={linkKind === kind} onPress={() => setLinkKind(kind)} />
             ))}
           </View>
-          <Input label="Public profile or website URL" value={linkUrl} onChangeText={setLinkUrl} placeholder="https://instagram.com/yourprofile" autoCapitalize="none" keyboardType="url" />
-          <Input label="Handle or display name (optional)" value={linkHandle} onChangeText={setLinkHandle} placeholder="@yourprofile" autoCapitalize="none" />
+          <Input label="Public profile or website URL" value={linkUrl} onChangeText={setLinkUrl} placeholder={LINK_PLACEHOLDER[linkKind]} autoCapitalize="none" keyboardType="url" />
+          <Input label="Display name (optional)" value={linkHandle} onChangeText={setLinkHandle} placeholder="yourprofile" autoCapitalize="none" />
           <Button title="Add link" leftIcon="add" variant="outline" onPress={() => void saveLink()} loading={busy === 'link'} disabled={!linkUrl.trim()} />
         </Card>
       </View>
@@ -315,3 +316,23 @@ function PortfolioTile({ uri, caption, onSaveCaption, onDelete }: { uri: string;
     </View>
   );
 }
+
+const LINK_LABEL: Record<ProviderLinkKind, string> = {
+  instagram: 'Instagram',
+  youtube: 'YouTube',
+  facebook: 'Facebook',
+  website: 'Website',
+  behance: 'Behance',
+  google_business: 'Google Business',
+  other: 'Other',
+};
+
+const LINK_PLACEHOLDER: Record<ProviderLinkKind, string> = {
+  instagram: 'https://instagram.com/yourprofile',
+  youtube: 'https://youtube.com/@yourchannel',
+  facebook: 'https://facebook.com/yourpage',
+  website: 'https://yourwebsite.com',
+  behance: 'https://behance.net/yourprofile',
+  google_business: 'https://g.page/yourbusiness',
+  other: 'https://',
+};

@@ -402,6 +402,7 @@ export default function BookingDetail() {
   const endCode = otps?.end_otp ?? null;
   const hero = heroCopy({
     status: s,
+    archetype: booking.archetype ?? 'inspect_quote',
     isCustomer,
     first,
     visitFee: booking.visit_fee,
@@ -437,7 +438,7 @@ export default function BookingDetail() {
         setRefreshing(false);
       }}
     >
-      <StatusHero status={s} copy={hero} events={data.events} />
+      <StatusHero status={s} copy={hero} events={data.events} archetype={booking.archetype} />
       <InlineAlert message={actionError} />
       <PaymentScheduleTimeline bookingId={booking.id} canPay={isCustomer} />
 
@@ -739,6 +740,7 @@ export default function BookingDetail() {
 
 function heroCopy(p: {
   status: Booking['status'];
+  archetype: NonNullable<Booking['archetype']>;
   isCustomer: boolean;
   first: string;
   visitFee: number;
@@ -752,9 +754,21 @@ function heroCopy(p: {
   if (p.isCustomer) {
     switch (p.status) {
       case 'pending_payment':
+        if (p.archetype === 'proposal') return { title: 'Pay the advance to confirm', subtitle: `Your hold keeps ${first} reserved for 30 minutes. Pay the booking advance and platform fee below.` };
+        if (p.archetype === 'fixed') return { title: 'Pay to confirm your booking', subtitle: `Pay the package price to send the booking to ${first}. It's refunded if they can't take it.` };
+        if (p.archetype === 'time_based') return { title: 'Pay to confirm your session', subtitle: `Pay for the session to send it to ${first}. It's refunded if they can't take it.` };
         return { title: 'Pay the visit fee to send your request', subtitle: `${first} is notified as soon as the ${formatINR(p.visitFee)} visit fee is paid. It's adjusted in your final bill.` };
+      case 'confirmed':
+        return { title: 'Booking confirmed', subtitle: `${first} has your booking. Any remaining milestones are in the payment timeline.` };
+      case 'delivery_pending':
+        return { title: `Waiting for ${first}'s delivery`, subtitle: 'Review the delivery when it arrives. The final milestone is due on delivery.' };
       case 'requested':
-        return { title: `Waiting for ${first} to accept`, subtitle: 'Pros respond within 15 minutes. If not, your visit fee is refunded automatically.' };
+        return {
+          title: `Waiting for ${first} to accept`,
+          subtitle: p.archetype === 'inspect_quote'
+            ? 'Pros respond within 15 minutes. If not, your visit fee is refunded automatically.'
+            : 'Pros respond within 15 minutes. If not, your payment is refunded automatically.',
+        };
       case 'accepted':
         return { title: `${first} accepted your booking`, subtitle: p.startCode ? `Share code ${p.startCode} when ${first} arrives.` : `Share your start code when ${first} arrives.` };
       case 'en_route':
