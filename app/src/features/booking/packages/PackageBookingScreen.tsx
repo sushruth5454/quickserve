@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Button, ErrorState, Header, IconButton, InlineAlert, Input, PriceRow, Screen, Skeleton, Text, useToast } from '../../../components/ui';
 import { useSelectedLocation } from '../../../lib/locationContext';
+import { friendlyDbError } from '../../../lib/onboarding/supabaseOnboarding';
 import { formatINR } from '../../../lib/money';
 import { usePayment } from '../../../lib/payments';
 import { dayLabel, nextDays, windowLabel } from '../../../lib/schedule';
@@ -141,7 +142,10 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       }
       toast({ message: archetype === 'fixed' ? 'Package booked' : pack ? 'Pack created. Complete payment to activate it.' : 'Session booked', tone: 'success' });
     } catch (caught) {
-      setError((caught as Error).message);
+      const message = (caught as Error).message;
+      setError(/overlaps another booking|not available/i.test(message)
+        ? 'That time is already taken. Pick another day or time slot.'
+        : friendlyDbError(message));
     } finally {
       setBusy(false);
     }

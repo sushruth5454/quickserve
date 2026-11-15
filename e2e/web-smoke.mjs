@@ -180,6 +180,8 @@ for (const c of categories) {
 }
 
 // ---------- Creator proposal, end to end ----------
+// A random event day, so a recent run's 30-minute payment hold on the test pro never blocks this one.
+const proposalDay = 20 + Math.floor(Math.random() * 60);
 // Customer browses a creator, sends a brief to that creator only, the creator replies with a fixed proposal
 // (through the API as the +919000000101 test pro), and the customer compares, accepts and reaches checkout.
 const PRO_ID = '11111111-1111-1111-1111-111111111111';
@@ -218,7 +220,7 @@ await step('proposal-flow-customer-sends-brief', async () => {
   await page.waitForURL(/\/request\/new/);
   await page.getByText(/^Request a proposal from /).first().waitFor();
   await page.getByLabel('What do you need?').first().fill('QA-E2E 30-second launch reel for my cafe, vertical, 2 revisions');
-  await page.getByLabel('Date').first().fill(iso(30).slice(0, 10));
+  await page.getByLabel('Date').first().fill(iso(proposalDay).slice(0, 10));
   await page.getByLabel('Venue / area').first().fill('Benz Circle cafe');
   await page.getByLabel('Approximate maximum (₹)').first().fill('15000');
   await page.getByText(/^Send to /).first().click();
@@ -257,6 +259,10 @@ await step('proposal-flow-accept-and-checkout', async () => {
   await page.waitForURL(/\/booking\/[0-9a-f-]{36}$/);
 });
 await optional('proposal-flow-cleanup', async () => {
+  // Later steps browse the demo city, so switch back from the test pro's city.
+  await go('/location');
+  await page.getByText('Demo home', { exact: true }).first().click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
   // Keep the shared test pro to its seeded trades so it does not appear as a live creator.
   if (proReelServiceId) await asPro(`/rest/v1/provider_services?id=eq.${proReelServiceId}`, { active: false }, 'PATCH');
 });
@@ -411,7 +417,7 @@ for (const [name, path, wait] of [
   ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
   ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
   ['dark-bookings', '/bookings', 'My bookings'],
-  ['dark-location-picker', '/location', 'Popular areas in Vijayawada'],
+  ['dark-location-picker', '/location', /^Popular areas in /],
   ['dark-me-customer', '/account', 'Switch to provider mode'],
 ]) {
   await step(name, async () => {

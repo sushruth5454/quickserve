@@ -93,9 +93,13 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     let alive = true;
     void (async () => {
       const stored = parseStoredLocation(await AsyncStorage.getItem(LOCATION_STORAGE_KEY).catch(() => null));
+      // Demo-city builds only have seeded providers in that city. A location saved by an earlier build is dropped
+      // once, on the first launch of the demo build; anything the user picks after that is kept.
+      const resetKey = `${LOCATION_STORAGE_KEY}.demoReset.${demoSeedCity.toLowerCase()}`;
+      const needsDemoReset = isSeedDemoMode && !(await AsyncStorage.getItem(resetKey).catch(() => '1'));
       if (!alive) return;
-      // Demo-city builds only have seeded providers in that city; a location saved by an earlier build would hide them.
-      if (stored && (!isSeedDemoMode || stored.city?.trim().toLowerCase() === demoSeedCity.toLowerCase())) {
+      if (needsDemoReset) void AsyncStorage.setItem(resetKey, '1').catch(() => undefined);
+      if (stored && (!needsDemoReset || stored.city?.trim().toLowerCase() === demoSeedCity.toLowerCase())) {
         setLoc(stored);
         setReady(true);
         return;

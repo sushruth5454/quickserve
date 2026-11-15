@@ -46,15 +46,20 @@ export async function runAllServiceScenarios({ page, go, step, visible }) {
     await go('/category/house-cleaning?name=House%20Cleaning');
     await page.getByLabel('Book package: Demo 2 BHK deep clean').first().click();
     await page.waitForURL(/\/book\//);
-    await page.getByText('Book package', { exact: true }).first().waitFor();
-    await page.getByText('Demo 2 BHK deep clean', { exact: true }).first().waitFor();
+    // The category screen stays mounted (hidden) on web, so match only the visible copy of shared text.
+    await page.locator('text="Book package" >> visible=true').first().waitFor();
+    await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
   });
 
   await step('archetype-fixed-package-book-mocked-payment', async () => {
-    if (await page.getByText('Tomorrow', { exact: true }).count()) {
-      await page.getByText('Tomorrow', { exact: true }).first().click();
-    }
-    await page.getByText(/^Pay ₹/).last().click();
+    // A random later day and window, so a recent run's 30-minute hold on the demo pro never collides.
+    const days = page.locator('button >> visible=true').filter({ hasText: /(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2}$/ });
+    const dayCount = await days.count();
+    if (dayCount > 2) await days.nth(2 + Math.floor(Math.random() * (dayCount - 2))).click();
+    const slots = page.locator('text=/^\\d{1,2}( am| pm)?–\\d{1,2} (am|pm)$/ >> visible=true');
+    const slotCount = await slots.count();
+    if (slotCount) await slots.nth(Math.floor(Math.random() * slotCount)).click();
+    await page.locator('text=/^Pay ₹/ >> visible=true').last().click();
     await page.getByText('Secure checkout', { exact: true }).first().waitFor();
     await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
     await page.getByText(/^Pay ₹/).last().click();
