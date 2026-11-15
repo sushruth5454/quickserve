@@ -27,7 +27,7 @@ function avg(reviews: Review[], key: 'punctuality' | 'quality' | 'behaviour' | '
 export default function ProviderDetailScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const { id, preview } = useLocalSearchParams<{ id: string; preview?: string }>();
+  const { id, preview, category: categorySlug } = useLocalSearchParams<{ id: string; preview?: string; category?: string }>();
   const isPreview = preview === '1';
   const [pub, setPub] = useState<PublicProfile | null>(null);
   const [detail, setDetail] = useState<ProviderDetail | null>(null);
@@ -42,12 +42,12 @@ export default function ProviderDetailScreen() {
       const [d, pp] = await Promise.all([getProviderDetail(id), onboardingApi.getPublicProfile(id).catch(() => null)]);
       setPub(pp);
       setDetail(d);
-      setSelected((s) => s ?? d.services[0]?.id ?? null);
+      setSelected((s) => s ?? d.services.find((x) => x.categories?.slug === categorySlug)?.id ?? d.services[0]?.id ?? null);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [id]);
+  }, [id, categorySlug]);
 
   useEffect(() => {
     void load();
@@ -85,6 +85,7 @@ export default function ProviderDetailScreen() {
   const first = name.split(' ')[0];
   const rating = Number(provider.rating_avg);
   const service = services.find((s) => s.id === selected) ?? services[0];
+  const proposalService = service?.categories?.archetype === 'proposal';
   const subs = [
     ['Punctuality', avg(reviews, 'punctuality')],
     ['Quality', avg(reviews, 'quality')],
@@ -120,18 +121,29 @@ export default function ProviderDetailScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
             <View style={{ flexShrink: 1 }}>
               <Text variant="caption" color="muted" numberOfLines={1}>
-                {service.categories?.name} · visit fee
+                {service.categories?.name} · {proposalService ? 'price' : 'visit fee'}
               </Text>
-              <Text variant="title2" tabular>
-                {formatINR(service.visit_fee)}
-              </Text>
+              {proposalService ? (
+                <Text variant="calloutStrong">Fixed quote per brief</Text>
+              ) : (
+                <Text variant="title2" tabular>
+                  {formatINR(service.visit_fee)}
+                </Text>
+              )}
             </View>
             <Button
-              title={`Book ${first}`}
+              title={proposalService ? 'Request proposal' : `Book ${first}`}
               size="lg"
               style={{ flex: 1 }}
               disabled={unavailable}
-              onPress={() => router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } })}
+              onPress={() =>
+                proposalService
+                  ? router.push({
+                      pathname: '/request/new',
+                      params: { categoryId: service.category_id, name: service.categories?.name ?? 'service', providerId: provider.id, providerName: first },
+                    })
+                  : router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } })
+              }
             />
           </View>
         ) : undefined
@@ -288,10 +300,16 @@ export default function ProviderDetailScreen() {
                   </View>
                   {services.length > 1 ? <Radio selected={active} /> : null}
                 </View>
-                <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                  <Pill label="Visit fee" value={formatINR(s.visit_fee)} />
-                  <Pill label={`Labour per ${s.rate_unit}`} value={formatINR(s.labour_rate)} />
-                </View>
+                {s.categories?.archetype === 'proposal' ? (
+                  <Text variant="footnote" color="textSecondary">
+                    Sends a fixed, itemised proposal for your brief. You pay an advance only after accepting it.
+                  </Text>
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                    <Pill label="Visit fee" value={formatINR(s.visit_fee)} />
+                    <Pill label={`Labour per ${s.rate_unit}`} value={formatINR(s.labour_rate)} />
+                  </View>
+                )}
                 {(() => {
                   const sp = pub?.specialisations.find((x) => x.category_id === s.category_id);
                   const tags = [...(sp?.labels ?? []), ...(sp?.brands ?? [])];

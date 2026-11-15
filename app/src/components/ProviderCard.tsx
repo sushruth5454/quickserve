@@ -70,16 +70,19 @@ interface Props {
   provider: ProviderSearchResult;
   onPress: () => void;
   onBook: () => void;
+  /** Creator/event categories have no visit fee; providers send a fixed proposal per brief. */
+  mode?: 'visit' | 'proposal';
 }
 
-export function ProviderCard({ provider: p, onPress, onBook }: Props) {
+export function ProviderCard({ provider: p, onPress, onBook, mode = 'visit' }: Props) {
   const t = useTheme();
   const rating = Number(p.rating_avg);
+  const proposal = mode === 'proposal';
   return (
     <Card
       onPress={onPress}
       gap={t.spacing.md}
-      accessibilityLabel={`${p.full_name}, verified, ${skillLabel[p.skill_level]}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews, visit fee ${formatINR(p.visit_fee)}`}
+      accessibilityLabel={`${p.full_name}, verified, ${skillLabel[p.skill_level]}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews${proposal ? ', price on proposal' : `, visit fee ${formatINR(p.visit_fee)}`}`}
       accessibilityHint="Opens provider details"
     >
       <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
@@ -116,19 +119,34 @@ export function ProviderCard({ provider: p, onPress, onBook }: Props) {
         }}
       >
         <View style={{ flex: 1 }}>
-          <Text variant="caption" color="muted">
-            Visit fee
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-            <Text variant="title3" tabular>
-              {formatINR(p.visit_fee)}
-            </Text>
-            <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
-              adjusted in bill
-            </Text>
-          </View>
+          {proposal ? (
+            <>
+              <Text variant="caption" color="muted">Price</Text>
+              <Text variant="calloutStrong" numberOfLines={1}>Fixed quote for your brief</Text>
+            </>
+          ) : (
+            <>
+              <Text variant="caption" color="muted">
+                Visit fee
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                <Text variant="title3" tabular>
+                  {formatINR(p.visit_fee)}
+                </Text>
+                <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  adjusted in bill
+                </Text>
+              </View>
+            </>
+          )}
         </View>
-        <Button title="Book" size="sm" onPress={onBook} accessibilityLabel={`Book ${p.full_name}`} style={{ minWidth: 88 }} />
+        <Button
+          title={proposal ? 'Request proposal' : 'Book'}
+          size="sm"
+          onPress={onBook}
+          accessibilityLabel={`${proposal ? 'Request a proposal from' : 'Book'} ${p.full_name}`}
+          style={{ minWidth: 88 }}
+        />
       </View>
     </Card>
   );

@@ -6,7 +6,12 @@ import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
 
 export default function NewServiceRequest() {
-  const { categoryId, name = 'service' } = useLocalSearchParams<{ categoryId: string; name?: string }>();
+  const { categoryId, name = 'service', providerId, providerName } = useLocalSearchParams<{
+    categoryId: string;
+    name?: string;
+    providerId?: string;
+    providerName?: string;
+  }>();
   const { location } = useSelectedLocation();
   const toast = useToast();
   const [brief, setBrief] = useState('');
@@ -35,8 +40,9 @@ export default function NewServiceRequest() {
         budgetMax: budget ? rupeesToPaise(Number(budget)) : null,
         addressId: null,
         venueText: venue.trim() || location.area,
+        providerId: providerId || null,
       });
-      toast({ message: 'Request sent to matching providers', tone: 'success' });
+      toast({ message: providerName ? `Request sent to ${providerName}` : 'Request sent to matching providers', tone: 'success' });
       router.replace({ pathname: '/request/[id]', params: { id } });
     } catch (e) {
       setError((e as Error).message);
@@ -46,9 +52,15 @@ export default function NewServiceRequest() {
   };
 
   return (
-    <Screen header={<Header title={`Get ${name} proposals`} />} footer={<Button title="Request proposals" fullWidth size="lg" loading={busy} onPress={() => void submit()} />}>
+    <Screen
+      header={<Header title={providerName ? `Request a proposal from ${providerName}` : `Get ${name} proposals`} subtitle={providerName ? name : undefined} />}
+      footer={<Button title={providerName ? `Send to ${providerName}` : 'Request proposals'} fullWidth size="lg" loading={busy} onPress={() => void submit()} />}
+    >
       {error ? <InlineAlert title="Check the brief" message={error} /> : null}
-      <Section title="Your brief" subtitle="Providers see this before they quote. Never add phone numbers or payment details.">
+      <Section
+        title="Your brief"
+        subtitle={`${providerName ? `Only ${providerName} sees this` : 'Providers see this'} before they quote. Never add phone numbers or payment details.`}
+      >
         <TextArea label="What do you need?" placeholder="Tell providers about the event, style and deliverables…" value={brief} onChangeText={setBrief} />
       </Section>
       <Section title="Event">

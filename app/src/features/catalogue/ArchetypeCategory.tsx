@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, EmptyState, ErrorState, Header, Screen, Skeleton, Text } from '../../components/ui';
-import type { Category } from '../../lib/types';
+import { ProviderCard } from '../../components/ProviderCard';
+import { Button, Card, EmptyState, ErrorState, Header, Screen, Section, Skeleton, SkeletonProviderCard, Text } from '../../components/ui';
+import { searchProviders } from '../../lib/api';
+import { useSelectedLocation } from '../../lib/locationContext';
+import type { Category, ProviderSearchResult, SearchFilters } from '../../lib/types';
 import { useTheme } from '../../theme';
 import { PackageCard } from '../booking/packages/PackageCard';
 import { canPayInstantly } from '../booking/packages/packageModel';
@@ -19,32 +22,7 @@ export function ArchetypeCategory({ category }: { category: Category }) {
   };
   useEffect(load, [category.slug]);
 
-  if (category.archetype === 'proposal') {
-    return (
-      <Screen header={<Header title={category.name} />}>
-        <Card variant="elevated" gap={t.spacing.lg}>
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: t.colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="document-text-outline" size={28} color={t.colors.primaryText} />
-          </View>
-          <View style={{ gap: 4 }}>
-            <Text variant="title2">Tell verified pros what you need</Text>
-            <Text variant="callout" color="muted">Compare fixed, itemised proposals. Pay nothing until you choose one.</Text>
-          </View>
-          <View style={{ gap: t.spacing.sm }}>
-            {['Describe the event or project', 'Compare price, inclusions and milestones', 'Pay a booking advance to confirm'].map((step, index) => (
-              <View key={step} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text variant="captionStrong">{index + 1}</Text>
-                </View>
-                <Text variant="callout" color="textSecondary">{step}</Text>
-              </View>
-            ))}
-          </View>
-          <Button title="Get proposals" leftIcon="add-circle-outline" onPress={() => router.push({ pathname: '/request/new', params: { category: category.slug } })} fullWidth size="lg" />
-        </Card>
-      </Screen>
-    );
-  }
+  if (category.archetype === 'proposal') return <ProposalCategory category={category} />;
 
   const fixed = category.archetype === 'fixed';
   const timeBased = category.archetype === 'time_based';
@@ -70,7 +48,7 @@ export function ArchetypeCategory({ category }: { category: Category }) {
               actionLabel={action}
               onPress={() => {
                 if (!instant) {
-                  router.push({ pathname: '/request/new', params: { category: category.slug, package: item.package.id } });
+                  router.push({ pathname: '/request/new', params: { categoryId: category.id, name: category.name, package: item.package.id } });
                   return;
                 }
                 router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: item.providerServiceId, packageId: item.package.id, archetype: category.archetype! } });
@@ -79,6 +57,71 @@ export function ArchetypeCategory({ category }: { category: Category }) {
           );
         })
       )}
+    </Screen>
+  );
+}
+
+const CREATOR_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, skillLevel: null, maxVisitFee: null, onlineOnly: false };
+
+function ProposalCategory({ category }: { category: Category }) {
+  const t = useTheme();
+  const { coords } = useSelectedLocation();
+  const [pros, setPros] = useState<ProviderSearchResult[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setError(null);
+    searchProviders(category.slug, coords, CREATOR_FILTERS).then(setPros).catch((caught: Error) => setError(caught.message));
+  }, [category.slug, coords]);
+  useEffect(load, [load]);
+
+  const requestFrom = (pro?: ProviderSearchResult) =>
+    router.push({
+      pathname: '/request/new',
+      params: pro
+        ? { categoryId: category.id, name: category.name, providerId: pro.provider_id, providerName: pro.full_name || 'this provider' }
+        : { categoryId: category.id, name: category.name },
+    });
+
+  return (
+    <Screen header={<Header title={category.name} subtitle="Browse pros or get several proposals at once" />}>
+      <Card variant="elevated" gap={t.spacing.md}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="document-text-outline" size={22} color={t.colors.primaryText} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="calloutStrong">Not sure who to pick?</Text>
+            <Text variant="footnote" color="muted">Describe it once and compare fixed proposals from up to 8 pros. Pay nothing until you choose one.</Text>
+          </View>
+        </View>
+        <Button title="Get proposals from several pros" variant="outline" leftIcon="people-outline" onPress={() => requestFrom()} fullWidth />
+      </Card>
+
+      <Section title={`${category.name} pros near you`} subtitle="Prices depend on your brief. Request a proposal to get a fixed quote.">
+        {error ? (
+          <ErrorState message={error} onRetry={load} />
+        ) : pros == null ? (
+          <View style={{ gap: t.spacing.md }}><SkeletonProviderCard /><SkeletonProviderCard /></View>
+        ) : pros.length === 0 ? (
+          <EmptyState
+            icon="people-outline"
+            title="No pros listed nearby yet"
+            message="Post your brief anyway. New pros joining your city will see it."
+            actionLabel="Get proposals"
+            onAction={() => requestFrom()}
+          />
+        ) : (
+          pros.map((pro) => (
+            <ProviderCard
+              key={pro.provider_service_id}
+              provider={pro}
+              mode="proposal"
+              onPress={() => router.push({ pathname: '/provider/[id]', params: { id: pro.provider_id, category: category.slug } })}
+              onBook={() => requestFrom(pro)}
+            />
+          ))
+        )}
+      </Section>
     </Screen>
   );
 }

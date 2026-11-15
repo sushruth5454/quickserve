@@ -184,6 +184,7 @@ export async function createServiceRequest(input: CreateServiceRequestInput): Pr
     p_budget_max: input.budgetMax,
     p_address_id: input.addressId,
     p_venue_text: input.venueText,
+    ...(input.providerId ? { p_provider_id: input.providerId } : {}),
   })) as string;
 }
 
@@ -295,7 +296,7 @@ export async function getProviderDetail(providerId: string): Promise<ProviderDet
     supabase.from('providers').select(`${PUBLIC_PROVIDER_COLUMNS}, profiles(full_name, avatar_url)`).eq('id', providerId).single(),
     supabase
       .from('provider_services')
-      .select('*, categories(name, slug), rate_card_items(*), service_packages(*)')
+      .select('*, categories(name, slug, archetype), rate_card_items(*), service_packages(*)')
       .eq('provider_id', providerId)
       .eq('active', true),
     supabase
@@ -643,7 +644,7 @@ export const setOnline = (online: boolean) => rpcVoid('set_provider_online', { p
 
 export async function listMyServices(includeInactive = false): Promise<ProviderService[]> {
   const uid = await requireUserId();
-  let q = supabase.from('provider_services').select('*, categories(name, slug), rate_card_items(*), service_packages(*)').eq('provider_id', uid);
+  let q = supabase.from('provider_services').select('*, categories(name, slug, archetype), rate_card_items(*), service_packages(*)').eq('provider_id', uid);
   if (!includeInactive) q = q.eq('active', true);
   return unwrap(await q.order('created_at'));
 }

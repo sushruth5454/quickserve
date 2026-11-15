@@ -211,4 +211,29 @@ runtimeOk((await db.query(`select (value->>'proposal')::boolean on_ from app_con
 runtimeOk((await as(null, 'anon', `select count(*)::int n from categories where slug = 'wedding-photographer'`))[0].n === 1,
   'anon can now read Wedding Photographer');
 
+await db.exec(migration('0025_targeted_proposal_requests.sql'));
+const targeted = (await as(customer, 'authenticated', `
+  select create_service_request($1, 'Proposal City', 'Area', now()+interval '60 days',
+    now()+interval '60 days 4 hours', '{"brief":"Reel shoot for my cafe"}', null, null, $2, null, $3) id
+`, [category, address, provider2]))[0].id;
+const targetedRecipients = (await db.query(`select provider_id from request_recipients where request_id=$1`, [targeted])).rows;
+runtimeOk(targetedRecipients.length === 1 && targetedRecipients[0].provider_id === provider2,
+  'targeted request reaches only the chosen provider');
+runtimeOk((await as(provider, 'authenticated', `select * from service_request_provider_view where id=$1`, [targeted])).length === 0,
+  'other providers cannot see a targeted request');
+let unavailable = null;
+try {
+  await as(customer, 'authenticated', `
+    select create_service_request($1, 'Other City', 'Area', now()+interval '60 days',
+      now()+interval '60 days 4 hours', '{"brief":"Reel shoot elsewhere"}', null, null, null, 'Somewhere', $2)
+  `, [category, provider2]);
+} catch (e) { unavailable = e.message; }
+runtimeOk(/not available/.test(unavailable ?? ''), 'targeting a provider outside the request city is rejected');
+const openRequest = (await as(customer, 'authenticated', `
+  select create_service_request($1, 'Proposal City', 'Area', now()+interval '61 days',
+    now()+interval '61 days 4 hours', '{"brief":"Open brief for everyone"}', null, null, $2, null) id
+`, [category, address]))[0].id;
+runtimeOk((await db.query(`select count(*)::int n from request_recipients where request_id=$1`, [openRequest])).rows[0].n === 2,
+  'untargeted requests still route to all eligible providers');
+
 if (failed.length || runtimeFailures) process.exit(1);

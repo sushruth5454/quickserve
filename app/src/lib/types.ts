@@ -512,6 +512,8 @@ export interface CreateServiceRequestInput {
   budgetMax: number | null;
   addressId: string | null;
   venueText: string | null;
+  /** Send the brief only to this provider instead of up to 8 matching providers. */
+  providerId?: string | null;
 }
 
 export interface SendProposalInput {
