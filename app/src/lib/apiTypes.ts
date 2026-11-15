@@ -26,6 +26,14 @@ import type {
   TravelPreview,
   TravelRequest,
   TravelFeeMode,
+  ServiceRequest,
+  Proposal,
+  ProposalRequest,
+  PaymentSchedule,
+  RequestMessage,
+  DeliveryLink,
+  CreateServiceRequestInput,
+  SendProposalInput,
 } from './types';
 import type { UnreadCount } from './unread';
 import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
@@ -111,7 +119,8 @@ export type PushPlatform = 'ios' | 'android' | 'web';
 export interface PaymentLinkResponse {
   short_url: string;
   amount: number;
-  purpose: 'visit_fee' | 'balance' | 'fixed' | 'package' | 'advance' | 'milestone' | 'final' | 'addon' | 'session';
+  purpose: 'visit_fee' | 'balance' | 'fixed' | 'advance' | 'milestone' | 'final' | 'platform_fee' | 'package' | 'addon' | 'session';
+  schedule_id?: string | null;
 }
 
 export interface ProviderProfileInput {
@@ -228,4 +237,23 @@ export interface Api {
   getChatReadState(bookingId: string): Promise<ChatReadState>;
   registerPushDevice(token: string, platform: PushPlatform): Promise<void>;
   unregisterPushDevice(token: string): Promise<void>;
+  // proposal / milestone booking
+  createServiceRequest(input: CreateServiceRequestInput): Promise<string>;
+  cancelServiceRequest(id: string): Promise<void>;
+  listMyServiceRequests(): Promise<ServiceRequest[]>;
+  listProviderServiceRequests(): Promise<ProposalRequest[]>;
+  getServiceRequest(id: string): Promise<ServiceRequest | null>;
+  listRequestProposals(requestId: string): Promise<Proposal[]>;
+  getProposal(id: string): Promise<Proposal>;
+  sendProposal(input: SendProposalInput): Promise<string>;
+  withdrawProposal(id: string): Promise<void>;
+  acceptProposal(id: string, addressId?: string | null): Promise<string>;
+  listRequestMessages(requestId: string, providerId: string): Promise<RequestMessage[]>;
+  sendRequestMessage(requestId: string, providerId: string, body: string): Promise<void>;
+  listPaymentSchedule(bookingId: string): Promise<PaymentSchedule[]>;
+  createSchedulePayment(bookingId: string, scheduleId: string): Promise<PaymentLinkResponse>;
+  startProposalBooking(bookingId: string, otp: string): Promise<OtpResult>;
+  beginDelivery(bookingId: string): Promise<void>;
+  submitDelivery(bookingId: string, links: DeliveryLink[]): Promise<void>;
+  acceptDelivery(bookingId: string): Promise<void>;
 }

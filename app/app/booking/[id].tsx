@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'reac
 import { Linking, ScrollView, Switch, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { QuoteView } from '../../src/components/QuoteView';
+import { PaymentSchedule } from '../../src/components/PaymentSchedule';
 import { statusLabel } from '../../src/components/status';
 import { StatusHero, type HeroCopy } from '../../src/components/StatusHero';
 import { ChatButton } from '../../src/components/UnreadChat';
@@ -43,7 +44,7 @@ import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
 import { registerForPush } from '../../src/lib/push';
 import { bookingRef, dayLabel, scheduleLabel } from '../../src/lib/schedule';
-import type { Booking, BookingAddress, BookingEvent, BookingOtps, Payment, PaymentStatus, Quote, Review, ReviewInput } from '../../src/lib/types';
+import type { Booking, BookingAddress, BookingEvent, BookingOtps, Payment, PaymentSchedule as PaymentScheduleRow, PaymentStatus, Quote, Review, ReviewInput } from '../../src/lib/types';
 import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 import { PaymentScheduleTimeline } from '../../src/features/catalogue/PaymentScheduleTimeline';
@@ -59,6 +60,7 @@ interface Data {
   counterpart: string;
   photoUrls: string[];
   coinPreview: CoinRedemptionPreview | null;
+  paymentSchedule: PaymentScheduleRow[];
 }
 
 const PAYMENT_STATUS: Record<PaymentStatus, [string, Tone]> = {
@@ -100,7 +102,7 @@ export default function BookingDetail() {
     try {
       const booking = await api.getBooking(id);
       const isCustomer = booking.customer_id === userId;
-      const [quotes, payments, events, otps, address, review, counterpart, photoUrls] = await Promise.all([
+      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, paymentSchedule] = await Promise.all([
         api.getQuotes(id),
         api.getPayments(id),
         api.getEvents(id).catch(() => [] as BookingEvent[]),
@@ -109,12 +111,13 @@ export default function BookingDetail() {
         api.getReviewForBooking(id),
         api.getProfileName(isCustomer ? booking.provider_id : booking.customer_id),
         api.signedPhotoUrls(booking.photos).catch(() => []),
+        api.listPaymentSchedule(id).catch(() => [] as PaymentScheduleRow[]),
       ]);
       const sentQuote = quotes.find((q) => q.status === 'sent') ?? null;
       const coinPreview = isCustomer && sentQuote
         ? await api.getCoinRedemptionPreview(id, sentQuote.id).catch(() => null)
         : null;
-      setData({ booking, quotes, payments, events, otps, address, review, counterpart, photoUrls, coinPreview });
+      setData({ booking, quotes, payments, events, otps, address, review, counterpart, photoUrls, coinPreview, paymentSchedule });
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -232,10 +235,13 @@ export default function BookingDetail() {
   const submitOtp = async (value = otp) => {
     if (value.length !== 4) return;
     const arriving = s === 'en_route';
+    const proposalStart = s === 'confirmed' && booking.archetype === 'proposal';
     setOtpBusy(true);
     setOtpMsg(null);
     try {
-      const res = arriving ? await api.arrive(booking.id, value) : await api.completeBooking(booking.id, value);
+      const res = proposalStart
+        ? await api.startProposalBooking(booking.id, value)
+        : arriving ? await api.arrive(booking.id, value) : await api.completeBooking(booking.id, value);
       if (res.ok) {
         haptics.success();
         setOtp('');
@@ -301,6 +307,12 @@ export default function BookingDetail() {
         </AmountFooter>
       );
     } else if (s === 'completion_requested') {
+      if (booking.archetype === 'proposal' && booking.delivery_status === 'submitted') {
+        footer = (
+          <Button title="Accept delivery" leftIcon="checkmark-done" size="lg" fullWidth loading={busy}
+            onPress={() => void run(() => api.acceptDelivery(booking.id), 'Delivery accepted')} />
+        );
+      } else {
       footer = (
         <Button
           title="Confirm job done"
@@ -311,6 +323,7 @@ export default function BookingDetail() {
           onPress={() => void run(() => api.confirmCompletion(booking.id), 'Job marked complete')}
         />
       );
+      }
     }
   } else if (s === 'accepted') {
     footer = (
@@ -323,6 +336,25 @@ export default function BookingDetail() {
         onPress={() => void run(() => api.startTrip(booking.id), 'Customer notified you are on the way')}
       />
     );
+  } else if (s === 'confirmed' && booking.archetype === 'proposal') {
+    footer = (
+      <Button
+        title="Enter start code"
+        leftIcon="keypad-outline"
+        size="lg"
+        fullWidth
+        disabled={otp.length !== 4}
+        loading={otpBusy || busy}
+        onPress={() => void submitOtp()}
+      />
+    );
+  } else if (s === 'in_progress' && booking.archetype === 'proposal' && booking.delivery_status === 'pending') {
+    footer = (
+      <Button title="Begin deliverables" size="lg" fullWidth loading={busy}
+        onPress={() => void run(() => api.beginDelivery(booking.id), 'Deliverables opened')} />
+    );
+  } else if (s === 'delivery_pending' && booking.archetype === 'proposal') {
+    footer = <Button title="Submit delivery" size="lg" fullWidth onPress={() => router.push({ pathname: '/proposal-delivery/[id]', params: { id: booking.id } })} />;
   } else if (s === 'en_route' || s === 'completion_requested') {
     footer = (
       <Button
@@ -488,10 +520,10 @@ export default function BookingDetail() {
       ) : null}
 
       {/* ---------- provider actions ---------- */}
-      {!isCustomer && (s === 'en_route' || s === 'completion_requested') ? (
+      {!isCustomer && (s === 'en_route' || s === 'completion_requested' || (s === 'confirmed' && booking.archetype === 'proposal')) ? (
         <Card variant="elevated" gap={t.spacing.lg}>
           <Text variant="subheadStrong" color="textSecondary" align="center">
-            {s === 'en_route' ? 'Start code' : 'Completion code'} from {first}
+            {s === 'completion_requested' ? 'Completion code' : 'Start code'} from {first}
           </Text>
           <OTPInput
             length={4}
@@ -604,6 +636,17 @@ export default function BookingDetail() {
       {approvedQuote && !shownQuoteIds.has(approvedQuote.id) ? (
         <Section title="Approved scope">
           <QuoteView quote={approvedQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} title="Quote" />
+        </Section>
+      ) : null}
+
+      {booking.archetype === 'proposal' && data.paymentSchedule.length > 0 ? (
+        <Section title="Payment schedule">
+          <PaymentSchedule
+            rows={data.paymentSchedule}
+            onPay={isCustomer ? (row) => void run(async () => {
+              await startPayment(booking.id, row.id);
+            }) : undefined}
+          />
         </Section>
       ) : null}
 

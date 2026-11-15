@@ -35,6 +35,7 @@ import { useTheme } from '../../src/theme';
 import { GoLiveStatusCard } from '../../src/features/providerOnboarding/GoLiveStatusCard';
 import { onboardingApi, type DocumentType, type GoLive } from '../../src/lib/onboarding';
 import { TravelRequestInbox } from '../../src/features/travel/TravelRequestInbox';
+import { ProviderProposalInbox } from '../../src/features/proposals/ProviderProposalInbox';
 
 /** Active statuses in the order a pro should look at them (most time-critical first). */
 const ACTIVE_PRIORITY: BookingStatus[] = [
@@ -242,6 +243,9 @@ export default function ProviderDashboard() {
       {/* Requests first: they expire. */}
       <View style={gutter}>
         <TravelRequestInbox />
+      </View>
+      <View style={gutter}>
+        <ProviderProposalInbox />
       </View>
 
       <View style={gutter}>

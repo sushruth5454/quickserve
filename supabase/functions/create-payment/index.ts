@@ -4,9 +4,9 @@ import { cancelRetiredLinks, corsHeaders, json, razorpay, requireEnv } from "../
 interface PreparedPayment {
   payment_id: string;
   amount: number;
-  purpose: "visit_fee" | "balance" | "fixed" | "package" | "advance" | "milestone" | "final" | "addon" | "session";
-  schedule_id?: string | null;
+  purpose: "visit_fee" | "balance" | "fixed" | "package" | "advance" | "milestone" | "final" | "platform_fee" | "addon" | "session";
   short_url: string | null;
+  schedule_id?: string | null;
 }
 
 interface PaymentLink {
@@ -32,10 +32,16 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body.booking_id === "string" ? body.booking_id : null;
+    const scheduleId = typeof body.schedule_id === "string" ? body.schedule_id : null;
     if (!bookingId) return json({ error: "booking_id is required" }, 400);
 
-    const { data: prepared, error: prepError } = await admin
-      .rpc("prepare_payment", { p_booking_id: bookingId, p_user_id: user.id })
+    const { data: prepared, error: prepError } = await (scheduleId
+      ? admin.rpc("prepare_schedule_payment", {
+          p_booking_id: bookingId,
+          p_user_id: user.id,
+          p_schedule_id: scheduleId,
+        })
+      : admin.rpc("prepare_payment", { p_booking_id: bookingId, p_user_id: user.id }))
       .single<PreparedPayment>();
     if (prepError || !prepared) return json({ error: prepError?.message ?? "cannot prepare payment" }, 400);
 
@@ -43,7 +49,7 @@ Deno.serve(async (req) => {
     await cancelRetiredLinks(admin, bookingId);
 
     if (prepared.short_url) {
-      return json({ short_url: prepared.short_url, amount: prepared.amount, purpose: prepared.purpose });
+      return json({ short_url: prepared.short_url, amount: prepared.amount, purpose: prepared.purpose, schedule_id: prepared.schedule_id ?? scheduleId });
     }
 
     const { data: booking, error: bookingError } = await admin
@@ -82,8 +88,8 @@ Deno.serve(async (req) => {
         notes: {
           booking_id: bookingId,
           payment_id: prepared.payment_id,
-          schedule_id: prepared.schedule_id ?? "",
           purpose: prepared.purpose,
+          ...(prepared.schedule_id ?? scheduleId ? { schedule_id: prepared.schedule_id ?? scheduleId } : {}),
         },
         ...(callbackUrl ? { callback_url: callbackUrl, callback_method: "get" } : {}),
       });
@@ -103,7 +109,7 @@ Deno.serve(async (req) => {
       short_url: link.short_url,
       amount: prepared.amount,
       purpose: prepared.purpose,
-      schedule_id: prepared.schedule_id ?? null,
+      schedule_id: prepared.schedule_id ?? scheduleId,
     });
   } catch (e) {
     console.error(e);

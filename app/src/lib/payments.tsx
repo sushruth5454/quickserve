@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useRef, useState, type ReactNod
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { BottomSheet, Button, Text } from '../components/ui';
 import { useTheme } from '../theme';
-import { createPayment, type PaymentLinkResponse } from './api';
+import { createPayment, createSchedulePayment, type PaymentLinkResponse } from './api';
 import { isDemoMode } from './config';
 import { completeDemoPayment } from './demo/demoApi';
 import { haptics } from './haptics';
@@ -12,7 +12,7 @@ import { formatINR } from './money';
 
 type PayResult = 'paid' | 'opened' | 'cancelled';
 
-const PaymentContext = createContext<(bookingId: string) => Promise<PayResult>>(async () => 'cancelled');
+const PaymentContext = createContext<(bookingId: string, scheduleId?: string) => Promise<PayResult>>(async () => 'cancelled');
 
 /**
  * Starts payment for a booking. Real mode: opens the Razorpay Payment Link (the webhook advances the booking).
@@ -30,7 +30,8 @@ const PURPOSE: Record<PaymentLinkResponse['purpose'], string> = {
   advance: 'Booking advance',
   milestone: 'Payment milestone',
   final: 'Final payment',
-  addon: 'Package add-on',
+  platform_fee: 'QuickServe platform fee',
+  addon: 'Approved add-on',
   session: 'Session payment',
 };
 
@@ -55,8 +56,8 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
     resolver.current = null;
   }, []);
 
-  const pay = useCallback(async (bookingId: string): Promise<PayResult> => {
-    const res = await createPayment(bookingId);
+  const pay = useCallback(async (bookingId: string, scheduleId?: string): Promise<PayResult> => {
+    const res = scheduleId ? await createSchedulePayment(bookingId, scheduleId) : await createPayment(bookingId);
     if (!isDemoMode) {
       await WebBrowser.openBrowserAsync(res.short_url);
       return 'opened';

@@ -38,6 +38,14 @@ import type {
   SearchFilters,
   TravelPreview,
   TravelRequest,
+  ServiceRequest,
+  Proposal,
+  ProposalRequest,
+  RequestMessage,
+  PaymentSchedule,
+  CreateServiceRequestInput,
+  SendProposalInput,
+  DeliveryLink,
 } from '../types';
 import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBooking, type DemoDb } from './seed';
 
@@ -52,6 +60,10 @@ let bookingSeq = 1046;
 let idSeq = 1;
 let demoCoinBalance = 12500;
 let travelRequests: TravelRequest[] = [];
+let serviceRequests: ServiceRequest[] = [];
+let proposals: Proposal[] = [];
+let requestMessages: RequestMessage[] = [];
+let paymentSchedules: PaymentSchedule[] = [];
 const demoCoinHistory: CoinLedgerEntry[] = [
   {
     id: 'coin-seed-1',
@@ -572,6 +584,10 @@ export const demoApi: Api = {
     clearTimers();
     db = buildSeed();
     travelRequests = [];
+    serviceRequests = [];
+    proposals = [];
+    requestMessages = [];
+    paymentSchedules = [];
     chatReads = {};
     addressBook = {};
     await setSession(null);
@@ -594,6 +610,82 @@ export const demoApi: Api = {
     await wait();
     return clone([...db.categories].sort((a, b) => a.sort_order - b.sort_order));
   },
+
+  async createServiceRequest(input: CreateServiceRequestInput) {
+    const id = newId('request');
+    serviceRequests.unshift({
+      id, customer_id: uid(), category_id: input.categoryId, city: input.city, area: input.area,
+      event_start: input.eventStart.toISOString(), event_end: input.eventEnd.toISOString(),
+      intake: clone(input.intake), budget_min: input.budgetMin, budget_max: input.budgetMax,
+      status: 'open', expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), created_at: nowIso(),
+    });
+    return id;
+  },
+  async cancelServiceRequest(id) {
+    const row = serviceRequests.find((r) => r.id === id && r.customer_id === uid());
+    assert(row, 'Request not found');
+    row.status = 'cancelled';
+  },
+  async listMyServiceRequests() { return serviceRequests.filter((r) => r.customer_id === uid()).map(clone); },
+  async listProviderServiceRequests() { return [] as ProposalRequest[]; },
+  async getServiceRequest(id) { return clone(serviceRequests.find((r) => r.id === id && r.customer_id === uid()) ?? null); },
+  async listRequestProposals(requestId) { return proposals.filter((p) => p.request_id === requestId).map(clone); },
+  async getProposal(id) { return clone(proposals.find((p) => p.id === id) ?? fail('Proposal not found')); },
+  async sendProposal(input: SendProposalInput) {
+    assert(serviceRequests.some((r) => r.id === input.requestId), 'Request not found');
+    const id = newId('proposal');
+    const total = input.items.reduce((sum, item) => sum + Math.round(item.qty * item.unit_price), 0);
+    proposals.push({
+      id, request_id: input.requestId, provider_id: uid(), provider_service_id: 'demo-service',
+      version: 1, status: 'sent', total, valid_until: input.validUntil.toISOString(),
+      note: input.note ?? null, deliverables: clone(input.deliverables ?? []), created_at: nowIso(),
+      proposal_items: input.items.map((item, i) => ({ ...clone(item), proposal_id: id, seq: i + 1 })),
+      proposal_schedule: input.schedule.map((row, i) => ({
+        ...clone(row), id: newId('proposal-schedule'), proposal_id: id, seq: i + 1,
+        due_at: row.due_rule === 'at_booking' ? nowIso() : null,
+      })),
+    });
+    return id;
+  },
+  async withdrawProposal(id) {
+    const p = proposals.find((x) => x.id === id && x.provider_id === uid());
+    assert(p?.status === 'sent', 'Proposal is not open');
+    p.status = 'withdrawn';
+  },
+  async acceptProposal(id) {
+    const p = proposals.find((x) => x.id === id);
+    assert(p?.status === 'sent', 'Proposal not found');
+    p.status = 'accepted';
+    const request = serviceRequests.find((r) => r.id === p.request_id);
+    if (request) request.status = 'closed';
+    const bookingId = newId('proposal-booking');
+    paymentSchedules.push(...p.proposal_schedule.map((row) => ({
+      id: row.id, booking_id: bookingId, seq: row.seq, label: row.label, amount: row.amount,
+      due_rule: row.due_rule, due_at: row.due_at, status: row.due_rule === 'at_booking' ? 'due' : 'upcoming',
+      purpose: row.due_rule === 'at_booking' ? 'advance' : row.due_rule === 'on_delivery' ? 'final' : 'milestone',
+      obligation_kind: 'service', payment_id: null, reminded_at: null, paid_at: null,
+    })) as PaymentSchedule[]);
+    return bookingId;
+  },
+  async listRequestMessages(requestId, providerId) {
+    return requestMessages.filter((m) => m.request_id === requestId && m.provider_id === providerId).map(clone);
+  },
+  async sendRequestMessage(requestId, providerId, body) {
+    requestMessages.push({
+      id: newId('request-message'), request_id: requestId, provider_id: providerId,
+      sender_id: uid(), body: body.trim(), created_at: nowIso(),
+    });
+  },
+  async listPaymentSchedule(bookingId) { return paymentSchedules.filter((s) => s.booking_id === bookingId).map(clone); },
+  async createSchedulePayment(bookingId, scheduleId) {
+    const row = paymentSchedules.find((s) => s.booking_id === bookingId && s.id === scheduleId);
+    assert(row?.status === 'due', 'Milestone is not due');
+    return { short_url: `demo://milestone/${scheduleId}`, amount: row.amount, purpose: row.purpose, schedule_id: scheduleId };
+  },
+  async startProposalBooking() { return { ok: true }; },
+  async beginDelivery() {},
+  async submitDelivery(_bookingId, _links: DeliveryLink[]) {},
+  async acceptDelivery() {},
 
   async searchProviders(categorySlug: string, coords: Coords | null, f: SearchFilters): Promise<ProviderSearchResult[]> {
     await wait();
