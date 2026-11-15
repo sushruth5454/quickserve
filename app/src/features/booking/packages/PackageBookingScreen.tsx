@@ -8,7 +8,7 @@ import { formatINR } from '../../../lib/money';
 import { usePayment } from '../../../lib/payments';
 import { dayLabel, nextDays, windowLabel } from '../../../lib/schedule';
 import { useTheme } from '../../../theme';
-import { createFixedPackageBooking, createPackPayment, createTimeBooking, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
+import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, generateRecurringSessions, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
@@ -23,6 +23,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [pack, setPack] = useState(false);
+  const [recurring, setRecurring] = useState(false);
   const [dayIndex, setDayIndex] = useState(0);
   const [hour, setHour] = useState(10);
   const [intake, setIntake] = useState<Record<string, unknown>>({});
@@ -61,6 +62,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const schema = item.category.intake_schema ?? { type: 'object', properties: {} };
   const schemaIssues = validateValues(schema, intake);
   const total = packageTotal(item.package, quantity);
+  const dueNow = pack ? total + 4900 : total;
   const totalMinutes = packageDuration(item.package, quantity);
   const start = new Date(day.date);
   start.setHours(hour, 0, 0, 0);
@@ -92,6 +94,29 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         await pay(bookingId);
         router.replace({ pathname: '/booking/[id]', params: { id: bookingId } });
       } else {
+        if (recurring && !pack) {
+          const scheduleId = await createRecurringSchedule({
+            providerServiceId: item.providerServiceId,
+            packageId,
+            packId: null,
+            paymentMode: 'per_session',
+            weekdays: [start.getDay() === 0 ? 7 : start.getDay()],
+            startTime: `${String(hour).padStart(2, '0')}:00`,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            durationMin: totalMinutes,
+            startsOn: start,
+            endsOn: null,
+            addressLine: location.line1 ?? '',
+            city: location.city,
+            lat: location.lat,
+            lng: location.lng,
+            description: JSON.stringify(intake),
+          });
+          await generateRecurringSessions(scheduleId, new Date(Date.now() + 28 * 86_400_000));
+          router.replace('/bookings');
+          toast({ message: 'Weekly sessions scheduled', tone: 'success' });
+          return;
+        }
         const result = await createTimeBooking({
           packageId,
           quantity,
@@ -127,8 +152,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       header={<Header title={archetype === 'fixed' ? 'Book package' : pack ? 'Buy a session pack' : 'Book a session'} right={<IconButton icon="location-outline" onPress={() => router.push('/location')} accessibilityLabel="Change service address" />} />}
       footer={
         <View style={{ gap: t.spacing.sm }}>
-          <PriceRow label={pack ? `${quantity} sessions` : 'Total'} amount={total} emphasis="total" />
-          <Button title={`Pay ${formatINR(total)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon="lock-closed" />
+          <PriceRow label={pack ? `${quantity} sessions + ₹49 pack fee` : recurring ? 'Per session' : 'Total'} amount={recurring ? total : dueNow} emphasis="total" />
+          <Button title={recurring ? 'Schedule weekly' : `Pay ${formatINR(dueNow)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon={recurring ? 'calendar-outline' : 'lock-closed'} />
         </View>
       }
     >
@@ -139,9 +164,11 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         <View style={{ gap: t.spacing.sm }}>
           <Text variant="title3">Booking type</Text>
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            <Choice label="One session" selected={!pack} onPress={() => { setPack(false); setQuantity(1); }} />
-            <Choice label="Session pack" selected={pack} onPress={() => { setPack(true); setQuantity(Math.max(3, Number(item.package.qty_min))); }} />
+            <Choice label="One session" selected={!pack && !recurring} onPress={() => { setPack(false); setRecurring(false); setQuantity(1); }} />
+            <Choice label="Weekly" selected={recurring && !pack} onPress={() => { setPack(false); setRecurring(true); setQuantity(1); }} />
+            <Choice label="Session pack" selected={pack} onPress={() => { setPack(true); setRecurring(false); setQuantity(Math.max(3, Number(item.package.qty_min))); }} />
           </View>
+          {recurring ? <Text variant="footnote" color="muted">Same weekday and time for the next 28 days. Pay each session separately.</Text> : null}
         </View>
       ) : null}
 

@@ -183,6 +183,7 @@ export default function BookingDetail() {
   const { booking, quotes, payments, otps, review } = data;
   const s = booking.status;
   const isCustomer = booking.customer_id === userId;
+  const isTimeBased = booking.archetype === 'time_based';
   const first = data.counterpart.split(' ')[0] ?? data.counterpart;
   // Net of partial refunds (e.g. a change order that lowered the total), matching the server's amount owed.
   const paid = payments
@@ -234,7 +235,7 @@ export default function BookingDetail() {
 
   const submitOtp = async (value = otp) => {
     if (value.length !== 4) return;
-    const arriving = s === 'en_route';
+    const arriving = s === 'en_route' || (isTimeBased && s === 'accepted');
     const proposalStart = s === 'confirmed' && booking.archetype === 'proposal';
     setOtpBusy(true);
     setOtpMsg(null);
@@ -302,8 +303,8 @@ export default function BookingDetail() {
       );
     } else if (s === 'pending_payment') {
       footer = (
-        <AmountFooter label="Visit fee" amount={booking.visit_fee}>
-          <Button title="Pay & send request" leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
+        <AmountFooter label={isTimeBased ? 'Session payment' : 'Visit fee'} amount={isTimeBased ? booking.total_amount ?? 0 : booking.visit_fee}>
+          <Button title={isTimeBased ? 'Pay session' : 'Pay & send request'} leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
     } else if (s === 'completion_requested') {
@@ -328,12 +329,13 @@ export default function BookingDetail() {
   } else if (s === 'accepted') {
     footer = (
       <Button
-        title="Start trip"
-        leftIcon="navigate"
+        title={isTimeBased ? 'Verify session start code' : 'Start trip'}
+        leftIcon={isTimeBased ? 'key-outline' : 'navigate'}
         size="lg"
         fullWidth
-        loading={busy}
-        onPress={() => void run(() => api.startTrip(booking.id), 'Customer notified you are on the way')}
+        disabled={isTimeBased && otp.length !== 4}
+        loading={otpBusy || busy}
+        onPress={() => isTimeBased ? void submitOtp() : void run(() => api.startTrip(booking.id), 'Customer notified you are on the way')}
       />
     );
   } else if (s === 'confirmed' && booking.archetype === 'proposal') {
@@ -520,7 +522,7 @@ export default function BookingDetail() {
       ) : null}
 
       {/* ---------- provider actions ---------- */}
-      {!isCustomer && (s === 'en_route' || s === 'completion_requested' || (s === 'confirmed' && booking.archetype === 'proposal')) ? (
+      {!isCustomer && (s === 'en_route' || s === 'completion_requested' || (isTimeBased && s === 'accepted') || (s === 'confirmed' && booking.archetype === 'proposal')) ? (
         <Card variant="elevated" gap={t.spacing.lg}>
           <Text variant="subheadStrong" color="textSecondary" align="center">
             {s === 'completion_requested' ? 'Completion code' : 'Start code'} from {first}
@@ -541,7 +543,7 @@ export default function BookingDetail() {
             <InlineAlert
               tone="warning"
               icon="flask-outline"
-              message={`Demo: the customer's code is ${s === 'en_route' ? DEMO_PROVIDER_START_CODE : DEMO_PROVIDER_END_CODE}.`}
+              message={`Demo: the customer's code is ${s === 'en_route' || (isTimeBased && s === 'accepted') || (s === 'confirmed' && booking.archetype === 'proposal') ? DEMO_PROVIDER_START_CODE : DEMO_PROVIDER_END_CODE}.`}
             />
           ) : null}
         </Card>

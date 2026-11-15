@@ -848,6 +848,13 @@ begin
            status = case when p_provider_fault or v_hours >= 12 then 'available' else 'consumed' end,
            allocated_at = null
      where id = b.pack_session_id;
+    if not p_provider_fault and v_hours < 12 then
+      perform public._finalize_session_completion(b.id, p_actor);
+      update public.pack_sessions
+         set status = 'consumed', booking_id = b.id
+       where id = b.pack_session_id;
+      return 0;
+    end if;
   elsif p_provider_fault or v_hours >= 12 then
     v_refund := public._refund_booking_payments(b.id, coalesce(p_reason, 'session cancelled'));
     update public.bookings set refund_amount = refund_amount + v_refund where id = b.id;

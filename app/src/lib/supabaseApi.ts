@@ -521,11 +521,25 @@ const rpcVoid = async (fn: string, args: Record<string, unknown>) => {
 export const acceptBooking = (id: string) => rpcVoid('accept_booking', { p_booking_id: id });
 export const declineBooking = (id: string, reason?: string) =>
   rpcVoid('decline_booking', { p_booking_id: id, p_reason: reason ?? null });
-export const startTrip = (id: string) => rpcVoid('start_trip', { p_booking_id: id });
-export const requestCompletion = (id: string) => rpcVoid('request_completion', { p_booking_id: id });
-export const confirmCompletion = (id: string) => rpcVoid('confirm_completion', { p_booking_id: id });
-export const cancelBooking = (id: string, reason?: string) =>
-  rpcVoid('cancel_booking', { p_booking_id: id, p_reason: reason ?? null });
+export async function startTrip(id: string): Promise<void> {
+  const booking = await getBooking(id);
+  if (booking.archetype !== 'time_based') await rpcVoid('start_trip', { p_booking_id: id });
+}
+export async function requestCompletion(id: string): Promise<void> {
+  const booking = await getBooking(id);
+  await rpcVoid(booking.archetype === 'time_based' ? 'request_session_completion' : 'request_completion', { p_booking_id: id });
+}
+export async function confirmCompletion(id: string): Promise<void> {
+  const booking = await getBooking(id);
+  await rpcVoid(booking.archetype === 'time_based' ? 'confirm_session_completion' : 'confirm_completion', { p_booking_id: id });
+}
+export async function cancelBooking(id: string, reason?: string): Promise<void> {
+  const booking = await getBooking(id);
+  await rpcVoid(booking.archetype === 'time_based' ? 'cancel_session_booking' : 'cancel_booking', {
+    p_booking_id: id,
+    p_reason: reason ?? null,
+  });
+}
 export const disputeBooking = (id: string, reason: string) =>
   rpcVoid('dispute_booking', { p_booking_id: id, p_reason: reason });
 export const regenerateOtp = (id: string, kind: 'start' | 'end') =>
@@ -534,11 +548,19 @@ export const rejectQuote = (bookingId: string, quoteId: string) =>
   rpcVoid('reject_quote', { p_booking_id: bookingId, p_quote_id: quoteId });
 
 export async function arrive(id: string, otp: string): Promise<OtpResult> {
-  return unwrap(await supabase.rpc('arrive', { p_booking_id: id, p_otp: otp }));
+  const booking = await getBooking(id);
+  return unwrap(await supabase.rpc(booking.archetype === 'time_based' ? 'start_session_booking' : 'arrive', {
+    p_booking_id: id,
+    p_otp: otp,
+  }));
 }
 
 export async function completeBooking(id: string, otp: string): Promise<OtpResult> {
-  return unwrap(await supabase.rpc('complete_booking', { p_booking_id: id, p_otp: otp }));
+  const booking = await getBooking(id);
+  return unwrap(await supabase.rpc(booking.archetype === 'time_based' ? 'complete_session_booking' : 'complete_booking', {
+    p_booking_id: id,
+    p_otp: otp,
+  }));
 }
 
 export async function sendQuote(bookingId: string, items: QuoteItemDraft[], note?: string): Promise<string> {
