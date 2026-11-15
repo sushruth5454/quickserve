@@ -590,7 +590,7 @@ export const demoApi: Api = {
     Object.assign(p, patch);
   },
 
-  async listCategories() {
+  async listCategories(_city?: string) {
     await wait();
     return clone([...db.categories].sort((a, b) => a.sort_order - b.sort_order));
   },
