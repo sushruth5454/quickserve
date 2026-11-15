@@ -1,5 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import {
   buildPrompt,
@@ -18,6 +17,11 @@ const GEMINI_TIMEOUT_MS = 20_000;
 const MAX_FINISH_ATTEMPTS = 2;
 const GEMINI_URL = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+type RpcResult = { data: unknown; error: { message?: string } | null };
+type RpcClient = {
+  rpc(name: string, args?: Record<string, unknown>): PromiseLike<RpcResult>;
+};
 
 async function generate(model: string, reviews: ClaimedReview[]): Promise<string> {
   let response: Response;
@@ -90,7 +94,7 @@ async function generate(model: string, reviews: ClaimedReview[]): Promise<string
 }
 
 async function finishIdempotently(
-  admin: SupabaseClient,
+  admin: RpcClient,
   review: ClaimedReview,
   rows: InsightRow[],
   model: string,
@@ -105,7 +109,7 @@ async function finishIdempotently(
     p_error: error,
   };
   for (let attempt = 0; attempt < MAX_FINISH_ATTEMPTS; attempt++) {
-    const result = await admin.rpc("finish_review_insights", args);
+    const result = await admin.rpc("finish_review_insights", args as Record<string, unknown>);
     if (!result.error) return true;
   }
   return false;
@@ -118,7 +122,7 @@ Deno.serve(async (request) => {
     return json({ error: "unauthorized" }, 401);
   }
 
-  const admin = createClient(
+  const admin: RpcClient = createClient(
     requireEnv("SUPABASE_URL"),
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
     { auth: { persistSession: false } },
