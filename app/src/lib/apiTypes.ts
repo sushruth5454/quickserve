@@ -24,6 +24,7 @@ import type {
   SkillLevel,
 } from './types';
 import type { UnreadCount } from './unread';
+import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
 
 export interface Coords {
   lat: number;
@@ -156,8 +157,12 @@ export interface Api {
   arrive(id: string, otp: string): Promise<OtpResult>;
   completeBooking(id: string, otp: string): Promise<OtpResult>;
   sendQuote(bookingId: string, items: QuoteItemDraft[], note?: string): Promise<string>;
-  approveQuote(bookingId: string, quoteId: string): Promise<{ amount_due: number }>;
+  approveQuote(bookingId: string, quoteId: string, useCoins?: boolean): Promise<{ amount_due: number; coins_redeemed_paise?: number }>;
   submitReview(bookingId: string, r: ReviewInput): Promise<string>;
+  // Seva Coins
+  getMyCoinBalance(): Promise<number>;
+  listCoinHistory(limit?: number): Promise<CoinLedgerEntry[]>;
+  getCoinRedemptionPreview(bookingId: string, quoteId: string): Promise<CoinRedemptionPreview>;
   // provider
   getMyProvider(): Promise<Provider | null>;
   upsertProviderProfile(input: ProviderProfileInput): Promise<void>;

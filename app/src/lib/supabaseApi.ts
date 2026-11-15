@@ -39,6 +39,7 @@ import type {
   SkillLevel,
 } from './types';
 import type { UnreadCount } from './unread';
+import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
 
 interface Result<T> {
   data?: T | null;
@@ -360,8 +361,18 @@ export async function sendQuote(bookingId: string, items: QuoteItemDraft[], note
   return unwrap(await supabase.rpc('send_quote', { p_booking_id: bookingId, p_items: items, p_note: note ?? null }));
 }
 
-export async function approveQuote(bookingId: string, quoteId: string): Promise<{ amount_due: number }> {
-  return unwrap(await supabase.rpc('approve_quote', { p_booking_id: bookingId, p_quote_id: quoteId }));
+export async function approveQuote(
+  bookingId: string,
+  quoteId: string,
+  useCoins = false,
+): Promise<{ amount_due: number; coins_redeemed_paise?: number }> {
+  return unwrap(
+    await supabase.rpc('approve_quote_with_coins', {
+      p_booking_id: bookingId,
+      p_quote_id: quoteId,
+      p_use_coins: useCoins,
+    }),
+  );
 }
 
 export async function submitReview(bookingId: string, r: ReviewInput): Promise<string> {
@@ -375,6 +386,29 @@ export async function submitReview(bookingId: string, r: ReviewInput): Promise<s
       p_pricing: r.pricing ?? null,
       p_comment: r.comment ?? null,
       p_tags: r.tags ?? [],
+    }),
+  );
+}
+
+export async function getMyCoinBalance(): Promise<number> {
+  return unwrap(await supabase.rpc('get_my_coin_balance'));
+}
+
+export async function listCoinHistory(limit = 50): Promise<CoinLedgerEntry[]> {
+  return unwrap(
+    await supabase
+      .from('coin_ledger')
+      .select('id, user_id, delta, kind, booking_id, source_ledger_id, expires_at, ref, reason, created_by, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+  );
+}
+
+export async function getCoinRedemptionPreview(bookingId: string, quoteId: string): Promise<CoinRedemptionPreview> {
+  return unwrap(
+    await supabase.rpc('get_coin_redemption_preview', {
+      p_booking_id: bookingId,
+      p_quote_id: quoteId,
     }),
   );
 }

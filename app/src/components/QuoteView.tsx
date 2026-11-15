@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { amountDue, formatINR, requiredTotal } from '../lib/money';
+import { formatINR, requiredTotal } from '../lib/money';
 import type { Quote, QuoteItemKind, QuoteStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { Badge, Card, Divider, InlineAlert, PriceRow, Text, type Tone } from './ui';
@@ -21,19 +21,34 @@ interface Props {
   platformFee: number;
   alreadyPaid: number;
   counterpartName?: string;
+  coinDiscountPreview?: number;
+  coinPaid?: number;
   /** [min, max] typical total in rupees for this category. */
   typical?: [number, number] | null;
   title?: string;
 }
 
 /** Itemised quote. Approve/decline actions live in the screen's sticky footer, not inside the card. */
-export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpartName, typical, title }: Props) {
+export function QuoteView({
+  quote,
+  visitFee,
+  platformFee,
+  alreadyPaid,
+  counterpartName,
+  coinDiscountPreview = 0,
+  coinPaid = 0,
+  typical,
+  title,
+}: Props) {
   const t = useTheme();
-  const total = requiredTotal(quote.total, visitFee, platformFee);
-  const due = amountDue({ quoteTotal: quote.total, visitFee, platformFee, alreadyPaid });
+  const coinDiscount = (quote.coin_discount ?? 0) > 0 ? quote.coin_discount! : coinDiscountPreview;
+  const grossTotal = requiredTotal(quote.total, visitFee, platformFee);
+  const total = Math.max(0, grossTotal - coinDiscount);
+  const cashPaid = Math.max(0, alreadyPaid - coinPaid);
+  const due = Math.max(0, total - alreadyPaid);
   const open = quote.status === 'sent' || quote.status === 'approved_pending_payment';
   const [label, tone] = statusText[quote.status];
-  const aboveTypical = typical ? total > typical[1] * 100 : false;
+  const aboveTypical = typical ? grossTotal > typical[1] * 100 : false;
   const groups = (['labour', 'part', 'other'] as const)
     .map((kind) => ({ kind, items: quote.quote_items.filter((i) => i.kind === kind) }))
     .filter((g) => g.items.length > 0);
@@ -95,9 +110,10 @@ export function QuoteView({ quote, visitFee, platformFee, alreadyPaid, counterpa
         <PriceRow label="Subtotal" amount={quote.total} />
         <PriceRow label="Platform fee" amount={platformFee} />
         {visitFee > quote.total ? <PriceRow label="Minimum visit charge" amount={visitFee - quote.total} emphasis="muted" /> : null}
-        <PriceRow label="Total" amount={total} />
-        {alreadyPaid > 0 ? (
-          <PriceRow label="Paid so far (incl. visit fee)" amount={-Math.min(alreadyPaid, total)} emphasis="credit" />
+        {coinDiscount > 0 ? <PriceRow label="Seva Coins" amount={-coinDiscount} hint="Funded by QuickServe" emphasis="credit" /> : null}
+        <PriceRow label={coinDiscount > 0 ? 'Total after coins' : 'Total'} amount={total} />
+        {cashPaid > 0 ? (
+          <PriceRow label="Paid so far (incl. visit fee)" amount={-Math.min(cashPaid, total)} emphasis="credit" />
         ) : null}
       </View>
       {open ? (

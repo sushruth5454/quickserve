@@ -18,6 +18,7 @@ import type {
   TopRatedProvider,
 } from '../apiTypes';
 import { commissionRateBp, providerPayout, quoteSubtotals, requiredTotal } from '../money';
+import { coinRedemptionLimit, type CoinLedgerEntry, type CoinRedemptionPreview } from '../coins';
 import type {
   Booking,
   BookingStatus,
@@ -47,7 +48,22 @@ let latency: [number, number] = [180, 520];
 let autopilot = true;
 let bookingSeq = 1046;
 let idSeq = 1;
-
+let demoCoinBalance = 12500;
+const demoCoinHistory: CoinLedgerEntry[] = [
+  {
+    id: 'coin-seed-1',
+    user_id: DEMO_USER_ID,
+    delta: 12500,
+    kind: 'admin',
+    booking_id: null,
+    source_ledger_id: null,
+    expires_at: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+    ref: 'demo:welcome-coins',
+    reason: 'Demo wallet credit',
+    created_by: null,
+    created_at: new Date().toISOString(),
+  },
+];
 const authListeners = new Set<(s: AuthSession | null) => void>();
 const bookingListeners = new Map<string, Set<() => void>>();
 const messageListeners = new Map<string, Set<(m: Message) => void>>();
@@ -868,13 +884,97 @@ export const demoApi: Api = {
     return id;
   },
 
-  async approveQuote(bookingId, quoteId) {
+  async approveQuote(bookingId, quoteId, useCoins = false) {
     await wait();
     const b = findBooking(bookingId);
     assert(b.customer_id === uid(), 'only the customer can approve');
+    const q = db.quotes.find((x) => x.id === quoteId && x.booking_id === b.id);
+    assert(q && q.status === 'sent', 'quote is not open');
+    let redeemed = b.coin_discount ?? 0;
+    if (!redeemed && useCoins) {
+      const provider = db.providers.find((p) => p.id === b.provider_id)!;
+      const rateBp = commissionRateBp({
+        jobsCompleted: provider.jobs_completed,
+        providerCreatedAt: new Date(provider.created_at),
+        at: new Date(),
+      });
+      const payout = providerPayout({ gross: q.total, commissionable: q.subtotal_labour, rateBp });
+      redeemed = coinRedemptionLimit({
+        balancePaise: demoCoinBalance,
+        serviceValuePaise: Math.max(q.total, b.visit_fee),
+        platformRevenuePaise: Math.max(0, payout.commission + b.platform_fee - payout.gst),
+      });
+      if (redeemed > 0) {
+        const createdAt = nowIso();
+        db.payments.push({
+          id: newId('pay'),
+          booking_id: b.id,
+          quote_id: q.id,
+          purpose: 'balance',
+          amount: redeemed,
+          status: 'paid',
+          funding_source: 'coins',
+          created_at: createdAt,
+          paid_at: createdAt,
+        });
+        demoCoinBalance -= redeemed;
+        b.coin_discount = redeemed;
+        q.coin_discount = redeemed;
+        demoCoinHistory.unshift({
+          id: newId('coin'),
+          user_id: uid(),
+          delta: -redeemed,
+          kind: 'redeem',
+          booking_id: b.id,
+          source_ledger_id: demoCoinHistory[0]?.id ?? null,
+          expires_at: null,
+          ref: `demo:redeem:${b.id}`,
+          reason: 'Seva Coins redeemed on a QuickServe booking',
+          created_by: null,
+          created_at: createdAt,
+        });
+      }
+    }
     const amount_due = approveInternal(b, quoteId);
     if (amount_due === 0 && b.status === 'in_progress') simulateProviderAfterBalance(b);
-    return { amount_due };
+    return redeemed > 0 ? { amount_due, coins_redeemed_paise: redeemed } : { amount_due };
+  },
+
+  async getMyCoinBalance() {
+    await wait();
+    return demoCoinBalance;
+  },
+
+  async listCoinHistory(limit = 50) {
+    await wait();
+    return clone(demoCoinHistory.slice(0, limit));
+  },
+
+  async getCoinRedemptionPreview(bookingId, quoteId): Promise<CoinRedemptionPreview> {
+    await wait();
+    const b = findBooking(bookingId);
+    const q = db.quotes.find((x) => x.id === quoteId && x.booking_id === b.id);
+    assert(q && q.status === 'sent', 'quote is not open');
+    const provider = db.providers.find((p) => p.id === b.provider_id)!;
+    const rateBp = commissionRateBp({
+      jobsCompleted: provider.jobs_completed,
+      providerCreatedAt: new Date(provider.created_at),
+      at: new Date(),
+    });
+    const payout = providerPayout({ gross: q.total, commissionable: q.subtotal_labour, rateBp });
+    const serviceCap = Math.floor(Math.max(q.total, b.visit_fee) * 0.1);
+    const platformCap = Math.max(0, payout.commission + b.platform_fee - payout.gst);
+    return {
+      balance_paise: demoCoinBalance,
+      service_cap_paise: serviceCap,
+      platform_cap_paise: platformCap,
+      maximum_paise: coinRedemptionLimit({
+        balancePaise: demoCoinBalance,
+        serviceValuePaise: Math.max(q.total, b.visit_fee),
+        platformRevenuePaise: platformCap,
+      }),
+      applied_paise: Math.min(b.coin_discount ?? 0, serviceCap, platformCap),
+    };
   },
 
   async rejectQuote(bookingId, quoteId) {

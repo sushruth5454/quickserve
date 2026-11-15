@@ -4,8 +4,9 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
-import { getMyProfile, getMyProvider, isDemoMode, signOut } from '../lib/api';
+import { getMyCoinBalance, getMyProfile, getMyProvider, isDemoMode, signOut } from '../lib/api';
 import { formatPhone } from '../lib/phone';
+import { formatINR } from '../lib/money';
 import type { Profile, Provider } from '../lib/types';
 import { useTheme } from '../theme';
 import { ProviderMeSections } from './ProviderMeSections';
@@ -18,12 +19,14 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
   const { session, setActiveRole } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [provider, setProvider] = useState<Provider | null | undefined>(undefined);
+  const [coinBalance, setCoinBalance] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       getMyProfile().then(setProfile).catch(() => undefined);
       getMyProvider().then(setProvider).catch(() => setProvider(null));
-    }, []),
+      if (mode === 'customer') getMyCoinBalance().then(setCoinBalance).catch(() => setCoinBalance(0));
+    }, [mode]),
   );
 
   const name = profile?.full_name || 'QuickServe user';
@@ -111,6 +114,15 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
       <Group title="Account">
         {mode === 'customer' ? (
           <>
+            <ListItem
+              icon="sparkles-outline"
+              title="Seva Coins"
+              subtitle="1 coin = ₹1 · valid for 6 months"
+              value={formatINR(coinBalance)}
+              chevron
+              onPress={() => router.push('/coins')}
+            />
+            <Divider inset={LIST_INSET} />
             <ListItem icon="location-outline" title="Saved addresses" subtitle="Home and other places you book for" chevron onPress={() => soon('Saved addresses')} />
             <Divider inset={LIST_INSET} />
             <ListItem icon="card-outline" title="Payment methods" subtitle="UPI, cards and netbanking at checkout" chevron onPress={() => soon('Saved payment methods')} />

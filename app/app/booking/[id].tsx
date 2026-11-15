@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { Linking, ScrollView, Switch, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { QuoteView } from '../../src/components/QuoteView';
 import { statusLabel } from '../../src/components/status';
@@ -38,6 +38,7 @@ import { isDemoMode } from '../../src/lib/config';
 import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../src/lib/demo/seed';
 import { haptics } from '../../src/lib/haptics';
 import { amountDue, formatINR } from '../../src/lib/money';
+import { coinPaiseToCoins, earnedCoinPaise, type CoinRedemptionPreview } from '../../src/lib/coins';
 import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
 import { registerForPush } from '../../src/lib/push';
@@ -56,6 +57,7 @@ interface Data {
   review: Review | null;
   counterpart: string;
   photoUrls: string[];
+  coinPreview: CoinRedemptionPreview | null;
 }
 
 const PAYMENT_STATUS: Record<PaymentStatus, [string, Tone]> = {
@@ -90,6 +92,7 @@ export default function BookingDetail() {
   const [otpBusy, setOtpBusy] = useState(false);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [useCoins, setUseCoins] = useState(true);
 
   const load = useCallback(async () => {
     if (!id || !userId) return;
@@ -106,7 +109,11 @@ export default function BookingDetail() {
         api.getProfileName(isCustomer ? booking.provider_id : booking.customer_id),
         api.signedPhotoUrls(booking.photos).catch(() => []),
       ]);
-      setData({ booking, quotes, payments, events, otps, address, review, counterpart, photoUrls });
+      const sentQuote = quotes.find((q) => q.status === 'sent') ?? null;
+      const coinPreview = isCustomer && sentQuote
+        ? await api.getCoinRedemptionPreview(id, sentQuote.id).catch(() => null)
+        : null;
+      setData({ booking, quotes, payments, events, otps, address, review, counterpart, photoUrls, coinPreview });
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -177,6 +184,9 @@ export default function BookingDetail() {
   const paid = payments
     .filter((p) => p.status === 'paid')
     .reduce((acc, p) => acc + p.amount - (p.refunds ?? []).filter((r) => r.status !== 'failed').reduce((sum, r) => sum + r.amount, 0), 0);
+  const coinPaid = payments
+    .filter((p) => p.status === 'paid' && p.funding_source === 'coins')
+    .reduce((acc, p) => acc + p.amount, 0);
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;
@@ -201,7 +211,7 @@ export default function BookingDetail() {
 
   const approve = (quote: Quote) =>
     run(async () => {
-      const res = await api.approveQuote(booking.id, quote.id);
+      const res = await api.approveQuote(booking.id, quote.id, useCoins);
       if (res.amount_due > 0) await startPayment(booking.id);
     }, 'Quote approved');
 
@@ -259,7 +269,12 @@ export default function BookingDetail() {
   let footer: ReactNode;
   if (isCustomer) {
     if (customerRespondsToQuote && openQuote) {
-      const due = amountDue({ quoteTotal: openQuote.total, visitFee: booking.visit_fee, platformFee: booking.platform_fee, alreadyPaid: paid });
+      const previewDiscount = useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0;
+      const due = Math.max(
+        0,
+        amountDue({ quoteTotal: openQuote.total, visitFee: booking.visit_fee, platformFee: booking.platform_fee, alreadyPaid: paid })
+          - previewDiscount,
+      );
       footer = (
         <AmountFooter label={openQuote.is_change_order ? 'Extra to pay' : 'To pay now'} amount={due}>
           <Button title={due > 0 ? 'Approve & pay' : 'Approve'} onPress={() => void approve(openQuote)} loading={busy} size="lg" style={{ flex: 1 }} />
@@ -411,12 +426,35 @@ export default function BookingDetail() {
       ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
+          {data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
+            <Card
+              gap={t.spacing.sm}
+              style={{ flexDirection: 'row', alignItems: 'center' }}
+              accessibilityLabel={`Use ${formatINR(data.coinPreview.maximum_paise)} in Seva Coins`}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="calloutStrong">Use {formatINR(data.coinPreview.maximum_paise)} Seva Coins</Text>
+                <Text variant="footnote" color="muted">
+                  {coinPaiseToCoins(data.coinPreview.maximum_paise)} of your {coinPaiseToCoins(data.coinPreview.balance_paise)} coins · 1 coin = ₹1
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Use Seva Coins"
+                value={useCoins}
+                onValueChange={setUseCoins}
+                trackColor={{ false: t.colors.outline, true: t.colors.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </Card>
+          ) : null}
           <QuoteView
             quote={openQuote}
             visitFee={booking.visit_fee}
             platformFee={booking.platform_fee}
             alreadyPaid={paid}
             counterpartName={data.counterpart}
+            coinDiscountPreview={useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0}
+            coinPaid={coinPaid}
             typical={openQuote.is_change_order ? null : typical}
           />
           <Button
@@ -428,10 +466,23 @@ export default function BookingDetail() {
         </View>
       ) : null}
       {isCustomer && pendingPaymentQuote && dueForPending > 0 ? (
-        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
+        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} />
       ) : null}
       {isCustomer && (s === 'completed' || s === 'closed') && !review ? (
         <ReviewForm name={first} busy={busy} reviewTags={booking.categories?.review_tags ?? []} onSubmit={(r) => void run(() => api.submitReview(booking.id, r), 'Thanks for your review!')} />
+      ) : null}
+      {isCustomer && (s === 'completed' || s === 'closed') && approvedQuote ? (
+        <InlineAlert
+          tone="success"
+          icon="sparkles-outline"
+          message={`${formatINR(
+            earnedCoinPaise({
+              serviceValuePaise: Math.max(approvedQuote.total, booking.visit_fee),
+              coinDiscountPaise: booking.coin_discount ?? 0,
+              refundPaise: booking.refund_amount,
+            }),
+          )} Seva Coins ${s === 'closed' ? 'added to your wallet' : 'will be added after the 24-hour dispute window'}.`}
+        />
       ) : null}
 
       {/* ---------- provider actions ---------- */}
@@ -468,10 +519,10 @@ export default function BookingDetail() {
         <Button title="Send change order" variant="outline" leftIcon="add-circle-outline" onPress={() => openEditor(true)} />
       ) : null}
       {openQuote && !customerRespondsToQuote ? (
-        <QuoteView quote={openQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
+        <QuoteView quote={openQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} />
       ) : null}
       {pendingPaymentQuote && !isCustomer ? (
-        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
+        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} />
       ) : null}
 
       {/* ---------- details ---------- */}
@@ -550,7 +601,7 @@ export default function BookingDetail() {
 
       {approvedQuote && !shownQuoteIds.has(approvedQuote.id) ? (
         <Section title="Approved scope">
-          <QuoteView quote={approvedQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} title="Quote" />
+          <QuoteView quote={approvedQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} title="Quote" />
         </Section>
       ) : null}
 
@@ -575,7 +626,7 @@ export default function BookingDetail() {
                       <Ionicons name={p.purpose === 'visit_fee' ? 'home-outline' : 'construct-outline'} size={18} color={t.colors.textSecondary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text variant="body">{p.purpose === 'visit_fee' ? 'Visit fee' : 'Job payment'}</Text>
+                      <Text variant="body">{p.funding_source === 'coins' ? 'Seva Coins' : p.purpose === 'visit_fee' ? 'Visit fee' : 'Job payment'}</Text>
                       <Text variant="footnote" color="muted">
                         {fmt(p.paid_at ?? p.created_at)}
                       </Text>

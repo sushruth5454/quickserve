@@ -122,6 +122,7 @@ export interface Booking {
   commission: number | null;
   gst_on_commission: number | null;
   refund_amount: number;
+  coin_discount?: number;
   cancelled_reason: string | null;
   created_at: string;
   accepted_at: string | null;
@@ -153,6 +154,7 @@ export interface Quote {
   subtotal_other: number;
   total: number;
   note: string | null;
+  coin_discount?: number;
   created_at: string;
   quote_items: QuoteItem[];
 }
@@ -172,6 +174,7 @@ export interface Payment {
   purpose: PaymentPurpose;
   amount: number;
   status: PaymentStatus;
+  funding_source?: 'customer' | 'coins';
   created_at: string;
   paid_at: string | null;
   /** Partial or full refunds queued against this payment. */
