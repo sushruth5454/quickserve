@@ -2,6 +2,7 @@
 // Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
+import { runAllServiceScenarios } from './all-services.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8081';
 const SHOTS = process.env.SHOTS_DIR ?? 'e2e-shots';
@@ -104,6 +105,8 @@ await step('role-continue-customer', async () => {
   await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
   await visible('Bookings');
 });
+
+await runAllServiceScenarios({ page, go, step, visible });
 
 // ---------- Customer ----------
 await step('home', async () => {

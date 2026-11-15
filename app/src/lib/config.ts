@@ -1,6 +1,8 @@
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const demoFlag = process.env.EXPO_PUBLIC_DEMO_MODE ?? '';
+const demoCityFlag = (process.env.EXPO_PUBLIC_DEMO_CITY ?? '').trim();
+const demoPaymentFlag = process.env.EXPO_PUBLIC_DEMO_PAYMENT ?? '';
 
 export const isSupabaseConfigured = supabaseUrl.length > 0 && supabaseAnonKey.length > 0;
 
@@ -9,6 +11,9 @@ export const isSupabaseConfigured = supabaseUrl.length > 0 && supabaseAnonKey.le
  * On when EXPO_PUBLIC_DEMO_MODE=1/true, or automatically when Supabase env vars are missing.
  */
 export const isDemoMode = /^(1|true|yes)$/i.test(demoFlag.trim()) || !isSupabaseConfigured;
+export const demoSeedCity = demoCityFlag;
+export const isSeedDemoMode = demoSeedCity.length > 0;
+export const demoPaymentsEnabled = isDemoMode || /^(1|true|yes)$/i.test(demoPaymentFlag.trim());
 
 /**
  * Testing aid: EXPO_PUBLIC_FORCE_TEST_LOCATION=1 makes the Vijayawada test area (where the seed data lives) the

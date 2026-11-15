@@ -13,6 +13,8 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       EXPO_PUBLIC_FORCE_TEST_LOCATION: '1'
+      EXPO_PUBLIC_DEMO_CITY: 'Vijayawada Demo'
+      EXPO_PUBLIC_DEMO_PAYMENT: '1'
       TARGET_SDK: '58'
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +65,28 @@ jobs:
           curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
             -d '{"query":"delete from auth.users where phone = '\''919000000301'\'' and not exists (select 1 from public.bookings b where b.provider_id = auth.users.id or b.customer_id = auth.users.id)"}'
+
+      - name: Reset all-service demo data (DEMO project only)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          sql = Path("supabase/seed-all-services.sql").read_text()
+          sql = sql.replace(
+              "begin;\n\n",
+              "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n",
+              1,
+          )
+          Path("seed-all-services-request.json").write_text(json.dumps({"query": sql}))
+          PY
+          curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @seed-all-services-request.json
+          rm seed-all-services-request.json
 
       - name: Run smoke test
         working-directory: e2e

@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/components/ui';
+import { DemoDataIndicator } from '../src/components/DemoDataIndicator';
 import { AuthProvider, useAuth } from '../src/lib/auth';
 import { LocationProvider } from '../src/lib/locationContext';
 import { PaymentProvider } from '../src/lib/payments';
@@ -103,6 +104,7 @@ function ThemedApp() {
               <PaymentProvider>
                 <StatusBar style={t.dark ? 'light' : 'dark'} />
                 <RootNavigator />
+                <DemoDataIndicator />
               </PaymentProvider>
             </LocationProvider>
           </UnreadProvider>

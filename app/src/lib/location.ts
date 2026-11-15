@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
 import type { Coords } from './api';
-import { forceTestLocation, isDemoMode } from './config';
+import { demoSeedCity, forceTestLocation, isDemoMode } from './config';
 
 export interface LocationState {
   coords: Coords | null;
@@ -16,7 +16,7 @@ export interface LocationState {
 
 const DEMO_LOCATION = {
   coords: { lat: 16.4995, lng: 80.656 },
-  city: 'Vijayawada',
+  city: demoSeedCity || 'Vijayawada',
   area: 'Benz Circle',
   addressLine: 'Flat 302, Sai Residency, 4th Lane, Benz Circle',
 };
