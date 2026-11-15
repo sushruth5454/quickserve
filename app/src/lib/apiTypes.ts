@@ -22,6 +22,9 @@ import type {
   SavedAddress,
   SearchFilters,
   SkillLevel,
+  TravelPreview,
+  TravelRequest,
+  TravelFeeMode,
 } from './types';
 import type { UnreadCount } from './unread';
 import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
@@ -74,6 +77,7 @@ export interface CreateBookingInput {
   coords: Coords;
   scheduledAt: Date | null;
   photos: string[];
+  travelRequestId?: string | null;
 }
 
 export interface ChatReadState {
@@ -108,6 +112,10 @@ export interface ServiceInput {
   labourRate: number;
   rateUnit: RateUnit;
   attributes?: Record<string, unknown>;
+  maxTravelKm?: number | null;
+  travelFeeMode?: TravelFeeMode;
+  travelFeeFlat?: number;
+  travelFeePerKm?: number;
 }
 
 /** The backend contract the screens use. Implemented by supabaseApi.ts (real) and demo/demoApi.ts (in-memory). */
@@ -127,6 +135,10 @@ export interface Api {
   listTopRated(limit?: number): Promise<TopRatedProvider[]>;
   getProviderDetail(providerId: string): Promise<ProviderDetail>;
   getProviderService(id: string): Promise<ProviderServiceWithProvider>;
+  inspectTravelRequest(providerServiceId: string, coords: Coords, scheduledAt: Date | null): Promise<TravelPreview>;
+  createTravelRequest(providerServiceId: string, scheduledAt: Date, coords: Coords, note?: string): Promise<string>;
+  listMyTravelRequests(status?: string): Promise<TravelRequest[]>;
+  respondToTravelRequest(id: string, approve: boolean, reason?: string): Promise<void>;
   // saved addresses
   listMyAddresses(): Promise<SavedAddress[]>;
   addAddress(input: NewAddressInput): Promise<SavedAddress>;

@@ -34,6 +34,7 @@ import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 import { GoLiveStatusCard } from '../../src/features/providerOnboarding/GoLiveStatusCard';
 import { onboardingApi, type DocumentType, type GoLive } from '../../src/lib/onboarding';
+import { TravelRequestInbox } from '../../src/features/travel/TravelRequestInbox';
 
 /** Active statuses in the order a pro should look at them (most time-critical first). */
 const ACTIVE_PRIORITY: BookingStatus[] = [
@@ -239,6 +240,10 @@ export default function ProviderDashboard() {
       </View>
 
       {/* Requests first: they expire. */}
+      <View style={gutter}>
+        <TravelRequestInbox />
+      </View>
+
       <View style={gutter}>
         <Section title="New requests" subtitle={incoming.length ? 'Accept within 15 minutes or the request expires' : undefined}>
           {!jobs ? (

@@ -9,7 +9,7 @@ import { formatINR } from '../../lib/money';
 import { onboardingApi, type PriceGuidance } from '../../lib/onboarding';
 import { SKILL_LEVEL_INFO } from '../../lib/onboarding/copy';
 import { parseRupees, validateFees, validateProfileAttributes } from '../../lib/onboarding/validation';
-import type { ProviderService, RateUnit, ServicePackage, SkillLevel } from '../../lib/types';
+import type { ProviderService, RateUnit, ServicePackage, SkillLevel, TravelFeeMode } from '../../lib/types';
 import type { ProfileSchema } from '../../lib/onboarding';
 import { useTheme } from '../../theme';
 import { FieldLabel, Intro, MultiChips, SectionFooter, type SectionProps } from './parts';
@@ -28,9 +28,27 @@ interface EditorState {
   brands: string[];
   tools: string[];
   attributes: Record<string, unknown>;
+  maxTravel: string;
+  travelFeeMode: TravelFeeMode;
+  travelFlat: string;
+  travelPerKm: string;
 }
 
-const EMPTY: EditorState = { categoryId: null, level: 'skilled', visitFee: '', labour: '', unit: 'job', specialisations: [], brands: [], tools: [], attributes: {} };
+const EMPTY: EditorState = {
+  categoryId: null,
+  level: 'skilled',
+  visitFee: '',
+  labour: '',
+  unit: 'job',
+  specialisations: [],
+  brands: [],
+  tools: [],
+  attributes: {},
+  maxTravel: '',
+  travelFeeMode: 'none',
+  travelFlat: '',
+  travelPerKm: '',
+};
 
 export function ServicesSection({ data, reload, header, mode, onDone, onBack }: SectionProps) {
   const t = useTheme();
@@ -40,7 +58,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   const active = services.filter((s) => s.active);
   const [ed, setEd] = useState<EditorState>(EMPTY);
   const [editorOpen, setEditorOpen] = useState(active.length === 0);
-  const [errors, setErrors] = useState<{ visitFee?: string; labourRate?: string; category?: string }>({});
+  const [errors, setErrors] = useState<{ visitFee?: string; labourRate?: string; category?: string; travel?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [guidance, setGuidance] = useState<PriceGuidance | null>(null);
@@ -78,6 +96,10 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
             brands: s.brands ?? [],
             tools: s.tools ?? [],
             attributes: s.attributes ?? {},
+            maxTravel: s.max_travel_km == null ? '' : String(s.max_travel_km),
+            travelFeeMode: s.travel_fee_mode ?? 'none',
+            travelFlat: s.travel_fee_flat ? String(s.travel_fee_flat / 100) : '',
+            travelPerKm: s.travel_fee_per_km ? String(s.travel_fee_per_km / 100) : '',
           }
         : EMPTY,
     );
@@ -88,10 +110,16 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
     const attrError = category
       ? validateProfileAttributes((category.profile_schema ?? { type: 'object', properties: {} }) as unknown as ProfileSchema, ed.attributes)
       : null;
+    const radius = data.state.provider?.service_radius_km ?? 0;
+    const maxTravel = ed.maxTravel.trim() === '' ? null : Number(ed.maxTravel);
     const e = {
       ...validateFees(ed.visitFee, ed.labour),
       ...(ed.categoryId ? {} : { category: 'Pick a service.' }),
       ...(attrError ? { category: attrError } : {}),
+      ...(ed.travelFeeMode !== 'none' &&
+      (maxTravel == null || !Number.isInteger(maxTravel) || maxTravel < radius || maxTravel > 100)
+        ? { travel: `Travel distance must be ${radius}–100 km.` }
+        : {}),
     };
     setErrors(e);
     if (Object.keys(e).length) return;
@@ -108,6 +136,10 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
         brands: ed.brands,
         tools: ed.tools,
         attributes: ed.attributes,
+        maxTravelKm: ed.travelFeeMode === 'none' ? null : maxTravel,
+        travelFeeMode: ed.travelFeeMode,
+        travelFeeFlat: parseRupees(ed.travelFlat) ?? 0,
+        travelFeePerKm: parseRupees(ed.travelPerKm) ?? 0,
       });
       await reload();
       setEditorOpen(false);
@@ -238,17 +270,70 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
                     </View>
                   );
                 }
-                if (spec.type === 'boolean') return <View key={key} style={{ gap: t.spacing.sm }}><FieldLabel>{attrLabel(key)}</FieldLabel><View style={{ flexDirection: 'row', gap: t.spacing.sm }}><Chip label="Yes" selected={current === true} onPress={() => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: true } }))} /><Chip label="No" selected={current === false} onPress={() => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: false } }))} /></View></View>;
-                if (spec.type === 'integer' || spec.type === 'number') return (
-                  <Input key={key} label={attrLabel(key)} keyboardType="numeric" value={current == null ? '' : String(current)} onChangeText={(value) => {
-                    const cleaned = value.replace(spec.type === 'integer' ? /[^\d-]/g : /[^\d.-]/g, '');
-                    const numeric = cleaned.trim() === '' ? undefined : Number(cleaned);
-                    setEd((state) => { const attributes = { ...state.attributes }; if (numeric != null && Number.isFinite(numeric)) attributes[key] = numeric; else delete attributes[key]; return { ...state, attributes }; });
-                  }} />
-                );
-                if (spec.type === 'string' || spec.type === 'array') return (
-                  <Input key={key} label={attrLabel(key)} value={spec.type === 'array' ? (Array.isArray(current) ? current : []).join(', ') : current == null ? '' : String(current)} helper={spec.type === 'array' ? 'Separate multiple values with commas.' : undefined} onChangeText={(value) => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: spec.type === 'array' ? value.split(',').map((item) => item.trim()).filter(Boolean) : value } }))} />
-                );
+                if (spec.type === 'boolean') {
+                  return (
+                    <View key={key} style={{ gap: t.spacing.sm }}>
+                      <FieldLabel>{attrLabel(key)}</FieldLabel>
+                      <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                        <Chip
+                          label="Yes"
+                          selected={current === true}
+                          onPress={() => setEd((s) => ({ ...s, attributes: { ...s.attributes, [key]: true } }))}
+                        />
+                        <Chip
+                          label="No"
+                          selected={current === false}
+                          onPress={() => setEd((s) => ({ ...s, attributes: { ...s.attributes, [key]: false } }))}
+                        />
+                      </View>
+                    </View>
+                  );
+                }
+                if (spec.type === 'integer' || spec.type === 'number') {
+                  return (
+                    <Input
+                      key={key}
+                      label={attrLabel(key)}
+                      keyboardType="numeric"
+                      value={current == null ? '' : String(current)}
+                      onChangeText={(value) => {
+                        const cleaned = value.replace(spec.type === 'integer' ? /[^\d-]/g : /[^\d.-]/g, '');
+                        const numeric = cleaned.trim() === '' ? undefined : Number(cleaned);
+                        setEd((s) => {
+                          const attributes = { ...s.attributes };
+                          if (numeric != null && Number.isFinite(numeric)) attributes[key] = numeric;
+                          else delete attributes[key];
+                          return { ...s, attributes };
+                        });
+                      }}
+                    />
+                  );
+                }
+                if (spec.type === 'string' || (spec.type === 'array' && valuesOrEmpty(spec).length === 0)) {
+                  return (
+                    <Input
+                      key={key}
+                      label={attrLabel(key)}
+                      value={
+                        spec.type === 'array'
+                          ? (Array.isArray(current) ? current : []).join(', ')
+                          : current == null ? '' : String(current)
+                      }
+                      helper={spec.type === 'array' ? 'Separate multiple values with commas.' : undefined}
+                      onChangeText={(value) =>
+                        setEd((s) => ({
+                          ...s,
+                          attributes: {
+                            ...s.attributes,
+                            [key]: spec.type === 'array'
+                              ? value.split(',').map((item) => item.trim()).filter(Boolean)
+                              : value,
+                          },
+                        }))
+                      }
+                    />
+                  );
+                }
                 return null;
               })}
             </View>
@@ -336,6 +421,68 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
               containerStyle={{ flex: 1 }}
             />
           </View>
+          <Card gap={t.spacing.md}>
+            <View style={{ gap: 2 }}>
+              <Text variant="subheadStrong">Travel beyond my normal area</Text>
+              <Text variant="footnote" color="muted">
+                Farther customers send a request. You approve the slot and fee before they can book.
+              </Text>
+            </View>
+            <SegmentedControl<TravelFeeMode>
+              options={[
+                { value: 'none', label: 'No travel' },
+                { value: 'flat', label: 'Flat fee' },
+                { value: 'per_km', label: 'Per km' },
+              ]}
+              value={ed.travelFeeMode}
+              onChange={(mode) => setEd((s) => ({ ...s, travelFeeMode: mode }))}
+              accessibilityLabel="Travel fee mode"
+            />
+            {ed.travelFeeMode !== 'none' ? (
+              <>
+                <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
+                  <Input
+                    label="Maximum distance"
+                    right={<Text variant="footnote" color="muted">km</Text>}
+                    keyboardType="number-pad"
+                    value={ed.maxTravel}
+                    onChangeText={(v) => setEd((s) => ({ ...s, maxTravel: v.replace(/[^\d]/g, '') }))}
+                    error={errors.travel}
+                    containerStyle={{ flex: 1 }}
+                  />
+                  {ed.travelFeeMode === 'flat' ? (
+                    <Input
+                      label="Travel fee"
+                      prefix="₹"
+                      keyboardType="decimal-pad"
+                      value={ed.travelFlat}
+                      onChangeText={(v) => setEd((s) => ({ ...s, travelFlat: v.replace(/[^\d.]/g, '') }))}
+                      containerStyle={{ flex: 1 }}
+                    />
+                  ) : (
+                    <Input
+                      label="Beyond normal area"
+                      prefix="₹"
+                      right={<Text variant="footnote" color="muted">/km</Text>}
+                      keyboardType="decimal-pad"
+                      value={ed.travelPerKm}
+                      onChangeText={(v) => setEd((s) => ({ ...s, travelPerKm: v.replace(/[^\d.]/g, '') }))}
+                      containerStyle={{ flex: 1 }}
+                    />
+                  )}
+                </View>
+                <InlineAlert
+                  tone="info"
+                  message={travelPreview(
+                    data.state.provider?.service_radius_km ?? 0,
+                    ed.travelFeeMode,
+                    ed.travelFlat,
+                    ed.travelPerKm,
+                  )}
+                />
+              </>
+            ) : null}
+          </Card>
           <PriceGuidanceCard guidance={guidance} city={city} hasCategory={!!ed.categoryId} />
 
           <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
@@ -350,8 +497,20 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   );
 }
 
+function valuesOrEmpty(spec: ProfileSchema['properties'][string]) {
+  return spec.enum ?? spec.items?.enum ?? [];
+}
+
 function docNames(codes: string[], types: { code: string; label: string }[]): string {
   return codes.map((c) => types.find((x) => x.code === c)?.label ?? c).join(', ');
+}
+
+function travelPreview(radiusKm: number, mode: TravelFeeMode, flat: string, perKm: string): string {
+  const amount =
+    mode === 'flat'
+      ? parseRupees(flat) ?? 0
+      : Math.round(Math.max(15 - radiusKm, 0) * (parseRupees(perKm) ?? 0));
+  return `A customer 15 km away pays ${formatINR(amount)} extra. The fee is added to the first quote.`;
 }
 
 function PriceGuidanceCard({ guidance, city, hasCategory }: { guidance: PriceGuidance | null; city: string; hasCategory: boolean }) {
@@ -461,9 +620,57 @@ function ServiceCard(props: {
         </View>
       ))}
       <View style={{ gap: t.spacing.md, borderTopWidth: 1, borderTopColor: t.colors.border, paddingTop: t.spacing.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text variant="footnoteStrong" color="muted">Packages</Text>{!packageEditing ? <Button title="Add package" size="sm" variant="ghost" leftIcon="add" onPress={() => setPackageEditing('new')} /> : null}</View>
-        {(s.service_packages ?? []).map((item) => <View key={item.id} style={{ gap: 6, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, padding: t.spacing.md }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}><Text variant="calloutStrong" style={{ flex: 1 }}>{item.title}</Text>{!item.active ? <Badge label="Hidden" tone="neutral" /> : null}<Button title="Edit" size="sm" variant="ghost" onPress={() => setPackageEditing(item)} /></View><Text variant="footnoteStrong" color="primaryText">{packagePriceLabel(item)}</Text>{item.deliverables.length ? <Text variant="footnote" color="textSecondary">{item.deliverables.map((d) => `${d.qty} × ${d.type} — ${d.spec}`).join('\n')}</Text> : null}<Button title="Delete package" size="sm" variant="destructiveGhost" onPress={() => void onboardingApi.deleteServicePackage(item.id).then(props.onChanged).then(() => setPackageEditing(null)).catch((e: Error) => setErr(e.message))} /></View>)}
-        {packageEditing ? <ProviderPackageEditor key={packageEditing === 'new' ? 'new' : packageEditing.id} providerServiceId={s.id} servicePackage={packageEditing === 'new' ? undefined : packageEditing} onCancel={() => setPackageEditing(null)} onSaved={async () => { setPackageEditing(null); await props.onChanged(); }} /> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text variant="footnoteStrong" color="muted">
+            Packages
+          </Text>
+          {!packageEditing ? (
+            <Button title="Add package" size="sm" variant="ghost" leftIcon="add" onPress={() => setPackageEditing('new')} />
+          ) : null}
+        </View>
+        {(s.service_packages ?? []).map((item) => (
+          <View key={item.id} style={{ gap: 6, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, padding: t.spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+              <Text variant="calloutStrong" style={{ flex: 1 }}>
+                {item.title}
+              </Text>
+              {!item.active ? <Badge label="Hidden" tone="neutral" /> : null}
+              <Button title="Edit" size="sm" variant="ghost" onPress={() => setPackageEditing(item)} />
+            </View>
+            <Text variant="footnoteStrong" color="primaryText">
+              {packagePriceLabel(item)}
+            </Text>
+            {item.deliverables.length ? (
+              <Text variant="footnote" color="textSecondary">
+                {item.deliverables.map((deliverable) => `${deliverable.qty} × ${deliverable.type} — ${deliverable.spec}`).join('\n')}
+              </Text>
+            ) : null}
+            <Button
+              title="Delete package"
+              size="sm"
+              variant="destructiveGhost"
+              onPress={() =>
+                void onboardingApi
+                  .deleteServicePackage(item.id)
+                  .then(props.onChanged)
+                  .then(() => setPackageEditing(null))
+                  .catch((e: Error) => setErr(e.message))
+              }
+            />
+          </View>
+        ))}
+        {packageEditing ? (
+          <ProviderPackageEditor
+            key={packageEditing === 'new' ? 'new' : packageEditing.id}
+            providerServiceId={s.id}
+            servicePackage={packageEditing === 'new' ? undefined : packageEditing}
+            onCancel={() => setPackageEditing(null)}
+            onSaved={async () => {
+              setPackageEditing(null);
+              await props.onChanged();
+            }}
+          />
+        ) : null}
       </View>
       <InlineAlert message={err} />
       {adding ? (
@@ -491,7 +698,9 @@ function ServiceCard(props: {
 
 function packagePriceLabel(servicePackage: ServicePackage) {
   if (servicePackage.price_type === 'quote') return 'Price on request';
-  if (servicePackage.price_type === 'range') return `${formatINR(servicePackage.price_min ?? 0)}–${formatINR(servicePackage.price_max ?? 0)} / ${servicePackage.unit}`;
+  if (servicePackage.price_type === 'range') {
+    return `${formatINR(servicePackage.price_min ?? 0)}–${formatINR(servicePackage.price_max ?? 0)} / ${servicePackage.unit}`;
+  }
   if (servicePackage.price_type === 'from') return `From ${formatINR(servicePackage.price_min ?? 0)} / ${servicePackage.unit}`;
   return `${formatINR(servicePackage.price ?? servicePackage.price_min ?? 0)} / ${servicePackage.unit}`;
 }
