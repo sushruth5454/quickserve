@@ -1,0 +1,39 @@
+name: Razorpay credentials check
+
+# Manual diagnostic: verifies the Razorpay API keys used by the Edge Functions.
+# Prints only the HTTP status, Razorpay's error description and the key mode (test/live), never the keys.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+      RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+    steps:
+      - name: Call Razorpay with the configured keys
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, urllib.error, urllib.request
+          key_id = os.environ.get("RAZORPAY_KEY_ID", "")
+          secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
+          mode = "live" if key_id.startswith("rzp_live_") else "test" if key_id.startswith("rzp_test_") else "unknown-prefix"
+          print(f"key mode: {mode}; key id length {len(key_id)}; secret length {len(secret)}")
+          print(f"whitespace in key id: {key_id != key_id.strip()}; in secret: {secret != secret.strip()}")
+          auth = base64.b64encode(f"{key_id}:{secret}".encode()).decode()
+          req = urllib.request.Request(
+              "https://api.razorpay.com/v1/payment_links?count=1",
+              headers={"Authorization": f"Basic {auth}"},
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=20) as res:
+                  print(f"Razorpay status: {res.status} (credentials accepted)")
+          except urllib.error.HTTPError as e:
+              try:
+                  detail = json.loads(e.read().decode()).get("error", {})
+              except Exception:
+                  detail = {}
+              print(f"Razorpay status: {e.code}; code={detail.get('code')}; description={detail.get('description')}")
+              raise SystemExit(1)
+          PY

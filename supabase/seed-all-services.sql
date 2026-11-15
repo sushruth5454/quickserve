@@ -676,6 +676,20 @@ update public.bookings
 set approved_quote_id = pg_temp.demo_sid('quote:fixed-package')
 where id = pg_temp.demo_sid('booking:fixed-package');
 
+-- Same obligations create_fixed_booking writes, so "Pay" on the seeded booking can prepare a payment.
+insert into public.payment_schedule (
+  id, booking_id, quote_id, seq, obligation_type, label, amount, due_rule, due_at, status, purpose, obligation_kind
+)
+values
+  (pg_temp.demo_sid('payment-schedule:fixed:service'), pg_temp.demo_sid('booking:fixed-package'),
+   pg_temp.demo_sid('quote:fixed-package'), 1, 'service', 'Package payment', 249900, 'at_booking', now(), 'due',
+   'package', 'service'),
+  (pg_temp.demo_sid('payment-schedule:fixed:fee'), pg_temp.demo_sid('booking:fixed-package'),
+   pg_temp.demo_sid('quote:fixed-package'), 2, 'platform_fee', 'Platform fee', 2900, 'at_booking', now(), 'due',
+   'platform_fee', 'platform_fee')
+on conflict (id) do update
+set amount = excluded.amount, due_at = excluded.due_at, status = 'due';
+
 -- Accepted proposal path with one paid advance, one future milestone and one due platform fee.
 alter table public.bookings disable trigger bookings_apply_core_contract;
 insert into public.bookings (

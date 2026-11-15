@@ -149,4 +149,21 @@ const [payments] = (await db.query(`
 `)).rows;
 ok(payments.real_ids === 0, 'seed contains no real Razorpay identifiers');
 
+// Payment preparation across archetypes with the latest prepare_payment (0026 + 0027).
+for (const file of ['0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql']) await db.exec(migration(file));
+const [fixedBooking] = (await db.query(`
+  select id, customer_id from bookings
+   where archetype = 'fixed' and status = 'pending_payment' and description like '[DEMO ONLY]%' limit 1
+`)).rows;
+let fixedPrepared = null;
+try {
+  await db.exec(`set role service_role`);
+  fixedPrepared = (await db.query(`select * from prepare_payment($1, $2)`, [fixedBooking.id, fixedBooking.customer_id])).rows[0];
+} catch (error) {
+  console.error(error.message);
+} finally {
+  await db.exec('reset role');
+}
+ok(fixedPrepared?.purpose === 'fixed' && fixedPrepared.amount > 0, 'prepare_payment charges a fixed package its package total');
+
 if (failures.length) process.exit(1);
