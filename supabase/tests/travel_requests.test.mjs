@@ -158,9 +158,10 @@ const expiry = (
   await svc(`select expires_at, created_at, service_window from travel_requests where id = $1`, [requestId])
 )[0];
 const slotMinusThirty = (await db.query(`select $1::timestamptz - interval '30 minutes' as x`, [requestSlot])).rows[0].x;
+const createdPlusTwoHours = (await db.query(`select $1::timestamptz + interval '2 hours' as x`, [expiry.created_at])).rows[0].x;
 ok(
-  new Date(expiry.expires_at).getTime() === new Date(slotMinusThirty).getTime(),
-  'near-term request expires 30 minutes before its slot',
+  new Date(expiry.expires_at).getTime() === Math.min(new Date(slotMinusThirty).getTime(), new Date(createdPlusTwoHours).getTime()),
+  'request expiry is the earlier of two hours and 30 minutes before its slot',
 );
 ok(String(expiry.service_window).includes('[') && String(expiry.service_window).includes(')'), 'travel request stores a two-hour range');
 ok((await asOutsider(`select id from travel_requests where id = $1`, [requestId])).length === 0, 'outsider cannot read travel request');
