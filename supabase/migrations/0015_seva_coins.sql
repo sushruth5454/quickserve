@@ -105,11 +105,20 @@ $$;
 
 -- The view is additionally filtered by auth.uid() so even callers with view access cannot read another balance.
 create or replace view public.coin_balances as
+with live_lots as (
+  select c.user_id, c.id, c.expires_at,
+         c.delta + coalesce(sum(d.delta), 0)::int as remaining_paise
+    from public.coin_ledger c
+    left join public.coin_ledger d on d.source_ledger_id = c.id and d.delta < 0
+   where c.delta > 0 and c.expires_at > now()
+   group by c.id, c.user_id, c.expires_at, c.delta
+  having c.delta + coalesce(sum(d.delta), 0) > 0
+)
 select a.user_id,
-       public._coin_balance(a.user_id) as balance_paise,
-       coalesce(sum(x.remaining_paise) filter (where x.expires_at <= now() + interval '15 days'), 0)::int as expiring_soon_paise
+       coalesce(sum(l.remaining_paise), 0)::int as balance_paise,
+       coalesce(sum(l.remaining_paise) filter (where l.expires_at <= now() + interval '15 days'), 0)::int as expiring_soon_paise
   from public.coin_accounts a
-  left join lateral public._coin_lots(a.user_id, false) x on true
+  left join live_lots l on l.user_id = a.user_id
  where a.user_id = auth.uid()
  group by a.user_id;
 revoke all on public.coin_balances from public, anon, authenticated;

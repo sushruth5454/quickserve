@@ -2,7 +2,7 @@ import { coinPaiseToCoins, coinRedemptionLimit, earnedCoinPaise } from '../coins
 
 describe('Seva Coins', () => {
   it('earns 2% and rounds down to whole ₹1 coins', () => {
-    expect(earnedCoinPaise({ serviceValuePaise: 215099 })).toBe(4200);
+    expect(earnedCoinPaise({ serviceValuePaise: 215099 })).toBe(4300);
     expect(earnedCoinPaise({ serviceValuePaise: 215000, coinDiscountPaise: 5000 })).toBe(4200);
   });
 
