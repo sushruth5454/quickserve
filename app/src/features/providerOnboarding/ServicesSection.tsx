@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState, type ComponentRef, type Dispatch, type SetStateAction } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { CategoryIcon, iconForSlug } from '../../components/CategoryIcon';
@@ -89,6 +90,17 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
     setStepIndex(index);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
+
+  // "My services" rows link here with ?edit=<service id> to open that service in the full editor.
+  const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
+  const openedFromRoute = useRef(false);
+  useEffect(() => {
+    if (!editParam || openedFromRoute.current) return;
+    const target = services.find((service) => service.id === editParam);
+    if (!target) return;
+    openedFromRoute.current = true;
+    open(target);
+  }, [editParam, services]);
 
   const close = () => {
     setEditorOpen(false);

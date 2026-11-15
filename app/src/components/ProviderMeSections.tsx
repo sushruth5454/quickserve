@@ -79,7 +79,7 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Edit ${s.categories?.name ?? 'service'}`}
-                  onPress={() => setEditing(s)}
+                  onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'services', edit: s.id } })}
                   style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, paddingVertical: t.spacing.md, opacity: pressed ? 0.7 : 1 })}
                 >
                   <View style={{ opacity: s.active ? 1 : 0.5 }}>
@@ -101,6 +101,7 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
                   trackColor={{ true: t.colors.success, false: t.colors.outline }}
                   thumbColor="#FFFFFF"
                   {...webSwitchThumb}
+                  style={{ alignSelf: 'center' }}
                   accessibilityLabel={`${s.categories?.name ?? 'Service'} ${s.active ? 'active' : 'paused'}`}
                 />
               </View>
