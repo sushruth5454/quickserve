@@ -295,6 +295,13 @@ export async function createBooking(input: CreateBookingInput): Promise<string> 
   );
 }
 
+export {
+  createFixedBooking,
+  listFixedPackages,
+  sendFixedAddons,
+  approveFixedChangeOrder,
+} from './fixedBooking';
+
 export async function createPayment(bookingId: string): Promise<PaymentLinkResponse> {
   const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
     body: { booking_id: bookingId },

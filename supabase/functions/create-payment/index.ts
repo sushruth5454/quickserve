@@ -4,7 +4,8 @@ import { cancelRetiredLinks, corsHeaders, json, razorpay, requireEnv } from "../
 interface PreparedPayment {
   payment_id: string;
   amount: number;
-  purpose: "visit_fee" | "balance" | "fixed";
+  purpose: "visit_fee" | "balance" | "fixed" | "package" | "advance" | "milestone" | "final" | "addon" | "session";
+  schedule_id?: string | null;
   short_url: string | null;
 }
 
@@ -70,11 +71,20 @@ Deno.serve(async (req) => {
         currency: "INR",
         accept_partial: false,
         reference_id: prepared.payment_id,
-        description: prepared.purpose === "visit_fee" ? "QuickServe visit fee" : "QuickServe job payment",
+        description: prepared.purpose === "visit_fee"
+          ? "QuickServe visit fee"
+          : prepared.purpose === "addon"
+            ? "QuickServe approved add-on"
+            : "QuickServe job payment",
         customer: account?.phone ? { contact: account.phone } : undefined,
         notify: { sms: false, email: false },
         reminder_enable: false,
-        notes: { booking_id: bookingId, payment_id: prepared.payment_id, purpose: prepared.purpose },
+        notes: {
+          booking_id: bookingId,
+          payment_id: prepared.payment_id,
+          schedule_id: prepared.schedule_id ?? "",
+          purpose: prepared.purpose,
+        },
         ...(callbackUrl ? { callback_url: callbackUrl, callback_method: "get" } : {}),
       });
     } catch (e) {
@@ -89,7 +99,12 @@ Deno.serve(async (req) => {
       .eq("id", prepared.payment_id);
     if (updError) throw updError;
 
-    return json({ short_url: link.short_url, amount: prepared.amount, purpose: prepared.purpose });
+    return json({
+      short_url: link.short_url,
+      amount: prepared.amount,
+      purpose: prepared.purpose,
+      schedule_id: prepared.schedule_id ?? null,
+    });
   } catch (e) {
     console.error(e);
     return json({ error: "internal error" }, 500);

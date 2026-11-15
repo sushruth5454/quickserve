@@ -872,6 +872,18 @@ export const demoApi: Api = {
     db.events.push({ id: db.events.length + 1, booking_id: b.id, from_status: null, to_status: 'pending_payment', note: null, at: nowIso() });
     return b.id;
   },
+  async listFixedPackages(_providerServiceId: string) {
+    return [];
+  },
+  async createFixedBooking(_input) {
+    throw new Error('Fixed package checkout is not available in the current demo catalog.');
+  },
+  async sendFixedAddons(_bookingId, _addons, _note) {
+    throw new Error('No fixed demo booking is active.');
+  },
+  async approveFixedChangeOrder(_bookingId, _quoteId) {
+    throw new Error('No fixed demo change order is active.');
+  },
 
   async createPayment(bookingId): Promise<PaymentLinkResponse> {
     await wait();

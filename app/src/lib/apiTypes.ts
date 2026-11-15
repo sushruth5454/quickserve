@@ -22,6 +22,7 @@ import type {
   SavedAddress,
   SearchFilters,
   SkillLevel,
+  ServicePackage,
   TravelPreview,
   TravelRequest,
   TravelFeeMode,
@@ -78,6 +79,24 @@ export interface CreateBookingInput {
   scheduledAt: Date | null;
   photos: string[];
   travelRequestId?: string | null;
+}
+
+export interface FixedBookingLocation {
+  mode: 'at_customer';
+  addressId?: string | null;
+  addressLine?: string;
+  city?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface CreateFixedBookingInput {
+  packageId: string;
+  quantity: number;
+  windowStart: Date;
+  windowEnd: Date;
+  location: FixedBookingLocation;
+  intake?: Record<string, unknown>;
 }
 
 export interface ChatReadState {
@@ -144,6 +163,14 @@ export interface Api {
   addAddress(input: NewAddressInput): Promise<SavedAddress>;
   // booking
   createBooking(input: CreateBookingInput): Promise<string>;
+  createFixedBooking(input: CreateFixedBookingInput): Promise<string>;
+  listFixedPackages(providerServiceId: string): Promise<ServicePackage[]>;
+  sendFixedAddons(
+    bookingId: string,
+    addons: { title: string; qty: number; unit?: string; unit_price: number }[],
+    note?: string,
+  ): Promise<string>;
+  approveFixedChangeOrder(bookingId: string, quoteId: string): Promise<{ amount_due: number; refund: number; quote_id: string }>;
   createPayment(bookingId: string): Promise<PaymentLinkResponse>;
   listMyBookings(): Promise<Booking[]>;
   getBooking(id: string): Promise<Booking>;
