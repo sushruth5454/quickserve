@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform } from 'react-native';
 import type { Coords } from './apiTypes';
 import { useAuth } from './auth';
-import { forceTestLocation, isDemoMode } from './config';
+import { demoSeedCity, forceTestLocation, isDemoMode, isSeedDemoMode } from './config';
 import { DEFAULT_LOCATION, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
 
 export type GpsResult =
@@ -94,7 +94,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     void (async () => {
       const stored = parseStoredLocation(await AsyncStorage.getItem(LOCATION_STORAGE_KEY).catch(() => null));
       if (!alive) return;
-      if (stored) {
+      // Demo-city builds only have seeded providers in that city; a location saved by an earlier build would hide them.
+      if (stored && (!isSeedDemoMode || stored.city?.trim().toLowerCase() === demoSeedCity.toLowerCase())) {
         setLoc(stored);
         setReady(true);
         return;

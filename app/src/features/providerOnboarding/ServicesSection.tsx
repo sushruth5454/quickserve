@@ -742,10 +742,10 @@ function ServiceCard(props: {
         Visit {formatINR(s.visit_fee)} · Labour {formatINR(s.labour_rate)}/{s.rate_unit}
       </Text>
       {props.skillLabels.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel={`Expertise: ${props.skillLabels.join(', ')}`}>
-          {props.skillLabels.slice(0, 8).map((label) => <Badge key={label} label={label} tone="neutral" />)}
-          {props.skillLabels.length > 8 ? <Badge label={`+${props.skillLabels.length - 8} more`} tone="neutral" /> : null}
-        </View>
+        <Text variant="footnote" color="textSecondary" numberOfLines={3} accessibilityLabel={`Expertise: ${props.skillLabels.join(', ')}`}>
+          {props.skillLabels.slice(0, 8).join(' · ')}
+          {props.skillLabels.length > 8 ? ` · +${props.skillLabels.length - 8} more` : ''}
+        </Text>
       ) : props.expertiseAvailable ? (
         <Pressable accessibilityRole="button" onPress={props.onEdit}>
           <Text variant="footnote" color="warningText">
