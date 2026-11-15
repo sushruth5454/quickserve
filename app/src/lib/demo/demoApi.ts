@@ -51,6 +51,7 @@ let autopilot = true;
 let bookingSeq = 1046;
 let idSeq = 1;
 let demoCoinBalance = 12500;
+let travelRequests: TravelRequest[] = [];
 const demoCoinHistory: CoinLedgerEntry[] = [
   {
     id: 'coin-seed-1',
