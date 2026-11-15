@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import {
   buildPrompt,
@@ -89,7 +90,7 @@ async function generate(model: string, reviews: ClaimedReview[]): Promise<string
 }
 
 async function finishIdempotently(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   review: ClaimedReview,
   rows: InsightRow[],
   model: string,
