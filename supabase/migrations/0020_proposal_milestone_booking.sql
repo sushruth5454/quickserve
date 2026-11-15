@@ -215,8 +215,10 @@ $$;
 create unique index if not exists bookings_one_active_proposal_request_idx
   on public.bookings (service_request_id)
   where service_request_id is not null
-    and status::text in ('pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
-                         'delivery_pending', 'completion_requested', 'disputed');
+    and status in ('pending_payment'::public.booking_status, 'confirmed'::public.booking_status,
+                   'accepted'::public.booking_status, 'en_route'::public.booking_status,
+                   'in_progress'::public.booking_status, 'delivery_pending'::public.booking_status,
+                   'completion_requested'::public.booking_status, 'disputed'::public.booking_status);
 
 create or replace function public._freeze_proposal_booking_snapshot()
 returns trigger
