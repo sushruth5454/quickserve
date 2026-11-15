@@ -439,7 +439,9 @@ await section('chat unread, read state and notifications outbox', async () => {
   ok((await pending(P, 'chat_message')).some((r) => r.booking_id === n1 && r.status === 'pending'), 'presence: push again after leaving the chat');
 
   // Delivery: no device -> skipped; with device -> claimed, sent, ticket stored, receipts resolved, dead tokens removed.
-  await db.exec(`update notifications set status = 'skipped' where status = 'pending' and booking_id <> '${n1}'`);
+  // Isolate this assertion from unrelated request/acceptance notifications for the same booking.
+  await db.exec(`update notifications set status = 'skipped' where status = 'pending'
+    and not (booking_id = '${n1}' and kind = 'chat_message')`);
   let claimed = await svc(`select * from claim_due_notifications()`);
   ok(claimed.length === 0 && (await pending(P, 'chat_message')).find((r) => r.booking_id === n1 && r.body === 'after leaving').last_error === 'no_device',
     'delivery: users without devices are skipped');
