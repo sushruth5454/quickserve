@@ -154,6 +154,8 @@ export interface ServiceAreaInput {
 }
 
 export interface ServiceDetailsInput {
+  /** Existing row id when editing; category is immutable for that row. */
+  serviceId?: string;
   categoryId: string;
   skillLevel: SkillLevel;
   visitFee: number;

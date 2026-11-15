@@ -14,6 +14,13 @@ import { completeness, resumeStep, stepDone } from '../onboarding/completeness';
 import type { Check, OnboardingState, ProviderSchedule, WeeklySlot } from '../onboarding/types';
 import { checkUpload, parseRupees, validateBasics, validateFees, validatePayoutForm, validateProfileAttributes } from '../onboarding/validation';
 import { WINDOW_START_HOURS } from '../schedule';
+import {
+  configuredExpertiseCount,
+  packageHasContactHint,
+  selectServiceCategory,
+  serviceEditorStateFromService,
+  validateServiceEditor,
+} from '../../features/providerOnboarding/serviceEditor';
 
 /** An instant given as IST wall-clock time, independent of the test machine's timezone. */
 const ist = (isoLocal: string) => new Date(`${isoLocal}+05:30`);
@@ -169,5 +176,94 @@ describe('validation', () => {
     expect(checkUpload('avatar', 'image/jpeg', 3_000_000)).toMatch(/max 2 MB/);
     expect(checkUpload('document', 'application/pdf', 9_000_000)).toBeNull();
     expect(checkUpload('portfolio', 'application/pdf', 1)).toMatch(/JPG, PNG or WebP/);
+  });
+
+  it('hydrates every editable service field without mutating the saved service', () => {
+    const service = {
+      id: 'service-1',
+      provider_id: 'provider-1',
+      category_id: 'ac-category',
+      skill_level: 'expert',
+      visit_fee: 19900,
+      labour_rate: 34900,
+      rate_unit: 'job',
+      active: true,
+      specialisations: ['split', 'pcb'],
+      brands: ['Daikin'],
+      tools: ['Vacuum pump'],
+      attributes: { equipment: ['split'] },
+      max_travel_km: 25,
+      travel_fee_mode: 'flat',
+      travel_fee_flat: 5000,
+      travel_fee_per_km: 0,
+    } as const;
+    const state = serviceEditorStateFromService(service as never);
+    expect(state).toMatchObject({
+      serviceId: 'service-1',
+      categoryId: 'ac-category',
+      level: 'expert',
+      visitFee: '199',
+      labour: '349',
+      specialisations: ['split', 'pcb'],
+      brands: ['Daikin'],
+      tools: ['Vacuum pump'],
+      attributes: { equipment: ['split'] },
+      maxTravel: '25',
+      travelFeeMode: 'flat',
+      travelFlat: '50',
+    });
+    state.attributes.equipment = ['window'];
+    expect(service.attributes).toEqual({ equipment: ['split'] });
+  });
+
+  it('clears category-specific expertise when a new service category changes', () => {
+    const state = {
+      ...serviceEditorStateFromService(),
+      categoryId: 'old',
+      specialisations: ['old-skill'],
+      brands: ['Old brand'],
+      tools: ['Old tool'],
+      attributes: { old_field: true },
+      visitFee: '199',
+      labour: '299',
+    };
+    expect(selectServiceCategory(state, 'new')).toMatchObject({
+      categoryId: 'new',
+      specialisations: [],
+      brands: [],
+      tools: [],
+      attributes: {},
+      visitFee: '199',
+      labour: '299',
+    });
+  });
+
+  it('validates configured expertise, schema attributes, pricing and travel as one service', () => {
+    const schema = {
+      type: 'object' as const,
+      properties: { equipment: { type: 'array' as const, items: { type: 'string' as const, enum: ['split'] } } },
+    };
+    const skills = [{ id: 'skill-1', category_id: 'ac', kind: 'skill' as const, slug: 'split', label: 'Split AC', sort_order: 1 }];
+    const state = {
+      ...serviceEditorStateFromService(),
+      categoryId: 'ac',
+      visitFee: '199',
+      labour: '299',
+      specialisations: ['split'],
+      attributes: { equipment: ['split'] },
+      travelFeeMode: 'flat' as const,
+      maxTravel: '20',
+      travelFlat: '50',
+    };
+    expect(configuredExpertiseCount(state, schema)).toBe(2);
+    expect(validateServiceEditor(state, schema, skills, 10)).toEqual({});
+    expect(validateServiceEditor({ ...state, specialisations: [], attributes: {} }, schema, skills, 10).expertise).toMatch(/at least one/);
+  });
+
+  it('rejects off-platform contact details in package descriptions and deliverables', () => {
+    expect(packageHasContactHint({ description: 'Call 98765 43210 after booking' })).toBe(true);
+    expect(packageHasContactHint({ inclusions: ['Pay by UPI'] })).toBe(true);
+    expect(packageHasContactHint({ deliverables: [{ type: 'video', spec: 'Email files@example.com' }] })).toBe(true);
+    expect(packageHasContactHint({ description: 'Two-hour jet service with final inspection.' })).toBe(false);
   });
 });
