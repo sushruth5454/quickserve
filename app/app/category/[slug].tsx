@@ -19,6 +19,8 @@ import {
 } from '../../src/components/ui';
 import { searchProviders } from '../../src/lib/api';
 import { aiAssistantEnabled } from '../../src/lib/config';
+import { getCatalogueCategory } from '../../src/features/catalogue/api';
+import { ArchetypeCategory } from '../../src/features/catalogue/ArchetypeCategory';
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
@@ -38,7 +40,23 @@ const RATINGS = [3.5, 4, 4.5];
 
 const DEFAULT_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, skillLevel: null, maxVisitFee: null, onlineOnly: false };
 
-export default function CategoryProviders() {
+export default function CategoryRoute() {
+  const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
+  const { location } = useSelectedLocation();
+  const [category, setCategory] = useState<Awaited<ReturnType<typeof getCatalogueCategory>>>(undefined);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!slug) return;
+    getCatalogueCategory(slug, location.city).then(setCategory).catch((e: Error) => setCategoryError(e.message));
+  }, [slug, location.city]);
+  if (categoryError) return <Screen header={<Header title={name ?? 'Service'} />}><ErrorState message={categoryError} onRetry={() => router.replace({ pathname: '/category/[slug]', params: { slug, name: name ?? '' } })} /></Screen>;
+  if (category === undefined) return <Screen header={<Header title={name ?? 'Service'} />}><SkeletonProviderCard /></Screen>;
+  if (category === null) return <Screen header={<Header title={name ?? 'Service'} />}><EmptyState icon="storefront-outline" title="This service is not available here" message="Categories are enabled city by city. Try another service location." /></Screen>;
+  if (category.archetype !== 'inspect_quote' && category.archetype != null) return <ArchetypeCategory category={category} />;
+  return <InspectQuoteCategory />;
+}
+
+function InspectQuoteCategory() {
   const t = useTheme();
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
   const { location: place, coords } = useSelectedLocation();

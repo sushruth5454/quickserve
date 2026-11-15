@@ -79,6 +79,61 @@ jobs:
         with:
           version: latest
 
+      - name: Apply migration 0018 through the Management API
+        env:
+          MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          MANAGEMENT_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.error
+          import urllib.request
+
+          project_ref = os.environ["MANAGEMENT_PROJECT_REF"]
+          token = os.environ["MANAGEMENT_TOKEN"]
+          url = f"https://api.supabase.com/v1/projects/{project_ref}/database/query"
+
+          def query(sql):
+              request = urllib.request.Request(
+                  url,
+                  data=json.dumps({"query": sql}).encode(),
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                      "User-Agent": "quickserve-backend-ci",
+                  },
+                  method="POST",
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=120) as response:
+                      return json.loads(response.read().decode() or "[]")
+              except urllib.error.HTTPError as error:
+                  detail = error.read().decode()
+                  raise SystemExit(f"Supabase Management API query failed ({error.code}): {detail}")
+
+          check = query(
+              "select exists(select 1 from supabase_migrations.schema_migrations "
+              "where version = '0018') as applied"
+          )
+          if check and check[0].get("applied"):
+              print("0018 already recorded in supabase_migrations.schema_migrations; skipped.")
+              raise SystemExit(0)
+
+          sql = pathlib.Path("supabase/migrations/0018_archetype_core.sql").read_text()
+          query("begin;\n" + sql + "\nrollback;")
+          print("0018 dry run succeeded.")
+          query(
+              "begin;\n"
+              + sql
+              + "\ninsert into supabase_migrations.schema_migrations(version) values ('0018') "
+                "on conflict (version) do nothing;\n"
+                "commit;"
+          )
+          print("0018 applied and migration version recorded.")
+          PY
+
       - name: Apply database migrations (only when SUPABASE_DB_PASSWORD is set)
         if: env.SUPABASE_DB_PASSWORD != ''
         run: |

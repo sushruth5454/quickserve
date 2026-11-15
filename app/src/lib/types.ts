@@ -22,9 +22,11 @@ export type KycStatus = 'pending' | 'verified' | 'rejected' | 'under_review' | '
 export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
 export type QuoteItemKind = 'labour' | 'part' | 'other';
+export type BookingArchetype = 'fixed' | 'inspect_quote' | 'proposal' | 'time_based' | 'remote';
+export type LocationMode = 'at_customer' | 'at_provider' | 'at_venue' | 'remote';
 export type TravelFeeMode = 'none' | 'flat' | 'per_km';
 export type TravelRequestStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'used';
-export type PaymentPurpose = 'visit_fee' | 'balance' | 'fixed';
+export type PaymentPurpose = 'visit_fee' | 'balance' | 'fixed' | 'package' | 'advance' | 'milestone' | 'final' | 'addon' | 'session';
 export type PaymentStatus = 'created' | 'paid' | 'failed' | 'refund_pending' | 'refund_processing' | 'refunded';
 export type PayoutStatus = 'pending' | 'frozen' | 'transferred' | 'failed' | 'reversed' | 'partially_reversed';
 export type SortOption = 'recommended' | 'rating' | 'price' | 'distance' | 'experience';
@@ -45,8 +47,25 @@ export interface Category {
   icon: string;
   pricing_mode: 'quote' | 'fixed';
   sort_order: number;
+  active?: boolean;
+  vertical?: string;
+  parent_id?: string | null;
+  archetype?: BookingArchetype;
+  location_modes?: LocationMode[];
+  pricing_units?: PackageUnit[];
+  intake_schema?: Record<string, unknown>;
+  payment_template?: string;
+  cancellation_policy?: string;
+  commission_bp?: number | null;
   profile_schema?: Record<string, unknown>;
   review_tags?: string[];
+  requires_docs?: string[];
+  recommended_docs?: string[];
+  restricted?: boolean;
+  config_version?: number;
+  min_lead_hours?: number;
+  max_lead_days?: number;
+  live?: boolean;
 }
 
 export interface ProviderSearchResult {
@@ -119,7 +138,7 @@ export interface ProviderService {
   travel_fee_mode?: TravelFeeMode;
   travel_fee_flat?: number;
   travel_fee_per_km?: number;
-  categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
+  categories?: Pick<Category, 'name' | 'slug' | 'review_tags' | 'archetype' | 'intake_schema' | 'location_modes'> | null;
   rate_card_items?: RateCardItem[];
   service_packages?: ServicePackage[];
 }
@@ -147,6 +166,13 @@ export interface Booking {
   accepted_at: string | null;
   completion_requested_at: string | null;
   completed_at: string | null;
+  archetype?: BookingArchetype;
+  category_config_version?: number;
+  location_mode?: LocationMode;
+  pricing_snapshot?: Record<string, unknown>;
+  payment_template_snapshot?: Record<string, unknown>;
+  cancellation_snapshot?: Record<string, unknown>;
+  platform_fee_rule_snapshot?: Record<string, unknown>;
   travel_request_id?: string | null;
   travel_requests?: {
     distance_km: number;
