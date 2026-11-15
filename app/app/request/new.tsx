@@ -67,7 +67,7 @@ export default function NewServiceRequest() {
 =======
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Button, Header, InlineAlert, Screen, Section, Text, TextArea, TextInput } from '../../src/components/ui';
+import { Button, Header, InlineAlert, Input, Screen, Section, Text, TextArea } from '../../src/components/ui';
 import * as api from '../../src/lib/api';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
@@ -142,14 +142,14 @@ export default function NewServiceRequest() {
     <Screen header={<Header title={`Get ${name} proposals`} />} footer={<Button title="Request proposals" fullWidth size="lg" loading={busy} onPress={() => void submit()} />}>
       {error ? <InlineAlert title="Check the brief" message={error} /> : null}
       <Section title="Your brief" subtitle="Providers see this before they quote. Never add phone numbers or payment details.">
-        <TextArea label="What do you need?" placeholder="Tell providers about the event, style and deliverables…" value={brief} onChangeText={setBrief} minHeight={140} />
+        <TextArea label="What do you need?" placeholder="Tell providers about the event, style and deliverables…" value={brief} onChangeText={setBrief} />
       </Section>
       <Section title="Event">
-        <TextInput label="Date" placeholder="YYYY-MM-DD" value={eventDate} onChangeText={setEventDate} />
-        <TextInput label="Venue / area" placeholder="Venue name and area" value={venue} onChangeText={setVenue} />
+        <Input label="Date" placeholder="YYYY-MM-DD" value={eventDate} onChangeText={setEventDate} />
+        <Input label="Venue / area" placeholder="Venue name and area" value={venue} onChangeText={setVenue} />
       </Section>
       <Section title="Budget">
-        <TextInput label="Approximate maximum (₹)" keyboardType="number-pad" value={budget} onChangeText={setBudget} />
+        <Input label="Approximate maximum (₹)" keyboardType="number-pad" value={budget} onChangeText={setBudget} />
         <Text variant="caption" color="muted">Providers quote a fixed proposal with line items. You never pay a range.</Text>
       </Section>
 >>>>>>> 3844b2b (feat: add proposal milestone booking engine)

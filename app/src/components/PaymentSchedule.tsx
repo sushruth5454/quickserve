@@ -17,7 +17,7 @@ export function PaymentSchedule({ rows, onPay }: Props) {
       {rows.map((row, index) => {
         const paid = row.status === 'paid';
         const due = row.status === 'due';
-        const color = paid ? t.colors.success : due ? t.colors.warning : t.colors.textMuted;
+        const color = paid ? t.colors.success : due ? t.colors.warning : t.colors.muted;
         return (
           <Pressable
             key={row.id}

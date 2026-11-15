@@ -4,6 +4,7 @@ import type { BookingStatus } from '../lib/types';
 
 export const statusLabel: Record<BookingStatus, string> = {
   pending_payment: 'Awaiting visit-fee payment',
+  confirmed: 'Confirmed',
   requested: 'Waiting for provider',
   accepted: 'Accepted',
   en_route: 'Provider on the way',
@@ -11,6 +12,7 @@ export const statusLabel: Record<BookingStatus, string> = {
   quote_sent: 'Quote sent',
   awaiting_payment: 'Payment due',
   in_progress: 'In progress',
+  delivery_pending: 'Delivery in progress',
   completion_requested: 'Completion requested',
   completed: 'Completed',
   closed: 'Closed',
@@ -25,6 +27,7 @@ export const statusLabel: Record<BookingStatus, string> = {
 /** Short label for pills. */
 export const statusShort: Record<BookingStatus, string> = {
   pending_payment: 'Payment pending',
+  confirmed: 'Confirmed',
   requested: 'Requested',
   accepted: 'Accepted',
   en_route: 'On the way',
@@ -32,6 +35,7 @@ export const statusShort: Record<BookingStatus, string> = {
   quote_sent: 'Quote sent',
   awaiting_payment: 'Payment due',
   in_progress: 'In progress',
+  delivery_pending: 'Delivering',
   completion_requested: 'Confirm completion',
   completed: 'Completed',
   closed: 'Completed',
@@ -49,6 +53,7 @@ export const statusShort: Record<BookingStatus, string> = {
  */
 export const statusTone: Record<BookingStatus, Tone> = {
   pending_payment: 'warning',
+  confirmed: 'primary',
   requested: 'primary',
   accepted: 'primary',
   en_route: 'primary',
@@ -56,6 +61,7 @@ export const statusTone: Record<BookingStatus, Tone> = {
   quote_sent: 'warning',
   awaiting_payment: 'warning',
   in_progress: 'primary',
+  delivery_pending: 'primary',
   completion_requested: 'warning',
   completed: 'success',
   closed: 'success',
@@ -70,6 +76,7 @@ export const statusTone: Record<BookingStatus, Tone> = {
 /** One-line "what happens next" copy for booking cards. */
 export const nextStepCopy: Partial<Record<BookingStatus, string>> = {
   pending_payment: 'Pay the visit fee to send your request',
+  confirmed: 'Pay remaining milestones and prepare the start code',
   requested: 'Waiting for the pro to accept · usually ~15 min',
   accepted: 'Pro confirmed · share the start code on arrival',
   en_route: 'Pro is on the way · keep your start code ready',
@@ -77,6 +84,7 @@ export const nextStepCopy: Partial<Record<BookingStatus, string>> = {
   quote_sent: 'Review and approve the quote',
   awaiting_payment: 'Pay the balance to start work',
   in_progress: 'Work in progress · payment held safely',
+  delivery_pending: 'Final deliverables are being prepared',
   completion_requested: 'Check the work and share the completion code',
   disputed: 'Support is reviewing your report',
 };

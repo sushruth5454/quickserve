@@ -30,6 +30,7 @@ export type TravelRequestStatus = 'pending' | 'approved' | 'declined' | 'expired
 export type QuoteItemKind =
   | 'labour' | 'part' | 'other' | 'material' | 'package' | 'per_unit'
   | 'travel' | 'rental' | 'discount' | 'addon';
+export type ProposalItemKind = QuoteItemKind;
 export type PaymentPurpose =
   | 'visit_fee' | 'balance' | 'fixed' | 'advance' | 'milestone' | 'final'
   | 'platform_fee' | 'package' | 'addon' | 'session';
@@ -434,7 +435,7 @@ export interface ProposalItem {
   id?: string;
   proposal_id?: string;
   seq: number;
-  kind: QuoteItemKind;
+  kind: ProposalItemKind;
   title: string;
   qty: number;
   unit: string | null;

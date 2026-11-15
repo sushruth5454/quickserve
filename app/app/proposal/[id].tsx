@@ -15,7 +15,7 @@ export default function ProposalDetail() {
   const startPayment = usePayment();
 
   useEffect(() => {
-    if (id) void api.getProposal(id).then(setProposal).catch((e) => setError(e.message));
+    if (id) void api.getProposal(id).then(setProposal).catch((e: unknown) => setError((e as Error).message));
   }, [id]);
 
   const accept = async () => {
