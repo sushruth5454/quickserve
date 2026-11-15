@@ -236,4 +236,16 @@ const openRequest = (await as(customer, 'authenticated', `
 runtimeOk((await db.query(`select count(*)::int n from request_recipients where request_id=$1`, [openRequest])).rows[0].n === 2,
   'untargeted requests still route to all eligible providers');
 
+await db.exec(migration('0026_fix_proposal_prepare_payment.sql'));
+const targetedProposal = (await as(provider2, 'authenticated', `
+  select send_proposal($1,
+    '[{"kind":"package","title":"Reel","qty":1,"unit":"job","unit_price":1200000}]'::jsonb,
+    '[{"label":"Advance","amount":400000,"due_rule":"at_booking"},{"label":"Final","amount":800000,"due_rule":"on_delivery"}]'::jsonb,
+    now()+interval '2 days', null, '[]'::jsonb) id
+`, [targeted]))[0].id;
+const targetedBooking = (await as(customer, 'authenticated', `select accept_proposal($1,$2) id`, [targetedProposal, address]))[0].id;
+const prepared = (await as(null, 'service_role', `select * from prepare_payment($1,$2)`, [targetedBooking, customer]))[0];
+runtimeOk(prepared?.purpose === 'advance' && prepared.amount === 400000,
+  'prepare_payment charges the proposal advance first (no ambiguous purpose column)');
+
 if (failed.length || runtimeFailures) process.exit(1);

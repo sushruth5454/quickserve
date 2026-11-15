@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import * as api from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
+import { useSelectedLocation } from '../../src/lib/locationContext';
 import { usePayment } from '../../src/lib/payments';
 import type { Proposal } from '../../src/lib/types';
 
@@ -12,7 +13,9 @@ export default function ProposalDetail() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const startPayment = usePayment();
+  const { location } = useSelectedLocation();
 
   useEffect(() => {
     if (id) void api.getProposal(id).then(setProposal).catch((e: unknown) => setError((e as Error).message));
@@ -21,11 +24,18 @@ export default function ProposalDetail() {
   const accept = async () => {
     if (!proposal) return;
     setBusy(true);
+    setAcceptError(null);
     try {
-      const bookingId = await api.acceptProposal(proposal.id);
+      // The venue: the request's own address if it has one, otherwise the saved address currently selected.
+      const bookingId = await api.acceptProposal(proposal.id, location.addressId ?? null);
       await startPayment(bookingId);
       router.replace({ pathname: '/booking/[id]', params: { id: bookingId } });
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) {
+      const message = (e as Error).message;
+      setAcceptError(/address is required/i.test(message)
+        ? 'Choose a saved address for the venue (tap your location at the top of Home), then accept again.'
+        : message);
+    }
     finally { setBusy(false); }
   };
 
@@ -36,6 +46,7 @@ export default function ProposalDetail() {
     >
       {error ? <ErrorState message={error} onRetry={() => id && void api.getProposal(id).then(setProposal)} /> : !proposal ? <Skeleton height={260} /> : (
         <>
+          {acceptError ? <InlineAlert title="Could not accept yet" message={acceptError} /> : null}
           <InlineAlert title="30-minute payment hold" message="Accepting reserves the provider for 30 minutes. Pay the advance and platform fee in that window to confirm." />
           <Card>
             <Text variant="title2">{formatINR(proposal.total)}</Text>

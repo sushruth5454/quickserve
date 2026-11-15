@@ -38,7 +38,7 @@ export default function NewServiceRequest() {
         intake: { brief: brief.trim() },
         budgetMin: budget ? rupeesToPaise(Number(budget) * 0.8) : null,
         budgetMax: budget ? rupeesToPaise(Number(budget)) : null,
-        addressId: null,
+        addressId: location.addressId ?? null,
         venueText: venue.trim() || location.area,
         providerId: providerId || null,
       });

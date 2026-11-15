@@ -371,6 +371,7 @@ jobs:
               ("0023", "0023_proposal_milestone_booking.sql"),
               ("0024", "0024_activate_creator_event_categories.sql"),
               ("0025", "0025_targeted_proposal_requests.sql"),
+              ("0026", "0026_fix_proposal_prepare_payment.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
