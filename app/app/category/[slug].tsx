@@ -24,7 +24,7 @@ import { ArchetypeCategory } from '../../src/features/catalogue/ArchetypeCategor
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
-import type { ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
+import type { Category, ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 
 const SORTS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -43,7 +43,7 @@ const DEFAULT_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, s
 export default function CategoryRoute() {
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
   const { location } = useSelectedLocation();
-  const [category, setCategory] = useState<Awaited<ReturnType<typeof getCatalogueCategory>>>(undefined);
+  const [category, setCategory] = useState<Category | null | undefined>(undefined);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   useEffect(() => {
     if (!slug) return;
