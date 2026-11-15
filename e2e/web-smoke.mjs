@@ -178,6 +178,88 @@ for (const c of categories) {
     await page.getByText(LANDING[c.archetype] ?? LANDING.inspect_quote).first().waitFor();
   });
 }
+
+// ---------- Creator proposal, end to end ----------
+// Customer browses a creator, sends a brief to that creator only, the creator replies with a fixed proposal
+// (through the API as the +919000000101 test pro), and the customer compares, accepts and reaches checkout.
+const PRO_ID = '11111111-1111-1111-1111-111111111111';
+const iso = (days) => new Date(Date.now() + days * 86400000).toISOString();
+let proToken = null;
+let proReelServiceId = null;
+let briefRequestId = null;
+async function asPro(path, body, method = 'POST') {
+  const res = await fetch(`${SUPABASE_URL}${path}`, {
+    method,
+    headers: { apikey: ANON, Authorization: `Bearer ${proToken}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    body: body == null ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${await res.text()}`);
+  return res.status === 204 ? null : res.json();
+}
+await step('proposal-flow-pro-offers-reel-maker', async () => {
+  proToken = await signInAs('+919000000101');
+  const [reel] = await rest('categories?select=id&slug=eq.reel-maker');
+  await asPro('/functions/v1/provider-service', {
+    action: 'save_service', categoryId: reel.id, skillLevel: 'expert', visitFee: 0, labourRate: 100000, rateUnit: 'job',
+    specialisations: [], brands: [], tools: [], attributes: { styles: ['cinematic', 'fast-cut'] },
+    maxTravelKm: null, travelFeeMode: 'none', travelFeeFlat: 0, travelFeePerKm: 0,
+  });
+  const rows = await asPro(`/rest/v1/provider_services?select=id&provider_id=eq.${PRO_ID}&category_id=eq.${reel.id}`, null, 'GET');
+  proReelServiceId = rows[0]?.id;
+  if (!proReelServiceId) throw new Error('reel-maker service not saved');
+});
+await step('proposal-flow-customer-sends-brief', async () => {
+  // The test pro works in Vijayawada; requests are routed only within the request's city.
+  await go('/location');
+  await page.getByText(/^Flat 302, Sri Sai Residency/).first().click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
+  await go(`/provider/${PRO_ID}?category=reel-maker`);
+  await page.getByText('Request proposal', { exact: true }).first().click();
+  await page.waitForURL(/\/request\/new/);
+  await page.getByText(/^Request a proposal from /).first().waitFor();
+  await page.getByLabel('What do you need?').first().fill('QA-E2E 30-second launch reel for my cafe, vertical, 2 revisions');
+  await page.getByLabel('Date').first().fill(iso(30).slice(0, 10));
+  await page.getByLabel('Venue / area').first().fill('Benz Circle cafe');
+  await page.getByLabel('Approximate maximum (₹)').first().fill('15000');
+  await page.getByText(/^Send to /).first().click();
+  await page.waitForURL(/\/request\/[0-9a-f-]{36}$/);
+  briefRequestId = new URL(page.url()).pathname.split('/').pop();
+  await visible('Waiting for proposals');
+});
+await step('proposal-flow-pro-sends-proposal', async () => {
+  const inbox = await asPro('/rest/v1/service_request_provider_view?select=id&id=eq.' + briefRequestId, null, 'GET');
+  if (inbox.length !== 1) throw new Error('targeted creator did not receive the brief');
+  await asPro('/rest/v1/rpc/send_proposal', {
+    p_request_id: briefRequestId,
+    p_items: [{ kind: 'package', title: '30-second launch reel', qty: 1, unit: 'job', unit_price: 1200000 }],
+    p_schedule: [
+      { label: 'Booking advance', amount: 400000, due_rule: 'at_booking' },
+      { label: 'On delivery', amount: 800000, due_rule: 'on_delivery' },
+    ],
+    p_valid_until: iso(3),
+    p_note: 'QA-E2E fixed proposal',
+    p_deliverables: [{ type: 'edited_reel', qty: 1, spec: '30s vertical 1080p with captions' }],
+  });
+});
+await step('proposal-flow-customer-compares', async () => {
+  await go(`/request/${briefRequestId}`);
+  await page.getByText('₹12,000', { exact: true }).first().waitFor();
+  await page.getByText('Compare proposal', { exact: true }).first().click();
+  await page.waitForURL(/\/proposal\//);
+  await visible('Payment milestones');
+  await visible('Booking advance');
+  await page.getByText(/30s vertical 1080p|edited_reel/i).first().waitFor();
+});
+await step('proposal-flow-accept-and-checkout', async () => {
+  await page.getByText(/^Accept & reserve · ₹/).first().click();
+  await visible('Secure checkout');
+  await page.getByText(/^Pay ₹/).last().click();
+  await page.waitForURL(/\/booking\/[0-9a-f-]{36}$/);
+});
+await optional('proposal-flow-cleanup', async () => {
+  // Keep the shared test pro to its seeded trades so it does not appear as a live creator.
+  if (proReelServiceId) await asPro(`/rest/v1/provider_services?id=eq.${proReelServiceId}`, { active: false }, 'PATCH');
+});
 await step('category-sort-sheet', async () => {
   await go('/category/ac-repair?name=AC%20Repair');
   await page.getByLabel(/^Sort:/).first().click();
