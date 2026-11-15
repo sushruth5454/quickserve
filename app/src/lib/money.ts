@@ -13,7 +13,17 @@ export const RATE_BP = { free: 0, base: 1200, tier1: 1000, tier2: 800 } as const
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type LineKind = 'labour' | 'part' | 'other';
+export type LineKind =
+  | 'labour'
+  | 'part'
+  | 'other'
+  | 'material'
+  | 'package'
+  | 'per_unit'
+  | 'travel'
+  | 'rental'
+  | 'discount'
+  | 'addon';
 
 export interface LineInput {
   kind: LineKind;
@@ -74,7 +84,7 @@ export function quoteSubtotals(items: LineInput[]): Subtotals {
   const s = { labour: 0, parts: 0, other: 0 };
   for (const item of items) {
     const t = lineTotal(item.qty, item.unitPrice);
-    if (item.kind === 'labour') s.labour += t;
+    if (item.kind === 'labour' || item.kind === 'package' || item.kind === 'per_unit' || item.kind === 'addon' || item.kind === 'travel') s.labour += t;
     else if (item.kind === 'part') s.parts += t;
     else s.other += t;
   }

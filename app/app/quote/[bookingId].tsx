@@ -27,14 +27,14 @@ import {
 } from '../../src/components/ui';
 import { getBooking, getMyProvider, getQuotes, listMyServices, sendQuote, uploadJobPhoto } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
-import { commissionRateBp, formatINR, rupeesToPaise, settleQuotedJob, type LineInput } from '../../src/lib/money';
-import type { Booking, Provider, QuoteItemDraft, QuoteItemKind, RateCardItem } from '../../src/lib/types';
+import { commissionRateBp, formatINR, rupeesToPaise, settleQuotedJob, type LineInput, type LineKind } from '../../src/lib/money';
+import type { Booking, Provider, QuoteItemDraft, RateCardItem } from '../../src/lib/types';
 import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
 interface Line {
   key: string;
-  kind: QuoteItemKind;
+  kind: LineKind;
   title: string;
   qty: number;
   unitPrice: string;
@@ -43,20 +43,20 @@ interface Line {
   billUri?: string;
 }
 
-const KINDS: QuoteItemKind[] = ['labour', 'part', 'other'];
-const KIND_ICON: Record<QuoteItemKind, keyof typeof Ionicons.glyphMap> = {
+const KINDS: LineKind[] = ['labour', 'part', 'other'];
+const KIND_ICON: Record<LineKind, keyof typeof Ionicons.glyphMap> = {
   labour: 'construct-outline',
   part: 'hardware-chip-outline',
   other: 'ellipsis-horizontal-circle-outline',
 };
-const PLACEHOLDER: Record<QuoteItemKind, string> = {
+const PLACEHOLDER: Record<LineKind, string> = {
   labour: 'e.g. Gas refill, wiring work',
   part: 'e.g. Capacitor 45uF',
   other: 'e.g. Disposal, transport',
 };
 
 let seq = 0;
-const newLine = (kind: QuoteItemKind, title = '', qty = 1, unitPrice = '', billPath?: string): Line => ({
+const newLine = (kind: LineKind, title = '', qty = 1, unitPrice = '', billPath?: string): Line => ({
   key: `l${++seq}`,
   kind,
   title,
@@ -275,7 +275,7 @@ export default function QuoteEditorScreen() {
             <Animated.View key={l.key} entering={FadeInDown.duration(200)} exiting={FadeOut.duration(150)} layout={LinearTransition}>
               <Card gap={t.spacing.md}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-                  <SegmentedControl<QuoteItemKind>
+                  <SegmentedControl<LineKind>
                     options={KINDS.map((k) => ({ value: k, label: kindLabel[k] }))}
                     value={l.kind}
                     onChange={(k) => update(l.key, { kind: k })}

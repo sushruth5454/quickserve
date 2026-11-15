@@ -12,8 +12,30 @@ const statusText: Record<QuoteStatus, [string, Tone]> = {
   superseded: ['Replaced', 'neutral'],
 };
 
-export const kindLabel: Record<QuoteItemKind, string> = { labour: 'Labour', part: 'Part', other: 'Other' };
-const groupLabel: Record<QuoteItemKind, string> = { labour: 'Labour', part: 'Parts', other: 'Other charges' };
+export const kindLabel: Record<QuoteItemKind, string> = {
+  labour: 'Labour',
+  part: 'Part',
+  other: 'Other',
+  material: 'Material',
+  package: 'Package',
+  per_unit: 'Per-unit service',
+  travel: 'Travel',
+  rental: 'Rental',
+  discount: 'Discount',
+  addon: 'Add-on',
+};
+const groupLabel: Record<QuoteItemKind, string> = {
+  labour: 'Labour',
+  part: 'Parts',
+  other: 'Other charges',
+  material: 'Materials',
+  package: 'Packages',
+  per_unit: 'Services',
+  travel: 'Travel',
+  rental: 'Rentals',
+  discount: 'Discounts',
+  addon: 'Add-ons',
+};
 
 interface Props {
   quote: Quote;

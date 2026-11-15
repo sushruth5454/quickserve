@@ -53,8 +53,6 @@ export interface Category {
   name: string;
   icon: string;
   pricing_mode: 'quote' | 'fixed';
-  archetype?: 'fixed' | 'inspect_quote' | 'proposal' | 'time_based' | 'remote';
-  intake_schema?: Record<string, unknown>;
   sort_order: number;
   active?: boolean;
   vertical?: string;
@@ -185,7 +183,6 @@ export interface Booking {
   travel_request_id?: string | null;
   service_request_id?: string | null;
   proposal_id?: string | null;
-  archetype?: 'fixed' | 'inspect_quote' | 'proposal' | 'time_based' | 'remote';
   payment_hold_expires_at?: string | null;
   delivery_status?: 'not_applicable' | 'pending' | 'submitted' | 'accepted';
   delivery_links?: DeliveryLink[];
