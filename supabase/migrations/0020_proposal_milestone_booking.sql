@@ -1071,10 +1071,10 @@ begin
        set status = 'paid', payment_id = p.id, paid_at = now()
      where id = ps.id;
     update public.bookings set payment_hold_expires_at = null
-     where id = b.id and ps.purpose <> 'platform_fee'
+     where id = b.id
        and not exists (
          select 1 from public.payment_schedule
-          where booking_id = b.id and due_rule = 'at_booking' and status <> 'paid' and purpose <> 'platform_fee'
+          where booking_id = b.id and due_rule = 'at_booking' and status <> 'paid'
        );
 
     if b.status = 'pending_payment' and not exists (
