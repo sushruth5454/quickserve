@@ -75,7 +75,7 @@ for (const file of [
   '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
   '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
   '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
-  '0020_proposal_enum_values.sql', '0023_proposal_milestone_booking.sql',
+  '0020_proposal_enum_values.sql', '0022_time_based_booking.sql', '0023_proposal_milestone_booking.sql',
 ]) await db.exec(migration(file));
 
 let runtimeFailures = 0;

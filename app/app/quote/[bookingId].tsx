@@ -48,11 +48,25 @@ const KIND_ICON: Partial<Record<LineKind, keyof typeof Ionicons.glyphMap>> = {
   labour: 'construct-outline',
   part: 'hardware-chip-outline',
   other: 'ellipsis-horizontal-circle-outline',
+  material: 'hardware-chip-outline',
+  package: 'cube-outline',
+  per_unit: 'repeat-outline',
+  travel: 'navigate-outline',
+  rental: 'calendar-outline',
+  discount: 'pricetag-outline',
+  addon: 'add-circle-outline',
 };
 const PLACEHOLDER: Partial<Record<LineKind, string>> = {
   labour: 'e.g. Gas refill, wiring work',
   part: 'e.g. Capacitor 45uF',
   other: 'e.g. Disposal, transport',
+  material: 'e.g. Consumables or materials',
+  package: 'e.g. Package scope',
+  per_unit: 'e.g. Additional unit',
+  travel: 'e.g. Travel charge',
+  rental: 'e.g. Equipment rental',
+  discount: 'e.g. Approved discount',
+  addon: 'e.g. Extra requested service',
 };
 
 let seq = 0;

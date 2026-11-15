@@ -176,6 +176,7 @@ export async function createTimeBooking(input: {
   const result = input.pack
     ? unwrap(await supabase.rpc('purchase_session_pack', {
         p_service_package_id: input.packageId,
+        p_sessions: input.quantity,
       }))
     : unwrap(await supabase.rpc('create_session_booking', {
         p_provider_service_id: input.providerServiceId,
@@ -192,8 +193,65 @@ export async function createTimeBooking(input: {
 }
 
 export async function createPackPayment(packId: string): Promise<PaymentLinkResponse> {
-  const result = unwrap(await supabase.rpc('create_pack_payment', { p_pack_id: packId })) as PaymentLinkResponse;
-  return result;
+  const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
+    body: { pack_id: packId },
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('No pack payment link returned');
+  return data;
+}
+
+export interface RecurringScheduleInput {
+  providerServiceId: string;
+  packageId: string | null;
+  packId: string | null;
+  paymentMode: 'per_session' | 'pack_prepaid' | 'monthly_prepaid';
+  weekdays: number[];
+  startTime: string;
+  timezone: string;
+  durationMin: number;
+  startsOn: Date;
+  endsOn: Date | null;
+  addressLine: string;
+  city: string;
+  lat: number;
+  lng: number;
+  description: string;
+}
+
+export async function createRecurringSchedule(input: RecurringScheduleInput): Promise<string> {
+  const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+  return unwrap(await supabase.rpc('create_recurring_schedule', {
+    p_provider_service_id: input.providerServiceId,
+    p_service_package_id: input.packageId,
+    p_pack_id: input.packId,
+    p_payment_mode: input.paymentMode,
+    p_weekdays: input.weekdays,
+    p_start_time: input.startTime,
+    p_timezone: input.timezone,
+    p_duration_min: input.durationMin,
+    p_starts_on: isoDate(input.startsOn),
+    p_ends_on: input.endsOn ? isoDate(input.endsOn) : null,
+    p_address_line: input.addressLine,
+    p_city: input.city,
+    p_lat: input.lat,
+    p_lng: input.lng,
+    p_description: input.description,
+  })) as string;
+}
+
+export async function generateRecurringSessions(scheduleId: string, through: Date): Promise<number> {
+  return unwrap(await supabase.rpc('materialize_recurring_schedule', {
+    p_schedule_id: scheduleId,
+    p_through_date: through.toISOString().slice(0, 10),
+  })) as number;
+}
+
+export async function cancelRecurringSchedule(scheduleId: string, cancelFuture = true): Promise<number> {
+  return unwrap(await supabase.rpc('cancel_recurring_schedule', {
+    p_schedule_id: scheduleId,
+    p_cancel_future: cancelFuture,
+  })) as number;
 }
 
 export async function createServiceRequest(input: {
