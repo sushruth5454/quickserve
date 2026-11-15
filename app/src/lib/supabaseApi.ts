@@ -650,25 +650,28 @@ export async function listMyServices(includeInactive = false): Promise<ProviderS
 
 export async function upsertService(input: ServiceInput): Promise<void> {
   const uid = await requireUserId();
-  unwrap(
-    await supabase.from('provider_services').upsert(
-      {
-        provider_id: uid,
-        category_id: input.categoryId,
-        skill_level: input.skillLevel,
-        visit_fee: input.visitFee,
-        labour_rate: input.labourRate,
-        rate_unit: input.rateUnit,
-        attributes: input.attributes ?? {},
-        max_travel_km: input.maxTravelKm ?? null,
-        travel_fee_mode: input.travelFeeMode ?? 'none',
-        travel_fee_flat: input.travelFeeFlat ?? 0,
-        travel_fee_per_km: input.travelFeePerKm ?? 0,
-        active: true,
-      },
-      { onConflict: 'provider_id,category_id' },
-    ),
-  );
+  const existing = unwrap(
+    await supabase
+      .from('provider_services')
+      .select('id')
+      .eq('provider_id', uid)
+      .eq('category_id', input.categoryId)
+      .maybeSingle(),
+  ) as { id: string } | null;
+  const fields = {
+    skill_level: input.skillLevel,
+    visit_fee: input.visitFee,
+    labour_rate: input.labourRate,
+    rate_unit: input.rateUnit,
+    ...(input.attributes === undefined ? {} : { attributes: input.attributes }),
+    ...(input.maxTravelKm === undefined ? {} : { max_travel_km: input.maxTravelKm }),
+    ...(input.travelFeeMode === undefined ? {} : { travel_fee_mode: input.travelFeeMode }),
+    ...(input.travelFeeFlat === undefined ? {} : { travel_fee_flat: input.travelFeeFlat }),
+    ...(input.travelFeePerKm === undefined ? {} : { travel_fee_per_km: input.travelFeePerKm }),
+    active: true,
+  };
+  if (existing) unwrap(await supabase.from('provider_services').update(fields).eq('id', existing.id));
+  else unwrap(await supabase.from('provider_services').insert({ provider_id: uid, category_id: input.categoryId, ...fields }));
 }
 
 // Soft delete: past bookings reference the service row, so it is deactivated (hidden from search) instead.

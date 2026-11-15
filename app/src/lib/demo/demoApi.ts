@@ -1402,10 +1402,11 @@ export const demoApi: Api = {
       visit_fee: input.visitFee,
       labour_rate: input.labourRate,
       rate_unit: input.rateUnit,
-      max_travel_km: input.maxTravelKm ?? null,
-      travel_fee_mode: input.travelFeeMode ?? 'none',
-      travel_fee_flat: input.travelFeeFlat ?? 0,
-      travel_fee_per_km: input.travelFeePerKm ?? 0,
+      ...(input.attributes === undefined ? {} : { attributes: input.attributes }),
+      ...(input.maxTravelKm === undefined ? {} : { max_travel_km: input.maxTravelKm }),
+      ...(input.travelFeeMode === undefined ? {} : { travel_fee_mode: input.travelFeeMode }),
+      ...(input.travelFeeFlat === undefined ? {} : { travel_fee_flat: input.travelFeeFlat }),
+      ...(input.travelFeePerKm === undefined ? {} : { travel_fee_per_km: input.travelFeePerKm }),
       active: true,
     };
     if (existing) Object.assign(existing, fields);

@@ -64,6 +64,16 @@ async function invokePayout(body: Record<string, unknown>): Promise<Record<strin
   return data ?? {};
 }
 
+async function invokeProviderService(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.functions.invoke<Record<string, unknown>>('provider-service', { body });
+  if (error) {
+    const ctx = (error as { context?: Response }).context;
+    const detail = ctx ? ((await ctx.json().catch(() => null)) as Record<string, unknown> | null) : null;
+    throw new Error((detail?.error as string | undefined) ?? error.message);
+  }
+  return data ?? {};
+}
+
 const EMPTY_GO_LIVE: GoLive = { state: 'draft', reasons: [], paused: false };
 
 export const supabaseOnboardingApi: OnboardingApi = {
@@ -122,33 +132,12 @@ export const supabaseOnboardingApi: OnboardingApi = {
   },
 
   async saveService(input: ServiceDetailsInput) {
-    const me = await uid();
-    unwrap(
-      await supabase.from('provider_services').upsert(
-        {
-          provider_id: me,
-          category_id: input.categoryId,
-          skill_level: input.skillLevel,
-          visit_fee: input.visitFee,
-          labour_rate: input.labourRate,
-          rate_unit: input.rateUnit,
-          specialisations: input.specialisations,
-          brands: input.brands,
-          tools: input.tools,
-          attributes: input.attributes,
-          max_travel_km: input.maxTravelKm,
-          travel_fee_mode: input.travelFeeMode,
-          travel_fee_flat: input.travelFeeFlat,
-          travel_fee_per_km: input.travelFeePerKm,
-          active: true,
-        },
-        { onConflict: 'provider_id,category_id' },
-      ),
-    );
+    await invokeProviderService({ action: 'save_service', ...input });
   },
 
   async saveServicePackage(packageId, providerServiceId, input) {
-    return unwrap(await supabase.rpc('save_provider_service_package', { p_package_id: packageId, p_provider_service_id: providerServiceId, p_package: input })) as string;
+    const result = await invokeProviderService({ action: 'save_package', packageId, providerServiceId, package: input });
+    return String(result.id);
   },
   async deleteServicePackage(packageId) {
     unwrap(await supabase.rpc('delete_provider_service_package', { p_package_id: packageId }));

@@ -22,6 +22,24 @@ export const SKILL_LEVEL_INFO: Record<SkillLevel, { title: string; description: 
   certified: { title: 'Certified', description: 'You hold a training certificate or licence for this trade (add it under Work & docs).' },
 };
 
+export const SERVICE_EDITOR_COPY = {
+  steps: [
+    { key: 'category', label: 'Service', title: 'What service do you offer?', hint: 'Pick one category. Add separate services for different trades.' },
+    { key: 'expertise', label: 'Expertise', title: 'What can you handle?', hint: 'Choose only work you can complete confidently and independently.' },
+    { key: 'details', label: 'Details', title: 'Add useful service details', hint: 'These details help customers choose the right professional.' },
+    { key: 'pricing', label: 'Pricing', title: 'Set clear starting prices', hint: 'Customers see this before they book. The visit fee is adjusted in the final bill.' },
+    { key: 'coverage', label: 'Coverage', title: 'How far will you travel?', hint: 'You still approve every request beyond your normal service area.' },
+    { key: 'review', label: 'Review', title: 'Review your service', hint: 'Check the details below. You can edit this service again at any time.' },
+  ] as const,
+  emptyTitle: 'Your services start here',
+  emptyBody: 'Add a service to show customers what you do, your starting price and where you travel.',
+  existingCategoryHint: 'Category is fixed while editing. Add a new service if you also offer another category.',
+  packageHint: 'Package pricing is managed after the service is saved. It uses the category template and remains visible in My services.',
+  noBrands: 'No brand list is configured for this service yet.',
+  noTools: 'No tool list is configured for this service yet.',
+  safeTextHint: 'Describe the work only. Do not add a phone number, email, WhatsApp, UPI or other off-app contact detail.',
+};
+
 export const BIO_MIN = 30;
 export const BIO_MAX = 500;
 export const BIO_GOOD = 'AC technician for 6 years. I service split and window ACs, do gas refills and installations, and carry my own vacuum pump. Daikin-trained.';

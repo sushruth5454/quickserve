@@ -255,7 +255,9 @@ export const demoOnboardingApi: OnboardingApi = {
     await demoInternals.wait();
     const { me } = requireProvider();
     const db = demoInternals.db();
-    const existing = db.services.find((s) => s.provider_id === me && s.category_id === input.categoryId);
+    const existing = db.services.find((s) =>
+      s.provider_id === me && (input.serviceId ? s.id === input.serviceId : s.category_id === input.categoryId)
+    );
     const cat = db.categories.find((c) => c.id === input.categoryId);
     const fields = {
       skill_level: input.skillLevel, visit_fee: input.visitFee, labour_rate: input.labourRate, rate_unit: input.rateUnit, active: true,
@@ -263,6 +265,7 @@ export const demoOnboardingApi: OnboardingApi = {
       max_travel_km: input.maxTravelKm, travel_fee_mode: input.travelFeeMode,
       travel_fee_flat: input.travelFeeFlat, travel_fee_per_km: input.travelFeePerKm,
     };
+    if (existing && existing.category_id !== input.categoryId) throw new Error('Category cannot be changed while editing a service.');
     if (existing) Object.assign(existing, fields);
     else db.services.push({ id: id('ps'), provider_id: me, category_id: input.categoryId, categories: cat ? { name: cat.name, slug: cat.slug } : null, rate_card_items: [], ...fields } as ProviderService);
   },

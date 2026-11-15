@@ -58,6 +58,11 @@ jobs:
           deno test supabase/functions/provider-payout-account
           deno check supabase/functions/provider-payout-account/index.ts supabase/functions/release-payouts/index.ts supabase/functions/razorpay-webhook/index.ts
 
+      - name: Test and type-check provider service editor API
+        run: |
+          deno test supabase/functions/provider-service
+          deno check supabase/functions/provider-service/index.ts
+
       - name: Test and type-check review insights
         run: |
           deno test supabase/functions/review-insights
@@ -328,7 +333,7 @@ jobs:
       - name: Deploy Edge Functions
         run: |
           # User-facing functions verify the caller's JWT at the gateway.
-          for f in create-payment ai-assistant provider-payout-account; do
+          for f in create-payment ai-assistant provider-payout-account provider-service; do
             supabase functions deploy "$f" --project-ref "$PROJECT_REF" --yes
           done
           for f in razorpay-webhook release-payouts process-refunds send-notifications review-insights; do

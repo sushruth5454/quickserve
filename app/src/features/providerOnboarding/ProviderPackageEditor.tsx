@@ -6,6 +6,7 @@ import { parseRupees } from '../../lib/onboarding/validation';
 import type { PackageDeliverable, PackagePriceType, PackageUnit, ServicePackage } from '../../lib/types';
 import { useTheme } from '../../theme';
 import { FieldLabel } from './parts';
+import { packageHasContactHint } from './serviceEditor';
 
 const PRICE_TYPES: { value: PackagePriceType; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
@@ -88,6 +89,13 @@ export function ProviderPackageEditor({
     if (cleanedDeliverables.length === 0 || cleanedDeliverables.some((item) => !item.type.trim() || !item.spec.trim() || item.qty <= 0)) {
       return setError('Each deliverable needs a type, quantity and specification.');
     }
+    if (packageHasContactHint({
+      title,
+      description,
+      inclusions: csvLines(inclusions),
+      exclusions: csvLines(exclusions),
+      deliverables: cleanedDeliverables,
+    })) return setError('Do not add phone, email, WhatsApp, UPI or other contact details to a package.');
 
     const durationMin = positiveInt(duration);
     const turnaroundDays = positiveInt(turnaround);
