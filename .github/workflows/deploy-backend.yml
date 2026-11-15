@@ -58,6 +58,11 @@ jobs:
           deno test supabase/functions/provider-payout-account
           deno check supabase/functions/provider-payout-account/index.ts supabase/functions/release-payouts/index.ts supabase/functions/razorpay-webhook/index.ts
 
+      - name: Test and type-check review insights
+        run: |
+          deno test supabase/functions/review-insights
+          deno check supabase/functions/review-insights/index.ts
+
       # SQL: parses the migrations and runs the state machine, chat read-state RLS and notifications outbox on PGlite.
       - uses: actions/setup-node@v4
         with:
@@ -98,7 +103,7 @@ jobs:
           for f in create-payment ai-assistant provider-payout-account; do
             supabase functions deploy "$f" --project-ref "$PROJECT_REF" --yes
           done
-          for f in razorpay-webhook release-payouts process-refunds send-notifications; do
+          for f in razorpay-webhook release-payouts process-refunds send-notifications review-insights; do
             supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF" --yes
           done
 
