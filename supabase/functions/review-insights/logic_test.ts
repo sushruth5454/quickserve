@@ -73,7 +73,7 @@ Deno.test("keeps only allow-listed exact verbatim quotes within 140 characters",
       { aspect: "quick_diagnosis", sentiment: "negative", quote: "diagnosed it quickly" },
       { aspect: "made_up", sentiment: "positive", quote: "diagnosed it quickly" },
       { aspect: "long_lasting", sentiment: "positive", quote: tooLong },
-      { aspect: "long_lasting", sentiment: "positive", quote: " diagnosed it quickly" },
+      { aspect: "long_lasting", sentiment: "positive", quote: "diagnosed it quickly" },
     ],
   }]), [review]);
   equal(out.get("r1"), [{ aspect: "quick_diagnosis", sentiment: "positive", quote: "diagnosed it quickly" }]);

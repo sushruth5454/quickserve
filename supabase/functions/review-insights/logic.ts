@@ -116,6 +116,7 @@ export function parseModelOutput(text: string, reviews: ClaimedReview[]): Map<st
     if (!review || output.has(item.review_id)) continue;
     const allowed = new Set(review.allowed_aspects);
     const seenAspects = new Set<string>();
+    const usedQuotes = new Set<string>();
     const insights: InsightRow[] = [];
     for (const raw of item.aspects) {
       if (!isRecord(raw)) continue;
@@ -124,9 +125,10 @@ export function parseModelOutput(text: string, reviews: ClaimedReview[]): Map<st
         typeof aspect !== "string" || !allowed.has(aspect) || seenAspects.has(aspect) ||
         (sentiment !== "positive" && sentiment !== "negative") ||
         typeof quote !== "string" || quote.length === 0 || quote.length > MAX_QUOTE_LENGTH ||
-        !review.comment.includes(quote)
+        !review.comment.includes(quote) || usedQuotes.has(quote)
       ) continue;
       seenAspects.add(aspect);
+      usedQuotes.add(quote);
       insights.push({ aspect, sentiment, quote });
     }
     output.set(review.review_id, insights);
