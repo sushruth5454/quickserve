@@ -546,8 +546,7 @@ export async function listMessages(bookingId: string): Promise<Message[]> {
 }
 
 export async function sendMessage(bookingId: string, body: string): Promise<void> {
-  const uid = await requireUserId();
-  unwrap(await supabase.from('messages').insert({ booking_id: bookingId, sender_id: uid, body }));
+  unwrap(await supabase.rpc('send_booking_message', { p_booking_id: bookingId, p_body: body }));
 }
 
 export function subscribeToMessages(bookingId: string, onMessage: (m: Message) => void): () => void {
