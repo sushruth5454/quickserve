@@ -265,6 +265,23 @@ export const demoOnboardingApi: OnboardingApi = {
     else db.services.push({ id: id('ps'), provider_id: me, category_id: input.categoryId, categories: cat ? { name: cat.name, slug: cat.slug } : null, rate_card_items: [], ...fields } as ProviderService);
   },
 
+  async saveServicePackage(packageId, providerServiceId, input) {
+    await demoInternals.wait();
+    const service = myServices(requireProvider().me).find((candidate) => candidate.id === providerServiceId);
+    if (!service) throw new Error('Service not found.');
+    const packages = service.service_packages ?? [];
+    const existing = packages.find((candidate) => candidate.id === packageId);
+    const now = new Date().toISOString();
+    if (existing) { Object.assign(existing, input, { updated_at: now }); return existing.id; }
+    const newId = id('pkg');
+    service.service_packages = [...packages, { id: newId, provider_service_id: providerServiceId, package_template_id: null, ...input, created_at: now, updated_at: now }];
+    return newId;
+  },
+  async deleteServicePackage(packageId) {
+    await demoInternals.wait();
+    for (const service of myServices(requireProvider().me)) service.service_packages = (service.service_packages ?? []).filter((candidate) => candidate.id !== packageId);
+  },
+
   async deleteRateCardItem(itemId) {
     await demoInternals.wait();
     for (const s of demoInternals.db().services) s.rate_card_items = (s.rate_card_items ?? []).filter((r) => r.id !== itemId);

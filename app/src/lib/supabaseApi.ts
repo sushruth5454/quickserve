@@ -169,7 +169,7 @@ export async function getProviderDetail(providerId: string): Promise<ProviderDet
     supabase.from('providers').select(`${PUBLIC_PROVIDER_COLUMNS}, profiles(full_name, avatar_url)`).eq('id', providerId).single(),
     supabase
       .from('provider_services')
-      .select('*, categories(name, slug), rate_card_items(*)')
+      .select('*, categories(name, slug), rate_card_items(*), service_packages(*)')
       .eq('provider_id', providerId)
       .eq('active', true),
     supabase
@@ -190,7 +190,7 @@ export async function getProviderService(id: string): Promise<ProviderServiceWit
   return unwrap(
     await supabase
       .from('provider_services')
-      .select('*, categories(name, slug), providers(rating_avg, rating_count, profiles(full_name))')
+      .select('*, categories(name, slug), providers(rating_avg, rating_count, profiles(full_name)), service_packages(*)')
       .eq('id', id)
       .single(),
   );
@@ -437,7 +437,7 @@ export const setOnline = (online: boolean) => rpcVoid('set_provider_online', { p
 
 export async function listMyServices(includeInactive = false): Promise<ProviderService[]> {
   const uid = await requireUserId();
-  let q = supabase.from('provider_services').select('*, categories(name, slug), rate_card_items(*)').eq('provider_id', uid);
+  let q = supabase.from('provider_services').select('*, categories(name, slug), rate_card_items(*), service_packages(*)').eq('provider_id', uid);
   if (!includeInactive) q = q.eq('active', true);
   return unwrap(await q.order('created_at'));
 }

@@ -55,6 +55,12 @@ export function validateProfileAttributes(schema: ProfileSchema, attributes: Rec
       if (field.maxItems != null && value.length > field.maxItems) return `${key.replaceAll('_', ' ')} has too many selections.`;
       const allowed = field.enum ?? field.items?.enum;
       if (allowed && value.some((item) => !allowed.includes(String(item)))) return `${key.replaceAll('_', ' ')} has an unsupported value.`;
+    } else if (field.type === 'integer') {
+      if (!Number.isInteger(value)) return `${key.replaceAll('_', ' ')} must be a whole number.`;
+    } else if (field.type === 'number') {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return `${key.replaceAll('_', ' ')} must be a number.`;
+    } else if (field.type === 'boolean') {
+      if (typeof value !== 'boolean') return `${key.replaceAll('_', ' ')} must be yes or no.`;
     } else if (field.enum && !field.enum.includes(String(value))) {
       return `${key.replaceAll('_', ' ')} has an unsupported value.`;
     }

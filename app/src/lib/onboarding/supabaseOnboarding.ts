@@ -143,6 +143,13 @@ export const supabaseOnboardingApi: OnboardingApi = {
     );
   },
 
+  async saveServicePackage(packageId, providerServiceId, input) {
+    return unwrap(await supabase.rpc('save_provider_service_package', { p_package_id: packageId, p_provider_service_id: providerServiceId, p_package: input })) as string;
+  },
+  async deleteServicePackage(packageId) {
+    unwrap(await supabase.rpc('delete_provider_service_package', { p_package_id: packageId }));
+  },
+
   async listProviderLinks(): Promise<ProviderLink[]> {
     const me = await uid();
     return unwrap(
