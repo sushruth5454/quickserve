@@ -206,7 +206,7 @@ await expectError(
   'approved request cannot be used by another customer',
 );
 await expectError(
-  () =>
+  async () =>
     asCustomer(
       `select create_booking($1, 'AC issue', '1 Road', 'Vijayawada', 17.09, 78.0, $2, '{}', $3)`,
       [serviceId, await slot(5), requestId],
