@@ -1,5 +1,5 @@
 /** Types for provider onboarding v2 (docs/08-Provider-Onboarding.md). Mirrors get_my_provider_onboarding(). */
-import type { Provider, RateUnit, SkillLevel } from '../types';
+import type { Provider, RateUnit, SkillLevel, TravelFeeMode, TravelFeeMode } from '../types';
 
 export type GoLiveState = 'draft' | 'under_review' | 'action_needed' | 'live' | 'suspended' | 'deactivated';
 
@@ -163,6 +163,10 @@ export interface ServiceDetailsInput {
   brands: string[];
   tools: string[];
   attributes: Record<string, unknown>;
+  maxTravelKm: number | null;
+  travelFeeMode: TravelFeeMode;
+  travelFeeFlat: number;
+  travelFeePerKm: number;
 }
 
 export interface ProviderLinkInput {

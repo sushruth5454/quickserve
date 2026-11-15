@@ -22,6 +22,9 @@ import type {
   SavedAddress,
   SearchFilters,
   SkillLevel,
+  TravelPreview,
+  TravelRequest,
+  TravelFeeMode,
 } from './types';
 import type { UnreadCount } from './unread';
 
@@ -73,6 +76,7 @@ export interface CreateBookingInput {
   coords: Coords;
   scheduledAt: Date | null;
   photos: string[];
+  travelRequestId?: string | null;
 }
 
 export interface ChatReadState {
@@ -107,6 +111,10 @@ export interface ServiceInput {
   labourRate: number;
   rateUnit: RateUnit;
   attributes?: Record<string, unknown>;
+  maxTravelKm?: number | null;
+  travelFeeMode?: TravelFeeMode;
+  travelFeeFlat?: number;
+  travelFeePerKm?: number;
 }
 
 /** The backend contract the screens use. Implemented by supabaseApi.ts (real) and demo/demoApi.ts (in-memory). */
@@ -126,6 +134,10 @@ export interface Api {
   listTopRated(limit?: number): Promise<TopRatedProvider[]>;
   getProviderDetail(providerId: string): Promise<ProviderDetail>;
   getProviderService(id: string): Promise<ProviderServiceWithProvider>;
+  inspectTravelRequest(providerServiceId: string, coords: Coords, scheduledAt: Date | null): Promise<TravelPreview>;
+  createTravelRequest(providerServiceId: string, scheduledAt: Date, coords: Coords, note?: string): Promise<string>;
+  listMyTravelRequests(status?: string): Promise<TravelRequest[]>;
+  respondToTravelRequest(id: string, approve: boolean, reason?: string): Promise<void>;
   // saved addresses
   listMyAddresses(): Promise<SavedAddress[]>;
   addAddress(input: NewAddressInput): Promise<SavedAddress>;
@@ -156,8 +168,12 @@ export interface Api {
   arrive(id: string, otp: string): Promise<OtpResult>;
   completeBooking(id: string, otp: string): Promise<OtpResult>;
   sendQuote(bookingId: string, items: QuoteItemDraft[], note?: string): Promise<string>;
-  approveQuote(bookingId: string, quoteId: string): Promise<{ amount_due: number }>;
+  approveQuote(bookingId: string, quoteId: string, useCoins?: boolean): Promise<{ amount_due: number; coins_redeemed_paise?: number }>;
   submitReview(bookingId: string, r: ReviewInput): Promise<string>;
+  // Seva Coins
+  getMyCoinBalance(): Promise<number>;
+  listCoinHistory(limit?: number): Promise<CoinLedgerEntry[]>;
+  getCoinRedemptionPreview(bookingId: string, quoteId: string): Promise<CoinRedemptionPreview>;
   // provider
   getMyProvider(): Promise<Provider | null>;
   upsertProviderProfile(input: ProviderProfileInput): Promise<void>;

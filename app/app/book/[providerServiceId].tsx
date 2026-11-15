@@ -7,7 +7,15 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../../src/components/AddressEditor';
 import { skillLabel } from '../../src/components/ProviderCard';
 import { Avatar, Button, Card, Chip, Divider, ErrorState, Header, InlineAlert, PriceRow, Screen, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
-import { createBooking, getProviderService, listMyAddresses, uploadJobPhoto, type ProviderServiceWithProvider } from '../../src/lib/api';
+import {
+  createBooking,
+  createTravelRequest,
+  getProviderService,
+  inspectTravelRequest,
+  listMyAddresses,
+  uploadJobPhoto,
+  type ProviderServiceWithProvider,
+} from '../../src/lib/api';
 import { track } from '../../src/lib/analytics';
 import { DESCRIPTION_MAX, readBookPrefill, selectedChips, toggleChip } from '../../src/lib/assistant/prefill';
 import { useSelectedLocation } from '../../src/lib/locationContext';
@@ -19,6 +27,7 @@ import { dayLabel, firstAvailableDay, nextDays, WINDOW_START_HOURS, windowAvaila
 import { useTheme } from '../../src/theme';
 import { onboardingApi, type ProviderSchedule } from '../../src/lib/onboarding';
 import { asapAvailable, windowFits } from '../../src/lib/onboarding/availability';
+import type { TravelPreview } from '../../src/lib/types';
 
 const QUICK_ISSUES: Record<string, string[]> = {
   'ac-repair': ['Not cooling', 'Water leaking', 'Making noise', 'Bad smell', 'Gas refill', 'Service due'],
@@ -63,6 +72,8 @@ export default function BookScreen() {
   const [error, setError] = useState<string | null>(null);
   // Provider working hours / time off / full days (migration 0009). null = unknown or unrestricted.
   const [sched, setSched] = useState<ProviderSchedule | null>(null);
+  const [travel, setTravel] = useState<TravelPreview | null>(null);
+  const [travelChecking, setTravelChecking] = useState(false);
 
   const load = () => {
     if (!providerServiceId) return;
@@ -123,12 +134,55 @@ export default function BookScreen() {
 
   const hasAddress = !!location.addressId && !!location.line1;
   const scheduledAt = mode === 'asap' ? null : hour != null ? windowStart(day.date, hour) : undefined;
+  useEffect(() => {
+    if (!service || !hasAddress || scheduledAt === undefined) {
+      setTravel(null);
+      return;
+    }
+    let cancelled = false;
+    const check = () => {
+      setTravelChecking(true);
+      inspectTravelRequest(
+        service.id,
+        { lat: location.lat, lng: location.lng },
+        scheduledAt,
+      )
+        .then((next) => {
+          if (cancelled) return;
+          setTravel(next);
+          if (next.needs_approval && mode === 'asap') setMode('schedule');
+          setError(null);
+        })
+        .catch((e: Error) => !cancelled && setError(e.message))
+        .finally(() => !cancelled && setTravelChecking(false));
+    };
+    check();
+    const timer = setInterval(check, travel?.status === 'pending' ? 10000 : 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [service?.id, hasAddress, location.lat, location.lng, scheduledAt?.getTime(), mode, travel?.status]);
+
+  const travelApproved =
+    !!travel &&
+    !travel.needs_approval ||
+    (!!travel?.needs_approval &&
+      travel.status === 'approved' &&
+      !!travel.travel_request_id &&
+      !!travel.expires_at &&
+      new Date(travel.expires_at).getTime() > Date.now());
+  const travelPending = !!travel?.needs_approval && travel.status === 'pending';
   const blocker = !description.trim()
     ? 'Describe the issue to continue'
     : !hasAddress
       ? 'Add your full address to continue'
       : scheduledAt === undefined
         ? 'Pick a time slot to continue'
+        : travel?.needs_approval && mode === 'asap'
+          ? 'Pick a future time for a travel request'
+          : travel?.allowed === false
+            ? 'This provider does not travel this far'
         : null;
 
   const submit = async () => {
@@ -136,6 +190,20 @@ export default function BookScreen() {
     setBusy(true);
     setError(null);
     try {
+      if (travel?.needs_approval && !travelApproved && scheduledAt) {
+        const requestId = await createTravelRequest(service.id, scheduledAt, {
+          lat: location.lat,
+          lng: location.lng,
+        }, description.trim());
+        const next = await inspectTravelRequest(
+          service.id,
+          { lat: location.lat, lng: location.lng },
+          scheduledAt,
+        );
+        setTravel({ ...next, travel_request_id: next.travel_request_id ?? requestId, status: next.status ?? 'pending' });
+        toast({ message: 'Travel request sent. We’ll notify you when the provider replies.', tone: 'success' });
+        return;
+      }
       const paths = await Promise.all(photos.map((p) => uploadJobPhoto(p.uri, p.mimeType)));
       const bookingId = await createBooking({
         providerServiceId: service.id,
@@ -145,6 +213,7 @@ export default function BookScreen() {
         coords: { lat: location.lat, lng: location.lng },
         scheduledAt,
         photos: paths,
+        travelRequestId: travelApproved ? travel?.travel_request_id ?? null : null,
       });
       if (prefill.fromAssistant) track('draft_to_booking_conversion', { category: service.categories?.slug ?? null, edited: description.trim() !== (prefill.description ?? '').trim() });
       const result = await pay(bookingId).catch((e: Error) => {
@@ -184,6 +253,13 @@ export default function BookScreen() {
   const rating = Number(service.providers?.rating_avg ?? 0);
   const ratingCount = service.providers?.rating_count ?? 0;
   const issues = QUICK_ISSUES[slug ?? ''] ?? [];
+  const travelAction = travel?.needs_approval
+    ? travelPending
+      ? 'Waiting for provider'
+      : travelApproved
+        ? `Pay ${formatINR(service.visit_fee)} & book`
+        : `Request availability${travel.quoted_fee ? ` (+${formatINR(travel.quoted_fee)})` : ''}`
+    : `Pay ${formatINR(service.visit_fee)} & book`;
 
   return (
     <>
@@ -202,10 +278,10 @@ export default function BookScreen() {
                 </Text>
               </View>
               <Button
-                title={`Pay ${formatINR(service.visit_fee)} & book`}
+                title={travelChecking ? 'Checking travel…' : travelAction}
                 onPress={() => void submit()}
-                loading={busy}
-                disabled={!!blocker}
+                loading={busy || travelChecking}
+                disabled={!!blocker || travelPending}
                 size="lg"
                 leftIcon="lock-closed"
                 style={{ flex: 1 }}
@@ -333,6 +409,19 @@ export default function BookScreen() {
 
         {/* When */}
         <Block title="When">
+          {travel?.needs_approval ? (
+            <InlineAlert
+              tone={travelPending ? 'info' : travelApproved ? 'success' : 'warning'}
+              title={`${Number(travel.distance_km ?? 0).toFixed(1)} km away`}
+              message={
+                travelPending
+                  ? `Request sent with a ${formatINR(travel.quoted_fee)} travel fee. Approval is valid until ${new Date(travel.expires_at ?? '').toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}.`
+                  : travelApproved
+                    ? `Travel approved. The ${formatINR(travel.quoted_fee)} fee will appear on your first quote.`
+                    : `This pro travels here by approval. The ${formatINR(travel.quoted_fee)} fee is added to the first quote.`
+              }
+            />
+          ) : null}
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
             <ModeCard
               icon="flash-outline"

@@ -92,7 +92,11 @@ export default function QuoteEditorScreen() {
         setRateCard(services.find((s) => s.category_id === b.category_id)?.rate_card_items ?? []);
         const base = quotes.find((q) => q.status === 'sent') ?? quotes.find((q) => q.id === b.approved_quote_id);
         if (base && base.quote_items.length > 0) {
-          setLines(base.quote_items.map((i) => newLine(i.kind, i.title, Number(i.qty), String(i.unit_price / 100), i.bill_photo_url ?? undefined)));
+          setLines(
+            base.quote_items
+              .filter((i) => !i.travel_request_id)
+              .map((i) => newLine(i.kind, i.title, Number(i.qty), String(i.unit_price / 100), i.bill_photo_url ?? undefined)),
+          );
         }
       })
       .catch((e: Error) => setLoadError(e.message));
@@ -118,7 +122,13 @@ export default function QuoteEditorScreen() {
     const items: LineInput[] = parsed
       .filter((p) => Number.isFinite(p.unit_price) && p.qty > 0)
       .map((p) => ({ kind: p.kind, qty: p.qty, unitPrice: p.unit_price }));
-    return settleQuotedJob({ items, visitFee: booking?.visit_fee ?? 0, platformFee: booking?.platform_fee ?? 2900, rateBp });
+    return settleQuotedJob({
+      items,
+      visitFee: booking?.visit_fee ?? 0,
+      platformFee: booking?.platform_fee ?? 2900,
+      rateBp,
+      travelFee: booking?.travel_requests?.quoted_fee ?? 0,
+    });
   }, [parsed, booking, rateBp]);
 
   const update = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -191,7 +201,11 @@ export default function QuoteEditorScreen() {
         <View style={{ gap: t.spacing.md }}>
           <View style={{ gap: 4 }}>
             <SummaryLine label="Quote total" value={formatINR(settlement.subtotals.total)} />
-            <SummaryLine label={`Fees · ${pct}% of labour + GST`} value={fees > 0 ? `−${formatINR(fees)}` : formatINR(0)} muted />
+            <SummaryLine
+              label={`Fees · ${pct}% of labour${booking.travel_requests ? ' + travel' : ''} + GST`}
+              value={fees > 0 ? `−${formatINR(fees)}` : formatINR(0)}
+              muted
+            />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
             <View>
@@ -215,6 +229,12 @@ export default function QuoteEditorScreen() {
     >
       {isChangeOrder ? (
         <InlineAlert tone="info" message="List the full revised scope. The customer only pays the difference over what they already paid." />
+      ) : null}
+      {booking.travel_requests ? (
+        <InlineAlert
+          tone="info"
+          message={`Travel fee ${formatINR(booking.travel_requests.quoted_fee)} is attached automatically and commission applies to it. The customer sees it as a separate line.`}
+        />
       ) : null}
 
       {rateCard.length > 0 ? (

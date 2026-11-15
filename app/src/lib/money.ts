@@ -133,12 +133,19 @@ export function settleQuotedJob(params: {
   visitFee: number;
   platformFee: number;
   rateBp: number;
+  travelFee?: number;
 }): JobSettlement {
-  const subtotals = quoteSubtotals(params.items);
+  const base = quoteSubtotals(params.items);
+  const travelFee = Math.max(0, params.travelFee ?? 0);
+  const subtotals = {
+    ...base,
+    other: base.other + travelFee,
+    total: base.total + travelFee,
+  };
   const customerTotal = requiredTotal(subtotals.total, params.visitFee, params.platformFee);
   const p = providerPayout({
     gross: Math.max(subtotals.total, params.visitFee),
-    commissionable: subtotals.labour,
+    commissionable: subtotals.labour + travelFee,
     rateBp: params.rateBp,
   });
   return {

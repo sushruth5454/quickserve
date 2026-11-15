@@ -37,6 +37,8 @@ import type {
   SavedAddress,
   SearchFilters,
   SkillLevel,
+  TravelPreview,
+  TravelRequest,
 } from './types';
 import type { UnreadCount } from './unread';
 
@@ -195,6 +197,55 @@ export async function getProviderService(id: string): Promise<ProviderServiceWit
   );
 }
 
+export async function inspectTravelRequest(
+  providerServiceId: string,
+  coords: Coords,
+  scheduledAt: Date | null,
+): Promise<TravelPreview> {
+  const rows = unwrap(
+    await supabase.rpc('inspect_travel_request', {
+      p_provider_service_id: providerServiceId,
+      p_lat: coords.lat,
+      p_lng: coords.lng,
+      p_scheduled_at: scheduledAt?.toISOString() ?? null,
+    }),
+  ) as TravelPreview[];
+  const result = rows[0];
+  if (!result) throw new Error('Could not calculate travel requirement');
+  return result;
+}
+
+export async function createTravelRequest(
+  providerServiceId: string,
+  scheduledAt: Date,
+  coords: Coords,
+  note = '',
+): Promise<string> {
+  return unwrap(
+    await supabase.rpc('create_travel_request', {
+      p_provider_service_id: providerServiceId,
+      p_scheduled_at: scheduledAt.toISOString(),
+      p_lat: coords.lat,
+      p_lng: coords.lng,
+      p_note: note || null,
+    }),
+  ) as string;
+}
+
+export async function listMyTravelRequests(status?: string): Promise<TravelRequest[]> {
+  return unwrap(
+    await supabase.rpc('list_my_travel_requests', { p_status: status ?? null }),
+  ) as TravelRequest[];
+}
+
+export async function respondToTravelRequest(id: string, approve: boolean, reason?: string): Promise<void> {
+  await rpcVoid('respond_travel_request', {
+    p_travel_request_id: id,
+    p_approve: approve,
+    p_reason: reason?.trim() || null,
+  });
+}
+
 // ---------- Saved addresses ----------
 const ADDRESS_COLUMNS = 'id, label, line1, city, lat, lng, is_default, created_at';
 
@@ -236,6 +287,7 @@ export async function createBooking(input: CreateBookingInput): Promise<string> 
       p_lng: input.coords.lng,
       p_scheduled_at: input.scheduledAt?.toISOString() ?? null,
       p_photos: input.photos,
+      p_travel_request_id: input.travelRequestId ?? null,
     }),
   );
 }
@@ -253,7 +305,8 @@ export async function createPayment(bookingId: string): Promise<PaymentLinkRespo
   return data;
 }
 
-const BOOKING_SELECT = '*, categories(name, slug, review_tags), providers(rating_avg, rating_count, profiles(full_name))';
+const BOOKING_SELECT =
+  '*, travel_requests(distance_km, quoted_fee, status, expires_at), categories(name, slug, review_tags), providers(rating_avg, rating_count, profiles(full_name))';
 
 export async function listMyBookings(): Promise<Booking[]> {
   const uid = await requireUserId();
@@ -420,6 +473,10 @@ export async function upsertService(input: ServiceInput): Promise<void> {
         labour_rate: input.labourRate,
         rate_unit: input.rateUnit,
         attributes: input.attributes ?? {},
+        max_travel_km: input.maxTravelKm ?? null,
+        travel_fee_mode: input.travelFeeMode ?? 'none',
+        travel_fee_flat: input.travelFeeFlat ?? 0,
+        travel_fee_per_km: input.travelFeePerKm ?? 0,
         active: true,
       },
       { onConflict: 'provider_id,category_id' },

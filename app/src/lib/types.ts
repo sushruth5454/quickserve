@@ -22,6 +22,8 @@ export type KycStatus = 'pending' | 'verified' | 'rejected' | 'under_review' | '
 export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
 export type QuoteItemKind = 'labour' | 'part' | 'other';
+export type TravelFeeMode = 'none' | 'flat' | 'per_km';
+export type TravelRequestStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'used';
 export type PaymentPurpose = 'visit_fee' | 'balance' | 'fixed';
 export type PaymentStatus = 'created' | 'paid' | 'failed' | 'refund_pending' | 'refund_processing' | 'refunded';
 export type PayoutStatus = 'pending' | 'frozen' | 'transferred' | 'failed' | 'reversed' | 'partially_reversed';
@@ -91,6 +93,18 @@ export interface RateCardItem {
   price: number;
 }
 
+export type PackagePriceType = 'fixed' | 'range' | 'from' | 'quote';
+export type PackageUnit = 'job' | 'hour' | 'day' | 'session' | 'person' | 'plate' | 'sqft' | 'bhk' | 'seat' | 'litre' | 'event' | 'month';
+export interface PackageDeliverable { type: string; qty: number; spec: string; }
+export interface ServicePackage {
+  id: string; provider_service_id: string; package_template_id: string | null; title: string; description: string;
+  price_type: PackagePriceType; price: number | null; price_min: number | null; price_max: number | null; unit: PackageUnit;
+  qty_min: number; qty_max: number; duration_min: number | null; inclusions: string[]; exclusions: string[];
+  deliverables: PackageDeliverable[]; turnaround_days: number | null; revisions_included: number; raw_files_included: boolean;
+  usage_rights: { organic_posting?: boolean; paid_ads_days?: number; exclusivity_days?: number };
+  travel_included_km: number; active: boolean; sort_order: number; created_at: string; updated_at: string;
+}
+
 export interface ProviderService {
   id: string;
   provider_id: string;
@@ -101,8 +115,13 @@ export interface ProviderService {
   rate_unit: RateUnit;
   active: boolean;
   attributes?: Record<string, unknown>;
+  max_travel_km?: number | null;
+  travel_fee_mode?: TravelFeeMode;
+  travel_fee_flat?: number;
+  travel_fee_per_km?: number;
   categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
   rate_card_items?: RateCardItem[];
+  service_packages?: ServicePackage[];
 }
 
 export interface Booking {
@@ -122,11 +141,19 @@ export interface Booking {
   commission: number | null;
   gst_on_commission: number | null;
   refund_amount: number;
+  coin_discount?: number;
   cancelled_reason: string | null;
   created_at: string;
   accepted_at: string | null;
   completion_requested_at: string | null;
   completed_at: string | null;
+  travel_request_id?: string | null;
+  travel_requests?: {
+    distance_km: number;
+    quoted_fee: number;
+    status: TravelRequestStatus;
+    expires_at: string;
+  } | null;
   categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
   /** The pro, embedded for customer-facing lists (null if the provider is no longer public). */
   providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
@@ -140,6 +167,7 @@ export interface QuoteItem {
   qty: number;
   unit_price: number;
   bill_photo_url: string | null;
+  travel_request_id?: string | null;
 }
 
 export interface Quote {
@@ -151,10 +179,44 @@ export interface Quote {
   subtotal_labour: number;
   subtotal_parts: number;
   subtotal_other: number;
+  subtotal_travel?: number;
   total: number;
   note: string | null;
+  coin_discount?: number;
   created_at: string;
   quote_items: QuoteItem[];
+}
+
+export interface TravelPreview {
+  needs_approval: boolean;
+  allowed: boolean;
+  distance_km: number | null;
+  max_travel_km: number | null;
+  quoted_fee: number;
+  travel_request_id: string | null;
+  status: TravelRequestStatus | null;
+  expires_at: string | null;
+}
+
+export interface TravelRequest {
+  id: string;
+  customer_id: string;
+  provider_id: string;
+  provider_service_id: string;
+  customer_name: string;
+  provider_name: string;
+  category_name: string;
+  service_window: string;
+  window_start?: string | null;
+  window_end?: string | null;
+  distance_km: number;
+  quoted_fee: number;
+  status: TravelRequestStatus;
+  expires_at: string;
+  request_note: string | null;
+  response_reason: string | null;
+  created_at: string;
+  role: 'customer' | 'provider';
 }
 
 export interface QuoteItemDraft {
@@ -172,6 +234,7 @@ export interface Payment {
   purpose: PaymentPurpose;
   amount: number;
   status: PaymentStatus;
+  funding_source?: 'customer' | 'coins';
   created_at: string;
   paid_at: string | null;
   /** Partial or full refunds queued against this payment. */

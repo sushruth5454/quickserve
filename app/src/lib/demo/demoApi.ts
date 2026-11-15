@@ -35,6 +35,8 @@ import type {
   ReviewInput,
   SavedAddress,
   SearchFilters,
+  TravelPreview,
+  TravelRequest,
 } from '../types';
 import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBooking, type DemoDb } from './seed';
 
@@ -129,8 +131,17 @@ function nameOf(userId: string): string {
 function publicBooking(b: DemoBooking): Booking {
   const { address: _a, secrets: _s, ...rest } = b;
   const pro = db.providers.find((p) => p.id === b.provider_id);
+  const travel = travelRequests.find((request) => request.id === b.travel_request_id);
   return clone({
     ...rest,
+    travel_requests: travel
+      ? {
+          distance_km: travel.distance_km,
+          quoted_fee: travel.quoted_fee,
+          status: travel.status,
+          expires_at: travel.expires_at,
+        }
+      : null,
     categories: categoryOf(b.category_id),
     providers: pro ? { rating_avg: pro.rating_avg, rating_count: pro.rating_count, profiles: { full_name: nameOf(pro.id) } } : null,
   });
@@ -225,7 +236,7 @@ function finalizeCompletion(b: DemoBooking, note: string) {
   assert(q, 'no approved quote');
   closeOpenQuotes(b);
   b.completed_at = nowIso();
-  createPayout(b, Math.max(q.total, b.visit_fee), q.subtotal_labour, in24h());
+  createPayout(b, Math.max(q.total, b.visit_fee), q.subtotal_labour + (q.subtotal_travel ?? 0), in24h());
   const provider = db.providers.find((p) => p.id === b.provider_id);
   if (provider) provider.jobs_completed += 1;
   setStatus(b, 'completed', note);
@@ -234,6 +245,19 @@ function finalizeCompletion(b: DemoBooking, note: string) {
 function buildQuote(b: DemoBooking, items: QuoteItemDraft[], note: string | null): Quote {
   const version = Math.max(0, ...db.quotes.filter((q) => q.booking_id === b.id).map((q) => q.version)) + 1;
   const id = newId('q');
+  const request = travelRequests.find((x) => x.id === b.travel_request_id && x.status === 'used');
+  const travelLine = request
+    ? {
+        id: `${id}-travel`,
+        quote_id: id,
+        kind: 'other' as const,
+        title: `Travel fee (${request.distance_km} km)`,
+        qty: 1,
+        unit_price: request.quoted_fee,
+        bill_photo_url: null,
+        travel_request_id: request.id,
+      }
+    : null;
   const lines = items.map((it, i) => ({
     id: `${id}-i${i}`,
     quote_id: id,
@@ -243,6 +267,7 @@ function buildQuote(b: DemoBooking, items: QuoteItemDraft[], note: string | null
     unit_price: it.unit_price,
     bill_photo_url: it.bill_photo_url ?? null,
   }));
+  const allLines = travelLine ? [travelLine, ...lines] : lines;
   const sub = quoteSubtotals(lines.map((l) => ({ kind: l.kind, qty: l.qty, unitPrice: l.unit_price })));
   return {
     id,
@@ -252,11 +277,12 @@ function buildQuote(b: DemoBooking, items: QuoteItemDraft[], note: string | null
     is_change_order: b.status === 'in_progress',
     subtotal_labour: sub.labour,
     subtotal_parts: sub.parts,
-    subtotal_other: sub.other,
-    total: sub.total,
+    subtotal_other: sub.other + (request?.quoted_fee ?? 0),
+    subtotal_travel: request?.quoted_fee ?? 0,
+    total: sub.total + (request?.quoted_fee ?? 0),
     note,
     created_at: nowIso(),
-    quote_items: lines,
+    quote_items: allLines,
   };
 }
 
@@ -528,6 +554,7 @@ export const demoApi: Api = {
     await wait();
     clearTimers();
     db = buildSeed();
+    travelRequests = [];
     chatReads = {};
     addressBook = {};
     await setSession(null);
@@ -654,7 +681,12 @@ export const demoApi: Api = {
     return clone({
       ...s,
       categories: categoryOf(s.category_id),
-      providers: { rating_avg: pro?.rating_avg ?? 0, rating_count: pro?.rating_count ?? 0, profiles: { full_name: nameOf(s.provider_id) } },
+      providers: {
+        service_radius_km: pro?.service_radius_km ?? 0,
+        rating_avg: pro?.rating_avg ?? 0,
+        rating_count: pro?.rating_count ?? 0,
+        profiles: { full_name: nameOf(s.provider_id) },
+      },
     });
   },
 
@@ -681,6 +713,93 @@ export const demoApi: Api = {
     return clone(a);
   },
 
+  async inspectTravelRequest(providerServiceId, coords, scheduledAt): Promise<TravelPreview> {
+    await wait();
+    const me = uid();
+    const service = db.services.find((x) => x.id === providerServiceId && x.active) ?? fail('Service not available');
+    const provider = db.providers.find((x) => x.id === service.provider_id) ?? fail('Provider not found');
+    const distance = Math.round(haversineKm({ lat: provider.lat, lng: provider.lng }, coords) * 10) / 10;
+    const needsApproval = distance > provider.service_radius_km;
+    const fee =
+      !needsApproval || service.travel_fee_mode === 'none'
+        ? 0
+        : service.travel_fee_mode === 'flat'
+          ? service.travel_fee_flat ?? 0
+          : Math.round(Math.max(distance - provider.service_radius_km, 0) * (service.travel_fee_per_km ?? 0));
+    const start = scheduledAt?.toISOString() ?? null;
+    const request = start
+      ? travelRequests.find(
+          (x) => x.customer_id === me && x.provider_service_id === providerServiceId && x.window_start === start,
+        ) ?? null
+      : null;
+    return {
+      needs_approval: needsApproval,
+      allowed: !needsApproval || (service.max_travel_km != null && distance <= service.max_travel_km),
+      distance_km: distance,
+      max_travel_km: service.max_travel_km ?? null,
+      quoted_fee: fee,
+      travel_request_id: request?.id ?? null,
+      status: request?.status ?? null,
+      expires_at: request?.expires_at ?? null,
+    };
+  },
+
+  async createTravelRequest(providerServiceId, scheduledAt, coords, note = '') {
+    await wait();
+    const preview = await demoApi.inspectTravelRequest(providerServiceId, coords, scheduledAt);
+    assert(preview.needs_approval, 'travel approval is only required beyond the service radius');
+    assert(preview.allowed, 'provider does not travel this far');
+    assert(scheduledAt.getTime() > Date.now() + 30 * 60 * 1000, 'travel request must start at least 30 minutes from now');
+    if (preview.travel_request_id) return preview.travel_request_id;
+    const service = db.services.find((x) => x.id === providerServiceId)!;
+    const customerId = uid();
+    const start = scheduledAt.toISOString();
+    const request: TravelRequest = {
+      id: newId('travel'),
+      customer_id: customerId,
+      provider_id: service.provider_id,
+      provider_service_id: providerServiceId,
+      customer_name: nameOf(customerId),
+      provider_name: nameOf(service.provider_id),
+      category_name: db.categories.find((x) => x.id === service.category_id)?.name ?? 'Service',
+      service_window: `[${start},${new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000).toISOString()})`,
+      window_start: start,
+      window_end: new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+      distance_km: preview.distance_km ?? 0,
+      quoted_fee: preview.quoted_fee,
+      status: 'pending',
+      expires_at: new Date(Math.min(Date.now() + 2 * 60 * 60 * 1000, scheduledAt.getTime() - 30 * 60 * 1000)).toISOString(),
+      request_note: note.trim() || null,
+      response_reason: null,
+      created_at: nowIso(),
+      role: 'customer',
+    };
+    travelRequests.push(request);
+    return request.id;
+  },
+
+  async listMyTravelRequests(status) {
+    await wait();
+    const me = uid();
+    return clone(
+      travelRequests
+        .filter((x) => (x.customer_id === me || x.provider_id === me) && (!status || x.status === status))
+        .map((x) => ({ ...x, role: x.customer_id === me ? 'customer' : 'provider' }))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    );
+  },
+
+  async respondToTravelRequest(id, approve, reason) {
+    await wait();
+    const request = travelRequests.find((x) => x.id === id) ?? fail('Travel request not found');
+    assert(request.provider_id === uid(), 'only the assigned provider can respond');
+    assert(request.status === 'pending', 'travel request is not pending');
+    assert(new Date(request.expires_at).getTime() > Date.now(), 'travel request expired');
+    assert(approve || !!reason?.trim(), 'decline reason is required');
+    request.status = approve ? 'approved' : 'declined';
+    request.response_reason = reason?.trim() || null;
+  },
+
   async createBooking(input: CreateBookingInput) {
     await wait();
     const me = uid();
@@ -691,6 +810,21 @@ export const demoApi: Api = {
     assert(input.addressLine.trim() !== '' && input.city.trim() !== '', 'address is required');
     assert(input.scheduledAt == null || input.scheduledAt.getTime() > Date.now() - 5 * 60 * 1000, 'scheduled time is in the past');
     assert(input.photos.length <= 4, 'at most 4 photos');
+    const distance = haversineKm({ lat: p.lat, lng: p.lng }, input.coords);
+    let travel: TravelRequest | null = null;
+    if (distance > p.service_radius_km) {
+      assert(input.travelRequestId, 'travel approval required before booking');
+      travel = travelRequests.find((x) => x.id === input.travelRequestId) ?? fail('travel request not found');
+      assert(travel.customer_id === me, 'travel request belongs to another customer');
+      assert(travel.provider_service_id === s.id, 'travel request is for another service');
+      assert(travel.window_start === input.scheduledAt?.toISOString(), 'travel request is for another window');
+      assert(travel.status === 'approved', 'travel request is not approved');
+      assert(new Date(travel.expires_at).getTime() > Date.now(), 'travel request expired');
+      assert(Math.abs(travel.distance_km - Math.round(distance * 10) / 10) < 0.11, 'travel request location does not match the booking');
+      travel.status = 'used';
+    } else {
+      assert(!input.travelRequestId, 'travel request is not required for this booking');
+    }
     const b: DemoBooking = {
       id: `QS${bookingSeq++}`,
       customer_id: me,
@@ -700,6 +834,7 @@ export const demoApi: Api = {
       description: input.description,
       photos: input.photos,
       scheduled_at: input.scheduledAt?.toISOString() ?? null,
+      travel_request_id: input.travelRequestId ?? null,
       status: 'pending_payment',
       visit_fee: s.visit_fee,
       platform_fee: 2900,
@@ -1062,6 +1197,10 @@ export const demoApi: Api = {
       visit_fee: input.visitFee,
       labour_rate: input.labourRate,
       rate_unit: input.rateUnit,
+      max_travel_km: input.maxTravelKm ?? null,
+      travel_fee_mode: input.travelFeeMode ?? 'none',
+      travel_fee_flat: input.travelFeeFlat ?? 0,
+      travel_fee_per_km: input.travelFeePerKm ?? 0,
       active: true,
     };
     if (existing) Object.assign(existing, fields);

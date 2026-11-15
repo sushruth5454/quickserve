@@ -260,6 +260,8 @@ export const demoOnboardingApi: OnboardingApi = {
     const fields = {
       skill_level: input.skillLevel, visit_fee: input.visitFee, labour_rate: input.labourRate, rate_unit: input.rateUnit, active: true,
       specialisations: input.specialisations, brands: input.brands, tools: input.tools, attributes: input.attributes,
+      max_travel_km: input.maxTravelKm, travel_fee_mode: input.travelFeeMode,
+      travel_fee_flat: input.travelFeeFlat, travel_fee_per_km: input.travelFeePerKm,
     };
     if (existing) Object.assign(existing, fields);
     else db.services.push({ id: id('ps'), provider_id: me, category_id: input.categoryId, categories: cat ? { name: cat.name, slug: cat.slug } : null, rate_card_items: [], ...fields } as ProviderService);
