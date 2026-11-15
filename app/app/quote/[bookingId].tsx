@@ -44,12 +44,12 @@ interface Line {
 }
 
 const KINDS: LineKind[] = ['labour', 'part', 'other'];
-const KIND_ICON: Record<LineKind, keyof typeof Ionicons.glyphMap> = {
+const KIND_ICON: Partial<Record<LineKind, keyof typeof Ionicons.glyphMap>> = {
   labour: 'construct-outline',
   part: 'hardware-chip-outline',
   other: 'ellipsis-horizontal-circle-outline',
 };
-const PLACEHOLDER: Record<LineKind, string> = {
+const PLACEHOLDER: Partial<Record<LineKind, string>> = {
   labour: 'e.g. Gas refill, wiring work',
   part: 'e.g. Capacitor 45uF',
   other: 'e.g. Disposal, transport',
@@ -293,7 +293,7 @@ export default function QuoteEditorScreen() {
                   ) : null}
                 </View>
                 <Input
-                  placeholder={PLACEHOLDER[l.kind]}
+                  placeholder={PLACEHOLDER[l.kind] ?? 'Add a short description'}
                   value={l.title}
                   onChangeText={(v) => update(l.key, { title: v })}
                   accessibilityLabel={`Line ${i + 1} description`}
@@ -320,7 +320,7 @@ export default function QuoteEditorScreen() {
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                    <Ionicons name={KIND_ICON[l.kind]} size={14} color={t.colors.muted} />
+                    <Ionicons name={KIND_ICON[l.kind] ?? 'ellipsis-horizontal-circle-outline'} size={14} color={t.colors.muted} />
                     <Text variant="footnote" color="muted" style={{ flex: 1 }}>
                       {l.kind === 'labour' ? `${pct}% commission applies` : 'No commission · passed through at cost'}
                     </Text>
