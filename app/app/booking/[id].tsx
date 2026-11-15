@@ -46,6 +46,7 @@ import { bookingRef, dayLabel, scheduleLabel } from '../../src/lib/schedule';
 import type { Booking, BookingAddress, BookingEvent, BookingOtps, Payment, PaymentStatus, Quote, Review, ReviewInput } from '../../src/lib/types';
 import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
+import { PaymentScheduleTimeline } from '../../src/features/catalogue/PaymentScheduleTimeline';
 
 interface Data {
   booking: Booking;
@@ -404,6 +405,7 @@ export default function BookingDetail() {
     >
       <StatusHero status={s} copy={hero} events={data.events} />
       <InlineAlert message={actionError} />
+      <PaymentScheduleTimeline bookingId={booking.id} canPay={isCustomer} />
 
       {/* ---------- customer actions ---------- */}
       {isCustomer && (s === 'accepted' || s === 'en_route') ? (

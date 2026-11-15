@@ -3,18 +3,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { TopRatedCard, TopRatedCardSkeleton } from '../../src/components/TopRatedCard';
 import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
 import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
-import { getMyProfile, listCategories, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
+import { getMyProfile, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
 import { aiAssistantEnabled } from '../../src/lib/config';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import type { Booking, Category } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
+import { getCatalogue } from '../../src/features/catalogue/api';
+import { CatalogueSections } from '../../src/features/catalogue/CatalogueSections';
+import type { Catalogue } from '../../src/features/catalogue/model';
 
 export default function CustomerHome() {
   const t = useTheme();
@@ -22,6 +24,7 @@ export default function CustomerHome() {
   const { width: windowWidth } = useWindowDimensions();
   const { location } = useSelectedLocation();
   const [categories, setCategories] = useState<Category[] | null>(null);
+  const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [topRated, setTopRated] = useState<TopRatedProvider[]>([]);
   const [active, setActive] = useState<Booking | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -33,19 +36,20 @@ export default function CustomerHome() {
     setError(null);
     try {
       const [c, tr, bookings, profile] = await Promise.all([
-        listCategories(),
+        getCatalogue(location.city),
         listTopRated(),
         listMyBookings().catch(() => [] as Booking[]),
         getMyProfile().catch(() => null),
       ]);
-      setCategories(c);
+      setCategories(c.categories);
+      setCatalogue(c);
       setTopRated(tr);
       setActive(bookings.find((b) => activeStatuses.includes(b.status) && b.status !== 'pending_payment') ?? null);
       setFirstName(profile?.full_name?.split(' ')[0] ?? '');
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [location.city]);
 
   useEffect(() => {
     void load();
@@ -58,11 +62,9 @@ export default function CustomerHome() {
   };
 
   const filtered = useMemo(
-    () => (categories ?? []).filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())),
-    [categories, query],
+    () => (catalogue?.categories ?? []).filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())),
+    [catalogue, query],
   );
-
-  const openCategory = (c: Category) => router.push({ pathname: '/category/[slug]', params: { slug: c.slug, name: c.name } });
   const gutter = { paddingHorizontal: t.spacing.lg };
   // ~72% of the screen so the next card peeks; capped for tablets/web.
   const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
@@ -237,23 +239,7 @@ export default function CustomerHome() {
               onAction={aiAssistantEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
             />
           ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg, marginHorizontal: -t.spacing.xs }}>
-              {filtered.map((c, i) => (
-                <Animated.View key={c.id} entering={FadeInDown.delay(i * 20).duration(240)} style={{ width: '25%', paddingHorizontal: t.spacing.xs }}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={c.name}
-                    onPress={() => openCategory(c)}
-                    style={({ pressed }) => ({ alignItems: 'center', gap: 8, opacity: pressed ? 0.6 : 1 })}
-                  >
-                    <CategoryIcon icon={c.icon} size={64} />
-                    <Text variant="caption" color="textSecondary" align="center" numberOfLines={2} style={{ height: 32 }}>
-                      {c.name}
-                    </Text>
-                  </Pressable>
-                </Animated.View>
-              ))}
-            </View>
+            <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} />
           )}
         </Section>
       </View>
