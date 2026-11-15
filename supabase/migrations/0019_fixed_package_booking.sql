@@ -377,9 +377,9 @@ begin
     return;
   end if;
 
-  update public.payments
+  update public.payments x
      set status = 'failed', cancel_link_pending = true
-   where schedule_id = s.id and status = 'created';
+   where x.schedule_id = s.id and x.status = 'created';
   insert into public.payments (booking_id, quote_id, schedule_id, purpose, amount)
   values (b.id, s.quote_id, s.id, 'fixed', s.amount)
   returning * into p;
