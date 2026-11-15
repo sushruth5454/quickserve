@@ -104,10 +104,12 @@ await db.exec(`
     ('${A}', '+919100000001'), ('${B}', '+919100000002'),
     ('${C}', '+919100000003'), ('${D}', '+919100000004'),
     ('${CUSTOMER}', '+919100000010'), ('${REVIEWER}', '+919100000011');
-  insert into profiles (id, full_name) values
-    ('${A}', 'Provider A'), ('${B}', 'Provider B'),
-    ('${C}', 'Provider C'), ('${D}', 'Provider D'),
-    ('${CUSTOMER}', 'Fixture Customer'), ('${REVIEWER}', 'Fixture Reviewer');
+  update profiles set full_name = 'Provider A' where id = '${A}';
+  update profiles set full_name = 'Provider B' where id = '${B}';
+  update profiles set full_name = 'Provider C' where id = '${C}';
+  update profiles set full_name = 'Provider D' where id = '${D}';
+  update profiles set full_name = 'Fixture Customer' where id = '${CUSTOMER}';
+  update profiles set full_name = 'Fixture Reviewer' where id = '${REVIEWER}';
   insert into providers (
     id, city, service_radius_km, base_location, kyc_status, submitted_at, rating_avg,
     rating_count, jobs_completed, is_online, paused
