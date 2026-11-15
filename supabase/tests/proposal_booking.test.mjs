@@ -189,4 +189,26 @@ runtimeOk((await db.query(`select status from service_requests where id=$1`, [re
 runtimeOk((await db.query(`select status from proposals where id=$1`, [proposal2])).rows[0].status === 'sent',
   'expired hold reopens valid proposals');
 
+await db.exec(`
+  update app_config set value = value || '{"proposal":false}'::jsonb where key = 'archetype_flags';
+  insert into app_config (key, value) values ('launch_city', '"Launch City"')
+  on conflict (key) do update set value = excluded.value;
+`);
+await db.exec(migration('0024_activate_creator_event_categories.sql'));
+await db.exec(migration('0024_activate_creator_event_categories.sql'));
+const launched = (await db.query(`
+  select count(*)::int total,
+         count(*) filter (where c.active)::int active,
+         count(cc.category_id) filter (where cc.live and cc.city = 'Launch City')::int live_in_city
+    from categories c
+    left join category_cities cc on cc.category_id = c.id
+   where c.slug in ('wedding-photographer', 'reel-maker', 'caterer', 'drone-operator')
+`)).rows[0];
+runtimeOk(launched.total === 4 && launched.active === 4 && launched.live_in_city === 4,
+  '0024 activates creator/event categories in the launch city (idempotent)');
+runtimeOk((await db.query(`select (value->>'proposal')::boolean on_ from app_config where key='archetype_flags'`)).rows[0].on_ === true,
+  '0024 enables the proposal archetype');
+runtimeOk((await as(null, 'anon', `select count(*)::int n from categories where slug = 'wedding-photographer'`))[0].n === 1,
+  'anon can now read Wedding Photographer');
+
 if (failed.length || runtimeFailures) process.exit(1);
