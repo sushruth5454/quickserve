@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, Header, InlineAlert, Screen, Section, Text, TextArea, TextInput } from '../../../src/components/ui';
+import { Button, Card, Header, InlineAlert, Input, Screen, Section, Text, TextArea } from '../../../src/components/ui';
 import * as api from '../../../src/lib/api';
 import { rupeesToPaise } from '../../../src/lib/money';
 import { useToast } from '../../../src/components/ui';
@@ -45,12 +45,12 @@ export default function ComposeProposal() {
     <Screen header={<Header title="Send proposal" />} footer={<Button title="Send fixed proposal" size="lg" fullWidth loading={busy} onPress={() => void send()} />}>
       {error ? <InlineAlert message={error} /> : null}
       <Section title="Scope">
-        <TextInput label="Package / scope" value={title} onChangeText={setTitle} placeholder="Wedding photography · 8 hours" />
-        <TextInput label="Fixed total (₹)" keyboardType="number-pad" value={total} onChangeText={setTotal} />
-        <TextArea label="Terms" value={note} onChangeText={setNote} minHeight={100} />
+        <Input label="Package / scope" value={title} onChangeText={setTitle} placeholder="Wedding photography · 8 hours" />
+        <Input label="Fixed total (₹)" keyboardType="number-pad" value={total} onChangeText={setTotal} />
+        <TextArea label="Terms" value={note} onChangeText={setNote} />
       </Section>
       <Section title="Payment plan">
-        <TextInput label="Advance (%)" keyboardType="number-pad" value={advance} onChangeText={setAdvance} />
+        <Input label="Advance (%)" keyboardType="number-pad" value={advance} onChangeText={setAdvance} />
         <Card><Text color="textSecondary">Remaining balance is due at completion or delivery. The platform fee is collected separately with the advance.</Text></Card>
       </Section>
       <Section title="Deliverables" subtitle="Optional">

@@ -23,8 +23,9 @@ export type SkillLevel = 'beginner' | 'skilled' | 'expert' | 'certified';
 export type KycStatus = 'pending' | 'verified' | 'rejected' | 'under_review' | 'needs_clarification' | 'suspended';
 export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
-export type QuoteItemKind =
-  | 'labour' | 'part' | 'other' | 'material' | 'package' | 'per_unit'
+export type QuoteItemKind = 'labour' | 'part' | 'other';
+export type ProposalItemKind =
+  | QuoteItemKind | 'material' | 'package' | 'per_unit'
   | 'travel' | 'rental' | 'discount' | 'addon';
 export type TravelFeeMode = 'none' | 'flat' | 'per_km';
 export type TravelRequestStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'used';
@@ -408,7 +409,7 @@ export interface ProposalItem {
   id?: string;
   proposal_id?: string;
   seq: number;
-  kind: QuoteItemKind;
+  kind: ProposalItemKind;
   title: string;
   qty: number;
   unit: string | null;

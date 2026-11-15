@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Button, Header, InlineAlert, Screen, Section, TextInput } from '../../src/components/ui';
+import { Button, Header, InlineAlert, Input, Screen, Section } from '../../src/components/ui';
 import * as api from '../../src/lib/api';
 import { useToast } from '../../src/components/ui';
 
@@ -25,8 +25,8 @@ export default function SubmitDelivery() {
     <Screen header={<Header title="Submit deliverables" />} footer={<Button title="Send to customer" size="lg" fullWidth loading={busy} onPress={() => void submit()} />}>
       {error ? <InlineAlert message={error} /> : null}
       <Section title="Delivery link">
-        <TextInput label="Title" value={title} onChangeText={setTitle} placeholder="Edited photos" />
-        <TextInput label="HTTPS link" value={url} onChangeText={setUrl} autoCapitalize="none" keyboardType="url" />
+        <Input label="Title" value={title} onChangeText={setTitle} placeholder="Edited photos" />
+        <Input label="HTTPS link" value={url} onChangeText={setUrl} autoCapitalize="none" keyboardType="url" />
         <InlineAlert tone="info" title="Use a durable customer-accessible link" message="Do not use expiring private chat links. The customer gets 7 days to accept." />
       </Section>
     </Screen>
