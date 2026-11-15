@@ -262,6 +262,7 @@ end;
 $$;
 
 alter table public.provider_links enable row level security;
+revoke all on table public.provider_links from anon, authenticated;
 grant select, delete on public.provider_links to authenticated;
 grant insert (provider_id, kind, url, handle) on public.provider_links to authenticated;
 grant update (url, handle) on public.provider_links to authenticated;

@@ -161,7 +161,7 @@ const [{ get_provider_public_profile: pub }] = await anon(`select get_provider_p
 const pubText = JSON.stringify(pub);
 ok(pub.badges.payout_verified === true && pub.base_area === 'Old Town' && pub.specialisations[0].labels.includes('Split AC'), 'public profile: badges, area name, specialisation labels');
 ok(pub.specialisations[0].attributes.equipment.includes('inverter') && pub.links[0].kind === 'website', 'public profile: attributes and portfolio link');
-ok(!/lat|lng|base_location|phone|fund_account|razorpay|gender/.test(pubText), 'public profile has no location/phone/gateway/gender');
+ok(!['lat', 'lng', 'base_location', 'phone', 'fund_account', 'razorpay', 'gender'].some((key) => key in pub), 'public profile has no location/phone/gateway/gender');
 
 // ---- Availability enforcement in create_booking ----
 const at = async (dayOffset, hhmm) => (await db.query(

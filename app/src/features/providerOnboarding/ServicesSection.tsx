@@ -84,7 +84,9 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   };
 
   const save = async () => {
-    const attrError = category ? validateProfileAttributes((category.profile_schema ?? { type: 'object', properties: {} }) as ProfileSchema, ed.attributes) : null;
+    const attrError = category
+      ? validateProfileAttributes((category.profile_schema ?? { type: 'object', properties: {} }) as unknown as ProfileSchema, ed.attributes)
+      : null;
     const e = {
       ...validateFees(ed.visitFee, ed.labour),
       ...(ed.categoryId ? {} : { category: 'Pick a service.' }),
@@ -119,7 +121,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
 
   const toggle = (k: 'specialisations' | 'brands' | 'tools', v: string) =>
     setEd((s) => ({ ...s, [k]: s[k].includes(v) ? s[k].filter((x) => x !== v) : [...s[k], v] }));
-  const schema = (category?.profile_schema ?? { type: 'object', properties: {} }) as ProfileSchema;
+  const schema = (category?.profile_schema ?? { type: 'object', properties: {} }) as unknown as ProfileSchema;
   const attrLabel = (key: string) => key.replaceAll('_', ' ').replace(/^\w/, (x) => x.toUpperCase());
   const dirty = editorOpen && (ed.categoryId != null || ed.labour !== '');
 

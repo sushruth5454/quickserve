@@ -150,7 +150,6 @@ function state(providerId: string): OnboardingState {
       profile: pf ? { full_name: pf.full_name, avatar_url: pf.avatar_url } : null,
       payout: null,
       documents: [],
-      links: [],
       availability: [],
       time_off: [],
       portfolio: [],
