@@ -4,7 +4,7 @@ import { cancelRetiredLinks, corsHeaders, json, razorpay, requireEnv } from "../
 interface PreparedPayment {
   payment_id: string;
   amount: number;
-  purpose: "visit_fee" | "balance" | "fixed";
+  purpose: "visit_fee" | "balance" | "fixed" | "package" | "advance" | "milestone" | "final" | "addon" | "session";
   short_url: string | null;
 }
 
@@ -31,11 +31,29 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const bookingId = typeof body.booking_id === "string" ? body.booking_id : null;
-    if (!bookingId) return json({ error: "booking_id is required" }, 400);
+    const packId = typeof body.pack_id === "string" ? body.pack_id : null;
+    const scheduleId = typeof body.schedule_id === "string" ? body.schedule_id : null;
+    if (!bookingId && !packId) return json({ error: "booking_id or pack_id is required" }, 400);
 
-    const { data: prepared, error: prepError } = await admin
-      .rpc("prepare_payment", { p_booking_id: bookingId, p_user_id: user.id })
-      .single<PreparedPayment>();
+    let prepared: PreparedPayment | null = null;
+    let prepError: { message: string } | null = null;
+    if (packId) {
+      const result = await admin.rpc("prepare_pack_payment", { p_pack_id: packId, p_user_id: user.id })
+        .single<PreparedPayment>();
+      prepared = result.data;
+      prepError = result.error;
+    } else {
+      const { data: booking } = await admin.from("bookings").select("archetype").eq("id", bookingId).single<{ archetype: string }>();
+      const result = booking?.archetype === "time_based"
+        ? await admin.rpc("prepare_session_payment", {
+            p_booking_id: bookingId,
+            p_user_id: user.id,
+            p_schedule_id: scheduleId,
+          }).single<PreparedPayment>()
+        : await admin.rpc("prepare_payment", { p_booking_id: bookingId, p_user_id: user.id }).single<PreparedPayment>();
+      prepared = result.data;
+      prepError = result.error;
+    }
     if (prepError || !prepared) return json({ error: prepError?.message ?? "cannot prepare payment" }, 400);
 
     // Links retired by prepare_payment / change orders must not stay payable.
@@ -45,11 +63,13 @@ Deno.serve(async (req) => {
       return json({ short_url: prepared.short_url, amount: prepared.amount, purpose: prepared.purpose });
     }
 
-    const { data: booking, error: bookingError } = await admin
-      .from("bookings")
-      .select("booking_origin")
-      .eq("id", bookingId)
-      .single<{ booking_origin: "marketplace" | "byo" }>();
+    const { data: booking, error: bookingError } = bookingId
+      ? await admin
+          .from("bookings")
+          .select("booking_origin")
+          .eq("id", bookingId)
+          .single<{ booking_origin: "marketplace" | "byo" }>()
+      : { data: { booking_origin: "marketplace" as const }, error: null };
     if (bookingError || !booking) return json({ error: "booking not found" }, 400);
 
     // BYO invites are bearer links, shared without provider/customer phone exchange.
@@ -74,7 +94,7 @@ Deno.serve(async (req) => {
         customer: account?.phone ? { contact: account.phone } : undefined,
         notify: { sms: false, email: false },
         reminder_enable: false,
-        notes: { booking_id: bookingId, payment_id: prepared.payment_id, purpose: prepared.purpose },
+        notes: { booking_id: bookingId, pack_id: packId, payment_id: prepared.payment_id, purpose: prepared.purpose },
         ...(callbackUrl ? { callback_url: callbackUrl, callback_method: "get" } : {}),
       });
     } catch (e) {

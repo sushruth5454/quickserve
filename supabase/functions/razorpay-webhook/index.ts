@@ -49,7 +49,21 @@ Deno.serve(async (req) => {
       const link = event.payload.payment_link?.entity;
       const payment = event.payload.payment?.entity;
       if (!link || !payment) return json({ error: "missing entities" }, 400);
-      const { data, error } = await admin.rpc("record_payment_paid", {
+      const { data: existing } = await admin
+        .from("payments")
+        .select("pack_purchase_id, booking_id")
+        .eq("razorpay_link_id", link.id)
+        .maybeSingle<{ pack_purchase_id: string | null; booking_id: string | null }>();
+      let archetype: string | null = null;
+      if (existing?.booking_id) {
+        const { data: booking } = await admin.from("bookings").select("archetype").eq("id", existing.booking_id)
+          .maybeSingle<{ archetype: string }>();
+        archetype = booking?.archetype ?? null;
+      }
+      const recordRpc = existing?.pack_purchase_id || archetype === "time_based"
+        ? "record_time_payment_paid"
+        : "record_payment_paid";
+      const { data, error } = await admin.rpc(recordRpc, {
         p_link_id: link.id,
         p_payment_id: payment.id,
         p_amount: payment.amount,
