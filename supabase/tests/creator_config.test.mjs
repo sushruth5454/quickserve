@@ -98,12 +98,20 @@ const asAdmin = (sql, params) => as(admin, 'authenticated', sql, params);
 const anon = (sql, params) => as(null, 'anon', sql, params);
 const service = (sql, params) => as(null, 'service_role', sql, params);
 
-await service(`
+await db.exec(`
   insert into auth.users (id, phone) values
     ('${owner}', '+919100000041'), ('${stranger}', '+919100000042'), ('${admin}', '+919100000043');
-  insert into profiles (id, full_name) values
-    ('${owner}', 'Live package owner'), ('${stranger}', 'Draft provider'), ('${admin}', 'Config admin');
-  insert into admins (user_id) values ('${admin}');
+`);
+await db.exec(`
+  update profiles set full_name = case id
+    when '${owner}'::uuid then 'Live package owner'
+    when '${stranger}'::uuid then 'Draft provider'
+    when '${admin}'::uuid then 'Config admin'
+  end
+  where id in ('${owner}', '${stranger}', '${admin}');
+`);
+await db.exec(`insert into admins (user_id) values ('${admin}');`);
+await db.exec(`
   insert into providers (id, city, kyc_status, submitted_at, is_online, paused, suspended)
   values
     ('${owner}', 'Package City', 'verified', now(), true, false, false),

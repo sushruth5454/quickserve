@@ -196,28 +196,30 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
                 const current = ed.attributes[key];
                 if (spec.type === 'array') {
                   const values = spec.enum ?? spec.items?.enum ?? [];
-                  return (
-                    <View key={key} style={{ gap: t.spacing.sm }}>
-                      <FieldLabel hint="These help us match the right customers.">{attrLabel(key)}</FieldLabel>
-                      <MultiChips
-                        label={attrLabel(key)}
-                        options={values.map((value) => ({ value, label: value.replaceAll('_', ' ') }))}
-                        selected={Array.isArray(current) ? (current as string[]) : []}
-                        onToggle={(value) =>
-                          setEd((s) => {
-                            const selected = Array.isArray(s.attributes[key]) ? (s.attributes[key] as string[]) : [];
-                            return {
-                              ...s,
-                              attributes: {
-                                ...s.attributes,
-                                [key]: selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value],
-                              },
-                            };
-                          })
-                        }
-                      />
-                    </View>
-                  );
+                  if (values.length > 0) {
+                    return (
+                      <View key={key} style={{ gap: t.spacing.sm }}>
+                        <FieldLabel hint="These help us match the right customers.">{attrLabel(key)}</FieldLabel>
+                        <MultiChips
+                          label={attrLabel(key)}
+                          options={values.map((value) => ({ value, label: value.replaceAll('_', ' ') }))}
+                          selected={Array.isArray(current) ? (current as string[]) : []}
+                          onToggle={(value) =>
+                            setEd((s) => {
+                              const selected = Array.isArray(s.attributes[key]) ? (s.attributes[key] as string[]) : [];
+                              return {
+                                ...s,
+                                attributes: {
+                                  ...s.attributes,
+                                  [key]: selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value],
+                                },
+                              };
+                            })
+                          }
+                        />
+                      </View>
+                    );
+                  }
                 }
                 if (spec.type === 'string' && spec.enum?.length) {
                   return (
@@ -244,7 +246,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
                     setEd((state) => { const attributes = { ...state.attributes }; if (numeric != null && Number.isFinite(numeric)) attributes[key] = numeric; else delete attributes[key]; return { ...state, attributes }; });
                   }} />
                 );
-                if (spec.type === 'string' || (spec.type === 'array' && valuesOrEmpty(spec).length === 0)) return (
+                if (spec.type === 'string' || spec.type === 'array') return (
                   <Input key={key} label={attrLabel(key)} value={spec.type === 'array' ? (Array.isArray(current) ? current : []).join(', ') : current == null ? '' : String(current)} helper={spec.type === 'array' ? 'Separate multiple values with commas.' : undefined} onChangeText={(value) => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: spec.type === 'array' ? value.split(',').map((item) => item.trim()).filter(Boolean) : value } }))} />
                 );
                 return null;
@@ -347,8 +349,6 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
     </Screen>
   );
 }
-
-function valuesOrEmpty(spec: ProfileSchema['properties'][string]) { return spec.enum ?? spec.items?.enum ?? []; }
 
 function docNames(codes: string[], types: { code: string; label: string }[]): string {
   return codes.map((c) => types.find((x) => x.code === c)?.label ?? c).join(', ');
