@@ -75,7 +75,16 @@ for (const file of [
   '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
   '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
   '0017_creator_config.sql', '0020_proposal_milestone_booking.sql',
-]) await db.exec(migration(file));
+]) {
+  const sql = migration(file);
+  if (file === '0020_proposal_milestone_booking.sql') {
+    const marker = sql.indexOf('-- 0018 owns the category/snapshot foundation.');
+    await db.exec(sql.slice(0, marker));
+    await db.exec(sql.slice(marker));
+  } else {
+    await db.exec(sql);
+  }
+}
 
 let runtimeFailures = 0;
 const runtimeOk = (condition, message) => {
