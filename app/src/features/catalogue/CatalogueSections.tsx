@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { CategoryIcon } from '../../components/CategoryIcon';
+import { CategoryIcon, iconForCategory } from '../../components/CategoryIcon';
 import { Badge, Section, Text } from '../../components/ui';
 import type { Category } from '../../lib/types';
 import { useTheme } from '../../theme';
@@ -48,7 +48,7 @@ function CategoryTile({ category }: { category: Category }) {
       onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } })}
       style={({ pressed }) => ({ alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}
     >
-      <CategoryIcon icon={category.icon} size={64} />
+      <CategoryIcon icon={iconForCategory(category)} size={64} />
       <Text variant="caption" color="textSecondary" align="center" numberOfLines={2} style={{ minHeight: 32 }}>{category.name}</Text>
       {action ? <Badge label={action} tone="neutral" /> : null}
     </Pressable>

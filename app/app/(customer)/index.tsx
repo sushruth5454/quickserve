@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CategoryIcon } from '../../src/components/CategoryIcon';
+import { CategoryIcon, iconForCategory } from '../../src/components/CategoryIcon';
 import { TopRatedCard, TopRatedCardSkeleton } from '../../src/components/TopRatedCard';
 import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
@@ -195,7 +195,7 @@ export default function CustomerHome() {
             accessibilityLabel={`Active booking ${active.categories?.name ?? ''}. ${nextStepCopy[active.status] ?? ''}`}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-              <CategoryIcon icon={categories?.find((c) => c.slug === active.categories?.slug)?.icon} size={44} />
+              <CategoryIcon icon={iconForCategory(categories?.find((c) => c.slug === active.categories?.slug) ?? active.categories)} size={44} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="caption" color="muted">
                   Active booking

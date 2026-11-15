@@ -19,6 +19,39 @@ export const CATEGORY_VISUALS: Record<string, { icon: McIcon; tint: string }> = 
   bug: { icon: 'bug', tint: '#B42318' },
   hammer: { icon: 'hammer-wrench', tint: '#93370D' },
   brush: { icon: 'format-paint', tint: '#C11574' },
+  // Creators, photo/video and weddings/events: one distinct glyph per category (keyed by slug).
+  'instagram-influencer': { icon: 'instagram', tint: '#C11574' },
+  'youtube-creator': { icon: 'youtube', tint: '#D92D20' },
+  'ugc-creator': { icon: 'cellphone-play', tint: '#6941C6' },
+  'reel-maker': { icon: 'movie-open-edit', tint: '#444CE7' },
+  'wedding-photographer': { icon: 'ring', tint: '#B54708' },
+  'candid-photographer': { icon: 'camera-iris', tint: '#0E7090' },
+  'pre-wedding-shoot': { icon: 'heart-multiple', tint: '#C11574' },
+  'maternity-newborn': { icon: 'baby-carriage', tint: '#DD2590' },
+  'product-photographer': { icon: 'package-variant-closed', tint: '#93370D' },
+  'event-videographer': { icon: 'video-vintage', tint: '#475467' },
+  'drone-operator': { icon: 'quadcopter', tint: '#0086C9' },
+  'photo-booth': { icon: 'camera-party-mode', tint: '#6941C6' },
+  caterer: { icon: 'silverware-fork-knife', tint: '#B54708' },
+  decorator: { icon: 'balloon', tint: '#DD2590' },
+  'bridal-makeup': { icon: 'lipstick', tint: '#C11574' },
+  'mehendi-artist': { icon: 'hand-back-right', tint: '#93370D' },
+  dj: { icon: 'headphones', tint: '#444CE7' },
+  'live-band': { icon: 'guitar-electric', tint: '#B42318' },
+  'wedding-planner': { icon: 'calendar-heart', tint: '#067647' },
+  'demo-home-tutor': { icon: 'school', tint: '#1E5EFF' },
+  // Generic database `icon` keys for those categories (used when only the key is known).
+  instagram: { icon: 'instagram', tint: '#C11574' },
+  youtube: { icon: 'youtube', tint: '#D92D20' },
+  video: { icon: 'video', tint: '#444CE7' },
+  camera: { icon: 'camera', tint: '#0E7090' },
+  restaurant: { icon: 'silverware-fork-knife', tint: '#B54708' },
+  sparkles: { icon: 'party-popper', tint: '#DD2590' },
+  beauty: { icon: 'lipstick', tint: '#C11574' },
+  'hand-left': { icon: 'hand-back-right', tint: '#93370D' },
+  music: { icon: 'music', tint: '#444CE7' },
+  briefcase: { icon: 'clipboard-text', tint: '#067647' },
+  school: { icon: 'school', tint: '#1E5EFF' },
 };
 
 export function categoryVisual(icon: string | undefined | null) {
@@ -40,7 +73,13 @@ const SLUG_TO_ICON: Record<string, string> = {
 };
 
 export function iconForSlug(slug: string | undefined | null): string {
-  return SLUG_TO_ICON[slug ?? ''] ?? '';
+  const key = slug ?? '';
+  return SLUG_TO_ICON[key] ?? (CATEGORY_VISUALS[key] ? key : '');
+}
+
+/** Best icon key for a category row: its own slug visual first, then the database `icon` key. */
+export function iconForCategory(category: { slug?: string | null; icon?: string | null } | null | undefined): string {
+  return iconForSlug(category?.slug) || (category?.icon ?? '');
 }
 
 /** Neutral tile + tinted glyph: one surface colour for every category so the grid doesn't read as a rainbow. */

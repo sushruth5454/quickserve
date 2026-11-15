@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import { CategoryIcon } from '../src/components/CategoryIcon';
+import { CategoryIcon, iconForCategory } from '../src/components/CategoryIcon';
 import { activeStatuses, StatusPill } from '../src/components/status';
 import { UnreadMessagesRow } from '../src/components/UnreadChat';
 import { Card, EmptyState, ErrorState, Header, Screen, SegmentedControl, SkeletonBookingCard, Text } from '../src/components/ui';
@@ -85,7 +85,7 @@ export default function ProviderJobs() {
             accessibilityLabel={`${j.category_name} for ${j.customer_name}`}
             style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.md }}
           >
-            <CategoryIcon icon={categories.find((c) => c.name === j.category_name)?.icon} size={44} />
+            <CategoryIcon icon={iconForCategory(categories.find((c) => c.name === j.category_name))} size={44} />
             <View style={{ flex: 1, gap: 3 }}>
               <Text variant="calloutStrong" numberOfLines={1}>
                 {j.customer_name || 'Customer'}

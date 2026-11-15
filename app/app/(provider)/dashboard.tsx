@@ -6,7 +6,7 @@ import { Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import { CategoryIcon } from '../../src/components/CategoryIcon';
+import { CategoryIcon, iconForCategory } from '../../src/components/CategoryIcon';
 import { StatusPill } from '../../src/components/status';
 import { ChatButton, UnreadMessagesRow } from '../../src/components/UnreadChat';
 import { BottomSheet, Button, Card, CountBadge, Divider, ErrorState, IconButton, InlineAlert, LIST_INSET, Screen, Section, SkeletonCard, Text, TextArea, useToast } from '../../src/components/ui';
@@ -166,7 +166,7 @@ export default function ProviderDashboard() {
   const rateBp = provider
     ? commissionRateBp({ jobsCompleted: provider.jobs_completed, providerCreatedAt: new Date(provider.created_at), at: new Date(now) })
     : 1200;
-  const iconFor = (name: string) => categories.find((c) => c.name === name)?.icon;
+  const iconFor = (name: string) => iconForCategory(categories.find((c) => c.name === name));
   const incoming = (jobs ?? []).filter((j) => j.status === 'requested');
   const active = useMemo(
     () =>
