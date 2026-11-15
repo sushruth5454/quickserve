@@ -255,3 +255,10 @@ Priority: **Now** = before public launch, **Next** = first 3 months after launch
 
 ### 11.7 Scope expansion: all local services
 QuickServe is expanding from home repairs to **all common local services**: beauty, events and weddings, photography, catering, learning, care, auto, pets and moving. Each category maps to a fulfilment archetype (fixed package, inspect→quote, proposal + milestones, time-based) through configuration. The design, phased task list, rules and open decisions are in `07-Multi-Category-Expansion-Plan.md`.
+
+### 11.8 Smart matching, creators and on-platform strategy
+See `09-Smart-Matching-Creators-OnPlatform-Strategy.md` for:
+- review-aware AI matching with nearest-best and travel tiers (approval needed);
+- creator, photographer and event profiles with social links and per-deliverable pricing;
+- the leakage strategy: Seva Coins, repeat-client commission discount, bring-your-own-client and Pro tools;
+- revenue streams for when transactions go offline.
