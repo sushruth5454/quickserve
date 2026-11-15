@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/ui';
@@ -27,6 +27,7 @@ const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof ty
 
 export default function RoleScreen() {
   const t = useTheme();
+  const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
   const { setChoosingRole, setActiveRole } = useAuth();
   const [name, setName] = useState('');
   const [role, setRole] = useState<ActiveRole>('customer');
@@ -49,10 +50,15 @@ export default function RoleScreen() {
         ...(role === 'provider' ? { role_provider: true } : {}),
       });
       const target = role === 'provider' ? ((await getMyProvider()) ? '/dashboard' : '/onboarding') : '/';
-      setActiveRole(role);
+      setActiveRole(inviteToken ? 'customer' : role);
       setChoosingRole(false);
       // Navigate after the auth guard re-renders with the signed-in routes enabled.
-      setTimeout(() => router.replace(target), 0);
+      setTimeout(
+        () => inviteToken
+          ? router.replace({ pathname: '/byo/[token]', params: { token: inviteToken } })
+          : router.replace(target),
+        0,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {

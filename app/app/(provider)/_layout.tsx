@@ -38,6 +38,7 @@ export default function ProviderTabs() {
           tabBarIcon: ({ color, focused }) => <TabIcon name="person-circle-outline" activeName="person-circle" focused={focused} color={color as string} />,
         }}
       />
+      <Tabs.Screen name="business-tools" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -90,6 +90,8 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
         <Group title="Work">
           <ListItem icon="id-card-outline" title="Provider profile" subtitle="Photo, services, area, hours, work photos and payouts" chevron onPress={() => router.push('/provider-profile')} />
           <Divider inset={LIST_INSET} />
+          <ListItem icon="people-outline" title="Business tools" subtitle="Create a protected booking for an existing client" chevron onPress={() => router.push('/business-tools')} />
+          <Divider inset={LIST_INSET} />
           <ListItem icon="swap-horizontal" title="Switch to customer mode" subtitle="Book services for your home" chevron onPress={switchRole} />
         </Group>
       ) : (

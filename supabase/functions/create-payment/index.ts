@@ -45,11 +45,22 @@ Deno.serve(async (req) => {
       return json({ short_url: prepared.short_url, amount: prepared.amount, purpose: prepared.purpose });
     }
 
-    const { data: account } = await admin
-      .from("private_user_accounts")
-      .select("phone")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data: booking, error: bookingError } = await admin
+      .from("bookings")
+      .select("booking_origin")
+      .eq("id", bookingId)
+      .single<{ booking_origin: "marketplace" | "byo" }>();
+    if (bookingError || !booking) return json({ error: "booking not found" }, 400);
+
+    // BYO invites are bearer links, shared without provider/customer phone exchange.
+    // Never send the customer's phone to Razorpay on this path.
+    const { data: account } = booking.booking_origin === "byo"
+      ? { data: null }
+      : await admin
+          .from("private_user_accounts")
+          .select("phone")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
     const callbackUrl = Deno.env.get("PAYMENT_CALLBACK_URL");
     let link: PaymentLink;

@@ -48,7 +48,7 @@ function RootNavigator() {
   const signedIn = !!session;
   const inAuthGroup = segments[0] === '(auth)';
   // Public pages (safety, terms, privacy) are linked from the login screen.
-  const onPublicPage = segments[0] === 'info';
+  const onPublicPage = segments[0] === 'info' || segments[0] === 'byo';
 
   // Signed out anywhere outside the auth screens (cold start on a deep link or "/", or right after logout):
   // the protected routes no longer match, so send the user to the login screen instead of "Unmatched Route".
@@ -86,6 +86,7 @@ function RootNavigator() {
           <Stack.Screen name="assistant" />
         </Stack.Protected>
         <Stack.Screen name="info/[topic]" />
+        <Stack.Screen name="byo/[token]" />
       </Stack>
     </>
   );

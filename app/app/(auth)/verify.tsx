@@ -13,7 +13,7 @@ const RESEND_SECONDS = 30;
 export default function VerifyScreen() {
   const t = useTheme();
   const toast = useToast();
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, inviteToken } = useLocalSearchParams<{ phone: string; inviteToken?: string }>();
   const { setChoosingRole } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -37,7 +37,7 @@ export default function VerifyScreen() {
       setChoosingRole(true);
       await verifyOtp(phone, value);
       haptics.success();
-      router.replace('/role');
+      router.replace(inviteToken ? { pathname: '/role', params: { inviteToken } } : '/role');
     } catch (e) {
       setChoosingRole(false);
       haptics.error();

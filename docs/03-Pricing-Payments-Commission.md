@@ -57,6 +57,12 @@ Collecting before work means a provider is never left unpaid after supplying lab
 | **Customer platform fee** | ₹29 flat per booking, **GST-inclusive** | Customer | Charged once, with the balance payment. Partly offsets gateway fees and funds the guarantee. |
 | Cash job commission | Same tiered rate on labour, accrued as provider debt | Provider | Deducted from the next payout; a debt over ₹1,000 blocks new jobs (P1). |
 
+**Repeat-client rule (M6.1, implemented):** the rate above is the provider tier; for the second and later
+completed in-app jobs by the same customer + provider within the previous 12 months, subtract 4 percentage
+points and floor the result at 5%. A provider still in the 30-day 0% period remains at 0%. The discounted
+rate is evaluated when a payout is created, and payout insertion remains idempotent. Parts and other
+pass-through lines never become commissionable.
+
 > **Tax caveat:** statutory deductions from the provider payout (GST TCS, Income-tax s.194-O TDS ~0.1%) and possible ECO liability under GST s.9(5) for housekeeping-type services are **not** in these figures. They come from the CA-approved tax matrix (PRD PAY5) before live payments.
 
 **Worked example** (AC gas refill, provider past the free period):
@@ -90,6 +96,23 @@ Razorpay Route lets a marketplace collect a payment and **transfer** part of it 
 
 Outside India, the same design maps to **Stripe Connect (Express accounts, separate charges & transfers)**.
 
+### 5.2 Bring your own client (M6.2, implemented)
+
+A verified provider can create a single-use booking invite for an existing client. The provider supplies a
+service, client label, agreed scope and fixed amount — never a phone number, email or payment handle.
+QuickServe stores only a SHA-256 hash of the 192-bit bearer token and returns the secret link once.
+Invites expire after 7 days, can be cancelled by their provider, and cannot be reused after claim.
+
+The signed-in customer claims the invite, supplies the service address, and pays the agreed job amount plus
+**3%**. The 3% is the customer-funded tools/payment fee; provider commission and GST on commission are
+0%. At completion the provider payout is exactly the agreed job amount (before unrelated statutory
+deductions), allocated to the captured payment with the existing source-payment caps and idempotency.
+Phone data is neither collected in the invite nor sent to the payment provider on the BYO path.
+
+BYO jobs keep the normal start/completion OTPs, guarantee, dispute hold, receipt/payment record and verified
+review path. They are pre-priced, so a valid start OTP moves the job directly from `en_route` to
+`in_progress` rather than opening another quote.
+
 ### 5.1 Payout rails: Route vs Payouts fallback (RBI eligibility, verified 2026-11-14)
 Since the RBI Payment Aggregator guidelines of September 2025, Razorpay enables **Route** only for businesses that meet both conditions:
 - **Turnover:** domestic turnover above ₹40 lakh in FY25 or FY26, proven with GST-3B returns. First-year businesses can submit a self-declaration instead.
@@ -120,6 +143,29 @@ So QuickServe supports **two payout rails behind one interface**, selected by se
 - Lower take rate than incumbents, plus tiers that reward loyalty.
 - Masked phone numbers (P1) and chat monitoring for "pay me directly" phrases.
 - Fast, predictable payouts: release starts right after the 24 h dispute window, subject to Razorpay transfer/settlement timing.
+
+### 6.1 Soft detection (M6.3, implemented)
+
+The authoritative `send_booking_message` RPC checks obvious contact and direct-payment patterns. The
+message is still delivered, and the sender sees an inline reminder:
+“Payments outside QuickServe aren't covered by the guarantee.” A privacy-minimised
+`leakage_signals` row records only the sender, booking/message IDs, signal kind and match category — never
+the raw phone, payment handle or message body. RLS permits reads only to users in `public.admins`.
+
+Signals are evidence, not enforcement. M6 does **not** auto-suspend, block a message or reduce rank.
+Any warning, ranking action or suspension remains an audited admin decision.
+
+### 6.2 Pro subscription and sponsored listings (design only; no code/payment)
+
+Do not build or charge for these in M6:
+
+| Product | Proposed design | Guardrails |
+|---|---|---|
+| Pro subscription | Test ₹299–₹999/month after 3 months of supply; candidate benefits are additional **labelled** visibility slots, up to 2-point lower commission and advanced analytics/tools | Entitlements must be server-side and auditable; cancellation/refund and GST invoicing require Razorpay subscription + CA/legal sign-off |
+| Sponsored listing | "Sponsored" label; at most one per result page; CPC or daily fee only after demand is steady | Paid placement must still pass eligibility and the need-match threshold, and must never expose an inferior provider merely because they paid |
+
+Launch gates are measured in doc 09 C6. No entitlement, subscription, sponsored bid, payment or UI is added
+by M6.
 
 ## 7. Decisions log
 | # | Decision | Reason |

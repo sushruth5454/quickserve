@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { listMessages, sendMessage, subscribeToMessages } from '../lib/api';
+import { listMessages, subscribeToMessages } from '../lib/api';
+import { sendProtectedBookingMessage } from '../lib/leakageChat';
 import { haptics } from '../lib/haptics';
 import type { Message } from '../lib/types';
 import { useTheme } from '../theme';
@@ -27,6 +28,7 @@ export function useChat(bookingId: string | undefined) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [nudge, setNudge] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -53,8 +55,10 @@ export function useChat(bookingId: string | undefined) {
       if (!text || !bookingId) return false;
       setSending(true);
       setError(null);
+      setNudge(false);
       try {
-        await sendMessage(bookingId, text);
+        const result = await sendProtectedBookingMessage(bookingId, text);
+        setNudge(result.nudge);
         haptics.tap();
         return true;
       } catch (e) {
@@ -67,7 +71,7 @@ export function useChat(bookingId: string | undefined) {
     [bookingId],
   );
 
-  return { messages, error, sending, send };
+  return { messages, error, sending, nudge, send };
 }
 
 export function MessageList({

@@ -270,10 +270,10 @@ Depends on doc 07 Phase 1 (packages) and Phase 3 (proposals, deliverables).
 - **M5.4** Launch per category via the doc 07 §6.4 checklist (supply minimums, CA tax matrix, verification).
 
 **Phase M6: Leakage programme**
-- **M6.1** Repeat-client commission discount (review-gated).
-- **M6.2** Bring-your-own-client bookings (provider-created booking + payment link; 3% fee path).
-- **M6.3** Leakage signals + chat nudges + admin view.
-- **M6.4** Pro subscription and sponsored listings: **design only** in this phase. Build after the doc 07 Phase 5 launches show demand.
+- **M6.1 implemented:** booking-aware payout rate applies the −4-point repeat-client discount (12-month window, 5% floor) idempotently.
+- **M6.2 implemented:** single-use provider invite, authenticated customer claim, fixed BYO payment and 3% customer fee with no provider commission. Tokens are stored hashed; provider/client phone numbers are never included in the invite.
+- **M6.3 implemented:** admin-only `leakage_signals` plus a non-blocking inline chat nudge. No automatic suspension or ranking mutation.
+- **M6.4 design only:** Pro subscription and sponsored listings are documented in doc 03 §6.2; no code, entitlement or payment integration exists in this phase. Build after the doc 07 Phase 5 launches show demand.
 
 ---
 

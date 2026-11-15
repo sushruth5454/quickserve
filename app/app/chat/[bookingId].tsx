@@ -24,7 +24,7 @@ export default function ChatScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [counterpart, setCounterpart] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { messages, error, sending, send } = useChat(bookingId);
+  const { messages, error, sending, nudge, send } = useChat(bookingId);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   // Read time when the chat was opened (fetched before marking read) → where the "New messages" divider goes.
   const openedReadAt = useRef<Promise<string | null> | null>(null);
@@ -170,6 +170,13 @@ export default function ChatScreen() {
           seenId={seenMessageId(messages, userId, otherReadAt)}
         />
       )}
+      {nudge ? (
+        <InlineAlert
+          tone="warning"
+          title="Keep this booking protected"
+          message="Payments outside QuickServe aren't covered by the guarantee. Use the in-app payment button."
+        />
+      ) : null}
       <InlineAlert message={error} />
     </Screen>
   );

@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ function formatLocal(digits: string) {
 export default function LoginScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
   const [digits, setDigits] = useState('');
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,7 +40,9 @@ export default function LoginScreen() {
     setError(null);
     try {
       await sendOtp(e164);
-      router.push({ pathname: '/verify', params: { phone: e164 } });
+      router.push(inviteToken
+        ? { pathname: '/verify', params: { phone: e164, inviteToken } }
+        : { pathname: '/verify', params: { phone: e164 } });
     } catch (e) {
       setError((e as Error).message);
     } finally {
