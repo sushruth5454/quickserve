@@ -98,7 +98,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
           providerServiceId: item.providerServiceId,
           startsAt: start,
           addressId: location.addressId,
-          addressLine: location.line1,
+          addressLine: location.line1 ?? '',
           city: location.city,
           lat: location.lat,
           lng: location.lng,

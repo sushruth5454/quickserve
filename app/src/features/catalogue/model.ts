@@ -79,7 +79,7 @@ export function titleCase(value: string): string {
 }
 
 export function isInstantPackage(category: Category): boolean {
-  return category.archetype === 'fixed' && category.pricing_units?.every((unit) => unit !== 'month');
+  return category.archetype === 'fixed' && (category.pricing_units ?? []).every((unit) => unit !== 'month');
 }
 
 export function packagePrice(category: Pick<ServicePackage, 'price_type' | 'price' | 'price_min' | 'price_max'>): {
