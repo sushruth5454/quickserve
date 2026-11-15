@@ -3,6 +3,207 @@
 -- Existing booking state and legacy money functions remain unchanged; time-based
 -- fulfilment uses separate RPCs and branches on bookings.archetype.
 
+-- 0020 inserts the proposal row before calculating and persisting total. Keep that
+-- transaction valid for databases that already use the proposal engine.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'proposals' and column_name = 'total'
+  ) then
+    alter table public.proposals alter column total set default 1;
+  end if;
+end;
+$$;
+
+-- 0020's table-returning schedule_id name collides with payments.schedule_id in
+-- PGlite/Postgres PL/pgSQL. Recreate the same API with qualified column references.
+create or replace function public.prepare_schedule_payment(
+  p_booking_id uuid, p_user_id uuid, p_schedule_id uuid
+)
+returns table (payment_id uuid, amount int, purpose public.payment_purpose, short_url text, schedule_id uuid)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  b public.bookings := public._lock_booking(p_booking_id);
+  ps public.payment_schedule;
+  p public.payments;
+begin
+  perform public._assert(b.customer_id = p_user_id, 'only the customer can pay');
+  perform public._assert(b.archetype = 'proposal', 'schedule payments are only for proposal bookings');
+  select * into ps
+    from public.payment_schedule x
+   where x.id = p_schedule_id and x.booking_id = b.id
+   for update;
+  perform public._assert(found, 'milestone not found');
+  perform public._assert(ps.status = 'due', 'milestone is not due');
+  perform public._assert(
+    b.status <> 'pending_payment' or ps.due_rule <> 'at_booking'
+    or coalesce(b.payment_hold_expires_at, '-infinity') > now(),
+    'payment hold expired'
+  );
+
+  select * into p
+    from public.payments x
+   where x.booking_id = b.id
+     and x.schedule_id = ps.id
+     and x.status = 'created'
+     and x.short_url is not null
+   order by x.created_at desc
+   limit 1;
+  if found then
+    return query select p.id, p.amount, p.purpose, p.short_url, ps.id;
+    return;
+  end if;
+
+  update public.payments x
+     set status = 'failed', cancel_link_pending = true
+   where x.booking_id = b.id and x.schedule_id = ps.id and x.status = 'created';
+  insert into public.payments (booking_id, quote_id, purpose, amount, schedule_id)
+  values (b.id, b.approved_quote_id, ps.purpose::public.payment_purpose, ps.amount, ps.id)
+  returning * into p;
+  return query select p.id, p.amount, p.purpose, null::text, ps.id;
+end;
+$$;
+revoke all on function public.prepare_schedule_payment(uuid, uuid, uuid) from public, anon;
+grant execute on function public.prepare_schedule_payment(uuid, uuid, uuid) to authenticated, service_role;
+
+create or replace function public.expire_proposal_flows()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  b record;
+  v_count int := 0;
+begin
+  for b in
+    select * from public.bookings
+     where archetype = 'proposal' and status = 'pending_payment'
+       and payment_hold_expires_at <= now()
+     for update skip locked
+  loop
+    update public.payments
+       set status = 'failed', cancel_link_pending = true
+     where booking_id = b.id and status = 'created';
+    update public.payment_schedule set status = 'waived'
+     where booking_id = b.id and status in ('due', 'upcoming');
+    update public.quotes set status = 'superseded'
+     where id = b.approved_quote_id and status in ('sent', 'approved_pending_payment');
+    perform public._set_status(b.id, 'expired', null, 'proposal payment hold expired');
+    update public.proposals
+       set status = case when valid_until > now() then 'sent' else 'expired' end, updated_at = now()
+     where id = b.proposal_id;
+    update public.service_requests
+       set status = case when expires_at > now() then 'open' else 'expired' end, updated_at = now()
+     where id = b.service_request_id and status = 'closed';
+    perform public._queue_notification(
+      b.customer_id, 'proposal_hold_expired', b.id, 'Proposal hold expired',
+      'The payment window closed. Your request is available again.',
+      jsonb_build_object('booking_id', b.id, 'request_id', b.service_request_id),
+      'proposal-hold:' || b.id::text
+    );
+    v_count := v_count + 1;
+  end loop;
+
+  update public.proposals
+     set status = 'expired', updated_at = now()
+   where status = 'sent' and valid_until <= now();
+  update public.service_requests sr
+     set status = 'expired', updated_at = now()
+   where sr.status in ('open', 'closed')
+     and sr.expires_at <= now()
+     and not exists (
+       select 1 from public.bookings bk
+        where bk.service_request_id = sr.id
+          and bk.status in ('confirmed', 'accepted', 'en_route', 'in_progress', 'delivery_pending',
+                            'completion_requested', 'disputed')
+     );
+  return v_count;
+end;
+$$;
+revoke all on function public.expire_proposal_flows() from public, anon, authenticated;
+grant execute on function public.expire_proposal_flows() to service_role;
+
+create or replace function public.can_read_request_private(p_request_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  return exists (
+    select 1
+      from public.service_requests sr
+     where sr.id = p_request_id
+       and (
+         sr.customer_id = auth.uid()
+         or public._is_admin()
+         or exists (
+           select 1
+             from public.bookings b
+            where b.service_request_id = sr.id
+              and b.provider_id = auth.uid()
+              and b.status not in ('pending_payment', 'expired', 'declined', 'cancelled')
+         )
+       )
+  );
+end
+$$;
+revoke all on function public.can_read_request_private(uuid) from public;
+grant execute on function public.can_read_request_private(uuid) to authenticated, service_role;
+do $$
+begin
+  if to_regclass('public.request_private') is not null then
+    execute 'drop policy if exists request_private_customer_or_paid_provider on public.request_private';
+    execute 'create policy request_private_customer_or_paid_provider on public.request_private '
+      || 'for select to authenticated using (public.can_read_request_private(request_id))';
+  end if;
+end;
+$$;
+
+-- 0020 creates the active booking and closes the request in one transaction, so
+-- repeated acceptance must find the booking before checking the request state.
+do $$
+begin
+  if to_regprocedure('public.accept_proposal(uuid,uuid)') is not null then
+    alter function public.accept_proposal(uuid, uuid) rename to _accept_proposal_v20;
+    create function public.accept_proposal(p_proposal_id uuid, p_address_id uuid default null)
+    returns uuid
+    language plpgsql
+    security definer
+    set search_path = public
+    as $wrapper$
+    declare
+      v_uid uuid := public._require_uid();
+      v_booking uuid;
+    begin
+      select b.id into v_booking
+        from public.bookings b
+       where b.proposal_id = p_proposal_id
+         and b.status in ('pending_payment','confirmed','accepted','en_route','in_progress',
+                          'delivery_pending','completion_requested','disputed')
+       limit 1;
+      if found then
+        perform public._assert(exists (
+          select 1 from public.bookings b
+           where b.id = v_booking and b.customer_id = v_uid
+        ), 'only the customer can accept this proposal');
+        return v_booking;
+      end if;
+      return public._accept_proposal_v20(p_proposal_id, p_address_id);
+    end;
+    $wrapper$;
+    grant execute on function public.accept_proposal(uuid, uuid) to authenticated;
+  end if;
+end;
+$$;
+
 do $$
 begin
   perform public._assert(

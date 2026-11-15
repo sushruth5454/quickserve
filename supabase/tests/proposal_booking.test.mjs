@@ -74,8 +74,14 @@ for (const file of [
   '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
   '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
   '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
-  '0017_creator_config.sql', '0020_proposal_milestone_booking.sql',
+  '0017_creator_config.sql',
 ]) await db.exec(migration(file));
+// PGlite executes one script as a single transaction. Commit enum additions independently,
+// matching production migration ordering before the rest of 0020 uses their values.
+const enumAdds = migration('0020_proposal_milestone_booking.sql').match(/^alter type .+;$/gm) ?? [];
+for (const statement of enumAdds) await db.exec(statement);
+await db.exec(migration('0020_proposal_milestone_booking.sql').replace(/^alter type .+;\s*$/gm, ''));
+await db.exec(migration('0022_time_based_booking.sql'));
 
 let runtimeFailures = 0;
 const runtimeOk = (condition, message) => {
