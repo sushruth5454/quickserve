@@ -111,7 +111,7 @@ export type PushPlatform = 'ios' | 'android' | 'web';
 export interface PaymentLinkResponse {
   short_url: string;
   amount: number;
-  purpose: 'visit_fee' | 'balance' | 'fixed' | 'package' | 'addon';
+  purpose: 'visit_fee' | 'balance' | 'fixed' | 'package' | 'advance' | 'milestone' | 'final' | 'addon' | 'session';
 }
 
 export interface ProviderProfileInput {
@@ -149,7 +149,7 @@ export interface Api {
   getMyProfile(): Promise<Profile | null>;
   updateMyProfile(patch: Partial<Pick<Profile, 'full_name' | 'role_customer' | 'role_provider'>>): Promise<void>;
   // discovery
-  listCategories(): Promise<Category[]>;
+  listCategories(city?: string): Promise<Category[]>;
   searchProviders(categorySlug: string, coords: Coords | null, filters: SearchFilters): Promise<ProviderSearchResult[]>;
   listTopRated(limit?: number): Promise<TopRatedProvider[]>;
   getProviderDetail(providerId: string): Promise<ProviderDetail>;

@@ -116,8 +116,10 @@ export async function updateMyProfile(
 }
 
 // ---------- Discovery ----------
-export async function listCategories(): Promise<Category[]> {
-  return unwrap(await supabase.from('categories').select('*').order('sort_order'));
+export async function listCategories(city?: string): Promise<Category[]> {
+  return unwrap(
+    await supabase.rpc('get_catalog', { p_city: city?.trim() || null }),
+  ) as Category[];
 }
 
 export async function searchProviders(
