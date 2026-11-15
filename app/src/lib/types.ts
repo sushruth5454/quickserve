@@ -1,5 +1,6 @@
 export type BookingStatus =
   | 'pending_payment'
+  | 'confirmed'
   | 'requested'
   | 'accepted'
   | 'en_route'
@@ -7,6 +8,7 @@ export type BookingStatus =
   | 'quote_sent'
   | 'awaiting_payment'
   | 'in_progress'
+  | 'delivery_pending'
   | 'completion_requested'
   | 'completed'
   | 'closed'
@@ -21,10 +23,14 @@ export type SkillLevel = 'beginner' | 'skilled' | 'expert' | 'certified';
 export type KycStatus = 'pending' | 'verified' | 'rejected' | 'under_review' | 'needs_clarification' | 'suspended';
 export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
-export type QuoteItemKind = 'labour' | 'part' | 'other';
+export type QuoteItemKind =
+  | 'labour' | 'part' | 'other' | 'material' | 'package' | 'per_unit'
+  | 'travel' | 'rental' | 'discount' | 'addon';
 export type TravelFeeMode = 'none' | 'flat' | 'per_km';
 export type TravelRequestStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'used';
-export type PaymentPurpose = 'visit_fee' | 'balance' | 'fixed';
+export type PaymentPurpose =
+  | 'visit_fee' | 'balance' | 'fixed' | 'advance' | 'milestone' | 'final'
+  | 'platform_fee' | 'package' | 'addon' | 'session';
 export type PaymentStatus = 'created' | 'paid' | 'failed' | 'refund_pending' | 'refund_processing' | 'refunded';
 export type PayoutStatus = 'pending' | 'frozen' | 'transferred' | 'failed' | 'reversed' | 'partially_reversed';
 export type SortOption = 'recommended' | 'rating' | 'price' | 'distance' | 'experience';
@@ -44,6 +50,8 @@ export interface Category {
   name: string;
   icon: string;
   pricing_mode: 'quote' | 'fixed';
+  archetype?: 'fixed' | 'inspect_quote' | 'proposal' | 'time_based' | 'remote';
+  intake_schema?: Record<string, unknown>;
   sort_order: number;
   profile_schema?: Record<string, unknown>;
   review_tags?: string[];
@@ -148,6 +156,12 @@ export interface Booking {
   completion_requested_at: string | null;
   completed_at: string | null;
   travel_request_id?: string | null;
+  service_request_id?: string | null;
+  proposal_id?: string | null;
+  archetype?: 'fixed' | 'inspect_quote' | 'proposal' | 'time_based' | 'remote';
+  payment_hold_expires_at?: string | null;
+  delivery_status?: 'not_applicable' | 'pending' | 'submitted' | 'accepted';
+  delivery_links?: DeliveryLink[];
   travel_requests?: {
     distance_km: number;
     quoted_fee: number;
@@ -360,4 +374,127 @@ export interface ReviewInput {
   pricing?: number;
   comment?: string;
   tags?: string[];
+}
+
+export type ServiceRequestStatus = 'open' | 'closed' | 'booked' | 'expired' | 'cancelled';
+export type ProposalStatus = 'sent' | 'withdrawn' | 'accepted' | 'rejected' | 'expired';
+export type ScheduleStatus = 'upcoming' | 'due' | 'paid' | 'waived' | 'refunded';
+
+export interface ServiceRequest {
+  id: string;
+  customer_id: string;
+  category_id: string;
+  city: string;
+  area: string;
+  event_start: string;
+  event_end: string;
+  intake: Record<string, unknown>;
+  budget_min: number | null;
+  budget_max: number | null;
+  status: ServiceRequestStatus;
+  expires_at: string;
+  created_at: string;
+  categories?: Pick<Category, 'name' | 'slug' | 'icon'> | null;
+}
+
+export interface ProposalRequest extends ServiceRequest {
+  provider_id: string;
+  category_name: string;
+  category_slug: string;
+  routed_at: string;
+}
+
+export interface ProposalItem {
+  id?: string;
+  proposal_id?: string;
+  seq: number;
+  kind: QuoteItemKind;
+  title: string;
+  qty: number;
+  unit: string | null;
+  unit_price: number;
+  bill_photo_url: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProposalScheduleInput {
+  label: string;
+  amount: number;
+  due_rule: 'at_booking' | 'days_before_start:7' | 'days_before_start:1' | 'on_completion' | 'on_delivery';
+}
+
+export interface ProposalSchedule extends ProposalScheduleInput {
+  id: string;
+  proposal_id: string;
+  seq: number;
+  due_at: string | null;
+}
+
+export interface Proposal {
+  id: string;
+  request_id: string;
+  provider_id: string;
+  provider_service_id: string;
+  version: number;
+  status: ProposalStatus;
+  total: number;
+  valid_until: string;
+  note: string | null;
+  deliverables: unknown[];
+  created_at: string;
+  proposal_items: ProposalItem[];
+  proposal_schedule: ProposalSchedule[];
+  providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
+}
+
+export interface PaymentSchedule {
+  id: string;
+  booking_id: string;
+  seq: number;
+  label: string;
+  amount: number;
+  due_rule: string;
+  due_at: string | null;
+  status: ScheduleStatus;
+  purpose: PaymentPurpose;
+  obligation_kind: 'service' | 'platform_fee';
+  payment_id: string | null;
+  reminded_at: string | null;
+  paid_at: string | null;
+}
+
+export interface RequestMessage {
+  id: string;
+  request_id: string;
+  provider_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface DeliveryLink {
+  title: string;
+  url: string;
+}
+
+export interface CreateServiceRequestInput {
+  categoryId: string;
+  city: string;
+  area: string;
+  eventStart: Date;
+  eventEnd: Date;
+  intake: Record<string, unknown>;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  addressId: string | null;
+  venueText: string | null;
+}
+
+export interface SendProposalInput {
+  requestId: string;
+  items: ProposalItem[];
+  schedule: ProposalScheduleInput[];
+  validUntil: Date;
+  note?: string;
+  deliverables?: unknown[];
 }

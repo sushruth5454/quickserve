@@ -39,6 +39,14 @@ import type {
   SkillLevel,
   TravelPreview,
   TravelRequest,
+  ServiceRequest,
+  Proposal,
+  ProposalRequest,
+  RequestMessage,
+  PaymentSchedule,
+  CreateServiceRequestInput,
+  SendProposalInput,
+  DeliveryLink,
 } from './types';
 import type { UnreadCount } from './unread';
 import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
@@ -159,6 +167,120 @@ export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
       .limit(limit)
       .overrideTypes<TopRatedProvider[], { merge: false }>(),
   );
+}
+
+// ---------- Proposal / milestone booking ----------
+export async function createServiceRequest(input: CreateServiceRequestInput): Promise<string> {
+  return unwrap(await supabase.rpc('create_service_request', {
+    p_category_id: input.categoryId,
+    p_city: input.city,
+    p_area: input.area,
+    p_event_start: input.eventStart.toISOString(),
+    p_event_end: input.eventEnd.toISOString(),
+    p_intake: input.intake,
+    p_budget_min: input.budgetMin,
+    p_budget_max: input.budgetMax,
+    p_address_id: input.addressId,
+    p_venue_text: input.venueText,
+  })) as string;
+}
+
+export async function cancelServiceRequest(id: string): Promise<void> {
+  await rpcVoid('cancel_service_request', { p_request_id: id });
+}
+
+export async function listMyServiceRequests(): Promise<ServiceRequest[]> {
+  const uid = await requireUserId();
+  return unwrap(await supabase.from('service_requests').select('*, categories(name, slug, icon)')
+    .eq('customer_id', uid).order('created_at', { ascending: false })) as ServiceRequest[];
+}
+
+export async function listProviderServiceRequests(): Promise<ProposalRequest[]> {
+  return unwrap(await supabase.from('service_request_provider_view')
+    .select('*').order('created_at', { ascending: false })) as ProposalRequest[];
+}
+
+export async function getServiceRequest(id: string): Promise<ServiceRequest | null> {
+  return unwrap(await supabase.from('service_requests').select('*, categories(name, slug, icon)')
+    .eq('id', id).maybeSingle<ServiceRequest>());
+}
+
+export async function listRequestProposals(requestId: string): Promise<Proposal[]> {
+  return unwrap(await supabase.from('proposals')
+    .select('*, proposal_items(*), proposal_schedule(*), providers(rating_avg, rating_count, profiles(full_name))')
+    .eq('request_id', requestId).order('created_at', { ascending: false })) as Proposal[];
+}
+
+export async function getProposal(id: string): Promise<Proposal> {
+  return unwrap(await supabase.from('proposals')
+    .select('*, proposal_items(*), proposal_schedule(*), providers(rating_avg, rating_count, profiles(full_name))')
+    .eq('id', id).single<Proposal>());
+}
+
+export async function sendProposal(input: SendProposalInput): Promise<string> {
+  return unwrap(await supabase.rpc('send_proposal', {
+    p_request_id: input.requestId,
+    p_items: input.items.map(({ kind, title, qty, unit, unit_price, bill_photo_url, metadata }) =>
+      ({ kind, title, qty, unit, unit_price, bill_photo_url, metadata })),
+    p_schedule: input.schedule,
+    p_valid_until: input.validUntil.toISOString(),
+    p_note: input.note ?? null,
+    p_deliverables: input.deliverables ?? [],
+  })) as string;
+}
+
+export async function withdrawProposal(id: string): Promise<void> {
+  await rpcVoid('withdraw_proposal', { p_proposal_id: id });
+}
+
+export async function acceptProposal(id: string, addressId: string | null = null): Promise<string> {
+  return unwrap(await supabase.rpc('accept_proposal', {
+    p_proposal_id: id,
+    p_address_id: addressId,
+  })) as string;
+}
+
+export async function listRequestMessages(requestId: string, providerId: string): Promise<RequestMessage[]> {
+  return unwrap(await supabase.from('request_messages').select('*')
+    .eq('request_id', requestId).eq('provider_id', providerId).order('created_at')) as RequestMessage[];
+}
+
+export async function sendRequestMessage(requestId: string, providerId: string, body: string): Promise<void> {
+  await supabase.rpc('send_request_message', {
+    p_request_id: requestId, p_provider_id: providerId, p_body: body,
+  });
+}
+
+export async function listPaymentSchedule(bookingId: string): Promise<PaymentSchedule[]> {
+  return unwrap(await supabase.from('payment_schedule').select('*')
+    .eq('booking_id', bookingId).order('seq')) as PaymentSchedule[];
+}
+
+export async function createSchedulePayment(bookingId: string, scheduleId: string): Promise<PaymentLinkResponse> {
+  const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
+    body: { booking_id: bookingId, schedule_id: scheduleId },
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Payment link was not created');
+  return data;
+}
+
+export async function startProposalBooking(bookingId: string, otp: string): Promise<OtpResult> {
+  return unwrap(await supabase.rpc('start_proposal_booking', {
+    p_booking_id: bookingId, p_otp: otp,
+  })) as OtpResult;
+}
+
+export async function beginDelivery(bookingId: string): Promise<void> {
+  await rpcVoid('begin_delivery', { p_booking_id: bookingId });
+}
+
+export async function submitDelivery(bookingId: string, links: DeliveryLink[]): Promise<void> {
+  await rpcVoid('submit_delivery', { p_booking_id: bookingId, p_links: links });
+}
+
+export async function acceptDelivery(bookingId: string): Promise<void> {
+  await rpcVoid('accept_delivery', { p_booking_id: bookingId });
 }
 
 /** Columns granted to anon/authenticated on public.providers (migration 0009). */

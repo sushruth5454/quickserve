@@ -7,6 +7,7 @@ import { ProviderCard, skillLabel } from '../../src/components/ProviderCard';
 import {
   BottomSheet,
   Button,
+  Card,
   Chip,
   Dot,
   EmptyState,
@@ -17,12 +18,13 @@ import {
   SkeletonProviderCard,
   Text,
 } from '../../src/components/ui';
-import { searchProviders } from '../../src/lib/api';
+import { listCategories, searchProviders } from '../../src/lib/api';
 import { aiAssistantEnabled } from '../../src/lib/config';
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
 import type { ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
+import type { Category } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 
 const SORTS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -49,6 +51,7 @@ export default function CategoryProviders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [category, setCategory] = useState<Category | null>(null);
   const [sheet, setSheet] = useState<'sort' | 'filter' | null>(null);
   const chipsRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
@@ -57,7 +60,9 @@ export default function CategoryProviders() {
     setLoading(true);
     setError(null);
     try {
-      setResults(await searchProviders(slug, coords, filters));
+      const [rows, catalog] = await Promise.all([searchProviders(slug, coords, filters), listCategories()]);
+      setCategory(catalog.find((c) => c.slug === slug) ?? null);
+      setResults(rows);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -187,6 +192,16 @@ export default function CategoryProviders() {
         </View>
 
         <View style={{ padding: t.spacing.lg, gap: t.spacing.md }}>
+          {category?.archetype === 'proposal' ? (
+            <Card>
+              <Text variant="title3">Describe once. Compare fixed proposals.</Text>
+              <Text color="textSecondary">No money moves until you accept one proposal and pay its protected advance.</Text>
+              <Button
+                title="Get proposals"
+                onPress={() => router.push({ pathname: '/request/new', params: { categoryId: category.id, name: category.name } })}
+              />
+            </Card>
+          ) : null}
           {error ? (
             <ErrorState message={error} onRetry={() => void load()} />
           ) : loading && !results ? (
