@@ -373,7 +373,7 @@ export default function ProviderDetailScreen() {
               {pub.links.map((link) => (
                 <Chip
                   key={link.id}
-                  label={`${link.handle || link.kind}${link.verified ? ' · verified' : ''}`}
+                  label={`${link.handle || link.kind} · ${link.verified ? 'verified stats' : 'provider-submitted'}`}
                   icon="link-outline"
                   onPress={() => void Linking.openURL(link.url)}
                 />

@@ -200,7 +200,7 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
               key={link.id}
               icon="link-outline"
               title={link.handle || link.kind}
-              subtitle={`${link.url} · ${link.status === 'approved' ? 'Live' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Pending review'}`}
+              subtitle={`${link.url} · ${link.status === 'approved' ? 'Provider-submitted · approved' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Provider-submitted · pending review'}`}
               right={
                 <Button
                   title="Remove"

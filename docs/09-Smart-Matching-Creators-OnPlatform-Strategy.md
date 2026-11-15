@@ -130,13 +130,14 @@ Package fields for deliverable work: `deliverables jsonb` (list of `{type, qty, 
 - **URL safety:** https only; blocklist of URL shorteners; links render as non-clickable text until admin approval for the first link of a new provider (anti-spam).
 - **Leakage rule:** links are portfolio-only. Contact details (phone, WhatsApp, email) are never shown and are stripped from bios and captions by the existing chat masking rules. Social profiles are exactly where off-platform contact happens; see Part C.
 
-### B4. Social verification
-- **Instagram:** "Instagram API with Instagram Login". Works only for **Business/Creator** accounts; personal accounts can't connect (the Basic Display API was shut down on 4 Dec 2024). Scope `instagram_business_basic` gives profile, followers and media. Needs **Meta app review** (founder action: Meta developer account, privacy policy URL, screencast). Tokens: short-lived 1 h → long-lived 60 days, refreshed by a cron; stored encrypted (Supabase Vault), never sent to the client. Sources: Meta Instagram Platform docs; summaries at getphyllo.com and upload-post.com (2026).
-- **YouTube:** YouTube Data API v3, OAuth scope `youtube.readonly`; `channels.list` (mine=true) → subscriber and view counts. Google OAuth consent screen verification is a founder action.
-- **Website:** optional DNS TXT or `<meta name="quickserve-verify">` check by an Edge Function.
-- **Fallback (until app review passes):** manual — the provider submits a screen recording of their profile insights; an admin approves and sets `verified_method='manual'`. Stats are then labelled "self-reported".
-- **Never scrape** Instagram/YouTube pages (against their terms).
-- Stats refresh daily for connected accounts. If the token expires or is revoked → stats are hidden and the badge shows "Stats not current".
+### B4. Social profiles and optional verification
+**MVP (required):** providers add an Instagram, YouTube, Facebook or website URL plus a handle. The app shows it as a normal portfolio link, labelled **"Provider-submitted / not verified"**. This is enough to onboard and launch creators; no Meta or Google app approval is required. Stats are not fetched.
+
+**Optional later verification (not a launch blocker):**
+- Instagram Business/Creator accounts can connect through the Meta API only if QuickServe later wants automatically verified follower/media stats. This requires Meta app review and is deliberately out of MVP.
+- YouTube stats similarly require Google OAuth and app verification.
+- Website ownership can optionally be verified by DNS TXT or a `<meta name="quickserve-verify">` tag.
+- Never scrape Instagram/YouTube. Self-reported stats, if ever allowed, must always be labelled **"Self-reported — not independently verified"**.
 
 ### B5. Compliance for influencer bookings
 - ASCI influencer advertising guidelines: paid promotions must carry a clear disclosure (#ad / "Paid partnership"). The booking terms require it, and the deliverable checklist includes "disclosure present". **Verify the current guideline text before launch.**
@@ -264,7 +265,7 @@ Each task has a **Do** and a **Done when**. Payment, RLS, migrations and AI-tool
 **Phase M5: Creator and event categories**
 Depends on doc 07 Phase 1 (packages) and Phase 3 (proposals, deliverables).
 - **M5.1** Category config for B1/B3 (schemas, review tags, packages templates, docs), all `live=false`.
-- **M5.2** Instagram and YouTube connect (OAuth Edge Functions, encrypted tokens, daily stats sync, manual fallback). **Blocked on founder:** Meta app review and Google OAuth verification.
+- **M5.2** MVP social links are provider-submitted URLs/handles ("Provider-submitted / not verified") and launch with M5.1. OAuth/stat sync is a separate optional task after launch.
 - **M5.3** Package cards with deliverables and usage rights; range/from/quote → proposal; B2B business profile and GSTIN on invoices.
 - **M5.4** Launch per category via the doc 07 §6.4 checklist (supply minimums, CA tax matrix, verification).
 
@@ -286,12 +287,11 @@ Depends on doc 07 Phase 1 (packages) and Phase 3 (proposals, deliverables).
 | E4 | Repeat-client commission | −4 points for the same pair within 12 months, floor 5% |
 | E5 | Bring-your-own-client fee | 3%, no commission |
 | E6 | Lead fees | Off; proposal categories only, after the 90-day test (doc 07 D5) |
-| E7 | Social stats | Show only verified (OAuth) stats as numbers; self-reported stats labelled |
+| E7 | Social profiles/stats | MVP: show the provider-submitted link/handle, labelled "Provider-submitted / not verified"; optional OAuth stats must be verified and clearly marked |
 | E8 | Contact info in profiles and links | Never; links are portfolio only |
 
 **Founder actions:**
-1. Meta developer app + Instagram Login app review.
-2. Google OAuth verification for YouTube.
-3. CA: coins accounting, GST on discounts and creator services, RBI PPI position.
-4. Legal: ASCI disclosure terms; creator usage-rights template.
-5. Provider agreement update (anti-circumvention clause, repeat-client terms).
+1. CA: coins accounting, GST on discounts and creator services, RBI PPI position.
+2. Legal: ASCI disclosure terms; creator usage-rights template.
+3. Provider agreement update (anti-circumvention clause, repeat-client terms).
+4. Optional later: Meta app review and Google OAuth only if automatically verified social stats become valuable enough to justify them.
