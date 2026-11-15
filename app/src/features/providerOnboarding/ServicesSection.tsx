@@ -9,10 +9,11 @@ import { formatINR } from '../../lib/money';
 import { onboardingApi, type PriceGuidance } from '../../lib/onboarding';
 import { SKILL_LEVEL_INFO } from '../../lib/onboarding/copy';
 import { parseRupees, validateFees, validateProfileAttributes } from '../../lib/onboarding/validation';
-import type { ProviderService, RateUnit, SkillLevel } from '../../lib/types';
+import type { ProviderService, RateUnit, ServicePackage, SkillLevel } from '../../lib/types';
 import type { ProfileSchema } from '../../lib/onboarding';
 import { useTheme } from '../../theme';
 import { FieldLabel, Intro, MultiChips, SectionFooter, type SectionProps } from './parts';
+import { ProviderPackageEditor } from './ProviderPackageEditor';
 
 const LEVELS: SkillLevel[] = ['beginner', 'skilled', 'expert', 'certified'];
 type Svc = ProviderService & { specialisations?: string[]; brands?: string[]; tools?: string[] };
@@ -235,6 +236,17 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
                     </View>
                   );
                 }
+                if (spec.type === 'boolean') return <View key={key} style={{ gap: t.spacing.sm }}><FieldLabel>{attrLabel(key)}</FieldLabel><View style={{ flexDirection: 'row', gap: t.spacing.sm }}><Chip label="Yes" selected={current === true} onPress={() => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: true } }))} /><Chip label="No" selected={current === false} onPress={() => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: false } }))} /></View></View>;
+                if (spec.type === 'integer' || spec.type === 'number') return (
+                  <Input key={key} label={attrLabel(key)} keyboardType="numeric" value={current == null ? '' : String(current)} onChangeText={(value) => {
+                    const cleaned = value.replace(spec.type === 'integer' ? /[^\d-]/g : /[^\d.-]/g, '');
+                    const numeric = cleaned.trim() === '' ? undefined : Number(cleaned);
+                    setEd((state) => { const attributes = { ...state.attributes }; if (numeric != null && Number.isFinite(numeric)) attributes[key] = numeric; else delete attributes[key]; return { ...state, attributes }; });
+                  }} />
+                );
+                if (spec.type === 'string' || (spec.type === 'array' && valuesOrEmpty(spec).length === 0)) return (
+                  <Input key={key} label={attrLabel(key)} value={spec.type === 'array' ? (Array.isArray(current) ? current : []).join(', ') : current == null ? '' : String(current)} helper={spec.type === 'array' ? 'Separate multiple values with commas.' : undefined} onChangeText={(value) => setEd((state) => ({ ...state, attributes: { ...state.attributes, [key]: spec.type === 'array' ? value.split(',').map((item) => item.trim()).filter(Boolean) : value } }))} />
+                );
                 return null;
               })}
             </View>
@@ -336,6 +348,8 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   );
 }
 
+function valuesOrEmpty(spec: ProfileSchema['properties'][string]) { return spec.enum ?? spec.items?.enum ?? []; }
+
 function docNames(codes: string[], types: { code: string; label: string }[]): string {
   return codes.map((c) => types.find((x) => x.code === c)?.label ?? c).join(', ');
 }
@@ -378,6 +392,7 @@ function ServiceCard(props: {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [adding, setAdding] = useState(false);
+  const [packageEditing, setPackageEditing] = useState<ServicePackage | 'new' | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const items = s.rate_card_items ?? [];
@@ -445,6 +460,11 @@ function ServiceCard(props: {
           />
         </View>
       ))}
+      <View style={{ gap: t.spacing.md, borderTopWidth: 1, borderTopColor: t.colors.border, paddingTop: t.spacing.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text variant="footnoteStrong" color="muted">Packages</Text>{!packageEditing ? <Button title="Add package" size="sm" variant="ghost" leftIcon="add" onPress={() => setPackageEditing('new')} /> : null}</View>
+        {(s.service_packages ?? []).map((item) => <View key={item.id} style={{ gap: 6, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, padding: t.spacing.md }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}><Text variant="calloutStrong" style={{ flex: 1 }}>{item.title}</Text>{!item.active ? <Badge label="Hidden" tone="neutral" /> : null}<Button title="Edit" size="sm" variant="ghost" onPress={() => setPackageEditing(item)} /></View><Text variant="footnoteStrong" color="primaryText">{packagePriceLabel(item)}</Text>{item.deliverables.length ? <Text variant="footnote" color="textSecondary">{item.deliverables.map((d) => `${d.qty} × ${d.type} — ${d.spec}`).join('\n')}</Text> : null}<Button title="Delete package" size="sm" variant="destructiveGhost" onPress={() => void onboardingApi.deleteServicePackage(item.id).then(props.onChanged).then(() => setPackageEditing(null)).catch((e: Error) => setErr(e.message))} /></View>)}
+        {packageEditing ? <ProviderPackageEditor key={packageEditing === 'new' ? 'new' : packageEditing.id} providerServiceId={s.id} servicePackage={packageEditing === 'new' ? undefined : packageEditing} onCancel={() => setPackageEditing(null)} onSaved={async () => { setPackageEditing(null); await props.onChanged(); }} /> : null}
+      </View>
       <InlineAlert message={err} />
       {adding ? (
         <View style={{ gap: t.spacing.sm }}>
@@ -467,4 +487,11 @@ function ServiceCard(props: {
       {s.active ? <Button title="Remove service" size="sm" variant="destructiveGhost" onPress={props.onRemove} style={{ alignSelf: 'flex-start' }} /> : null}
     </Card>
   );
+}
+
+function packagePriceLabel(servicePackage: ServicePackage) {
+  if (servicePackage.price_type === 'quote') return 'Price on request';
+  if (servicePackage.price_type === 'range') return `${formatINR(servicePackage.price_min ?? 0)}–${formatINR(servicePackage.price_max ?? 0)} / ${servicePackage.unit}`;
+  if (servicePackage.price_type === 'from') return `From ${formatINR(servicePackage.price_min ?? 0)} / ${servicePackage.unit}`;
+  return `${formatINR(servicePackage.price ?? servicePackage.price_min ?? 0)} / ${servicePackage.unit}`;
 }

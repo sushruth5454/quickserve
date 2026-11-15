@@ -1,5 +1,5 @@
 /** Types for provider onboarding v2 (docs/08-Provider-Onboarding.md). Mirrors get_my_provider_onboarding(). */
-import type { Provider, RateUnit, SkillLevel } from '../types';
+import type { PackageDeliverable, PackagePriceType, PackageUnit, Provider, RateUnit, SkillLevel } from '../types';
 
 export type GoLiveState = 'draft' | 'under_review' | 'action_needed' | 'live' | 'suspended' | 'deactivated';
 
@@ -165,6 +165,14 @@ export interface ServiceDetailsInput {
   attributes: Record<string, unknown>;
 }
 
+export interface ServicePackageInput {
+  title: string; description: string; price_type: PackagePriceType; price: number | null; price_min: number | null; price_max: number | null;
+  unit: PackageUnit; qty_min: number; qty_max: number; duration_min: number | null; inclusions: string[]; exclusions: string[];
+  deliverables: PackageDeliverable[]; turnaround_days: number | null; revisions_included: number; raw_files_included: boolean;
+  usage_rights: { organic_posting?: boolean; paid_ads_days?: number; exclusivity_days?: number };
+  travel_included_km: number; active: boolean; sort_order: number;
+}
+
 export interface ProviderLinkInput {
   kind: ProviderLinkKind;
   url: string;
@@ -288,6 +296,8 @@ export interface OnboardingApi {
   uploadAvatar(uri: string, mimeType: string): Promise<string>;
   saveServiceArea(input: ServiceAreaInput): Promise<void>;
   saveService(input: ServiceDetailsInput): Promise<void>;
+  saveServicePackage(packageId: string | null, providerServiceId: string, input: ServicePackageInput): Promise<string>;
+  deleteServicePackage(packageId: string): Promise<void>;
   listProviderLinks(): Promise<ProviderLink[]>;
   saveProviderLink(input: ProviderLinkInput): Promise<void>;
   deleteProviderLink(id: string): Promise<void>;

@@ -91,6 +91,18 @@ export interface RateCardItem {
   price: number;
 }
 
+export type PackagePriceType = 'fixed' | 'range' | 'from' | 'quote';
+export type PackageUnit = 'job' | 'hour' | 'day' | 'session' | 'person' | 'plate' | 'sqft' | 'bhk' | 'seat' | 'litre' | 'event' | 'month';
+export interface PackageDeliverable { type: string; qty: number; spec: string; }
+export interface ServicePackage {
+  id: string; provider_service_id: string; package_template_id: string | null; title: string; description: string;
+  price_type: PackagePriceType; price: number | null; price_min: number | null; price_max: number | null; unit: PackageUnit;
+  qty_min: number; qty_max: number; duration_min: number | null; inclusions: string[]; exclusions: string[];
+  deliverables: PackageDeliverable[]; turnaround_days: number | null; revisions_included: number; raw_files_included: boolean;
+  usage_rights: { organic_posting?: boolean; paid_ads_days?: number; exclusivity_days?: number };
+  travel_included_km: number; active: boolean; sort_order: number; created_at: string; updated_at: string;
+}
+
 export interface ProviderService {
   id: string;
   provider_id: string;
@@ -103,6 +115,7 @@ export interface ProviderService {
   attributes?: Record<string, unknown>;
   categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
   rate_card_items?: RateCardItem[];
+  service_packages?: ServicePackage[];
 }
 
 export interface Booking {
