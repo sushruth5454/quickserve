@@ -67,6 +67,7 @@ const asCustomer = (sql, params) => as(CUSTOMER, 'authenticated', sql, params);
 const asProvider = (sql, params) => as(PROVIDER, 'authenticated', sql, params);
 const asAdmin = (sql, params) => as(ADMIN, 'authenticated', sql, params);
 const service = (sql, params) => as(null, 'service_role', sql, params);
+const root = async (sql, params) => (await db.query(sql, params)).rows;
 async function expectError(fn, re, message) {
   try {
     await fn();
@@ -113,20 +114,20 @@ const prior = '10000000-0000-0000-0000-000000000001';
 const repeat = '10000000-0000-0000-0000-000000000002';
 await insertBooking(prior, 'completed', new Date(Date.now() - 2 * 86400000));
 await insertBooking(repeat, 'completed');
-const [{ bp: repeatBp }] = await service(
+const [{ bp: repeatBp }] = await root(
   `select _commission_bp($1, $2, $3, now()) as bp`,
   [PROVIDER, CUSTOMER, repeat],
 );
 ok(repeatBp === 800, 'repeat client receives 8% (12% less 4 points)');
 await db.exec(`update providers set jobs_completed = 200 where id = '${PROVIDER}'`);
-const [{ bp: floorBp }] = await service(
+const [{ bp: floorBp }] = await root(
   `select _commission_bp($1, $2, $3, now()) as bp`,
   [PROVIDER, CUSTOMER, repeat],
 );
 ok(floorBp === 500, 'repeat discount is floored at 5% for the 8% tier');
 
 await db.exec(`update bookings set completed_at = now() - interval '13 months' where id = '${prior}'`);
-const [{ bp: expiredBp }] = await service(
+const [{ bp: expiredBp }] = await root(
   `select _commission_bp($1, $2, $3, now()) as bp`,
   [PROVIDER, CUSTOMER, repeat],
 );
@@ -139,8 +140,8 @@ await service(
    values ($1, 'fixed', 10000, 'paid', 'pay_repeat', now())`,
   [repeat],
 );
-await service(`select _create_payout($1, 10000, 10000, now() + interval '1 day')`, [repeat]);
-await service(`select _create_payout($1, 10000, 10000, now() + interval '1 day')`, [repeat]);
+await root(`select _create_payout($1, 10000, 10000, now() + interval '1 day')`, [repeat]);
+await root(`select _create_payout($1, 10000, 10000, now() + interval '1 day')`, [repeat]);
 const [repeatPayout] = await service(
   `select po.*, (select sum(amount) from payout_transfers where payout_id = po.id) transfer_total
      from payouts po where booking_id = $1`,
