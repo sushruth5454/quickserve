@@ -221,11 +221,12 @@ jobs:
             v_provider_service_id uuid;
             v_category_id uuid;
             v_price int;
+            v_duration int;
           begin
             v_start := now() + interval '1 day';
             v_end := v_start + interval '2 hours';
-            select sp.id, ps.provider_id, p.city
-              into v_package_id, v_provider_id, v_city
+            select sp.id, ps.provider_id, p.city, sp.duration_min
+              into v_package_id, v_provider_id, v_city, v_duration
               from public.service_packages sp
               join public.provider_services ps on ps.id = sp.provider_service_id
               join public.providers p on p.id = ps.provider_id
@@ -282,6 +283,8 @@ jobs:
                 'fixed', v_price, v_price, v_price, 'job', 1, 1, 90, true
               ) returning id into v_package_id;
             end if;
+            -- The window must cover the package duration (e.g. a 3-hour deep clean).
+            v_end := v_start + make_interval(mins => greatest(coalesce(v_duration, 0), 120));
             select id into v_customer_id
               from public.profiles
              where id <> v_provider_id and role_customer
