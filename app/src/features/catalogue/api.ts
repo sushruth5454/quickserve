@@ -1,7 +1,8 @@
 import { isDemoMode } from '../../lib/config';
 import { demoApi } from '../../lib/demo/demoApi';
 import { supabase } from '../../lib/supabase';
-import type { Category, PaymentLinkResponse, ServicePackage } from '../../lib/types';
+import type { PaymentLinkResponse } from '../../lib/apiTypes';
+import type { Category, ServicePackage } from '../../lib/types';
 import { normaliseCatalogue, type Catalogue } from './model';
 
 type SupabaseResult<T> = { data?: T | null; error: { message: string } | null };

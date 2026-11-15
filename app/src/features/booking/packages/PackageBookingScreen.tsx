@@ -127,7 +127,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       header={<Header title={archetype === 'fixed' ? 'Book package' : pack ? 'Buy a session pack' : 'Book a session'} right={<IconButton icon="location-outline" onPress={() => router.push('/location')} accessibilityLabel="Change service address" />} />}
       footer={
         <View style={{ gap: t.spacing.sm }}>
-          <PriceRow label={pack ? `${quantity} sessions` : 'Total'} value={formatINR(total)} strong />
+          <PriceRow label={pack ? `${quantity} sessions` : 'Total'} amount={total} emphasis="total" />
           <Button title={`Pay ${formatINR(total)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon="lock-closed" />
         </View>
       }
