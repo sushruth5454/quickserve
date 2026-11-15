@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type Dispatch, type SetStateAction } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { CategoryIcon, iconForSlug } from '../../components/CategoryIcon';
 import { SkillBadge } from '../../components/ProviderCard';
@@ -18,8 +18,14 @@ import {
   configuredExpertiseCount,
   configuredFieldIsExpertise,
   EMPTY_SERVICE_EDITOR_STATE,
-  expertiseExplanation,
+  expertiseGroups,
+  expertiseSelected,
   humanize,
+  selectedExpertiseCount,
+  serviceExpertiseLabels,
+  toggleExpertise,
+  type ExpertiseGroup,
+  type ExpertiseOption,
   profileFieldOptions,
   selectServiceCategory,
   SERVICE_EDITOR_STEPS,
@@ -41,6 +47,11 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   const confirm = useConfirm();
   const services = data.services as EditableService[];
   const active = services.filter((service) => service.active);
+  const removed = services.filter((service) => !service.active);
+  const [showRemoved, setShowRemoved] = useState(false);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const schemaFor = (categoryId: string) =>
+    (data.categories.find((item) => item.id === categoryId)?.profile_schema ?? { type: 'object', properties: {} }) as unknown as ProfileSchema;
   const [ed, setEd] = useState<ServiceEditorState>({ ...EMPTY_SERVICE_EDITOR_STATE });
   const [stepIndex, setStepIndex] = useState(0);
   const [editorOpen, setEditorOpen] = useState(active.length === 0);
@@ -71,6 +82,12 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
     setErrors({});
     setError(null);
     setEditorOpen(true);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const goToStep = (index: number) => {
+    setStepIndex(index);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const close = () => {
@@ -89,7 +106,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   const continueStep = () => {
     if (!validateStep(step)) return;
     setErrors({});
-    setStepIndex((current) => Math.min(current + 1, SERVICE_EDITOR_STEPS.length - 1));
+    goToStep(Math.min(stepIndex + 1, SERVICE_EDITOR_STEPS.length - 1));
   };
 
   const firstErrorStep = (validation: ServiceEditorErrors) => {
@@ -105,7 +122,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
     const validation = validateServiceEditor(ed, schema, data.skills, radiusKm);
     setErrors(validation);
     if (Object.keys(validation).length) {
-      setStepIndex(firstErrorStep(validation));
+      goToStep(firstErrorStep(validation));
       return;
     }
     setSaving(true);
@@ -154,6 +171,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
     <Screen
       header={header}
       gap={t.spacing.xl}
+      scrollRef={scrollRef}
       footer={(
         <SectionFooter
           primary={mode === 'wizard' ? 'Continue' : 'Done'}
@@ -163,16 +181,22 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
         />
       )}
     >
-      <Intro title="Services & skills" subtitle="Build a clear service profile from configured categories and expertise." />
+      <Intro
+        title="Services & skills"
+        subtitle={editorOpen ? undefined : 'Add each trade you offer, then tick the exact jobs you do. Customers are matched on these.'}
+      />
       <InlineAlert message={error} />
 
-      {services.map((service) => (
+      {!editorOpen && active.length ? (
+        <Button title="Add another service" variant="outline" leftIcon="add" onPress={() => open()} />
+      ) : null}
+
+      {!editorOpen ? active.map((service) => (
         <ServiceCard
           key={service.id}
           service={service}
-          skillLabels={data.skills
-            .filter((skill) => skill.category_id === service.category_id && skill.kind === 'skill' && (service.specialisations ?? []).includes(skill.slug))
-            .map((skill) => skill.label)}
+          skillLabels={serviceExpertiseLabels(service, data.skills, schemaFor(service.category_id))}
+          expertiseAvailable={expertiseGroups(data.skills, service.category_id, schemaFor(service.category_id)).length > 0}
           rateSuggestions={data.skills.filter((skill) => skill.category_id === service.category_id && skill.kind === 'rate_item').map((skill) => skill.label)}
           onEdit={() => open(service)}
           onRemove={async () => {
@@ -183,9 +207,30 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
           }}
           onChanged={reload}
         />
-      ))}
+      )) : null}
 
-      {services.length === 0 && !editorOpen ? (
+      {!editorOpen && removed.length ? (
+        <Card gap={t.spacing.sm}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showRemoved }}
+            onPress={() => setShowRemoved((value) => !value)}
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 }}
+          >
+            <Text variant="calloutStrong">Removed services ({removed.length})</Text>
+            <Text variant="footnoteStrong" color="primaryText">{showRemoved ? 'Hide' : 'Show'}</Text>
+          </Pressable>
+          {showRemoved ? removed.map((service) => (
+            <View key={service.id} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, minHeight: 44 }}>
+              <CategoryIcon icon={iconForSlug(service.categories?.slug)} size={32} />
+              <Text variant="callout" style={{ flex: 1 }}>{service.categories?.name}</Text>
+              <Button title="Restore" size="sm" variant="ghost" accessibilityLabel={`Restore ${service.categories?.name}`} onPress={() => open(service)} />
+            </View>
+          )) : null}
+        </Card>
+      ) : null}
+
+      {active.length === 0 && !editorOpen ? (
         <Card gap={t.spacing.md} variant="elevated" style={{ alignItems: 'center', paddingVertical: t.spacing.xl }}>
           <CategoryIcon icon={iconForSlug('service')} size={56} />
           <Text variant="title3" accessibilityRole="header">{SERVICE_EDITOR_COPY.emptyTitle}</Text>
@@ -213,7 +258,15 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
               locked={!!ed.serviceId}
               activeCategoryIds={new Set(active.map((service) => service.category_id))}
               error={errors.category}
-              onSelect={(categoryId) => setEd((current) => selectServiceCategory(current, categoryId))}
+              onSelect={(categoryId) => {
+                const existing = services.find((service) => service.category_id === categoryId);
+                if (!ed.serviceId && existing) {
+                  setEd(serviceEditorStateFromService(existing));
+                  toast({ message: `${existing.categories?.name ?? 'This service'} is already on your profile — editing it`, tone: 'default' });
+                  return;
+                }
+                setEd((current) => selectServiceCategory(current, categoryId));
+              }}
             />
           ) : null}
 
@@ -264,7 +317,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
           ) : null}
 
           <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
-            <Button title={stepIndex === 0 ? 'Cancel' : 'Back'} variant="outline" onPress={() => stepIndex === 0 ? close() : setStepIndex((current) => current - 1)} style={{ flex: 1 }} />
+            <Button title={stepIndex === 0 ? 'Cancel' : 'Back'} variant="outline" onPress={() => stepIndex === 0 ? close() : goToStep(stepIndex - 1)} style={{ flex: 1 }} />
             {step === 'review' ? (
               <Button title={ed.serviceId ? 'Save changes' : 'Save service'} leftIcon="checkmark" loading={saving} onPress={() => void save()} style={{ flex: 2 }} />
             ) : (
@@ -272,9 +325,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
             )}
           </View>
         </Card>
-      ) : (
-        <Button title={active.length ? 'Add another service' : 'Add a service'} variant="outline" leftIcon="add" onPress={() => open()} />
-      )}
+      ) : null}
     </Screen>
   );
 }
@@ -321,7 +372,7 @@ function CategoryStep({ categories, selectedId, locked, activeCategoryIds, error
               <CategoryIcon icon={iconForSlug(category.slug)} size={44} />
               <View style={{ flex: 1, gap: 3 }}>
                 <Text variant="calloutStrong" color={selected ? 'primaryText' : 'text'}>{category.name}</Text>
-                <Text variant="footnote" color="muted">{activeCategoryIds.has(category.id) ? 'Already on your profile' : 'Choose this service'}</Text>
+                <Text variant="footnote" color="muted">{activeCategoryIds.has(category.id) ? 'Already added · tap to edit' : 'Choose this service'}</Text>
               </View>
             </Pressable>
           );
@@ -340,58 +391,67 @@ function ExpertiseStep({ state, schema, skills, error, onState, onToggle }: {
   onToggle: (key: 'specialisations' | 'brands' | 'tools', value: string) => void;
 }) {
   const t = useTheme();
-  const taskOptions = skillsForCategory(skills, state.categoryId, 'skill');
-  const expertiseFields = Object.entries(schema.properties).filter(([key, field]) => configuredFieldIsExpertise(key, field));
+  const groups = expertiseGroups(skills, state.categoryId, schema);
+  const selectedCount = selectedExpertiseCount(groups, state);
+  const isSelected = (group: ExpertiseGroup, option: ExpertiseOption) =>
+    expertiseSelected(group, option, state.specialisations, state.attributes);
+  const toggleOption = (group: ExpertiseGroup, option: ExpertiseOption) => onState((current) => toggleExpertise(current, group, option));
+  const selectAll = (group: ExpertiseGroup) => {
+    const all = group.options.every((option) => isSelected(group, option));
+    onState((current) =>
+      group.options.reduce(
+        (next, option) => (all === expertiseSelected(group, option, next.specialisations, next.attributes) ? toggleExpertise(next, group, option) : next),
+        current,
+      ),
+    );
+  };
   return (
     <View style={{ gap: t.spacing.lg }}>
-      <FieldLabel error={error} hint="Use the configured options so customers get accurate matches.">Exact expertise</FieldLabel>
-      {taskOptions.length ? (
-        <View style={{ gap: t.spacing.sm }}>
-          {taskOptions.map((option) => {
-            const selected = state.specialisations.includes(option.value);
-            return <ChoiceCard key={option.value} label={option.label} explanation={expertiseExplanation(option.label)} selected={selected} onPress={() => onToggle('specialisations', option.value)} />;
-          })}
+      {groups.length ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text variant="footnote" color="muted" style={{ flex: 1 }}>Tap every job you can do on your own.</Text>
+          <Badge label={`${selectedCount} selected`} tone={selectedCount ? 'success' : 'neutral'} />
         </View>
-      ) : null}
-      {expertiseFields.map(([key, field]) => (
-        <View key={key} style={{ gap: t.spacing.sm }}>
-          <FieldLabel>{humanize(key)}</FieldLabel>
-          {profileFieldOptions(field).map((value) => {
-            const selectedValues = Array.isArray(state.attributes[key]) ? state.attributes[key] as string[] : [];
-            const selected = selectedValues.includes(value);
-            return (
-              <ChoiceCard
-                key={value}
-                label={humanize(value)}
-                explanation={expertiseExplanation(humanize(value))}
-                selected={selected}
-                onPress={() => onState((current) => ({
-                  ...current,
-                  attributes: { ...current.attributes, [key]: selected ? selectedValues.filter((item) => item !== value) : [...selectedValues, value] },
-                }))}
-              />
-            );
-          })}
-        </View>
-      ))}
-      {configuredExpertiseCount(state, schema) === 0 && taskOptions.length === 0 && expertiseFields.length === 0 ? (
-        <InlineAlert tone="info" message="This category has no separate expertise list. Continue and add its other configured details." />
-      ) : null}
-      <View style={{ gap: t.spacing.sm }} accessibilityRole="radiogroup" accessibilityLabel="Skill level">
-        <FieldLabel>Experience level</FieldLabel>
-        {LEVELS.map((level) => {
-          const selected = state.level === level;
-          return (
-            <ChoiceCard
+      ) : (
+        <InlineAlert tone="info" message="This category has no expertise list. Just choose your experience level." />
+      )}
+      {error ? <Text variant="footnote" color="dangerText" accessibilityLiveRegion="polite">{error}</Text> : null}
+      {groups.map((group) => {
+        const all = group.options.every((option) => isSelected(group, option));
+        return (
+          <View key={group.key} style={{ gap: t.spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text variant="subheadStrong">{group.title}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`${all ? 'Clear' : 'Select all'} ${group.title}`} onPress={() => selectAll(group)} hitSlop={8}>
+                <Text variant="footnoteStrong" color="primaryText">{all ? 'Clear' : 'Select all'}</Text>
+              </Pressable>
+            </View>
+            <MultiChips
+              label={group.title}
+              options={group.options}
+              selected={group.options.filter((option) => isSelected(group, option)).map((option) => option.value)}
+              onToggle={(value) => {
+                const option = group.options.find((item) => item.value === value);
+                if (option) toggleOption(group, option);
+              }}
+            />
+          </View>
+        );
+      })}
+      <View style={{ gap: t.spacing.sm }} accessibilityRole="radiogroup" accessibilityLabel="Experience level">
+        <Text variant="subheadStrong">Experience level</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+          {LEVELS.map((level) => (
+            <Chip
               key={level}
               label={SKILL_LEVEL_INFO[level].title}
-              explanation={SKILL_LEVEL_INFO[level].description}
-              selected={selected}
+              selected={state.level === level}
+              accessibilityLabel={`Experience level ${SKILL_LEVEL_INFO[level].title}`}
               onPress={() => onState((current) => ({ ...current, level }))}
-              role="radio"
             />
-          );
-        })}
+          ))}
+        </View>
+        <Text variant="footnote" color="muted">{SKILL_LEVEL_INFO[state.level].description}</Text>
       </View>
     </View>
   );
@@ -560,36 +620,6 @@ function CoverageStep({ state, radiusKm, error, onState }: {
   );
 }
 
-function ChoiceCard({ label, explanation, selected, onPress, role = 'checkbox' }: {
-  label: string;
-  explanation: string;
-  selected: boolean;
-  onPress: () => void;
-  role?: 'checkbox' | 'radio';
-}) {
-  const t = useTheme();
-  return (
-    <Pressable
-      accessibilityRole={role}
-      accessibilityLabel={`${label}. ${explanation}`}
-      accessibilityState={role === 'radio' ? { checked: selected } : { checked: selected }}
-      onPress={onPress}
-      style={{
-        minHeight: 56,
-        borderWidth: selected ? 1.5 : 1,
-        borderColor: selected ? t.colors.primary : t.colors.border,
-        backgroundColor: selected ? t.colors.primarySoft : t.colors.surface,
-        borderRadius: t.radii.md,
-        padding: t.spacing.md,
-        gap: 3,
-      }}
-    >
-      <Text variant="calloutStrong" color={selected ? 'primaryText' : 'text'}>{label}</Text>
-      <Text variant="footnote" color="muted">{explanation}</Text>
-    </Pressable>
-  );
-}
-
 function ServiceDraftSummary({ state, categoryName, skills, schema, packageCount }: {
   state: ServiceEditorState;
   categoryName: string;
@@ -598,13 +628,11 @@ function ServiceDraftSummary({ state, categoryName, skills, schema, packageCount
   packageCount: number;
 }) {
   const t = useTheme();
-  const skillLabels = skillsForCategory(skills, state.categoryId, 'skill').filter((item) => state.specialisations.includes(item.value)).map((item) => item.label);
-  const attributeLabels = Object.entries(schema.properties)
-    .filter(([key, field]) => configuredFieldIsExpertise(key, field))
-    .flatMap(([key]) => (Array.isArray(state.attributes[key]) ? state.attributes[key] as string[] : [state.attributes[key]]))
-    .filter(Boolean)
-    .map((value) => humanize(String(value)));
-  const expertise = [...skillLabels, ...attributeLabels];
+  const expertise = serviceExpertiseLabels(
+    { category_id: state.categoryId ?? '', specialisations: state.specialisations, attributes: state.attributes } as unknown as EditableService,
+    skills,
+    schema,
+  );
   const travel = state.travelFeeMode === 'none'
     ? 'Normal service area only'
     : `${state.maxTravel} km, ${state.travelFeeMode === 'flat' ? `${formatINR(parseRupees(state.travelFlat) ?? 0)} flat` : `${formatINR(parseRupees(state.travelPerKm) ?? 0)}/km`}`;
@@ -660,6 +688,7 @@ function PriceGuidanceCard({ guidance, city, hasCategory }: { guidance: PriceGui
 function ServiceCard(props: {
   service: EditableService;
   skillLabels: string[];
+  expertiseAvailable: boolean;
   rateSuggestions: string[];
   onEdit: () => void;
   onRemove: () => void;
@@ -713,14 +742,17 @@ function ServiceCard(props: {
         Visit {formatINR(s.visit_fee)} · Labour {formatINR(s.labour_rate)}/{s.rate_unit}
       </Text>
       {props.skillLabels.length ? (
-        <Text variant="footnote" color="muted">
-          {props.skillLabels.join(' · ')}
-        </Text>
-      ) : (
-        <Text variant="footnote" color="warningText">
-          No specialisations yet — tap Edit to add them.
-        </Text>
-      )}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel={`Expertise: ${props.skillLabels.join(', ')}`}>
+          {props.skillLabels.slice(0, 8).map((label) => <Badge key={label} label={label} tone="neutral" />)}
+          {props.skillLabels.length > 8 ? <Badge label={`+${props.skillLabels.length - 8} more`} tone="neutral" /> : null}
+        </View>
+      ) : props.expertiseAvailable ? (
+        <Pressable accessibilityRole="button" onPress={props.onEdit}>
+          <Text variant="footnote" color="warningText">
+            No expertise selected — customers can’t match you to specific jobs. Tap to add.
+          </Text>
+        </Pressable>
+      ) : null}
       {items.map((r) => (
         <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
           <Text variant="callout" style={{ flex: 1 }}>

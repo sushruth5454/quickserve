@@ -16,10 +16,16 @@ import { checkUpload, parseRupees, validateBasics, validateFees, validatePayoutF
 import { WINDOW_START_HOURS } from '../schedule';
 import {
   configuredExpertiseCount,
+  expertiseGroups,
   packageHasContactHint,
+  sameExpertise,
+  selectedExpertiseCount,
   selectServiceCategory,
   serviceEditorStateFromService,
+  serviceExpertiseLabels,
+  toggleExpertise,
   validateServiceEditor,
+  type ServiceEditorState,
 } from '../../features/providerOnboarding/serviceEditor';
 
 /** An instant given as IST wall-clock time, independent of the test machine's timezone. */
@@ -258,6 +264,54 @@ describe('validation', () => {
     expect(configuredExpertiseCount(state, schema)).toBe(2);
     expect(validateServiceEditor(state, schema, skills, 10)).toEqual({});
     expect(validateServiceEditor({ ...state, specialisations: [], attributes: {} }, schema, skills, 10).expertise).toMatch(/at least one/);
+  });
+
+  it('groups configured jobs and expertise fields, and labels saved selections from both', () => {
+    const schema = {
+      type: 'object' as const,
+      properties: {
+        equipment: { type: 'array' as const, items: { type: 'string' as const, enum: ['split', 'window', 'cassette'] } },
+        pests: { type: 'array' as const, items: { type: 'string' as const, enum: ['bed_bugs', 'rats'] } },
+        supplies_mode: { type: 'string' as const, enum: ['included', 'customer'] },
+      },
+    };
+    const skills = [
+      { id: 's1', category_id: 'ac', kind: 'skill' as const, slug: 'split', label: 'Split AC', sort_order: 1 },
+      { id: 's2', category_id: 'ac', kind: 'skill' as const, slug: 'bugs', label: 'Bed bugs', sort_order: 2 },
+      { id: 's3', category_id: 'ac', kind: 'brand' as const, slug: 'lg', label: 'LG', sort_order: 1 },
+      { id: 's4', category_id: 'other', kind: 'skill' as const, slug: 'x', label: 'Window', sort_order: 1 },
+    ];
+    const groups = expertiseGroups(skills, 'ac', schema);
+    // Duplicates (split ↔ Split AC, bed_bugs ↔ Bed bugs) fold into the job; other categories' jobs never link.
+    expect(groups.map((group) => [group.title, group.options.map((option) => option.label)])).toEqual([
+      ['Jobs you do', ['Split AC', 'Bed bugs']],
+      ['Equipment', ['Window', 'Cassette']],
+      ['Pests', ['Rats']],
+    ]);
+
+    const jobs = groups[0]!;
+    let state: ServiceEditorState = { ...serviceEditorStateFromService(), categoryId: 'ac' };
+    state = toggleExpertise(state, jobs, jobs.options[0]!);
+    expect(state.specialisations).toEqual(['split']);
+    expect(state.attributes).toEqual({ equipment: ['split'] });
+    expect(selectedExpertiseCount(groups, state)).toBe(1);
+    state = toggleExpertise(state, jobs, jobs.options[0]!);
+    expect(state.specialisations).toEqual([]);
+    expect(state.attributes).toEqual({});
+
+    // A legacy attribute-only selection still shows the job as chosen.
+    const legacy = { category_id: 'ac', specialisations: [], attributes: { equipment: ['split', 'window'] } };
+    expect(serviceExpertiseLabels(legacy as never, skills, schema)).toEqual(['Split AC', 'Window']);
+    expect(serviceExpertiseLabels({ category_id: 'ac', attributes: {} } as never, skills, schema)).toEqual([]);
+  });
+
+  it('matches profile-field values to job labels by word stems only', () => {
+    expect(sameExpertise('drainage', 'Drain blockage')).toBe(true);
+    expect(sameExpertise('mcb_db', 'MCB / DB board')).toBe(true);
+    expect(sameExpertise('deep_service', 'Jet / deep servicing')).toBe(true);
+    expect(sameExpertise('mosquitoes', 'Mosquito')).toBe(true);
+    expect(sameExpertise('rats', 'Rodent')).toBe(false);
+    expect(sameExpertise('bathroom', 'Toilet / flush tank')).toBe(false);
   });
 
   it('rejects off-platform contact details in package descriptions and deliverables', () => {

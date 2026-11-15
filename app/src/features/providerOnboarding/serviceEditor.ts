@@ -114,6 +114,123 @@ export function skillsForCategory(skills: CategorySkill[], categoryId: string | 
     .map((skill) => ({ value: kind === 'skill' ? skill.slug : skill.label, label: skill.label }));
 }
 
+export interface ExpertiseOption {
+  value: string;
+  label: string;
+  /** Profile-field values that mean the same job; kept in sync so matching sees both stores. */
+  links?: { key: string; value: string }[];
+}
+
+export interface ExpertiseGroup {
+  key: string;
+  title: string;
+  target: 'specialisations' | 'attribute';
+  options: ExpertiseOption[];
+}
+
+function stems(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((word) => word && !['and', 'or', 'the', 'of'].includes(word))
+    .map((word) => {
+      if (word.endsWith('ies') && word.length > 4) return `${word.slice(0, -3)}y`;
+      if (/(ch|sh|x|o)es$/.test(word)) return word.slice(0, -2);
+      if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) return word.slice(0, -1);
+      return word;
+    });
+}
+
+function sameWord(a: string, b: string): boolean {
+  if (a === b) return true;
+  const shortest = Math.min(a.length, b.length);
+  if (shortest < 4) return false;
+  let prefix = 0;
+  while (prefix < shortest && a[prefix] === b[prefix]) prefix += 1;
+  return prefix >= shortest - 1;
+}
+
+/** True when every word of a profile-field value is covered by the job label (e.g. "bed_bugs" ↔ "Bed bugs"). */
+export function sameExpertise(attributeValue: string, jobLabel: string): boolean {
+  const attribute = stems(attributeValue);
+  const job = stems(jobLabel);
+  return attribute.length > 0 && attribute.every((word) => job.some((candidate) => sameWord(word, candidate)));
+}
+
+/**
+ * Every selectable expertise list for a category: configured jobs first, then expertise-like profile fields.
+ * Profile-field values that duplicate a job are folded into that job so each job is shown once.
+ */
+export function expertiseGroups(skills: CategorySkill[], categoryId: string | null, schema: ProfileSchema): ExpertiseGroup[] {
+  const jobs: ExpertiseOption[] = skillsForCategory(skills, categoryId, 'skill').map((job) => ({ ...job, links: [] }));
+  const fieldGroups: ExpertiseGroup[] = [];
+  for (const [key, field] of Object.entries(schema.properties ?? {})) {
+    if (!configuredFieldIsExpertise(key, field)) continue;
+    const options: ExpertiseOption[] = [];
+    for (const value of profileFieldOptions(field)) {
+      const job = jobs.find((candidate) => sameExpertise(value, candidate.label));
+      if (job) job.links!.push({ key, value });
+      else options.push({ value, label: humanize(value) });
+    }
+    if (options.length) fieldGroups.push({ key, title: humanize(key), target: 'attribute', options });
+  }
+  return [
+    ...(jobs.length ? [{ key: 'specialisations', title: 'Jobs you do', target: 'specialisations' as const, options: jobs }] : []),
+    ...fieldGroups,
+  ];
+}
+
+export function expertiseSelected(
+  group: ExpertiseGroup,
+  option: ExpertiseOption,
+  specialisations: string[],
+  attributes: Record<string, unknown>,
+): boolean {
+  const has = (key: string, value: string) => Array.isArray(attributes[key]) && (attributes[key] as string[]).includes(value);
+  if (group.target === 'attribute') return has(group.key, option.value);
+  return specialisations.includes(option.value) || (option.links ?? []).some((link) => has(link.key, link.value));
+}
+
+/** Toggles one visible option, updating the job and any linked profile-field values together. */
+export function toggleExpertise(state: ServiceEditorState, group: ExpertiseGroup, option: ExpertiseOption): ServiceEditorState {
+  const on = !expertiseSelected(group, option, state.specialisations, state.attributes);
+  const attributes = { ...state.attributes };
+  const setAttribute = (key: string, value: string) => {
+    const current = Array.isArray(attributes[key]) ? attributes[key] as string[] : [];
+    const next = on ? [...new Set([...current, value])] : current.filter((item) => item !== value);
+    if (next.length) attributes[key] = next; else delete attributes[key];
+  };
+  if (group.target === 'attribute') {
+    setAttribute(group.key, option.value);
+    return { ...state, attributes };
+  }
+  for (const link of option.links ?? []) setAttribute(link.key, link.value);
+  const specialisations = on
+    ? [...new Set([...state.specialisations, option.value])]
+    : state.specialisations.filter((item) => item !== option.value);
+  return { ...state, specialisations, attributes };
+}
+
+export function selectedExpertiseCount(groups: ExpertiseGroup[], state: Pick<ServiceEditorState, 'specialisations' | 'attributes'>): number {
+  return groups.reduce(
+    (total, group) => total + group.options.filter((option) => expertiseSelected(group, option, state.specialisations, state.attributes)).length,
+    0,
+  );
+}
+
+/** Human labels for everything a saved service has selected across all expertise groups. */
+export function serviceExpertiseLabels(service: EditableService, skills: CategorySkill[], schema: ProfileSchema): string[] {
+  const specialisations = service.specialisations ?? [];
+  const attributes = (service.attributes ?? {}) as Record<string, unknown>;
+  return [
+    ...new Set(
+      expertiseGroups(skills, service.category_id, schema).flatMap((group) =>
+        group.options.filter((option) => expertiseSelected(group, option, specialisations, attributes)).map((option) => option.label),
+      ),
+    ),
+  ];
+}
+
 export function configuredExpertiseCount(
   state: ServiceEditorState,
   schema: ProfileSchema,
