@@ -186,22 +186,21 @@ jobs:
               "where version = '0019') as applied"
           )
           if applied and applied[0].get("applied"):
-              print("0019 already applied; skipped.")
-              raise SystemExit(0)
-
-          migration = pathlib.Path(
-              "supabase/migrations/0019_fixed_package_booking.sql"
-          ).read_text()
-          query("begin;\n" + migration + "\nrollback;")
-          print("0019 dry run succeeded.")
-          query(
-              "begin;\n"
-              + migration
-              + "\ninsert into supabase_migrations.schema_migrations(version) "
-                "values ('0019') on conflict (version) do nothing;\n"
-                "commit;"
-          )
-          print("0019 applied and migration version recorded.")
+              print("0019 already applied; continuing with transactional live verification.")
+          else:
+              migration = pathlib.Path(
+                  "supabase/migrations/0019_fixed_package_booking.sql"
+              ).read_text()
+              query("begin;\n" + migration + "\nrollback;")
+              print("0019 dry run succeeded.")
+              query(
+                  "begin;\n"
+                  + migration
+                  + "\ninsert into supabase_migrations.schema_migrations(version) "
+                    "values ('0019') on conflict (version) do nothing;\n"
+                    "commit;"
+              )
+              print("0019 applied and migration version recorded.")
 
           verification = r"""
           begin;
@@ -214,6 +213,9 @@ jobs:
             v_booking_id uuid;
             v_start timestamptz;
             v_end timestamptz;
+            v_provider_service_id uuid;
+            v_category_id uuid;
+            v_price int;
           begin
             v_start := now() + interval '1 day';
             v_end := v_start + interval '2 hours';
@@ -229,7 +231,51 @@ jobs:
              order by sp.created_at desc
              limit 1;
             if v_package_id is null then
-              raise exception 'no live fixed package available for verification';
+              select ps.id, ps.provider_id, ps.category_id, p.city
+                into v_provider_service_id, v_provider_id, v_category_id, v_city
+                from public.provider_services ps
+                join public.providers p on p.id = ps.provider_id
+                join public.categories c on c.id = ps.category_id
+               where ps.active
+                 and c.slug in ('house-cleaning', 'water-tank-cleaning', 'pest-control')
+                 and public._provider_is_live(p.id)
+                 and not p.paused
+                 and public._category_docs_ok(p.id, c.id)
+               order by ps.created_at desc
+               limit 1;
+              if v_provider_service_id is null then
+                raise exception 'no eligible provider service available for fixed booking verification';
+              end if;
+              update public.categories
+                 set archetype = 'fixed',
+                     payment_template = 'full_upfront',
+                     cancellation_policy = 'fixed_flexible',
+                     config_version = config_version + 1
+               where id = v_category_id;
+              insert into public.category_cities(category_id, city, live, launched_at)
+              values (v_category_id, v_city, true, now())
+              on conflict (category_id, city) do update
+              set live = true,
+                  launched_at = coalesce(public.category_cities.launched_at, excluded.launched_at);
+              select coalesce(
+                (
+                  select greatest("min", least("max", 12000))
+                    from public.price_bands
+                   where category_id = v_category_id
+                     and lower(trim(city)) = lower(trim(v_city))
+                     and unit = 'job'
+                     and active
+                   limit 1
+                ),
+                12000
+              ) into v_price;
+              insert into public.service_packages(
+                provider_service_id, title, description, price_type, price, price_min, price_max,
+                unit, qty_min, qty_max, duration_min, active
+              ) values (
+                v_provider_service_id, 'CI fixed booking verification', 'Rolled back after verification',
+                'fixed', v_price, v_price, v_price, 'job', 1, 1, 90, true
+              ) returning id into v_package_id;
             end if;
             select id into v_customer_id
               from public.profiles
