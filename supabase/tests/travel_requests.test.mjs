@@ -141,7 +141,7 @@ const outside = (
 ok(outside.needs_approval === true && outside.allowed === false, 'location beyond max travel is visible but not requestable');
 
 await expectError(
-  () => asCustomer(`select create_booking($1, 'AC issue', '1 Road', 'Vijayawada', 17.09, 78.0, $2)`, [
+  async () => asCustomer(`select create_booking($1, 'AC issue', '1 Road', 'Vijayawada', 17.09, 78.0, $2)`, [
     serviceId,
     await slot(3),
   ]),

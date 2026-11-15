@@ -435,6 +435,7 @@ await section('chat unread, read state and notifications outbox', async () => {
   await send(asC, C, n1, 'while viewing');
   ok(!(await pending(P, 'chat_message')).some((r) => r.booking_id === n1 && r.status === 'pending'), 'presence: no push while the chat is open');
   await asP(`select mark_chat_read('${n1}', false)`);
+  await new Promise((resolve) => setTimeout(resolve, 5));
   await send(asC, C, n1, 'after leaving');
   ok((await pending(P, 'chat_message')).some((r) => r.booking_id === n1 && r.status === 'pending'), 'presence: push again after leaving the chat');
 
