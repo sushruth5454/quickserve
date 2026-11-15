@@ -127,6 +127,20 @@ ok(gates.active_events === 0 && gates.active_photo === 0 && gates.active_creator
   'creator and event categories remain inactive globally');
 ok(gates.time_category === 1, 'the explicitly demo-only time category is active only in the demo seed');
 
+const [seedFixes] = (await db.query(`
+  select
+    (select sp.price_type from service_packages sp
+       join provider_services ps on ps.id = sp.provider_service_id
+       join categories c on c.id = ps.category_id
+      where c.slug = 'house-cleaning' and sp.title = 'Demo 2 BHK deep clean' limit 1) as cleaning_price_type,
+    (select (value->>'time_based')::boolean from app_config where key = 'archetype_flags') as time_based_on,
+    (select count(*)::int from addresses a join auth.users u on u.id = a.user_id
+      where u.phone in ('919999999999', '+919999999999') and a.is_default) as founder_defaults
+`)).rows;
+ok(seedFixes.cleaning_price_type === 'fixed', 'fixed categories get instantly bookable fixed-price packages');
+ok(seedFixes.time_based_on === true, 'the demo tutor archetype is enabled');
+ok(seedFixes.founder_defaults <= 1, 'the seed never adds a second default address for the founder');
+
 const [payments] = (await db.query(`
   select count(*) filter (where coalesce(razorpay_link_id,'') not like 'plink_demo_all_%'
                              and coalesce(razorpay_payment_id,'') not like 'pay_demo_all_%')::int as real_ids

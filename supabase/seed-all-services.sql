@@ -116,6 +116,23 @@ set name = excluded.name,
     pricing_mode = 'fixed',
     config_version = public.categories.config_version + 1;
 
+-- The three launch-intended fixed categories from 0019. 0019 only flips categories that already had
+-- fixed packages, and this seed creates packages afterwards, so convert first; package price types
+-- below are derived from the archetype.
+update public.categories
+set archetype = 'fixed',
+    pricing_units = array['job']::text[],
+    payment_template = 'full_upfront',
+    cancellation_policy = 'fixed_flexible',
+    config_version = config_version + 1
+where slug in ('house-cleaning', 'water-tank-cleaning', 'pest-control')
+  and archetype <> 'fixed';
+
+-- Demo Home Tutor is the only time-based category, so enabling the archetype exposes nothing else.
+update public.app_config
+   set value = jsonb_set(value, '{time_based}', 'true'::jsonb, true)
+ where key = 'archetype_flags';
+
 create temp table demo_specs (
   slug text primary key,
   provider_name text not null,
@@ -386,19 +403,7 @@ set title = excluded.title,
     deliverables = excluded.deliverables,
     active = true;
 
--- 0019 can only flip categories that already had packages when it ran. The all-service seed is
--- deliberately ordered in the opposite direction (providers/packages first), so finish that intended
--- conversion here. These are the three launch-intended fixed categories from 0019, not the event gate.
-update public.categories
-set archetype = 'fixed',
-    pricing_units = array['job']::text[],
-    payment_template = 'full_upfront',
-    cancellation_policy = 'fixed_flexible',
-    config_version = config_version + 1
-where slug in ('house-cleaning', 'water-tank-cleaning', 'pest-control')
-  and archetype <> 'fixed';
-
--- The founder account is reused. A deterministic saved address gives booking UIs a real address_id
+-- Founder account reused. A deterministic saved address gives booking UIs a real address_id
 -- without changing the production location model.
 insert into auth.users (instance_id, id, aud, role, phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 select '00000000-0000-0000-0000-000000000000', 'f0000000-5eed-5eed-8000-000000000000',
@@ -420,13 +425,12 @@ on conflict (id) do update set role_customer = true;
 
 insert into public.addresses (id, user_id, label, line1, city, lat, lng, is_default, created_at)
 select pg_temp.demo_sid('founder:demo-home'), id, 'Demo home',
-       'Flat 302, Sai Residency, Benz Circle', 'Vijayawada Demo', 16.4995, 80.656, true, now()
+       'Flat 302, Sai Residency, Benz Circle', 'Vijayawada Demo', 16.4995, 80.656, false, now()
 from demo_founder
 on conflict (id) do update
-set line1 = excluded.line1, city = excluded.city, lat = excluded.lat, lng = excluded.lng, is_default = true;
+set line1 = excluded.line1, city = excluded.city, lat = excluded.lat, lng = excluded.lng, is_default = false;
 
--- Proposal paths for every creator/event category. Categories stay globally inactive; participant
--- RLS exposes these only after the founder signs in and opens the seeded request/proposal routes.
+-- Proposal paths for every creator/event category. Participant RLS exposes these only to the founder.
 insert into public.service_requests (
   id, customer_id, category_id, city, area, event_start, event_end, intake,
   budget_min, budget_max, status, expires_at, created_at, updated_at

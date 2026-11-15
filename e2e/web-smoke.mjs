@@ -126,12 +126,15 @@ await step('top-rated-see-all', async () => {
 });
 
 // ---------- Location picker ----------
+// Demo-seed runs set EXPO_PUBLIC_DEMO_CITY, which becomes the app's launch city.
+const CITY = (process.env.EXPO_PUBLIC_DEMO_CITY ?? '').trim() || 'Vijayawada';
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 await step('location-picker', async () => {
   await go('/');
   await page.getByLabel(/^Service location:/).first().click();
   await page.waitForURL(/\/location$/);
   await visible('Select location');
-  await visible('Popular areas in Vijayawada');
+  await visible(`Popular areas in ${CITY}`);
   await page.getByText(/^Flat 302, Sri Sai Residency/).first().waitFor();
 });
 await step('location-search-fallback', async () => {
@@ -141,7 +144,7 @@ await step('location-search-fallback', async () => {
 await step('location-pick-area', async () => {
   await page.getByText('Patamata', { exact: true }).first().click();
   await page.waitForURL((u) => new URL(u).pathname === '/');
-  await page.getByText(/^Patamata, Vijayawada$/).first().waitFor();
+  await page.getByText(new RegExp(`^Patamata, ${escapeRe(CITY)}$`)).first().waitFor();
 });
 await step('location-search-providers', async () => {
   await go('/category/ac-repair?name=AC%20Repair');
@@ -154,15 +157,25 @@ await step('location-add-address-sheet', async () => {
 });
 await step('location-pick-saved-home', async () => {
   await go('/location');
-  await page.getByText(/^Flat 302, Sri Sai Residency/).first().click();
+  // Stay in the seeded city so the category checks below see the demo providers.
+  const home = CITY === 'Vijayawada' ? /^Flat 302, Sri Sai Residency/ : /^Flat 302, Sai Residency/;
+  await page.getByText(home).first().click();
   await page.waitForURL((u) => new URL(u).pathname === '/');
-  await page.getByText(/^Benz Circle, Vijayawada$/).first().waitFor();
+  await page.getByText(new RegExp(`^Benz Circle, ${escapeRe(CITY)}$`)).first().waitFor();
 });
-const categories = await rest('categories?select=slug,name&order=sort_order').catch(() => []);
+const categories = await rest('categories?select=slug,name,archetype&order=sort_order').catch(() => []);
+// Each archetype has its own landing screen: pro list (inspect_quote), packages (fixed), sessions
+// (time_based) or creator list plus "Get proposals" (proposal).
+const LANDING = {
+  inspect_quote: /verified pros? near|pros nearby yet|No pros match/,
+  fixed: /^Book package$|Request final quote|Get proposal|No packages live yet/,
+  time_based: /^Choose session$|No sessions available yet/,
+  proposal: /pros near you$|No pros listed nearby yet/,
+};
 for (const c of categories) {
   await step(`category-${c.slug}`, async () => {
     await go(`/category/${c.slug}?name=${encodeURIComponent(c.name)}`);
-    await page.getByText(/verified pros? near|pros nearby yet|No pros match/).first().waitFor();
+    await page.getByText(LANDING[c.archetype] ?? LANDING.inspect_quote).first().waitFor();
   });
 }
 await step('category-sort-sheet', async () => {
@@ -498,12 +511,22 @@ await step('new-pro-basics', async () => {
   await visible('Services & skills');
 });
 await step('new-pro-services', async () => {
-  await page.getByText('AC Repair', { exact: true }).first().click();
-  await optional('specialisation', () => page.getByText('Split AC', { exact: true }).first().click({ timeout: 3000 }));
-  await page.getByLabel('Visit fee').first().fill('199');
-  await page.getByLabel('Labour / job').first().fill('499');
-  await page.getByText('Local prices in', { exact: false }).first().waitFor();
-  await page.getByText('Save service', { exact: true }).first().click();
+  // Six-step guided service editor: category → expertise → details → pricing → coverage → review.
+  await page.getByRole('radio', { name: /^AC Repair/ }).first().click();
+  await page.getByText('Next', { exact: true }).click();
+  await page.getByText('Step 2 of 6').waitFor();
+  await optional('specialisation', () => page.getByText('Select all', { exact: true }).first().click({ timeout: 3000 }));
+  await page.getByText('Next', { exact: true }).click();
+  await page.getByText('Step 3 of 6').waitFor();
+  await page.getByText('Next', { exact: true }).click();
+  await page.getByText('Step 4 of 6').waitFor();
+  await page.getByLabel('Visit fee in rupees').first().fill('199');
+  await page.getByLabel('Labour rate per job in rupees').first().fill('499');
+  await page.getByText('Next', { exact: true }).click();
+  await page.getByText('Step 5 of 6').waitFor();
+  await page.getByText('Next', { exact: true }).click();
+  await page.getByText('Step 6 of 6').waitFor();
+  await page.getByText(/^Save (service|changes)$/).first().click();
   await page.getByText(/^Visit ₹199 · Labour ₹499\/job$/).first().waitFor();
   await page.getByText('Continue', { exact: true }).first().click();
   await visible('Where do you work?');
