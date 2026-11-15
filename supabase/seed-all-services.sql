@@ -578,6 +578,218 @@ cross join demo_founder f
 on conflict (booking_id) do update
 set comment = excluded.comment, created_at = excluded.created_at;
 
+-- ---------------------------------------------------------------------------------------------
+-- Review-aware matching demo (AI assistant + match_providers). AC Repair, Plumber and Bridal
+-- Makeup each get competing providers whose reviews prove DIFFERENT strengths, so asking for
+-- e.g. "explains clearly" vs "quick diagnosis" vs "clean work" ranks a different pro first and
+-- shows that pro's review quotes. Reviews come from synthetic demo customers (not the founder),
+-- and insights are pre-extracted (insights_processed_at set) so the AI worker never rewrites them.
+-- An aspect counts as proven at >= 3 positive reviews and positive >= 3 x negative (0013).
+-- ---------------------------------------------------------------------------------------------
+create temp table demo_match_extras (key text, slug text, provider_name text, provider_bio text, phone text, attributes jsonb, visit_fee int) on commit drop;
+insert into demo_match_extras values
+  ('ac-repair-kiran', 'ac-repair', 'Kiran Demo Cool Tech', '[DEMO ONLY] Inverter and PCB fault specialist; fast diagnosis.', '919000004132', '{"equipment":["inverter","cassette"],"expertise":["pcb_repair","installation"]}', 19900),
+  ('ac-repair-mahesh', 'ac-repair', 'Mahesh Demo AC Care', '[DEMO ONLY] Deep-service and gas-refill team; covers furniture before work.', '919000004133', '{"equipment":["split","window"],"expertise":["deep_service","gas_refill"]}', 9900),
+  ('plumber-venkat', 'plumber', 'Venkat Demo Pipes', '[DEMO ONLY] Fully stocked van; motor and bathroom fittings.', '919000004134', '{"expertise":["leaks","motor","bathroom"]}', 12900),
+  ('bridal-makeup-meera', 'bridal-makeup', 'Meera Demo Glam', '[DEMO ONLY] Long-wear bridal looks with a sanitised kit.', '919000004135', '{"skin_types_expert":["dry","combination","mature"],"techniques":["hd","airbrush"]}', 0);
+
+create temp table demo_match_customers (key text, full_name text, phone text) on commit drop;
+insert into demo_match_customers values
+  ('1', 'Demo Customer Anil', '919000004201'),
+  ('2', 'Demo Customer Bhavana', '919000004202'),
+  ('3', 'Demo Customer Chaitanya', '919000004203'),
+  ('4', 'Demo Customer Deepika', '919000004204');
+
+insert into auth.users (instance_id, id, aud, role, phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+select '00000000-0000-0000-0000-000000000000'::uuid, pg_temp.demo_sid('provider:' || e.key), 'authenticated', 'authenticated', e.phone, now(),
+       '{"provider":"phone","providers":["phone"],"demo_only":"true"}'::jsonb,
+       jsonb_build_object('full_name', e.provider_name, 'demo_only', 'true'), now() - interval '180 days', now()
+  from demo_match_extras e
+union all
+select '00000000-0000-0000-0000-000000000000'::uuid, pg_temp.demo_sid('match-customer:' || m.key), 'authenticated', 'authenticated', m.phone, now(),
+       '{"provider":"phone","providers":["phone"],"demo_only":"true"}'::jsonb,
+       jsonb_build_object('full_name', m.full_name, 'demo_only', 'true'), now() - interval '120 days', now()
+  from demo_match_customers m
+on conflict (id) do update
+set phone = excluded.phone, raw_app_meta_data = excluded.raw_app_meta_data,
+    raw_user_meta_data = excluded.raw_user_meta_data, updated_at = now();
+
+insert into public.profiles (id, full_name, role_customer, role_provider, created_at)
+select pg_temp.demo_sid('provider:' || key), provider_name, false, true, now() - interval '180 days' from demo_match_extras
+union all
+select pg_temp.demo_sid('match-customer:' || key), full_name, true, false, now() - interval '120 days' from demo_match_customers
+on conflict (id) do update
+set full_name = excluded.full_name, role_customer = excluded.role_customer, role_provider = excluded.role_provider;
+
+insert into public.private_user_accounts (user_id, phone, updated_at)
+select pg_temp.demo_sid('provider:' || key), phone, now() from demo_match_extras
+union all
+select pg_temp.demo_sid('match-customer:' || key), phone, now() from demo_match_customers
+on conflict (user_id) do update set phone = excluded.phone, updated_at = now();
+
+insert into public.addresses (id, user_id, label, line1, city, lat, lng, is_default, created_at)
+select pg_temp.demo_sid('match-customer-home:' || key), pg_temp.demo_sid('match-customer:' || key), 'Home',
+       '[DEMO ONLY] ' || key || '-12, Labbipet', 'Vijayawada Demo', 16.503, 80.645, true, now() - interval '120 days'
+  from demo_match_customers
+on conflict (id) do update set line1 = excluded.line1, city = excluded.city, lat = excluded.lat, lng = excluded.lng;
+
+insert into public.providers (
+  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status,
+  suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, razorpay_account_id,
+  created_at, timezone, base_area, max_jobs_per_day, paused, onboarding_step, submitted_at,
+  terms_version, terms_accepted_at, kyc_updated_at
+)
+select
+  pg_temp.demo_sid('provider:' || e.key), e.provider_bio, 'Vijayawada Demo', 25,
+  extensions.st_setsrid(extensions.st_makepoint(80.648 + (row_number() over (order by e.key)) * 0.003,
+                                               16.503 + (row_number() over (order by e.key)) * 0.002), 4326)::extensions.geography,
+  5, array['Telugu','English'], 'verified'::public.kyc_status, false, true, 0, 0, 30, 10,
+  'acc_demo_only_never_payout_' || substr(md5(e.key), 1, 12),
+  now() - interval '180 days', 'Asia/Kolkata', 'Labbipet', 6, false, 7,
+  now() - interval '170 days', 'demo-only-v1', now() - interval '170 days', now() - interval '170 days'
+from demo_match_extras e
+on conflict (id) do update
+set bio = excluded.bio, city = excluded.city, base_location = excluded.base_location, kyc_status = excluded.kyc_status,
+    suspended = false, is_online = true, paused = false, submitted_at = excluded.submitted_at, onboarding_step = 7;
+
+-- Same service shape as the category's primary demo provider; only attributes and visit fee differ.
+insert into public.provider_services (
+  id, provider_id, category_id, skill_level, visit_fee, labour_rate, rate_unit, active,
+  attributes, max_travel_km, travel_fee_mode, travel_fee_flat, travel_fee_per_km
+)
+select pg_temp.demo_sid('service:' || e.key), pg_temp.demo_sid('provider:' || e.key), ps.category_id, ps.skill_level,
+       case when ps.visit_fee > 0 then e.visit_fee else 0 end, ps.labour_rate, ps.rate_unit, true,
+       e.attributes, ps.max_travel_km, ps.travel_fee_mode, ps.travel_fee_flat, ps.travel_fee_per_km
+  from demo_match_extras e
+  join public.provider_services ps on ps.id = pg_temp.demo_sid('service:' || e.slug)
+on conflict (provider_id, category_id) do update
+set id = excluded.id, visit_fee = excluded.visit_fee, active = true, attributes = excluded.attributes;
+
+insert into public.provider_availability (id, provider_id, weekday, start_time, end_time)
+select pg_temp.demo_sid('availability:' || e.key || ':' || d), pg_temp.demo_sid('provider:' || e.key), d, time '08:00', time '20:00'
+  from demo_match_extras e cross join generate_series(1, 6) d
+on conflict (id) do update set start_time = excluded.start_time, end_time = excluded.end_time;
+
+insert into public.provider_documents (id, provider_id, doc_type, category_id, status, expires_on, file_path, reviewed_at, created_at)
+select pg_temp.demo_sid('document:' || e.key || ':' || d.doc_type), pg_temp.demo_sid('provider:' || e.key),
+       d.doc_type, c.id, 'approved', current_date + interval '365 days',
+       'demo-only/' || e.key || '/' || d.doc_type || '.pdf', now(), now() - interval '30 days'
+  from demo_match_extras e
+  join public.categories c on c.slug = e.slug
+  cross join lateral unnest(c.requires_docs) d(doc_type)
+on conflict (id) do update set status = excluded.status, expires_on = excluded.expires_on, reviewed_at = excluded.reviewed_at;
+
+insert into public.provider_payout_accounts (
+  provider_id, rail, razorpay_account_id, beneficiary_name, bank_last4, ifsc, email,
+  activation_status, requirements, created_at, updated_at
+)
+select pg_temp.demo_sid('provider:' || e.key), 'route', 'acc_demo_only_' || substr(md5(e.key), 1, 12), e.provider_name,
+       '4242', 'HDFC0001234', replace(e.key, '-', '.') || '@demo.example', 'active', '[]'::jsonb, now() - interval '170 days', now()
+  from demo_match_extras e
+on conflict (provider_id) do update set activation_status = 'active', requirements = '[]'::jsonb, updated_at = now();
+
+-- provider key (primary demo provider = category slug), review #, rating, comment, extracted insights.
+create temp table demo_match_reviews (provider_key text, n int, rating int, comment text, insights jsonb) on commit drop;
+insert into demo_match_reviews values
+  ('ac-repair', 1, 5, 'Ravi explained the gas leak clearly and showed me the old part.', '[["explained_well","positive","Explained the gas leak clearly and showed the old part"],["clean_work","positive","Cleaned up the balcony after the job"]]'),
+  ('ac-repair', 2, 5, 'Every charge was explained before he started. Very neat.', '[["explained_well","positive","Every charge was explained before he started"],["clean_work","positive","Very neat work"]]'),
+  ('ac-repair', 3, 4, 'Good explanation of why the inverter AC tripped, but finding the fault took long.', '[["explained_well","positive","Good explanation of why the inverter AC tripped"],["quick_diagnosis","negative",null]]'),
+  ('ac-repair', 4, 5, 'Walked me through the service checklist step by step.', '[["explained_well","positive","Walked me through the service checklist step by step"]]'),
+  ('ac-repair', 5, 4, 'Explains everything patiently, though diagnosis needed a second visit.', '[["explained_well","positive","Explains everything patiently"],["quick_diagnosis","negative",null]]'),
+  ('ac-repair-kiran', 1, 5, 'Found the PCB fault in ten minutes flat.', '[["quick_diagnosis","positive","Found the PCB fault in ten minutes"],["long_lasting","positive","Cooling has been perfect since"]]'),
+  ('ac-repair-kiran', 2, 5, 'Diagnosed the cooling problem straight away; still ice cold two months later.', '[["quick_diagnosis","positive","Diagnosed the cooling problem straight away"],["long_lasting","positive","Still ice cold two months later"]]'),
+  ('ac-repair-kiran', 3, 5, 'Fast diagnosis and fixed the same afternoon.', '[["quick_diagnosis","positive","Fast diagnosis and fixed the same afternoon"]]'),
+  ('ac-repair-kiran', 4, 4, 'Quick fix that has lasted, but left some dust behind.', '[["quick_diagnosis","positive","Quick fix"],["long_lasting","positive","The repair has lasted"],["clean_work","negative",null]]'),
+  ('ac-repair-mahesh', 1, 5, 'Spotless deep service, covered all the furniture first.', '[["clean_work","positive","Spotless deep service, covered all the furniture"],["long_lasting","positive","AC runs like new"]]'),
+  ('ac-repair-mahesh', 2, 5, 'Very clean work and the AC has been perfect since.', '[["clean_work","positive","Very clean work"],["long_lasting","positive","The AC has been perfect since"]]'),
+  ('ac-repair-mahesh', 3, 4, 'Clean job and still cooling well, but he did not explain what was replaced.', '[["clean_work","positive","Clean job"],["long_lasting","positive","Still cooling well"],["explained_well","negative",null]]'),
+  ('ac-repair-mahesh', 4, 4, 'Neat work. The bill was not explained.', '[["clean_work","positive","Neat work"],["explained_well","negative",null]]'),
+  ('plumber', 1, 5, 'Leak under the kitchen sink fixed for good.', '[["leak_fixed","positive","Leak under the kitchen sink fixed for good"]]'),
+  ('plumber', 2, 5, 'Found the hidden leak behind the tiles and explained the repair.', '[["leak_fixed","positive","Found the hidden leak behind the tiles"],["explained_well","positive","Explained the repair"]]'),
+  ('plumber', 3, 4, 'Leak fixed, but he had to go out to buy a part.', '[["leak_fixed","positive","Leak fixed"],["came_prepared","negative",null]]'),
+  ('plumber', 4, 4, 'Bathroom leak sorted; came without the right tools at first.', '[["leak_fixed","positive","Bathroom leak sorted"],["came_prepared","negative",null]]'),
+  ('plumber-venkat', 1, 5, 'Brought every fitting needed and finished in one visit.', '[["came_prepared","positive","Brought every fitting needed, finished in one visit"],["clean_work","positive","Left no mess"]]'),
+  ('plumber-venkat', 2, 5, 'Came prepared with spare taps and left the bathroom clean.', '[["came_prepared","positive","Came prepared with spare taps"],["clean_work","positive","Left the bathroom clean"]]'),
+  ('plumber-venkat', 3, 5, 'Had all the parts in his van. Tidy work.', '[["came_prepared","positive","Had all the parts in his van"],["clean_work","positive","Tidy work"]]'),
+  ('plumber-venkat', 4, 4, 'Prepared and tidy, but the leak came back after a week.', '[["came_prepared","positive","Prepared and tidy"],["leak_fixed","negative",null]]'),
+  ('bridal-makeup', 1, 5, 'Natural look that still photographed beautifully.', '[["natural_look","positive","Natural look that photographed beautifully"],["beautiful_finishing","positive","Flawless finishing"]]'),
+  ('bridal-makeup', 2, 5, 'My oily skin stayed matte all evening.', '[["oily_skin","positive","My oily skin stayed matte all evening"],["natural_look","positive","Looked like me, only better"]]'),
+  ('bridal-makeup', 3, 5, 'Soft natural makeup and she handled my oily T-zone well.', '[["natural_look","positive","Soft natural makeup"],["oily_skin","positive","Handled my oily T-zone well"]]'),
+  ('bridal-makeup', 4, 4, 'Lovely natural finish and great oily-skin prep. Arrived 30 minutes late.', '[["natural_look","positive","Lovely natural finish"],["oily_skin","positive","Great oily-skin prep"],["punctual","negative",null]]'),
+  ('bridal-makeup-meera', 1, 5, 'Makeup lasted from muhurtham to reception, and she was on time.', '[["long_lasting","positive","Lasted from muhurtham to reception"],["punctual","positive","Was on time"]]'),
+  ('bridal-makeup-meera', 2, 5, 'Fresh brushes for everyone; makeup stayed perfect for 12 hours.', '[["hygiene","positive","Fresh brushes for everyone"],["long_lasting","positive","Stayed perfect for 12 hours"]]'),
+  ('bridal-makeup-meera', 3, 5, 'On time at 4am with a very hygienic kit. Lasted all day.', '[["punctual","positive","On time at 4am"],["hygiene","positive","Very hygienic kit"],["long_lasting","positive","Lasted all day"]]'),
+  ('bridal-makeup-meera', 4, 4, 'Long-lasting, clean kit and punctual, but the look was a bit heavy.', '[["long_lasting","positive","Long-lasting"],["hygiene","positive","Clean kit"],["punctual","positive","Punctual"],["natural_look","negative",null]]');
+
+create temp table demo_match_rows on commit drop as
+select r.*, coalesce(e.slug, r.provider_key) as slug,
+       pg_temp.demo_sid('match-booking:' || r.provider_key || ':' || r.n) as booking_id,
+       pg_temp.demo_sid('match-review:' || r.provider_key || ':' || r.n) as review_id,
+       pg_temp.demo_sid('match-customer:' || (((r.n - 1) % 4) + 1)) as customer_id,
+       pg_temp.demo_sid('match-customer-home:' || (((r.n - 1) % 4) + 1)) as address_id,
+       now() - make_interval(days => 12 + r.n * 6) as done_at
+  from demo_match_reviews r
+  left join demo_match_extras e on e.key = r.provider_key;
+
+alter table public.bookings disable trigger bookings_apply_core_contract;
+insert into public.bookings (
+  id, customer_id, provider_id, category_id, provider_service_id, address_id, description,
+  scheduled_at, status, visit_fee, platform_fee, approved_quote_id, total_amount,
+  refund_amount, archetype, category_config_version, location_mode, pricing_snapshot, payment_template_snapshot,
+  cancellation_snapshot, platform_fee_rule_snapshot, created_at, updated_at, accepted_at, completed_at,
+  delivery_status, delivery_snapshot, delivery_accepted_at
+)
+select
+  m.booking_id, m.customer_id, pg_temp.demo_sid('provider:' || m.provider_key), c.id,
+  pg_temp.demo_sid('service:' || m.provider_key), m.address_id,
+  '[DEMO ONLY] Past ' || c.name || ' job behind a matching-demo review.',
+  m.done_at, 'closed', case when c.archetype = 'inspect_quote' then ps.visit_fee else 0 end,
+  2900, null, 250000, 0, c.archetype, c.config_version, c.location_modes[1],
+  jsonb_build_object('demo_only', true, 'archetype', c.archetype),
+  jsonb_build_object('demo_only', true),
+  jsonb_build_object('demo_only', true),
+  jsonb_build_object('demo_only', true, 'amount', 2900),
+  m.done_at - interval '2 days', m.done_at, m.done_at - interval '1 day', m.done_at,
+  case when c.archetype = 'proposal' then 'accepted' else 'not_applicable' end,
+  case when c.archetype = 'proposal' then '[{"type":"demo_deliverable","qty":1,"spec":"Accepted synthetic output"}]'::jsonb else '[]'::jsonb end,
+  case when c.archetype = 'proposal' then m.done_at else null end
+from demo_match_rows m
+join public.categories c on c.slug = m.slug
+join public.provider_services ps on ps.id = pg_temp.demo_sid('service:' || m.provider_key)
+on conflict (id) do update
+set status = excluded.status, description = excluded.description, completed_at = excluded.completed_at;
+alter table public.bookings enable trigger bookings_apply_core_contract;
+
+insert into public.reviews (
+  id, booking_id, customer_id, provider_id, rating, punctuality, quality, behaviour, pricing, comment, tags,
+  insights_processed_at, created_at
+)
+select m.review_id, m.booking_id, m.customer_id, pg_temp.demo_sid('provider:' || m.provider_key),
+       m.rating, m.rating, m.rating, 5, m.rating, '[DEMO] ' || m.comment,
+       array(select i ->> 0 from jsonb_array_elements(m.insights) i where i ->> 1 = 'positive' limit 5),
+       m.done_at + interval '1 day', m.done_at + interval '1 day'
+  from demo_match_rows m
+on conflict (booking_id) do update
+set rating = excluded.rating, comment = excluded.comment, tags = excluded.tags,
+    insights_processed_at = excluded.insights_processed_at, created_at = excluded.created_at;
+
+insert into public.review_insights (review_id, provider_service_id, aspect, sentiment, quote, model, policy_version, created_at)
+select m.review_id, pg_temp.demo_sid('service:' || m.provider_key), i ->> 0, i ->> 1, i ->> 2,
+       'demo-seed', 'demo-seed-v1', m.done_at + interval '1 day'
+  from demo_match_rows m
+  cross join lateral jsonb_array_elements(m.insights) i
+on conflict (review_id, aspect) do update
+set sentiment = excluded.sentiment, quote = excluded.quote, provider_service_id = excluded.provider_service_id;
+
+-- Upserts above bypass the after-insert rating trigger on reloads; keep ratings equal to the real reviews.
+update public.providers p
+   set rating_avg = s.avg_rating, rating_count = s.cnt
+  from (select r.provider_id, round(avg(r.rating)::numeric, 2) as avg_rating, count(*)::int as cnt
+          from public.reviews r
+         where r.provider_id in (select distinct pg_temp.demo_sid('provider:' || provider_key) from demo_match_reviews)
+         group by r.provider_id) s
+ where p.id = s.provider_id;
+
 -- Inspect→quote customer path: quote already sent; founder can inspect an itemised estimate.
 insert into public.bookings (
   id, customer_id, provider_id, category_id, provider_service_id, address_id, description,

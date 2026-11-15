@@ -166,4 +166,38 @@ try {
 }
 ok(fixedPrepared?.purpose === 'fixed' && fixedPrepared.amount > 0, 'prepare_payment charges a fixed package its package total');
 
+// Review-aware matching demo: each customer need ranks the AC pro whose reviews prove it first.
+const founderId = (await db.query(`select id from auth.users where phone in ('919999999999', '+919999999999') order by created_at limit 1`)).rows[0].id;
+const topFor = async (need) => {
+  await db.exec(`set role authenticated`);
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [founderId]);
+  try {
+    return (await db.query(`
+      select full_name, matched_needs, evidence_quotes
+        from match_providers(p_category_slug => 'ac-repair', p_lat => 16.5, p_lng => 80.65,
+                             p_needs => jsonb_build_object('attributes', '[]'::jsonb, 'review_tags', jsonb_build_array($1::text)),
+                             p_limit => 6)
+    `, [need])).rows;
+  } finally {
+    await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false);`);
+  }
+};
+const expectations = { quick_diagnosis: 'Kiran Demo Cool Tech', explained_well: 'Ravi Demo Kumar', clean_work: 'Mahesh Demo AC Care' };
+for (const [need, name] of Object.entries(expectations)) {
+  const rows = await topFor(need);
+  const top = rows[0];
+  const matched = JSON.stringify(top?.matched_needs ?? []).includes(need);
+  const quoted = JSON.stringify(top?.evidence_quotes ?? []).length > 4;
+  ok(rows.length >= 3 && top?.full_name === name && matched && quoted,
+    `match_providers ranks ${name} first for "${need}" with review quotes (got ${top?.full_name ?? 'none'})`);
+}
+const [insightRows] = (await db.query(`
+  select count(*)::int as insights,
+         count(*) filter (where r.insights_processed_at is null)::int as unprocessed,
+         count(distinct r.customer_id) filter (where r.customer_id = $1)::int as founder_reviews
+    from review_insights i join reviews r on r.id = i.review_id
+`, [founderId])).rows;
+ok(insightRows.insights >= 60 && insightRows.unprocessed === 0 && insightRows.founder_reviews === 0,
+  'matching-demo insights are pre-processed and never written by the founder');
+
 if (failures.length) process.exit(1);
