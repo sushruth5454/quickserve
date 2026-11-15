@@ -18,6 +18,16 @@ interface DueTransfer {
   idempotency_key: string;
 }
 
+interface DueReversal {
+  reversal_id: string;
+  transfer_id: string;
+  booking_id: string;
+  amount: number;
+  rail: RailName;
+  razorpay_transfer_id: string;
+  attempts: number;
+}
+
 // Cron entry point: see README "Scheduled jobs". Each payout_transfers row is released on the rail snapshotted when it
 // was created (docs/03 §5.1); receivables were already netted by claim_due_transfers.
 Deno.serve(async (req) => {
@@ -50,6 +60,35 @@ Deno.serve(async (req) => {
       if (r.state === "unavailable") break; // still unavailable for everyone; try again next run
     } catch (e) {
       console.error("resume beneficiary failed", row.provider_id, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // C9: customer refunds already run independently. Released Route tranches are reversed best-effort;
+  // unresolved amounts become provider receivables after bounded retries. A retry polls by reversal_id first.
+  const { data: dueReversals, error: reversalError } = await admin.rpc("claim_due_transfer_reversals", { p_limit: 50 });
+  if (reversalError) console.error("claim_due_transfer_reversals", reversalError);
+  let reversalsProcessed = 0;
+  for (const r of (dueReversals ?? []) as DueReversal[]) {
+    try {
+      const reversalExternalId = await rails[r.rail].reverse(
+        r.razorpay_transfer_id,
+        r.amount,
+        r.reversal_id,
+      );
+      const done = await admin.rpc("complete_transfer_reversal", {
+        p_reversal_id: r.reversal_id,
+        p_razorpay_reversal_id: reversalExternalId,
+      });
+      if (done.error) throw new Error(done.error.message);
+      reversalsProcessed++;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("reversal attempt failed", r.transfer_id, message);
+      const failed = await admin.rpc("fail_transfer_reversal", {
+        p_reversal_id: r.reversal_id,
+        p_error: message,
+      });
+      if (failed.error) console.error("fail_transfer_reversal", failed.error);
     }
   }
 
@@ -92,6 +131,7 @@ Deno.serve(async (req) => {
     auto_confirmed: confirmed.data ?? 0,
     links_cancelled: linksCancelled,
     beneficiaries_resumed: resumed,
+    reversals_processed: reversalsProcessed,
     processed: results.length,
     results,
   });

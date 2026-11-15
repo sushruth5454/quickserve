@@ -3,6 +3,24 @@
 -- Existing booking state and legacy money functions remain unchanged; time-based
 -- fulfilment uses separate RPCs and branches on bookings.archetype.
 
+do $$
+begin
+  if to_regclass('public.cancellation_policies') is not null then
+    execute $policy$
+      insert into public.cancellation_policies (key, label, rules)
+      select 'session_standard', 'Standard prepaid session cancellation', rules
+        from public.cancellation_policies
+       where key = 'fixed'
+      on conflict (key) do update
+      set label = excluded.label,
+          rules = excluded.rules,
+          active = true,
+          updated_at = now()
+    $policy$;
+  end if;
+end;
+$$;
+
 -- 0020 inserts the proposal row before calculating and persisting total. Keep that
 -- transaction valid for databases that already use the proposal engine.
 do $$

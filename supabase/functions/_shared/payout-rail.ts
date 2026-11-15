@@ -85,7 +85,7 @@ export interface PayoutRail {
   getStatus(existing: BeneficiaryIds, persist?: (ids: BeneficiaryIds) => Promise<void>): Promise<OnboardResult | null>;
   release(t: ReleaseInput): Promise<ReleaseResult>;
   /** Route can reverse a transfer; on "payouts" money cannot be pulled back (use provider_receivables). */
-  reverse(externalId: string, amount: number): Promise<string>;
+  reverse(externalId: string, amount: number, reversalId?: string): Promise<string>;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -286,8 +286,21 @@ export function routeRail(http: Http): PayoutRail {
       if (!id) throw new GatewayError("no transfer id in response", 502, "no transfer id");
       return { externalId: id, gatewayStatus: res.items[0].status ?? "created" };
     },
-    async reverse(externalId, amount) {
-      const r = await http<{ id: string }>("POST", `/v1/transfers/${externalId}/reversals`, { amount });
+    async reverse(externalId, amount, reversalId) {
+      if (reversalId) {
+        const prior = await http<{ items: { id: string; notes?: Record<string, string> | unknown[] }[] }>(
+          "GET",
+          `/v1/transfers/${externalId}/reversals`,
+        );
+        const existing = (prior.items ?? []).find(
+          (item) => !Array.isArray(item.notes) && item.notes?.reversal_id === reversalId,
+        );
+        if (existing) return existing.id;
+      }
+      const r = await http<{ id: string }>("POST", `/v1/transfers/${externalId}/reversals`, {
+        amount,
+        ...(reversalId ? { notes: { reversal_id: reversalId } } : {}),
+      });
       return r.id;
     },
   };
