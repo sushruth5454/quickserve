@@ -26,6 +26,12 @@ const PURPOSE: Record<PaymentLinkResponse['purpose'], string> = {
   visit_fee: 'Visit / inspection fee',
   balance: 'Job payment (held until completion)',
   fixed: 'Fixed-price job',
+  package: 'Fixed-price package',
+  advance: 'Booking advance',
+  milestone: 'Payment milestone',
+  final: 'Final payment',
+  addon: 'Package add-on',
+  session: 'Session payment',
 };
 
 const METHODS = [

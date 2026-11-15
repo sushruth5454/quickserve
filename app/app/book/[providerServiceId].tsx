@@ -28,28 +28,16 @@ import { useTheme } from '../../src/theme';
 import { onboardingApi, type ProviderSchedule } from '../../src/lib/onboarding';
 import { asapAvailable, windowFits } from '../../src/lib/onboarding/availability';
 import type { TravelPreview } from '../../src/lib/types';
-
-const QUICK_ISSUES: Record<string, string[]> = {
-  'ac-repair': ['Not cooling', 'Water leaking', 'Making noise', 'Bad smell', 'Gas refill', 'Service due'],
-  electrician: ['MCB tripping', 'Fan not working', 'Switch sparking', 'New fitting', 'Wiring issue'],
-  plumber: ['Tap leaking', 'Blocked drain', 'Low water pressure', 'Flush not working', 'Pipe burst'],
-  'house-cleaning': ['Full home deep clean', 'Kitchen', 'Bathrooms', 'Sofa / carpet'],
-  'water-tank-cleaning': ['Overhead tank', 'Sump', 'Bad smell in water'],
-  'car-mechanic': ['Not starting', 'Battery', 'Brakes', 'General service'],
-  'bike-mechanic': ['Not starting', 'Puncture', 'Brakes', 'General service'],
-  'appliance-repair': ['Washing machine', 'Refrigerator', 'Microwave', 'Not powering on'],
-  'pest-control': ['Cockroaches', 'Termites', 'Bed bugs', 'Mosquitoes'],
-  carpenter: ['Door alignment', 'Hinges / locks', 'Furniture repair', 'New fitting'],
-  painter: ['Full home', 'One room', 'Touch-ups', 'Waterproofing'],
-};
-
+import { PackageBookingScreen } from '../../src/features/booking/packages/PackageBookingScreen';
 
 export default function BookScreen() {
   const t = useTheme();
   const toast = useToast();
   const pay = usePayment();
-  const { providerServiceId, ...prefillParams } = useLocalSearchParams<{
+  const { providerServiceId, packageId, archetype, ...prefillParams } = useLocalSearchParams<{
     providerServiceId: string;
+    packageId?: string;
+    archetype?: 'fixed' | 'time_based';
     from?: string;
     description?: string;
     slot?: string;
@@ -247,12 +235,15 @@ export default function BookScreen() {
   }
 
   const providerName = service.providers?.profiles?.full_name ?? 'Provider';
+  if (packageId && (archetype === 'fixed' || archetype === 'time_based')) {
+    return <PackageBookingScreen packageId={packageId} archetype={archetype} />;
+  }
   const firstName = providerName.split(' ')[0] ?? providerName;
   const slug = service.categories?.slug;
   const range = typicalRange(slug);
   const rating = Number(service.providers?.rating_avg ?? 0);
   const ratingCount = service.providers?.rating_count ?? 0;
-  const issues = QUICK_ISSUES[slug ?? ''] ?? [];
+  const issues: string[] = [];
   const travelAction = travel?.needs_approval
     ? travelPending
       ? 'Waiting for provider'
