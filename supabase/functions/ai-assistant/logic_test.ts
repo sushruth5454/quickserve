@@ -8,6 +8,7 @@ import {
   conversationTitle,
   type DraftCard,
   estimateCard,
+  evidenceQuotes,
   MarketClock,
   normalizeSlot,
   parseTranscription,
@@ -162,6 +163,8 @@ Deno.test("ranking preserves server match tier and review evidence", () => {
   assertEquals(picks[0]?.matched_needs, ["long_lasting"]);
   assertEquals(picks[0]?.evidence_quotes, ["Makeup lasted all night"]);
   assertMatch(picks[0]!.reason, /long lasting/);
+  assertEquals(evidenceQuotes({ long_lasting: ["Makeup lasted all night"] }), ["Makeup lasted all night"]);
+  assertEquals(evidenceQuotes({ long_lasting: 4 as unknown as string[] }), []);
 });
 
 Deno.test("estimate: below the sample minimum shows no typical total (sparse/stale data)", () => {

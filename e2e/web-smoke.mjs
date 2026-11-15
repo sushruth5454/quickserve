@@ -276,10 +276,10 @@ const FC6 = seeded('fc', 6);
 const unreadBody = `QA-E2E unread ${Date.now()}`;
 await step('unread-badge-on-booking', async () => {
   const token = await signInAs('+919000000101');
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_booking_message`, {
     method: 'POST',
-    headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify({ booking_id: FC6, sender_id: RAVI, body: unreadBody }),
+    headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_booking_id: FC6, p_body: unreadBody }),
   });
   if (!res.ok) throw new Error(`send as pro: ${res.status} ${await res.text()}`);
   await go(`/booking/${FC6}`);

@@ -238,7 +238,7 @@ export interface SearchRow {
   tier?: "best_match" | "nearest_best" | "strong_match";
   score_components?: Record<string, number>;
   matched_needs?: string[];
-  evidence_quotes?: string[];
+  evidence_quotes?: string[] | Record<string, string[]>;
 }
 
 export interface PastBooking {
@@ -271,6 +271,12 @@ export interface ProviderPick {
 }
 
 const firstName = (n: string) => n.split(" ")[0] ?? n;
+
+export function evidenceQuotes(value: SearchRow["evidence_quotes"]): string[] {
+  if (Array.isArray(value)) return value.filter((x): x is string => typeof x === "string");
+  if (!value || typeof value !== "object") return [];
+  return Object.values(value).flatMap((quotes) => Array.isArray(quotes) ? quotes.filter((x): x is string => typeof x === "string") : []).slice(0, 2);
+}
 
 /**
  * Up to `limit` pros: the drafted pro first, then pros the user rated ≥4 before (boosted), the best rated, the nearest,
@@ -325,7 +331,7 @@ export function rankProviders(rows: SearchRow[], history: PastBooking[], now: Da
       reason,
       tier: r.tier,
       matched_needs: r.matched_needs ?? [],
-      evidence_quotes: (r.evidence_quotes ?? []).slice(0, 2),
+      evidence_quotes: evidenceQuotes(r.evidence_quotes),
     };
   });
 }
