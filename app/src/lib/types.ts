@@ -43,6 +43,8 @@ export interface Category {
   icon: string;
   pricing_mode: 'quote' | 'fixed';
   sort_order: number;
+  profile_schema?: Record<string, unknown>;
+  review_tags?: string[];
 }
 
 export interface ProviderSearchResult {
@@ -98,7 +100,8 @@ export interface ProviderService {
   labour_rate: number;
   rate_unit: RateUnit;
   active: boolean;
-  categories?: Pick<Category, 'name' | 'slug'> | null;
+  attributes?: Record<string, unknown>;
+  categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
   rate_card_items?: RateCardItem[];
 }
 
@@ -124,7 +127,7 @@ export interface Booking {
   accepted_at: string | null;
   completion_requested_at: string | null;
   completed_at: string | null;
-  categories?: Pick<Category, 'name' | 'slug'> | null;
+  categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
   /** The pro, embedded for customer-facing lists (null if the provider is no longer public). */
   providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
 }
@@ -200,6 +203,7 @@ export interface Review {
   pricing: number | null;
   comment: string | null;
   provider_reply: string | null;
+  tags?: string[];
   created_at: string;
 }
 
@@ -292,4 +296,5 @@ export interface ReviewInput {
   behaviour?: number;
   pricing?: number;
   comment?: string;
+  tags?: string[];
 }

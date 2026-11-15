@@ -83,7 +83,7 @@ const [{ id: plumbId }] = (await db.query(`select id from categories where slug 
 const [{ id: acId }] = (await db.query(`select id from categories where slug = 'ac-repair'`)).rows;
 const [{ id: lps }] = await asL(`insert into provider_services (provider_id, category_id, visit_fee, labour_rate) values ($1, $2, 14900, 30000) returning id`, [L, plumbId]);
 
-for (const f of ['0008_provider_kyc_status_values.sql', '0009_provider_onboarding.sql', '0010_notification_freshness.sql', '0011_payout_rails.sql']) {
+for (const f of ['0008_provider_kyc_status_values.sql', '0009_provider_onboarding.sql', '0010_notification_freshness.sql', '0011_payout_rails.sql', '0012_matching_foundations.sql']) {
   await db.exec(mig(f));
 }
 console.log('migrations 0008-0011 applied');
@@ -109,6 +109,14 @@ await expectError(() => asP(`insert into provider_services (provider_id, categor
   /unknown specialisation/, 'specialisations validated against category_skills');
 const [{ id: pps }] = await asP(`insert into provider_services (provider_id, category_id, visit_fee, labour_rate, specialisations, brands)
   values ($1, $2, 19900, 40000, '{split,gas-refill}', '{Daikin, LG}') returning id`, [P, acId]);
+await asP(`update provider_services set attributes = '{"equipment":["split","inverter"],"expertise":["gas_refill"]}'::jsonb where id = $1`, [pps]);
+await expectError(() => asP(`update provider_services set attributes = '{"equipment":["wrong"]}'::jsonb where id = $1`, [pps]), /unsupported item/, 'provider attributes validate against category schema');
+const [{ id: ownLink }] = await asP(`insert into provider_links (provider_id, kind, url, handle) values ($1, 'website', 'https://example.com/priya', 'Priya portfolio') returning id`, [P]);
+ok((await asP(`select id from provider_links where provider_id = '${P}'`)).length === 1, 'provider reads own link');
+ok((await asX(`select id from provider_links where provider_id = '${P}'`)).length === 0, 'non-live provider link is private');
+await expectError(() => asP(`insert into provider_links (provider_id, kind, url) values ($1, 'instagram', 'http://instagram.com/priya')`, [P]), /violates check constraint|https/, 'provider links require https');
+await expectError(() => asX(`insert into provider_links (provider_id, kind, url) values ('${P}', 'instagram', 'https://instagram.com/priya')`), /row-level security/, 'provider links owner-only writes');
+await expectError(() => asP(`update provider_links set status = 'approved' where id = '${ownLink}'`), /permission denied/, 'provider cannot self-approve a link');
 await asP(`select save_provider_service_area('Testcity', 17.01, 78.01, 15, 'Old Town')`);
 await expectError(() => asP(`select set_provider_availability('[{"weekday":1,"start":"09:00","end":"13:00"},{"weekday":1,"start":"12:00","end":"18:00"}]'::jsonb)`), /overlap/, 'overlapping slots rejected');
 await expectError(() => asP(`select set_provider_availability('[{"weekday":1,"start":"09:00","end":"09:30"}]'::jsonb)`), /at least 1 hour/, 'slot shorter than 1 hour rejected');
@@ -138,6 +146,9 @@ ok(ob.go_live.state === 'live', 'payout verified + submitted => live');
 ok((await db.query(`select razorpay_account_id from providers where id = $1`, [P])).rows[0].razorpay_account_id === null, 'fund account id is not stored as Route account');
 ok((await anon(`select * from search_providers('ac-repair', 17.0, 78.0)`)).some((r) => r.provider_id === P), 'live provider searchable');
 ok((await asX(`select id from providers where id = '${P}'`)).length === 1, 'live provider readable');
+ok((await asX(`select id from provider_links where provider_id = '${P}'`)).length === 0, 'unapproved link is not public');
+await asA(`select admin_review_provider_link('${ownLink}', true, 'Portfolio looks valid')`);
+ok((await asX(`select id from provider_links where provider_id = '${P}'`)).length === 1, 'approved live provider link is public');
 
 // ---- Column privacy ----
 await expectError(() => anon(`select base_location from providers`), /permission denied/, 'anon cannot read base_location');
@@ -149,6 +160,7 @@ ok(Math.abs(me.lat - 17.01) < 1e-9 && me.gender === 'female' && !('base_location
 const [{ get_provider_public_profile: pub }] = await anon(`select get_provider_public_profile('${P}')`);
 const pubText = JSON.stringify(pub);
 ok(pub.badges.payout_verified === true && pub.base_area === 'Old Town' && pub.specialisations[0].labels.includes('Split AC'), 'public profile: badges, area name, specialisation labels');
+ok(pub.specialisations[0].attributes.equipment.includes('inverter') && pub.links[0].kind === 'website', 'public profile: attributes and portfolio link');
 ok(!/lat|lng|base_location|phone|fund_account|razorpay|gender/.test(pubText), 'public profile has no location/phone/gateway/gender');
 
 // ---- Availability enforcement in create_booking ----
@@ -158,6 +170,14 @@ const at = async (dayOffset, hhmm) => (await db.query(
 const book = (ps, when) => asC(`select create_booking($1, 'AC not cooling', '9 Test Road', 'Testcity', 17.0, 78.0, $2)`, [ps, when]);
 const [{ create_booking: b1 }] = await book(pps, await at(0, '10:00'));
 ok(!!b1, 'Monday 10-12 inside hours: booked');
+await expectError(
+  () => svc(`insert into reviews (booking_id, customer_id, provider_id, rating, tags) values ($1, $2, $3, 5, '{not_a_real_tag}')`, [b1, C, P]),
+  /not available for this category/,
+  'review tags validate against category config',
+);
+await svc(`insert into reviews (booking_id, customer_id, provider_id, rating, tags) values ($1, $2, $3, 5, '{quick_diagnosis,long_lasting}')`, [b1, C, P]);
+const [{ get_provider_public_profile: reviewed }] = await anon(`select get_provider_public_profile('${P}')`);
+ok(reviewed.review_themes.some((x) => x.tag === 'quick_diagnosis' && x.count === 1), 'public profile aggregates review themes');
 await expectError(async () => book(pps, await at(0, '08:00')), /outside the provider's working hours/, 'Monday 8-10 before hours rejected');
 await expectError(async () => book(pps, await at(0, '12:00')), /outside/, 'Monday 12-14 crosses lunch break rejected');
 await expectError(async () => book(pps, await at(0, '18:00')), /outside/, 'Monday 18-20 ends after 19:00 rejected');

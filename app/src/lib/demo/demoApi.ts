@@ -979,6 +979,7 @@ export const demoApi: Api = {
       pricing: r.pricing ?? null,
       comment: r.comment?.trim() || null,
       provider_reply: null,
+      tags: r.tags ?? [],
       created_at: nowIso(),
     };
     db.reviews.push(review);

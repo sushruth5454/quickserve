@@ -10,6 +10,8 @@ import type {
   PayoutFieldErrors,
   PayoutForm,
   PayoutResult,
+  ProviderLink,
+  ProviderLinkInput,
   PriceGuidance,
   ProviderSchedule,
   PublicProfile,
@@ -133,11 +135,28 @@ export const supabaseOnboardingApi: OnboardingApi = {
           specialisations: input.specialisations,
           brands: input.brands,
           tools: input.tools,
+          attributes: input.attributes,
           active: true,
         },
         { onConflict: 'provider_id,category_id' },
       ),
     );
+  },
+
+  async listProviderLinks(): Promise<ProviderLink[]> {
+    const me = await uid();
+    return unwrap(
+      await supabase.from('provider_links').select('*').eq('provider_id', me).order('created_at', { ascending: true }),
+    ) as ProviderLink[];
+  },
+
+  async saveProviderLink(input: ProviderLinkInput) {
+    unwrap(await supabase.rpc('save_provider_link', { p_kind: input.kind, p_url: input.url.trim(), p_handle: input.handle?.trim() || null }));
+  },
+
+  async deleteProviderLink(id) {
+    const me = await uid();
+    unwrap(await supabase.from('provider_links').delete().eq('id', id).eq('provider_id', me));
   },
 
   async deleteRateCardItem(id) {

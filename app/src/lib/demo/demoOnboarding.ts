@@ -17,6 +17,7 @@ import type {
   PayoutAccount,
   PortfolioPhoto,
   ProviderDocument,
+  ProviderLink,
   ProviderSchedule,
   PublicProfile,
   TimeOff,
@@ -41,6 +42,7 @@ interface Extra {
   portfolio: (PortfolioPhoto & { uri: string })[];
   documents: ProviderDocument[];
   payout: PayoutAccount | null;
+  links: ProviderLink[];
 }
 
 const extras = new Map<string, Extra>();
@@ -64,6 +66,7 @@ function extraFor(providerId: string): Extra {
       time_off: [],
       portfolio: [],
       documents: [],
+      links: [],
       payout: legacy ? { rail: 'payouts', activation_status: 'activated', beneficiary_name: null, bank_last4: '0000', ifsc: null, last_error: null, requirements: [] } : null,
     };
     extras.set(providerId, e);
@@ -147,6 +150,7 @@ function state(providerId: string): OnboardingState {
       profile: pf ? { full_name: pf.full_name, avatar_url: pf.avatar_url } : null,
       payout: null,
       documents: [],
+      links: [],
       availability: [],
       time_off: [],
       portfolio: [],
@@ -256,7 +260,7 @@ export const demoOnboardingApi: OnboardingApi = {
     const cat = db.categories.find((c) => c.id === input.categoryId);
     const fields = {
       skill_level: input.skillLevel, visit_fee: input.visitFee, labour_rate: input.labourRate, rate_unit: input.rateUnit, active: true,
-      specialisations: input.specialisations, brands: input.brands, tools: input.tools,
+      specialisations: input.specialisations, brands: input.brands, tools: input.tools, attributes: input.attributes,
     };
     if (existing) Object.assign(existing, fields);
     else db.services.push({ id: id('ps'), provider_id: me, category_id: input.categoryId, categories: cat ? { name: cat.name, slug: cat.slug } : null, rate_card_items: [], ...fields } as ProviderService);
@@ -265,6 +269,38 @@ export const demoOnboardingApi: OnboardingApi = {
   async deleteRateCardItem(itemId) {
     await demoInternals.wait();
     for (const s of demoInternals.db().services) s.rate_card_items = (s.rate_card_items ?? []).filter((r) => r.id !== itemId);
+  },
+
+  async listProviderLinks() {
+    const { me, e } = requireProvider();
+    return e.links.filter((x) => x.provider_id === me).map((x) => ({ ...x }));
+  },
+
+  async saveProviderLink(input) {
+    await demoInternals.wait();
+    const { me, e } = requireProvider();
+    const existing = e.links.find((x) => x.kind === input.kind);
+    if (existing) Object.assign(existing, { url: input.url.trim(), handle: input.handle?.trim() || null });
+    else
+      e.links.push({
+        id: id('link'),
+        provider_id: me,
+        kind: input.kind,
+        url: input.url.trim(),
+        handle: input.handle?.trim() || null,
+        verified_method: 'none',
+        stats: {},
+        stats_synced_at: null,
+        status: 'pending',
+        review_reason: null,
+        reviewed_by: null,
+        reviewed_at: null,
+      });
+  },
+
+  async deleteProviderLink(linkId) {
+    const { me, e } = requireProvider();
+    e.links = e.links.filter((x) => x.id !== linkId || x.provider_id !== me);
   },
 
   async getPriceGuidance(_categoryId: string, _city: string, _unit: RateUnit) {
@@ -408,11 +444,30 @@ export const demoOnboardingApi: OnboardingApi = {
       specialisations: myServices(providerId).filter((s) => s.active).map((s) => {
         const cat = demoInternals.db().categories.find((c) => c.id === s.category_id);
         const chosen = (s as ProviderService & { specialisations?: string[] }).specialisations ?? [];
-        return { category_id: s.category_id, labels: (SKILLS[cat?.slug ?? ''] ?? []).filter(([slug]) => chosen.includes(slug)).map(([, l]) => l), brands: (s as ProviderService & { brands?: string[] }).brands ?? [] };
+        return {
+          category_id: s.category_id,
+          labels: (SKILLS[cat?.slug ?? ''] ?? []).filter(([slug]) => chosen.includes(slug)).map(([, l]) => l),
+          brands: (s as ProviderService & { brands?: string[] }).brands ?? [],
+          attributes: s.attributes ?? {},
+          schema: { type: 'object' as const, properties: {} },
+        };
       }),
       hours: e.availability,
       on_leave_until: e.time_off.find((t) => new Date(t.from).getTime() <= Date.now() && Date.now() < new Date(t.to).getTime())?.to ?? null,
       portfolio: e.portfolio.map((x) => ({ file_path: x.uri, caption: x.caption })),
+      links: e.links.map((x) => ({
+        id: x.id,
+        kind: x.kind,
+        url: x.url,
+        handle: x.handle,
+        verified: x.verified_method !== 'none',
+        verified_method: x.verified_method,
+        stats: x.stats,
+        stats_synced_at: x.stats_synced_at,
+        status: x.status,
+        review_reason: x.review_reason,
+      })),
+      review_themes: [],
     };
   },
 

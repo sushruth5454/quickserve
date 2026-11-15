@@ -8,7 +8,7 @@ import { Pressable, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon, iconForSlug } from '../../src/components/CategoryIcon';
 import { SkillBadge, VerifiedMark } from '../../src/components/ProviderCard';
-import { Avatar, Button, Card, Divider, ErrorState, IconButton, InlineAlert, RatingStars, Screen, Section, Skeleton, Text } from '../../src/components/ui';
+import { Avatar, Button, Card, Chip, Divider, ErrorState, IconButton, InlineAlert, RatingStars, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getProviderDetail, type ProviderDetail } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
@@ -299,6 +299,18 @@ export default function ProviderDetailScreen() {
                     </Text>
                   ) : null;
                 })()}
+                {(() => {
+                  const sp = pub?.specialisations.find((x) => x.category_id === s.category_id);
+                  const attrs = Object.entries(sp?.attributes ?? {}).flatMap(([key, value]) => {
+                    const values = Array.isArray(value) ? value : value == null ? [] : [value];
+                    return values.map((item) => `${key.replaceAll('_', ' ')}: ${String(item).replaceAll('_', ' ')}`);
+                  });
+                  return attrs.length ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                      {attrs.map((label) => <Chip key={label} label={label} selected={false} check={false} />)}
+                    </View>
+                  ) : null;
+                })()}
                 {(s.rate_card_items ?? []).length > 0 ? (
                   <View style={{ gap: t.spacing.sm }}>
                     <Text variant="footnoteStrong" color="muted">
@@ -354,9 +366,33 @@ export default function ProviderDetailScreen() {
         </View>
       ) : null}
 
+      {pub && pub.links.length > 0 ? (
+        <View style={gutter}>
+          <Section title="Portfolio links" subtitle="External portfolios and verified business profiles">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+              {pub.links.map((link) => (
+                <Chip
+                  key={link.id}
+                  label={`${link.handle || link.kind}${link.verified ? ' · verified' : ''}`}
+                  icon="link-outline"
+                  onPress={() => void Linking.openURL(link.url)}
+                />
+              ))}
+            </View>
+          </Section>
+        </View>
+      ) : null}
+
       {/* Ratings */}
       <View style={gutter}>
         <Section title="Ratings & reviews">
+          {pub && pub.review_themes.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs, marginBottom: t.spacing.md }}>
+              {pub.review_themes.map((theme) => (
+                <Chip key={theme.tag} label={`${theme.tag.replaceAll('_', ' ')} · ${theme.count}`} selected={false} check={false} />
+              ))}
+            </View>
+          ) : null}
           <Card gap={t.spacing.lg}>
             <View style={{ flexDirection: 'row', gap: t.spacing.xl, alignItems: 'center' }}>
               <View style={{ alignItems: 'center', gap: 4, minWidth: 92 }}>

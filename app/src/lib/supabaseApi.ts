@@ -253,7 +253,7 @@ export async function createPayment(bookingId: string): Promise<PaymentLinkRespo
   return data;
 }
 
-const BOOKING_SELECT = '*, categories(name, slug), providers(rating_avg, rating_count, profiles(full_name))';
+const BOOKING_SELECT = '*, categories(name, slug, review_tags), providers(rating_avg, rating_count, profiles(full_name))';
 
 export async function listMyBookings(): Promise<Booking[]> {
   const uid = await requireUserId();
@@ -374,6 +374,7 @@ export async function submitReview(bookingId: string, r: ReviewInput): Promise<s
       p_behaviour: r.behaviour ?? null,
       p_pricing: r.pricing ?? null,
       p_comment: r.comment ?? null,
+      p_tags: r.tags ?? [],
     }),
   );
 }
@@ -418,6 +419,7 @@ export async function upsertService(input: ServiceInput): Promise<void> {
         visit_fee: input.visitFee,
         labour_rate: input.labourRate,
         rate_unit: input.rateUnit,
+        attributes: input.attributes ?? {},
         active: true,
       },
       { onConflict: 'provider_id,category_id' },

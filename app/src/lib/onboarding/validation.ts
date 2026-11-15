@@ -1,6 +1,6 @@
 /** Client-side validation for onboarding forms. The server re-validates everything. */
 import { BIO_MAX, BIO_MIN } from './copy';
-import type { PayoutFieldErrors, PayoutForm } from './types';
+import type { PayoutFieldErrors, PayoutForm, ProfileSchema } from './types';
 
 export const PAN_RE = /^[A-Z]{3}P[A-Z][0-9]{4}[A-Z]$/;
 export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -43,6 +43,25 @@ export function validateFees(visitFeeText: string, labourText: string): { visitF
   else if (l <= 0) e.labourRate = 'Labour rate must be more than ₹0.';
   else if (l > 5000000) e.labourRate = 'Labour rate looks too high (max ₹50,000).';
   return e;
+}
+
+export function validateProfileAttributes(schema: ProfileSchema, attributes: Record<string, unknown>): string | null {
+  for (const [key, field] of Object.entries(schema.properties)) {
+    const value = attributes[key];
+    if (schema.required?.includes(key) && (value == null || value === '')) return `${key.replaceAll('_', ' ')} is required.`;
+    if (value == null || value === '') continue;
+    if (field.type === 'array') {
+      if (!Array.isArray(value)) return `${key.replaceAll('_', ' ')} must be a list.`;
+      if (field.maxItems != null && value.length > field.maxItems) return `${key.replaceAll('_', ' ')} has too many selections.`;
+      const allowed = field.enum ?? field.items?.enum;
+      if (allowed && value.some((item) => !allowed.includes(String(item)))) return `${key.replaceAll('_', ' ')} has an unsupported value.`;
+    } else if (field.enum && !field.enum.includes(String(value))) {
+      return `${key.replaceAll('_', ' ')} has an unsupported value.`;
+    }
+  }
+  const allowed = new Set(Object.keys(schema.properties));
+  if (Object.keys(attributes).some((key) => !allowed.has(key))) return 'Remove fields that are not configured for this service.';
+  return null;
 }
 
 export function validatePayoutForm(f: PayoutForm, rail: 'route' | 'payouts'): PayoutFieldErrors {

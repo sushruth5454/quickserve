@@ -106,6 +106,7 @@ export interface ServiceInput {
   visitFee: number;
   labourRate: number;
   rateUnit: RateUnit;
+  attributes?: Record<string, unknown>;
 }
 
 /** The backend contract the screens use. Implemented by supabaseApi.ts (real) and demo/demoApi.ts (in-memory). */

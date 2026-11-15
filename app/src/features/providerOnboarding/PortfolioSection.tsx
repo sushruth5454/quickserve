@@ -1,8 +1,8 @@
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Badge, BottomSheet, Button, Card, InlineAlert, Input, ListItem, Screen, Text, useConfirm, useToast, type Tone } from '../../components/ui';
-import { onboardingApi, type DocStatus, type ProviderDocument } from '../../lib/onboarding';
+import { Badge, BottomSheet, Button, Card, Chip, InlineAlert, Input, ListItem, Screen, Text, useConfirm, useToast, type Tone } from '../../components/ui';
+import { onboardingApi, type DocStatus, type ProviderDocument, type ProviderLink, type ProviderLinkKind } from '../../lib/onboarding';
 import { LIMITS } from '../../lib/onboarding/validation';
 import { useTheme } from '../../theme';
 import { pickDocument, pickPhoto } from './media';
@@ -61,10 +61,42 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
   const [docSheet, setDocSheet] = useState<string | null>(null);
   const [expiry, setExpiry] = useState('');
   const [showOptional, setShowOptional] = useState(false);
+  const [links, setLinks] = useState<ProviderLink[]>([]);
+  const [linkKind, setLinkKind] = useState<ProviderLinkKind>('website');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkHandle, setLinkHandle] = useState('');
   const portfolio = data.state.portfolio;
   const needs = useMemo(() => docNeeds(data), [data]);
   const missingRequired = needs.filter((n) => n.need === 'required' && !latestDoc(data.state.documents, n.code));
   const docType = data.docTypes.find((d) => d.code === docSheet);
+
+  useEffect(() => {
+    if (!data.state.provider) return;
+    void onboardingApi.listProviderLinks().then(setLinks).catch((e: Error) => setError(e.message));
+  }, [data.state.provider?.id]);
+
+  const saveLink = async () => {
+    let parsed: URL;
+    try {
+      parsed = new URL(linkUrl.trim());
+      if (parsed.protocol !== 'https:') throw new Error();
+    } catch {
+      return setError('Use a full https:// link, for example https://instagram.com/yourname.');
+    }
+    setBusy('link');
+    setError(null);
+    try {
+      await onboardingApi.saveProviderLink({ kind: linkKind, url: parsed.toString(), handle: linkHandle.trim() || null });
+      setLinks(await onboardingApi.listProviderLinks());
+      setLinkUrl('');
+      setLinkHandle('');
+      toast({ message: 'Link added to your public profile', tone: 'success' });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const addPhoto = async (source: 'camera' | 'library') => {
     setPhotoSheet(false);
@@ -156,6 +188,41 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
             <Button title="Add work photo" leftIcon="image-outline" variant="outline" onPress={() => setPhotoSheet(true)} loading={busy === 'photo'} />
           </View>
         ) : null}
+      </View>
+
+      <View style={{ gap: t.spacing.md }}>
+        <FieldLabel hint="Portfolio links only. Don't include phone numbers, WhatsApp, email or payment handles.">
+          Social profiles & website
+        </FieldLabel>
+        <Card gap={t.spacing.md}>
+          {links.map((link) => (
+            <ListItem
+              key={link.id}
+              icon="link-outline"
+              title={link.handle || link.kind}
+              subtitle={`${link.url} · ${link.status === 'approved' ? 'Live' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Pending review'}`}
+              right={
+                <Button
+                  title="Remove"
+                  size="sm"
+                  variant="ghost"
+                  onPress={async () => {
+                    await onboardingApi.deleteProviderLink(link.id).catch((e: Error) => setError(e.message));
+                    setLinks(await onboardingApi.listProviderLinks());
+                  }}
+                />
+              }
+            />
+          ))}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+            {(['instagram', 'youtube', 'facebook', 'website', 'behance', 'google_business', 'other'] as ProviderLinkKind[]).map((kind) => (
+              <Chip key={kind} label={kind.replace('_', ' ')} selected={linkKind === kind} onPress={() => setLinkKind(kind)} />
+            ))}
+          </View>
+          <Input label="Public profile or website URL" value={linkUrl} onChangeText={setLinkUrl} placeholder="https://instagram.com/yourprofile" autoCapitalize="none" keyboardType="url" />
+          <Input label="Handle or display name (optional)" value={linkHandle} onChangeText={setLinkHandle} placeholder="@yourprofile" autoCapitalize="none" />
+          <Button title="Add link" leftIcon="add" variant="outline" onPress={() => void saveLink()} loading={busy === 'link'} disabled={!linkUrl.trim()} />
+        </Card>
       </View>
 
       <View style={{ gap: t.spacing.md }}>

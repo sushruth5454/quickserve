@@ -12,7 +12,7 @@ import {
 } from '../onboarding/availability';
 import { completeness, resumeStep, stepDone } from '../onboarding/completeness';
 import type { Check, OnboardingState, ProviderSchedule, WeeklySlot } from '../onboarding/types';
-import { checkUpload, parseRupees, validateBasics, validateFees, validatePayoutForm } from '../onboarding/validation';
+import { checkUpload, parseRupees, validateBasics, validateFees, validatePayoutForm, validateProfileAttributes } from '../onboarding/validation';
 import { WINDOW_START_HOURS } from '../schedule';
 
 /** An instant given as IST wall-clock time, independent of the test machine's timezone. */
@@ -146,6 +146,13 @@ describe('validation', () => {
     expect(parseRupees('12.345')).toBeNull();
     expect(validateFees('199', '300')).toEqual({});
     expect(validateFees('', '0')).toEqual({ visitFee: expect.any(String), labourRate: expect.any(String) });
+  });
+
+  it('validates provider attributes against the category profile schema', () => {
+    const schema = { type: 'object' as const, properties: { skin_types: { type: 'array' as const, maxItems: 3, items: { type: 'string' as const, enum: ['oily', 'dry'] } } } };
+    expect(validateProfileAttributes(schema, { skin_types: ['oily'] })).toBeNull();
+    expect(validateProfileAttributes(schema, { skin_types: ['sensitive'] })).toMatch(/unsupported/);
+    expect(validateProfileAttributes(schema, { skin_types: ['oily'], phone: 'secret' })).toMatch(/not configured/);
   });
 
   it('payout form mirrors the Edge Function rules', () => {

@@ -8,8 +8,9 @@ import { useSelectedLocation } from '../../lib/locationContext';
 import { formatINR } from '../../lib/money';
 import { onboardingApi, type PriceGuidance } from '../../lib/onboarding';
 import { SKILL_LEVEL_INFO } from '../../lib/onboarding/copy';
-import { parseRupees, validateFees } from '../../lib/onboarding/validation';
+import { parseRupees, validateFees, validateProfileAttributes } from '../../lib/onboarding/validation';
 import type { ProviderService, RateUnit, SkillLevel } from '../../lib/types';
+import type { ProfileSchema } from '../../lib/onboarding';
 import { useTheme } from '../../theme';
 import { FieldLabel, Intro, MultiChips, SectionFooter, type SectionProps } from './parts';
 
@@ -25,9 +26,10 @@ interface EditorState {
   specialisations: string[];
   brands: string[];
   tools: string[];
+  attributes: Record<string, unknown>;
 }
 
-const EMPTY: EditorState = { categoryId: null, level: 'skilled', visitFee: '', labour: '', unit: 'job', specialisations: [], brands: [], tools: [] };
+const EMPTY: EditorState = { categoryId: null, level: 'skilled', visitFee: '', labour: '', unit: 'job', specialisations: [], brands: [], tools: [], attributes: {} };
 
 export function ServicesSection({ data, reload, header, mode, onDone, onBack }: SectionProps) {
   const t = useTheme();
@@ -74,6 +76,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
             specialisations: s.specialisations ?? [],
             brands: s.brands ?? [],
             tools: s.tools ?? [],
+            attributes: s.attributes ?? {},
           }
         : EMPTY,
     );
@@ -81,7 +84,12 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   };
 
   const save = async () => {
-    const e = { ...validateFees(ed.visitFee, ed.labour), ...(ed.categoryId ? {} : { category: 'Pick a service.' }) };
+    const attrError = category ? validateProfileAttributes((category.profile_schema ?? { type: 'object', properties: {} }) as ProfileSchema, ed.attributes) : null;
+    const e = {
+      ...validateFees(ed.visitFee, ed.labour),
+      ...(ed.categoryId ? {} : { category: 'Pick a service.' }),
+      ...(attrError ? { category: attrError } : {}),
+    };
     setErrors(e);
     if (Object.keys(e).length) return;
     setSaving(true);
@@ -96,6 +104,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
         specialisations: ed.specialisations,
         brands: ed.brands,
         tools: ed.tools,
+        attributes: ed.attributes,
       });
       await reload();
       setEditorOpen(false);
@@ -110,6 +119,8 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
 
   const toggle = (k: 'specialisations' | 'brands' | 'tools', v: string) =>
     setEd((s) => ({ ...s, [k]: s[k].includes(v) ? s[k].filter((x) => x !== v) : [...s[k], v] }));
+  const schema = (category?.profile_schema ?? { type: 'object', properties: {} }) as ProfileSchema;
+  const attrLabel = (key: string) => key.replaceAll('_', ' ').replace(/^\w/, (x) => x.toUpperCase());
   const dirty = editorOpen && (ed.categoryId != null || ed.labour !== '');
 
   const continueNext = async () => {
@@ -163,7 +174,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
                   label={c.name}
                   selected={ed.categoryId === c.id}
                   icon={services.some((s) => s.category_id === c.id && s.active) ? 'checkmark-circle' : undefined}
-                  onPress={() => setEd((s) => ({ ...s, categoryId: c.id, specialisations: [], brands: [], tools: [] }))}
+                  onPress={() => setEd((s) => ({ ...s, categoryId: c.id, specialisations: [], brands: [], tools: [], attributes: {} }))}
                 />
               ))}
             </ScrollView>
@@ -175,6 +186,57 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
               </Text>
             ) : null}
           </View>
+
+          {Object.entries(schema.properties).length ? (
+            <View style={{ gap: t.spacing.md }}>
+              {Object.entries(schema.properties).map(([key, spec]) => {
+                const current = ed.attributes[key];
+                if (spec.type === 'array') {
+                  const values = spec.enum ?? spec.items?.enum ?? [];
+                  return (
+                    <View key={key} style={{ gap: t.spacing.sm }}>
+                      <FieldLabel hint="These help us match the right customers.">{attrLabel(key)}</FieldLabel>
+                      <MultiChips
+                        label={attrLabel(key)}
+                        options={values.map((value) => ({ value, label: value.replaceAll('_', ' ') }))}
+                        selected={Array.isArray(current) ? (current as string[]) : []}
+                        onToggle={(value) =>
+                          setEd((s) => {
+                            const selected = Array.isArray(s.attributes[key]) ? (s.attributes[key] as string[]) : [];
+                            return {
+                              ...s,
+                              attributes: {
+                                ...s.attributes,
+                                [key]: selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value],
+                              },
+                            };
+                          })
+                        }
+                      />
+                    </View>
+                  );
+                }
+                if (spec.type === 'string' && spec.enum?.length) {
+                  return (
+                    <View key={key} style={{ gap: t.spacing.sm }}>
+                      <FieldLabel>{attrLabel(key)}</FieldLabel>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+                        {spec.enum.map((value) => (
+                          <Chip
+                            key={value}
+                            label={value.replaceAll('_', ' ')}
+                            selected={current === value}
+                            onPress={() => setEd((s) => ({ ...s, attributes: { ...s.attributes, [key]: value } }))}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  );
+                }
+                return null;
+              })}
+            </View>
+          ) : null}
 
           <View style={{ gap: t.spacing.sm }} accessibilityRole="radiogroup" accessibilityLabel="Skill level">
             <FieldLabel>Skill level</FieldLabel>

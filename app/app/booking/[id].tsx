@@ -13,6 +13,7 @@ import {
   Badge,
   Button,
   Card,
+  Chip,
   Divider,
   ErrorState,
   Header,
@@ -430,7 +431,7 @@ export default function BookingDetail() {
         <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} />
       ) : null}
       {isCustomer && (s === 'completed' || s === 'closed') && !review ? (
-        <ReviewForm name={first} busy={busy} onSubmit={(r) => void run(() => api.submitReview(booking.id, r), 'Thanks for your review!')} />
+        <ReviewForm name={first} busy={busy} reviewTags={booking.categories?.review_tags ?? []} onSubmit={(r) => void run(() => api.submitReview(booking.id, r), 'Thanks for your review!')} />
       ) : null}
 
       {/* ---------- provider actions ---------- */}
@@ -813,11 +814,22 @@ const SUB_LABELS = [
 
 const RATING_WORDS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
 
-function ReviewForm({ name, busy, onSubmit }: { name: string; busy: boolean; onSubmit: (r: ReviewInput) => void }) {
+function ReviewForm({
+  name,
+  busy,
+  reviewTags,
+  onSubmit,
+}: {
+  name: string;
+  busy: boolean;
+  reviewTags: string[];
+  onSubmit: (r: ReviewInput) => void;
+}) {
   const t = useTheme();
   const [rating, setRating] = useState(0);
   const [sub, setSub] = useState({ punctuality: 0, quality: 0, behaviour: 0, pricing: 0 });
   const [comment, setComment] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
 
   return (
     <Card variant="elevated" gap={t.spacing.lg}>
@@ -842,6 +854,23 @@ function ReviewForm({ name, busy, onSubmit }: { name: string; busy: boolean; onS
               </View>
             ))}
           </View>
+          {reviewTags.length ? (
+            <View style={{ gap: t.spacing.sm }}>
+              <Text variant="calloutStrong">What stood out? Pick up to 5</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                {reviewTags.map((tag) => (
+                  <Chip
+                    key={tag}
+                    label={tag.replaceAll('_', ' ')}
+                    selected={tags.includes(tag)}
+                    check
+                    disabled={!tags.includes(tag) && tags.length >= 5}
+                    onPress={() => setTags((current) => (current.includes(tag) ? current.filter((x) => x !== tag) : [...current, tag]))}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
           <TextArea
             placeholder="Tell others about your experience (optional)"
             value={comment}
@@ -865,6 +894,7 @@ function ReviewForm({ name, busy, onSubmit }: { name: string; busy: boolean; onS
             behaviour: sub.behaviour || undefined,
             pricing: sub.pricing || undefined,
             comment: comment.trim() || undefined,
+            tags,
           })
         }
       />

@@ -162,6 +162,13 @@ export interface ServiceDetailsInput {
   specialisations: string[];
   brands: string[];
   tools: string[];
+  attributes: Record<string, unknown>;
+}
+
+export interface ProviderLinkInput {
+  kind: ProviderLinkKind;
+  url: string;
+  handle: string | null;
 }
 
 export interface PriceStats {
@@ -217,10 +224,60 @@ export interface PublicProfile {
   member_since: string;
   badges: { id_verified: boolean; payout_verified: boolean; police_verified: boolean };
   credentials: string[];
-  specialisations: { category_id: string; labels: string[]; brands: string[] }[];
+  specialisations: {
+    category_id: string;
+    labels: string[];
+    brands: string[];
+    attributes: Record<string, unknown>;
+    schema: ProfileSchema;
+  }[];
   hours: WeeklySlot[];
   on_leave_until: string | null;
   portfolio: { file_path: string; caption: string }[];
+  links: {
+    id: string;
+    kind: ProviderLinkKind;
+    url: string;
+    handle: string | null;
+    verified: boolean;
+    verified_method: 'oauth' | 'dns' | 'manual' | 'none';
+    stats: Record<string, unknown>;
+    stats_synced_at: string | null;
+    status?: 'pending' | 'approved' | 'rejected';
+    review_reason?: string | null;
+  }[];
+  review_themes: { tag: string; count: number }[];
+}
+
+export type ProviderLinkKind = 'instagram' | 'youtube' | 'facebook' | 'website' | 'behance' | 'google_business' | 'other';
+
+export interface ProviderLink {
+  id: string;
+  provider_id: string;
+  kind: ProviderLinkKind;
+  url: string;
+  handle: string | null;
+  verified_method: 'oauth' | 'dns' | 'manual' | 'none';
+  stats: Record<string, unknown>;
+  stats_synced_at: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  review_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+export interface ProfileSchema {
+  type: 'object';
+  properties: Record<
+    string,
+    {
+      type: 'string' | 'integer' | 'number' | 'boolean' | 'array';
+      enum?: string[];
+      maxItems?: number;
+      items?: { type: 'string' | 'integer' | 'number' | 'boolean'; enum?: string[] };
+    }
+  >;
+  required?: string[];
 }
 
 /** Backend contract (real: onboarding/supabaseOnboarding.ts, demo: demo/demoOnboarding.ts). */
@@ -231,6 +288,9 @@ export interface OnboardingApi {
   uploadAvatar(uri: string, mimeType: string): Promise<string>;
   saveServiceArea(input: ServiceAreaInput): Promise<void>;
   saveService(input: ServiceDetailsInput): Promise<void>;
+  listProviderLinks(): Promise<ProviderLink[]>;
+  saveProviderLink(input: ProviderLinkInput): Promise<void>;
+  deleteProviderLink(id: string): Promise<void>;
   deleteRateCardItem(id: string): Promise<void>;
   getPriceGuidance(categoryId: string, city: string, unit: RateUnit): Promise<PriceGuidance>;
   setStep(step: number): Promise<void>;
