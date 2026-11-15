@@ -11,6 +11,43 @@ insert into public.app_config (key, value)
 values ('archetype_flags', '{"inspect_quote":true,"fixed":false,"proposal":false,"time_based":false,"remote":false}'::jsonb)
 on conflict (key) do nothing;
 
+update public.app_config
+   set value = jsonb_set(value, '{fixed}', 'true'::jsonb, true)
+ where key = 'archetype_flags';
+
+update public.categories c
+   set archetype = 'fixed',
+       pricing_units = '{job}'::text[],
+       payment_template = 'full_upfront',
+       cancellation_policy = 'fixed_flexible',
+       config_version = config_version + 1
+ where c.slug in ('house-cleaning', 'water-tank-cleaning', 'pest-control')
+   and c.active
+   and exists (
+     select 1
+       from public.provider_services ps
+       join public.service_packages sp on sp.provider_service_id = ps.id
+      where ps.category_id = c.id
+        and ps.active
+        and sp.active
+        and sp.price_type = 'fixed'
+   );
+
+insert into public.category_cities (category_id, city, live, launched_at)
+select c.id, p.city, true, now()
+  from public.categories c
+  join public.provider_services ps on ps.category_id = c.id and ps.active
+  join public.service_packages sp on sp.provider_service_id = ps.id
+                                and sp.active
+                                and sp.price_type = 'fixed'
+  join public.providers p on p.id = ps.provider_id
+ where c.archetype = 'fixed'
+   and public._provider_is_live(p.id)
+ group by c.id, p.city
+on conflict (category_id, city) do update
+set live = true,
+    launched_at = coalesce(public.category_cities.launched_at, excluded.launched_at);
+
 insert into public.archetype_transitions (archetype, from_status, to_status, actor)
 values
   ('fixed', 'pending_payment', 'requested', 'system'),
