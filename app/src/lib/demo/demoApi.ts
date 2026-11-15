@@ -801,7 +801,7 @@ export const demoApi: Api = {
     return clone(
       travelRequests
         .filter((x) => (x.customer_id === me || x.provider_id === me) && (!status || x.status === status))
-        .map((x) => ({ ...x, role: (x.customer_id === me ? 'customer' : 'provider') as const }))
+        .map((x): TravelRequest => ({ ...x, role: x.customer_id === me ? 'customer' : 'provider' }))
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     );
   },
