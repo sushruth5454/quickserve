@@ -235,6 +235,10 @@ export interface SearchRow {
   is_online: boolean;
   distance_km: number | null;
   score: number;
+  tier?: "best_match" | "nearest_best" | "strong_match";
+  score_components?: Record<string, number>;
+  matched_needs?: string[];
+  evidence_quotes?: string[];
 }
 
 export interface PastBooking {
@@ -261,6 +265,9 @@ export interface ProviderPick {
   is_online: boolean;
   previously_booked: boolean;
   reason: string;
+  tier?: "best_match" | "nearest_best" | "strong_match";
+  matched_needs?: string[];
+  evidence_quotes?: string[];
 }
 
 const firstName = (n: string) => n.split(" ")[0] ?? n;
@@ -298,6 +305,7 @@ export function rankProviders(rows: SearchRow[], history: PastBooking[], now: Da
     let reason: string;
     if (rated && (rated.rating ?? 0) >= 4) reason = `You rated ${name} ★${rated.rating} in ${clock.monthLabel(rated.booking_date, now)}`;
     else if (past) reason = `You booked ${name} in ${clock.monthLabel(past.booking_date, now)}`;
+    else if (r.matched_needs?.length) reason = `${r.matched_needs.map((x) => x.replaceAll("_", " ")).slice(0, 2).join(" · ")} mentioned in verified profiles and reviews`;
     else if (r === bestRated && r.rating_count > 0) reason = `Best rated · ★${rating(r).toFixed(1)} (${r.rating_count} reviews)`;
     else if (r === nearest && r.distance_km != null) reason = `Nearest expert · ${r.distance_km.toFixed(1)} km away`;
     else if (r.is_online) reason = "Online now";
@@ -315,6 +323,9 @@ export function rankProviders(rows: SearchRow[], history: PastBooking[], now: Da
       is_online: r.is_online,
       previously_booked: !!past,
       reason,
+      tier: r.tier,
+      matched_needs: r.matched_needs ?? [],
+      evidence_quotes: (r.evidence_quotes ?? []).slice(0, 2),
     };
   });
 }

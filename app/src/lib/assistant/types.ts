@@ -50,6 +50,9 @@ export interface ProviderPick {
   is_online: boolean;
   previously_booked: boolean;
   reason: string;
+  tier?: 'best_match' | 'nearest_best' | 'strong_match';
+  matched_needs?: string[];
+  evidence_quotes?: string[];
 }
 
 export interface ProvidersCard {

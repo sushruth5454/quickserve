@@ -36,6 +36,17 @@ export function functionDeclarations(categorySlugs: string[]) {
         properties: {
           category_slug: slug,
           sort: { type: "string", enum: ["recommended", "rating", "price", "distance", "experience"] },
+          needs_attributes: {
+            type: "array",
+            items: { type: "string" },
+            description: "Only exact customer needs that are present in CONTEXT category attributes (e.g. oily_skin, airbrush).",
+          },
+          needs_review_tags: {
+            type: "array",
+            items: { type: "string" },
+            description: "Only exact tags from CONTEXT category review_tags (e.g. long_lasting).",
+          },
+          scheduled_at: { type: "string", description: "Optional ISO datetime. Used to exclude unavailable providers." },
           min_rating: { type: "number", description: "Optional, 1-5." },
           max_visit_fee_rupees: { type: "integer", description: "Optional." },
           online_only: { type: "boolean" },

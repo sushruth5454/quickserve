@@ -85,7 +85,7 @@ interface Ctx {
   cfg: AiConfig;
   admin: SupabaseClient;
   userClient: SupabaseClient;
-  categories: { slug: string; name: string }[];
+  categories: { slug: string; name: string; profile_schema?: Record<string, unknown>; review_tags?: string[] }[];
   history: PastBooking[];
   location: { area: string; city: string; lat: number; lng: number } | null;
   address: DraftCard["address"] | null;
@@ -143,15 +143,20 @@ async function searchPros(ctx: Ctx, state: State, slug: string, opts: Record<str
   // Model-supplied coordinates are only honoured near the selected location (it has no reason to search elsewhere).
   const useOwn = lat != null && lng != null && Math.abs(lat - ctx.location.lat) < 0.5 && Math.abs(lng - ctx.location.lng) < 0.5;
   const maxFee = num(opts.max_visit_fee_rupees, 0, 100_000);
-  const { data, error } = await ctx.userClient.rpc("search_providers", {
+  const attributes = Array.isArray(opts.needs_attributes)
+    ? opts.needs_attributes.filter((v) => typeof v === "string").slice(0, 10)
+    : [];
+  const reviewTags = Array.isArray(opts.needs_review_tags)
+    ? opts.needs_review_tags.filter((v) => typeof v === "string").slice(0, 10)
+    : [];
+  const { data, error } = await ctx.userClient.rpc("match_providers", {
     p_category_slug: slug,
     p_lat: useOwn ? lat : ctx.location.lat,
     p_lng: useOwn ? lng : ctx.location.lng,
-    p_sort: SORTS.includes(opts.sort as string) ? opts.sort : "recommended",
-    p_min_rating: num(opts.min_rating, 1, 5),
+    p_needs: { attributes, review_tags: reviewTags },
+    p_scheduled_at: typeof opts.scheduled_at === "string" ? opts.scheduled_at : null,
     p_max_visit_fee: maxFee == null ? null : Math.round(maxFee * 100),
-    p_online_only: opts.online_only === true,
-    p_limit: 10,
+    p_limit: 12,
   });
   if (error) throw error;
   const rows = (data ?? []) as SearchRow[];
@@ -269,6 +274,10 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
             online_now: r.is_online,
             booked_before: booked.has(r.provider_id),
             customer_rating: rated.get(r.provider_id) ?? null,
+            tier: r.tier ?? "strong_match",
+            matched_needs: r.matched_needs ?? [],
+            evidence_quotes: (r.evidence_quotes ?? []).slice(0, 2),
+            score_components: r.score_components ?? {},
           })),
           problem_chips: PROBLEM_CHIPS[slug] ?? [],
           ...(rows.length ? {} : { note: "No verified pros serve this location for this service yet. Tell the customer; do not draft." }),
@@ -507,7 +516,7 @@ async function prepareChat(cfg: AiConfig, auth: Auth, body: Json, apiKey: string
     conversationId = data.id as string;
   }
   const [cats, history, addrs, prior, customerRows] = await Promise.all([
-    userClient.from("categories").select("slug, name").eq("active", true).order("sort_order"),
+    userClient.from("categories").select("slug, name, profile_schema, review_tags").eq("active", true).order("sort_order"),
     loadHistory(userClient, uid),
     userClient.from("addresses").select("id, label, line1, city, lat, lng, is_default, created_at").eq("user_id", uid).neq("label", "Booking").order("created_at"),
     cfg.historyRows

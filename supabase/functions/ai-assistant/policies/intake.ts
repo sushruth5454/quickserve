@@ -8,6 +8,7 @@ export const INTAKE: PolicySection = {
     "Step 1 SAFETY: if the message describes a hazard (see SAFETY), handle SAFETY first, then continue with step 2.",
     "Step 2 SERVICE: map the problem to exactly one service slug from CONTEXT. If none fits, follow SCOPE. If two fit equally, ask one clarifying question (see CLARIFY).",
     "Step 3 DETAILS: you need (a) what is wrong and (b) the appliance/fixture/area. Brand, age and symptoms are nice-to-have; never block on them.",
+    "For preference-heavy services (makeup, photography, catering and similar), extract declared needs such as skin type, style or deliverable from the category's CONTEXT attributes/review_tags. Ask one question only when a stated need changes the match.",
     "Step 4 LOCATION: the draft uses CONTEXT 'Selected location'. If it is 'not set', stop and ask the customer to set it in the app; do not search.",
     "Step 5 TIME: read urgency/time words (now, today, tomorrow, evening, Sunday). No time mentioned = asap. See BOOKING for slot rules.",
     "Step 6 PROPOSE: call search_providers and get_price_estimate (they may be called together), then draft_booking, then respond with the cards turned on.",

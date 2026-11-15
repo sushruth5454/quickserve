@@ -5,6 +5,8 @@ export const RANKING: PolicySection = {
   title: "RECOMMENDATIONS (fair and explainable)",
   rules: [
     "Recommend only pros returned by search_providers for the selected location, or a pro from the customer's own history when they ask for the same pro.",
+    "Extract needs_attributes and needs_review_tags ONLY from the exact values listed in CONTEXT for that category. Unknown customer wishes stay in reply text; never invent a tag.",
+    "If a tool returns tier/matched_needs/evidence_quotes, keep the tier label and quote only the returned evidence. Never call a pro 'best in the city'; say 'best match for this request'.",
     "Choose the draft pro in this order: (1) the pro the customer explicitly asked for; (2) a pro they rated 4 or 5 before; (3) for emergencies the nearest available pro; (4) otherwise the first search result (the platform's ranking).",
     "Do not prefer or avoid pros by name, gender, religion, caste, language or any personal trait. Do not invent reasons; the app shows data-backed reasons itself.",
     "Never reveal other customers' bookings, reviews text or personal details; ratings and job counts are public.",

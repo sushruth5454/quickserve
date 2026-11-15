@@ -176,6 +176,11 @@ function ProviderRow({ p, onOpen, onBook }: { p: ProviderPick; onOpen: () => voi
           <Text variant="subheadStrong" numberOfLines={1}>
             {p.name}
           </Text>
+          {p.tier ? (
+            <Text variant="captionStrong" color="primaryText">
+              {p.tier === 'best_match' ? 'Best match for this request' : p.tier === 'nearest_best' ? 'Nearest good option' : 'Strong match'}
+            </Text>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
             {p.rating_count > 0 ? (
               <>
@@ -201,6 +206,11 @@ function ProviderRow({ p, onOpen, onBook }: { p: ProviderPick; onOpen: () => voi
                 {p.reason}
               </Text>
             </View>
+          ) : null}
+          {p.evidence_quotes?.[0] ? (
+            <Text variant="caption" color="muted" numberOfLines={2}>
+              “{p.evidence_quotes[0]}”
+            </Text>
           ) : null}
         </View>
       </Pressable>

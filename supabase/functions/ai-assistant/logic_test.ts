@@ -152,6 +152,18 @@ Deno.test("ranking: rated ≥4 pros boosted, preferred first, deterministic rega
   assertEquals(rankProviders([], [], now, clock), []);
 });
 
+Deno.test("ranking preserves server match tier and review evidence", () => {
+  const picks = rankProviders([row("match", {
+    tier: "best_match",
+    matched_needs: ["long_lasting"],
+    evidence_quotes: ["Makeup lasted all night"],
+  })], [], now, clock);
+  assertEquals(picks[0]?.tier, "best_match");
+  assertEquals(picks[0]?.matched_needs, ["long_lasting"]);
+  assertEquals(picks[0]?.evidence_quotes, ["Makeup lasted all night"]);
+  assertMatch(picks[0]!.reason, /long lasting/);
+});
+
 Deno.test("estimate: below the sample minimum shows no typical total (sparse/stale data)", () => {
   const sparse = estimateCard(stats({ total_count: 2 }), 3, 180);
   assertEquals(sparse.typical_total, null);
