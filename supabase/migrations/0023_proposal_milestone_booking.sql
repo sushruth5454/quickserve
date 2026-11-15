@@ -206,6 +206,20 @@ create unique index if not exists bookings_one_active_proposal_request_idx
                    'in_progress'::public.booking_status, 'delivery_pending'::public.booking_status,
                    'completion_requested'::public.booking_status, 'disputed'::public.booking_status);
 
+insert into public.archetype_transitions (archetype, from_status, to_status, actor)
+values
+  ('proposal', 'pending_payment', 'confirmed', 'system'),
+  ('proposal', 'confirmed', 'in_progress', 'provider'),
+  ('proposal', 'in_progress', 'delivery_pending', 'provider'),
+  ('proposal', 'delivery_pending', 'completion_requested', 'provider'),
+  ('proposal', 'completion_requested', 'completed', 'customer'),
+  ('proposal', 'completion_requested', 'completed', 'provider'),
+  ('proposal', 'completion_requested', 'completed', 'system'),
+  ('proposal', 'pending_payment', 'expired', 'system'),
+  ('proposal', 'confirmed', 'cancelled', 'provider'),
+  ('proposal', 'in_progress', 'cancelled', 'provider')
+on conflict do nothing;
+
 create or replace function public._freeze_proposal_booking_snapshot()
 returns trigger
 language plpgsql
@@ -501,11 +515,11 @@ begin
    where request_id = p_request_id and provider_id = v_uid;
 
   insert into public.proposals (
-    request_id, provider_id, provider_service_id, version, valid_until, note, deliverables,
+    request_id, provider_id, provider_service_id, version, total, valid_until, note, deliverables,
     cancellation_snapshot
   )
   values (
-    p_request_id, v_uid, v_recipient.provider_service_id, v_version, p_valid_until,
+    p_request_id, v_uid, v_recipient.provider_service_id, v_version, 1, p_valid_until,
     nullif(trim(coalesce(p_note, '')), ''), coalesce(p_deliverables, '[]'::jsonb), v_cancel
   ) returning id into v_proposal;
 
@@ -627,9 +641,6 @@ begin
   perform public._assert(found, 'proposal not found');
   select * into v_request from public.service_requests where id = v_proposal.request_id for update;
   perform public._assert(v_request.customer_id = v_uid, 'only the customer can accept this proposal');
-  perform public._assert(v_request.status = 'open', 'request is not open');
-  perform public._assert(v_proposal.status = 'sent' and v_proposal.valid_until > now(), 'proposal is no longer valid');
-
   select b.id into v_existing
     from public.bookings b
    where b.service_request_id = v_request.id
@@ -643,6 +654,8 @@ begin
     );
     return v_existing;
   end if;
+  perform public._assert(v_request.status = 'open', 'request is not open');
+  perform public._assert(v_proposal.status = 'sent' and v_proposal.valid_until > now(), 'proposal is no longer valid');
 
   perform pg_advisory_xact_lock(hashtext(v_proposal.provider_id::text));
   select * into v_category from public.categories where id = v_request.category_id;
@@ -716,9 +729,10 @@ begin
   values (v_booking, v_uid, null, 'pending_payment', 'proposal accepted; 30 minute payment hold');
 
   insert into public.payment_schedule (
-    booking_id, seq, label, amount, due_rule, due_at, status, purpose, obligation_kind, proposal_schedule_id
+    booking_id, quote_id, seq, obligation_type, label, amount, due_rule, due_at,
+    status, purpose, obligation_kind, proposal_schedule_id
   )
-  select v_booking, ps.seq, ps.label, ps.amount, ps.due_rule, ps.due_at,
+  select v_booking, v_quote, ps.seq, 'service', ps.label, ps.amount, ps.due_rule, ps.due_at,
          case when ps.due_rule = 'at_booking' or ps.due_at <= now() then 'due' else 'upcoming' end,
          case
            when ps.due_rule = 'at_booking' then 'advance'::public.payment_purpose
@@ -732,9 +746,10 @@ begin
 
   select coalesce(max(seq), 0) + 1 into v_seq from public.payment_schedule where booking_id = v_booking;
   insert into public.payment_schedule (
-    booking_id, seq, label, amount, due_rule, due_at, status, purpose, obligation_kind
+    booking_id, quote_id, seq, obligation_type, label, amount, due_rule, due_at,
+    status, purpose, obligation_kind
   ) values (
-    v_booking, v_seq, 'QuickServe platform fee', v_platform_fee, 'at_booking', now(),
+    v_booking, v_quote, v_seq, 'platform_fee', 'QuickServe platform fee', v_platform_fee, 'at_booking', now(),
     'due', 'platform_fee', 'platform_fee'
   );
 
@@ -927,20 +942,21 @@ begin
     'payment hold expired'
   );
 
-  select * into p from public.payments
-   where booking_id = b.id and schedule_id = ps.id and status = 'created' and short_url is not null
+  select * into p from public.payments pay
+   where pay.booking_id = b.id and pay.schedule_id = ps.id
+     and pay.status = 'created' and pay.short_url is not null
    order by created_at desc limit 1;
   if found then
     return query select p.id, p.amount, p.purpose, p.short_url, ps.id;
     return;
   end if;
 
-  update public.payments
+  update public.payments pay
      set status = 'failed', cancel_link_pending = true
-   where booking_id = b.id and schedule_id = ps.id and status = 'created';
+   where pay.booking_id = b.id and pay.schedule_id = ps.id and pay.status = 'created';
   insert into public.payments (
     booking_id, quote_id, purpose, amount, schedule_id
-  ) values (b.id, b.approved_quote_id, ps.purpose, ps.amount, ps.id)
+  ) values (b.id, b.approved_quote_id, ps.purpose::public.payment_purpose, ps.amount, ps.id)
   returning * into p;
   return query select p.id, p.amount, p.purpose, null::text, ps.id;
 end;
@@ -1285,10 +1301,10 @@ security definer
 set search_path = public
 as $$
 declare
-  b record;
+  expired_booking record;
   v_count int := 0;
 begin
-  for b in
+  for expired_booking in
     select * from public.bookings
      where archetype = 'proposal' and status = 'pending_payment'
        and payment_hold_expires_at <= now()
@@ -1296,23 +1312,23 @@ begin
   loop
     update public.payments
        set status = 'failed', cancel_link_pending = true
-     where booking_id = b.id and status = 'created';
+     where booking_id = expired_booking.id and status = 'created';
     update public.payment_schedule set status = 'waived'
-     where booking_id = b.id and status in ('due', 'upcoming');
+     where booking_id = expired_booking.id and status in ('due', 'upcoming');
     update public.quotes set status = 'superseded'
-     where id = b.approved_quote_id and status in ('sent', 'approved_pending_payment');
-    perform public._set_status(b.id, 'expired', null, 'proposal payment hold expired');
+     where id = expired_booking.approved_quote_id and status in ('sent', 'approved_pending_payment');
+    perform public._set_status(expired_booking.id, 'expired', null, 'proposal payment hold expired');
     update public.proposals
        set status = case when valid_until > now() then 'sent' else 'expired' end, updated_at = now()
-     where id = b.proposal_id;
+     where id = expired_booking.proposal_id;
     update public.service_requests
        set status = case when expires_at > now() then 'open' else 'expired' end, updated_at = now()
-     where id = b.service_request_id and status = 'closed';
+     where id = expired_booking.service_request_id and status = 'closed';
     perform public._queue_notification(
-      b.customer_id, 'proposal_hold_expired', b.id, 'Proposal hold expired',
+      expired_booking.customer_id, 'proposal_hold_expired', expired_booking.id, 'Proposal hold expired',
       'The payment window closed. Your request is available again.',
-      jsonb_build_object('booking_id', b.id, 'request_id', b.service_request_id),
-      'proposal-hold:' || b.id::text
+      jsonb_build_object('booking_id', expired_booking.id, 'request_id', expired_booking.service_request_id),
+      'proposal-hold:' || expired_booking.id::text
     );
     v_count := v_count + 1;
   end loop;
@@ -1392,15 +1408,13 @@ create policy request_private_customer_or_paid_provider on public.request_privat
   for select to authenticated using (
     exists (
       select 1 from public.service_requests r
-       where r.id = request_id and (
-         r.customer_id = auth.uid()
-         or exists (
-           select 1 from public.bookings b
-            where b.service_request_id = r.id
-              and b.provider_id = auth.uid()
-              and b.status not in ('pending_payment', 'expired', 'declined', 'cancelled')
-         )
-       )
+       where r.id = public.request_private.request_id and r.customer_id = auth.uid()
+    )
+    or exists (
+      select 1 from public.bookings b
+       where b.service_request_id = public.request_private.request_id
+         and b.provider_id = auth.uid()
+         and b.status not in ('pending_payment', 'expired', 'declined', 'cancelled')
     )
     or public._is_admin()
   );
@@ -1441,6 +1455,7 @@ create policy request_messages_thread_participants on public.request_messages
     )
     or public._is_admin()
   );
+drop policy if exists payment_schedule_participants on public.payment_schedule;
 create policy payment_schedule_participants on public.payment_schedule
   for select to authenticated using (public._is_participant(booking_id));
 

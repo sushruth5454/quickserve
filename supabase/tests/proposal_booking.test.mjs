@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const sql = fs.readFileSync(path.join(here, '..', 'migrations', '0020_proposal_milestone_booking.sql'), 'utf8');
+const sql = fs.readFileSync(path.join(here, '..', 'migrations', '0023_proposal_milestone_booking.sql'), 'utf8');
 const checks = [
   ['service request table', /create table if not exists public\.service_requests/i],
   ['provider projection', /create or replace view public\.service_request_provider_view/i],
@@ -74,7 +74,8 @@ for (const file of [
   '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
   '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
   '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
-  '0017_creator_config.sql', '0020_proposal_milestone_booking.sql',
+  '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
+  '0020_proposal_enum_values.sql', '0023_proposal_milestone_booking.sql',
 ]) await db.exec(migration(file));
 
 let runtimeFailures = 0;
@@ -100,13 +101,17 @@ await db.exec(`
     ('${provider2}', 'Proposal City', extensions.st_setsrid(extensions.st_makepoint(80.61,16.50),4326), 'verified', now(), true, false, false);
 `);
 const category = (await db.query(`
-  insert into categories (slug, name, pricing_mode, active, archetype, intake_schema, config_version)
+  insert into categories (slug, name, pricing_mode, active, archetype, intake_schema, config_version, max_lead_days)
   values ('proposal-test', 'Proposal Test', 'quote', true, 'proposal',
-    '{"type":"object","properties":{"brief":{"type":"string"},"private_note":{"type":"string","x-private":true}},"required":["brief"]}', 4)
+    '{"type":"object","properties":{"brief":{"type":"string"},"private_note":{"type":"string","x-private":true}},"required":["brief"]}', 4, 365)
   on conflict (slug) do update set archetype='proposal', active=true
   returning id
 `)).rows[0].id;
 await db.exec(`
+  update app_config set value = value || '{"proposal":true}'::jsonb where key = 'archetype_flags';
+  insert into category_cities (category_id, city, live, launched_at)
+  values ('${category}', 'Proposal City', true, now())
+  on conflict (category_id, city) do update set live = true, launched_at = coalesce(category_cities.launched_at, now());
   insert into provider_services (provider_id, category_id, visit_fee, labour_rate, active)
   values ('${provider}', '${category}', 0, 0, true), ('${provider2}', '${category}', 0, 0, true);
   insert into addresses (user_id, label, line1, city, lat, lng)
