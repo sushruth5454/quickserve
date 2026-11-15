@@ -87,8 +87,11 @@ const asA = (sql, params) => as(A, 'authenticated', sql, params);
 const asX = (sql, params) => as(X, 'authenticated', sql, params);
 const svc = (sql, params) => as(null, 'service_role', sql, params);
 
-await asA(`select admin_adjust_coins('${C}', 2500, 'first FIFO lot')`);
-await asA(`select admin_adjust_coins('${C}', 2500, 'second FIFO lot')`);
+const [{ admin_adjust_coins: firstLot }] = await asA(`select admin_adjust_coins('${C}', 2500, 'first FIFO lot')`);
+const [{ admin_adjust_coins: secondLot }] = await asA(`select admin_adjust_coins('${C}', 3500, 'second FIFO lot')`);
+await svc(`select _spend_coin_lots($1, 1000, 'redeem', null, 'fifo-proof', 'FIFO proof')`, [C]);
+const [fifoProof] = (await db.query(`select source_ledger_id from coin_ledger where ref like 'fifo-proof:%'`)).rows;
+ok(fifoProof.source_ledger_id === firstLot, 'FIFO spends the oldest coin lot first');
 const balanceBefore = (await asC(`select get_my_coin_balance() as balance`))[0].balance;
 ok(balanceBefore === 5000, 'coin balance is integer paise (₹50)');
 ok((await asC(`select balance_paise from coin_balances`))[0].balance_paise === 5000, 'balance view is scoped to the caller');
@@ -140,15 +143,14 @@ ok(preview.p.balance_paise === 5000 && preview.p.maximum_paise === 5000, 'previe
 const [approved] = await asC(`select approve_quote_with_coins($1, $2, true) as p`, [b1, q1]);
 ok(approved.p.amount_due === 193000 && approved.p.coins_redeemed_paise === 5000, '₹50 redemption reduces the customer balance, not quote scope');
 const fifo = (await db.query(`
-  select l.created_at as lot_time
-    from coin_ledger debit
-    join coin_ledger l on l.id = debit.source_ledger_id
-   where debit.kind = 'redeem' and debit.booking_id = $1
-   order by debit.created_at, debit.id
-`, [b1])).rows;
+  select source_ledger_id
+    from coin_ledger
+   where kind = 'redeem' and booking_id = $1
+   order by source_ledger_id
+`, [b1])).rows.map((row) => row.source_ledger_id);
 ok(
-  fifo.length === 2 && new Date(fifo[0].lot_time).getTime() <= new Date(fifo[1].lot_time).getTime(),
-  'redemption consumes positive lots FIFO',
+  fifo.length === 2 && [firstLot, secondLot].every((lot) => fifo.includes(lot)),
+  'booking redemption drains the remaining FIFO lots exactly once',
 );
 ok(await payBalance(b1) === 193000, 'customer pays ₹1,930 after visit fee and ₹50 coins');
 
