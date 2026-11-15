@@ -2,22 +2,8 @@
 -- All amounts are integer paise. Clients only mutate proposal state through the
 -- security-definer RPCs below; request and booking payment state is never directly writable.
 
-alter type public.booking_status add value if not exists 'confirmed';
-alter type public.booking_status add value if not exists 'delivery_pending';
-alter type public.quote_item_kind add value if not exists 'material';
-alter type public.quote_item_kind add value if not exists 'package';
-alter type public.quote_item_kind add value if not exists 'per_unit';
-alter type public.quote_item_kind add value if not exists 'travel';
-alter type public.quote_item_kind add value if not exists 'rental';
-alter type public.quote_item_kind add value if not exists 'discount';
-alter type public.quote_item_kind add value if not exists 'addon';
-alter type public.payment_purpose add value if not exists 'advance';
-alter type public.payment_purpose add value if not exists 'milestone';
-alter type public.payment_purpose add value if not exists 'final';
-alter type public.payment_purpose add value if not exists 'platform_fee';
-alter type public.payment_purpose add value if not exists 'package';
-alter type public.payment_purpose add value if not exists 'addon';
-alter type public.payment_purpose add value if not exists 'session';
+-- Enum labels are added by 0020_proposal_enum_values.sql in a separate transaction,
+-- then this migration can use them safely on the next CI/deployment pass.
 
 -- 0018 owns the category/snapshot foundation. These idempotent additions keep 0020
 -- safe to rebase over that migration while making the ownership of proposal fields explicit.
