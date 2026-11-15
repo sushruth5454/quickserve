@@ -3,6 +3,7 @@
  * The selection is app-wide state persisted in AsyncStorage under {@link LOCATION_STORAGE_KEY}.
  */
 import type { SavedAddress } from './types';
+import { demoSeedCity } from './config';
 
 export const LOCATION_STORAGE_KEY = 'quickserve.location.v1';
 
@@ -29,7 +30,7 @@ export interface PopularArea {
   lng: number;
 }
 
-export const LAUNCH_CITY = 'Vijayawada';
+export const LAUNCH_CITY = demoSeedCity || 'Vijayawada';
 
 /** Approximate neighbourhood centres for the launch city. */
 export const POPULAR_AREAS: PopularArea[] = [

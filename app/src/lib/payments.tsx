@@ -5,10 +5,11 @@ import { ActivityIndicator, Pressable, View } from 'react-native';
 import { BottomSheet, Button, Text } from '../components/ui';
 import { useTheme } from '../theme';
 import { createPayment, createSchedulePayment, type PaymentLinkResponse } from './api';
-import { isDemoMode } from './config';
+import { demoPaymentsEnabled, isDemoMode } from './config';
 import { completeDemoPayment } from './demo/demoApi';
 import { haptics } from './haptics';
 import { formatINR } from './money';
+import { supabase } from './supabase';
 
 type PayResult = 'paid' | 'opened' | 'cancelled';
 
@@ -41,6 +42,31 @@ const METHODS = [
   { id: 'nb', label: 'Netbanking', sub: 'All major banks', icon: 'business-outline' as const },
 ];
 
+async function mockPayment(bookingId: string, scheduleId?: string): Promise<PaymentLinkResponse> {
+  if (scheduleId) {
+    const { data, error } = await supabase.from('payment_schedule').select('amount, purpose').eq('id', scheduleId).single();
+    if (error) throw new Error(error.message);
+    return {
+      short_url: 'demo://payment',
+      amount: Number(data.amount),
+      purpose: (data.purpose as PaymentLinkResponse['purpose']) ?? 'milestone',
+      schedule_id: scheduleId,
+    };
+  }
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('visit_fee, total_amount, archetype, status')
+    .eq('id', bookingId)
+    .single();
+  if (error) throw new Error(error.message);
+  const fixed = data.archetype === 'fixed' || data.archetype === 'proposal' || data.archetype === 'time_based';
+  return {
+    short_url: 'demo://payment',
+    amount: Number(fixed ? data.total_amount ?? 0 : data.visit_fee),
+    purpose: data.archetype === 'fixed' ? 'fixed' : data.archetype === 'proposal' ? 'advance' : data.archetype === 'time_based' ? 'session' : 'visit_fee',
+  };
+}
+
 export function PaymentProvider({ children }: { children: ReactNode }) {
   const t = useTheme();
   const [link, setLink] = useState<(PaymentLinkResponse & { bookingId: string }) | null>(null);
@@ -57,8 +83,10 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pay = useCallback(async (bookingId: string, scheduleId?: string): Promise<PayResult> => {
-    const res = scheduleId ? await createSchedulePayment(bookingId, scheduleId) : await createPayment(bookingId);
-    if (!isDemoMode) {
+    const res = demoPaymentsEnabled && !isDemoMode
+      ? await mockPayment(bookingId, scheduleId)
+      : scheduleId ? await createSchedulePayment(bookingId, scheduleId) : await createPayment(bookingId);
+    if (!demoPaymentsEnabled) {
       await WebBrowser.openBrowserAsync(res.short_url);
       return 'opened';
     }
@@ -77,7 +105,7 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       await new Promise((r) => setTimeout(r, 700));
-      await completeDemoPayment(link.bookingId);
+      if (isDemoMode) await completeDemoPayment(link.bookingId);
       haptics.success();
       setStage('done');
       setTimeout(() => finish('paid'), 900);
