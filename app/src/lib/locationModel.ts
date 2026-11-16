@@ -32,6 +32,20 @@ export interface PopularArea {
 
 export const LAUNCH_CITY = demoSeedCity || 'Vijayawada';
 
+/**
+ * The text sent to the geocoder: what the user typed, optionally narrowed by a real city, always scoped to India.
+ * Test labels such as "Vijayawada Demo" are not places, so the " Demo" suffix is dropped; appending it made every
+ * search ("Sangareddy, Vijayawada Demo") return nothing.
+ */
+export function geocodeQuery(query: string, city?: string | null): string {
+  const q = query.trim();
+  const c = (city ?? '').replace(/\s+demo$/i, '').trim();
+  const parts = [q];
+  if (c && !q.toLowerCase().includes(c.toLowerCase())) parts.push(c);
+  if (!/\bindia\b/i.test(q)) parts.push('India');
+  return parts.join(', ');
+}
+
 /** Approximate neighbourhood centres for the launch city. */
 export const POPULAR_AREAS: PopularArea[] = [
   { name: 'Benz Circle', lat: 16.4995, lng: 80.656 },

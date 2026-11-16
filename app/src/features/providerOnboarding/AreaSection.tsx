@@ -58,7 +58,7 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
   const search = async () => {
     setBusy('search');
     try {
-      const r = await searchPlaces(query, city || LAUNCH_CITY);
+      const r = await searchPlaces(query, city || null);
       setResults(r);
       if (!r.length) setError('No places found. Try a nearby landmark.');
     } catch (e) {

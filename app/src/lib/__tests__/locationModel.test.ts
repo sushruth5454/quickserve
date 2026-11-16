@@ -1,6 +1,15 @@
-import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
+import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, geocodeQuery, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
 import { bookingRef, firstAvailableDay, nextDays, scheduleLabel, windowAvailable, windowLabel, windowStart } from '../schedule';
 import type { SavedAddress } from '../types';
+
+describe('geocodeQuery', () => {
+  it('searches what was typed in India, never the test city label', () => {
+    expect(geocodeQuery('Sangareddy')).toBe('Sangareddy, India');
+    expect(geocodeQuery('Benz Circle', 'Vijayawada Demo')).toBe('Benz Circle, Vijayawada, India');
+    expect(geocodeQuery('Pothireddypally, Sangareddy', 'Sangareddy')).toBe('Pothireddypally, Sangareddy, India');
+    expect(geocodeQuery('MG Road, India')).toBe('MG Road, India');
+  });
+});
 
 const addr = (over: Partial<SavedAddress>): SavedAddress => ({
   id: 'a1',

@@ -6,7 +6,7 @@ import type { Coords } from './apiTypes';
 import { resolveServiceCity } from './api';
 import { useAuth } from './auth';
 import { demoSeedCity, forceTestLocation, isDemoMode, isSeedDemoMode } from './config';
-import { DEFAULT_LOCATION, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
+import { DEFAULT_LOCATION, geocodeQuery, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
 
 export type GpsResult =
   | { ok: true; location: SelectedLocation }
@@ -66,11 +66,16 @@ export async function locateWithGps(): Promise<GpsResult> {
 /** Address search uses the OS geocoder, which expo-location only provides on iOS/Android. */
 export const placeSearchSupported = Platform.OS !== 'web';
 
-export async function searchPlaces(query: string, city = LAUNCH_CITY): Promise<PlaceResult[]> {
+export async function searchPlaces(query: string, city: string | null = null): Promise<PlaceResult[]> {
   if (!placeSearchSupported) throw new Error('Address search is available in the mobile app.');
   const q = query.trim();
   if (q.length < 3) return [];
-  const hits = await Location.geocodeAsync(q.toLowerCase().includes(city.toLowerCase()) ? q : `${q}, ${city}`);
+  // Android's geocoder can need the location permission; ask once if it has never been asked.
+  if (Platform.OS === 'android') {
+    const perm = await Location.getForegroundPermissionsAsync().catch(() => null);
+    if (perm && perm.status === 'undetermined') await Location.requestForegroundPermissionsAsync().catch(() => undefined);
+  }
+  const hits = await Location.geocodeAsync(geocodeQuery(q, city));
   const top = hits.slice(0, 5);
   const places = await Promise.all(
     top.map((h) => Location.reverseGeocodeAsync({ latitude: h.latitude, longitude: h.longitude }).then((r) => r[0]).catch(() => undefined)),
