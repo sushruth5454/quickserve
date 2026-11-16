@@ -52,15 +52,21 @@ export async function runAllServiceScenarios({ page, go, step, visible }) {
   });
 
   await step('archetype-fixed-package-book-mocked-payment', async () => {
-    // A random later day and window, so a recent run's 30-minute hold on the demo pro never collides.
+    // A random later day and window; if an earlier booking already holds it, try another one.
     const days = page.locator('button >> visible=true').filter({ hasText: /(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2}$/ });
-    const dayCount = await days.count();
-    if (dayCount > 2) await days.nth(2 + Math.floor(Math.random() * (dayCount - 2))).click();
     const slots = page.locator('text=/^\\d{1,2}( am| pm)?–\\d{1,2} (am|pm)$/ >> visible=true');
-    const slotCount = await slots.count();
-    if (slotCount) await slots.nth(Math.floor(Math.random() * slotCount)).click();
-    await page.locator('text=/^Pay ₹/ >> visible=true').last().click();
-    await page.getByText('Secure checkout', { exact: true }).first().waitFor();
+    const checkout = page.getByText('Secure checkout', { exact: true }).first();
+    const taken = page.getByText(/already taken/i).first();
+    for (let attempt = 0; ; attempt++) {
+      const dayCount = await days.count();
+      if (dayCount > 2) await days.nth(2 + Math.floor(Math.random() * (dayCount - 2))).click();
+      const slotCount = await slots.count();
+      if (slotCount) await slots.nth(Math.floor(Math.random() * slotCount)).click();
+      await page.locator('text=/^Pay ₹/ >> visible=true').last().click();
+      await checkout.or(taken).waitFor();
+      if (await checkout.isVisible()) break;
+      if (attempt >= 4) throw new Error('every tried slot was already taken');
+    }
     await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
     await page.getByText(/^Pay ₹/).last().click();
     await page.getByText('Payment successful', { exact: true }).first().waitFor();
