@@ -125,11 +125,22 @@ Deno.serve(async (req) => {
       return json({ error: "payment provider error" }, 502);
     }
 
-    const { error: updError } = await admin
+    // Attach only while this attempt is still live: a concurrent checkout may have retired it while the link
+    // was being created. A link that lost the race is queued for cancellation and the customer retries.
+    const { data: attached, error: updError } = await admin
       .from("payments")
       .update({ razorpay_link_id: link.id, short_url: link.short_url })
-      .eq("id", prepared.payment_id);
+      .eq("id", prepared.payment_id)
+      .eq("status", "created")
+      .select("id");
     if (updError) throw updError;
+    if (!attached?.length) {
+      await admin.from("payments")
+        .update({ razorpay_link_id: link.id, short_url: link.short_url, cancel_link_pending: true })
+        .eq("id", prepared.payment_id);
+      await cancelRetiredLinks(admin, bookingId);
+      return json({ error: "This payment was updated in another window. Please tap Pay again." }, 409);
+    }
 
     return json({
       short_url: link.short_url,

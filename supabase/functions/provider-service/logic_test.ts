@@ -81,3 +81,15 @@ Deno.test("package descriptions reject off-platform contact hints", () => {
   if (!rejected) throw new Error("contact detail was accepted");
   validatePackageInput(packageInput);
 });
+
+Deno.test("package saves only write package columns (no moving a package to another service)", () => {
+  const out = validatePackageInput({
+    ...packageInput,
+    package: { ...packageInput.package, provider_service_id: "victim-service", id: "other", package_template_id: "x" },
+  });
+  const keys = Object.keys(out.package);
+  for (const forbidden of ["provider_service_id", "id", "package_template_id"]) {
+    if (keys.includes(forbidden)) throw new Error(`${forbidden} reached the database payload`);
+  }
+  if (out.package.title !== packageInput.package.title) throw new Error("package fields were lost");
+});

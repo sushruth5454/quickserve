@@ -183,8 +183,8 @@ export default function BookingDetail() {
   const s = booking.status;
   const isCustomer = booking.customer_id === userId;
   const isTimeBased = booking.archetype === 'time_based';
-  // Proposal and fixed bookings pay every obligation due now (e.g. advance + platform fee) in one payment.
-  const scheduled = (booking.archetype === 'proposal' || booking.archetype === 'fixed') && data.paymentSchedule.length > 0;
+  // Proposal, fixed and pay-per-session bookings pay every obligation due now (e.g. advance + platform fee) in one payment.
+  const scheduled = (booking.archetype === 'proposal' || booking.archetype === 'fixed' || isTimeBased) && data.paymentSchedule.length > 0;
   const dueNow = data.paymentSchedule.filter((row) => row.status === 'due').reduce((sum, row) => sum + row.amount, 0);
   const first = data.counterpart.split(' ')[0] ?? data.counterpart;
   // Net of partial refunds (e.g. a change order that lowered the total), matching the server's amount owed.
@@ -306,7 +306,7 @@ export default function BookingDetail() {
     } else if (s === 'pending_payment') {
       footer = (
         <AmountFooter label={scheduled ? 'Due now' : isTimeBased ? 'Session payment' : 'Visit fee'} amount={scheduled ? dueNow : isTimeBased ? booking.total_amount ?? 0 : booking.visit_fee}>
-          <Button title={scheduled ? 'Pay & confirm' : isTimeBased ? 'Pay session' : 'Pay & send request'} leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
+          <Button title={isTimeBased ? 'Pay session' : scheduled ? 'Pay & confirm' : 'Pay & send request'} leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
     } else if (s === 'completion_requested') {

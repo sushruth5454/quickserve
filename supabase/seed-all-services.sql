@@ -133,6 +133,12 @@ update public.app_config
    set value = jsonb_set(value, '{time_based}', 'true'::jsonb, true)
  where key = 'archetype_flags';
 
+-- Demo checkout settles server-side (demo_settle_payment, 0030) only for demo providers (auth metadata
+-- demo_only) and the CI test pro listed here. Real providers always need a real Razorpay payment.
+insert into public.app_config (key, value)
+values ('demo_payments', '{"enabled": true, "provider_ids": ["11111111-1111-1111-1111-111111111111"]}'::jsonb)
+on conflict (key) do update set value = excluded.value;
+
 create temp table demo_specs (
   slug text primary key,
   provider_name text not null,

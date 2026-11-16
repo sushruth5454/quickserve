@@ -104,10 +104,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         setReady(true);
         return;
       }
-      // First run: demo data and EXPO_PUBLIC_FORCE_TEST_LOCATION start at the launch-city default; otherwise try GPS.
-      // Either way the user can change it from the picker.
+      // The reset drops the old selection for good, so it cannot come back on the next launch.
+      if (stored) void AsyncStorage.removeItem(LOCATION_STORAGE_KEY).catch(() => undefined);
+      // First run: demo data, demo-city builds and EXPO_PUBLIC_FORCE_TEST_LOCATION start at the launch-city default;
+      // otherwise try GPS. Either way the user can change it from the picker.
       setReady(true);
-      if (isDemoMode || forceTestLocation) return;
+      if (isDemoMode || isSeedDemoMode || forceTestLocation) return;
       const gps = await locateWithGps();
       if (alive && gps.ok) setLoc(gps.location);
     })();

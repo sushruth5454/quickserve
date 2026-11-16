@@ -103,7 +103,8 @@ export async function cancelRetiredLinks(admin: SupabaseClient, bookingId: strin
   let cancelled = 0;
   for (const row of (data ?? []) as { payment_id: string; razorpay_link_id: string }[]) {
     try {
-      await razorpay(`/payment_links/${row.razorpay_link_id}/cancel`, {});
+      // Demo-settled links (demo_settle_payment) never existed at Razorpay.
+      if (!row.razorpay_link_id.startsWith("plink_demo_")) await razorpay(`/payment_links/${row.razorpay_link_id}/cancel`, {});
     } catch (e) {
       if (!(e instanceof RazorpayError) || e.status !== 400) {
         console.error("link cancel will be retried", row.razorpay_link_id, e);

@@ -187,5 +187,14 @@ export function validatePackageInput(raw: unknown): PackageInput {
   if (rights.paid_ads_days !== undefined && ![0, 30, 90, 365].includes(Number(rights.paid_ads_days))) fail("Paid-ad usage is invalid.");
   if (!Number.isInteger(p.revisions_included) || p.revisions_included < 0 || typeof p.raw_files_included !== "boolean") fail("Revision and raw-file settings are invalid.");
   if (!Number.isFinite(p.travel_included_km) || p.travel_included_km < 0 || typeof p.active !== "boolean" || !Number.isInteger(p.sort_order)) fail("Package settings are invalid.");
-  return input as PackageInput;
+  // The save runs with the service role, so only these columns may reach the database. Anything else the
+  // client sends (provider_service_id, id, package_template_id…) is dropped, never written.
+  const pkg = Object.fromEntries(PACKAGE_COLUMNS.map((key) => [key, p[key]])) as PackageInput["package"];
+  return { providerServiceId: input.providerServiceId, packageId: input.packageId ?? null, package: pkg };
 }
+
+const PACKAGE_COLUMNS = [
+  "title", "description", "price_type", "price", "price_min", "price_max", "unit", "qty_min", "qty_max",
+  "duration_min", "inclusions", "exclusions", "deliverables", "turnaround_days", "revisions_included",
+  "raw_files_included", "usage_rights", "travel_included_km", "active", "sort_order",
+] as const satisfies readonly (keyof PackageInput["package"])[];

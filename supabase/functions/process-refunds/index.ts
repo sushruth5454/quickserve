@@ -29,6 +29,13 @@ Deno.serve(async (req) => {
   const results: { refund_id: string; ok: boolean; error?: string }[] = [];
   for (const r of (due ?? []) as DueRefund[]) {
     let razorpayRefundId: string;
+    if (r.razorpay_payment_id.startsWith("pay_demo_")) {
+      // Demo-settled payments (demo_settle_payment) moved no money, so there is nothing to refund at Razorpay.
+      const done = await admin.rpc("complete_refund", { p_refund_id: r.refund_id, p_razorpay_refund_id: `rfnd_demo_${r.refund_id.slice(0, 20)}` });
+      if (done.error) console.error("complete_refund (demo)", r.refund_id, done.error);
+      results.push({ refund_id: r.refund_id, ok: !done.error });
+      continue;
+    }
     try {
       // X-Refund-Idempotency makes retries of the same refund row safe even after an ambiguous failure.
       const res = await razorpay<{ id: string }>(

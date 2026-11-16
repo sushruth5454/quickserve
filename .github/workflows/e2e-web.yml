@@ -98,6 +98,41 @@ jobs:
           NEW_PRO_PHONE: '9000000301'
         run: node web-smoke.mjs
 
+      - name: Remove QA-E2E rows created by the smoke test
+        # Runs even when the test fails, so live data never accumulates test chats, requests or bookings.
+        # Only rows the test marks with "QA-E2E" are touched. Bookings go first (they cascade to payments,
+        # schedule rows and chat); requests then cascade to their proposals and recipients.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          sql = """
+          begin;
+          create temp table qa_requests on commit drop as
+            select id from public.service_requests where intake::text like '%QA-E2E%';
+          create temp table qa_bookings on commit drop as
+            select b.id from public.bookings b
+             where b.service_request_id in (select id from qa_requests)
+                or b.proposal_id in (select p.id from public.proposals p where p.note like 'QA-E2E%')
+                or b.description like '%QA-E2E%';
+          delete from public.bookings where id in (select id from qa_bookings);
+          delete from public.service_requests where id in (select id from qa_requests);
+          delete from public.messages where body like 'QA-E2E%';
+          select (select count(*) from qa_bookings) as bookings_removed, (select count(*) from qa_requests) as requests_removed;
+          commit;
+          """
+          Path("qa-cleanup-request.json").write_text(json.dumps({"query": sql}))
+          PY
+          curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+            --data-binary @qa-cleanup-request.json
+          rm qa-cleanup-request.json
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

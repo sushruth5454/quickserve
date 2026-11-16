@@ -378,6 +378,7 @@ jobs:
               ("0027", "0027_restore_fixed_prepare_payment.sql"),
               ("0028", "0028_auto_approve_provider_links.sql"),
               ("0029", "0029_single_due_payment.sql"),
+              ("0030", "0030_review_fixes.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

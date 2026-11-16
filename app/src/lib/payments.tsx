@@ -42,6 +42,15 @@ const METHODS = [
   { id: 'nb', label: 'Netbanking', sub: 'All major banks', icon: 'business-outline' as const },
 ];
 
+async function settleDemoPayment(bookingId: string): Promise<void> {
+  const { error } = await supabase.rpc('demo_settle_payment', { p_booking_id: bookingId });
+  if (error) {
+    throw new Error(/demo providers/i.test(error.message)
+      ? 'Demo payments work only with demo providers. This booking needs a real payment.'
+      : error.message.replace(/^[a-z_]+: /, ''));
+  }
+}
+
 async function mockPayment(bookingId: string, scheduleId?: string): Promise<PaymentLinkResponse> {
   if (scheduleId) {
     const { data, error } = await supabase.from('payment_schedule').select('amount, purpose').eq('id', scheduleId).single();
@@ -59,7 +68,7 @@ async function mockPayment(bookingId: string, scheduleId?: string): Promise<Paym
     .eq('id', bookingId)
     .single();
   if (error) throw new Error(error.message);
-  if (data.archetype === 'proposal' || data.archetype === 'fixed') {
+  if (data.archetype === 'proposal' || data.archetype === 'fixed' || data.archetype === 'time_based') {
     // Same as the server: one payment for every obligation due now (e.g. advance + platform fee).
     const { data: due, error: dueError } = await supabase
       .from('payment_schedule')
@@ -68,7 +77,7 @@ async function mockPayment(bookingId: string, scheduleId?: string): Promise<Paym
       .eq('status', 'due');
     if (dueError) throw new Error(dueError.message);
     const amount = (due ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
-    if (amount > 0) return { short_url: 'demo://payment', amount, purpose: data.archetype === 'fixed' ? 'fixed' : 'advance' };
+    if (amount > 0) return { short_url: 'demo://payment', amount, purpose: data.archetype === 'fixed' ? 'fixed' : data.archetype === 'time_based' ? 'session' : 'advance' };
   }
   const fixed = data.archetype === 'fixed' || data.archetype === 'proposal' || data.archetype === 'time_based';
   return {
@@ -117,6 +126,8 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
     try {
       await new Promise((r) => setTimeout(r, 700));
       if (isDemoMode) await completeDemoPayment(link.bookingId);
+      // Live-backend demo builds: settle on the server (demo providers only), so the booking really moves on.
+      else await settleDemoPayment(link.bookingId);
       haptics.success();
       setStage('done');
       setTimeout(() => finish('paid'), 900);
