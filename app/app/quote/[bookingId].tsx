@@ -99,7 +99,7 @@ export default function QuoteEditorScreen() {
 
   useEffect(() => {
     if (!bookingId) return;
-    Promise.all([getBooking(bookingId), getMyProvider(), getQuotes(bookingId), listMyServices().catch(() => [])])
+    Promise.all([getBooking(bookingId), getMyProvider(), getQuotes(bookingId), listMyServices(true).catch(() => [])])
       .then(([b, p, quotes, services]) => {
         setBooking(b);
         setProvider(p);
