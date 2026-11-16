@@ -87,6 +87,7 @@ export function maskPreview(text: string | null | undefined, max = 80): string {
 
 /** Only in-app routes we expect from our own notifications (never arbitrary URLs from a payload). */
 const SAFE_ROUTE = /^\/(chat|booking|quote|book|request|proposal|proposal\/compose)\/[A-Za-z0-9-]{1,64}$/;
+const SAFE_SUPPORT_ROUTE = /^\/(support|admin\/support)\/[A-Za-z0-9-]{1,64}$/;
 const ID = /^[A-Za-z0-9-]{1,64}$/;
 
 /**
@@ -98,6 +99,7 @@ export function notificationRoute(data: unknown, kind?: string | null, userId?: 
   const k = kind ?? (typeof d.kind === 'string' ? d.kind : null);
   const url = typeof d.url === 'string' ? d.url : null;
   if (url === '/provider/dashboard') return '/dashboard';
+  if (url && SAFE_SUPPORT_ROUTE.test(url)) return url;
   if (url && SAFE_ROUTE.test(url)) return url;
   const booking = typeof d.booking_id === 'string' && ID.test(d.booking_id) ? d.booking_id : null;
   if (booking) return k === 'chat_message' ? `/chat/${booking}` : `/booking/${booking}`;

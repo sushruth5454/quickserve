@@ -90,6 +90,7 @@ export interface ProviderSearchResult {
   jobs_completed: number;
   years_experience: number;
   is_online: boolean;
+  paused?: boolean;
   distance_km: number | null;
   score: number;
 }
@@ -104,6 +105,7 @@ export interface Provider {
   kyc_status: KycStatus;
   suspended: boolean;
   is_online: boolean;
+  paused?: boolean;
   rating_avg: number;
   rating_count: number;
   jobs_completed: number;
@@ -469,6 +471,7 @@ export interface Proposal {
   created_at: string;
   proposal_items: ProposalItem[];
   proposal_schedule: ProposalSchedule[];
+  bookings?: Pick<Booking, 'id' | 'status' | 'payment_hold_expires_at'>[];
   providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
 }
 

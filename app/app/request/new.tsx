@@ -6,6 +6,7 @@ import * as api from '../../src/lib/api';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { rupeesToPaise } from '../../src/lib/money';
 import { relativeTimeLabel, URGENT_MIN_HOURS, urgentStartOptions } from '../../src/lib/schedule';
+import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 
 export default function NewServiceRequest() {
   const { categoryId, name = 'service', providerId, providerName } = useLocalSearchParams<{
@@ -16,6 +17,7 @@ export default function NewServiceRequest() {
   }>();
   const { location } = useSelectedLocation();
   const toast = useToast();
+  const flags = useAppFeatureFlags();
   const [brief, setBrief] = useState('');
   const [when, setWhen] = useState<'date' | 'urgent'>('date');
   const [eventDate, setEventDate] = useState('');
@@ -82,7 +84,7 @@ export default function NewServiceRequest() {
         <SegmentedControl
           options={[
             { value: 'date', label: 'Pick a date' },
-            { value: 'urgent', label: 'Urgent' },
+            ...(flags.urgent_requests ? [{ value: 'urgent', label: 'Urgent' } as const] : []),
           ]}
           value={when}
           onChange={setWhen}

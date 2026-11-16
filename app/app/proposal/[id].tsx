@@ -8,6 +8,7 @@ import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useAuth } from '../../src/lib/auth';
 import { usePayment } from '../../src/lib/payments';
 import type { Proposal } from '../../src/lib/types';
+import { proposalStatus } from '../../src/lib/proposalStatus';
 
 export default function ProposalDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,13 +46,20 @@ export default function ProposalDetail() {
 
   return (
     <Screen
-      header={<Header title={mine ? 'Your proposal' : 'Proposal'} subtitle={mine ? `Status: ${proposal?.status === 'sent' ? 'waiting for customer' : proposal?.status}` : proposal?.providers?.profiles?.full_name ?? undefined} />}
+      header={<Header title={mine ? 'Your proposal' : 'Proposal'} subtitle={mine && proposal ? `Status: ${proposalStatus(proposal).label}` : proposal?.providers?.profiles?.full_name ?? undefined} />}
       footer={proposal?.status === 'sent' && !mine ? <Button title={`Accept & reserve · ${formatINR(proposal.total)}`} fullWidth size="lg" loading={busy} onPress={() => void accept()} /> : undefined}
     >
       {error ? <ErrorState message={error} onRetry={() => id && void api.getProposal(id).then(setProposal)} /> : !proposal ? <Skeleton height={260} /> : (
         <>
           {acceptError ? <InlineAlert title="Could not accept yet" message={acceptError} /> : null}
-          {mine ? null : <InlineAlert title="30-minute payment hold" message="Accepting reserves the provider for 30 minutes. Pay the advance and platform fee in that window to confirm." />}
+          {mine && proposal.status === 'accepted' ? (
+            <InlineAlert
+              title={proposalStatus(proposal).label}
+              message={proposalStatus(proposal).label.includes('pending')
+                ? 'The customer approved your quote. The booking becomes confirmed only after the advance and platform fee are paid.'
+                : undefined}
+            />
+          ) : mine ? null : <InlineAlert title="30-minute payment hold" message="Accepting reserves the provider for 30 minutes. Pay the advance and platform fee in that window to confirm." />}
           <Card>
             <Text variant="title2">{formatINR(proposal.total)}</Text>
             {proposal.note ? <Text color="textSecondary">{proposal.note}</Text> : null}

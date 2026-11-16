@@ -12,6 +12,7 @@ import { ProgressBar } from '../../src/components/StatusTimeline';
 import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getMyProfile, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
 import { aiAssistantEnabled } from '../../src/lib/config';
+import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useUnread } from '../../src/lib/unreadContext';
 import type { Booking, Category } from '../../src/lib/types';
@@ -22,6 +23,8 @@ import type { Catalogue } from '../../src/features/catalogue/model';
 
 export default function CustomerHome() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const aiEnabled = aiAssistantEnabled && flags.ai_assistant;
   const unread = useUnread();
   const bellCount = unread.total('customer') + unread.notifications;
   const insets = useSafeAreaInsets();
@@ -185,7 +188,7 @@ export default function CustomerHome() {
         </View>
         )}
 
-        {aiAssistantEnabled && !unserved ? (
+        {aiEnabled && !unserved ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Ask QuickServe AI"
@@ -249,9 +252,9 @@ export default function CustomerHome() {
               compact
               icon="search"
               title="No matching service"
-              message={aiAssistantEnabled ? `We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.` : `We don't have "${query}" yet. Try another word.`}
-              actionLabel={aiAssistantEnabled ? 'Ask QuickServe AI' : undefined}
-              onAction={aiAssistantEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
+              message={aiEnabled ? `We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.` : `We don't have "${query}" yet. Try another word.`}
+              actionLabel={aiEnabled ? 'Ask QuickServe AI' : undefined}
+              onAction={aiEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
             />
           ) : (
             <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} />

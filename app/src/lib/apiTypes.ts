@@ -83,7 +83,7 @@ export interface ProviderDetail {
 }
 
 export type ProviderServiceWithProvider = ProviderService & {
-  providers: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
+  providers: { rating_avg: number; rating_count: number; is_online?: boolean; paused?: boolean; profiles: { full_name: string } | null } | null;
 };
 
 export interface CreateBookingInput {

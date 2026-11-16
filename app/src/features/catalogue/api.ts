@@ -18,6 +18,8 @@ export interface CataloguePackage {
   providerServiceId: string;
   providerId: string;
   providerName: string;
+  providerOnline: boolean;
+  providerPaused: boolean;
   rating: number;
   ratingCount: number;
   category: Category;
@@ -87,7 +89,7 @@ export async function listCataloguePackages(categorySlug: string): Promise<Catal
   if (isDemoMode) return [];
   const rows = unwrap(await supabase
     .from('service_packages')
-    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(rating_avg, rating_count, profiles(full_name)))')
+    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)))')
     .eq('active', true)
     .eq('provider_services.active', true)
     .eq('provider_services.categories.slug', categorySlug)
@@ -96,7 +98,7 @@ export async function listCataloguePackages(categorySlug: string): Promise<Catal
       id: string;
       provider_id: string;
       categories: Category;
-      providers: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
+      providers: { rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
     };
   }>;
   return rows.map((row) => {
@@ -106,6 +108,8 @@ export async function listCataloguePackages(categorySlug: string): Promise<Catal
       providerServiceId: service.id,
       providerId: service.provider_id,
       providerName: service.providers?.profiles?.full_name ?? 'Provider',
+      providerOnline: service.providers?.is_online ?? false,
+      providerPaused: service.providers?.paused ?? false,
       rating: Number(service.providers?.rating_avg ?? 0),
       ratingCount: service.providers?.rating_count ?? 0,
       category: service.categories,
@@ -116,21 +120,21 @@ export async function listCataloguePackages(categorySlug: string): Promise<Catal
 export async function getCataloguePackage(packageId: string): Promise<CataloguePackage> {
   const rows = unwrap(await supabase
     .from('service_packages')
-    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(rating_avg, rating_count, profiles(full_name)))')
+    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)))')
     .eq('id', packageId)
     .single<ServicePackage & {
       provider_services: {
         id: string;
         provider_id: string;
         categories: Category;
-        providers: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
+        providers: { rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
       };
     }>()) as ServicePackage & {
       provider_services: {
         id: string;
         provider_id: string;
         categories: Category;
-        providers: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
+        providers: { rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
       };
     };
   const service = rows.provider_services;
@@ -139,6 +143,8 @@ export async function getCataloguePackage(packageId: string): Promise<CatalogueP
     providerServiceId: service.id,
     providerId: service.provider_id,
     providerName: service.providers?.profiles?.full_name ?? 'Provider',
+    providerOnline: service.providers?.is_online ?? false,
+    providerPaused: service.providers?.paused ?? false,
     rating: Number(service.providers?.rating_avg ?? 0),
     ratingCount: service.providers?.rating_count ?? 0,
     category: service.categories,

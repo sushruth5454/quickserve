@@ -944,6 +944,10 @@ Deno.serve(async (req) => {
       throw new HttpError(503, "not_configured", "QuickServe AI is not available right now.");
     }
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    const feature = await admin.rpc("_feature_enabled", { p_key: "ai_assistant" });
+    if (feature.error || feature.data !== true) {
+      throw new HttpError(503, "ai_disabled", "QuickServe AI is switched off right now. You can still book from the service list.");
+    }
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!token || token === anonKey) throw new HttpError(401, "unauthorized", "Please sign in again.");
     const { data: userData, error: userError } = await admin.auth.getUser(token);

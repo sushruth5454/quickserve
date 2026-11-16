@@ -95,20 +95,20 @@ export default function BookScreen() {
   // A window is offered only if it meets the lead time AND lies inside the provider's hours (create_booking re-checks).
   const slotOk = (date: Date, h: number) => windowAvailable(date, h, new Date()) && windowFits(sched, windowStart(date, h));
   const dayOk = (date: Date) => WINDOW_START_HOURS.some((h) => slotOk(date, h));
-  const asapOk = asapAvailable(sched, new Date());
+  const asapOk = !!service?.providers?.is_online && !service?.providers?.paused && asapAvailable(sched, new Date());
   // Drop a picked window that is no longer available on the newly selected day.
   useEffect(() => {
     if (hour != null && !slotOk(day.date, hour)) setHour(null);
   }, [day, hour, sched]);
   // Once the schedule loads: move off ASAP / an unavailable day.
   useEffect(() => {
-    if (!sched) return;
-    if (!asapAvailable(sched, new Date())) setMode('schedule');
+    if (!service) return;
+    if (!service.providers?.is_online || service.providers?.paused || !asapAvailable(sched, new Date())) setMode('schedule');
     if (!dayOk(day.date)) {
       const i = days.findIndex((d) => dayOk(d.date));
       if (i >= 0) setDayIndex(i);
     }
-  }, [sched]);
+  }, [sched, service]);
 
   const pickPhoto = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
@@ -161,7 +161,11 @@ export default function BookScreen() {
       !!travel.expires_at &&
       new Date(travel.expires_at).getTime() > Date.now());
   const travelPending = !!travel?.needs_approval && travel.status === 'pending';
-  const blocker = !description.trim()
+  const blocker = service?.providers?.paused
+    ? 'This provider is on holiday and is not taking bookings'
+    : !service?.providers?.is_online && mode === 'asap'
+      ? 'This provider is offline now. Choose a future time.'
+    : !description.trim()
     ? 'Describe the issue to continue'
     : !hasAddress
       ? 'Add your full address to continue'
@@ -570,6 +574,11 @@ export default function BookScreen() {
           </Card>
         </Block>
         <InlineAlert message={error} />
+        {service?.providers?.paused ? (
+          <InlineAlert tone="warning" title="On holiday" message="This provider is not taking new bookings. Choose another provider or come back later." />
+        ) : !service?.providers?.is_online ? (
+          <InlineAlert title="Provider is offline" message="You can choose a future time. ASAP starts only while the provider is online." />
+        ) : null}
       </Screen>
 
       <AddressEditorSheet

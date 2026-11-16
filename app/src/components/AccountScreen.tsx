@@ -5,6 +5,7 @@ import { Linking, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
 import { getMyCoinBalance, getMyProfile, getMyProvider, isDemoMode, signOut } from '../lib/api';
+import { amIAdmin } from '../lib/adminApi';
 import { formatPhone } from '../lib/phone';
 import { formatINR } from '../lib/money';
 import type { Profile, Provider } from '../lib/types';
@@ -20,11 +21,13 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [provider, setProvider] = useState<Provider | null | undefined>(undefined);
   const [coinBalance, setCoinBalance] = useState(0);
+  const [admin, setAdmin] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       getMyProfile().then(setProfile).catch(() => undefined);
       getMyProvider().then(setProvider).catch(() => setProvider(null));
+      amIAdmin().then(setAdmin).catch(() => setAdmin(false));
       if (mode === 'customer') getMyCoinBalance().then(setCoinBalance).catch(() => setCoinBalance(0));
     }, [mode]),
   );
@@ -46,10 +49,7 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
     if (ok) await signOut();
   };
 
-  const help = () =>
-    Linking.openURL('mailto:support@quickserve.app?subject=Help%20with%20QuickServe').catch(() =>
-      toast({ message: 'Email us at support@quickserve.app', tone: 'default' }),
-    );
+  const help = () => router.push('/support');
 
   const soon = (what: string) => toast({ message: `${what} is coming soon.`, tone: 'default' });
   const notifications = () => Linking.openSettings().catch(() => toast({ message: 'Manage notifications in your phone settings.' }));
@@ -111,6 +111,12 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
 
       {mode === 'provider' && provider ? <ProviderMeSections provider={provider} /> : null}
 
+      {admin ? (
+        <Group title="Administration">
+          <ListItem icon="settings-outline" title="Admin portal" subtitle="Trends, services, people, bookings and support" chevron onPress={() => router.push('/admin')} />
+        </Group>
+      ) : null}
+
       <Group title="Account">
         {mode === 'customer' ? (
           <>
@@ -137,7 +143,7 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
       </Group>
 
       <Group title="Support">
-        <ListItem icon="help-buoy-outline" title="Help & support" subtitle="support@quickserve.app" chevron onPress={() => void help()} />
+        <ListItem icon="help-buoy-outline" title="Help & support" subtitle="Message QuickServe support in the app" chevron onPress={help} />
         <Divider inset={LIST_INSET} />
         <ListItem icon="shield-checkmark-outline" title="Safety & guarantee" chevron onPress={() => openInfo('safety')} />
         <Divider inset={LIST_INSET} />

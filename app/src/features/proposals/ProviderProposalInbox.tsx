@@ -1,19 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Badge, Button, Card, EmptyState, Section, Text, useConfirm, useToast, type Tone } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, Section, Text, useConfirm, useToast } from '../../components/ui';
 import * as api from '../../lib/api';
 import { formatINR } from '../../lib/money';
 import { relativeTimeLabel } from '../../lib/schedule';
-import type { Proposal, ProposalRequest, ProposalStatus } from '../../lib/types';
-
-const STATUS: Record<ProposalStatus, { label: string; tone: Tone }> = {
-  sent: { label: 'Waiting for customer', tone: 'info' },
-  accepted: { label: 'Accepted', tone: 'success' },
-  rejected: { label: 'Declined', tone: 'neutral' },
-  withdrawn: { label: 'Withdrawn', tone: 'neutral' },
-  expired: { label: 'Expired', tone: 'neutral' },
-};
+import { proposalStatus } from '../../lib/proposalStatus';
+import type { Proposal, ProposalRequest } from '../../lib/types';
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
@@ -97,7 +90,7 @@ export function ProviderProposalInbox() {
       {sent.length ? (
         <Section title="Proposals sent" subtitle="Your quotes and where they stand">
           {sent.map(({ proposal: p, request: r }) => {
-            const s = STATUS[p.status] ?? STATUS.sent;
+            const s = proposalStatus(p);
             const canResend = r?.status === 'open' && (p.status === 'withdrawn' || p.status === 'expired' || p.status === 'rejected');
             return (
               <Card key={p.id} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: p.id } })} accessibilityLabel={`${r?.category_name ?? 'Proposal'}, ${formatINR(p.total)}, ${s.label}`}>

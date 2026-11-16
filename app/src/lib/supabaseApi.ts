@@ -237,13 +237,13 @@ export async function getServiceRequest(id: string): Promise<ServiceRequest | nu
 
 export async function listRequestProposals(requestId: string): Promise<Proposal[]> {
   return unwrap(await supabase.from('proposals')
-    .select('*, proposal_items(*), proposal_schedule(*), providers(rating_avg, rating_count, profiles(full_name))')
+    .select('*, proposal_items(*), proposal_schedule(*), bookings(id, status, payment_hold_expires_at), providers(rating_avg, rating_count, profiles(full_name))')
     .eq('request_id', requestId).order('created_at', { ascending: false })) as Proposal[];
 }
 
 export async function getProposal(id: string): Promise<Proposal> {
   return unwrap(await supabase.from('proposals')
-    .select('*, proposal_items(*), proposal_schedule(*), providers(rating_avg, rating_count, profiles(full_name))')
+    .select('*, proposal_items(*), proposal_schedule(*), bookings(id, status, payment_hold_expires_at), providers(rating_avg, rating_count, profiles(full_name))')
     .eq('id', id).single<Proposal>());
 }
 
@@ -266,7 +266,7 @@ export async function withdrawProposal(id: string): Promise<void> {
 export async function listMyProposals(): Promise<Proposal[]> {
   const uid = await requireUserId();
   return unwrap(await supabase.from('proposals')
-    .select('*, proposal_items(*), proposal_schedule(*)')
+    .select('*, proposal_items(*), proposal_schedule(*), bookings(id, status, payment_hold_expires_at)')
     .eq('provider_id', uid).order('created_at', { ascending: false })) as Proposal[];
 }
 
@@ -355,7 +355,7 @@ export async function getProviderService(id: string): Promise<ProviderServiceWit
   return unwrap(
     await supabase
       .from('provider_services')
-      .select('*, categories(name, slug), providers(rating_avg, rating_count, profiles(full_name)), service_packages(*)')
+      .select('*, categories(name, slug), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)), service_packages(*)')
       .eq('id', id)
       .single(),
   );

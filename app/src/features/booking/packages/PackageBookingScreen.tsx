@@ -11,6 +11,7 @@ import { asapStart, dayLabel, istParts, nextDays, relativeTimeLabel, SERVICE_TIM
 import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
 import { asapAvailable } from '../../../lib/onboarding/availability';
 import { useTheme } from '../../../theme';
+import { useAppFeatureFlags } from '../../../lib/featureFlags';
 import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, generateRecurringSessions, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
@@ -19,6 +20,7 @@ import { canPayInstantly, packageDuration, packageTotal } from './packageModel';
 
 export function PackageBookingScreen({ packageId, archetype }: { packageId: string; archetype: 'fixed' | 'time_based' }) {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
   const toast = useToast();
   const pay = usePayment();
   const { location } = useSelectedLocation();
@@ -76,12 +78,14 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const total = packageTotal(item.package, quantity);
   const dueNow = pack ? total + 4900 : total;
   const totalMinutes = packageDuration(item.package, quantity);
-  const asapOk = archetype === 'fixed' && asapAvailable(sched, new Date());
+  const asapOk = archetype === 'fixed' && flags.fixed_asap && item.providerOnline && !item.providerPaused && asapAvailable(sched, new Date());
   const useAsap = asap && asapOk;
   const start = useAsap ? asapStart(new Date()) : windowStart(day.date, hour);
   const end = new Date(start.getTime() + totalMinutes * 60_000);
   const addressReady = !!location.addressId;
-  const blocker = !canPayInstantly(item.package)
+  const blocker = item.providerPaused
+    ? 'This provider is on holiday and is not taking bookings'
+    : !canPayInstantly(item.package)
     ? 'This package requires a fixed proposal before payment'
     : !addressReady
       ? 'Choose a full service address to continue'
@@ -176,6 +180,11 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       }
     >
       <InlineAlert message={error} />
+      {item.providerPaused ? (
+        <InlineAlert tone="warning" title="On holiday" message="This provider is not taking new bookings. Choose another provider or come back later." />
+      ) : !item.providerOnline && archetype === 'fixed' ? (
+        <InlineAlert title="Provider is offline" message="You can still choose a future time. ASAP is available only while the provider is online." />
+      ) : null}
       <PackageCard servicePackage={item.package} providerName={item.providerName} rating={item.rating} ratingCount={item.ratingCount} />
 
       {archetype === 'time_based' ? (
@@ -201,7 +210,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
 
       <View style={{ gap: t.spacing.md }}>
         <Text variant="title3">When</Text>
-        {archetype === 'fixed' ? (
+        {archetype === 'fixed' && flags.fixed_asap ? (
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
             <Choice label={asapOk ? 'ASAP\nwithin ~1 hour' : 'ASAP\nnot available now'} selected={useAsap} onPress={() => asapOk && setAsap(true)} />
             <Choice label={'Schedule\npick a time'} selected={!useAsap} onPress={() => setAsap(false)} />

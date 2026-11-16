@@ -419,10 +419,7 @@ export default function BookingDetail() {
       key: 'help',
       title: 'Get help with this booking',
       icon: 'help-buoy-outline',
-      onPress: () =>
-        void Linking.openURL(`mailto:support@quickserve.app?subject=${encodeURIComponent(`Booking ${bookingRef(booking.id)}`)}`).catch(() =>
-          toast({ message: 'Email support@quickserve.app' }),
-        ),
+      onPress: () => router.push({ pathname: '/support/new', params: { bookingId: booking.id } }),
     },
     { key: 'safety', title: 'Safety & guarantee', icon: 'shield-checkmark-outline', onPress: () => router.push({ pathname: '/info/[topic]', params: { topic: 'safety' } }) },
   ];

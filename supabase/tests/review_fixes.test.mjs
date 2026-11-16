@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',   '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql', '0041_admin_support.sql',
 ]) await db.exec(migration(file));
 
 
@@ -83,10 +83,12 @@ const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
 const customer = '00000000-0000-0000-0000-0000000000c1';
 const provider = '00000000-0000-0000-0000-0000000000a1';
 const demoPro = '00000000-0000-0000-0000-0000000000d1';
+const admin = '00000000-0000-0000-0000-0000000000b1';
 await db.exec(`
   insert into auth.users (id, phone, raw_user_meta_data) values
     ('${customer}', '+919999000001', '{}'), ('${provider}', '+919999000002', '{}'),
-    ('${demoPro}', '+919999000003', '{"demo_only":"true"}');
+    ('${demoPro}', '+919999000003', '{"demo_only":"true"}'),
+    ('${admin}', '+918888888888', '{}');
   update profiles set full_name = 'Person';
   insert into providers (id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended)
   values
@@ -186,7 +188,14 @@ const payDue = async (booking) => {
 
 // ---------- 7: a proposal without deliverables can request completion ----------
 const noDeliverables = await proposalBooking(provider);
+const holdState = await one(`
+  select b.status booking_status, p.status proposal_status, b.payment_hold_expires_at > now() hold_active
+    from bookings b join proposals p on p.id = b.proposal_id where b.id = $1`, [noDeliverables]);
+ok(holdState.booking_status === 'pending_payment' && holdState.proposal_status === 'accepted' && holdState.hold_active,
+  'customer approval creates a 30-minute payment hold, not a confirmed job');
 await payDue(noDeliverables);
+ok((await one(`select status from bookings where id = $1`, [noDeliverables])).status === 'confirmed',
+  'the creator job is confirmed for the provider only after the advance is paid');
 await db.query(`update bookings set status = 'in_progress' where id = $1`, [noDeliverables]);
 const completionError = await fails(() => as(provider, 'authenticated', `select request_completion($1)`, [noDeliverables]));
 ok(!completionError && (await one(`select status from bookings where id = $1`, [noDeliverables])).status === 'completion_requested',
@@ -396,6 +405,55 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
   });
   ok(!acceptError, `an urgent proposal can be accepted inside the notice period (${acceptError ?? 'ok'})`);
   await db.query(`update categories set min_lead_hours = $2 where id = $1`, [proposalCat, lead]);
+}
+
+// ---------- 20: admin access, controls and support are end to end (0041) ----------
+{
+  ok((await as(customer, 'authenticated', `select am_i_admin() v`))[0].v === false, 'a normal user is not an admin');
+  ok((await as(admin, 'authenticated', `select am_i_admin() v`))[0].v === true, 'the configured 8888888888 phone is an admin');
+  const denied = await fails(() => as(customer, 'authenticated', `select admin_dashboard(30)`));
+  ok(/admin only/.test(denied ?? ''), 'admin data is denied to a normal user');
+
+  const dashboard = (await as(admin, 'authenticated', `select admin_dashboard(30) v`))[0]?.v;
+  ok(typeof dashboard?.totals?.providers === 'number' && Array.isArray(dashboard?.daily), 'the admin dashboard returns totals and daily trends');
+
+  const disabled = (await as(admin, 'authenticated', `select admin_set_feature('ai_assistant', false) v`))[0]?.v;
+  ok(disabled.ai_assistant === false, 'the admin can disable AI globally');
+  await as(admin, 'authenticated', `select admin_set_feature('ai_assistant', true)`);
+  const gate = (await as(customer, 'authenticated', `select get_app_features()->>'ai_assistant' v`))[0]?.v;
+  ok(gate === 'true', 'feature flags are readable by app users and the admin can re-enable AI');
+
+  await db.query(`update categories set min_lead_hours = 24 where id = $1`, [proposalCat]);
+  await as(admin, 'authenticated', `select admin_set_feature('urgent_requests', false)`);
+  const urgentOff = await fails(() => as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City', p_area => 'A', p_event_start => now() + interval '4 hours',
+    p_event_end => now() + interval '7 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_address_id => $2, p_venue_text => null, p_provider_id => $3, p_urgent => true) id`,
+    [proposalCat, address, provider]));
+  ok(/turned off/.test(urgentOff ?? ''), 'turning urgent requests off is enforced in the database');
+  await as(admin, 'authenticated', `select admin_set_feature('urgent_requests', true)`);
+  await db.query(`update categories set min_lead_hours = 1 where id = $1`, [proposalCat]);
+
+  await as(admin, 'authenticated', `select admin_set_category_active($1, false)`, [proposalCat]);
+  ok((await one(`select active from categories where id = $1`, [proposalCat])).active === false, 'the admin can disable a service category');
+  await as(admin, 'authenticated', `select admin_set_category_active($1, true)`, [proposalCat]);
+
+  const supportId = (await as(customer, 'authenticated',
+    `select support_start('Please help with my booking', null, 'Payment question') id`))[0].id;
+  const inbox = (await as(admin, 'authenticated', `select * from admin_list_support_threads('open')`))
+    .find((row) => row.id === supportId);
+  ok(inbox?.admin_unread === 1 && inbox.subject === 'Payment question', 'the user message appears in the admin support inbox');
+  const adminNotice = await one(`select count(*) n from notifications where user_id = $1 and kind = 'support_message'`, [admin]);
+  ok(Number(adminNotice.n) >= 1, 'a support message notifies the admin');
+  await as(admin, 'authenticated', `select support_send($1, 'I am checking this now')`, [supportId]);
+  const reply = (await as(customer, 'authenticated',
+    `select body, from_admin from support_messages where thread_id = $1 order by created_at desc limit 1`, [supportId]))[0];
+  ok(reply?.from_admin === true && reply.body === 'I am checking this now', 'the admin reply is readable by the customer');
+  await as(customer, 'authenticated', `select support_mark_read($1)`, [supportId]);
+  ok((await one(`select user_unread from support_threads where id = $1`, [supportId])).user_unread === 0,
+    'the customer can mark the support reply read');
+  await as(admin, 'authenticated', `select support_set_status($1, 'closed')`, [supportId]);
+  ok((await one(`select status from support_threads where id = $1`, [supportId])).status === 'closed', 'the admin can close the thread');
 }
 
 if (failures) process.exit(1);

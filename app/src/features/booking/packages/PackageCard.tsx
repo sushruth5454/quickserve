@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View } from 'react-native';
-import { Card, Chip, Text } from '../../../components/ui';
+import { Badge, Card, Chip, Text } from '../../../components/ui';
 import { formatINR } from '../../../lib/money';
 import type { ServicePackage } from '../../../lib/types';
 import { useTheme } from '../../../theme';
@@ -11,6 +11,8 @@ export function PackageCard({
   providerName,
   rating,
   ratingCount,
+  providerOnline,
+  providerPaused,
   actionLabel,
   onPress,
 }: {
@@ -18,6 +20,8 @@ export function PackageCard({
   providerName: string;
   rating?: number;
   ratingCount?: number;
+  providerOnline?: boolean;
+  providerPaused?: boolean;
   actionLabel?: string;
   onPress?: () => void;
 }) {
@@ -29,6 +33,13 @@ export function PackageCard({
           <Text variant="title3">{servicePackage.title}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text variant="footnote" color="muted">{providerName}</Text>
+            {providerOnline != null || providerPaused != null ? (
+              <Badge
+                label={providerPaused ? 'On holiday' : providerOnline ? 'Online' : 'Offline'}
+                tone={providerPaused ? 'warning' : providerOnline ? 'success' : 'neutral'}
+                dot
+              />
+            ) : null}
             {(ratingCount ?? 0) > 0 ? (
               <>
                 <Ionicons name="star" size={12} color={t.colors.star} />

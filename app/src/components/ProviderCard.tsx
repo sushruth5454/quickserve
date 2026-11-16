@@ -95,6 +95,7 @@ export function ProviderCard({ provider: p, onPress, onBook, mode = 'visit' }: P
             <VerifiedMark />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Badge label={p.is_online ? 'Online' : 'Offline'} tone={p.is_online ? 'success' : 'neutral'} dot />
             <RatingInline value={rating} count={p.rating_count} />
             <SkillBadge level={p.skill_level} />
           </View>
@@ -141,10 +142,10 @@ export function ProviderCard({ provider: p, onPress, onBook, mode = 'visit' }: P
           )}
         </View>
         <Button
-          title={proposal ? 'Request proposal' : 'Book'}
+          title={proposal ? 'Request proposal' : p.is_online ? 'Book' : 'Schedule'}
           size="sm"
           onPress={onBook}
-          accessibilityLabel={`${proposal ? 'Request a proposal from' : 'Book'} ${p.full_name}`}
+          accessibilityLabel={`${proposal ? 'Request a proposal from' : p.is_online ? 'Book' : 'Schedule with'} ${p.full_name}`}
           style={{ minWidth: 88 }}
         />
       </View>

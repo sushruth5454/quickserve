@@ -45,8 +45,10 @@ export function ArchetypeCategory({ category }: { category: Category }) {
               providerName={item.providerName}
               rating={item.rating}
               ratingCount={item.ratingCount}
-              actionLabel={action}
-              onPress={() => {
+              providerOnline={item.providerOnline}
+              providerPaused={item.providerPaused}
+              actionLabel={item.providerPaused ? 'On holiday' : action}
+              onPress={item.providerPaused ? undefined : () => {
                 if (!instant) {
                   router.push({ pathname: '/request/new', params: { categoryId: category.id, name: category.name, package: item.package.id } });
                   return;
