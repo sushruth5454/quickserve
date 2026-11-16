@@ -514,6 +514,9 @@ export interface CreateServiceRequestInput {
   venueText: string | null;
   /** Send the brief only to this provider instead of up to 8 matching providers. */
   providerId?: string | null;
+  /** Selected location; used for routing when no saved address is chosen. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface SendProposalInput {

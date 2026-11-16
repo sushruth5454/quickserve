@@ -41,6 +41,8 @@ export default function NewServiceRequest() {
         addressId: location.addressId ?? null,
         venueText: venue.trim() || location.area,
         providerId: providerId || null,
+        lat: location.lat,
+        lng: location.lng,
       });
       toast({ message: providerName ? `Request sent to ${providerName}` : 'Request sent to matching providers', tone: 'success' });
       router.replace({ pathname: '/request/[id]', params: { id } });

@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql',
 ]) await db.exec(migration(file));
 
 
@@ -308,6 +308,21 @@ ok(await resolve(17.4, 78.4, 'Hyderabad') === null, 'an area no live provider co
     p_address_id => $2, p_venue_text => 'Venue', p_provider_id => $3) r`, [proposalCat, address, provider]);
   ok(!(await fails(() => req(near))), 'a targeted request reaches a pro whose radius covers the address despite a different city name');
   ok(/not available in your city/.test(await fails(() => req(null)) ?? ''), 'without coordinates a targeted request still needs the same city');
+  ok(!(await fails(() => as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City Demo', p_area => 'A', p_event_start => now() + interval '50 days',
+    p_event_end => now() + interval '50 days 2 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_address_id => null, p_venue_text => 'Venue', p_provider_id => $2, p_lat => 16.505, p_lng => 80.605) r`, [proposalCat, provider]))),
+    'a targeted request from a GPS/default location (no saved address) is routed by its coordinates');
+  const open = (await as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City Demo', p_area => 'A', p_event_start => now() + interval '70 days',
+    p_event_end => now() + interval '70 days 2 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_venue_text => 'Venue', p_lat => 16.505, p_lng => 80.605) r`, [proposalCat]))[0].r;
+  ok((await one(`select count(*)::int n from request_recipients where request_id = $1 and provider_id = $2`, [open, provider])).n === 1,
+    'an open request with coordinates reaches pros whose radius covers it despite a different city label');
+  ok(/location is invalid/.test(await fails(() => as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City', p_area => 'A', p_event_start => now() + interval '60 days',
+    p_event_end => now() + interval '60 days 2 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_venue_text => 'Venue', p_lat => 95, p_lng => 80.6) r`, [proposalCat])) ?? ''), 'out-of-range coordinates are rejected');
 }
 
 if (failures) process.exit(1);
