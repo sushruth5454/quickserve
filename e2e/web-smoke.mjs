@@ -508,7 +508,7 @@ for (const [section, title] of [
   ['services', 'Services & skills'],
   ['area', 'Where do you work?'],
   ['hours', 'When can you work?'],
-  ['portfolio', 'Your work & credentials'],
+  ['portfolio', 'Your work, links & credentials'],
   ['payouts', 'Payouts & verification'],
 ]) {
   await step(`provider-profile-${section}`, async () => {
@@ -634,7 +634,7 @@ await step('new-pro-hours', async () => {
   await page.getByText('Mon–Sat, 9 am–7 pm', { exact: true }).first().click();
   await page.getByText('9 am–7 pm', { exact: true }).first().waitFor();
   await page.getByText('Save & continue', { exact: true }).first().click();
-  await visible('Your work & credentials');
+  await visible('Your work, links & credentials');
 });
 await step('new-pro-portfolio', async () => {
   await chooseImage(async () => {
