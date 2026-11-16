@@ -394,6 +394,7 @@ jobs:
               ("0034", "0034_targeted_request_radius.sql"),
               ("0035", "0035_request_coordinates.sql"),
               ("0036", "0036_provider_service_city.sql"),
+              ("0037", "0037_proposal_validity_cap.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
