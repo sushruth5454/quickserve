@@ -393,6 +393,7 @@ jobs:
               ("0033", "0033_city_waitlist.sql"),
               ("0034", "0034_targeted_request_radius.sql"),
               ("0035", "0035_request_coordinates.sql"),
+              ("0036", "0036_provider_service_city.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

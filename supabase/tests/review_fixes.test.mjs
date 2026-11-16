@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql',
 ]) await db.exec(migration(file));
 
 
@@ -324,5 +324,11 @@ ok(await resolve(17.4, 78.4, 'Hyderabad') === null, 'an area no live provider co
     p_event_end => now() + interval '60 days 2 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
     p_venue_text => 'Venue', p_lat => 95, p_lng => 80.6) r`, [proposalCat])) ?? ''), 'out-of-range coordinates are rejected');
 }
+
+// ---------- 16: provider city is the live service city around their base (0036) ----------
+await db.query(`update providers set city = 'Some Village' where id = $1`, [demoPro]);
+ok((await one(`select city from providers where id = $1`, [demoPro])).city === 'Review City', 'a provider saved with a village name inside a live area gets the live city');
+await db.query(`update providers set city = 'Hyderabad', base_location = extensions.st_setsrid(extensions.st_makepoint(78.4, 17.4), 4326) where id = $1`, [demoPro]);
+ok((await one(`select city from providers where id = $1`, [demoPro])).city === 'Hyderabad', 'a provider outside every live area keeps their own city');
 
 if (failures) process.exit(1);
