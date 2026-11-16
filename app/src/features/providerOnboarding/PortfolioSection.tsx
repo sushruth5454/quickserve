@@ -12,7 +12,7 @@ type Need = 'required' | 'recommended' | 'optional';
 
 const STATUS: Record<DocStatus, { label: string; tone: Tone }> = {
   pending: { label: 'In review', tone: 'warning' },
-  approved: { label: 'Approved', tone: 'success' },
+  approved: { label: 'Live', tone: 'success' },
   rejected: { label: 'Not accepted', tone: 'danger' },
   expired: { label: 'Expired', tone: 'danger' },
   superseded: { label: 'Replaced', tone: 'neutral' },
@@ -91,7 +91,7 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
       setLinks(await onboardingApi.listProviderLinks());
       setLinkUrl('');
       setLinkHandle('');
-      toast({ message: 'Link saved. It shows on your public profile once our team approves it.', tone: 'success' });
+      toast({ message: 'Link added to your public profile', tone: 'success' });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -201,7 +201,7 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
               key={link.id}
               icon="link-outline"
               title={link.handle || LINK_LABEL[link.kind]}
-              subtitle={`${link.url} · ${link.status === 'approved' ? 'Provider-submitted · approved' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Provider-submitted · pending review'}`}
+              subtitle={`${link.url} · ${link.status === 'approved' ? 'Live on your profile' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Live on your profile'}`}
               right={
                 <Button
                   title="Remove"

@@ -376,6 +376,7 @@ jobs:
               ("0025", "0025_targeted_proposal_requests.sql"),
               ("0026", "0026_fix_proposal_prepare_payment.sql"),
               ("0027", "0027_restore_fixed_prepare_payment.sql"),
+              ("0028", "0028_auto_approve_provider_links.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

@@ -200,4 +200,18 @@ const [insightRows] = (await db.query(`
 ok(insightRows.insights >= 60 && insightRows.unprocessed === 0 && insightRows.founder_reviews === 0,
   'matching-demo insights are pre-processed and never written by the founder');
 
+// 0028: provider links go live on save; the safety validation still blocks contact links.
+await db.exec(migration('0028_auto_approve_provider_links.sql'));
+const linkPro = (await db.query(`select id from providers where city = 'Vijayawada Demo' order by id limit 1`)).rows[0].id;
+const asLinkPro = async (sql, params = []) => {
+  await db.exec('set role authenticated');
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [linkPro]);
+  try { return await db.query(sql, params); } finally { await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false);`); }
+};
+await asLinkPro(`select save_provider_link('youtube', 'https://youtube.com/@demo_channel', 'demo channel')`);
+const [savedLink] = (await db.query(`select status from provider_links where provider_id = $1 and kind = 'youtube'`, [linkPro])).rows;
+let blocked = false;
+try { await asLinkPro(`select save_provider_link('other', 'https://wa.me/919999999999', null)`); } catch { blocked = true; }
+ok(savedLink?.status === 'approved' && blocked, 'provider links are approved on save and WhatsApp links are still rejected');
+
 if (failures.length) process.exit(1);
