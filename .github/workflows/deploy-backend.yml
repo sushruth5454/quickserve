@@ -222,6 +222,8 @@ jobs:
             v_category_id uuid;
             v_price int;
             v_duration int;
+            v_lat double precision;
+            v_lng double precision;
           begin
             v_start := now() + interval '1 day';
             v_end := v_start + interval '2 hours';
@@ -285,6 +287,12 @@ jobs:
             end if;
             -- The window must cover the package duration (e.g. a 3-hour deep clean).
             v_end := v_start + make_interval(mins => greatest(coalesce(v_duration, 0), 120));
+            -- Book at the provider's own base so the address is always inside their service radius.
+            select coalesce(extensions.st_y(p.base_location::extensions.geometry), 16.5),
+                   coalesce(extensions.st_x(p.base_location::extensions.geometry), 80.6)
+              into v_lat, v_lng
+              from public.providers p
+             where p.id = v_provider_id;
             select id into v_customer_id
               from public.profiles
              where id <> v_provider_id and role_customer
@@ -302,8 +310,8 @@ jobs:
                 'mode', 'at_customer',
                 'address_line', 'Migration verification only',
                 'city', v_city,
-                'lat', 16.5,
-                'lng', 80.6
+                'lat', v_lat,
+                'lng', v_lng
               ),
               '{"verification":"0019"}'::jsonb
             ) into v_booking_id;
