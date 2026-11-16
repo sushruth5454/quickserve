@@ -476,7 +476,7 @@ export async function createPayment(bookingId: string): Promise<PaymentLinkRespo
 }
 
 const BOOKING_SELECT =
-  '*, travel_requests(distance_km, quoted_fee, status, expires_at), categories(name, slug, review_tags), providers(rating_avg, rating_count, profiles(full_name))';
+  '*, travel_requests(distance_km, quoted_fee, status, expires_at), categories(name, slug, review_tags), providers(city, rating_avg, rating_count, profiles(full_name))';
 
 export async function listMyBookings(): Promise<Booking[]> {
   const uid = await requireUserId();

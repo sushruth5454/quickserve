@@ -71,6 +71,35 @@ export default function CustomerHome() {
   );
   // Nothing is live at this location: replace search, AI and listings with the "not here yet" card.
   const unserved = categories !== null && categories.length === 0;
+  const activeCity = active?.providers?.city ?? null;
+  const activeCard = active ? (
+    <Card
+      variant="elevated"
+      onPress={() => router.push({ pathname: '/booking/[id]', params: { id: active.id } })}
+      accessibilityLabel={`Active booking ${active.categories?.name ?? ''}${unserved && activeCity ? ` in ${activeCity}` : ''}. ${nextStepCopy[active.status] ?? ''}`}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+        <CategoryIcon icon={iconForCategory(categories?.find((c) => c.slug === active.categories?.slug) ?? active.categories)} size={44} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="caption" color="muted">
+            {unserved ? 'Your active booking' : 'Active booking'}
+          </Text>
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {active.categories?.name ?? 'Booking'}
+            {unserved && activeCity ? ` in ${activeCity}` : ''}
+          </Text>
+        </View>
+        <StatusPill status={active.status} />
+      </View>
+      <ProgressBar status={active.status} showLabel={false} archetype={active.archetype} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+        <Text variant="footnote" color="textSecondary" style={{ flex: 1 }} numberOfLines={2}>
+          {nextStepCopy[active.status] ?? 'View booking details'}
+        </Text>
+        <Ionicons name="chevron-forward" size={18} color={t.colors.subtle} />
+      </View>
+    </Card>
+  ) : null;
   const gutter = { paddingHorizontal: t.spacing.lg };
   // ~72% of the screen so the next card peeks; capped for tablets/web.
   const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
@@ -194,41 +223,16 @@ export default function CustomerHome() {
 
       {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
 
-      {/* Active booking */}
-      {active ? (
-        <View style={gutter}>
-          <Card
-            variant="elevated"
-            onPress={() => router.push({ pathname: '/booking/[id]', params: { id: active.id } })}
-            accessibilityLabel={`Active booking ${active.categories?.name ?? ''}. ${nextStepCopy[active.status] ?? ''}`}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-              <CategoryIcon icon={iconForCategory(categories?.find((c) => c.slug === active.categories?.slug) ?? active.categories)} size={44} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="caption" color="muted">
-                  Active booking
-                </Text>
-                <Text variant="bodyStrong" numberOfLines={1}>
-                  {active.categories?.name ?? 'Booking'}
-                </Text>
-              </View>
-              <StatusPill status={active.status} />
-            </View>
-            <ProgressBar status={active.status} showLabel={false} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-              <Text variant="footnote" color="textSecondary" style={{ flex: 1 }} numberOfLines={2}>
-                {nextStepCopy[active.status] ?? 'View booking details'}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color={t.colors.subtle} />
-            </View>
-          </Card>
-        </View>
-      ) : null}
+      {/* Active booking: on top normally; below the "not here yet" card, labelled with its city, when unserved. */}
+      {active && !unserved ? <View style={gutter}>{activeCard}</View> : null}
 
       {/* Categories */}
-      <View style={gutter}>
+      <View style={[gutter, { gap: t.spacing.lg }]}>
         {unserved ? (
-          <NotServedCard />
+          <>
+            <NotServedCard />
+            {active ? activeCard : null}
+          </>
         ) : (
         <Section title="Services">
           {!categories ? (

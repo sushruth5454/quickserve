@@ -446,10 +446,14 @@ export default function BookingDetail() {
       <PaymentScheduleTimeline key={`${booking.id}:${s}`} bookingId={booking.id} canPay={isCustomer} showPay={s !== 'pending_payment'} onPaid={() => void load()} />
 
       {/* ---------- customer actions ---------- */}
-      {isCustomer && (s === 'accepted' || s === 'en_route') ? (
+      {isCustomer && (s === 'accepted' || s === 'en_route' || (s === 'confirmed' && booking.archetype === 'proposal')) ? (
         <OtpCard
           title="Start code"
-          hint={`Share only when ${first} is at your door.`}
+          hint={
+            booking.archetype === 'proposal'
+              ? `Share only when ${first} starts the work (at the shoot or event, or on call for remote work).`
+              : `Share only when ${first} is at your door.`
+          }
           code={startCode}
           locked={!!otps?.start_locked}
           onRegenerate={() => void run(() => api.regenerateOtp(booking.id, 'start'), 'New code generated')}
@@ -752,6 +756,8 @@ function heroCopy(p: {
         if (p.archetype === 'time_based') return { title: 'Pay to confirm your session', subtitle: `Pay for the session to send it to ${first}. It's refunded if they can't take it.` };
         return { title: 'Pay the visit fee to send your request', subtitle: `${first} is notified as soon as the ${formatINR(p.visitFee)} visit fee is paid. It's adjusted in your final bill.` };
       case 'confirmed':
+        if (p.archetype === 'proposal')
+          return { title: 'Booking confirmed', subtitle: p.startCode ? `Share code ${p.startCode} with ${first} when the work starts.` : `Share your start code with ${first} when the work starts.` };
         return { title: 'Booking confirmed', subtitle: `${first} has your booking. Any remaining milestones are in the payment timeline.` };
       case 'delivery_pending':
         return { title: `Waiting for ${first}'s delivery`, subtitle: 'Review the delivery when it arrives. The final milestone is due on delivery.' };
@@ -796,6 +802,12 @@ function heroCopy(p: {
     }
   }
   switch (p.status) {
+    case 'confirmed':
+      return p.archetype === 'proposal'
+        ? { title: 'Booking confirmed', subtitle: `When the work starts, ask ${first} for the 4-digit start code.` }
+        : { title: statusLabel[p.status] };
+    case 'delivery_pending':
+      return { title: 'Prepare the deliverables', subtitle: `Submit the delivery links so ${first} can review them.` };
     case 'requested':
       return { title: `New request from ${first}`, subtitle: 'Accept or decline from your Jobs tab within 15 minutes.' };
     case 'accepted':

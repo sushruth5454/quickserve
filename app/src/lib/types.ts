@@ -194,7 +194,7 @@ export interface Booking {
   } | null;
   categories?: Pick<Category, 'name' | 'slug' | 'review_tags'> | null;
   /** The pro, embedded for customer-facing lists (null if the provider is no longer public). */
-  providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
+  providers?: { city?: string | null; rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
 }
 
 export interface QuoteItem {

@@ -112,7 +112,7 @@ export function StatusHero({ status, copy, events, archetype }: { status: Bookin
           </Pressable>
           {open ? (
             <Animated.View entering={FadeIn.duration(200)}>
-              <StatusTimeline status={status} events={events} initiallyExpanded />
+              <StatusTimeline status={status} events={events} initiallyExpanded archetype={archetype} />
             </Animated.View>
           ) : null}
         </View>

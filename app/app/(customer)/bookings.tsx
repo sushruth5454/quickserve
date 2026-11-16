@@ -119,7 +119,7 @@ export default function MyBookings() {
                 <UnreadMessagesRow bookingId={b.id} count={unread.countFor(b.id)} />
                 {tab === 'active' ? (
                   <View style={{ gap: 6 }}>
-                    <ProgressBar status={b.status} showLabel={false} />
+                    <ProgressBar status={b.status} showLabel={false} archetype={b.archetype} />
                     {nextStepCopy[b.status] ? (
                       <Text variant="footnoteStrong" color="textSecondary" numberOfLines={1}>
                         {nextStepCopy[b.status]}

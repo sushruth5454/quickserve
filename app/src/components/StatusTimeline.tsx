@@ -2,12 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
-import type { BookingEvent, BookingStatus } from '../lib/types';
+import type { BookingArchetype, BookingEvent, BookingStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { statusLabel, statusTone } from './status';
 import { Text, toneColors } from './ui';
 
-const FLOW: { status: BookingStatus; label: string; hint: string }[] = [
+type FlowStep = { status: BookingStatus; also?: BookingStatus[]; label: string; hint: string };
+
+/** Inspect & quote (default) visit flow. */
+const VISIT_FLOW: FlowStep[] = [
   { status: 'requested', label: 'Booked', hint: 'Visit fee paid — waiting for the provider to accept' },
   { status: 'accepted', label: 'Accepted', hint: 'Provider confirmed your booking' },
   { status: 'en_route', label: 'On the way', hint: 'Share the start code when they arrive' },
@@ -18,6 +21,35 @@ const FLOW: { status: BookingStatus; label: string; hint: string }[] = [
   { status: 'completion_requested', label: 'Check the work', hint: 'Share the completion code if satisfied' },
   { status: 'completed', label: 'Completed', hint: 'Thanks for using QuickServe' },
 ];
+
+const FLOWS: Partial<Record<BookingArchetype, FlowStep[]>> = {
+  fixed: [
+    { status: 'requested', label: 'Booked', hint: 'Paid — waiting for the provider to accept' },
+    { status: 'accepted', also: ['confirmed'], label: 'Accepted', hint: 'Provider confirmed your booking' },
+    { status: 'en_route', label: 'On the way', hint: 'Share the start code when they arrive' },
+    { status: 'in_progress', label: 'Work in progress', hint: 'Your money is held until completion' },
+    { status: 'completion_requested', label: 'Check the work', hint: 'Share the completion code if satisfied' },
+    { status: 'completed', label: 'Completed', hint: 'Thanks for using QuickServe' },
+  ],
+  time_based: [
+    { status: 'requested', label: 'Booked', hint: 'Paid — waiting for the provider to accept' },
+    { status: 'accepted', also: ['confirmed', 'en_route'], label: 'Accepted', hint: 'Share the start code when the session begins' },
+    { status: 'in_progress', label: 'Session in progress', hint: 'Your money is held until completion' },
+    { status: 'completion_requested', label: 'Confirm the session', hint: 'Share the completion code if satisfied' },
+    { status: 'completed', label: 'Completed', hint: 'Thanks for using QuickServe' },
+  ],
+  proposal: [
+    { status: 'pending_payment', label: 'Proposal accepted', hint: 'Pay the advance to confirm the booking' },
+    { status: 'confirmed', also: ['accepted'], label: 'Confirmed', hint: 'Advance paid — share the start code when work begins' },
+    { status: 'in_progress', also: ['en_route'], label: 'Work started', hint: 'Shoot / event in progress' },
+    { status: 'delivery_pending', label: 'Delivery', hint: 'Final edits and deliverables are being prepared' },
+    { status: 'completion_requested', label: 'Review delivery', hint: 'Check the work, then share the completion code' },
+    { status: 'completed', label: 'Completed', hint: 'Thanks for using QuickServe' },
+  ],
+};
+
+const flowFor = (archetype?: BookingArchetype | null) => (archetype ? FLOWS[archetype] : undefined) ?? VISIT_FLOW;
+const inStep = (step: FlowStep, s: BookingStatus) => step.status === s || !!step.also?.includes(s);
 
 const SIDE_ICON: Partial<Record<BookingStatus, keyof typeof Ionicons.glyphMap>> = {
   pending_payment: 'card-outline',
@@ -34,17 +66,15 @@ const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hou
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const fmtDayTime = (iso: string) => `${fmtDay(iso)}, ${fmtTime(iso)}`;
 
-/** Position of a status in the happy-path flow (−1 for side states). */
-export function flowIndex(status: BookingStatus): number {
+/** Position of a status in the booking type's happy-path flow (−1 for side states). */
+export function flowIndex(status: BookingStatus, archetype?: BookingArchetype | null): number {
   const effective: BookingStatus = status === 'closed' ? 'completed' : status;
-  return FLOW.findIndex((s) => s.status === effective);
+  return flowFor(archetype).findIndex((s) => inStep(s, effective));
 }
 
-export const FLOW_LENGTH = FLOW.length;
-
-export function flowLabel(status: BookingStatus): string | undefined {
-  const i = flowIndex(status);
-  return i >= 0 ? FLOW[i]?.label : undefined;
+export function flowLabel(status: BookingStatus, archetype?: BookingArchetype | null): string | undefined {
+  const i = flowIndex(status, archetype);
+  return i >= 0 ? flowFor(archetype)[i]?.label : undefined;
 }
 
 /**
@@ -55,14 +85,17 @@ export function StatusTimeline({
   status,
   events = [],
   initiallyExpanded = false,
+  archetype,
 }: {
   status: BookingStatus;
   events?: BookingEvent[];
   initiallyExpanded?: boolean;
+  archetype?: BookingArchetype | null;
 }) {
   const t = useTheme();
   const [expanded, setExpanded] = useState(initiallyExpanded);
-  const side = SIDE_ICON[status];
+  const FLOW = flowFor(archetype);
+  const side = flowIndex(status, archetype) < 0 ? SIDE_ICON[status] : undefined;
   if (side) {
     const c = toneColors(t.colors, statusTone[status]);
     return (
@@ -77,9 +110,9 @@ export function StatusTimeline({
       </View>
     );
   }
-  const current = flowIndex(status);
+  const current = flowIndex(status, archetype);
   const completed = FLOW[current]?.status === 'completed';
-  const reachedAt = (s: BookingStatus) => [...events].reverse().find((e) => e.to_status === s)?.at;
+  const reachedAt = (step: FlowStep) => [...events].reverse().find((e) => inStep(step, e.to_status))?.at;
   const firstDay = events[0]?.at ? dayKey(events[0].at) : null;
   const stamp = (iso: string) => (firstDay && dayKey(iso) === firstDay ? fmtTime(iso) : fmtDayTime(iso));
 
@@ -99,7 +132,7 @@ export function StatusTimeline({
   );
 
   if (!expanded && completed) {
-    const at = reachedAt('completed');
+    const at = reachedAt(FLOW[current]!);
     return (
       <View accessibilityRole="summary" style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
         <Dot done active={false} />
@@ -137,7 +170,7 @@ export function StatusTimeline({
         {visible.map(({ s: step, i }, idx) => {
           const done = i < current || (i === current && completed);
           const active = i === current && !done;
-          const at = done || active ? reachedAt(step.status) : undefined;
+          const at = done || active ? reachedAt(step) : undefined;
           const last = idx === visible.length - 1;
           return (
             <Animated.View key={step.status} entering={FadeIn.duration(180)} style={{ flexDirection: 'row', gap: t.spacing.md }}>
@@ -209,9 +242,10 @@ function Dot({ done, active }: { done: boolean; active: boolean }) {
 }
 
 /** Compact progress for list rows: one 4pt bar plus "Step n of 9 · label". */
-export function ProgressBar({ status, showLabel = true }: { status: BookingStatus; showLabel?: boolean }) {
+export function ProgressBar({ status, showLabel = true, archetype }: { status: BookingStatus; showLabel?: boolean; archetype?: BookingArchetype | null }) {
   const t = useTheme();
-  const current = flowIndex(status);
+  const FLOW = flowFor(archetype);
+  const current = flowIndex(status, archetype);
   if (current < 0) return null;
   const pct = (current + 1) / FLOW.length;
   return (

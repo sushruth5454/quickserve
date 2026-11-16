@@ -93,6 +93,7 @@ export const terminalStatuses: BookingStatus[] = ['closed', 'closed_no_work', 'd
 
 export const activeStatuses: BookingStatus[] = [
   'pending_payment',
+  'confirmed',
   'requested',
   'accepted',
   'en_route',
@@ -100,6 +101,7 @@ export const activeStatuses: BookingStatus[] = [
   'quote_sent',
   'awaiting_payment',
   'in_progress',
+  'delivery_pending',
   'completion_requested',
   'disputed',
 ];

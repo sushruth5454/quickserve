@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
 ]) await db.exec(migration(file));
 
 
@@ -348,6 +348,22 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
     p_venue_text => 'Venue') r`, [proposalCat]));
   ok(/needs at least 24 hours' notice/.test(soon ?? ''), 'a request inside the notice period is refused with a clear message');
   await db.query(`update categories set min_lead_hours = $2 where id = $1`, [proposalCat, lead]);
+}
+
+// ---------- 18: the customer gets a start code for a confirmed proposal booking (0039) ----------
+{
+  const booking = await proposalBooking(provider);
+  await payDue(booking);
+  ok((await one(`select status from bookings where id = $1`, [booking])).status === 'confirmed', 'a paid proposal booking is confirmed');
+  const code = (await as(customer, 'authenticated', `select start_otp from get_booking_otps($1)`, [booking]))[0]?.start_otp;
+  ok(/^\d{4}$/.test(code ?? ''), `the customer sees the start code once the advance is paid (${code})`);
+  const regen = await fails(() => as(customer, 'authenticated', `select regenerate_otp($1, 'start')`, [booking]));
+  const fresh = (await as(customer, 'authenticated', `select start_otp from get_booking_otps($1)`, [booking]))[0]?.start_otp;
+  ok(!regen && /^\d{4}$/.test(fresh ?? ''), `the customer can regenerate the start code (${regen ?? 'ok'})`);
+  await db.query(`update bookings set scheduled_at = now() where id = $1`, [booking]);
+  const started = (await as(provider, 'authenticated', `select start_proposal_booking($1, $2) r`, [booking, fresh]))[0].r;
+  ok(started.ok === true && (await one(`select status from bookings where id = $1`, [booking])).status === 'in_progress',
+    `the provider starts work with the customer's code (${JSON.stringify(started)})`);
 }
 
 if (failures) process.exit(1);
