@@ -129,6 +129,7 @@ Deno.test("service validation: inactive, unverified, suspended, self, wrong cate
   assertMatch(serviceProblem({ ...ok, providers: { ...ok.providers!, kyc_status: "pending" } }, "plumber", "me")!, /not available/);
   assertMatch(serviceProblem({ ...ok, providers: { ...ok.providers!, suspended: true } }, "plumber", "me")!, /not available/);
   assertMatch(serviceProblem({ ...ok, providers: null }, "plumber", "me")!, /not available/);
+  assertMatch(serviceProblem({ ...ok, providers: { ...ok.providers!, paused: true, profiles: { full_name: "Ravi" } } }, "plumber", "me")!, /Ravi is on holiday.*Do not draft/);
   assertMatch(serviceProblem(ok, "plumber", "p-1")!, /cannot book themselves/);
   assertMatch(serviceProblem(ok, "ac-repair", "me")!, /is for Plumber/);
 });

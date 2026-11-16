@@ -116,7 +116,7 @@ const num = (v: unknown, min: number, max: number): number | null =>
 async function loadHistory(db: SupabaseClient, uid: string): Promise<PastBooking[]> {
   const { data, error } = await db
     .from("bookings")
-    .select("created_at, status, provider_id, provider_service_id, categories(slug, name), providers(profiles(full_name)), reviews(rating)")
+    .select("created_at, status, provider_id, provider_service_id, categories(slug, name), providers(paused, profiles(full_name)), reviews(rating)")
     .eq("customer_id", uid)
     .order("created_at", { ascending: false })
     .limit(20);
@@ -131,6 +131,7 @@ async function loadHistory(db: SupabaseClient, uid: string): Promise<PastBooking
       provider_id: b.provider_id,
       provider_service_id: b.provider_service_id,
       provider_name: b.providers?.profiles?.full_name ?? "Pro",
+      provider_on_holiday: b.providers?.paused === true,
       status: b.status,
       rating: review?.rating ?? null,
     };
@@ -193,7 +194,7 @@ async function draftBooking(ctx: Ctx, state: State, args: Record<string, unknown
   const description = renderBrief(built.brief);
   const { data } = await ctx.userClient
     .from("provider_services")
-    .select("id, provider_id, visit_fee, active, categories(slug, name), providers(kyc_status, suspended, rating_avg, rating_count, profiles(full_name))")
+    .select("id, provider_id, visit_fee, active, categories(slug, name), providers(kyc_status, suspended, paused, rating_avg, rating_count, profiles(full_name))")
     .eq("id", psId)
     .maybeSingle();
   const row = (data ?? null) as unknown as ServiceRow | null;
@@ -248,6 +249,7 @@ async function execTool(ctx: Ctx, state: State, name: string, args: Record<strin
           service: h.category_slug,
           pro: h.provider_name,
           provider_service_id: h.provider_service_id,
+          ...(h.provider_on_holiday ? { availability: "on holiday now - cannot be booked; offer other pros" } : {}),
           status: h.status,
           customer_rating: h.rating,
         })),

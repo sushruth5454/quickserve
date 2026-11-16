@@ -208,13 +208,17 @@ export interface ServiceRow {
   visit_fee: number;
   active: boolean;
   categories: { slug: string; name: string } | null;
-  providers: { kyc_status: string; suspended: boolean; rating_avg: number | string; rating_count: number; profiles: { full_name: string } | null } | null;
+  providers: { kyc_status: string; suspended: boolean; paused?: boolean; rating_avg: number | string; rating_count: number; profiles: { full_name: string } | null } | null;
 }
 
 /** null when the service can be drafted, else a message for the model. Checked again by create_booking at checkout. */
 export function serviceProblem(row: ServiceRow | null, slug: string, uid: string): string | null {
   if (!row || !row.active || !row.providers || row.providers.kyc_status !== "verified" || row.providers.suspended) {
     return "That pro is not available for booking now. Pick another pro from search_providers.";
+  }
+  if (row.providers.paused) {
+    const name = row.providers.profiles?.full_name ?? "That pro";
+    return `${name} is on holiday and not taking bookings right now. Do not draft with them. Tell the customer ${name} is currently unavailable and offer other available pros from search_providers.`;
   }
   if (row.provider_id === uid) return "Customers cannot book themselves. Pick another pro.";
   if (row.categories?.slug !== slug) return `That provider_service_id is for ${row.categories?.name ?? "another service"}, not ${slug}.`;
@@ -248,6 +252,7 @@ export interface PastBooking {
   provider_id: string;
   provider_service_id: string;
   provider_name: string;
+  provider_on_holiday?: boolean;
   status: string;
   rating: number | null;
 }

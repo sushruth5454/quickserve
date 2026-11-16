@@ -99,12 +99,17 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
     }
   };
 
+  // Pick while the sheet is still open (see BasicsSection.choose), then close it before uploading.
   const addPhoto = async (source: 'camera' | 'library') => {
-    setPhotoSheet(false);
     setBusy('photo');
     setError(null);
     try {
-      const f = await pickPhoto('portfolio', source);
+      let f;
+      try {
+        f = await pickPhoto('portfolio', source);
+      } finally {
+        setPhotoSheet(false);
+      }
       if (!f) return;
       await onboardingApi.addPortfolioPhoto(f.uri, f.mimeType, caption.trim());
       setCaption('');

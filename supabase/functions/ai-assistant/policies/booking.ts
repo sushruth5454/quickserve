@@ -15,6 +15,7 @@ export const BOOKING: PolicySection = {
     "JOB BRIEF privacy: no names, phone numbers, house/flat numbers or addresses anywhere in the brief (the address has its own field). Times and dates go ONLY in the slot fields.",
     "Slots: slot_type 'asap', or 'window' with slot_date YYYY-MM-DD and slot_start_hour one of 8, 10, 12, 14, 16, 18 (2-hour windows, local time) within the next 7 days. Morning = 10, afternoon = 14, evening = 18. After 8 pm: use 18 and say the last window is 6-8 pm. No time = asap.",
     "If draft_booking returns an error, fix the argument it names (e.g. pick another pro from search_providers) and call it once more; if it fails again, respond without a draft and explain briefly.",
+    "NAMED PRO: if the customer asked for a specific pro by name and that pro is on holiday/unavailable (history availability note or a draft_booking error), do NOT draft and do NOT silently swap in someone else. Reply that <name> is currently unavailable, show other available pros from search_providers, and let the customer choose.",
     "If draft_booking returns slot_note, mention the adjusted time in reply_text.",
     "Do not draft when: no location, no pros found, the service is out of scope, or the customer only asked a question.",
   ],

@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migration = fs.readFileSync(path.join(here, '..', 'migrations', '0022_time_based_booking.sql'), 'utf8');
+const readMigration = (file) => fs.readFileSync(path.join(here, '..', 'migrations', file), 'utf8');
+const migration = readMigration('0022_time_based_booking.sql');
 const db = new PGlite({ extensions: { pgcrypto } });
 const CUSTOMER = '10000000-0000-0000-0000-000000000001';
 const PROVIDER = '10000000-0000-0000-0000-000000000002';
@@ -64,6 +65,7 @@ grant all on all tables in schema public to service_role;
 `);
 
 await db.exec(migration);
+await db.exec(readMigration('0031_holiday_mode_enforcement.sql'));
 
 const CATEGORY = '20000000-0000-0000-0000-000000000001';
 const SERVICE = '20000000-0000-0000-0000-000000000002';
@@ -126,5 +128,23 @@ ok(rlsBlocked, 'unrelated authenticated user cannot read pack purchases');
 await db.exec(`update pack_purchases set expires_at=now()-interval '1 minute' where id='${packId}'`);
 const expired = (await db.query('select expire_session_packs() count')).rows[0].count;
 ok(expired === 1, 'expired packs use the cron refund path');
+
+// Holiday mode (0031): every customer-initiated session path refuses a paused pro.
+await db.exec(`update providers set paused=true where id='${PROVIDER}'`);
+const refusal = async (sql, params) => {
+  try { await as(CUSTOMER, sql, params); return null; } catch (e) { return e.message; }
+};
+const later = new Date(Date.now() + 3 * 86400000).toISOString();
+const holidayErrors = [
+  await refusal(`select create_session_booking($1,$2,$3,60,'1 Road','Vijayawada',16.5,80.6,'',null)`, [SERVICE, PACKAGE, later]),
+  await refusal('select purchase_session_pack($1,$2)', [PACKAGE, 5]),
+  await refusal(`select create_recurring_schedule($1,$2,null,'per_session',array[2]::smallint[],'10:00','Asia/Kolkata',60,$3::date,null,'1 Road','Vijayawada',16.5,80.6,'')`,
+    [SERVICE, PACKAGE, later.slice(0, 10)]),
+];
+ok(holidayErrors.every((m) => m?.includes('provider_unavailable: the provider is on holiday')),
+  `session booking, pack purchase and recurring schedule refuse a pro on holiday (${holidayErrors.join(' | ')})`);
+await db.exec(`update providers set paused=false where id='${PROVIDER}'`);
+const resumed = await refusal(`select create_session_booking($1,$2,$3,60,'1 Road','Vijayawada',16.5,80.6,'',null)`, [SERVICE, PACKAGE, later]);
+ok(resumed === null, `session booking works again once holiday mode is off (${resumed ?? 'ok'})`);
 
 if (failures) process.exitCode = 1;

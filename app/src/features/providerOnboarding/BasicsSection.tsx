@@ -39,13 +39,16 @@ export function BasicsSection({ data, reload, header, mode, onDone, onBack }: Se
   const existingAvatar = data.state.profile?.avatar_url ?? null;
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Open the picker over the sheet and close the sheet afterwards: dismissing the sheet's iOS modal while the
+  // picker is opening also dismisses the picker, so no photo comes back.
   const choose = async (source: 'camera' | 'library') => {
-    setPhotoSheet(false);
     try {
       const f = await pickPhoto('avatar', source);
       if (f) setPhoto(f);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setPhotoSheet(false);
     }
   };
 
