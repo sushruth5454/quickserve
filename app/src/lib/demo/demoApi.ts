@@ -48,6 +48,7 @@ import type {
   DeliveryLink,
 } from '../types';
 import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBooking, type DemoDb } from './seed';
+import { maskPreview, type AppNotification } from '../unread';
 
 const SESSION_KEY = 'quickserve.demo.session';
 
@@ -1524,6 +1525,42 @@ export const demoApi: Api = {
     assert(b.customer_id === me || b.provider_id === me, 'not a participant of this booking');
     const other = b.customer_id === me ? b.provider_id : b.customer_id;
     return { my_last_read_at: chatReads[`${me}:${bookingId}`] ?? null, other_last_read_at: chatReads[`${other}:${bookingId}`] ?? null };
+  },
+
+  // Demo notifications mirror the server's chat outbox: the latest message from the other person per booking.
+  async listNotifications(limit = 50) {
+    await wait();
+    const me = uid();
+    const rows: AppNotification[] = [];
+    for (const b of db.bookings.filter((x) => x.customer_id === me || x.provider_id === me)) {
+      const last = db.messages.filter((m) => m.booking_id === b.id && m.sender_id !== me).at(-1);
+      if (!last) continue;
+      const since = chatReads[`${me}:${b.id}`] ?? '';
+      rows.push({
+        id: `demo-chat-${b.id}`,
+        kind: 'chat_message',
+        title: nameOf(last.sender_id).split(' ')[0] || 'User',
+        body: last.body ? maskPreview(last.body, 120) : 'Sent a photo',
+        data: { url: `/chat/${b.id}`, booking_id: b.id },
+        count: 1,
+        booking_id: b.id,
+        category_name: categoryOf(b.category_id)?.name ?? null,
+        at: last.created_at,
+        read_at: last.created_at > since ? null : since,
+      });
+    }
+    return rows.sort((a, c) => Date.parse(c.at) - Date.parse(a.at)).slice(0, limit);
+  },
+  async countUnreadNotifications() {
+    return 0;
+  },
+  async markNotificationsRead() {},
+  async getChatHeading(bookingId) {
+    const me = uid();
+    const b = db.bookings.find((x) => x.id === bookingId);
+    if (!b || (b.customer_id !== me && b.provider_id !== me)) return null;
+    const other = b.customer_id === me ? b.provider_id : b.customer_id;
+    return { name: nameOf(other).split(' ')[0] || 'User', category: categoryOf(b.category_id)?.name ?? null };
   },
 
   // Demo mode never registers for push (no backend to send from).

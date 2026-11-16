@@ -96,3 +96,24 @@ jobs:
             console.log("APK:", apk); console.log("Build page:", page);
             if (b.status !== "FINISHED") process.exit(1);
           '
+
+      # Expo's build logs need the Expo login; print the failing build's error and log tail into this run instead.
+      - name: Show EAS build error
+        if: failure()
+        run: |
+          ID=$(eas build:list --platform android --limit 1 --json --non-interactive | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].id))')
+          eas build:view "$ID" --json > failed.json || true
+          node -e '
+            const b = require("./failed.json");
+            console.log("build", b.id, "status", b.status);
+            console.log("error:", JSON.stringify(b.error, null, 2));
+          '
+          for u in $(node -e 'for (const u of (require("./failed.json").logFiles||[])) console.log(u)'); do
+            curl -fsSL "$u" | node -e '
+              let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+                const lines = s.split("\n").map(l => { try { const j = JSON.parse(l); return (j.phase||"") + " " + (j.msg||""); } catch { return l; } });
+                const errs = lines.filter(l => /error|failed|exception|could not|cannot find/i.test(l));
+                console.log("---- error lines ----"); console.log(errs.slice(-60).join("\n"));
+                console.log("---- last 80 lines ----"); console.log(lines.slice(-80).join("\n"));
+              });' || true
+          done

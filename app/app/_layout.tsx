@@ -33,7 +33,7 @@ function NotificationsBridge({ ready }: { ready: boolean }) {
     else resetPushRegistration();
   }, [userId]);
 
-  useNotificationRouting(ready);
+  useNotificationRouting(ready, userId);
 
   useEffect(() => {
     void setAppBadge(unreadTotal);

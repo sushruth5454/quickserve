@@ -12,6 +12,7 @@ import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Te
 import { getMyProfile, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
 import { aiAssistantEnabled } from '../../src/lib/config';
 import { useSelectedLocation } from '../../src/lib/locationContext';
+import { useUnread } from '../../src/lib/unreadContext';
 import type { Booking, Category } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 import { getCatalogue } from '../../src/features/catalogue/api';
@@ -20,6 +21,8 @@ import type { Catalogue } from '../../src/features/catalogue/model';
 
 export default function CustomerHome() {
   const t = useTheme();
+  const unread = useUnread();
+  const bellCount = unread.total('customer') + unread.notifications;
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { location } = useSelectedLocation();
@@ -100,10 +103,10 @@ export default function CustomerHome() {
           </Pressable>
           <IconButton
             icon="notifications-outline"
-            accessibilityLabel="Notifications"
-            onPress={() => router.push('/bookings')}
+            accessibilityLabel={bellCount ? `Notifications, ${bellCount} unread` : 'Notifications'}
+            onPress={() => router.push('/notifications')}
             variant="neutral"
-            badge={!!active}
+            badge={bellCount > 0}
           />
         </View>
 

@@ -2,14 +2,18 @@ import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { useToast } from '../components/ui';
-import { getUnreadCounts, markChatRead, subscribeToMyMessages } from './api';
+import { countUnreadNotifications, getChatHeading, getUnreadCounts, markChatRead, subscribeToMyMessages } from './api';
 import { useAuth } from './auth';
-import { applyIncoming, clearBooking, maskPreview, toUnreadMap, totalUnread, type ChatRole, type UnreadMap } from './unread';
+import { applyIncoming, chatTitle, clearBooking, maskPreview, toUnreadMap, totalUnread, type ChatRole, type UnreadMap } from './unread';
 
 interface UnreadState {
   map: UnreadMap;
   total: (role?: ChatRole) => number;
   countFor: (bookingId: string | null | undefined) => number;
+  /** Unread non-chat notifications (booking updates, proposals); the bell badge adds chat unread to this. */
+  notifications: number;
+  /** Clears the non-chat count after the notifications screen marked them read. */
+  clearNotifications: () => void;
   refresh: () => Promise<void>;
   /** The chat currently open and focused (its messages never count as unread or raise a banner). */
   setActiveChat: (bookingId: string | null) => void;
@@ -30,6 +34,8 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth();
   const toast = useToast();
   const [map, setMap] = useState<UnreadMap>({});
+  const [notifications, setNotifications] = useState(0);
+  const headings = useRef(new Map<string, { name: string; category: string | null } | null>());
   const active = useRef<string | null>(null);
   const userRef = useRef(userId);
   userRef.current = userId;
@@ -37,8 +43,14 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     if (!userId) {
       setMap({});
+      setNotifications(0);
       return;
     }
+    void countUnreadNotifications()
+      .then((n) => {
+        if (userRef.current === userId) setNotifications(n);
+      })
+      .catch(() => undefined);
     try {
       const rows = await getUnreadCounts();
       if (userRef.current !== userId) return;
@@ -77,12 +89,24 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
       setMap((prev) => applyIncoming(prev, m, userId, active.current));
       if (AppState.currentState === 'active') {
         const preview = m.body ? maskPreview(m.body, 60) : 'Sent a photo';
-        toast({
-          message: `New message: ${preview}`,
-          icon: 'chatbubble-ellipses-outline',
-          actionLabel: 'Open',
-          onAction: () => router.push({ pathname: '/chat/[bookingId]', params: { bookingId: m.booking_id } }),
-        });
+        const show = (h: { name: string; category: string | null } | null) => {
+          if (m.booking_id === active.current) return;
+          toast({
+            message: h ? `${chatTitle(h.name, 1)}${h.category ? ` · ${h.category} booking` : ''}\n${preview}` : `New message: ${preview}`,
+            icon: 'chatbubble-ellipses-outline',
+            actionLabel: 'Open',
+            onAction: () => router.push({ pathname: '/chat/[bookingId]', params: { bookingId: m.booking_id } }),
+          });
+        };
+        if (headings.current.has(m.booking_id)) show(headings.current.get(m.booking_id) ?? null);
+        else {
+          void getChatHeading(m.booking_id)
+            .catch(() => null)
+            .then((h) => {
+              headings.current.set(m.booking_id, h);
+              show(h);
+            });
+        }
       }
       clearTimeout(debounce);
       debounce = setTimeout(() => void refresh(), 1500);
@@ -104,18 +128,21 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const activeChat = useCallback(() => active.current, []);
+  const clearNotifications = useCallback(() => setNotifications(0), []);
 
   const value = useMemo<UnreadState>(
     () => ({
       map,
       total: (role) => totalUnread(map, role),
       countFor: (id) => (id ? (map[id]?.unread ?? 0) : 0),
+      notifications,
+      clearNotifications,
       refresh,
       setActiveChat,
       activeChat,
       markRead,
     }),
-    [map, refresh, setActiveChat, activeChat, markRead],
+    [map, notifications, clearNotifications, refresh, setActiveChat, activeChat, markRead],
   );
 
   return <UnreadContext.Provider value={value}>{children}</UnreadContext.Provider>;

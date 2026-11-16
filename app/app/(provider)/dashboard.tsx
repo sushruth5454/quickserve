@@ -88,6 +88,7 @@ export default function ProviderDashboard() {
   const [goLive, setGoLive] = useState<{ status: GoLive; docTypes: DocumentType[] } | null>(null);
   const { userId } = useAuth();
   const unread = useUnread();
+  const bellCount = unread.total('provider') + unread.notifications;
   const refreshUnread = unread.refresh;
 
   useEffect(() => {
@@ -206,13 +207,22 @@ export default function ProviderDashboard() {
       }}
     >
       <View style={[gutter, { paddingTop: insets.top + t.spacing.md, gap: t.spacing.lg }]}>
-        <View style={{ gap: 2 }}>
-          <Text variant="footnote" color="muted">
-            {new Date(now).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </Text>
-          <Text variant="title1" accessibilityRole="header" numberOfLines={1}>
-            {me ? `Hi ${me}` : 'Your jobs'}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="footnote" color="muted">
+              {new Date(now).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </Text>
+            <Text variant="title1" accessibilityRole="header" numberOfLines={1}>
+              {me ? `Hi ${me}` : 'Your jobs'}
+            </Text>
+          </View>
+          <IconButton
+            icon="notifications-outline"
+            accessibilityLabel={bellCount ? `Notifications, ${bellCount} unread` : 'Notifications'}
+            onPress={() => router.push('/notifications')}
+            variant="neutral"
+            badge={bellCount > 0}
+          />
         </View>
 
         <OnlineCard online={online} radiusKm={provider?.service_radius_km ?? null} onChange={(v) => void toggleOnline(v)} disabled={!provider} />

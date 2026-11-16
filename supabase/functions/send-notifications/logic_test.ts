@@ -22,7 +22,7 @@ Deno.test("chat push: one message per unique device, collapsed per booking, deep
   const msgs = buildMessages(base);
   assertEquals(msgs.length, 2);
   for (const m of msgs) {
-    assertEquals(m.title, "Ravi");
+    assertEquals(m.title, "New message from Ravi");
     assertEquals(m.channelId, "messages");
     assertEquals(m.collapseId, "chat-b1");
     assertEquals(m.tag, "chat-b1");
@@ -34,7 +34,7 @@ Deno.test("chat push: one message per unique device, collapsed per booking, deep
 });
 
 Deno.test("chat title summarises several unread messages", () => {
-  assertEquals(displayTitle({ ...base, unread: 3 }), "Ravi · 3 new messages");
+  assertEquals(displayTitle({ ...base, unread: 3 }), "3 new messages from Ravi");
   assertEquals(displayTitle({ ...base, kind: "booking_accepted", title: "Booking accepted", unread: 3 }), "Booking accepted");
 });
 

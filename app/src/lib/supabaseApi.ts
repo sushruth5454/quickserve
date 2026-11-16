@@ -49,7 +49,7 @@ import type {
   SendProposalInput,
   DeliveryLink,
 } from './types';
-import type { UnreadCount } from './unread';
+import type { AppNotification, UnreadCount } from './unread';
 import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
 
 interface Result<T> {
@@ -763,6 +763,22 @@ export async function markChatRead(bookingId: string, viewing: boolean | null = 
 export async function getChatReadState(bookingId: string): Promise<ChatReadState> {
   const rows = unwrap(await supabase.rpc('get_chat_read_state', { p_booking_id: bookingId })) as ChatReadState[] | null;
   return rows?.[0] ?? { my_last_read_at: null, other_last_read_at: null };
+}
+
+export async function listNotifications(limit = 50): Promise<AppNotification[]> {
+  return (unwrap(await supabase.rpc('list_my_notifications', { p_limit: limit })) as AppNotification[] | null) ?? [];
+}
+
+export async function countUnreadNotifications(): Promise<number> {
+  return Number(unwrap(await supabase.rpc('count_unread_notifications')) ?? 0);
+}
+
+export async function markNotificationsRead(ids: string[] | null = null): Promise<void> {
+  await rpcVoid('mark_notifications_read', { p_ids: ids });
+}
+
+export async function getChatHeading(bookingId: string): Promise<{ name: string; category: string | null } | null> {
+  return (unwrap(await supabase.rpc('get_chat_heading', { p_booking_id: bookingId })) as { name: string; category: string | null } | null) ?? null;
 }
 
 let registeredPushToken: string | null = null;

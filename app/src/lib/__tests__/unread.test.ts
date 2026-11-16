@@ -6,6 +6,8 @@ import { demoApi as api, demoControls } from '../demo/demoApi';
 import {
   applyIncoming,
   badgeLabel,
+  buildNotificationItems,
+  chatTitle,
   clearBooking,
   firstUnreadIndex,
   maskPreview,
@@ -13,6 +15,7 @@ import {
   seenMessageId,
   toUnreadMap,
   totalUnread,
+  type AppNotification,
   type UnreadMap,
 } from '../unread';
 
@@ -85,6 +88,37 @@ describe('unread helpers', () => {
     expect(notificationRoute({ url: 'https://evil.example/chat/x' })).toBeNull();
     expect(notificationRoute({ url: '/chat/../../x' })).toBeNull();
     expect(notificationRoute(null)).toBeNull();
+  });
+
+  it('routes proposal, request and travel notifications that carry no booking link', () => {
+    expect(notificationRoute({ request_id: 'r1', proposal_id: 'p1' }, 'proposal_received')).toBe('/request/r1');
+    expect(notificationRoute({ request_id: 'r1' }, 'proposal_request_received')).toBe('/proposal/compose/r1');
+    expect(notificationRoute({ request_id: 'r1', provider_id: 'pro' }, 'request_message', 'pro')).toBe('/proposal/compose/r1');
+    expect(notificationRoute({ request_id: 'r1', provider_id: 'pro' }, 'request_message', 'cust')).toBe('/request/r1');
+    expect(notificationRoute({ booking_id: 'b9' }, 'milestone_due')).toBe('/booking/b9');
+    expect(notificationRoute({ booking_id: 'b9', kind: 'chat_message' })).toBe('/chat/b9');
+    expect(notificationRoute({ url: '/provider/dashboard' }, 'travel_request_created')).toBe('/dashboard');
+    expect(notificationRoute({ request_id: '../x' }, 'proposal_received')).toBeNull();
+  });
+
+  it('lists one entry per chat ("New message from Ravi · AC Repair booking") and newest first', () => {
+    const row = (id: string, kind: string, at: string, extra: Partial<AppNotification> = {}): AppNotification => ({
+      id, kind, title: 'Ravi', body: 'On my way', data: null, count: 1, booking_id: null, category_name: 'AC Repair', at, read_at: null, ...extra,
+    });
+    const items = buildNotificationItems(
+      [
+        row('c1', 'chat_message', '2026-11-16T09:00:00Z', { booking_id: 'b1', body: 'old' }),
+        row('c2', 'chat_message', '2026-11-16T10:00:00Z', { booking_id: 'b1', body: 'Reaching in 10 min' }),
+        row('q1', 'quote_sent', '2026-11-16T09:30:00Z', { title: 'Quote received', data: { url: '/booking/b1' }, read_at: '2026-11-16T09:31:00Z' }),
+      ],
+      toUnreadMap([{ booking_id: 'b1', role: 'customer', unread: 2, last_message_at: '2026-11-16T10:00:00Z' }]),
+      ME,
+    );
+    expect(items.map((i) => i.key)).toEqual(['chat:b1', 'q1']);
+    expect(items[0]).toMatchObject({ title: '2 new messages from Ravi', body: 'Reaching in 10 min', context: 'AC Repair booking', unread: true, route: '/chat/b1' });
+    expect(items[1]).toMatchObject({ title: 'Quote received', unread: false, route: '/booking/b1' });
+    expect(chatTitle('Ravi', 1)).toBe('New message from Ravi');
+    expect(chatTitle('Ravi', 0)).toBe('Message from Ravi');
   });
 });
 

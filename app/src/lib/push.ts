@@ -2,7 +2,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { router, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { isDemoMode, registerPushDevice } from './api';
+import { isDemoMode, markNotificationsRead, registerPushDevice } from './api';
 import { notificationRoute } from './unread';
 
 type NotificationsModule = typeof import('expo-notifications');
@@ -107,8 +107,8 @@ export async function setAppBadge(count: number) {
 
 const handled = new Set<string>();
 
-/** Tapping a notification opens its chat/booking (also when it launched the app). Only our own routes are followed. */
-export function useNotificationRouting(enabled: boolean) {
+/** Tapping a notification opens its chat/booking/request (also when it launched the app). Only our own routes are followed. */
+export function useNotificationRouting(enabled: boolean, userId: string | null = null) {
   useEffect(() => {
     const N = notifications();
     if (!N || !enabled) return;
@@ -117,11 +117,13 @@ export function useNotificationRouting(enabled: boolean) {
       const id = r.notification.request.identifier;
       if (handled.has(id)) return;
       handled.add(id);
-      const route = notificationRoute(r.notification.request.content.data);
+      const data = r.notification.request.content.data as Record<string, unknown> | null;
+      const route = notificationRoute(data, null, userId);
+      if (typeof data?.notification_id === 'string') void markNotificationsRead([data.notification_id]).catch(() => undefined);
       if (route) router.push(route as Href);
     };
     void N.getLastNotificationResponseAsync().then(open).catch(() => undefined);
     const sub = N.addNotificationResponseReceivedListener(open);
     return () => sub.remove();
-  }, [enabled]);
+  }, [enabled, userId]);
 }

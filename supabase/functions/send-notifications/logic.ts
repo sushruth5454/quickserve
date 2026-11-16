@@ -53,10 +53,10 @@ export function channelFor(kind: string): string {
   return kind === "chat_message" ? CHANNELS.messages : CHANNELS.bookings;
 }
 
-/** "Ravi" for one unread message, "Ravi · 3 new messages" when several are waiting in the same chat. */
+/** "New message from Ravi", or "3 new messages from Ravi" when several are waiting in the same chat. */
 export function displayTitle(n: Pick<ClaimedNotification, "kind" | "title" | "unread">): string {
-  if (n.kind === "chat_message" && n.unread > 1) return `${n.title} · ${n.unread} new messages`;
-  return n.title;
+  if (n.kind !== "chat_message") return n.title;
+  return n.unread > 1 ? `${n.unread} new messages from ${n.title}` : `New message from ${n.title}`;
 }
 
 /** One Expo message per device. Chat pushes share a per-booking collapse id/tag so the newest replaces the older. */

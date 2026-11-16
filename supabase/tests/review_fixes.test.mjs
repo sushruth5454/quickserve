@@ -61,6 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql',
 ]) await db.exec(migration(file));
 
 
@@ -253,5 +254,30 @@ ok(/demo providers/.test(notDemo ?? ''), 'demo settlement never settles a real p
 // ---------- 11: caller-supplied user ids are service-role only ----------
 const denied = await fails(() => as(provider, 'authenticated', `select * from prepare_payment($1, $2)`, [realBooking, customer]));
 ok(/permission denied/.test(denied ?? ''), 'signed-in users cannot call prepare_payment with another user id');
+
+// ---------- 13: in-app notification centre (0032) ----------
+if (session) {
+  await db.query(`insert into messages (booking_id, sender_id, body) values ($1, $2, 'Reaching in 10 min')`, [session, provider]);
+  await db.query(`select _queue_notification($1, 'booking_accepted', $2::uuid, 'Booking accepted', 'Accepted', jsonb_build_object('url', '/booking/' || $2::uuid::text, 'booking_id', $2::uuid))`, [customer, session]);
+  const mine = await as(customer, 'authenticated', `select * from list_my_notifications(50)`);
+  const chat = mine.find((n) => n.kind === 'chat_message' && n.booking_id === session);
+  ok(chat && chat.title === 'Person' && chat.category_name === 'review-session' && chat.data.url === `/chat/${session}`,
+    'chat notification lists sender, service name and chat link');
+  ok(mine.every((n) => n.at), 'every notification has a timestamp');
+  const unread = (await as(customer, 'authenticated', `select count_unread_notifications() n`))[0].n;
+  ok(unread >= 1 && unread === mine.filter((n) => n.kind !== 'chat_message' && !n.read_at).length, `unread count excludes chats (${unread})`);
+  ok((await as(provider, 'authenticated', `select mark_notifications_read($1::uuid[]) n`, [mine.map((n) => n.id)]))[0].n === 0,
+    "a user cannot mark someone else's notifications read");
+  ok(!(await as(provider, 'authenticated', `select * from list_my_notifications(50)`)).some((n) => mine.some((m) => m.id === n.id)),
+    "a user never lists someone else's notifications");
+  ok((await as(customer, 'authenticated', `select mark_notifications_read(null) n`))[0].n >= 1
+    && (await as(customer, 'authenticated', `select count_unread_notifications() n`))[0].n === 0, 'mark all read clears the count');
+  const heading = (await as(customer, 'authenticated', `select get_chat_heading($1) h`, [session]))[0].h;
+  ok(heading?.name === 'Person' && heading?.category === 'review-session', 'chat heading gives the other person and the service');
+  ok((await as(demoPro, 'authenticated', `select get_chat_heading($1) h`, [session]))[0].h === null, 'non-participants get no chat heading');
+  ok(/permission denied/.test(await fails(() => as(null, 'anon', `select * from list_my_notifications(5)`)) ?? ''), 'anon cannot list notifications');
+} else {
+  ok(false, 'notification centre checks need the session booking');
+}
 
 if (failures) process.exit(1);

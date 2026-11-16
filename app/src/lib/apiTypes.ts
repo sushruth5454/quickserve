@@ -35,7 +35,7 @@ import type {
   CreateServiceRequestInput,
   SendProposalInput,
 } from './types';
-import type { UnreadCount } from './unread';
+import type { AppNotification, UnreadCount } from './unread';
 import type { CoinLedgerEntry, CoinRedemptionPreview } from './coins';
 
 export interface Coords {
@@ -235,6 +235,14 @@ export interface Api {
   /** Marks the chat read. viewing: true while open and focused (suppresses pushes), false when leaving. */
   markChatRead(bookingId: string, viewing?: boolean | null): Promise<void>;
   getChatReadState(bookingId: string): Promise<ChatReadState>;
+  /** In-app notification centre (newest first; chats are grouped per booking by the screen). */
+  listNotifications(limit?: number): Promise<AppNotification[]>;
+  /** Unread non-chat notifications (chat messages are counted by getUnreadCounts). */
+  countUnreadNotifications(): Promise<number>;
+  /** Marks the given notifications read, or all of them when ids is omitted. */
+  markNotificationsRead(ids?: string[] | null): Promise<void>;
+  /** The other participant's first name and the service, for "New message from Ravi · AC Repair". */
+  getChatHeading(bookingId: string): Promise<{ name: string; category: string | null } | null>;
   registerPushDevice(token: string, platform: PushPlatform): Promise<void>;
   unregisterPushDevice(token: string): Promise<void>;
   // proposal / milestone booking
