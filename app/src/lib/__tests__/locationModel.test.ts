@@ -1,5 +1,5 @@
 import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
-import { bookingRef, firstAvailableDay, nextDays, windowAvailable, windowLabel } from '../schedule';
+import { bookingRef, firstAvailableDay, nextDays, scheduleLabel, windowAvailable, windowLabel, windowStart } from '../schedule';
 import type { SavedAddress } from '../types';
 
 const addr = (over: Partial<SavedAddress>): SavedAddress => ({
@@ -56,12 +56,22 @@ describe('saved addresses', () => {
 });
 
 describe('schedule', () => {
-  const now = new Date(2026, 10, 14, 15, 30); // Sat 14 Nov, 3:30 pm local
+  const now = new Date('2026-11-14T15:30:00+05:30'); // Sat 14 Nov, 3:30 pm IST
 
   it('labels the next 7 days', () => {
     const days = nextDays(now);
     expect(days).toHaveLength(7);
     expect(days.map((d) => d.label).slice(0, 3)).toEqual(['Today', 'Tomorrow', 'Mon']);
+  });
+
+  it('uses India time whatever the device timezone is', () => {
+    // 11 pm on Fri 13 Nov in California is already 12:30 pm on Sat 14 Nov in India.
+    const fromCalifornia = new Date('2026-11-13T23:00:00-08:00');
+    const days = nextDays(fromCalifornia);
+    expect(days[0]!.key).toBe('2026-11-14');
+    expect(windowStart(days[0]!.date, 18).toISOString()).toBe('2026-11-14T12:30:00.000Z');
+    expect(scheduleLabel('2026-11-14T12:30:00.000Z')).toBe('Sat, 14 Nov · 6–8 pm');
+    expect(scheduleLabel('2026-11-14T05:00:00.000Z')).toBe('Sat, 14 Nov · 10:30 am');
   });
 
   it('needs an hour of lead time before a window starts', () => {
@@ -70,7 +80,7 @@ describe('schedule', () => {
   });
 
   it('skips today when no window is left', () => {
-    const late = new Date(2026, 10, 14, 19, 30);
+    const late = new Date('2026-11-14T19:30:00+05:30');
     expect(firstAvailableDay(nextDays(late), late)).toBe(1);
   });
 

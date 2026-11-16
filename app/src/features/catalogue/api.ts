@@ -1,6 +1,7 @@
 import { isDemoMode } from '../../lib/config';
 import { demoApi } from '../../lib/demo/demoApi';
 import { supabase } from '../../lib/supabase';
+import { istDateKey } from '../../lib/schedule';
 import type { PaymentLinkResponse } from '../../lib/apiTypes';
 import type { Category, ServicePackage } from '../../lib/types';
 import { normaliseCatalogue, type Catalogue } from './model';
@@ -220,7 +221,7 @@ export interface RecurringScheduleInput {
 }
 
 export async function createRecurringSchedule(input: RecurringScheduleInput): Promise<string> {
-  const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+  const isoDate = istDateKey;
   return unwrap(await supabase.rpc('create_recurring_schedule', {
     p_provider_service_id: input.providerServiceId,
     p_service_package_id: input.packageId,
@@ -243,7 +244,7 @@ export async function createRecurringSchedule(input: RecurringScheduleInput): Pr
 export async function generateRecurringSessions(scheduleId: string, through: Date): Promise<number> {
   return unwrap(await supabase.rpc('materialize_recurring_schedule', {
     p_schedule_id: scheduleId,
-    p_through_date: through.toISOString().slice(0, 10),
+    p_through_date: istDateKey(through),
   })) as number;
 }
 

@@ -106,14 +106,14 @@ describe('draft → Book screen prefill', () => {
   });
 
   it('reads params back into the Book screen state (day + window)', () => {
-    const now = new Date(2026, 10, 14, 9, 30); // Sat 14 Nov, 09:30 local
+    const now = new Date('2026-11-14T09:30:00+05:30'); // Sat 14 Nov, 09:30 IST
     const days = nextDays(now, 7);
     const p = readBookPrefill({ from: 'assistant', description: 'Not cooling, Noise', slot: '2026-11-15@18', addressId: 'a1' }, days, now);
     expect(p).toEqual({ fromAssistant: true, description: 'Not cooling, Noise', mode: 'schedule', dayIndex: 1, hour: 18, addressId: 'a1' });
   });
 
   it('keeps the day but drops a window that is no longer bookable; ignores bad slots', () => {
-    const now = new Date(2026, 10, 14, 17, 30); // 17:30: today's 6–8 pm starts in 30 min (< 60 min lead)
+    const now = new Date('2026-11-14T17:30:00+05:30'); // 17:30 IST: today's 6–8 pm starts in 30 min (< 60 min lead)
     const days = nextDays(now, 7);
     expect(readBookPrefill({ slot: '2026-11-14@18' }, days, now)).toMatchObject({ mode: 'schedule', dayIndex: 0, hour: null });
     expect(readBookPrefill({ slot: 'asap' }, days, now)).toMatchObject({ mode: 'asap', dayIndex: null });

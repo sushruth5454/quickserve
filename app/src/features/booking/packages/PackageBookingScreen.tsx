@@ -7,7 +7,7 @@ import { useSelectedLocation } from '../../../lib/locationContext';
 import { friendlyDbError } from '../../../lib/onboarding/supabaseOnboarding';
 import { formatINR } from '../../../lib/money';
 import { usePayment } from '../../../lib/payments';
-import { dayLabel, nextDays, windowLabel } from '../../../lib/schedule';
+import { dayLabel, istParts, nextDays, SERVICE_TIMEZONE, windowLabel, windowStart } from '../../../lib/schedule';
 import { useTheme } from '../../../theme';
 import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, generateRecurringSessions, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
 import { SchemaForm } from '../../catalogue/SchemaForm';
@@ -65,8 +65,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const total = packageTotal(item.package, quantity);
   const dueNow = pack ? total + 4900 : total;
   const totalMinutes = packageDuration(item.package, quantity);
-  const start = new Date(day.date);
-  start.setHours(hour, 0, 0, 0);
+  const start = windowStart(day.date, hour);
   const end = new Date(start.getTime() + totalMinutes * 60_000);
   const addressReady = !!location.addressId;
   const blocker = !canPayInstantly(item.package)
@@ -101,9 +100,9 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
             packageId,
             packId: null,
             paymentMode: 'per_session',
-            weekdays: [start.getDay() === 0 ? 7 : start.getDay()],
+            weekdays: [istParts(start).weekday === 0 ? 7 : istParts(start).weekday],
             startTime: `${String(hour).padStart(2, '0')}:00`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+            timezone: SERVICE_TIMEZONE,
             durationMin: totalMinutes,
             startsOn: start,
             endsOn: null,

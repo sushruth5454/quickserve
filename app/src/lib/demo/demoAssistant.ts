@@ -4,7 +4,7 @@
  * from the demo user's bookings. Never invents numbers: without enough data the estimate says so.
  */
 import type { AssistantCard, AssistantLanguage, AssistantReply, AssistantRequest, DraftCard, DraftSlot, ProviderPick } from '../assistant/types';
-import { dayLabel, WINDOW_START_HOURS, windowAvailable, windowLabel, windowStart, startOfDay } from '../schedule';
+import { addDays, dayLabel, istDateKey, WINDOW_START_HOURS, windowAvailable, windowLabel, windowStart, startOfDay } from '../schedule';
 import type { Booking, ProviderSearchResult } from '../types';
 import { demoApi } from './demoApi';
 
@@ -95,12 +95,11 @@ function slotFromText(text: string, now: Date): DraftSlot {
   const tomorrow = /tomorrow|kal|कल|రేపు/.test(t);
   const hour = /evening|शाम|సాయంత్రం/.test(t) ? 18 : /afternoon|दोपहर|మధ్యాహ్నం/.test(t) ? 14 : /morning|सुबह|ఉదయం/.test(t) ? 10 : null;
   if (!tomorrow && hour == null) return { type: 'asap', label: 'As soon as possible' };
-  const day = startOfDay(now);
-  if (tomorrow) day.setDate(day.getDate() + 1);
+  const day = tomorrow ? addDays(startOfDay(now), 1) : startOfDay(now);
   const h = hour ?? WINDOW_START_HOURS.find((x) => windowAvailable(day, x, now)) ?? 18;
   if (!windowAvailable(day, h, now)) return { type: 'asap', label: 'As soon as possible' };
   const start = windowStart(day, h);
-  const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  const date = istDateKey(day);
   return { type: 'window', date, start_hour: h, starts_at: start.toISOString(), label: `${dayLabel(day)} · ${windowLabel(h)}` };
 }
 

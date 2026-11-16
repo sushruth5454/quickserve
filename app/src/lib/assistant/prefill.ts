@@ -3,7 +3,7 @@
  * The draft becomes plain route params; the Book screen turns them back into its initial form state. The customer still
  * reviews everything and pays in the normal checkout: nothing here creates a booking.
  */
-import { WINDOW_START_HOURS, windowAvailable, type DayOption } from '../schedule';
+import { istDateKey, WINDOW_START_HOURS, windowAvailable, type DayOption } from '../schedule';
 import type { DraftCard, DraftSlot } from './types';
 
 /** Book screen description limit (the job brief is ≤ ~600 chars plus the problem-chip line). */
@@ -96,8 +96,8 @@ export function readBookPrefill(params: Record<string, string | string[] | undef
   if (slot === 'asap') return { ...out, mode: 'asap' };
   const m = slot ? /^(\d{4})-(\d{2})-(\d{2})@(\d{1,2})$/.exec(slot) : null;
   if (!m) return out;
-  const [y, mo, d, h] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
-  const dayIndex = days.findIndex((x) => x.date.getFullYear() === y && x.date.getMonth() + 1 === mo && x.date.getDate() === d);
+  const [h] = [Number(m[4])];
+  const dayIndex = days.findIndex((x) => istDateKey(x.date) === `${m[1]}-${m[2]}-${m[3]}`);
   if (dayIndex < 0) return out;
   const hourOk = (WINDOW_START_HOURS as readonly number[]).includes(h) && windowAvailable(days[dayIndex]!.date, h, now);
   return { ...out, mode: 'schedule', dayIndex, hour: hourOk ? h : null };
