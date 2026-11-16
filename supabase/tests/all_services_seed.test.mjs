@@ -239,4 +239,14 @@ ok(fixedDue.n >= 1 && fixedSettled?.amount === fixedDue.total && fixedSettled.st
   && fixedSettled.unpaid === 0 && fixedSettled.refunds === 0,
   `one fixed-package payment settles all due rows and sends the request (${JSON.stringify(fixedSettled)})`);
 
+// The seed must also load on the latest schema (e.g. 0030's link host checks), as CI runs it after deploys.
+let reloadError = null;
+try {
+  await db.exec(migration('0030_review_fixes.sql'));
+  await db.exec(seed);
+} catch (error) {
+  reloadError = error.message;
+}
+ok(!reloadError, `seed reloads cleanly on the latest migrations (${reloadError ?? 'ok'})`);
+
 if (failures.length) process.exit(1);

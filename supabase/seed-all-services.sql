@@ -339,7 +339,9 @@ select
   pg_temp.demo_sid('social:' || s.slug),
   pg_temp.demo_sid('provider:' || s.slug),
   case when c.vertical = 'creators' then 'instagram' when c.vertical = 'photo-video' then 'instagram' else 'website' end,
-  'https://demo.example/providers/' || s.slug,
+  -- Links must match their platform's host (0030); demo handles are clearly synthetic.
+  case when c.vertical in ('creators', 'photo-video') then 'https://www.instagram.com/demo_' || replace(s.slug, '-', '_')
+       else 'https://demo.example/providers/' || s.slug end,
   'demo_' || replace(s.slug, '-', '_'),
   'manual',
   jsonb_build_object('demo_only', true, 'followers', 12000 + (length(s.slug) * 137)),
