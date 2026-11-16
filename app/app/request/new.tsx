@@ -91,7 +91,7 @@ export default function NewServiceRequest() {
           accessibilityLabel="When do you need it"
         />
         {when === 'date' ? (
-          <Input label="Date" placeholder="YYYY-MM-DD" value={eventDate} onChangeText={setEventDate} />
+          <Input label="Event date" placeholder="YYYY-MM-DD" value={eventDate} onChangeText={setEventDate} />
         ) : (
           <View style={{ gap: 8 }}>
             <Text variant="footnote" color="textSecondary">

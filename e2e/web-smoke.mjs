@@ -84,7 +84,11 @@ async function rest(path) {
 /** Signs a second test user in through the Auth API (fixed test OTP) and returns their access token. */
 async function signInAs(phone) {
   const headers = { apikey: ANON, 'Content-Type': 'application/json' };
-  const sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
+  let sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
+  if (sent.status === 429) {
+    await new Promise((r) => setTimeout(r, 4500));
+    sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
+  }
   if (!sent.ok) throw new Error(`otp ${sent.status}: ${await sent.text()}`);
   const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers, body: JSON.stringify({ phone, token: OTP, type: 'sms' }) });
   if (!res.ok) throw new Error(`verify ${res.status}: ${await res.text()}`);
@@ -222,7 +226,7 @@ await step('proposal-flow-customer-sends-brief', async () => {
   await page.waitForURL(/\/request\/new/);
   await page.getByText(/^Request a proposal from /).first().waitFor();
   await page.getByLabel('What do you need?').first().fill('QA-E2E 30-second launch reel for my cafe, vertical, 2 revisions');
-  await page.getByLabel('Date').first().fill(iso(proposalDay).slice(0, 10));
+  await page.getByLabel('Event date', { exact: true }).first().fill(iso(proposalDay).slice(0, 10));
   await page.getByLabel('Venue / area').first().fill('Benz Circle cafe');
   await page.getByLabel('Approximate maximum (₹)').first().fill('15000');
   await page.getByText(/^Send to /).first().click();
