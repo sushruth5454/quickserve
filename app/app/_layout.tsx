@@ -16,6 +16,9 @@ import { PaymentProvider } from '../src/lib/payments';
 import { configureForegroundHandling, registerForPush, resetPushRegistration, setAppBadge, useNotificationRouting } from '../src/lib/push';
 import { UnreadProvider, useUnread } from '../src/lib/unreadContext';
 import { ThemeProvider, useTheme } from '../src/theme';
+import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
+
+export { RouteErrorBoundary as ErrorBoundary };
 
 /** Push plumbing: foreground filter, silent token refresh, tap-to-open routing and the app icon badge. */
 function NotificationsBridge({ ready }: { ready: boolean }) {

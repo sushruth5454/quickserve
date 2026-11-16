@@ -8,6 +8,9 @@ import { useAuth } from '../src/lib/auth';
 import { buildNotificationItems, shortAgo, type AppNotification, type NotificationItem } from '../src/lib/unread';
 import { useUnread } from '../src/lib/unreadContext';
 import { useTheme } from '../src/theme';
+import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
+
+export { RouteErrorBoundary as ErrorBoundary };
 
 const ICON: Record<string, IconName> = {
   chat_message: 'chatbubble-ellipses',
@@ -97,6 +100,9 @@ export default function NotificationsScreen() {
             </View>
           ) : null}
           {items.map((n) => <Row key={n.key} item={n} onOpen={open} />)}
+          <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>
+            {`Loaded ${rows?.length ?? 0} notifications`}
+          </Text>
         </>
       )}
     </Screen>
