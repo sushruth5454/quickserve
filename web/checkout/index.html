@@ -36,7 +36,9 @@
 (function () {
   var q = new URLSearchParams(location.search);
   var order = q.get('o') || '', key = q.get('k') || '', amount = parseInt(q.get('a') || '0', 10);
-  var desc = (q.get('d') || 'QuickServe payment').slice(0, 80), verifyUrl = q.get('v') || '', contact = q.get('c') || '';
+  var desc = (q.get('d') || 'QuickServe payment').slice(0, 80), verifyUrl = q.get('v') || '';
+  // Razorpay prefills a 10-digit Indian mobile; the app stores numbers as 91XXXXXXXXXX.
+  var digits = (q.get('c') || '').replace(/\D/g, ''), contact = digits.length >= 10 ? '+91' + digits.slice(-10) : '';
   var $ = function (id) { return document.getElementById(id); };
   var status = function (text, cls) { var s = $('status'); s.textContent = text; s.className = 'mut ' + (cls || ''); };
   var payBtn = $('pay');
