@@ -7,7 +7,9 @@ import { useSelectedLocation } from '../../../lib/locationContext';
 import { friendlyDbError } from '../../../lib/onboarding/supabaseOnboarding';
 import { formatINR } from '../../../lib/money';
 import { usePayment } from '../../../lib/payments';
-import { dayLabel, istParts, nextDays, SERVICE_TIMEZONE, windowLabel, windowStart } from '../../../lib/schedule';
+import { asapStart, dayLabel, istParts, nextDays, relativeTimeLabel, SERVICE_TIMEZONE, windowLabel, windowStart } from '../../../lib/schedule';
+import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
+import { asapAvailable } from '../../../lib/onboarding/availability';
 import { useTheme } from '../../../theme';
 import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, generateRecurringSessions, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
 import { SchemaForm } from '../../catalogue/SchemaForm';
@@ -29,6 +31,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const [hour, setHour] = useState(10);
   const [intake, setIntake] = useState<Record<string, unknown>>({});
   const [busy, setBusy] = useState(false);
+  const [asap, setAsap] = useState(archetype === 'fixed');
+  const [sched, setSched] = useState<ProviderSchedule | null>(null);
   const days = useMemo(() => nextDays(new Date(), 14), []);
   const day = days[dayIndex]!;
   const load = () => {
@@ -48,6 +52,13 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         if (!alive) return;
         setItem(next);
         setQuantity(Math.max(1, Number(next.package.qty_min)));
+        if (archetype === 'fixed') {
+          void onboardingApi.getProviderSchedule(next.providerId).then((s) => {
+            if (!alive) return;
+            setSched(s);
+            if (!asapAvailable(s, new Date())) setAsap(false);
+          }).catch(() => undefined);
+        }
       })
       .catch((caught: Error) => alive && setError(caught.message));
     return () => { alive = false; };
@@ -65,7 +76,9 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const total = packageTotal(item.package, quantity);
   const dueNow = pack ? total + 4900 : total;
   const totalMinutes = packageDuration(item.package, quantity);
-  const start = windowStart(day.date, hour);
+  const asapOk = archetype === 'fixed' && asapAvailable(sched, new Date());
+  const useAsap = asap && asapOk;
+  const start = useAsap ? asapStart(new Date()) : windowStart(day.date, hour);
   const end = new Date(start.getTime() + totalMinutes * 60_000);
   const addressReady = !!location.addressId;
   const blocker = !canPayInstantly(item.package)
@@ -143,7 +156,9 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
     } catch (caught) {
       const message = (caught as Error).message;
       setError(/overlaps another booking|not available/i.test(message)
-        ? 'That time is already taken. Pick another day or time slot.'
+        ? useAsap
+          ? `${item.providerName ?? 'This pro'} is busy right now. Choose Schedule and pick a time.`
+          : 'That time is already taken. Pick another day or time slot.'
         : friendlyDbError(message));
     } finally {
       setBusy(false);
@@ -186,6 +201,18 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
 
       <View style={{ gap: t.spacing.md }}>
         <Text variant="title3">When</Text>
+        {archetype === 'fixed' ? (
+          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+            <Choice label={asapOk ? 'ASAP\nwithin ~1 hour' : 'ASAP\nnot available now'} selected={useAsap} onPress={() => asapOk && setAsap(true)} />
+            <Choice label={'Schedule\npick a time'} selected={!useAsap} onPress={() => setAsap(false)} />
+          </View>
+        ) : null}
+        {useAsap ? (
+          <Text variant="footnote" color="textSecondary">
+            {item.providerName ?? 'Your pro'} arrives around {relativeTimeLabel(start, new Date())}. If they can't take it, you're refunded automatically.
+          </Text>
+        ) : (
+          <>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -t.spacing.lg }} contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}>
           {days.slice(0, 7).map((dayOption, index) => (
             <Choice key={dayOption.key} label={`${dayOption.label}\n${dayLabel(dayOption.date)}`} selected={index === dayIndex} onPress={() => setDayIndex(index)} />
@@ -194,6 +221,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -t.spacing.lg }} contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}>
           {[8, 10, 12, 14, 16, 18].map((slot) => <Choice key={slot} label={windowLabel(slot)} selected={hour === slot} onPress={() => setHour(slot)} />)}
         </ScrollView>
+          </>
+        )}
         <Text variant="footnote" color="muted">{pack ? 'This is the first session; later sessions can be scheduled in Bookings.' : `At ${location.area}${location.line1 ? ` · ${location.line1}` : ''}`}</Text>
       </View>
 

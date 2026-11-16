@@ -129,3 +129,35 @@ export function scheduleLabel(iso: string): string {
   const time = onWindow ? windowLabel(h) : `${hour12(h)}:${String(minute).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
   return `${dayLabel(d)} · ${time}`;
 }
+
+/** Minimum notice for an urgent creator/event request; mirrors the server (0040). */
+export const URGENT_MIN_HOURS = 2;
+
+/** Start of an ASAP fixed-price booking: travel lead time from now, rounded up to the next 15 minutes. */
+export function asapStart(now: Date): Date {
+  const q = 15 * 60_000;
+  return new Date(Math.ceil((now.getTime() + MIN_LEAD_MINUTES * 60_000) / q) * q);
+}
+
+/**
+ * Start times for an urgent request: on the hour, at least URGENT_MIN_HOURS from now, between 7 am and 9 pm India
+ * time, within the next 24 hours.
+ */
+export function urgentStartOptions(now: Date, count = 10): Date[] {
+  const earliest = now.getTime() + URGENT_MIN_HOURS * 3_600_000;
+  const first = Math.ceil((earliest + IST_OFFSET_MS) / 3_600_000) * 3_600_000 - IST_OFFSET_MS;
+  const out: Date[] = [];
+  for (let t = first; t < now.getTime() + DAY_MS && out.length < count; t += 3_600_000) {
+    const h = istParts(new Date(t)).hour;
+    if (h >= 7 && h <= 21) out.push(new Date(t));
+  }
+  return out;
+}
+
+/** "Today 4 pm", "Tomorrow 9 am" (India time). */
+export function relativeTimeLabel(d: Date, now: Date): string {
+  const diff = Math.round((startOfDay(d).getTime() - startOfDay(now).getTime()) / DAY_MS);
+  const day = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : dayLabel(d);
+  const { hour: h, minute } = istParts(d);
+  return `${day} ${hour12(h)}${minute ? `:${String(minute).padStart(2, '0')}` : ''} ${h < 12 ? 'am' : 'pm'}`;
+}

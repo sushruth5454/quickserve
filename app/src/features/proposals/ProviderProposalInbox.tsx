@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Badge, Button, Card, EmptyState, Section, Text, useConfirm, useToast, type Tone } from '../../components/ui';
 import * as api from '../../lib/api';
 import { formatINR } from '../../lib/money';
+import { relativeTimeLabel } from '../../lib/schedule';
 import type { Proposal, ProposalRequest, ProposalStatus } from '../../lib/types';
 
 const STATUS: Record<ProposalStatus, { label: string; tone: Tone }> = {
@@ -39,7 +40,9 @@ export function ProviderProposalInbox() {
     }
     const byId = new Map(requests.map((r) => [r.id, r]));
     return {
-      pending: requests.filter((r) => r.status === 'open' && !latest.has(r.id)),
+      pending: requests
+        .filter((r) => r.status === 'open' && !latest.has(r.id) && new Date(r.expires_at).getTime() > Date.now())
+        .sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent)),
       sent: [...latest.values()]
         .sort((a, b) => b.created_at.localeCompare(a.created_at))
         .map((p) => ({ proposal: p, request: byId.get(p.request_id) ?? null })),
@@ -73,8 +76,18 @@ export function ProviderProposalInbox() {
           <EmptyState compact icon="document-text-outline" title="No new requests" message={sent.length ? 'You have replied to every request. New matched requests appear here privately.' : 'New matched requests appear here privately.'} />
         ) : pending.map((r) => (
           <Card key={r.id}>
-            <Text variant="calloutStrong">{r.category_name}</Text>
-            <Text color="textSecondary">{r.area || r.city} · {day(r.event_start)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text variant="calloutStrong" style={{ flex: 1 }} numberOfLines={1}>{r.category_name}</Text>
+              {r.urgent ? <Badge label="Urgent" tone="danger" /> : null}
+            </View>
+            <Text color="textSecondary">
+              {r.area || r.city} · {r.urgent ? relativeTimeLabel(new Date(r.event_start), new Date()) : day(r.event_start)}
+            </Text>
+            {r.urgent ? (
+              <Text variant="footnoteStrong" color="dangerText">
+                Urgent · reply by {relativeTimeLabel(new Date(r.expires_at), new Date())}
+              </Text>
+            ) : null}
             <Text variant="caption" color="muted">{String(r.intake?.brief ?? 'Custom event brief')}</Text>
             <Button title="Send proposal" onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: r.id } })} />
           </Card>

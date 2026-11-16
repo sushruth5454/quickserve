@@ -211,6 +211,7 @@ export async function createServiceRequest(input: CreateServiceRequestInput): Pr
     p_venue_text: input.venueText,
     ...(input.providerId ? { p_provider_id: input.providerId } : {}),
     ...(input.lat != null && input.lng != null ? { p_lat: input.lat, p_lng: input.lng } : {}),
+    ...(input.urgent ? { p_urgent: true } : {}),
   })) as string;
 }
 

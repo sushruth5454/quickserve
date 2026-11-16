@@ -418,6 +418,7 @@ export interface ServiceRequest {
   status: ServiceRequestStatus;
   expires_at: string;
   created_at: string;
+  urgent?: boolean;
   categories?: Pick<Category, 'name' | 'slug' | 'icon'> | null;
 }
 
@@ -517,6 +518,8 @@ export interface CreateServiceRequestInput {
   /** Selected location; used for routing when no saved address is chosen. */
   lat?: number | null;
   lng?: number | null;
+  /** Event within the category's notice period (≥ 2 hours away); pros are alerted as urgent. */
+  urgent?: boolean;
 }
 
 export interface SendProposalInput {

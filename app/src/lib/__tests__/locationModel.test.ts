@@ -1,5 +1,5 @@
 import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, geocodeQuery, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
-import { bookingRef, firstAvailableDay, nextDays, scheduleLabel, windowAvailable, windowLabel, windowStart } from '../schedule';
+import { bookingRef, firstAvailableDay, nextDays, relativeTimeLabel, scheduleLabel, urgentStartOptions, windowAvailable, windowLabel, windowStart } from '../schedule';
 import type { SavedAddress } from '../types';
 
 describe('geocodeQuery', () => {
@@ -99,5 +99,16 @@ describe('schedule', () => {
     expect(windowLabel(18)).toBe('6–8 pm');
     expect(bookingRef('fc000006-5eed-5eed-8000-000000000000')).toBe('QS-FC000006');
     expect(bookingRef('QS1042')).toBe('QS-1042');
+  });
+});
+
+describe('urgent start options', () => {
+  it('offers India-time hours at least 2 hours away, 7 am to 9 pm, within a day', () => {
+    const now = new Date('2026-11-16T13:10:00+05:30');
+    const opts = urgentStartOptions(now, 20);
+    expect(relativeTimeLabel(opts[0]!, now)).toBe('Today 4 pm');
+    expect(opts.map((d) => relativeTimeLabel(d, now))).toContain('Tomorrow 7 am');
+    expect(opts.map((d) => relativeTimeLabel(d, now))).not.toContain('Today 10 pm');
+    expect(opts.every((d) => d.getTime() - now.getTime() >= 2 * 3_600_000 && d.getTime() - now.getTime() < 86_400_000)).toBe(true);
   });
 });

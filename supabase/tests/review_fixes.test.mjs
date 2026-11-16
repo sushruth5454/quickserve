@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql',
 ]) await db.exec(migration(file));
 
 
@@ -364,6 +364,38 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
   const started = (await as(provider, 'authenticated', `select start_proposal_booking($1, $2) r`, [booking, fresh]))[0].r;
   ok(started.ok === true && (await one(`select status from bookings where id = $1`, [booking])).status === 'in_progress',
     `the provider starts work with the customer's code (${JSON.stringify(started)})`);
+}
+
+// ---------- 19: urgent proposal requests (0040) ----------
+{
+  const lead = (await one(`select min_lead_hours h from categories where id = $1`, [proposalCat])).h;
+  await db.query(`update categories set min_lead_hours = 24 where id = $1`, [proposalCat]);
+  const req = (hours, urgent) => as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City', p_area => 'A', p_event_start => now() + make_interval(hours => $2),
+    p_event_end => now() + make_interval(hours => $2 + 3), p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_address_id => $3, p_venue_text => null, p_provider_id => $4, p_urgent => $5) id`, [proposalCat, hours, address, provider, urgent]);
+  const notUrgent = await fails(() => req(4, false));
+  ok(/mark it urgent/.test(notUrgent ?? ''), 'a 4-hour event without urgent is refused and suggests urgent');
+  const tooSoon = await fails(() => req(1, true));
+  ok(/at least 2 hours/.test(tooSoon ?? ''), 'an urgent request still needs 2 hours');
+  const request = (await req(4, true))[0].id;
+  const r = await one(`select urgent, expires_at < event_start as expires_first from service_requests where id = $1`, [request]);
+  ok(r.urgent && r.expires_first, 'an urgent request is flagged and expires before the event');
+  const seen = (await as(provider, 'authenticated', `select urgent from service_request_provider_view where id = $1`, [request]))[0];
+  ok(seen?.urgent === true, 'the pro sees the request as urgent');
+  const note = await one(`select title from notifications where user_id = $1 and data->>'request_id' = $2::text`, [provider, request]);
+  ok(note?.title === 'Urgent proposal request', `the pro is notified it is urgent (${note?.title})`);
+  const proposal = (await as(provider, 'authenticated', `
+    select send_proposal($1, $2::jsonb, $3::jsonb, now()+interval '1 day', 'Today', '[]'::jsonb) id`, [request,
+    JSON.stringify([{ kind: 'package', title: 'Shoot', qty: 1, unit: 'event', unit_price: 500000 }]),
+    JSON.stringify([{ label: 'Advance', amount: 200000, due_rule: 'at_booking' }, { label: 'Final', amount: 300000, due_rule: 'on_completion' }])]))[0].id;
+  const acceptError = await fails(async () => {
+    const booking = (await as(customer, 'authenticated', `select accept_proposal($1, $2) id`, [proposal, address]))[0].id;
+    await payDue(booking);
+    ok((await one(`select status from bookings where id = $1`, [booking])).status === 'confirmed', 'an urgent proposal is booked and confirmed');
+  });
+  ok(!acceptError, `an urgent proposal can be accepted inside the notice period (${acceptError ?? 'ok'})`);
+  await db.query(`update categories set min_lead_hours = $2 where id = $1`, [proposalCat, lead]);
 }
 
 if (failures) process.exit(1);

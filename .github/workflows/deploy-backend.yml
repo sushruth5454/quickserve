@@ -398,6 +398,7 @@ jobs:
               ("0037", "0037_proposal_validity_cap.sql"),
               ("0038", "0038_proposal_lead_time.sql"),
               ("0039", "0039_proposal_start_code.sql"),
+              ("0040", "0040_urgent_proposals.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
