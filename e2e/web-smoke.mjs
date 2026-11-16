@@ -26,6 +26,8 @@ const context = await browser.newContext({
   ...devices['iPhone 15'],
   geolocation: { latitude: 16.4995, longitude: 80.656 },
   permissions: ['geolocation'],
+  // Customers are in India; slot windows are checked against providers' IST working hours.
+  timezoneId: 'Asia/Kolkata',
 });
 const page = await context.newPage();
 page.setDefaultTimeout(20000);
