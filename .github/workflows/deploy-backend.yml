@@ -22,6 +22,7 @@ jobs:
       RAZORPAYX_WEBHOOK_SECRET: ${{ secrets.RAZORPAYX_WEBHOOK_SECRET }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       EXPO_ACCESS_TOKEN: ${{ secrets.EXPO_PUSH_ACCESS_TOKEN }}
     steps:
       - name: Check required secrets
@@ -56,7 +57,7 @@ jobs:
       - name: Test and type-check payout rails
         run: |
           deno test supabase/functions/provider-payout-account
-          deno check supabase/functions/provider-payout-account/index.ts supabase/functions/release-payouts/index.ts supabase/functions/razorpay-webhook/index.ts
+          deno check supabase/functions/provider-payout-account/index.ts supabase/functions/release-payouts/index.ts supabase/functions/razorpay-webhook/index.ts supabase/functions/verify-payment/index.ts supabase/functions/places/index.ts supabase/functions/create-payment/index.ts
 
       - name: Test and type-check provider service editor API
         run: |
@@ -416,7 +417,7 @@ jobs:
       - name: Set function secrets (only those provided)
         run: |
           args=()
-          for v in RAZORPAY_KEY_ID RAZORPAY_KEY_SECRET RAZORPAY_WEBHOOK_SECRET RAZORPAYX_ACCOUNT_NUMBER RAZORPAYX_WEBHOOK_SECRET CRON_SECRET GEMINI_API_KEY EXPO_ACCESS_TOKEN; do
+          for v in RAZORPAY_KEY_ID RAZORPAY_KEY_SECRET RAZORPAY_WEBHOOK_SECRET RAZORPAYX_ACCOUNT_NUMBER RAZORPAYX_WEBHOOK_SECRET CRON_SECRET GEMINI_API_KEY EXPO_ACCESS_TOKEN GOOGLE_MAPS_API_KEY; do
             [ -n "${!v}" ] && args+=("$v=${!v}")
           done
           if [ ${#args[@]} -gt 0 ]; then
@@ -428,10 +429,10 @@ jobs:
       - name: Deploy Edge Functions
         run: |
           # User-facing functions verify the caller's JWT at the gateway.
-          for f in create-payment ai-assistant provider-payout-account provider-service; do
+          for f in create-payment ai-assistant provider-payout-account provider-service places; do
             supabase functions deploy "$f" --project-ref "$PROJECT_REF" --yes
           done
-          for f in razorpay-webhook release-payouts process-refunds send-notifications review-insights; do
+          for f in razorpay-webhook release-payouts process-refunds send-notifications review-insights verify-payment; do
             supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF" --yes
           done
 

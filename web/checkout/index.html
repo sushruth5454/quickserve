@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>QuickServe · Secure payment</title>
+  <style>
+    :root { color-scheme: light; --p: #2563eb; --ok: #15803d; --err: #b91c1c; --mut: #64748b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; color: #0f172a; }
+    main { max-width: 420px; margin: 0 auto; padding: 32px 20px; }
+    .card { background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(15, 23, 42, .08); text-align: center; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .amt { font-size: 32px; font-weight: 700; margin: 16px 0 4px; }
+    .mut { color: var(--mut); font-size: 14px; line-height: 1.5; }
+    button { width: 100%; min-height: 52px; margin-top: 20px; border: 0; border-radius: 12px; background: var(--p); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+    button[disabled] { opacity: .6; }
+    .ok { color: var(--ok); } .err { color: var(--err); }
+    .badge { display: inline-block; margin-top: 16px; font-size: 12px; color: var(--mut); }
+  </style>
+</head>
+<body>
+<main>
+  <div class="card" role="main">
+    <h1>QuickServe</h1>
+    <div class="mut" id="desc">Secure payment</div>
+    <div class="amt" id="amt"></div>
+    <div class="mut" id="status" aria-live="polite">Opening Razorpay secure checkout…</div>
+    <button id="pay" type="button" hidden>Pay now</button>
+    <div class="badge">Payments are processed by Razorpay. QuickServe never sees your card or UPI PIN.</div>
+  </div>
+</main>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var order = q.get('o') || '', key = q.get('k') || '', amount = parseInt(q.get('a') || '0', 10);
+  var desc = (q.get('d') || 'QuickServe payment').slice(0, 80), verifyUrl = q.get('v') || '', contact = q.get('c') || '';
+  var $ = function (id) { return document.getElementById(id); };
+  var status = function (text, cls) { var s = $('status'); s.textContent = text; s.className = 'mut ' + (cls || ''); };
+  var payBtn = $('pay');
+
+  // Only our Supabase project's verify endpoint, a Razorpay order and key are accepted.
+  var verifyOk = /^https:\/\/[a-z0-9]+\.supabase\.co\/functions\/v1\/verify-payment$/.test(verifyUrl);
+  if (!/^order_\w+$/.test(order) || !/^rzp_(test|live)_\w+$/.test(key) || !(amount > 0) || !verifyOk) {
+    status('This payment link is invalid. Go back to QuickServe and tap Pay again.', 'err');
+    return;
+  }
+  $('desc').textContent = desc;
+  $('amt').textContent = '₹' + (amount / 100).toLocaleString('en-IN', { minimumFractionDigits: amount % 100 ? 2 : 0 });
+  if (key.indexOf('rzp_test_') === 0) $('desc').textContent = desc + ' · test mode';
+
+  var done = false;
+  function verify(resp) {
+    status('Confirming your payment…');
+    payBtn.hidden = true;
+    fetch(verifyUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(resp) })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (r) {
+        done = true;
+        if (r.ok && r.j && r.j.ok) status('Payment successful. You can close this page and return to QuickServe.', 'ok');
+        else status('Payment received. It will show in QuickServe within a minute. You can close this page.', 'ok');
+      })
+      .catch(function () {
+        done = true;
+        status('Payment received. It will show in QuickServe within a minute. You can close this page.', 'ok');
+      });
+  }
+
+  function open() {
+    if (done) return;
+    payBtn.disabled = true;
+    var rzp = new Razorpay({
+      key: key,
+      order_id: order,
+      amount: amount,
+      currency: 'INR',
+      name: 'QuickServe',
+      description: desc,
+      prefill: contact ? { contact: contact } : {},
+      theme: { color: '#2563eb' },
+      handler: verify,
+      modal: {
+        ondismiss: function () {
+          if (done) return;
+          payBtn.disabled = false; payBtn.hidden = false;
+          status('Payment not completed. Tap Pay now to try again, or close this page.');
+        },
+      },
+    });
+    rzp.on('payment.failed', function (e) {
+      status((e && e.error && e.error.description) || 'Payment failed. Try again.', 'err');
+    });
+    rzp.open();
+  }
+
+  payBtn.addEventListener('click', open);
+  if (typeof Razorpay === 'undefined') {
+    status('Could not load Razorpay. Check your connection and reload.', 'err');
+    return;
+  }
+  open();
+})();
+</script>
+</body>
+</html>

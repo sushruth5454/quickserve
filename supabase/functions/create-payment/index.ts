@@ -90,22 +90,16 @@ Deno.serve(async (req) => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-    const callbackUrl = Deno.env.get("PAYMENT_CALLBACK_URL");
+    // Razorpay Orders + hosted Checkout (payment links are capped at 30 in test mode). The order id is stored in
+    // payments.razorpay_link_id, which every downstream step (record_payment_paid, refunds, retirement) keys on.
+    // short_url is the hosted checkout page for this order; the app opens it exactly as it opened a payment link.
+    const checkoutBase = Deno.env.get("CHECKOUT_PAGE_URL") ?? "https://sushruth5454.github.io/quickserve/checkout/";
     let link: PaymentLink;
     try {
-      link = await razorpay<PaymentLink>("/payment_links", {
+      const order = await razorpay<{ id: string; amount: number }>("/orders", {
         amount: prepared.amount,
         currency: "INR",
-        accept_partial: false,
-        reference_id: prepared.payment_id,
-        description: prepared.purpose === "visit_fee"
-          ? "QuickServe visit fee"
-          : prepared.purpose === "addon"
-            ? "QuickServe approved add-on"
-            : "QuickServe job payment",
-        customer: account?.phone ? { contact: account.phone } : undefined,
-        notify: { sms: false, email: false },
-        reminder_enable: false,
+        receipt: prepared.payment_id,
         notes: {
           booking_id: bookingId,
           pack_id: packId,
@@ -113,12 +107,25 @@ Deno.serve(async (req) => {
           purpose: prepared.purpose,
           ...(prepared.schedule_id ?? scheduleId ? { schedule_id: prepared.schedule_id ?? scheduleId } : {}),
         },
-        ...(callbackUrl ? { callback_url: callbackUrl, callback_method: "get" } : {}),
       });
+      const description = prepared.purpose === "visit_fee"
+        ? "QuickServe visit fee"
+        : prepared.purpose === "addon"
+          ? "QuickServe approved add-on"
+          : "QuickServe job payment";
+      const params = new URLSearchParams({
+        o: order.id,
+        k: requireEnv("RAZORPAY_KEY_ID"),
+        a: String(order.amount),
+        d: description,
+        v: `${supabaseUrl}/functions/v1/verify-payment`,
+        ...(account?.phone ? { c: account.phone } : {}),
+      });
+      link = { id: order.id, short_url: `${checkoutBase}?${params.toString()}` };
     } catch (e) {
       await admin.from("payments").update({ status: "failed" }).eq("id", prepared.payment_id);
       console.error(e);
-      // 401/429 are account-side (bad keys, test-mode link cap): the customer can only retry later.
+      // 401/429 are account-side (bad keys, rate limits): the customer can only retry later.
       if (e instanceof RazorpayError && (e.status === 401 || e.status === 429)) {
         return json({ error: "Online payments are temporarily unavailable. Please try again in a little while." }, 503);
       }

@@ -1,11 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { hmacSha256Hex, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
+import { recordGatewayPayment } from "../_shared/record-payment.ts";
 import { handleRailWebhook, isRailEvent, type RailWebhookEvent, type RpcClient } from "../_shared/payout-rail.ts";
 
 interface RazorpayEvent {
   event: string;
   payload: {
     payment_link?: { entity: { id: string; status: string } };
+    order?: { entity: { id: string; status: string } };
     payment?: { entity: { id: string; amount: number; status: string } };
   };
 }
@@ -45,34 +47,18 @@ Deno.serve(async (req) => {
   }
 
   switch (event.event) {
-    case "payment_link.paid": {
-      const link = event.payload.payment_link?.entity;
+    case "payment_link.paid":
+    case "order.paid": {
+      // Orders (current checkout) and payment links (created before the switch) are both keyed by the
+      // gateway reference stored in payments.razorpay_link_id.
+      const reference = event.event === "order.paid" ? event.payload.order?.entity.id : event.payload.payment_link?.entity.id;
       const payment = event.payload.payment?.entity;
-      if (!link || !payment) return json({ error: "missing entities" }, 400);
-      const { data: existing } = await admin
-        .from("payments")
-        .select("pack_purchase_id, booking_id")
-        .eq("razorpay_link_id", link.id)
-        .maybeSingle<{ pack_purchase_id: string | null; booking_id: string | null }>();
-      let archetype: string | null = null;
-      if (existing?.booking_id) {
-        const { data: booking } = await admin.from("bookings").select("archetype").eq("id", existing.booking_id)
-          .maybeSingle<{ archetype: string }>();
-        archetype = booking?.archetype ?? null;
-      }
-      const recordRpc = existing?.pack_purchase_id || archetype === "time_based"
-        ? "record_time_payment_paid"
-        : "record_payment_paid";
-      const { data, error } = await admin.rpc(recordRpc, {
-        p_link_id: link.id,
-        p_payment_id: payment.id,
-        p_amount: payment.amount,
-      });
-      if (error) {
-        console.error(error);
+      if (!reference || !payment) return json({ error: "missing entities" }, 400);
+      const r = await recordGatewayPayment(admin, reference, payment.id, payment.amount);
+      if (!r.ok) {
+        console.error(r.error);
         return json({ error: "processing failed" }, 500);
       }
-      if (data && data.ok === false) console.warn("payment_link.paid not applied", data);
       return json({ received: true });
     }
     // TODO(chargebacks): handle payment.dispute.created / payment.dispute.lost by freezing the payout
