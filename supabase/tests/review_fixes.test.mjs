@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql',
 ]) await db.exec(migration(file));
 
 
@@ -296,5 +296,18 @@ const resolve = async (lat, lng, city = null) => (await as(customer, 'authentica
 ok(await resolve(16.505, 80.605, 'Some Village') === 'Review City', 'a suburb inside a live provider radius resolves to the live city');
 ok(await resolve(16.505, 80.605, 'review city') === 'review city', 'an already-live city name is kept');
 ok(await resolve(17.4, 78.4, 'Hyderabad') === null, 'an area no live provider covers resolves to nothing');
+
+// ---------- 15: targeted proposal requests route by the pro's radius (0034) ----------
+{
+  const near = (await one(`
+    insert into addresses (user_id, label, line1, city, lat, lng)
+    values ($1, 'Near', '1 Test St', 'Review City Demo', 16.505, 80.605) returning id`, [customer])).id;
+  const req = (address) => as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City Demo', p_area => 'A', p_event_start => now() + interval '40 days',
+    p_event_end => now() + interval '40 days 2 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_address_id => $2, p_venue_text => 'Venue', p_provider_id => $3) r`, [proposalCat, address, provider]);
+  ok(!(await fails(() => req(near))), 'a targeted request reaches a pro whose radius covers the address despite a different city name');
+  ok(/not available in your city/.test(await fails(() => req(null)) ?? ''), 'without coordinates a targeted request still needs the same city');
+}
 
 if (failures) process.exit(1);

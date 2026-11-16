@@ -11,7 +11,8 @@ import { SkillBadge, VerifiedMark } from '../../src/components/ProviderCard';
 import { ProviderProfileAttributes } from '../../src/components/ProviderProfileAttributes';
 import { ProviderServicePackages } from '../../src/components/ProviderServicePackages';
 import { Avatar, Button, Card, Chip, Divider, ErrorState, IconButton, InlineAlert, RatingStars, Screen, Section, Skeleton, Text } from '../../src/components/ui';
-import { getProviderDetail, type ProviderDetail } from '../../src/lib/api';
+import { getProviderDetail, listLiveCities, type ProviderDetail } from '../../src/lib/api';
+import { useSelectedLocation } from '../../src/lib/locationContext';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
 import { onboardingApi, type PublicProfile } from '../../src/lib/onboarding';
@@ -35,6 +36,26 @@ export default function ProviderDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const { location, setLocation } = useSelectedLocation();
+  const [switching, setSwitching] = useState(false);
+
+  // Bookings and proposal requests only reach pros in the customer's selected city, so a pro from another city
+  // is offered as a one-tap location switch instead of a form that fails at the end.
+  const switchToCity = async (city: string) => {
+    setSwitching(true);
+    try {
+      const live = (await listLiveCities()).find((c) => c.city.trim().toLowerCase() === city.trim().toLowerCase());
+      if (live?.lat != null && live.lng != null) {
+        setLocation({ source: 'area', area: live.city, city: live.city, lat: live.lat, lng: live.lng, line1: null, addressId: null, label: null });
+      } else {
+        router.push('/location');
+      }
+    } catch {
+      router.push('/location');
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -97,6 +118,9 @@ export default function ProviderDetailScreen() {
   const today = pub ? todayLabel(pub.hours, now, { onLeaveUntil: pub.on_leave_until }) : null;
   const hours = pub ? summarizeHours(pub.hours) : [];
   const unavailable = !!pub && (pub.paused || !!pub.on_leave_until);
+  // "Vijayawada Demo" is the test city overlapping Vijayawada; the server routes targeted requests by distance.
+  const cityKey = (c: string | null | undefined) => (c ?? '').trim().toLowerCase().replace(/\s+demo$/, '');
+  const otherCity = !!provider.city && cityKey(provider.city) !== cityKey(location.city);
   const idVerified = pub ? pub.badges.id_verified : false;
   const payoutVerified = pub ? pub.badges.payout_verified : provider.kyc_status === 'verified';
   const share = async () => {
@@ -118,6 +142,13 @@ export default function ProviderDetailScreen() {
       }}
       footer={
         service && !isPreview ? (
+          <View style={{ gap: t.spacing.sm }}>
+          {otherCity && !unavailable ? (
+            <Text variant="footnote" color="textSecondary" accessibilityLiveRegion="polite">
+              {first} works in {provider.city}. Your location is {location.city}, so switch to {provider.city} to{' '}
+              {proposalService ? 'request a proposal' : 'book'}.
+            </Text>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
             <View style={{ flexShrink: 1 }}>
               <Text variant="caption" color="muted" numberOfLines={1}>
@@ -132,12 +163,16 @@ export default function ProviderDetailScreen() {
               )}
             </View>
             <Button
-              title={proposalService ? 'Request proposal' : `Book ${first}`}
+              title={otherCity && !unavailable ? `Switch to ${provider.city}` : proposalService ? 'Request proposal' : `Book ${first}`}
+              leftIcon={otherCity && !unavailable ? 'location-outline' : undefined}
               size="lg"
               style={{ flex: 1 }}
               disabled={unavailable}
+              loading={switching}
               onPress={() =>
-                proposalService
+                otherCity
+                  ? void switchToCity(provider.city)
+                  : proposalService
                   ? router.push({
                       pathname: '/request/new',
                       params: { categoryId: service.category_id, name: service.categories?.name ?? 'service', providerId: provider.id, providerName: first },
@@ -145,6 +180,7 @@ export default function ProviderDetailScreen() {
                   : router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } })
               }
             />
+          </View>
           </View>
         ) : undefined
       }
