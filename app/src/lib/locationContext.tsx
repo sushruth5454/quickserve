@@ -7,6 +7,7 @@ import { resolveServiceCity } from './api';
 import { useAuth } from './auth';
 import { demoSeedCity, forceTestLocation, isDemoMode, isSeedDemoMode } from './config';
 import { DEFAULT_LOCATION, geocodeQuery, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
+import { newPlacesSession, placeDetail, PlacesUnavailable, placeSuggestions } from './places';
 
 export type GpsResult =
   | { ok: true; location: SelectedLocation }
@@ -15,7 +16,9 @@ export type GpsResult =
 export interface PlaceResult {
   title: string;
   subtitle: string;
-  location: SelectedLocation;
+  /** Null for a Google suggestion until it is picked (resolvePlace fetches the coordinates). */
+  location: SelectedLocation | null;
+  placeId?: string;
 }
 
 interface LocationContextValue {
@@ -63,13 +66,27 @@ export async function locateWithGps(): Promise<GpsResult> {
   }
 }
 
-/** Address search uses the OS geocoder, which expo-location only provides on iOS/Android. */
-export const placeSearchSupported = Platform.OS !== 'web';
+/** Address search: Google Places on every platform; the phone's geocoder is the fallback on iOS/Android. */
+export const placeSearchSupported = true;
 
-export async function searchPlaces(query: string, city: string | null = null): Promise<PlaceResult[]> {
-  if (!placeSearchSupported) throw new Error('Address search is available in the mobile app.');
+/**
+ * Suggestions for the search box. Google Places (live, India, biased to `near`) when the server has a key; otherwise
+ * the OS geocoder (native only). Google results carry a placeId and no coordinates until picked: call resolvePlace.
+ */
+export async function searchPlaces(
+  query: string,
+  city: string | null = null,
+  opts: { sessionToken?: string; near?: { lat: number; lng: number } | null } = {},
+): Promise<PlaceResult[]> {
   const q = query.trim();
   if (q.length < 3) return [];
+  try {
+    const hits = await placeSuggestions(city ? `${q}, ${city.replace(/\s+demo$/i, '')}` : q, opts.sessionToken ?? newPlacesSession(), opts.near);
+    return hits.map((h) => ({ title: h.title, subtitle: h.subtitle, location: null, placeId: h.placeId }));
+  } catch (e) {
+    if (!(e instanceof PlacesUnavailable)) throw e;
+  }
+  if (Platform.OS === 'web') throw new Error('Address search is available in the mobile app.');
   // Android's geocoder can need the location permission; ask once if it has never been asked.
   if (Platform.OS === 'android') {
     const perm = await Location.getForegroundPermissionsAsync().catch(() => null);
@@ -89,6 +106,14 @@ export async function searchPlaces(query: string, city: string | null = null): P
       location: { source: 'search', area: title, city: d.city, lat: h.latitude, lng: h.longitude, line1: d.line1, addressId: null, label: null },
     };
   });
+}
+
+/** The picked suggestion as a location (fetches coordinates for a Google suggestion, ending its billing session). */
+export async function resolvePlace(r: PlaceResult, sessionToken?: string): Promise<SelectedLocation> {
+  if (r.location) return r.location;
+  if (!r.placeId) throw new Error('This place has no location. Try another result.');
+  const p = await placeDetail(r.placeId, sessionToken ?? newPlacesSession());
+  return { source: 'search', area: p.area || p.title, city: p.city || p.area, lat: p.lat, lng: p.lng, line1: p.line1, addressId: null, label: null };
 }
 
 export function LocationProvider({ children }: { children: ReactNode }) {

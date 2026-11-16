@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../src/components/AddressEditor';
 import { Card, Divider, Header, InlineAlert, Input, LIST_INSET, Screen, Section, Skeleton, Text, useToast } from '../src/components/ui';
 import { listMyAddresses } from '../src/lib/api';
-import { placeSearchSupported, searchPlaces, useSelectedLocation, type PlaceResult } from '../src/lib/locationContext';
+import { placeSearchSupported, resolvePlace, searchPlaces, useSelectedLocation, type PlaceResult } from '../src/lib/locationContext';
+import { newPlacesSession } from '../src/lib/places';
 import {
   fromArea,
   fromSavedAddress,
@@ -47,7 +48,10 @@ export default function LocationPicker() {
     void loadAddresses();
   }, [loadAddresses]);
 
-  // Debounced OS geocoder search (native only).
+  // Debounced place search (Google Places, falling back to the phone's geocoder). One session token covers the
+  // suggestions typed and the place finally picked.
+  const sessionRef = useRef(newPlacesSession());
+  const [picking, setPicking] = useState<string | null>(null);
   useEffect(() => {
     const q = query.trim();
     setSearchError(null);
@@ -56,14 +60,34 @@ export default function LocationPicker() {
       return;
     }
     setSearching(true);
+    let alive = true;
     const timer = setTimeout(() => {
-      searchPlaces(q)
-        .then(setResults)
-        .catch((e: Error) => setSearchError(e.message))
-        .finally(() => setSearching(false));
-    }, 450);
-    return () => clearTimeout(timer);
+      searchPlaces(q, null, { sessionToken: sessionRef.current, near: { lat: location.lat, lng: location.lng } })
+        .then((r) => alive && setResults(r))
+        .catch((e: Error) => alive && setSearchError(e.message))
+        .finally(() => alive && setSearching(false));
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+    // The bias point is read when typing; re-searching on every location change is not wanted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  const pickResult = async (r: PlaceResult, key: string) => {
+    setPicking(key);
+    setSearchError(null);
+    try {
+      const l = await resolvePlace(r, sessionRef.current);
+      sessionRef.current = newPlacesSession();
+      choose(l);
+    } catch (e) {
+      setSearchError((e as Error).message);
+    } finally {
+      setPicking(null);
+    }
+  };
 
   const choose = (l: SelectedLocation, message?: string) => {
     setLocation(l);
@@ -126,13 +150,26 @@ export default function LocationPicker() {
                 </Text>
               </View>
             ) : (
-              (results ?? []).map((r, i) => (
-                <Fragment key={`${r.location.lat},${r.location.lng},${i}`}>
-                  {i > 0 ? <Divider inset={LIST_INSET} /> : null}
-                  <Row icon="location-outline" title={r.title} subtitle={r.subtitle} onPress={() => choose(r.location)} />
-                </Fragment>
-              ))
+              (results ?? []).map((r, i) => {
+                const key = `${r.placeId ?? `${r.location?.lat},${r.location?.lng}`},${i}`;
+                return (
+                  <Fragment key={key}>
+                    {i > 0 ? <Divider inset={LIST_INSET} /> : null}
+                    <Row
+                      icon={picking === key ? 'hourglass-outline' : 'location-outline'}
+                      title={r.title}
+                      subtitle={r.subtitle}
+                      onPress={() => void pickResult(r, key)}
+                    />
+                  </Fragment>
+                );
+              })
             )}
+            {results?.some((r) => r.placeId) ? (
+              <Text variant="caption" color="muted" style={{ textAlign: 'right', paddingHorizontal: t.spacing.lg, paddingBottom: t.spacing.sm }}>
+                powered by Google
+              </Text>
+            ) : null}
           </Card>
         ) : null}
       </View>

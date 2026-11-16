@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { Button, Card, Chip, InlineAlert, Input, ListItem, Screen, Stepper, Text, useToast } from '../../components/ui';
-import { locateWithGps, placeSearchSupported, searchPlaces, useSelectedLocation, type PlaceResult } from '../../lib/locationContext';
+import { locateWithGps, placeSearchSupported, resolvePlace, searchPlaces, useSelectedLocation, type PlaceResult } from '../../lib/locationContext';
+import { newPlacesSession } from '../../lib/places';
 import { LAUNCH_CITY, POPULAR_AREAS } from '../../lib/locationModel';
 import { onboardingApi } from '../../lib/onboarding';
 import { useTheme } from '../../theme';
@@ -38,6 +39,7 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [busy, setBusy] = useState<'gps' | 'search' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sessionRef = useRef(newPlacesSession());
 
   const applyPlace = (l: { lat: number; lng: number; area: string | null; city: string }) => {
     setPin(l);
@@ -58,9 +60,24 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
   const search = async () => {
     setBusy('search');
     try {
-      const r = await searchPlaces(query, city || null);
+      // Google results are biased to the current pin (or the selected location) rather than narrowed by a city name.
+      const near = pin ?? { lat: selected.location.lat, lng: selected.location.lng };
+      const r = await searchPlaces(query, null, { sessionToken: sessionRef.current, near });
       setResults(r);
       if (!r.length) setError('No places found. Try a nearby landmark.');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const pickResult = async (r: PlaceResult) => {
+    setBusy('search');
+    try {
+      const l = await resolvePlace(r, sessionRef.current);
+      sessionRef.current = newPlacesSession();
+      applyPlace({ lat: l.lat, lng: l.lng, area: l.area, city: l.city });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -127,8 +144,8 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
             onPress={() => applyPlace({ lat: selected.location.lat, lng: selected.location.lng, area: selected.location.area, city: selected.location.city })}
           />
         ) : null}
-        {results.map((r) => (
-          <ListItem key={`${r.location.lat},${r.location.lng}`} icon="location-outline" title={r.title} subtitle={r.subtitle} onPress={() => applyPlace({ ...r.location, area: r.location.area })} />
+        {results.map((r, i) => (
+          <ListItem key={r.placeId ?? `${r.location?.lat},${r.location?.lng},${i}`} icon="location-outline" title={r.title} subtitle={r.subtitle} onPress={() => void pickResult(r)} />
         ))}
         {!pin && (!city || city.toLowerCase() === LAUNCH_CITY.toLowerCase()) ? (
           <View style={{ gap: t.spacing.sm }}>
