@@ -210,6 +210,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
           skillLabels={serviceExpertiseLabels(service, data.skills, schemaFor(service.category_id))}
           expertiseAvailable={expertiseGroups(data.skills, service.category_id, schemaFor(service.category_id)).length > 0}
           rateSuggestions={data.skills.filter((skill) => skill.category_id === service.category_id && skill.kind === 'rate_item').map((skill) => skill.label)}
+          showLinks={mode !== 'wizard' && data.categories.find((item) => item.id === service.category_id)?.archetype === 'proposal'}
           onEdit={() => open(service)}
           onRemove={async () => {
             const ok = await confirm({ title: `Remove ${service.categories?.name}?`, message: 'Customers will no longer find you for this service.', confirmLabel: 'Remove', destructive: true });
@@ -721,6 +722,7 @@ function ServiceCard(props: {
   skillLabels: string[];
   expertiseAvailable: boolean;
   rateSuggestions: string[];
+  showLinks?: boolean;
   onEdit: () => void;
   onRemove: () => void;
   onChanged: () => Promise<void>;
@@ -783,6 +785,15 @@ function ServiceCard(props: {
             No expertise selected — customers can’t match you to specific jobs. Tap to add.
           </Text>
         </Pressable>
+      ) : null}
+      {props.showLinks ? (
+        <Button
+          title="Instagram, YouTube & website links"
+          size="sm"
+          variant="outline"
+          leftIcon="link-outline"
+          onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio' } })}
+        />
       ) : null}
       {items.map((r) => (
         <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>

@@ -1,5 +1,6 @@
 /** Supabase implementation of the provider onboarding API (migrations 0009/0011, Edge Function provider-payout-account). */
 import { supabase } from '../supabase';
+import { invokeFunction } from '../invokeFunction';
 import type {
   BasicsInput,
   CategorySkill,
@@ -54,7 +55,7 @@ async function upload(bucket: string, uri: string, mimeType: string): Promise<st
 }
 
 async function invokePayout(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const { data, error } = await supabase.functions.invoke<Record<string, unknown>>('provider-payout-account', { body });
+  const { data, error } = await invokeFunction<Record<string, unknown>>('provider-payout-account', { body });
   if (error) {
     const ctx = (error as { context?: Response }).context;
     const detail = ctx ? ((await ctx.json().catch(() => null)) as Record<string, unknown> | null) : null;
@@ -65,7 +66,7 @@ async function invokePayout(body: Record<string, unknown>): Promise<Record<strin
 }
 
 async function invokeProviderService(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const { data, error } = await supabase.functions.invoke<Record<string, unknown>>('provider-service', { body });
+  const { data, error } = await invokeFunction<Record<string, unknown>>('provider-service', { body });
   if (error) {
     const ctx = (error as { context?: Response }).context;
     const detail = ctx ? ((await ctx.json().catch(() => null)) as Record<string, unknown> | null) : null;

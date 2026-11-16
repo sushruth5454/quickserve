@@ -14,7 +14,7 @@ export const SECTIONS: Record<Exclude<StepKey, 'review'>, { title: string; compo
   services: { title: 'Services & skills', component: ServicesSection },
   area: { title: 'Service area', component: AreaSection },
   hours: { title: 'Working hours & time off', component: HoursSection },
-  portfolio: { title: 'Work photos & documents', component: PortfolioSection },
+  portfolio: { title: 'Links, work photos & documents', component: PortfolioSection },
   payouts: { title: 'Payouts & verification', component: PayoutSection },
 };
 

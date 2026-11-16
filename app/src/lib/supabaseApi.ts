@@ -13,6 +13,7 @@ import type {
   TopRatedProvider,
 } from './apiTypes';
 import { supabase } from './supabase';
+import { invokeFunction } from './invokeFunction';
 import type {
   Booking,
   BookingAddress,
@@ -106,7 +107,8 @@ export async function signOut(): Promise<void> {
   const token = registeredPushToken;
   registeredPushToken = null;
   if (token) await unregisterPushDevice(token).catch(() => undefined);
-  unwrap(await supabase.auth.signOut());
+  // Only this device: a global sign-out would end the same account's sessions on every other phone too.
+  unwrap(await supabase.auth.signOut({ scope: 'local' }));
 }
 
 const PROFILE_COLUMNS = 'id, full_name, avatar_url, role_customer, role_provider, created_at';
@@ -260,7 +262,7 @@ export async function listPaymentSchedule(bookingId: string): Promise<PaymentSch
 }
 
 export async function createSchedulePayment(bookingId: string, scheduleId: string): Promise<PaymentLinkResponse> {
-  const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
+  const { data, error } = await invokeFunction<PaymentLinkResponse>('create-payment', {
     body: { booking_id: bookingId, schedule_id: scheduleId },
   });
   if (error) {
@@ -430,7 +432,7 @@ export {
 } from './fixedBooking';
 
 export async function createPayment(bookingId: string): Promise<PaymentLinkResponse> {
-  const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
+  const { data, error } = await invokeFunction<PaymentLinkResponse>('create-payment', {
     body: { booking_id: bookingId },
   });
   if (error) {

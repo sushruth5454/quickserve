@@ -160,40 +160,12 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
         />
       }
     >
-      <Intro title="Your work & credentials" subtitle="Photos of real jobs help customers trust you. Documents are private — only our review team sees them." />
+      <Intro title="Your work, links & credentials" subtitle="Your Instagram, YouTube or website and photos of real work help customers trust you. Documents are private — only our review team sees them." />
       <InlineAlert message={error} />
 
       <View style={{ gap: t.spacing.md }}>
-        <FieldLabel hint={`Up to ${LIMITS.portfolioMax} photos of jobs you did. No customer faces, house numbers or personal details.`}>
-          {`Work photos (${portfolio.length}/${LIMITS.portfolioMax})`}
-        </FieldLabel>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-          {portfolio.map((ph) => (
-            <PortfolioTile
-              key={ph.id}
-              uri={onboardingApi.publicUrl('portfolio', ph.file_path)}
-              caption={ph.caption}
-              onSaveCaption={(c) => onboardingApi.updatePortfolioCaption(ph.id, c).then(reload).catch((e: Error) => setError(e.message))}
-              onDelete={async () => {
-                const ok = await confirm({ title: 'Delete this photo?', confirmLabel: 'Delete', destructive: true });
-                if (!ok) return;
-                await onboardingApi.deletePortfolioPhoto(ph.id).catch((e: Error) => setError(e.message));
-                await reload();
-              }}
-            />
-          ))}
-        </View>
-        {portfolio.length < LIMITS.portfolioMax ? (
-          <View style={{ gap: t.spacing.sm }}>
-            <Input placeholder="Caption for the next photo (optional), e.g. Split AC installation" value={caption} onChangeText={setCaption} maxLength={120} />
-            <Button title="Add work photo" leftIcon="image-outline" variant="outline" onPress={() => setPhotoSheet(true)} loading={busy === 'photo'} />
-          </View>
-        ) : null}
-      </View>
-
-      <View style={{ gap: t.spacing.md }}>
         <FieldLabel hint="Portfolio links only. Don't include phone numbers, WhatsApp, email or payment handles.">
-          Social profiles & website
+          Instagram, YouTube & website links
         </FieldLabel>
         <Card gap={t.spacing.md}>
           {links.map((link) => (
@@ -224,6 +196,34 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
           <Input label="Display name (optional)" value={linkHandle} onChangeText={setLinkHandle} placeholder="yourprofile" autoCapitalize="none" />
           <Button title="Add link" leftIcon="add" variant="outline" onPress={() => void saveLink()} loading={busy === 'link'} disabled={!linkUrl.trim()} />
         </Card>
+      </View>
+
+      <View style={{ gap: t.spacing.md }}>
+        <FieldLabel hint={`Up to ${LIMITS.portfolioMax} photos of jobs you did. No customer faces, house numbers or personal details.`}>
+          {`Work photos (${portfolio.length}/${LIMITS.portfolioMax})`}
+        </FieldLabel>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+          {portfolio.map((ph) => (
+            <PortfolioTile
+              key={ph.id}
+              uri={onboardingApi.publicUrl('portfolio', ph.file_path)}
+              caption={ph.caption}
+              onSaveCaption={(c) => onboardingApi.updatePortfolioCaption(ph.id, c).then(reload).catch((e: Error) => setError(e.message))}
+              onDelete={async () => {
+                const ok = await confirm({ title: 'Delete this photo?', confirmLabel: 'Delete', destructive: true });
+                if (!ok) return;
+                await onboardingApi.deletePortfolioPhoto(ph.id).catch((e: Error) => setError(e.message));
+                await reload();
+              }}
+            />
+          ))}
+        </View>
+        {portfolio.length < LIMITS.portfolioMax ? (
+          <View style={{ gap: t.spacing.sm }}>
+            <Input placeholder="Caption for the next photo (optional), e.g. Split AC installation" value={caption} onChangeText={setCaption} maxLength={120} />
+            <Button title="Add work photo" leftIcon="image-outline" variant="outline" onPress={() => setPhotoSheet(true)} loading={busy === 'photo'} />
+          </View>
+        ) : null}
       </View>
 
       <View style={{ gap: t.spacing.md }}>

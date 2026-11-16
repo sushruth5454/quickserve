@@ -1,6 +1,7 @@
 import { isDemoMode } from '../../lib/config';
 import { demoApi } from '../../lib/demo/demoApi';
 import { supabase } from '../../lib/supabase';
+import { invokeFunction } from '../../lib/invokeFunction';
 import { istDateKey } from '../../lib/schedule';
 import type { PaymentLinkResponse } from '../../lib/apiTypes';
 import type { Category, ServicePackage } from '../../lib/types';
@@ -194,7 +195,7 @@ export async function createTimeBooking(input: {
 }
 
 export async function createPackPayment(packId: string): Promise<PaymentLinkResponse> {
-  const { data, error } = await supabase.functions.invoke<PaymentLinkResponse>('create-payment', {
+  const { data, error } = await invokeFunction<PaymentLinkResponse>('create-payment', {
     body: { pack_id: packId },
   });
   if (error) throw new Error(error.message);
