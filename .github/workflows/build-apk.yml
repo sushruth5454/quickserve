@@ -1,0 +1,98 @@
+name: Build Android APK (installable)
+
+# Builds a standalone Android APK on Expo's build servers and posts the download link in the run summary.
+# The APK listens on the "apk" update channel; publish-app.yml publishes every app change to it, so testers only
+# reinstall when native dependencies change (bump APK_RUNTIME then).
+on:
+  workflow_dispatch:
+
+concurrency: build-apk
+
+env:
+  APK_RUNTIME: apk-1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: app
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_FORCE_TEST_LOCATION: ${{ vars.EXPO_PUBLIC_FORCE_TEST_LOCATION }}
+      EXPO_PUBLIC_DEMO_CITY: ${{ vars.EXPO_PUBLIC_DEMO_CITY }}
+      EXPO_PUBLIC_DEMO_PAYMENT: ${{ vars.EXPO_PUBLIC_DEMO_PAYMENT }}
+      TARGET_SDK: '58'
+      # Upload the working directory (with the SDK pin and build config written below), not the git HEAD.
+      EAS_NO_VCS: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # Same dependency resolution as publish-app.yml, so OTA bundles published there match this binary.
+      - name: Install dependencies (public npm)
+        run: |
+          rm -f package-lock.json
+          npm config set registry https://registry.npmjs.org/
+          npm install --no-audit --no-fund --legacy-peer-deps
+          CURRENT=$(node -p 'require("expo/package.json").version.split(".")[0]')
+          if [ "$CURRENT" != "$TARGET_SDK" ]; then
+            npm install "expo@~$TARGET_SDK.0.0" --no-audit --no-fund --legacy-peer-deps
+            CI=1 npx expo install --fix -- --legacy-peer-deps
+          fi
+          CI=1 npx expo install expo-updates expo-audio expo-file-system expo-speech expo-notifications expo-image-manipulator expo-document-picker -- --legacy-peer-deps
+          node -p '"Using expo " + require("expo/package.json").version'
+
+      - name: Typecheck and unit tests
+        run: |
+          npx tsc --noEmit
+          npx jest --watchAll=false
+
+      - name: Link EAS project
+        run: eas init --non-interactive --force
+
+      # EXPO_PUBLIC_* values are inlined when the bundle is built on Expo's servers, so they go into the profile env.
+      - name: Configure the APK build (runtime, update channel, env)
+        run: |
+          node -e '
+            const fs = require("fs");
+            const app = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            const id = app.expo.extra && app.expo.extra.eas && app.expo.extra.eas.projectId;
+            if (!id) { console.error("No EAS projectId after eas init"); process.exit(1); }
+            app.expo.runtimeVersion = process.env.APK_RUNTIME;
+            app.expo.updates = { url: "https://u.expo.dev/" + id };
+            fs.writeFileSync("app.json", JSON.stringify(app, null, 2) + "\n");
+            const eas = JSON.parse(fs.readFileSync("eas.json", "utf8"));
+            const env = {};
+            for (const k of ["EXPO_PUBLIC_SUPABASE_URL", "EXPO_PUBLIC_SUPABASE_ANON_KEY", "EXPO_PUBLIC_FORCE_TEST_LOCATION", "EXPO_PUBLIC_DEMO_CITY", "EXPO_PUBLIC_DEMO_PAYMENT"]) {
+              if (process.env[k]) env[k] = process.env[k];
+            }
+            eas.build.preview = { ...eas.build.preview, channel: "apk", env };
+            fs.writeFileSync("eas.json", JSON.stringify(eas, null, 2) + "\n");
+          '
+
+      - name: Build APK on EAS
+        run: |
+          eas build --platform android --profile preview --non-interactive --json --wait > build.json
+          node -e '
+            const b = [].concat(require("./build.json"))[0];
+            console.log("status:", b.status, "id:", b.id);
+            const apk = b.artifacts && (b.artifacts.applicationArchiveUrl || b.artifacts.buildUrl);
+            const owner = b.project?.ownerAccount?.name;
+            const page = owner ? "https://expo.dev/accounts/" + owner + "/projects/" + b.project.slug + "/builds/" + b.id : "(see expo.dev builds, id " + b.id + ")";
+            const out = ["## QuickServe Android APK", "", "Status: **" + b.status + "**", "", "Download APK: " + (apk || "(not available)"), "", "Build page (shareable install link and QR): " + page];
+            require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
+            console.log("APK:", apk); console.log("Build page:", page);
+            if (b.status !== "FINISHED") process.exit(1);
+          '

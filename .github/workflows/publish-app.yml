@@ -100,6 +100,18 @@ jobs:
             --message "$(echo "$UPDATE_MESSAGE" | head -n1)" > update.json
           cat update.json
 
+      # Installed APKs (build-apk.yml) run runtime apk-1 on the "apk" channel; give them the same JS.
+      - name: Publish update to the Android APK channel
+        run: |
+          node -e '
+            const fs = require("fs");
+            const cfg = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            cfg.expo.runtimeVersion = "apk-1";
+            fs.writeFileSync("app.json", JSON.stringify(cfg, null, 2) + "\n");
+          '
+          eas update --branch apk --platform android --non-interactive \
+            --message "$(echo "$UPDATE_MESSAGE" | head -n1)"
+
       - name: Expo Go link
         run: |
           GROUP=$(node -e 'const u=require("./update.json"); console.log((Array.isArray(u)?u[0]:u).group)')
