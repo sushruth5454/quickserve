@@ -80,6 +80,8 @@ jobs:
             }
             eas.build.preview = { ...eas.build.preview, channel: "apk", env };
             fs.writeFileSync("eas.json", JSON.stringify(eas, null, 2) + "\n");
+            // Expo resolves dependencies with a plain npm install; match the --legacy-peer-deps used above.
+            fs.writeFileSync(".npmrc", "legacy-peer-deps=true\n");
           '
 
       - name: Build APK on EAS
@@ -109,7 +111,8 @@ jobs:
             console.log("error:", JSON.stringify(b.error, null, 2));
           '
           for u in $(node -e 'for (const u of (require("./failed.json").logFiles||[])) console.log(u)'); do
-            curl -fsSL "$u" | node -e '
+            curl -fsSL "$u" -o eas-log.bin || continue
+            (gunzip -c eas-log.bin 2>/dev/null || cat eas-log.bin) | node -e '
               let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
                 const lines = s.split("\n").map(l => { try { const j = JSON.parse(l); return (j.phase||"") + " " + (j.msg||""); } catch { return l; } });
                 const errs = lines.filter(l => /error|failed|exception|could not|cannot find/i.test(l));
