@@ -82,7 +82,8 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" calls the GitHub releases API, which hits shared-runner rate limits.
+          version: 3.1.0
 
       - name: Apply migration 0018 through the Management API
         env:
