@@ -221,7 +221,7 @@ export default function ProviderDashboard() {
             accessibilityLabel={bellCount ? `Notifications, ${bellCount} unread` : 'Notifications'}
             onPress={() => router.push('/notifications')}
             variant="neutral"
-            badge={bellCount > 0}
+            badge={bellCount}
           />
         </View>
 

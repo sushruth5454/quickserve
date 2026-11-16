@@ -1,25 +1,114 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Card, EmptyState, Section, Text, Button } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, Section, Text, useConfirm, useToast, type Tone } from '../../components/ui';
 import * as api from '../../lib/api';
-import type { ProposalRequest } from '../../lib/types';
+import { formatINR } from '../../lib/money';
+import type { Proposal, ProposalRequest, ProposalStatus } from '../../lib/types';
 
+const STATUS: Record<ProposalStatus, { label: string; tone: Tone }> = {
+  sent: { label: 'Waiting for customer', tone: 'info' },
+  accepted: { label: 'Accepted', tone: 'success' },
+  rejected: { label: 'Declined', tone: 'neutral' },
+  withdrawn: { label: 'Withdrawn', tone: 'neutral' },
+  expired: { label: 'Expired', tone: 'neutral' },
+};
+
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+/** Requests routed to this pro, split into ones still needing a reply and proposals already sent. */
 export function ProviderProposalInbox() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [requests, setRequests] = useState<ProposalRequest[]>([]);
-  useFocusEffect(useCallback(() => { void api.listProviderServiceRequests().then(setRequests).catch(() => undefined); }, []));
+  const [mine, setMine] = useState<Proposal[]>([]);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    void api.listProviderServiceRequests().then(setRequests).catch(() => undefined);
+    void api.listMyProposals().then(setMine).catch(() => undefined);
+  }, []);
+  useFocusEffect(load);
+
+  const { pending, sent } = useMemo(() => {
+    // Latest proposal per request (a re-sent proposal gets a higher version).
+    const latest = new Map<string, Proposal>();
+    for (const p of mine) {
+      const prev = latest.get(p.request_id);
+      if (!prev || p.version > prev.version) latest.set(p.request_id, p);
+    }
+    const byId = new Map(requests.map((r) => [r.id, r]));
+    return {
+      pending: requests.filter((r) => r.status === 'open' && !latest.has(r.id)),
+      sent: [...latest.values()]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .map((p) => ({ proposal: p, request: byId.get(p.request_id) ?? null })),
+    };
+  }, [requests, mine]);
+
+  const withdraw = async (p: Proposal) => {
+    const ok = await confirm({
+      title: 'Withdraw this proposal?',
+      message: 'The customer will no longer be able to accept it. You can send a new one while the request is open.',
+      confirmLabel: 'Withdraw',
+      destructive: true,
+    });
+    if (!ok) return;
+    setWithdrawing(p.id);
+    try {
+      await api.withdrawProposal(p.id);
+      toast({ message: 'Proposal withdrawn', tone: 'success' });
+      load();
+    } catch (e) {
+      toast({ message: (e as Error).message, tone: 'error' });
+    } finally {
+      setWithdrawing(null);
+    }
+  };
+
   return (
-    <Section title="Proposal requests" subtitle={requests.length ? 'Reply with a fixed scope and payment plan' : undefined}>
-      {requests.length === 0 ? <EmptyState icon="document-text-outline" title="No proposal requests" message="New matched requests appear here privately." /> : requests.map((r) => (
-        <Card key={r.id}>
-          <Text variant="calloutStrong">{r.category_name}</Text>
-          <Text color="textSecondary">{r.area || r.city} · {new Date(r.event_start).toLocaleDateString('en-IN')}</Text>
-          <Text variant="caption" color="muted">{String(r.intake?.brief ?? 'Custom event brief')}</Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button title="Send proposal" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: r.id } })} />
-          </View>
-        </Card>
-      ))}
-    </Section>
+    <>
+      <Section title="Proposal requests" subtitle={pending.length ? 'Reply with a fixed scope and payment plan' : undefined}>
+        {pending.length === 0 ? (
+          <EmptyState compact icon="document-text-outline" title="No new requests" message={sent.length ? 'You have replied to every request. New matched requests appear here privately.' : 'New matched requests appear here privately.'} />
+        ) : pending.map((r) => (
+          <Card key={r.id}>
+            <Text variant="calloutStrong">{r.category_name}</Text>
+            <Text color="textSecondary">{r.area || r.city} · {day(r.event_start)}</Text>
+            <Text variant="caption" color="muted">{String(r.intake?.brief ?? 'Custom event brief')}</Text>
+            <Button title="Send proposal" onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: r.id } })} />
+          </Card>
+        ))}
+      </Section>
+
+      {sent.length ? (
+        <Section title="Proposals sent" subtitle="Your quotes and where they stand">
+          {sent.map(({ proposal: p, request: r }) => {
+            const s = STATUS[p.status] ?? STATUS.sent;
+            const canResend = r?.status === 'open' && (p.status === 'withdrawn' || p.status === 'expired' || p.status === 'rejected');
+            return (
+              <Card key={p.id} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: p.id } })} accessibilityLabel={`${r?.category_name ?? 'Proposal'}, ${formatINR(p.total)}, ${s.label}`}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text variant="calloutStrong" style={{ flex: 1 }} numberOfLines={1}>{r?.category_name ?? 'Proposal'}</Text>
+                  <Badge label={s.label} tone={s.tone} />
+                </View>
+                <Text variant="title3" tabular>{formatINR(p.total)}</Text>
+                <Text variant="footnote" color="textSecondary">
+                  {[r ? `${r.area || r.city} · event ${day(r.event_start)}` : null, `sent ${day(p.created_at)}`, p.status === 'sent' ? `valid until ${day(p.valid_until)}` : null].filter(Boolean).join(' · ')}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Button title="View" variant="outline" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: p.id } })} />
+                  {p.status === 'sent' ? (
+                    <Button title="Withdraw" variant="destructiveGhost" style={{ flex: 1 }} loading={withdrawing === p.id} onPress={() => void withdraw(p)} />
+                  ) : canResend ? (
+                    <Button title="Send new proposal" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: p.request_id } })} />
+                  ) : null}
+                </View>
+              </Card>
+            );
+          })}
+        </Section>
+      ) : null}
+    </>
   );
 }

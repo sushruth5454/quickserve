@@ -655,6 +655,9 @@ export const demoApi: Api = {
     assert(p?.status === 'sent', 'Proposal is not open');
     p.status = 'withdrawn';
   },
+  async listMyProposals() {
+    return proposals.filter((p) => p.provider_id === uid()).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(clone);
+  },
   async acceptProposal(id) {
     const p = proposals.find((x) => x.id === id);
     assert(p?.status === 'sent', 'Proposal not found');

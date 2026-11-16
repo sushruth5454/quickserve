@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql',
 ]) await db.exec(migration(file));
 
 
@@ -337,5 +337,17 @@ await db.query(`update providers set city = 'Some Village' where id = $1`, [demo
 ok((await one(`select city from providers where id = $1`, [demoPro])).city === 'Review City', 'a provider saved with a village name inside a live area gets the live city');
 await db.query(`update providers set city = 'Hyderabad', base_location = extensions.st_setsrid(extensions.st_makepoint(78.4, 17.4), 4326) where id = $1`, [demoPro]);
 ok((await one(`select city from providers where id = $1`, [demoPro])).city === 'Hyderabad', 'a provider outside every live area keeps their own city');
+
+// ---------- 17: proposal events respect the category notice period (0038) ----------
+{
+  const lead = (await one(`select min_lead_hours h from categories where id = $1`, [proposalCat])).h;
+  await db.query(`update categories set min_lead_hours = 24 where id = $1`, [proposalCat]);
+  const soon = await fails(() => as(customer, 'authenticated', `select create_service_request(
+    p_category_id => $1, p_city => 'Review City', p_area => 'A', p_event_start => now() + interval '17 hours',
+    p_event_end => now() + interval '20 hours', p_intake => '{}'::jsonb, p_budget_min => null, p_budget_max => null,
+    p_venue_text => 'Venue') r`, [proposalCat]));
+  ok(/needs at least 24 hours' notice/.test(soon ?? ''), 'a request inside the notice period is refused with a clear message');
+  await db.query(`update categories set min_lead_hours = $2 where id = $1`, [proposalCat, lead]);
+}
 
 if (failures) process.exit(1);

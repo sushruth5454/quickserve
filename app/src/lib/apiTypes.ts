@@ -270,6 +270,8 @@ export interface Api {
   getProposal(id: string): Promise<Proposal>;
   sendProposal(input: SendProposalInput): Promise<string>;
   withdrawProposal(id: string): Promise<void>;
+  /** The signed-in provider's own proposals (latest first), to show what they have already sent. */
+  listMyProposals(): Promise<Proposal[]>;
   acceptProposal(id: string, addressId?: string | null): Promise<string>;
   listRequestMessages(requestId: string, providerId: string): Promise<RequestMessage[]>;
   sendRequestMessage(requestId: string, providerId: string, body: string): Promise<void>;

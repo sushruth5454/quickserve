@@ -102,6 +102,7 @@ export const {
   getProposal,
   sendProposal,
   withdrawProposal,
+  listMyProposals,
   acceptProposal,
   listRequestMessages,
   sendRequestMessage,

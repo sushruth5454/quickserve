@@ -262,6 +262,13 @@ export async function withdrawProposal(id: string): Promise<void> {
   await rpcVoid('withdraw_proposal', { p_proposal_id: id });
 }
 
+export async function listMyProposals(): Promise<Proposal[]> {
+  const uid = await requireUserId();
+  return unwrap(await supabase.from('proposals')
+    .select('*, proposal_items(*), proposal_schedule(*)')
+    .eq('provider_id', uid).order('created_at', { ascending: false })) as Proposal[];
+}
+
 export async function acceptProposal(id: string, addressId: string | null = null): Promise<string> {
   return unwrap(await supabase.rpc('accept_proposal', {
     p_proposal_id: id,

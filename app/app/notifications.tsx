@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { EmptyState, ErrorState, Header, Screen, Skeleton, Text, type IconName } from '../src/components/ui';
+import { Button, EmptyState, ErrorState, Header, Screen, Skeleton, Text, type IconName } from '../src/components/ui';
 import { listNotifications, markNotificationsRead } from '../src/lib/api';
 import { useAuth } from '../src/lib/auth';
 import { buildNotificationItems, shortAgo, type AppNotification, type NotificationItem } from '../src/lib/unread';
@@ -42,18 +42,26 @@ export default function NotificationsScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const list = await listNotifications(60);
-      setRows(list);
-      // Shown highlighted from this snapshot; on the server they are read now, so the bell badge clears.
-      if (list.some((n) => !n.read_at && n.kind !== 'chat_message')) {
-        await markNotificationsRead(null).catch(() => undefined);
-      }
-      unreadRef.current.clearNotifications();
+      // Opening the screen doesn't mark anything read: each notification is marked read when it is tapped.
+      setRows(await listNotifications(60));
       void unreadRef.current.refresh();
     } catch (e) {
       setError((e as Error).message || 'Could not load notifications.');
     }
   }, []);
+
+  const markRead = useCallback(async (ids: string[] | null) => {
+    const now = new Date().toISOString();
+    setRows((prev) => prev?.map((n) => (!n.read_at && (ids === null ? n.kind !== 'chat_message' : ids.includes(n.id)) ? { ...n, read_at: now } : n)) ?? prev);
+    await markNotificationsRead(ids).catch(() => undefined);
+    void unreadRef.current.refresh();
+  }, []);
+
+  const open = useCallback((item: NotificationItem) => {
+    // Chat rows are read when the chat opens; other rows are single notifications keyed by id.
+    if (item.unread && !item.key.startsWith('chat:')) void markRead([item.key]);
+    if (item.route) router.push(item.route as Href);
+  }, [markRead]);
 
   useFocusEffect(
     useCallback(() => {
@@ -62,6 +70,7 @@ export default function NotificationsScreen() {
   );
 
   const items = rows ? buildNotificationItems(rows, unread.map, userId) : null;
+  const unreadOthers = items?.filter((i) => i.unread && !i.key.startsWith('chat:')).length ?? 0;
 
   return (
     <Screen
@@ -81,21 +90,28 @@ export default function NotificationsScreen() {
       ) : !items.length ? (
         <EmptyState icon="notifications-outline" title="No notifications yet" message="Messages from your pros and booking updates will show up here." />
       ) : (
-        items.map((n) => <Row key={n.key} item={n} />)
+        <>
+          {unreadOthers > 0 ? (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Button title="Mark all as read" variant="ghost" size="sm" onPress={() => void markRead(null)} />
+            </View>
+          ) : null}
+          {items.map((n) => <Row key={n.key} item={n} onOpen={open} />)}
+        </>
       )}
     </Screen>
   );
 }
 
-function Row({ item }: { item: NotificationItem }) {
+function Row({ item, onOpen }: { item: NotificationItem; onOpen: (item: NotificationItem) => void }) {
   const t = useTheme();
   const label = [item.title, item.context, item.body, shortAgo(item.at)].filter(Boolean).join(', ');
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${item.unread ? 'Unread. ' : ''}${label}`}
-      disabled={!item.route}
-      onPress={() => item.route && router.push(item.route as Href)}
+      disabled={!item.route && !item.unread}
+      onPress={() => onOpen(item)}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'flex-start',

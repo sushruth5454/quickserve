@@ -5,6 +5,7 @@ import { Button, Card, ErrorState, Header, InlineAlert, Screen, Section, Skeleto
 import * as api from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
 import { useSelectedLocation } from '../../src/lib/locationContext';
+import { useAuth } from '../../src/lib/auth';
 import { usePayment } from '../../src/lib/payments';
 import type { Proposal } from '../../src/lib/types';
 
@@ -16,6 +17,9 @@ export default function ProposalDetail() {
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const startPayment = usePayment();
   const { location } = useSelectedLocation();
+  const { userId } = useAuth();
+  // The provider who sent it sees the same proposal read-only: accepting is the customer's action.
+  const mine = !!proposal && proposal.provider_id === userId;
 
   useEffect(() => {
     if (id) void api.getProposal(id).then(setProposal).catch((e: unknown) => setError((e as Error).message));
@@ -41,13 +45,13 @@ export default function ProposalDetail() {
 
   return (
     <Screen
-      header={<Header title="Proposal" subtitle={proposal?.providers?.profiles?.full_name ?? undefined} />}
-      footer={proposal?.status === 'sent' ? <Button title={`Accept & reserve · ${formatINR(proposal.total)}`} fullWidth size="lg" loading={busy} onPress={() => void accept()} /> : undefined}
+      header={<Header title={mine ? 'Your proposal' : 'Proposal'} subtitle={mine ? `Status: ${proposal?.status === 'sent' ? 'waiting for customer' : proposal?.status}` : proposal?.providers?.profiles?.full_name ?? undefined} />}
+      footer={proposal?.status === 'sent' && !mine ? <Button title={`Accept & reserve · ${formatINR(proposal.total)}`} fullWidth size="lg" loading={busy} onPress={() => void accept()} /> : undefined}
     >
       {error ? <ErrorState message={error} onRetry={() => id && void api.getProposal(id).then(setProposal)} /> : !proposal ? <Skeleton height={260} /> : (
         <>
           {acceptError ? <InlineAlert title="Could not accept yet" message={acceptError} /> : null}
-          <InlineAlert title="30-minute payment hold" message="Accepting reserves the provider for 30 minutes. Pay the advance and platform fee in that window to confirm." />
+          {mine ? null : <InlineAlert title="30-minute payment hold" message="Accepting reserves the provider for 30 minutes. Pay the advance and platform fee in that window to confirm." />}
           <Card>
             <Text variant="title2">{formatINR(proposal.total)}</Text>
             {proposal.note ? <Text color="textSecondary">{proposal.note}</Text> : null}
