@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import type { Coords } from './apiTypes';
+import { resolveServiceCity } from './api';
 import { useAuth } from './auth';
 import { demoSeedCity, forceTestLocation, isDemoMode, isSeedDemoMode } from './config';
 import { DEFAULT_LOCATION, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
@@ -131,6 +132,29 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     setLoc(l);
     void AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(l)).catch(() => undefined);
   }, []);
+
+  // Geocoders name the village or suburb ("Pothireddypally") rather than the launch city ("Sangareddy") that the
+  // catalogue and booking use. Map the coordinates to the live service city covering them; keep the geocoded name
+  // when no live provider serves the area, so the home screen can say the area is not served yet.
+  const { lat: curLat, lng: curLng, city: curCity } = location;
+  useEffect(() => {
+    if (!ready || !userId) return;
+    let alive = true;
+    resolveServiceCity(curLat, curLng, curCity)
+      .then((city) => {
+        if (!alive || !city || city.trim().toLowerCase() === curCity.trim().toLowerCase()) return;
+        setLoc((prev) => {
+          if (prev.lat !== curLat || prev.lng !== curLng || prev.city !== curCity) return prev;
+          const next = { ...prev, city };
+          void AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+          return next;
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [ready, userId, curLat, curLng, curCity]);
 
   const value = useMemo<LocationContextValue>(
     () => ({ location, coords: { lat: location.lat, lng: location.lng }, ready, setLocation, locateWithGps }),

@@ -16,6 +16,7 @@ import type {
   ProviderServiceWithProvider,
   ServiceInput,
   TopRatedProvider,
+  LiveCity,
 } from '../apiTypes';
 import { commissionRateBp, providerPayout, quoteSubtotals, requiredTotal } from '../money';
 import { coinRedemptionLimit, type CoinLedgerEntry, type CoinRedemptionPreview } from '../coins';
@@ -57,6 +58,7 @@ let session: AuthSession | null = null;
 let sessionLoaded = false;
 let latency: [number, number] = [180, 520];
 let autopilot = true;
+const demoWaitlist = new Set<string>();
 let bookingSeq = 1046;
 let idSeq = 1;
 let demoCoinBalance = 12500;
@@ -744,10 +746,12 @@ export const demoApi: Api = {
     }));
   },
 
-  async listTopRated(limit = 10): Promise<TopRatedProvider[]> {
+  async listTopRated(limit = 10, city?: string | null): Promise<TopRatedProvider[]> {
     await wait();
+    const want = city?.trim().toLowerCase();
     return db.providers
       .filter((p) => p.kyc_status === 'verified' && !p.suspended && p.rating_count > 0 && p.id !== session?.userId)
+      .filter((p) => !want || p.city.trim().toLowerCase() === want)
       .sort((a, b) => b.rating_avg - a.rating_avg || b.rating_count - a.rating_count)
       .slice(0, limit)
       .map((p) => ({
@@ -763,6 +767,34 @@ export const demoApi: Api = {
           .filter((s) => s.provider_id === p.id && s.active)
           .map((s) => ({ visit_fee: s.visit_fee, skill_level: s.skill_level, active: s.active, categories: categoryOf(s.category_id) })),
       }));
+  },
+
+  async listLiveCities(): Promise<LiveCity[]> {
+    await wait();
+    const byCity = new Map<string, { providers: number; lat: number; lng: number }>();
+    for (const p of db.providers.filter((x) => x.kyc_status === 'verified' && !x.suspended)) {
+      const c = byCity.get(p.city) ?? { providers: 0, lat: 0, lng: 0 };
+      byCity.set(p.city, { providers: c.providers + 1, lat: c.lat + p.lat, lng: c.lng + p.lng });
+    }
+    return [...byCity].map(([city, c]) => ({ city, categories: db.categories.length, providers: c.providers, lat: c.lat / c.providers, lng: c.lng / c.providers }));
+  },
+
+  async resolveServiceCity(_lat: number, _lng: number, city?: string | null): Promise<string | null> {
+    await wait();
+    return city ?? null;
+  },
+
+  async joinCityWaitlist(city: string): Promise<boolean> {
+    await wait();
+    const key = city.trim().toLowerCase();
+    if (demoWaitlist.has(key)) return false;
+    demoWaitlist.add(key);
+    return true;
+  },
+
+  async onCityWaitlist(city: string): Promise<boolean> {
+    await wait();
+    return demoWaitlist.has(city.trim().toLowerCase());
   },
 
   async getProviderDetail(providerId): Promise<ProviderDetail> {

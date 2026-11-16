@@ -43,6 +43,14 @@ export interface Coords {
   lng: number;
 }
 
+export interface LiveCity {
+  city: string;
+  categories: number;
+  providers: number;
+  lat: number | null;
+  lng: number | null;
+}
+
 export interface AuthSession {
   userId: string;
   phone: string | null;
@@ -160,7 +168,14 @@ export interface Api {
   // discovery
   listCategories(city?: string): Promise<Category[]>;
   searchProviders(categorySlug: string, coords: Coords | null, filters: SearchFilters): Promise<ProviderSearchResult[]>;
-  listTopRated(limit?: number): Promise<TopRatedProvider[]>;
+  listTopRated(limit?: number, city?: string | null): Promise<TopRatedProvider[]>;
+  /** Cities with live providers, with a centre point to switch the location to. */
+  listLiveCities(): Promise<LiveCity[]>;
+  /** The live service city covering a point (keeps an already-live city name); null when the area is not served. */
+  resolveServiceCity(lat: number, lng: number, city?: string | null): Promise<string | null>;
+  /** Adds the user to a city's launch waitlist; false when they were already on it. */
+  joinCityWaitlist(city: string, lat?: number | null, lng?: number | null): Promise<boolean>;
+  onCityWaitlist(city: string): Promise<boolean>;
   getProviderDetail(providerId: string): Promise<ProviderDetail>;
   getProviderService(id: string): Promise<ProviderServiceWithProvider>;
   inspectTravelRequest(providerServiceId: string, coords: Coords, scheduledAt: Date | null): Promise<TravelPreview>;

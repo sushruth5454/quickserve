@@ -11,6 +11,7 @@ import type {
   ProviderServiceWithProvider,
   ServiceInput,
   TopRatedProvider,
+  LiveCity,
 } from './apiTypes';
 import { supabase } from './supabase';
 import { invokeFunction } from './invokeFunction';
@@ -151,7 +152,7 @@ export async function searchProviders(
   );
 }
 
-export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
+export async function listTopRated(limit = 10, city?: string | null): Promise<TopRatedProvider[]> {
   const { data: auth } = await supabase.auth.getSession();
   let query = supabase
     .from('providers')
@@ -164,6 +165,8 @@ export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
     .gt('rating_count', 0);
   // Like search_providers, never suggest the signed-in user's own provider profile.
   if (auth.session) query = query.neq('id', auth.session.user.id);
+  // Case-insensitive exact city match; LIKE wildcards in the name are escaped.
+  if (city?.trim()) query = query.ilike('city', city.trim().replace(/[\\%_]/g, (c) => `\\${c}`));
   return unwrap(
     await query
       .order('rating_avg', { ascending: false })
@@ -171,6 +174,26 @@ export async function listTopRated(limit = 10): Promise<TopRatedProvider[]> {
       .limit(limit)
       .overrideTypes<TopRatedProvider[], { merge: false }>(),
   );
+}
+
+export async function listLiveCities(): Promise<LiveCity[]> {
+  return ((unwrap(await supabase.rpc('list_live_cities')) ?? []) as LiveCity[]).map((c) => ({
+    ...c,
+    lat: c.lat == null ? null : Number(c.lat),
+    lng: c.lng == null ? null : Number(c.lng),
+  }));
+}
+
+export async function resolveServiceCity(lat: number, lng: number, city?: string | null): Promise<string | null> {
+  return (unwrap(await supabase.rpc('resolve_service_city', { p_lat: lat, p_lng: lng, p_city: city ?? null })) as string | null) ?? null;
+}
+
+export async function joinCityWaitlist(city: string, lat?: number | null, lng?: number | null): Promise<boolean> {
+  return unwrap(await supabase.rpc('join_city_waitlist', { p_city: city, p_lat: lat ?? null, p_lng: lng ?? null })) as boolean;
+}
+
+export async function onCityWaitlist(city: string): Promise<boolean> {
+  return Boolean(unwrap(await supabase.rpc('on_city_waitlist', { p_city: city })));
 }
 
 // ---------- Proposal / milestone booking ----------

@@ -3,22 +3,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { TopRatedRow } from '../src/components/TopRatedCard';
 import { EmptyState, ErrorState, Header, Screen, SkeletonProviderCard } from '../src/components/ui';
 import { listTopRated, type TopRatedProvider } from '../src/lib/api';
+import { useSelectedLocation } from '../src/lib/locationContext';
 import { useTheme } from '../src/theme';
 
 export default function TopRatedScreen() {
   const t = useTheme();
+  const { location } = useSelectedLocation();
   const [list, setList] = useState<TopRatedProvider[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setList(await listTopRated(50));
+      setList(await listTopRated(50, location.city));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [location.city]);
 
   useEffect(() => {
     void load();

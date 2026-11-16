@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',
 ]) await db.exec(migration(file));
 
 
@@ -279,5 +279,22 @@ if (session) {
 } else {
   ok(false, 'notification centre checks need the session booking');
 }
+
+// ---------- 14: no-services-nearby (0033) ----------
+const live = await as(customer, 'authenticated', `select * from list_live_cities()`);
+const reviewCity = live.find((c) => c.city === 'Review City');
+ok(reviewCity && reviewCity.providers >= 1 && Math.abs(reviewCity.lat - 16.5) < 0.1 && Math.abs(reviewCity.lng - 80.6) < 0.1,
+  `live cities list the launched city with a centre point (${JSON.stringify(reviewCity)})`);
+ok((await as(customer, 'authenticated', `select join_city_waitlist('Hyderabad', 17.4, 78.4) j`))[0].j === true
+  && (await as(customer, 'authenticated', `select join_city_waitlist(' hyderabad ', null, null) j`))[0].j === false,
+  'joining a city waitlist is idempotent per user and case-insensitive');
+ok((await as(customer, 'authenticated', `select on_city_waitlist('HYDERABAD') w`))[0].w === true
+  && (await as(provider, 'authenticated', `select on_city_waitlist('Hyderabad') w`))[0].w === false, 'waitlist status is per user');
+ok(/permission denied/.test(await fails(() => as(customer, 'authenticated', `select * from city_waitlist`)) ?? ''), 'customers cannot read the waitlist table');
+ok(/permission denied/.test(await fails(() => as(null, 'anon', `select join_city_waitlist('Pune')`)) ?? ''), 'anon cannot join a waitlist');
+const resolve = async (lat, lng, city = null) => (await as(customer, 'authenticated', `select resolve_service_city($1, $2, $3) c`, [lat, lng, city]))[0].c;
+ok(await resolve(16.505, 80.605, 'Some Village') === 'Review City', 'a suburb inside a live provider radius resolves to the live city');
+ok(await resolve(16.505, 80.605, 'review city') === 'review city', 'an already-live city name is kept');
+ok(await resolve(17.4, 78.4, 'Hyderabad') === null, 'an area no live provider covers resolves to nothing');
 
 if (failures) process.exit(1);

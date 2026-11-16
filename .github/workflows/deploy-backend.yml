@@ -381,6 +381,7 @@ jobs:
               ("0030", "0030_review_fixes.sql"),
               ("0031", "0031_holiday_mode_enforcement.sql"),
               ("0032", "0032_notification_centre.sql"),
+              ("0033", "0033_city_waitlist.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

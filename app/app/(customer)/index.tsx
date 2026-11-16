@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon, iconForCategory } from '../../src/components/CategoryIcon';
+import { NotServedCard } from '../../src/components/NotServedCard';
 import { TopRatedCard, TopRatedCardSkeleton } from '../../src/components/TopRatedCard';
 import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
@@ -40,7 +41,7 @@ export default function CustomerHome() {
     try {
       const [c, tr, bookings, profile] = await Promise.all([
         getCatalogue(location.city),
-        listTopRated(),
+        listTopRated(10, location.city),
         listMyBookings().catch(() => [] as Booking[]),
         getMyProfile().catch(() => null),
       ]);
@@ -68,6 +69,8 @@ export default function CustomerHome() {
     () => (catalogue?.categories ?? []).filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())),
     [catalogue, query],
   );
+  // Nothing is live at this location: replace search, AI and listings with the "not here yet" card.
+  const unserved = categories !== null && categories.length === 0;
   const gutter = { paddingHorizontal: t.spacing.lg };
   // ~72% of the screen so the next card peeks; capped for tablets/web.
   const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
@@ -119,6 +122,7 @@ export default function CustomerHome() {
           </Text>
         </View>
 
+        {unserved ? null : (
         <View
           style={[
             {
@@ -150,8 +154,9 @@ export default function CustomerHome() {
             <IconButton icon="close-circle" accessibilityLabel="Clear search" onPress={() => setQuery('')} color="muted" size={20} visualSize={40} />
           ) : null}
         </View>
+        )}
 
-        {aiAssistantEnabled ? (
+        {aiAssistantEnabled && !unserved ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Ask QuickServe AI"
@@ -222,6 +227,9 @@ export default function CustomerHome() {
 
       {/* Categories */}
       <View style={gutter}>
+        {unserved ? (
+          <NotServedCard />
+        ) : (
         <Section title="Services">
           {!categories ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
@@ -245,6 +253,7 @@ export default function CustomerHome() {
             <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} />
           )}
         </Section>
+        )}
       </View>
 
       {/* Guarantee banner */}
@@ -272,7 +281,7 @@ export default function CustomerHome() {
       </View>
 
       {/* Top rated */}
-      {categories && topRated.length === 0 ? null : (
+      {unserved || (categories && topRated.length === 0) ? null : (
         <View style={{ gap: t.spacing.md }}>
           <View style={gutter}>
             <Section
