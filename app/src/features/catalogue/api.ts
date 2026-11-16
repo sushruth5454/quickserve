@@ -301,6 +301,3 @@ export async function getPaymentSchedule(bookingId: string): Promise<PaymentSche
     .order('seq')) as PaymentScheduleItem[];
 }
 
-export async function payMilestone(scheduleId: string): Promise<PaymentLinkResponse> {
-  return unwrap(await supabase.rpc('pay_milestone', { p_schedule_id: scheduleId })) as PaymentLinkResponse;
-}

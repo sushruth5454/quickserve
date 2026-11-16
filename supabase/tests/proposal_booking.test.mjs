@@ -248,4 +248,30 @@ const prepared = (await as(null, 'service_role', `select * from prepare_payment(
 runtimeOk(prepared?.purpose === 'advance' && prepared.amount === 400000,
   'prepare_payment charges the proposal advance first (no ambiguous purpose column)');
 
+// 0029: one payment covers everything due now (advance + platform fee) and confirms the booking.
+await db.exec(migration('0027_restore_fixed_prepare_payment.sql'));
+await db.exec(migration('0029_single_due_payment.sql'));
+const dueRows = (await db.query(`select amount, obligation_type from payment_schedule where booking_id=$1 and status='due'`, [targetedBooking])).rows;
+const dueTotal = dueRows.reduce((sum, r) => sum + r.amount, 0);
+const fee = dueRows.filter((r) => r.obligation_type === 'platform_fee').reduce((sum, r) => sum + r.amount, 0);
+const combined = (await as(null, 'service_role', `select * from prepare_payment($1,$2)`, [targetedBooking, customer]))[0];
+runtimeOk(dueRows.length === 2 && fee > 0 && combined.amount === dueTotal,
+  'prepare_payment combines the advance and platform fee into one payment');
+const again = (await as(null, 'service_role', `select * from prepare_payment($1,$2)`, [targetedBooking, customer]))[0];
+runtimeOk(again.payment_id !== combined.payment_id
+  && (await db.query(`select count(*)::int n from payments where booking_id=$1 and status='created'`, [targetedBooking])).rows[0].n === 1,
+  'only one live payment attempt exists for the due obligations');
+await as(null, 'service_role', `update payments set razorpay_link_id='link_combined', short_url='https://pay.test' where id=$1`, [again.payment_id]);
+const reused = (await as(null, 'service_role', `select * from prepare_payment($1,$2)`, [targetedBooking, customer]))[0];
+runtimeOk(reused.payment_id === again.payment_id && reused.short_url === 'https://pay.test', 'a live combined link is reused');
+await as(null, 'service_role', `select record_payment_paid('link_combined','gateway_combined',$1)`, [dueTotal]);
+const settled = (await db.query(`
+  select b.status, count(*) filter (where ps.status = 'paid')::int paid_rows, count(*) filter (where ps.status = 'upcoming')::int upcoming
+    from bookings b join payment_schedule ps on ps.booking_id = b.id where b.id=$1 group by b.status`, [targetedBooking])).rows[0];
+runtimeOk(settled.status === 'confirmed' && settled.paid_rows === 2 && settled.upcoming === 1,
+  'one combined payment settles both obligations and confirms the booking; the delivery milestone stays upcoming');
+const outcome = (await db.query(`select _cancellation_outcome($1,'provider','provider_fault',now()) o`, [targetedBooking])).rows[0].o;
+runtimeOk(outcome.platform_refund === fee && outcome.refund_amount === dueTotal,
+  `provider-fault cancellation refunds the combined payment with the fee split out (${JSON.stringify(outcome)})`);
+
 if (failed.length || runtimeFailures) process.exit(1);

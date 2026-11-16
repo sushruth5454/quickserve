@@ -1,40 +1,47 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, InlineAlert, Skeleton, Text } from '../../components/ui';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
-import { getPaymentSchedule, payMilestone, type PaymentScheduleItem } from './api';
+import { usePayment } from '../../lib/payments';
+import { getPaymentSchedule, type PaymentScheduleItem } from './api';
 
-export function PaymentScheduleTimeline({ bookingId, canPay }: { bookingId: string; canPay: boolean }) {
+/**
+ * Read-only list of the booking's payment obligations, plus ONE pay button for everything due now.
+ * The booking footer owns the first payment (pending_payment), so pass showPay=false there.
+ */
+export function PaymentScheduleTimeline({ bookingId, canPay, showPay = true, onPaid }: { bookingId: string; canPay: boolean; showPay?: boolean; onPaid?: () => void }) {
   const t = useTheme();
   const [items, setItems] = useState<PaymentScheduleItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [paying, setPaying] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const startPayment = usePayment();
   const load = useCallback(() => getPaymentSchedule(bookingId).then(setItems).catch((caught: Error) => setError(caught.message)), [bookingId]);
   useEffect(() => { void load(); }, [load]);
 
-  const pay = async (item: PaymentScheduleItem) => {
-    setPaying(item.id);
+  const payDue = async () => {
+    setPaying(true);
+    setError(null);
     try {
-      const payment = await payMilestone(item.id);
-      await WebBrowser.openBrowserAsync(payment.short_url);
+      await startPayment(bookingId);
       await load();
+      onPaid?.();
     } catch (caught) {
       setError((caught as Error).message);
     } finally {
-      setPaying(null);
+      setPaying(false);
     }
   };
 
   if (items === null) return <Skeleton height={120} radius={t.radii.lg} />;
   if (items.length === 0) return null;
+  const dueNow = items.filter((item) => item.status === 'due').reduce((sum, item) => sum + item.amount, 0);
   return (
     <Card gap={t.spacing.md} variant="outlined">
       <View style={{ gap: 2 }}>
         <Text variant="title3">Payment timeline</Text>
-        <Text variant="footnote" color="muted">Each milestone is paid separately when it becomes due.</Text>
+        <Text variant="footnote" color="muted">Anything due is paid together in one payment. Later milestones are collected when they fall due.</Text>
       </View>
       <InlineAlert message={error} />
       <View>
@@ -54,19 +61,17 @@ export function PaymentScheduleTimeline({ bookingId, canPay }: { bookingId: stri
                   <Text variant="bodyStrong" style={{ flex: 1 }}>{item.label}</Text>
                   <Text variant="calloutStrong" tabular>{formatINR(item.amount)}</Text>
                 </View>
-                <Text variant="footnote" color="muted">
-                  {paid ? item.status.replaceAll('_', ' ') : item.due_at ? new Date(item.due_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : item.due_rule.replaceAll('_', ' ')}
+                <Text variant="footnote" color={due ? 'warningText' : 'muted'}>
+                  {paid ? item.status.replaceAll('_', ' ') : due ? 'Due now' : item.due_at ? new Date(item.due_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : item.due_rule.replaceAll('_', ' ')}
                 </Text>
-                {canPay && due ? (
-                  <View style={{ flexDirection: 'row', marginTop: t.spacing.xs }}>
-                    <Button title={`Pay ${formatINR(item.amount)}`} onPress={() => void pay(item)} loading={paying === item.id} size="sm" variant="primary" />
-                  </View>
-                ) : null}
               </View>
             </View>
           );
         })}
       </View>
+      {canPay && showPay && dueNow > 0 ? (
+        <Button title={`Pay ${formatINR(dueNow)}`} leftIcon="lock-closed" onPress={() => void payDue()} loading={paying} fullWidth />
+      ) : null}
     </Card>
   );
 }

@@ -214,4 +214,29 @@ let blocked = false;
 try { await asLinkPro(`select save_provider_link('other', 'https://wa.me/919999999999', null)`); } catch { blocked = true; }
 ok(savedLink?.status === 'approved' && blocked, 'provider links are approved on save and WhatsApp links are still rejected');
 
+// 0029: a fixed package pays every due obligation in one payment and the webhook confirms it
+// (0023 had dropped the fixed branch, so real fixed payments were queued for refund).
+await db.exec(migration('0029_single_due_payment.sql'));
+const [fixedDue] = (await db.query(`
+  select coalesce(sum(amount), 0)::int total, count(*)::int n from payment_schedule where booking_id = $1 and status = 'due'
+`, [fixedBooking.id])).rows;
+let fixedSettled = null;
+try {
+  await db.exec('set role service_role');
+  const fp = (await db.query(`select * from prepare_payment($1, $2)`, [fixedBooking.id, fixedBooking.customer_id])).rows[0];
+  await db.query(`update payments set razorpay_link_id = 'link_fixed_combined', short_url = 'https://pay.test' where id = $1`, [fp.payment_id]);
+  const res = (await db.query(`select record_payment_paid('link_fixed_combined', 'gateway_fixed_combined', $1) r`, [fp.amount])).rows[0].r;
+  fixedSettled = { amount: fp.amount, res, ...(await db.query(`
+    select b.status, (select count(*)::int from payment_schedule where booking_id = b.id and status <> 'paid') unpaid,
+           (select count(*)::int from refunds r join payments p on p.id = r.payment_id where p.booking_id = b.id) refunds
+      from bookings b where b.id = $1`, [fixedBooking.id])).rows[0] };
+} catch (error) {
+  console.error(error.message);
+} finally {
+  await db.exec('reset role');
+}
+ok(fixedDue.n >= 1 && fixedSettled?.amount === fixedDue.total && fixedSettled.status === 'requested'
+  && fixedSettled.unpaid === 0 && fixedSettled.refunds === 0,
+  `one fixed-package payment settles all due rows and sends the request (${JSON.stringify(fixedSettled)})`);
+
 if (failures.length) process.exit(1);

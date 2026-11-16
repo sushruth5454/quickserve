@@ -902,7 +902,7 @@ values
 on conflict (id) do update
 set amount = excluded.amount, due_at = excluded.due_at, status = 'due';
 
--- Accepted proposal path with one paid advance, one future milestone and one due platform fee.
+-- Accepted proposal path: advance + platform fee paid together in one payment (0029), one future milestone.
 alter table public.bookings disable trigger bookings_apply_core_contract;
 insert into public.bookings (
   id, customer_id, provider_id, category_id, provider_service_id, address_id, description,
@@ -981,8 +981,8 @@ values
     pg_temp.demo_sid('payment-schedule:proposal:fee'),
     pg_temp.demo_sid('booking:proposal-milestones'), pg_temp.demo_sid('quote:proposal-milestones'),
     3, 'platform_fee', 'QuickServe platform fee', 9900,
-    'at_booking', now() - interval '1 day', 'due', 'platform_fee', 'platform_fee',
-    null, null, now() - interval '1 day'
+    'at_booking', now() - interval '1 day', 'paid', 'platform_fee', 'platform_fee',
+    null, now() - interval '1 day', now() - interval '1 day'
   )
 on conflict (id) do update
 set status = excluded.status, amount = excluded.amount, due_at = excluded.due_at, paid_at = excluded.paid_at;
@@ -993,7 +993,7 @@ insert into public.payments (
 )
 values (
   pg_temp.demo_sid('payment:proposal:advance'), pg_temp.demo_sid('booking:proposal-milestones'),
-  pg_temp.demo_sid('quote:proposal-milestones'), 'advance', 75000, 'paid',
+  pg_temp.demo_sid('quote:proposal-milestones'), 'advance', 84900, 'paid',
   pg_temp.demo_sid('payment-schedule:proposal:advance'),
   'plink_demo_all_proposal_advance', 'pay_demo_all_proposal_advance', 'demo://payment',
   now() - interval '1 day', now() - interval '1 day'
@@ -1003,7 +1003,18 @@ set amount = excluded.amount, status = 'paid', schedule_id = excluded.schedule_i
 
 update public.payment_schedule
 set payment_id = pg_temp.demo_sid('payment:proposal:advance')
-where id = pg_temp.demo_sid('payment-schedule:proposal:advance');
+where id in (pg_temp.demo_sid('payment-schedule:proposal:advance'), pg_temp.demo_sid('payment-schedule:proposal:fee'));
+
+do $$
+begin
+  if to_regclass('public.payment_obligations') is not null then
+    insert into public.payment_obligations (payment_id, schedule_id, amount)
+    values (pg_temp.demo_sid('payment:proposal:advance'), pg_temp.demo_sid('payment-schedule:proposal:advance'), 75000),
+           (pg_temp.demo_sid('payment:proposal:advance'), pg_temp.demo_sid('payment-schedule:proposal:fee'), 9900)
+    on conflict (payment_id, schedule_id) do update set amount = excluded.amount;
+  end if;
+end;
+$$;
 
 -- 0022 compatibility: seed pack + recurring/session rows only when the pending migration has landed.
 do $$

@@ -59,6 +59,17 @@ async function mockPayment(bookingId: string, scheduleId?: string): Promise<Paym
     .eq('id', bookingId)
     .single();
   if (error) throw new Error(error.message);
+  if (data.archetype === 'proposal' || data.archetype === 'fixed') {
+    // Same as the server: one payment for every obligation due now (e.g. advance + platform fee).
+    const { data: due, error: dueError } = await supabase
+      .from('payment_schedule')
+      .select('amount')
+      .eq('booking_id', bookingId)
+      .eq('status', 'due');
+    if (dueError) throw new Error(dueError.message);
+    const amount = (due ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
+    if (amount > 0) return { short_url: 'demo://payment', amount, purpose: data.archetype === 'fixed' ? 'fixed' : 'advance' };
+  }
   const fixed = data.archetype === 'fixed' || data.archetype === 'proposal' || data.archetype === 'time_based';
   return {
     short_url: 'demo://payment',

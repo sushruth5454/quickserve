@@ -5,7 +5,6 @@ import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'reac
 import { Linking, ScrollView, Switch, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { QuoteView } from '../../src/components/QuoteView';
-import { PaymentSchedule } from '../../src/components/PaymentSchedule';
 import { statusLabel } from '../../src/components/status';
 import { StatusHero, type HeroCopy } from '../../src/components/StatusHero';
 import { ChatButton } from '../../src/components/UnreadChat';
@@ -184,6 +183,9 @@ export default function BookingDetail() {
   const s = booking.status;
   const isCustomer = booking.customer_id === userId;
   const isTimeBased = booking.archetype === 'time_based';
+  // Proposal and fixed bookings pay every obligation due now (e.g. advance + platform fee) in one payment.
+  const scheduled = (booking.archetype === 'proposal' || booking.archetype === 'fixed') && data.paymentSchedule.length > 0;
+  const dueNow = data.paymentSchedule.filter((row) => row.status === 'due').reduce((sum, row) => sum + row.amount, 0);
   const first = data.counterpart.split(' ')[0] ?? data.counterpart;
   // Net of partial refunds (e.g. a change order that lowered the total), matching the server's amount owed.
   const paid = payments
@@ -288,7 +290,7 @@ export default function BookingDetail() {
           <Button title={due > 0 ? 'Approve & pay' : 'Approve'} onPress={() => void approve(openQuote)} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
-    } else if (pendingPaymentQuote && dueForPending > 0) {
+    } else if (pendingPaymentQuote && dueForPending > 0 && !scheduled) {
       footer = (
         <AmountFooter label="Balance due" amount={dueForPending}>
           <Button
@@ -303,8 +305,8 @@ export default function BookingDetail() {
       );
     } else if (s === 'pending_payment') {
       footer = (
-        <AmountFooter label={isTimeBased ? 'Session payment' : 'Visit fee'} amount={isTimeBased ? booking.total_amount ?? 0 : booking.visit_fee}>
-          <Button title={isTimeBased ? 'Pay session' : 'Pay & send request'} leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
+        <AmountFooter label={scheduled ? 'Due now' : isTimeBased ? 'Session payment' : 'Visit fee'} amount={scheduled ? dueNow : isTimeBased ? booking.total_amount ?? 0 : booking.visit_fee}>
+          <Button title={scheduled ? 'Pay & confirm' : isTimeBased ? 'Pay session' : 'Pay & send request'} leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
     } else if (s === 'completion_requested') {
@@ -440,7 +442,8 @@ export default function BookingDetail() {
     >
       <StatusHero status={s} copy={hero} events={data.events} archetype={booking.archetype} />
       <InlineAlert message={actionError} />
-      <PaymentScheduleTimeline bookingId={booking.id} canPay={isCustomer} />
+      {/* Single payment schedule view; the footer collects the first payment while the booking is pending. */}
+      <PaymentScheduleTimeline key={`${booking.id}:${s}`} bookingId={booking.id} canPay={isCustomer} showPay={s !== 'pending_payment'} onPaid={() => void load()} />
 
       {/* ---------- customer actions ---------- */}
       {isCustomer && (s === 'accepted' || s === 'en_route') ? (
@@ -642,16 +645,6 @@ export default function BookingDetail() {
         </Section>
       ) : null}
 
-      {booking.archetype === 'proposal' && data.paymentSchedule.length > 0 ? (
-        <Section title="Payment schedule">
-          <PaymentSchedule
-            rows={data.paymentSchedule}
-            onPay={isCustomer ? (row) => void run(async () => {
-              await startPayment(booking.id, row.id);
-            }) : undefined}
-          />
-        </Section>
-      ) : null}
 
       <Section title="Payments">
         <Card padding={0} gap={0}>
