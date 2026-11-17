@@ -61,7 +61,7 @@ for (const file of [
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql', '0043_commission_config.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql', '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql', '0046_managed_geography.sql',
 ]) await db.exec(migration(file));
 
 
@@ -497,26 +497,36 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
 
 // ---------- 21: booking commission and coin cap use configurable policy (0043) ----------
 {
-  const demoCreatedAt = (await one(`select created_at from providers where id = $1`, [demoPro])).created_at;
-  await db.query(`update providers set created_at = now() - interval '60 days', jobs_completed = 0 where id = $1`, [demoPro]);
+  const commissionProviderBefore = await one(`select created_at, jobs_completed from providers where id = $1`, [provider]);
+  await db.query(`
+    update providers
+       set city = 'Review City',
+           base_location = extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
+           kyc_status = 'verified',
+           submitted_at = coalesce(submitted_at, now()),
+           is_online = true,
+           paused = false,
+           suspended = false,
+           created_at = now() - interval '60 days',
+           jobs_completed = 0
+     where id = $1`, [provider]);
   await db.query(`update categories set commission_bp = null where id = $1`, [proposalCat]);
-  const booking = await proposalBooking(demoPro);
-  const baseRate = (await as(demoPro, 'authenticated',
+  const booking = await proposalBooking(provider);
+  const baseRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(baseRate === 1200, `booking rate preserves the existing 12% default (${baseRate})`);
 
   await as(admin, 'authenticated', `select admin_set_category_commission($1, 2000)`, [proposalCat]);
-  const overrideRate = (await as(demoPro, 'authenticated',
+  const overrideRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(overrideRate === 2000, `admin category override is applied to the booking (${overrideRate})`);
 
-  await db.query(`update bookings set status = 'completed', completed_at = now() - interval '1 day' where id = $1`, [demoBooking]);
-  const repeatRate = (await as(demoPro, 'authenticated',
+  const repeatRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(repeatRate === 1600, `repeat discount applies after category override (${repeatRate})`);
 
   await as(admin, 'authenticated', `select admin_set_category_commission($1, 500)`, [proposalCat]);
-  const floorRate = (await as(demoPro, 'authenticated',
+  const floorRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(floorRate === 500, `repeat discount respects the configured minimum floor (${floorRate})`);
   const coinCap = await one(`
@@ -531,7 +541,7 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
      where b.id = $1`, [booking, floorRate]);
   ok(coinCap.cap === coinCap.expected, 'coin redemption platform cap matches the booking-aware payout rate');
   await db.query(`update bookings set booking_origin = 'byo' where id = $1`, [booking]);
-  const byoRate = (await as(demoPro, 'authenticated',
+  const byoRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   const byoCoinCap = await one(`select public._coin_platform_cap($1, $2) cap`, [booking,
     (await one(`select approved_quote_id from bookings where id = $1`, [booking])).approved_quote_id]);
@@ -544,7 +554,9 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
   ok(/booking not found/.test(otherUserRate ?? ''), 'another customer cannot read the provider booking commission');
 
   await as(admin, 'authenticated', `select admin_set_category_commission($1, null)`, [proposalCat]);
-  await db.query(`update providers set created_at = $2 where id = $1`, [demoPro, demoCreatedAt]);
+  await db.query(`update providers set created_at = $2, jobs_completed = $3 where id = $1`, [
+    provider, commissionProviderBefore.created_at, commissionProviderBefore.jobs_completed,
+  ]);
 }
 
 if (failures) process.exit(1);

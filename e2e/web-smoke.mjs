@@ -135,26 +135,33 @@ await step('top-rated-see-all', async () => {
 // Demo-seed runs set EXPO_PUBLIC_DEMO_CITY, which becomes the app's launch city.
 const CITY = (process.env.EXPO_PUBLIC_DEMO_CITY ?? '').trim() || 'Vijayawada';
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const managedAreas = await rest('geo_areas?select=name,geo_cities(name)&active=eq.true&order=sort_order').catch(() => []);
+const managedArea = managedAreas.find((area) => area.geo_cities?.name?.toLowerCase() === CITY.toLowerCase());
 await step('location-picker', async () => {
   await go('/');
   await page.getByLabel(/^Service location:/).first().click();
   await page.waitForURL(/\/location$/);
   await visible('Select location');
-  await visible(`Popular areas in ${CITY}`);
+  await visible('Saved addresses');
   await page.getByText(/^Flat 302, Sri Sai Residency/).first().waitFor();
 });
-await step('location-search-fallback', async () => {
-  await page.getByLabel('Search for an area or address').first().fill('Pata');
-  await visible('Patamata');
+await optional('location-search-managed-area', async () => {
+  if (!managedArea) throw new Error(`No active managed areas are configured for ${CITY}`);
+  await page.getByLabel('Search for an area or address').first().fill(managedArea.name.slice(0, 3));
+  await visible(managedArea.name);
 });
-await step('location-pick-area', async () => {
-  await page.getByText('Patamata', { exact: true }).first().click();
+await optional('location-pick-managed-area', async () => {
+  if (!managedArea) throw new Error(`No active managed areas are configured for ${CITY}`);
+  await page.getByText(managedArea.name, { exact: true }).first().click();
   await page.waitForURL((u) => new URL(u).pathname === '/');
-  await page.getByText(new RegExp(`^Patamata, ${escapeRe(CITY)}$`)).first().waitFor();
+  await page.getByText(new RegExp(`^${escapeRe(managedArea.name)}, ${escapeRe(CITY)}$`)).first().waitFor();
 });
 await step('location-search-providers', async () => {
+  await go('/location');
+  const home = CITY === 'Vijayawada' ? /^Flat 302, Sri Sai Residency/ : /^Flat 302, Sai Residency/;
+  await page.getByText(home).first().click();
   await go('/category/ac-repair?name=AC%20Repair');
-  await page.getByText(/verified pros? near Patamata/).first().waitFor();
+  await page.getByText(/verified pros? near Benz Circle/i).first().waitFor();
 });
 await step('location-add-address-sheet', async () => {
   await go('/location');
@@ -423,7 +430,7 @@ for (const [name, path, wait] of [
   ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
   ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
   ['dark-bookings', '/bookings', 'My bookings'],
-  ['dark-location-picker', '/location', /^Popular areas in /],
+  ['dark-location-picker', '/location', 'Saved addresses'],
   ['dark-me-customer', '/account', 'Switch to provider mode'],
 ]) {
   await step(name, async () => {

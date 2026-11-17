@@ -69,7 +69,7 @@ jobs:
           deno test supabase/functions/review-insights
           deno check supabase/functions/review-insights/index.ts
 
-      # SQL: parses the migrations and runs the state machine, chat read-state RLS and notifications outbox on PGlite.
+      # SQL: parses the migrations and runs isolated plus full-chain PGlite tests.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -331,7 +331,7 @@ jobs:
           print("0019 live fixed-booking verification succeeded (rolled back fixture).")
           PY
 
-      - name: Apply migrations 0020-0024 through the Management API
+      - name: Apply migrations 0020-0046 through the Management API
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.PROJECT_REF != ''
         env:
           MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -402,6 +402,9 @@ jobs:
               ("0041", "0041_admin_support.sql"),
               ("0042", "0042_feature_registry.sql"),
               ("0043", "0043_commission_config.sql"),
+              ("0044", "0044_creator_revisions.sql"),
+              ("0045", "0045_preferred_language.sql"),
+              ("0046", "0046_managed_geography.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
