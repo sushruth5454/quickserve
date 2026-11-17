@@ -114,8 +114,8 @@ Feature: RFQ operations reporting
 | RFQ-04 | `rfq.test.mjs`: forged totals ignored, RFQ quantities copied, per-line GST, validity cap, replacement version | Not run by request |
 | RFQ-05 | `rfq.test.mjs`: brand/spec markers and absence of an equivalence marker | Not run by request |
 | RFQ-06 | `rfq.test.mjs`: quote/RFQ state, enquiry creation, and zero payment rows | Not run by request |
-| RFQ-07 | `rfq.test.mjs`: expired RFQ and quote state | Not run by request |
-| RFQ-08 | New admin RPC and `app/app/admin/rfqs.tsx` | Admin authorization test pending |
+| RFQ-07 | `rfq.test.mjs`: independent quote expiry and expired RFQ state | Not run by request |
+| RFQ-08 | `rfq.test.mjs`: non-admin denial and admin metrics response | Not run by request |
 
 ## Trace links
 

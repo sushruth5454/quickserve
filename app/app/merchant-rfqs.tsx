@@ -50,7 +50,7 @@ export default function MerchantRfqsScreen() {
           onPress={() => router.push(`/rfq/merchant/${rfq.rfq_id}`)}
         />
       )) : (
-        <EmptyState title="No open RFQs" description="Customer product quote requests routed to your shop will appear here." />
+        <EmptyState title="No open RFQs" message="Customer product quote requests routed to your shop will appear here." />
       )}
       <Button title="Manage my shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
     </Screen>

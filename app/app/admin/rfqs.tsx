@@ -55,7 +55,7 @@ export default function AdminRfqsScreen() {
               subtitle={`${rfq.city} · ${rfq.status} · ${rfq.quote_count} quote(s)`}
               chevron={false}
             />
-          )) : <EmptyState title="No product RFQs" description="RFQ activity will appear here when the feature is enabled." />}
+          )) : <EmptyState title="No product RFQs" message="RFQ activity will appear here when the feature is enabled." />}
         </>
       ) : null}
     </Screen>

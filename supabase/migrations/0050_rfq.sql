@@ -508,7 +508,7 @@ begin
     v_gst := v_gst + case when v_available then round(v_line_total::numeric * v_gst_rate / 10000.0) else 0 end;
   end loop;
   perform public._assert(v_seen = v_expected, 'a quote must include one line for every RFQ item');
-  perform public._assert(v_subtotal + v_gst + p_delivery_charge_paise <= 9223372036854775807, 'quote total is too large');
+  perform public._assert(v_subtotal + v_gst + p_delivery_charge_paise <= 9007199254740991, 'quote total is too large');
   update public.supplier_quotes
      set subtotal_paise = v_subtotal::bigint, gst_paise = v_gst::bigint,
          total_paise = (v_subtotal + v_gst + p_delivery_charge_paise)::bigint, updated_at = now()

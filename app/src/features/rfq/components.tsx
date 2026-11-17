@@ -20,5 +20,5 @@ export function RfqFeatureUnavailable() {
 
 export function RfqStatusLabel({ status }: { status: RfqStatus }) {
   const tone = status === 'open' ? 'success' : status === 'expired' || status === 'cancelled' ? 'danger' : 'neutral';
-  return <Badge label={status === 'closed' ? 'Closed' : status[0].toUpperCase() + status.slice(1)} tone={tone} />;
+  return <Badge label={status === 'closed' ? 'Closed' : status.charAt(0).toUpperCase() + status.slice(1)} tone={tone} />;
 }
