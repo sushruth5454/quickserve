@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, Card, EmptyState, Header, ListItem, Screen, Skeleton, Text } from '../../src/components/ui';
@@ -10,6 +10,7 @@ const compact = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(
 
 export default function AdminDashboardScreen() {
   const t = useTheme();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
@@ -17,9 +18,10 @@ export default function AdminDashboardScreen() {
     void getDashboard(30).then(setData).catch((e: Error) => setError(e.message));
   }, []);
   useFocusEffect(load);
+  const backToProfile = () => router.replace(returnTo === 'pro-account' ? '/pro-account' : '/account');
 
   return (
-    <Screen header={<Header title="Admin" large subtitle="QuickServe operations · last 30 days" />}>
+    <Screen header={<Header title="Admin" subtitle="QuickServe operations · last 30 days" onBack={backToProfile} />}>
       {error ? <EmptyState icon="alert-circle-outline" title="Dashboard unavailable" message={error} actionLabel="Retry" onAction={load} /> : !data ? (
         <Skeleton height={360} radius={t.radii.lg} />
       ) : (

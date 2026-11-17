@@ -700,6 +700,14 @@ await step('admin-feature-registry', async () => {
   await optional('admin display name', () => page.getByLabel('Your name').fill('QuickServe Admin', { timeout: 3000 }));
   await page.getByText('Continue', { exact: true }).click();
   await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+  await go('/account');
+  await page.getByText('Admin portal', { exact: true }).click();
+  await page.waitForURL((u) => new URL(u).pathname === '/admin');
+  await page.getByLabel('Go back').click();
+  await page.waitForURL((u) => new URL(u).pathname === '/account');
+  await page.getByRole('button', { name: /Admin portal/ }).last().waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: /Admin portal/ }).last().click();
+  await page.waitForURL((u) => new URL(u).pathname === '/admin');
 
   const rows = [
     { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },
@@ -726,7 +734,8 @@ await step('admin-feature-registry', async () => {
       }),
     });
   });
-  await go('/admin/features');
+  await page.getByText('Features', { exact: true }).click();
+  await page.waitForURL((u) => new URL(u).pathname === '/admin/features');
   await visible('E2E registry probe');
   const switches = page.getByRole('switch');
   if (await switches.count() !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${await switches.count()}`);

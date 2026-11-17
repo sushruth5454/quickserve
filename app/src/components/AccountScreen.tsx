@@ -113,7 +113,13 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
 
       {admin ? (
         <Group title="Administration">
-          <ListItem icon="settings-outline" title="Admin portal" subtitle="Trends, services, people, bookings and support" chevron onPress={() => router.push('/admin')} />
+          <ListItem
+            icon="settings-outline"
+            title="Admin portal"
+            subtitle="Trends, services, people, bookings and support"
+            chevron
+            onPress={() => router.push({ pathname: '/admin', params: { returnTo: mode === 'provider' ? 'pro-account' : 'account' } })}
+          />
         </Group>
       ) : null}
 
