@@ -408,6 +408,7 @@ jobs:
               ("0047", "0047_coins_config.sql"),
               ("0048", "0048_sports.sql"),
               ("0049", "0049_shops_catalogue.sql"),
+              ("0050", "0050_rfq.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

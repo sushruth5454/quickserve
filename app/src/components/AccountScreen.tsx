@@ -169,6 +169,18 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
               onPress={() => router.push('/merchant-shop')}
             />
           ) : null}
+          {flags.isOn('products') && flags.isOn('product_rfq') ? (
+            <>
+              <Divider inset={LIST_INSET} />
+              <ListItem
+                icon="document-text-outline"
+                title="Supplier RFQs"
+                subtitle="Review requests and send quotes"
+                chevron
+                onPress={() => router.push('/merchant-rfqs')}
+              />
+            </>
+          ) : null}
         </Group>
       ) : null}
 

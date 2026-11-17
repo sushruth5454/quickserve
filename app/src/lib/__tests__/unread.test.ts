@@ -90,9 +90,12 @@ describe('unread helpers', () => {
     expect(notificationRoute({ url: '/shop/shop-1' })).toBe('/shop/shop-1');
     expect(notificationRoute({ url: '/product/product-1' })).toBe('/product/product-1');
     expect(notificationRoute({ url: '/enquiry/enquiry-1' })).toBe('/enquiry/enquiry-1');
+    expect(notificationRoute({ url: '/rfq/rfq-1' })).toBe('/rfq/rfq-1');
+    expect(notificationRoute({ url: '/rfq/merchant/rfq-1' })).toBe('/rfq/merchant/rfq-1');
     expect(notificationRoute({ url: 'https://evil.example/chat/x' })).toBeNull();
     expect(notificationRoute({ url: '/chat/../../x' })).toBeNull();
     expect(notificationRoute({ url: '/product/../../x' })).toBeNull();
+    expect(notificationRoute({ url: '/rfq/merchant/../../x' })).toBeNull();
     expect(notificationRoute(null)).toBeNull();
   });
 

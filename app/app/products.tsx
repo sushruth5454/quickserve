@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Button, Chip, EmptyState, Header, InlineAlert, Input, Screen, Skeleton, Text } from '../src/components/ui';
 import { listProductCategories, searchProducts, signedProductImage, type ProductCategory, type SearchProduct } from '../src/features/shops/api';
 import { FeatureUnavailable, ShopProductCard, useShopFeatureFlags } from '../src/features/shops/components';
+import { useRfqFeatureFlags } from '../src/features/rfq/components';
 import { parseRupees } from '../src/lib/onboarding/validation';
 import { useSelectedLocation } from '../src/lib/locationContext';
 import { useTheme } from '../src/theme';
@@ -11,6 +12,7 @@ import { useTheme } from '../src/theme';
 export default function ProductSearchScreen() {
   const t = useTheme();
   const features = useShopFeatureFlags();
+  const { rfq: rfqEnabled } = useRfqFeatureFlags();
   const { location } = useSelectedLocation();
   const params = useLocalSearchParams<{ q?: string; category?: string }>();
   const initialQuery = useMemo(() => typeof params.q === 'string' ? params.q : '', [params.q]);
@@ -91,6 +93,9 @@ export default function ProductSearchScreen() {
         ))}
       </View>
       <Button title="Apply search and filters" variant="outline" onPress={() => void load()} />
+      {rfqEnabled ? (
+        <Button title="Request quotes from multiple shops" variant="outline" onPress={() => router.push('/rfq/new')} />
+      ) : null}
       {loading ? <Skeleton height={100} radius={t.radii.lg} /> : products.length ? products.map((product) => (
         <ShopProductCard key={product.id} product={product} imageUrl={images[product.id] ?? null} onPress={() => router.push(`/product/${product.id}`)} />
       )) : (
