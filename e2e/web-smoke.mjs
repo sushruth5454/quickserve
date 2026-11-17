@@ -677,6 +677,55 @@ await step('new-pro-hub', async () => {
   await visible('Profile strength');
 });
 
+// ---------- Admin: feature switches are rendered from registry metadata ----------
+await step('admin-feature-registry', async () => {
+  await go('/pro-account');
+  await page.getByText('Log out', { exact: true }).first().click();
+  await visible('Log out?');
+  await page.getByText('Log out', { exact: true }).last().click();
+  await page.getByLabel('Mobile number, India plus 91').waitFor();
+  await page.getByLabel('Mobile number, India plus 91').fill('8888888888');
+  await page.getByText('Send OTP', { exact: true }).click();
+  await visible('Verify your number');
+  await page.getByLabel('6-digit verification code').fill(OTP);
+  await visible('Welcome to QuickServe');
+  await optional('admin display name', () => page.getByLabel('Your name').fill('QuickServe Admin', { timeout: 3000 }));
+  await page.getByText('Continue', { exact: true }).click();
+  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+
+  const rows = [
+    { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },
+    { key: 'urgent_requests', enabled: true, label: 'Urgent creator requests', description: 'Urgent requests.', group_name: 'Bookings', sort_order: 20, updated_at: new Date().toISOString() },
+    { key: 'fixed_asap', enabled: true, label: 'ASAP for fixed-price services', description: 'ASAP bookings.', group_name: 'Bookings', sort_order: 30, updated_at: new Date().toISOString() },
+    { key: 'e2e_registry_probe', enabled: false, label: 'E2E registry probe', description: 'Proves admin switches are data-driven.', group_name: 'E2E', sort_order: 999, updated_at: new Date().toISOString() },
+  ];
+  let probeEnabled = false;
+  await page.route('**/rest/v1/rpc/admin_list_features', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) }),
+  );
+  await page.route('**/rest/v1/rpc/admin_set_feature', async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.p_key === 'e2e_registry_probe') probeEnabled = body.p_enabled;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ai_assistant: true,
+        urgent_requests: true,
+        fixed_asap: true,
+        e2e_registry_probe: probeEnabled,
+        archetypes: { inspect_quote: true, fixed: true, time_based: true, proposal: true },
+      }),
+    });
+  });
+  await go('/admin/features');
+  await visible('E2E registry probe');
+  const switches = page.getByRole('switch');
+  if (await switches.count() !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${await switches.count()}`);
+  await switches.last().click();
+  if (!probeEnabled) throw new Error('admin UI did not send the dynamic registry key to admin_set_feature');
+});
+
 await browser.close();
 
 writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, pageErrors, consoleErrors }, null, 2));

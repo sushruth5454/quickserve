@@ -400,6 +400,7 @@ jobs:
               ("0039", "0039_proposal_start_code.sql"),
               ("0040", "0040_urgent_proposals.sql"),
               ("0041", "0041_admin_support.sql"),
+              ("0042", "0042_feature_registry.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

@@ -84,7 +84,7 @@ export default function NewServiceRequest() {
         <SegmentedControl
           options={[
             { value: 'date', label: 'Pick a date' },
-            ...(flags.urgent_requests ? [{ value: 'urgent', label: 'Urgent' } as const] : []),
+            ...(flags.isOn('urgent_requests') ? [{ value: 'urgent', label: 'Urgent' } as const] : []),
           ]}
           value={when}
           onChange={setWhen}

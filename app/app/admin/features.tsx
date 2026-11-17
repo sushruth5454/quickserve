@@ -2,14 +2,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { Card, ErrorState, Header, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
-import { getAppFeatures, setFeature, type AdminFeatures } from '../../src/lib/adminApi';
+import { getAppFeatures, listFeatures, setFeature, type AdminFeature, type AdminFeatures } from '../../src/lib/adminApi';
 import { useTheme } from '../../src/theme';
-
-const FEATURES = [
-  { key: 'ai_assistant', title: 'AI assistant', description: 'Voice/text matching and AI booking draft.' },
-  { key: 'urgent_requests', title: 'Urgent creator requests', description: 'Creator and event requests from 2 hours away.' },
-  { key: 'fixed_asap', title: 'ASAP for fixed-price services', description: 'Immediate cleaning and similar package bookings.' },
-] as const;
 
 const ARCHETYPES = [
   ['inspect_quote', 'Repair & inspection'],
@@ -22,10 +16,17 @@ export default function AdminFeaturesScreen() {
   const t = useTheme();
   const toast = useToast();
   const [features, setFeatures] = useState<AdminFeatures | null>(null);
+  const [featureRows, setFeatureRows] = useState<AdminFeature[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const load = useCallback(() => {
-    void getAppFeatures().then(setFeatures).catch((e: Error) => setError(e.message));
+    setError(null);
+    void Promise.all([getAppFeatures(), listFeatures()])
+      .then(([nextFeatures, nextRows]) => {
+        setFeatures(nextFeatures);
+        setFeatureRows(nextRows);
+      })
+      .catch((e: Error) => setError(e.message));
   }, []);
   useFocusEffect(load);
 
@@ -40,22 +41,30 @@ export default function AdminFeaturesScreen() {
       setSaving(null);
     }
   };
+  const groupedFeatures = (featureRows ?? []).reduce<Record<string, AdminFeature[]>>((groups, feature) => {
+    (groups[feature.group_name] ??= []).push(feature);
+    return groups;
+  }, {});
 
   return (
     <Screen header={<Header title="Features" subtitle="Live switches · changes apply immediately" />}>
-      {error ? <ErrorState message={error} onRetry={load} /> : !features ? <Skeleton height={300} radius={t.radii.lg} /> : (
+      {error ? <ErrorState message={error} onRetry={load} /> : !features || !featureRows ? <Skeleton height={300} radius={t.radii.lg} /> : (
         <>
-          <Text variant="title3">App features</Text>
-          {FEATURES.map((f) => (
-            <Card key={f.key}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text variant="calloutStrong">{f.title}</Text>
-                  <Text variant="footnote" color="muted">{f.description}</Text>
-                </View>
-                <Switch value={!!features[f.key]} disabled={saving === f.key} onValueChange={(v) => void change(f.key, v)} />
-              </View>
-            </Card>
+          {Object.entries(groupedFeatures).map(([groupName, rows]) => (
+            <View key={groupName} style={{ gap: t.spacing.sm }}>
+              <Text variant="title3">{groupName}</Text>
+              {rows.map((feature) => (
+                <Card key={feature.key}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text variant="calloutStrong">{feature.label}</Text>
+                      <Text variant="footnote" color="muted">{feature.description}</Text>
+                    </View>
+                    <Switch value={features[feature.key] === true} disabled={saving === feature.key} onValueChange={(v) => void change(feature.key, v)} />
+                  </View>
+                </Card>
+              ))}
+            </View>
           ))}
           <Text variant="title3">Service types</Text>
           {ARCHETYPES.map(([key, title]) => (

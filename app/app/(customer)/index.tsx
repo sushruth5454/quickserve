@@ -24,7 +24,7 @@ import type { Catalogue } from '../../src/features/catalogue/model';
 export default function CustomerHome() {
   const t = useTheme();
   const flags = useAppFeatureFlags();
-  const aiEnabled = aiAssistantEnabled && flags.ai_assistant;
+  const aiEnabled = aiAssistantEnabled && flags.isOn('ai_assistant');
   const unread = useUnread();
   const bellCount = unread.total('customer') + unread.notifications;
   const insets = useSafeAreaInsets();

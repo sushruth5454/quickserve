@@ -78,7 +78,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const total = packageTotal(item.package, quantity);
   const dueNow = pack ? total + 4900 : total;
   const totalMinutes = packageDuration(item.package, quantity);
-  const asapOk = archetype === 'fixed' && flags.fixed_asap && item.providerOnline && !item.providerPaused && asapAvailable(sched, new Date());
+  const asapOk = archetype === 'fixed' && flags.isOn('fixed_asap') && item.providerOnline && !item.providerPaused && asapAvailable(sched, new Date());
   const useAsap = asap && asapOk;
   const start = useAsap ? asapStart(new Date()) : windowStart(day.date, hour);
   const end = new Date(start.getTime() + totalMinutes * 60_000);
@@ -210,7 +210,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
 
       <View style={{ gap: t.spacing.md }}>
         <Text variant="title3">When</Text>
-        {archetype === 'fixed' && flags.fixed_asap ? (
+        {archetype === 'fixed' && flags.isOn('fixed_asap') ? (
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
             <Choice label={asapOk ? 'ASAP\nwithin ~1 hour' : 'ASAP\nnot available now'} selected={useAsap} onPress={() => asapOk && setAsap(true)} />
             <Choice label={'Schedule\npick a time'} selected={!useAsap} onPress={() => setAsap(false)} />

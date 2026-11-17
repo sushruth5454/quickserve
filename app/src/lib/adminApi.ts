@@ -1,10 +1,18 @@
 import { supabase } from './supabase';
 
 export interface AdminFeatures {
-  ai_assistant: boolean;
-  urgent_requests: boolean;
-  fixed_asap: boolean;
+  [key: string]: boolean | Record<string, boolean>;
   archetypes: Record<string, boolean>;
+}
+
+export interface AdminFeature {
+  key: string;
+  enabled: boolean;
+  label: string;
+  description: string;
+  group_name: string;
+  sort_order: number;
+  updated_at: string;
 }
 
 export interface AdminDashboard {
@@ -123,6 +131,7 @@ async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise
 
 export const amIAdmin = () => rpc<boolean>('am_i_admin');
 export const getAppFeatures = () => rpc<AdminFeatures>('get_app_features');
+export const listFeatures = () => rpc<AdminFeature[]>('admin_list_features');
 export const setFeature = (key: string, enabled: boolean) => rpc<AdminFeatures>('admin_set_feature', { p_key: key, p_enabled: enabled });
 export const getDashboard = (days = 30) => rpc<AdminDashboard>('admin_dashboard', { p_days: days });
 export const listCategories = () => rpc<AdminCategory[]>('admin_list_categories');
