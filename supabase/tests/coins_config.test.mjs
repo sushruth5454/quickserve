@@ -292,7 +292,7 @@ await asAdmin(`select admin_set_feature('coins_earning', true)`);
 await asAdmin(`select admin_set_feature('coins_redemption', false)`);
 const disabledBooking = await createAndPayVisit();
 const disabledQuote = await createQuote(disabledBooking);
-const [{ disabledPreview }] = await asCustomer(
+const [{ disabled_preview: disabledPreview }] = await asCustomer(
   `select get_coin_redemption_preview($1, $2) as disabled_preview`, [disabledBooking, disabledQuote],
 );
 ok(disabledPreview.maximum_paise === 0, 'redemption preview returns zero while redemption is disabled');
