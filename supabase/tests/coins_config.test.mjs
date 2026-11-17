@@ -316,7 +316,7 @@ const [{ expiry_result: expiryResult }] = await service(`select expire_coins() a
 ok(expiryResult.lots === 1 && expiryResult.amount_paise === 10,
   'expiry processing writes a balancing ledger entry for the configured-denomination lot');
 
-const [{ finalSummary }] = await asAdmin(`select admin_coin_summary() as final_summary`);
+const [{ final_summary: finalSummary }] = await asAdmin(`select admin_coin_summary() as final_summary`);
 const [{ finalBalance }] = await asCustomer(`select get_my_coin_balance() as "finalBalance"`);
 ok(finalSummary.issued_paise === 3000 && finalSummary.budget_paise === null
     && finalSummary.outstanding_paise === finalBalance,
