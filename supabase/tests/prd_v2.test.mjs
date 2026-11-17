@@ -62,7 +62,7 @@ for (const file of [
   '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',
   '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql',
   '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
-  '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql',
+  '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql', '0043_commission_config.sql',
 ]) await db.exec(migration(file));
 
 await db.exec("set timezone = 'UTC'");
@@ -81,9 +81,14 @@ const one = async (query, params = []) => (await db.query(query, params)).rows[0
 
 const customer = '00000000-0000-0000-0000-0000000000c1';
 const admin = '00000000-0000-0000-0000-0000000000b1';
+const provider = '00000000-0000-0000-0000-0000000000a1';
 await db.exec(`
   insert into auth.users (id, phone, raw_user_meta_data) values
-    ('${customer}', '+919999000001', '{}'), ('${admin}', '+918888888888', '{}');
+    ('${customer}', '+919999000001', '{}'), ('${admin}', '+918888888888', '{}'),
+    ('${provider}', '+919999000002', '{}');
+  insert into public.providers (id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended)
+  values ('${provider}', 'Review City', extensions.st_setsrid(extensions.st_makepoint(80.60,16.50),4326),
+          'verified', now(), true, false, false);
 `);
 
 const registry = await one(`select to_regclass('public.feature_flags') is not null as exists`);
@@ -119,5 +124,82 @@ const setDenied = await fails(() => as(customer, 'authenticated', `select admin_
 ok(/admin only/.test(setDenied ?? ''), 'non-admin cannot change feature switches');
 const audit = await one(`select count(*)::int as n from public.admin_audit_log where action = 'set_feature' and details->>'key' = 'future_feature'`);
 ok(audit.n === 1, 'admin feature changes are audited');
+
+// ---------- Phase 1: current commission policy is stored without changing its economics ----------
+const commissionRow = await one(`select value from public.app_config where key = 'commission'`);
+ok(!!commissionRow, 'commission policy is present in app_config');
+if (commissionRow) {
+  const c = commissionRow.value;
+  ok(c.founding_days === 30, 'commission policy preserves the current 30-day founding period');
+  ok(JSON.stringify(c.tiers) === JSON.stringify([
+    { min_jobs: 200, bp: 800 }, { min_jobs: 50, bp: 1000 }, { min_jobs: 0, bp: 1200 },
+  ]), 'commission policy preserves the current 12/10/8 percent job tiers');
+  ok(c.repeat_discount_bp === 400 && c.repeat_floor_bp === 500,
+    'commission policy preserves the current repeat discount and 5 percent floor');
+}
+const adminConfig = (await as(admin, 'authenticated', `select admin_get_commission_config() config`))[0]?.config;
+ok(adminConfig?.founding_days === 30, 'admin can read the stored commission policy');
+const terms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
+ok(terms?.my_bp === 0 && terms?.founding_days === 30, 'provider terms report the current free-period rate from server config');
+ok(terms?.tiers?.some((tier) => tier.min_jobs === 50 && tier.bp === 1000), 'provider terms expose configured commission tiers');
+const customerTerms = (await as(customer, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
+ok(customerTerms?.my_bp === null && customerTerms?.my_free_until === null, 'non-provider terms never expose another provider rate');
+
+const config = {
+  founding_days: 90,
+  tiers: [{ min_jobs: 200, bp: 800 }, { min_jobs: 50, bp: 1000 }, { min_jobs: 0, bp: 1200 }],
+  repeat_discount_bp: 400,
+  repeat_floor_bp: 500,
+};
+await db.query(`update providers set created_at = now() - interval '60 days', jobs_completed = 0 where id = $1`, [provider]);
+const updatedConfig = (await as(admin, 'authenticated',
+  `select admin_set_commission($1::jsonb) config`, [JSON.stringify(config)]))[0]?.config;
+ok(updatedConfig?.founding_days === 90, 'admin can update the global commission config');
+const freeTerms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
+ok(freeTerms?.my_bp === 0 && freeTerms?.founding_days === 90, 'updated founding period applies without an app update');
+const invalidCommission = await fails(() => as(admin, 'authenticated',
+  `select admin_set_commission($1::jsonb)`, [JSON.stringify({ ...config, founding_days: 366 })]));
+ok(/founding days/.test(invalidCommission ?? ''), 'commission config rejects out-of-range founding periods');
+const duplicateTier = await fails(() => as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [
+  JSON.stringify({ ...config, tiers: [{ min_jobs: 0, bp: 1200 }, { min_jobs: 0, bp: 1000 }] }),
+]));
+ok(/thresholds must be unique/.test(duplicateTier ?? ''), 'commission config rejects duplicate tier thresholds');
+const malformedTiers = await fails(() => as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [
+  JSON.stringify({ ...config, tiers: { min_jobs: 0, bp: 1200 } }),
+]));
+ok(/commission requires 1 to 10 tiers/.test(malformedTiers ?? ''), 'commission config rejects a non-array tier value cleanly');
+const normalCommissionDenied = await fails(() => as(customer, 'authenticated',
+  `select admin_set_commission($1::jsonb)`, [JSON.stringify(config)]));
+ok(/admin only/.test(normalCommissionDenied ?? ''), 'normal users cannot change commission config');
+await as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [JSON.stringify({ ...config, founding_days: 30 })]);
+const standardTerms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
+ok(standardTerms?.my_bp === 1200, 'restoring the 30-day founding period retains the current base tier');
+await db.query(`update providers set jobs_completed = 50 where id = $1`, [provider]);
+const tier1Terms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
+ok(tier1Terms?.my_bp === 1000, 'the 50-job tier is read from configured commission terms');
+await db.query(`update providers set jobs_completed = 200 where id = $1`, [provider]);
+const tier2Terms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
+ok(tier2Terms?.my_bp === 800, 'the 200-job tier is read from configured commission terms');
+await db.query(`
+  insert into public.categories (slug, name, pricing_mode, active, archetype, intake_schema, config_version, max_lead_days)
+  values ('phase1-commission-test', 'Commission test', 'quote', true, 'inspect_quote', '{}'::jsonb, 1, 365)
+`);
+const commissionCategory = (await one(`select id from categories where slug = 'phase1-commission-test'`)).id;
+ok((await one(`select commission_bp from categories where id = $1`, [commissionCategory])).commission_bp === null,
+  'new categories have no commission override by default');
+await as(admin, 'authenticated', `select admin_set_category_commission($1, 2000)`, [commissionCategory]);
+ok((await one(`select commission_bp from categories where id = $1`, [commissionCategory])).commission_bp === 2000,
+  'admin can set a category commission override');
+const invalidCategoryCommission = await fails(() => as(admin, 'authenticated',
+  `select admin_set_category_commission($1, 3001)`, [commissionCategory]));
+ok(/between 0 and 3000/.test(invalidCategoryCommission ?? ''), 'category commission override is range-validated');
+const categoryList = await as(admin, 'authenticated', `select * from admin_list_commission_categories()`);
+ok(categoryList.some((row) => row.id === commissionCategory && row.commission_bp === 2000),
+  'admin category list reflects the configured override');
+const categoryListDenied = await fails(() => as(customer, 'authenticated', `select * from admin_list_commission_categories()`));
+ok(/admin only/.test(categoryListDenied ?? ''), 'normal users cannot read commission administration rows');
+const normalCategoryCommissionDenied = await fails(() => as(customer, 'authenticated',
+  `select admin_set_category_commission($1, 1000)`, [commissionCategory]));
+ok(/admin only/.test(normalCategoryCommissionDenied ?? ''), 'normal users cannot configure category commissions');
 
 if (failures) process.exit(1);

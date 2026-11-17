@@ -401,6 +401,7 @@ jobs:
               ("0040", "0040_urgent_proposals.sql"),
               ("0041", "0041_admin_support.sql"),
               ("0042", "0042_feature_registry.sql"),
+              ("0043", "0043_commission_config.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

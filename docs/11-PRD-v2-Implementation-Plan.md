@@ -250,7 +250,7 @@ insert into public.app_config (key, value) values ('commission', '{
 - **New** `admin_set_commission(p_config jsonb)` (admin): validate `founding_days` 0–365, each `bp` 0–3000, `min_jobs` ≥ 0, last tier `min_jobs = 0`. Store; audit.
 - **New** `admin_set_category_commission(p_category_id uuid, p_bp int)` (admin): `p_bp` null or 0–3000.
 
-**Gotcha:** `_coin_platform_cap` calls the 2-argument version. That is fine; keep it.
+**Gotcha:** `_coin_platform_cap` currently calls the 2-argument tier-only overload. Replace it with the 4-argument booking-aware overload using `b.provider_id`, `b.customer_id`, `b.id`, and `now()`. The coin-redeemable platform-revenue cap must use the same category override and repeat rate as the payout; otherwise the preview may overstate available coins.
 
 ### 1.2 App — remove hardcoded commission text
 
