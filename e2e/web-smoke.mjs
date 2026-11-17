@@ -421,7 +421,7 @@ await step('coins-wallet', async () => {
   await page.getByText('Seva Coins', { exact: true }).first().click();
   await page.waitForURL(/\/coins$/);
   await visible('Seva Coins');
-  await visible('History');
+  await page.getByText(/^History$/i).first().waitFor({ state: 'visible' });
 });
 await optional('me-customer-scrolled', () => snapScrolled('me-customer-scrolled', 900));
 await step('info-safety', async () => {
