@@ -222,6 +222,37 @@ export default function CustomerHome() {
           <Ionicons name="mic-outline" size={20} color={t.colors.primaryText} />
         </Pressable>
         ) : null}
+
+        {!unserved && (flags.isOn('sports') || flags.isOn('products')) ? (
+          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+            {flags.isOn('sports') ? (
+              <Card
+                onPress={() => router.push('/sports')}
+                style={{ flex: 1 }}
+                accessibilityLabel="Sports and venues"
+              >
+                <View style={{ gap: t.spacing.xs }}>
+                  <Ionicons name="football-outline" size={22} color={t.colors.primaryText} />
+                  <Text variant="calloutStrong">Sports & venues</Text>
+                  <Text variant="caption" color="muted">Find a court or book a slot</Text>
+                </View>
+              </Card>
+            ) : null}
+            {flags.isOn('products') ? (
+              <Card
+                onPress={() => router.push('/shop')}
+                style={{ flex: 1 }}
+                accessibilityLabel="Shop local"
+              >
+                <View style={{ gap: t.spacing.xs }}>
+                  <Ionicons name="storefront-outline" size={22} color={t.colors.primaryText} />
+                  <Text variant="calloutStrong">Shop local</Text>
+                  <Text variant="caption" color="muted">Browse nearby shops and products</Text>
+                </View>
+              </Card>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}

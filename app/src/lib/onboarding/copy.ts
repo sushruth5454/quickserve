@@ -48,7 +48,7 @@ export const BIO_BAD = 'Good work. Call me.';
 export const PROVIDER_TERMS_SUMMARY = [
   'Quote before work: you send an itemised quote and start only after the customer approves it.',
   'Payments stay in the app. Taking payment outside QuickServe is not allowed.',
-  'Commission is charged on labour only: 0% for your first 30 days, then 12% (10% after 50 jobs, 8% after 200). Parts are 0%.',
+  'Commission can vary by service. Earnings shows the current policy; quote previews show the booking-specific rate when a quote is needed.',
   'Payouts are sent to your verified bank account after the 24-hour dispute window.',
   'You follow the safety rules, keep customer details private and behave professionally.',
 ];

@@ -1,9 +1,35 @@
-/** Seva Coins rules. Ledger and payment amounts are integer paise; one coin is ₹1. */
-export const COIN_VALUE_PAISE = 100;
-export const COIN_EARN_BP = 200;
-export const COIN_REDEEM_BP = 1000;
-export const COIN_MONTHLY_EARN_CAP_PAISE = 100000;
-export const COIN_EXPIRY_MONTHS = 6;
+/** Wallet amounts stay in paise; the denomination only controls display and rounding. */
+export interface CoinsConfig {
+  coin_paise: number;
+  earn_rate_bp: number;
+  per_txn_cap_paise: number | null;
+  first_txn_bonus_paise: number;
+  monthly_cap_paise: number;
+  redeem_cap_bp: number;
+  expiry_months: number;
+  pilot_budget_paise: number | null;
+  coins_earning_enabled?: boolean;
+  coins_redemption_enabled?: boolean;
+}
+
+// Owner-approved PRD v2 Phase 2 defaults; the server remains authoritative.
+export const DEFAULT_COINS_CONFIG: CoinsConfig = {
+  coin_paise: 10,
+  earn_rate_bp: 100,
+  per_txn_cap_paise: 2000,
+  first_txn_bonus_paise: 1000,
+  monthly_cap_paise: 100000,
+  redeem_cap_bp: 1000,
+  expiry_months: 6,
+  pilot_budget_paise: 1000000,
+};
+
+export const COIN_PAISE = 10;
+export const COIN_VALUE_PAISE = COIN_PAISE;
+export const COIN_EARN_BP = DEFAULT_COINS_CONFIG.earn_rate_bp;
+export const COIN_REDEEM_BP = DEFAULT_COINS_CONFIG.redeem_cap_bp;
+export const COIN_MONTHLY_EARN_CAP_PAISE = DEFAULT_COINS_CONFIG.monthly_cap_paise;
+export const COIN_EXPIRY_MONTHS = DEFAULT_COINS_CONFIG.expiry_months;
 
 export interface CoinLedgerEntry {
   id: string;
@@ -21,24 +47,25 @@ export interface CoinLedgerEntry {
 
 export interface CoinRedemptionPreview {
   balance_paise: number;
+  coin_paise: number;
   service_cap_paise: number;
   platform_cap_paise: number;
   maximum_paise: number;
   applied_paise: number;
 }
 
-export function coinPaiseToCoins(paise: number): number {
-  return Math.floor(Math.max(0, Math.round(paise)) / COIN_VALUE_PAISE);
+export function coinPaiseToCoins(paise: number, config: Pick<CoinsConfig, 'coin_paise'> = DEFAULT_COINS_CONFIG): number {
+  return Math.floor(Math.max(0, Math.round(paise)) / Math.max(1, config.coin_paise));
 }
 
 export function coinRedemptionLimit(params: {
   balancePaise: number;
   serviceValuePaise: number;
   platformRevenuePaise: number;
-}): number {
-  const serviceCap = Math.floor(params.serviceValuePaise * COIN_REDEEM_BP / 10000);
+}, config: Pick<CoinsConfig, 'coin_paise' | 'redeem_cap_bp'> = DEFAULT_COINS_CONFIG): number {
+  const serviceCap = Math.floor(params.serviceValuePaise * config.redeem_cap_bp / 10000);
   const raw = Math.max(0, Math.min(params.balancePaise, serviceCap, params.platformRevenuePaise));
-  return Math.floor(raw / COIN_VALUE_PAISE) * COIN_VALUE_PAISE;
+  return Math.floor(raw / Math.max(1, config.coin_paise)) * Math.max(1, config.coin_paise);
 }
 
 export function earnedCoinPaise(params: {
@@ -46,12 +73,28 @@ export function earnedCoinPaise(params: {
   coinDiscountPaise?: number;
   refundPaise?: number;
   earnedThisMonthPaise?: number;
-}): number {
+  issuedTotalPaise?: number;
+  isFirstBooking?: boolean;
+}, config: CoinsConfig = DEFAULT_COINS_CONFIG): number {
   const eligible = Math.max(
     0,
     params.serviceValuePaise - (params.coinDiscountPaise ?? 0) - (params.refundPaise ?? 0),
   );
-  const earned = Math.floor((eligible * COIN_EARN_BP) / 10000 / COIN_VALUE_PAISE) * COIN_VALUE_PAISE;
-  const remainingCap = Math.max(0, COIN_MONTHLY_EARN_CAP_PAISE - (params.earnedThisMonthPaise ?? 0));
-  return Math.min(earned, remainingCap);
+  const unit = Math.max(1, config.coin_paise);
+  let base = Math.floor((eligible * config.earn_rate_bp) / 10000 / unit) * unit;
+  if (config.per_txn_cap_paise != null) {
+    base = Math.min(base, Math.floor(config.per_txn_cap_paise / unit) * unit);
+  }
+  const bonus = params.isFirstBooking
+    ? Math.floor(config.first_txn_bonus_paise / unit) * unit
+    : 0;
+  let earned = Math.floor(
+    Math.min(base + bonus, Math.max(0, config.monthly_cap_paise - (params.earnedThisMonthPaise ?? 0))) / unit,
+  ) * unit;
+  if (config.pilot_budget_paise != null) {
+    earned = Math.floor(
+      Math.min(earned, Math.max(0, config.pilot_budget_paise - (params.issuedTotalPaise ?? 0))) / unit,
+    ) * unit;
+  }
+  return earned;
 }

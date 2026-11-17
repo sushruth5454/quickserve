@@ -47,6 +47,11 @@ export default function AdminDashboardScreen() {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             <Action label="Features" icon="toggle-outline" onPress={() => router.push('/admin/features')} />
+            <Action label="Commission" icon="cash-outline" onPress={() => router.push('/admin/commission')} />
+            <Action label="Coins" icon="sparkles-outline" onPress={() => router.push('/admin/coins')} />
+            <Action label="Geography" icon="map-outline" onPress={() => router.push('/admin/geography')} />
+            <Action label="Sports" icon="football-outline" onPress={() => router.push('/admin/sports')} />
+            <Action label="Shops" icon="storefront-outline" onPress={() => router.push('/admin/shops')} />
             <Action label="Services" icon="grid-outline" onPress={() => router.push('/admin/services')} />
             <Action label="People" icon="people-outline" badge={data.totals.providers_pending} onPress={() => router.push('/admin/people')} />
             <Action label="Bookings" icon="calendar-outline" badge={data.totals.disputes_open} onPress={() => router.push('/admin/bookings')} />

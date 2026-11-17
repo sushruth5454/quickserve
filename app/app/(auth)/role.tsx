@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/ui';
-import { getMyProfile, getMyProvider, updateMyProfile } from '../../src/lib/api';
+import { getCommissionTerms, getMyProfile, getMyProvider, updateMyProfile } from '../../src/lib/api';
 import { useAuth, type ActiveRole } from '../../src/lib/auth';
 import { haptics } from '../../src/lib/haptics';
 import { useTheme } from '../../src/theme';
@@ -21,7 +21,7 @@ const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof ty
     title: 'I provide services',
     subtitle: 'Get jobs nearby and get paid in-app',
     icon: 'briefcase-outline',
-    bullets: ['0% commission for your first 30 days', 'Weekly payouts to your bank'],
+    bullets: ['Weekly payouts to your bank'],
   },
 ];
 
@@ -31,6 +31,7 @@ export default function RoleScreen() {
   const { setChoosingRole, setActiveRole } = useAuth();
   const [name, setName] = useState('');
   const [role, setRole] = useState<ActiveRole>('customer');
+  const [commissionBullet, setCommissionBullet] = useState('Low commission on in-app jobs');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,6 +39,9 @@ export default function RoleScreen() {
     getMyProfile()
       .then((p) => p?.full_name && setName((n) => n || p.full_name))
       .catch(() => undefined);
+    getCommissionTerms()
+      .then((terms) => setCommissionBullet(`0% commission for your first ${terms.founding_days} days`))
+      .catch(() => setCommissionBullet('Low commission on in-app jobs'));
   }, []);
 
   const proceed = async () => {
@@ -129,7 +133,7 @@ export default function RoleScreen() {
                     {r.subtitle}
                   </Text>
                 </View>
-                {r.bullets.map((b) => (
+                {(r.role === 'provider' ? [commissionBullet, ...r.bullets] : r.bullets).map((b) => (
                   <View key={b} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Ionicons name="checkmark" size={14} color={t.colors.muted} />
                     <Text variant="footnote" color="textSecondary">

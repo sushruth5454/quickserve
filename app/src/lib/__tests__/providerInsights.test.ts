@@ -68,13 +68,42 @@ describe('stepperModel per booking type', () => {
 
 describe('provider insights', () => {
   const at = new Date('2026-11-14T00:00:00Z');
+  const terms = {
+    founding_days: 60,
+    tiers: [
+      { min_jobs: 200, bp: 600 },
+      { min_jobs: 25, bp: 900 },
+      { min_jobs: 0, bp: 1500 },
+    ],
+    repeat_discount_bp: 300,
+    repeat_floor_bp: 400,
+    time_based: { one_off_bp: 1000, recurring_bp: 800 },
+    my_bp: 1500,
+    my_free_until: null,
+  };
 
-  it('shows the free period, then the next tier', () => {
-    expect(tierProgress({ jobsCompleted: 3, createdAt: new Date('2026-11-01T00:00:00Z'), at }).rateBp).toBe(0);
-    const p = tierProgress({ jobsCompleted: 6, createdAt: new Date('2026-01-01T00:00:00Z'), at });
-    expect(p).toMatchObject({ rateBp: 1200, nextRateBp: 1000, jobsToNext: 44 });
-    expect(p.progress).toBeCloseTo(6 / 50);
-    expect(tierProgress({ jobsCompleted: 250, createdAt: new Date('2025-01-01T00:00:00Z'), at })).toMatchObject({ rateBp: 800, nextRateBp: null });
+  it('uses the server free-until date and configured tiers', () => {
+    const freeTerms = { ...terms, my_bp: 0, my_free_until: '2026-11-20T00:00:00Z' };
+    expect(tierProgress({ jobsCompleted: 3, terms: freeTerms, at })).toMatchObject({
+      rateBp: 0,
+      freeUntil: new Date('2026-11-20T00:00:00Z'),
+      nextRateBp: 1500,
+      jobsToNext: null,
+    });
+    const progress = tierProgress({ jobsCompleted: 6, terms, at });
+    expect(progress).toMatchObject({ rateBp: 1500, nextRateBp: 900, jobsToNext: 19, currentTierMinJobs: 0 });
+    expect(progress.progress).toBeCloseTo(6 / 25);
+    expect(tierProgress({ jobsCompleted: 250, terms: { ...terms, my_bp: 600 }, at })).toMatchObject({
+      rateBp: 600,
+      currentTierMinJobs: 200,
+      nextRateBp: null,
+    });
+  });
+
+  it('does not infer an end date when the server says the free period is over', () => {
+    const result = tierProgress({ jobsCompleted: 0, terms: { ...terms, my_free_until: null }, at });
+    expect(result.freeUntil).toBeNull();
+    expect(result.rateBp).toBe(1500);
   });
 
   it('derives acceptance and completion rates only from decided jobs', () => {

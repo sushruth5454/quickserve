@@ -14,6 +14,18 @@ beforeEach(() => {
 
 const coords = { lat: 16.5, lng: 80.65 };
 
+describe('demo api — commission terms', () => {
+  it('keeps time-based rates separate from the standard job tiers', async () => {
+    const terms = await api.getCommissionTerms();
+    expect(terms.tiers).toEqual([
+      { min_jobs: 0, bp: 1200 },
+      { min_jobs: 50, bp: 1000 },
+      { min_jobs: 200, bp: 800 },
+    ]);
+    expect(terms.time_based).toEqual({ one_off_bp: 1000, recurring_bp: 800 });
+  });
+});
+
 describe('demo api — customer flows', () => {
   it('rejects a wrong OTP and signs in with 123456', async () => {
     await api.signOut();

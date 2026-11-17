@@ -5,18 +5,19 @@ import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../src/components/AddressEditor';
 import { Card, Divider, Header, InlineAlert, Input, LIST_INSET, Screen, Section, Skeleton, Text, useToast } from '../src/components/ui';
 import { listMyAddresses } from '../src/lib/api';
+import { isAreaPickerEnabled, listAreas } from '../src/lib/geographyApi';
 import { placeSearchSupported, resolvePlace, searchPlaces, useSelectedLocation, type PlaceResult } from '../src/lib/locationContext';
 import { newPlacesSession } from '../src/lib/places';
 import {
-  fromArea,
+  fromManagedArea,
   fromSavedAddress,
-  LAUNCH_CITY,
-  POPULAR_AREAS,
   sameLocation,
   sortAddresses,
+  type ManagedArea,
   type SelectedLocation,
 } from '../src/lib/locationModel';
 import type { SavedAddress } from '../src/lib/types';
+import { useT } from '../src/i18n';
 import { useTheme } from '../src/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -24,6 +25,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 /** Swiggy / Urban Company style "Select location": search, GPS, saved addresses, popular areas. */
 export default function LocationPicker() {
   const t = useTheme();
+  const tr = useT();
   const toast = useToast();
   const { location, setLocation, locateWithGps } = useSelectedLocation();
   const [query, setQuery] = useState('');
@@ -32,6 +34,9 @@ export default function LocationPicker() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[] | null>(null);
   const [addrError, setAddrError] = useState<string | null>(null);
+  const [areaPickerEnabled, setAreaPickerEnabled] = useState(false);
+  const [managedAreas, setManagedAreas] = useState<ManagedArea[]>([]);
+  const [areasError, setAreasError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [gpsError, setGpsError] = useState<{ message: string; settings: boolean } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -47,6 +52,29 @@ export default function LocationPicker() {
   useEffect(() => {
     void loadAddresses();
   }, [loadAddresses]);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setAreasError(null);
+      try {
+        const enabled = await isAreaPickerEnabled();
+        if (!alive) return;
+        setAreaPickerEnabled(enabled);
+        if (!enabled) {
+          setManagedAreas([]);
+          return;
+        }
+        const rows = await listAreas();
+        if (alive) setManagedAreas(rows);
+      } catch (e) {
+        if (alive) setAreasError((e as Error).message);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Debounced place search (Google Places, falling back to the phone's geocoder). One session token covers the
   // suggestions typed and the place finally picked.
@@ -106,30 +134,35 @@ export default function LocationPicker() {
   };
 
   const q = query.trim().toLowerCase();
-  const areas = q ? POPULAR_AREAS.filter((a) => a.name.toLowerCase().includes(q)) : POPULAR_AREAS;
+  const areaGroups = managedAreas
+    .filter((area) => !q || `${area.name} ${area.city}`.toLowerCase().includes(q))
+    .reduce<Record<string, ManagedArea[]>>((groups, area) => {
+      (groups[area.city] ??= []).push(area);
+      return groups;
+    }, {});
   const savedMatches = (addresses ?? []).filter((a) => !q || `${a.label} ${a.line1} ${a.city}`.toLowerCase().includes(q));
 
   return (
-    <Screen header={<Header title="Select location" subtitle="Where do you need the service?" />} gap={t.spacing.section}>
+    <Screen header={<Header title={tr('location.title')} subtitle={tr('location.subtitle')} />} gap={t.spacing.section}>
       <View style={{ gap: t.spacing.md }}>
         <Input
           leftIcon="search"
-          placeholder="Search area, street or landmark"
+          placeholder={tr('location.search.placeholder')}
           value={query}
           onChangeText={setQuery}
           autoCorrect={false}
           returnKeyType="search"
-          accessibilityLabel="Search for an area or address"
+          accessibilityLabel={tr('location.search.accessibility')}
           right={
             query ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10} onPress={() => setQuery('')}>
+              <Pressable accessibilityRole="button" accessibilityLabel={tr('location.search.clear')} hitSlop={10} onPress={() => setQuery('')}>
                 <Ionicons name="close-circle" size={20} color={t.colors.muted} />
               </Pressable>
             ) : null
           }
         />
         {q && !placeSearchSupported ? (
-          <InlineAlert tone="neutral" icon="phone-portrait-outline" message="Street search works in the QuickServe app. Here, pick an area or a saved address." />
+          <InlineAlert tone="neutral" icon="phone-portrait-outline" message={tr('location.search.unavailable')} />
         ) : null}
         {placeSearchSupported && q.length >= 3 ? (
           <Card padding={0} gap={0}>
@@ -144,9 +177,9 @@ export default function LocationPicker() {
               </View>
             ) : results && results.length === 0 ? (
               <View style={{ padding: t.spacing.lg, gap: 2 }}>
-                <Text variant="calloutStrong">No matches for “{query.trim()}”</Text>
+                <Text variant="calloutStrong">{tr('location.search.noMatches', { query: query.trim() })}</Text>
                 <Text variant="footnote" color="muted">
-                  Try a nearby landmark or pick an area below.
+                  {tr('location.search.tryNearby')}
                 </Text>
               </View>
             ) : (
@@ -167,7 +200,7 @@ export default function LocationPicker() {
             )}
             {results?.some((r) => r.placeId) ? (
               <Text variant="caption" color="muted" style={{ textAlign: 'right', paddingHorizontal: t.spacing.lg, paddingBottom: t.spacing.sm }}>
-                powered by Google
+                {tr('location.search.poweredByGoogle')}
               </Text>
             ) : null}
           </Card>
@@ -179,8 +212,8 @@ export default function LocationPicker() {
           <Row
             icon="locate"
             accent
-            title="Use current location"
-            subtitle={locating ? 'Finding you…' : 'Using GPS'}
+            title={tr('location.current.title')}
+            subtitle={locating ? tr('location.current.finding') : tr('location.current.usingGps')}
             right={locating ? <ActivityIndicator color={t.colors.primary} /> : null}
             selected={location.source === 'gps'}
             onPress={() => void useGps()}
@@ -190,17 +223,17 @@ export default function LocationPicker() {
           <InlineAlert
             tone="warning"
             message={gpsError.message}
-            actionLabel={gpsError.settings ? 'Open Settings' : undefined}
+            actionLabel={gpsError.settings ? tr('location.openSettings') : undefined}
             onAction={gpsError.settings ? () => void Linking.openSettings() : undefined}
           />
         ) : null}
       </View>
 
-      <Section title="Saved addresses">
+      <Section title={tr('location.savedAddresses')}>
         <Card padding={0} gap={0}>
           {addrError && !addresses ? (
             <View style={{ padding: t.spacing.lg }}>
-              <InlineAlert message={addrError} actionLabel="Retry" onAction={() => void loadAddresses()} />
+              <InlineAlert message={addrError} actionLabel={tr('location.retry')} onAction={() => void loadAddresses()} />
             </View>
           ) : !addresses ? (
             [0, 1].map((i) => (
@@ -221,7 +254,7 @@ export default function LocationPicker() {
                   <Row
                     icon={addressIcon(a.label)}
                     title={a.label}
-                    badge={a.is_default ? 'Default' : undefined}
+                    badge={a.is_default ? tr('location.default') : undefined}
                     subtitle={`${a.line1}, ${a.city}`}
                     selected={sameLocation(location, l)}
                     onPress={() => choose(l)}
@@ -236,8 +269,8 @@ export default function LocationPicker() {
               <Row
                 icon="add"
                 accent
-                title="Add new address"
-                subtitle={addresses.length === 0 ? 'Save Home, Work and more for faster booking' : undefined}
+                title={tr('location.addAddress.title')}
+                subtitle={addresses.length === 0 ? tr('location.addAddress.subtitle') : undefined}
                 onPress={() => setEditorOpen(true)}
               />
             </>
@@ -245,27 +278,30 @@ export default function LocationPicker() {
         </Card>
       </Section>
 
-      <Section title={`Popular areas in ${LAUNCH_CITY}`}>
-        <Card padding={0} gap={0}>
-          {areas.length === 0 ? (
-            <View style={{ padding: t.spacing.lg }}>
-              <Text variant="footnote" color="muted">
-                No popular area matches “{query.trim()}”.
-              </Text>
-            </View>
-          ) : (
-            areas.map((a, i) => {
-              const l = fromArea(a);
-              return (
-                <Fragment key={a.name}>
-                  {i > 0 ? <Divider inset={LIST_INSET} /> : null}
-                  <Row icon="business-outline" title={a.name} subtitle={LAUNCH_CITY} selected={sameLocation(location, l)} onPress={() => choose(l)} />
-                </Fragment>
-              );
-            })
-          )}
-        </Card>
-      </Section>
+      {areasError ? <InlineAlert tone="warning" message={`Managed areas are unavailable: ${areasError}`} /> : null}
+      {areaPickerEnabled
+        ? Object.entries(areaGroups).sort(([a], [b]) => a.localeCompare(b)).map(([city, areas]) => (
+          <Section key={city} title={tr('location.popularAreas', { city })}>
+            <Card padding={0} gap={0}>
+              {areas.map((area, i) => {
+                const selectedArea = fromManagedArea(area);
+                return (
+                  <Fragment key={area.id}>
+                    {i > 0 ? <Divider inset={LIST_INSET} /> : null}
+                    <Row
+                      icon="business-outline"
+                      title={area.name}
+                      subtitle={city}
+                      selected={sameLocation(location, selectedArea)}
+                      onPress={() => choose(selectedArea)}
+                    />
+                  </Fragment>
+                );
+              })}
+            </Card>
+          </Section>
+        ))
+        : null}
 
       <AddressEditorSheet
         visible={editorOpen}
@@ -273,7 +309,7 @@ export default function LocationPicker() {
         pin={location}
         onSaved={(a) => {
           setEditorOpen(false);
-          choose(fromSavedAddress(a), 'Address saved');
+          choose(fromSavedAddress(a), tr('location.addressSaved'));
         }}
       />
     </Screen>
@@ -291,11 +327,12 @@ function Row(props: {
   onPress: () => void;
 }) {
   const t = useTheme();
+  const tr = useT();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: !!props.selected }}
-      accessibilityLabel={[props.title, props.subtitle, props.selected ? 'selected' : null].filter(Boolean).join(', ')}
+      accessibilityLabel={[props.title, props.subtitle, props.selected ? tr('location.selected') : null].filter(Boolean).join(', ')}
       onPress={props.onPress}
       style={({ pressed }) => ({
         flexDirection: 'row',

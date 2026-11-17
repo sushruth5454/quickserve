@@ -85,8 +85,14 @@ describe('unread helpers', () => {
   it('follows only our own notification routes', () => {
     expect(notificationRoute({ url: '/chat/3f2c-11' })).toBe('/chat/3f2c-11');
     expect(notificationRoute({ url: '/booking/abc' })).toBe('/booking/abc');
+    expect(notificationRoute({ url: '/venue/venue-1' })).toBe('/venue/venue-1');
+    expect(notificationRoute({ url: '/sports-booking/booking-1' })).toBe('/sports-booking/booking-1');
+    expect(notificationRoute({ url: '/shop/shop-1' })).toBe('/shop/shop-1');
+    expect(notificationRoute({ url: '/product/product-1' })).toBe('/product/product-1');
+    expect(notificationRoute({ url: '/enquiry/enquiry-1' })).toBe('/enquiry/enquiry-1');
     expect(notificationRoute({ url: 'https://evil.example/chat/x' })).toBeNull();
     expect(notificationRoute({ url: '/chat/../../x' })).toBeNull();
+    expect(notificationRoute({ url: '/product/../../x' })).toBeNull();
     expect(notificationRoute(null)).toBeNull();
   });
 

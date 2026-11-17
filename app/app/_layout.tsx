@@ -15,6 +15,7 @@ import { LocationProvider } from '../src/lib/locationContext';
 import { PaymentProvider } from '../src/lib/payments';
 import { configureForegroundHandling, registerForPush, resetPushRegistration, setAppBadge, useNotificationRouting } from '../src/lib/push';
 import { UnreadProvider, useUnread } from '../src/lib/unreadContext';
+import { LanguageProvider } from '../src/i18n';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
 
@@ -102,15 +103,17 @@ function ThemedApp() {
     <ToastProvider>
       <ConfirmProvider>
         <AuthProvider>
-          <UnreadProvider>
-            <LocationProvider>
-              <PaymentProvider>
-                <StatusBar style={t.dark ? 'light' : 'dark'} />
-                <RootNavigator />
-                <DemoDataIndicator />
-              </PaymentProvider>
-            </LocationProvider>
-          </UnreadProvider>
+          <LanguageProvider>
+            <UnreadProvider>
+              <LocationProvider>
+                <PaymentProvider>
+                  <StatusBar style={t.dark ? 'light' : 'dark'} />
+                  <RootNavigator />
+                  <DemoDataIndicator />
+                </PaymentProvider>
+              </LocationProvider>
+            </UnreadProvider>
+          </LanguageProvider>
         </AuthProvider>
       </ConfirmProvider>
     </ToastProvider>

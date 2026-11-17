@@ -12,6 +12,7 @@ import {
   Avatar,
   Badge,
   Button,
+  BottomSheet,
   Card,
   Chip,
   Divider,
@@ -39,6 +40,7 @@ import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../src/lib/
 import { haptics } from '../../src/lib/haptics';
 import { amountDue, formatINR } from '../../src/lib/money';
 import { coinPaiseToCoins, earnedCoinPaise, type CoinRedemptionPreview } from '../../src/lib/coins';
+import { creatorRevisionsEnabled, requestCreatorRevision } from '../../src/lib/creatorRevisions';
 import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
 import { registerForPush } from '../../src/lib/push';
@@ -49,7 +51,7 @@ import { useTheme } from '../../src/theme';
 import { PaymentScheduleTimeline } from '../../src/features/catalogue/PaymentScheduleTimeline';
 
 interface Data {
-  booking: Booking;
+  booking: CreatorRevisionBooking;
   quotes: Quote[];
   payments: Payment[];
   events: BookingEvent[];
@@ -60,7 +62,14 @@ interface Data {
   photoUrls: string[];
   coinPreview: CoinRedemptionPreview | null;
   paymentSchedule: PaymentScheduleRow[];
+  creatorRevisionsEnabled: boolean;
 }
+
+type CreatorRevisionBooking = Omit<Booking, 'delivery_status'> & {
+  delivery_status?: 'not_applicable' | 'pending' | 'submitted' | 'revision_requested' | 'accepted';
+  revisions_allowed?: number;
+  revisions_used?: number;
+};
 
 const PAYMENT_STATUS: Record<PaymentStatus, [string, Tone]> = {
   created: ['Pending', 'warning'],
@@ -95,13 +104,15 @@ export default function BookingDetail() {
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [useCoins, setUseCoins] = useState(true);
+  const [revisionSheetOpen, setRevisionSheetOpen] = useState(false);
+  const [revisionNote, setRevisionNote] = useState('');
 
   const load = useCallback(async () => {
     if (!id || !userId) return;
     try {
       const booking = await api.getBooking(id);
       const isCustomer = booking.customer_id === userId;
-      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, paymentSchedule] = await Promise.all([
+      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, paymentSchedule, revisionsEnabled] = await Promise.all([
         api.getQuotes(id),
         api.getPayments(id),
         api.getEvents(id).catch(() => [] as BookingEvent[]),
@@ -111,12 +122,26 @@ export default function BookingDetail() {
         api.getProfileName(isCustomer ? booking.provider_id : booking.customer_id),
         api.signedPhotoUrls(booking.photos).catch(() => []),
         api.listPaymentSchedule(id).catch(() => [] as PaymentScheduleRow[]),
+        creatorRevisionsEnabled().catch(() => false),
       ]);
       const sentQuote = quotes.find((q) => q.status === 'sent') ?? null;
       const coinPreview = isCustomer && sentQuote
         ? await api.getCoinRedemptionPreview(id, sentQuote.id).catch(() => null)
         : null;
-      setData({ booking, quotes, payments, events, otps, address, review, counterpart, photoUrls, coinPreview, paymentSchedule });
+      setData({
+        booking: booking as CreatorRevisionBooking,
+        quotes,
+        payments,
+        events,
+        otps,
+        address,
+        review,
+        counterpart,
+        photoUrls,
+        coinPreview,
+        paymentSchedule,
+        creatorRevisionsEnabled: revisionsEnabled,
+      });
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -182,6 +207,20 @@ export default function BookingDetail() {
   const { booking, quotes, payments, otps, review } = data;
   const s = booking.status;
   const isCustomer = booking.customer_id === userId;
+  const revisionsAllowed = booking.revisions_allowed ?? 2;
+  const revisionsUsed = booking.revisions_used ?? 0;
+  const revisionsLeft = Math.max(0, revisionsAllowed - revisionsUsed);
+  const canRequestRevision =
+    isCustomer
+    && data.creatorRevisionsEnabled
+    && s === 'completion_requested'
+    && booking.archetype === 'proposal'
+    && booking.delivery_status === 'submitted'
+    && revisionsLeft > 0;
+  const revisionRequestEvent = data.events.slice().reverse().find(
+    (event) => event.to_status === 'delivery_pending' && event.note?.startsWith('revision requested: '),
+  );
+  const providerRevisionNote = revisionRequestEvent?.note?.replace(/^revision requested:\s*/, '') ?? '';
   const isTimeBased = booking.archetype === 'time_based';
   // Proposal, fixed and pay-per-session bookings pay every obligation due now (e.g. advance + platform fee) in one payment.
   const scheduled = (booking.archetype === 'proposal' || booking.archetype === 'fixed' || isTimeBased) && data.paymentSchedule.length > 0;
@@ -205,6 +244,16 @@ export default function BookingDetail() {
     : 0;
 
   // ---------- actions ----------
+  const submitRevisionRequest = () => {
+    const note = revisionNote.trim();
+    if (!canRequestRevision || note.length < 5 || note.length > 1000) return;
+    void run(async () => {
+      await requestCreatorRevision(booking.id, note);
+      setRevisionSheetOpen(false);
+      setRevisionNote('');
+    }, 'Changes requested');
+  };
+
   const cancel = async (warning: string) => {
     const ok = await confirm({
       title: 'Cancel this booking?',
@@ -465,18 +514,32 @@ export default function BookingDetail() {
           onRegenerate={() => void run(() => api.regenerateOtp(booking.id, 'end'), 'New code generated')}
         />
       ) : null}
+      {canRequestRevision ? (
+        <Button
+          title={`Request changes (${revisionsLeft} left)`}
+          leftIcon="create-outline"
+          variant="outline"
+          disabled={busy}
+          onPress={() => {
+            setRevisionNote('');
+            setRevisionSheetOpen(true);
+          }}
+        />
+      ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
           {data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
             <Card
               gap={t.spacing.sm}
               style={{ flexDirection: 'row', alignItems: 'center' }}
-              accessibilityLabel={`Use ${formatINR(data.coinPreview.maximum_paise)} in Seva Coins`}
+              accessibilityLabel={`Use ${coinPaiseToCoins(data.coinPreview.maximum_paise, { coin_paise: data.coinPreview.coin_paise })} Seva Coins (${formatINR(data.coinPreview.maximum_paise)})`}
             >
               <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="calloutStrong">Use {formatINR(data.coinPreview.maximum_paise)} Seva Coins</Text>
+                <Text variant="calloutStrong">
+                  Use {coinPaiseToCoins(data.coinPreview.maximum_paise, { coin_paise: data.coinPreview.coin_paise })} coins · {formatINR(data.coinPreview.maximum_paise)}
+                </Text>
                 <Text variant="footnote" color="muted">
-                  {coinPaiseToCoins(data.coinPreview.maximum_paise)} of your {coinPaiseToCoins(data.coinPreview.balance_paise)} coins · 1 coin = ₹1
+                  Wallet: {coinPaiseToCoins(data.coinPreview.balance_paise, { coin_paise: data.coinPreview.coin_paise })} coins · {formatINR(data.coinPreview.balance_paise)}
                 </Text>
               </View>
               <Switch
@@ -551,6 +614,13 @@ export default function BookingDetail() {
               message={`Demo: the customer's code is ${s === 'en_route' || (isTimeBased && s === 'accepted') || (s === 'confirmed' && booking.archetype === 'proposal') ? DEMO_PROVIDER_START_CODE : DEMO_PROVIDER_END_CODE}.`}
             />
           ) : null}
+        </Card>
+      ) : null}
+      {!isCustomer && s === 'delivery_pending' && booking.archetype === 'proposal' && booking.delivery_status === 'revision_requested' ? (
+        <Card gap={t.spacing.sm}>
+          <Text variant="subheadStrong">Revision requested</Text>
+          <Text variant="footnote" color="muted">{`Revision ${revisionsUsed} of ${revisionsAllowed}`}</Text>
+          <Text variant="callout">{providerRevisionNote || 'Revision note unavailable. Refresh the booking to try again.'}</Text>
         </Card>
       ) : null}
       {!isCustomer && s === 'quote_sent' ? (
@@ -728,6 +798,34 @@ export default function BookingDetail() {
           ))}
         </Card>
       </Section>
+
+      <BottomSheet
+        visible={revisionSheetOpen}
+        onClose={() => setRevisionSheetOpen(false)}
+        title="Request changes"
+        subtitle={`${revisionsLeft} revision${revisionsLeft === 1 ? '' : 's'} left`}
+        footer={
+          <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
+            <Button title="Cancel" variant="outline" onPress={() => setRevisionSheetOpen(false)} style={{ flex: 1 }} />
+            <Button
+              title="Send request"
+              disabled={revisionNote.trim().length < 5 || revisionNote.trim().length > 1000}
+              loading={busy}
+              onPress={submitRevisionRequest}
+              style={{ flex: 1 }}
+            />
+          </View>
+        }
+      >
+        <TextArea
+          label="What would you like changed?"
+          placeholder="Describe the changes you need"
+          value={revisionNote}
+          onChangeText={setRevisionNote}
+          maxLength={1000}
+        />
+        <Text variant="footnote" color="muted">Please include at least 5 characters.</Text>
+      </BottomSheet>
     </Screen>
   );
 }

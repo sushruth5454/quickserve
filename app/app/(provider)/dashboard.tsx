@@ -14,6 +14,7 @@ import {
   acceptBooking,
   declineBooking,
   getBooking,
+  getBookingCommissionRate,
   getMyProfile,
   getMyProvider,
   getProviderJobs,
@@ -24,7 +25,7 @@ import {
   startTrip,
 } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
-import { commissionRateBp, formatINR, settleVisitOnly } from '../../src/lib/money';
+import { formatINR, settleVisitOnly } from '../../src/lib/money';
 import { pct, providerStats } from '../../src/lib/providerInsights';
 import { bookingRef, scheduleLabel } from '../../src/lib/schedule';
 import { useAuth } from '../../src/lib/auth';
@@ -77,6 +78,7 @@ export default function ProviderDashboard() {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [me, setMe] = useState('');
   const [jobs, setJobs] = useState<ProviderJob[] | null>(null);
+  const [earningRates, setEarningRates] = useState<Record<string, number | null>>({});
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [photos, setPhotos] = useState<Record<string, string[]>>({});
@@ -97,6 +99,7 @@ export default function ProviderDashboard() {
   }, []);
 
   const load = useCallback(async () => {
+    setEarningRates({});
     try {
       const p = await getMyProvider();
       if (!p) {
@@ -113,6 +116,14 @@ export default function ProviderDashboard() {
       setPayouts(po);
       setCategories(cats);
       setMe(profile?.full_name?.split(' ')[0] ?? '');
+      const requestRates = await Promise.all(j.filter((job) => job.status === 'requested').map(async (job) => {
+        try {
+          return [job.booking_id, await getBookingCommissionRate(job.booking_id)] as const;
+        } catch {
+          return [job.booking_id, null] as const;
+        }
+      }));
+      setEarningRates(Object.fromEntries(requestRates));
       setError(null);
       // Problem photos for open requests (RLS lets the assigned pro read the booking and its photos).
       const incoming = j.filter((x) => x.status === 'requested');
@@ -164,9 +175,6 @@ export default function ProviderDashboard() {
     }
   };
 
-  const rateBp = provider
-    ? commissionRateBp({ jobsCompleted: provider.jobs_completed, providerCreatedAt: new Date(provider.created_at), at: new Date(now) })
-    : 1200;
   const iconFor = (name: string) => iconForCategory(categories.find((c) => c.name === name));
   const incoming = (jobs ?? []).filter((j) => j.status === 'requested');
   const active = useMemo(
@@ -276,7 +284,9 @@ export default function ProviderDashboard() {
                 icon={iconFor(j.category_name)}
                 photos={photos[j.booking_id] ?? []}
                 now={now}
-                minEarning={settleVisitOnly({ visitFee: j.visit_fee, rateBp }).payout}
+                minEarning={earningRates[j.booking_id] == null
+                  ? null
+                  : settleVisitOnly({ visitFee: j.visit_fee, rateBp: earningRates[j.booking_id]! }).payout}
                 busy={busyId === j.booking_id}
                 unread={unread.countFor(j.booking_id)}
                 onAccept={() => void act(j.booking_id, () => acceptBooking(j.booking_id), 'Accepted! Start your trip when ready.')}
@@ -523,7 +533,7 @@ function RequestCard(props: {
   icon: string | undefined;
   photos: string[];
   now: number;
-  minEarning: number;
+  minEarning: number | null;
   busy: boolean;
   unread: number;
   onAccept: () => void;
@@ -577,12 +587,16 @@ function RequestCard(props: {
               {j.scheduled_at ? scheduleLabel(j.scheduled_at) : 'As soon as possible'}
             </Text>
           </View>
-          <Text variant="footnote" color="muted" numberOfLines={1}>
-            You earn{' '}
-            <Text variant="footnoteStrong" color="successText" tabular>
-              {formatINR(props.minEarning)}+
+          {props.minEarning == null ? (
+            <Text variant="footnote" color="muted" numberOfLines={1}>Earning estimate unavailable</Text>
+          ) : (
+            <Text variant="footnote" color="muted" numberOfLines={1}>
+              You earn{' '}
+              <Text variant="footnoteStrong" color="successText" tabular>
+                {formatINR(props.minEarning)}+
+              </Text>
             </Text>
-          </Text>
+          )}
         </View>
         <Text variant="caption" color="muted">
           Exact address is shared after you accept · {bookingRef(j.booking_id)}

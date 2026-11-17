@@ -24,10 +24,13 @@ export interface SelectedLocation {
   label: string | null;
 }
 
-export interface PopularArea {
+export interface ManagedArea {
+  id: string;
   name: string;
+  city: string;
   lat: number;
   lng: number;
+  sort_order: number;
 }
 
 export const LAUNCH_CITY = demoSeedCity || 'Vijayawada';
@@ -46,18 +49,6 @@ export function geocodeQuery(query: string, city?: string | null): string {
   return parts.join(', ');
 }
 
-/** Approximate neighbourhood centres for the launch city. */
-export const POPULAR_AREAS: PopularArea[] = [
-  { name: 'Benz Circle', lat: 16.4995, lng: 80.656 },
-  { name: 'Labbipet', lat: 16.5045, lng: 80.6422 },
-  { name: 'Patamata', lat: 16.4925, lng: 80.6665 },
-  { name: 'Governorpet', lat: 16.5133, lng: 80.6271 },
-  { name: 'Gunadala', lat: 16.5263, lng: 80.6688 },
-  { name: 'Moghalrajpuram', lat: 16.5086, lng: 80.6385 },
-  { name: 'Auto Nagar', lat: 16.4893, lng: 80.6851 },
-  { name: 'Bhavanipuram', lat: 16.5306, lng: 80.5943 },
-];
-
 /** Initial location before the user picks one (and the EXPO_PUBLIC_FORCE_TEST_LOCATION default). */
 export const DEFAULT_LOCATION: SelectedLocation = {
   source: 'default',
@@ -70,8 +61,17 @@ export const DEFAULT_LOCATION: SelectedLocation = {
   label: null,
 };
 
-export function fromArea(a: PopularArea, city = LAUNCH_CITY): SelectedLocation {
-  return { source: 'area', area: a.name, city, lat: a.lat, lng: a.lng, line1: null, addressId: null, label: null };
+export function fromManagedArea(a: ManagedArea): SelectedLocation {
+  return {
+    source: 'area',
+    area: a.name,
+    city: a.city,
+    lat: a.lat,
+    lng: a.lng,
+    line1: null,
+    addressId: null,
+    label: null,
+  };
 }
 
 /** Neighbourhood guess from a free-text address line: the last comma part that is not the city. */

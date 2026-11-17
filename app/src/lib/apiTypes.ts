@@ -154,6 +154,26 @@ export interface ServiceInput {
   travelFeePerKm?: number;
 }
 
+export interface CommissionTier {
+  min_jobs: number;
+  bp: number;
+}
+
+export interface TimeBasedCommissionRates {
+  one_off_bp: number;
+  recurring_bp: number;
+}
+
+export interface CommissionTerms {
+  founding_days: number;
+  tiers: CommissionTier[];
+  repeat_discount_bp: number;
+  repeat_floor_bp: number;
+  time_based: TimeBasedCommissionRates;
+  my_bp: number | null;
+  my_free_until: string | null;
+}
+
 /** The backend contract the screens use. Implemented by supabaseApi.ts (real) and demo/demoApi.ts (in-memory). */
 export interface Api {
   // auth
@@ -198,6 +218,7 @@ export interface Api {
   createPayment(bookingId: string): Promise<PaymentLinkResponse>;
   listMyBookings(): Promise<Booking[]>;
   getBooking(id: string): Promise<Booking>;
+  getBookingCommissionRate(bookingId: string): Promise<number>;
   getQuotes(bookingId: string): Promise<Quote[]>;
   getPayments(bookingId: string): Promise<Payment[]>;
   getEvents(bookingId: string): Promise<BookingEvent[]>;
@@ -228,6 +249,7 @@ export interface Api {
   getCoinRedemptionPreview(bookingId: string, quoteId: string): Promise<CoinRedemptionPreview>;
   // provider
   getMyProvider(): Promise<Provider | null>;
+  getCommissionTerms(): Promise<CommissionTerms>;
   upsertProviderProfile(input: ProviderProfileInput): Promise<void>;
   setOnline(online: boolean): Promise<void>;
   /** Active services only unless includeInactive (for the Me > My services toggle list). */

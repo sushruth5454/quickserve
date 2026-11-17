@@ -97,6 +97,7 @@ const category = await one(`
 `);
 ok(!!category, 'a bookable proposal category is available for the test fixture');
 if (!category) process.exit(1);
+await db.query(`update public.categories set profile_schema = '{"type":"object","properties":{}}'::jsonb where id = $1`, [category.id]);
 await db.query(`
   insert into public.category_cities (category_id, city, live, launched_at)
   values ($1, 'Review City', true, now())

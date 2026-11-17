@@ -4,6 +4,7 @@ import type {
   ChatReadState,
   PushPlatform,
   Coords,
+  CommissionTerms,
   CreateBookingInput,
   PaymentLinkResponse,
   ProviderDetail,
@@ -490,6 +491,14 @@ export async function getBooking(id: string): Promise<Booking> {
   return unwrap(await supabase.from('bookings').select(BOOKING_SELECT).eq('id', id).single());
 }
 
+export async function getBookingCommissionRate(bookingId: string): Promise<number> {
+  const rateBp = unwrap(await supabase.rpc('get_booking_commission_rate', { p_booking_id: bookingId })) as unknown;
+  if (typeof rateBp !== 'number' || !Number.isInteger(rateBp) || rateBp < 0) {
+    throw new Error('The server returned an invalid commission rate.');
+  }
+  return rateBp;
+}
+
 export async function getQuotes(bookingId: string): Promise<Quote[]> {
   return unwrap(
     await supabase
@@ -663,6 +672,10 @@ export async function getMyProvider(): Promise<Provider | null> {
   await requireUserId();
   // Own row incl. private columns via RPC (select('*') is blocked by column privileges since migration 0009).
   return unwrap(await supabase.rpc('get_my_provider')) as Provider | null;
+}
+
+export async function getCommissionTerms(): Promise<CommissionTerms> {
+  return unwrap(await supabase.rpc('get_commission_terms')) as CommissionTerms;
 }
 
 export async function upsertProviderProfile(input: ProviderProfileInput): Promise<void> {

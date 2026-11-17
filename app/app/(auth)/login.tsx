@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/ui';
 import { isDemoMode, sendOtp } from '../../src/lib/api';
+import { useT } from '../../src/i18n';
 import { useTheme } from '../../src/theme';
 import { normalizeIndianPhone } from '../../src/lib/phone';
 
@@ -15,6 +16,7 @@ function formatLocal(digits: string) {
 
 export default function LoginScreen() {
   const t = useTheme();
+  const tr = useT();
   const insets = useSafeAreaInsets();
   const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
   const [digits, setDigits] = useState('');
@@ -26,14 +28,14 @@ export default function LoginScreen() {
   const fieldError =
     touched && digits.length > 0 && !e164
       ? digits.length < 10
-        ? 'Enter all 10 digits of your mobile number.'
-        : 'Indian mobile numbers start with 6, 7, 8 or 9.'
+        ? tr('login.error.mobileDigits')
+        : tr('login.error.mobilePrefix')
       : null;
 
   const submit = async () => {
     setTouched(true);
     if (!e164) {
-      setError(digits.length === 0 ? 'Enter your mobile number to continue.' : null);
+      setError(digits.length === 0 ? tr('login.error.mobileRequired') : null);
       return;
     }
     setBusy(true);
@@ -51,6 +53,9 @@ export default function LoginScreen() {
   };
 
   const link = (topic: 'terms' | 'privacy') => router.push({ pathname: '/info/[topic]', params: { topic } });
+  const legalText = tr('login.legal.template', { terms: '__TERMS_LINK__', privacy: '__PRIVACY_LINK__' });
+  const [legalBeforeTerms, legalAfterTerms = ''] = legalText.split('__TERMS_LINK__');
+  const [legalBetweenLinks, legalAfterPrivacy = ''] = legalAfterTerms.split('__PRIVACY_LINK__');
 
   return (
     <Screen padded={false} gap={0} background={t.colors.surface}>
@@ -85,7 +90,7 @@ export default function LoginScreen() {
           </Text>
         </View>
         <Text variant="body" style={{ color: 'rgba(255,255,255,0.92)' }}>
-          Trusted local pros, booked in 60 seconds.
+          {tr('login.tagline')}
         </Text>
       </LinearGradient>
 
@@ -102,18 +107,18 @@ export default function LoginScreen() {
       >
         <View style={{ gap: 6 }}>
           <Text variant="title2" accessibilityRole="header">
-            Log in or sign up
+            {tr('login.title')}
           </Text>
           <Text variant="callout" color="muted">
-            We'll text a 6-digit code to verify your number. No passwords.
+            {tr('login.subtitle')}
           </Text>
         </View>
 
         <Input
-          label="Mobile number"
+          label={tr('login.phone.label')}
           prefix="+91"
           size="lg"
-          placeholder="98765 43210"
+          placeholder={tr('login.phone.placeholder')}
           keyboardType="phone-pad"
           autoComplete="tel"
           textContentType="telephoneNumber"
@@ -129,21 +134,21 @@ export default function LoginScreen() {
           maxLength={11}
           error={fieldError}
           right={e164 ? <Ionicons name="checkmark-circle" size={22} color={t.colors.success} /> : null}
-          accessibilityLabel="Mobile number, India plus 91"
+          accessibilityLabel={tr('login.phone.accessibility')}
         />
         <InlineAlert message={error} />
-        <Button title="Send OTP" onPress={() => void submit()} loading={busy} size="lg" fullWidth />
+        <Button title={tr('login.sendOtp')} onPress={() => void submit()} loading={busy} size="lg" fullWidth />
 
         {isDemoMode ? (
-          <InlineAlert tone="warning" icon="flask-outline" title="Demo mode" message="Use any valid Indian mobile number. The code is 123456." />
+          <InlineAlert tone="warning" icon="flask-outline" title={tr('login.demo.title')} message={tr('login.demo.message')} />
         ) : null}
 
         <View style={{ gap: t.spacing.sm, paddingTop: t.spacing.xs }}>
           {(
           [
-            ['shield-checkmark-outline', 'KYC-verified pros'],
-            ['document-text-outline', 'Itemised quote before any work'],
-            ['lock-closed-outline', 'Payments held until the job is done'],
+            ['shield-checkmark-outline', tr('login.benefit.verifiedPros')],
+            ['document-text-outline', tr('login.benefit.itemisedQuote')],
+            ['lock-closed-outline', tr('login.benefit.heldPayments')],
           ] as const
           ).map(([icon, x]) => (
             <View key={x} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
@@ -156,15 +161,15 @@ export default function LoginScreen() {
         </View>
 
         <Text variant="caption" color="muted" align="center" style={{ marginTop: t.spacing.sm, marginBottom: t.spacing.lg }}>
-          By continuing you agree to our{' '}
+          {legalBeforeTerms ?? ''}
           <Text variant="caption" color="primaryText" style={{ textDecorationLine: 'underline' }} onPress={() => link('terms')} accessibilityRole="link">
-            Terms of Service
-          </Text>{' '}
-          and{' '}
-          <Text variant="caption" color="primaryText" style={{ textDecorationLine: 'underline' }} onPress={() => link('privacy')} accessibilityRole="link">
-            Privacy Policy
+            {tr('login.legal.terms')}
           </Text>
-          .
+          {legalBetweenLinks}
+          <Text variant="caption" color="primaryText" style={{ textDecorationLine: 'underline' }} onPress={() => link('privacy')} accessibilityRole="link">
+            {tr('login.legal.privacy')}
+          </Text>
+          {legalAfterPrivacy}
         </Text>
       </View>
     </Screen>

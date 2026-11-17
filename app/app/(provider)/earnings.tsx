@@ -17,7 +17,7 @@ import {
   Text,
   type Tone,
 } from '../../src/components/ui';
-import { getMyProvider, listMyPayouts } from '../../src/lib/api';
+import { getCommissionTerms, getMyProvider, listMyPayouts, type CommissionTerms } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
 import { tierProgress } from '../../src/lib/providerInsights';
@@ -58,17 +58,28 @@ export default function Earnings() {
   const t = useTheme();
   const [payouts, setPayouts] = useState<Payout[] | null>(null);
   const [provider, setProvider] = useState<Provider | null>(null);
+  const [commissionTerms, setCommissionTerms] = useState<CommissionTerms | null>(null);
+  const [commissionError, setCommissionError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>('week');
   const [picked, setPicked] = useState<number | null>(null);
 
   const load = useCallback(async () => {
+    setCommissionTerms(null);
+    setCommissionError(null);
     try {
       const [po, pr] = await Promise.all([listMyPayouts(), getMyProvider()]);
       setPayouts(po);
       setProvider(pr);
       setError(null);
+      try {
+        setCommissionTerms(await getCommissionTerms());
+        setCommissionError(null);
+      } catch (e) {
+        setCommissionTerms(null);
+        setCommissionError((e as Error).message);
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -226,7 +237,7 @@ export default function Earnings() {
         <MiniStat label="Paid to bank" value={summary.paid} loading={!payouts} />
       </View>
 
-      {provider ? <TierCard provider={provider} /> : <SkeletonCard avatar={false} lines={2} />}
+      {provider ? <TierCard provider={provider} terms={commissionTerms} error={commissionError} /> : <SkeletonCard avatar={false} lines={2} />}
 
       <Card padding={0} gap={0}>
         <InfoLine
@@ -336,16 +347,26 @@ function MiniStat({ label, value, loading }: { label: string; value: number; loa
   );
 }
 
-function TierCard({ provider }: { provider: Provider }) {
+function TierCard({ provider, terms, error }: { provider: Provider; terms: CommissionTerms | null; error: string | null }) {
   const t = useTheme();
-  const tier = tierProgress({ jobsCompleted: provider.jobs_completed, createdAt: new Date(provider.created_at), at: new Date() });
-  const rate = tier.rateBp / 100;
-  const title = tier.freeUntil ? '0% commission' : `${rate}% commission`;
+  if (!terms) {
+    return (
+      <Card gap={t.spacing.sm}>
+        <Text variant="calloutStrong">Commission information unavailable</Text>
+        <Text variant="footnote" color="muted">{error ?? 'Try refreshing to load the current provider terms.'}</Text>
+      </Card>
+    );
+  }
+  const tier = tierProgress({ jobsCompleted: provider.jobs_completed, terms, at: new Date() });
+  const rate = tier.rateBp == null ? null : tier.rateBp / 100;
+  const title = tier.freeUntil ? 'Standard jobs · 0% commission' : rate == null ? 'Standard-job commission unavailable' : `Standard jobs · ${rate}% commission`;
+  const percent = (bp: number) => `${bp / 100}%`;
   const sub = tier.freeUntil
-    ? `Free period until ${tier.freeUntil.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}. Then 12%, falling to 10% at 50 jobs.`
+    ? `Your ${terms.founding_days}-day free period ends ${tier.freeUntil.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.${tier.nextRateBp != null ? ` Then ${percent(tier.nextRateBp)} at your current job count.` : ''}`
     : tier.nextRateBp != null && tier.jobsToNext != null
-      ? `${tier.jobsToNext} more completed in-app job${tier.jobsToNext === 1 ? '' : 's'} to ${tier.nextRateBp / 100}%`
+      ? `${tier.jobsToNext} more completed in-app job${tier.jobsToNext === 1 ? '' : 's'} to ${percent(tier.nextRateBp)}`
       : 'You are on the lowest commission tier.';
+  const tiers = [...terms.tiers].sort((a, b) => a.min_jobs - b.min_jobs);
   return (
     <Card gap={t.spacing.md}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
@@ -366,7 +387,7 @@ function TierCard({ provider }: { provider: Provider }) {
           </Text>
         </Text>
       </View>
-      {!tier.freeUntil ? (
+      {!tier.freeUntil && tier.nextRateBp != null ? (
         <View
           accessible
           accessibilityRole="progressbar"
@@ -376,17 +397,16 @@ function TierCard({ provider }: { provider: Provider }) {
           <View style={{ width: `${Math.round(tier.progress * 100)}%`, height: '100%', borderRadius: 4, backgroundColor: t.colors.primary }} />
         </View>
       ) : null}
+      <Text variant="captionStrong" color="muted">Standard job tiers</Text>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        {[
-          ['12%', '0–49'],
-          ['10%', '50–199'],
-          ['8%', '200+'],
-        ].map(([r, jobs]) => {
-          const on = !tier.freeUntil && `${rate}%` === r;
+        {tiers.map((configuredTier, index) => {
+          const nextThreshold = tiers[index + 1]?.min_jobs;
+          const jobs = nextThreshold == null ? `${configuredTier.min_jobs}+` : `${configuredTier.min_jobs}–${nextThreshold - 1}`;
+          const on = !tier.freeUntil && tier.currentTierMinJobs === configuredTier.min_jobs;
           return (
-            <View key={r} style={{ alignItems: 'center', flex: 1 }}>
+            <View key={configuredTier.min_jobs} style={{ alignItems: 'center', flex: 1 }}>
               <Text variant={on ? 'subheadStrong' : 'subhead'} color={on ? 'primaryText' : 'muted'}>
-                {r}
+                {percent(configuredTier.bp)}
               </Text>
               <Text variant="caption" color="muted">
                 {jobs} jobs
@@ -394,6 +414,22 @@ function TierCard({ provider }: { provider: Provider }) {
             </View>
           );
         })}
+      </View>
+      <View style={{ gap: t.spacing.sm }}>
+        <Text variant="subheadStrong">Time-based sessions</Text>
+        <Text variant="caption" color="muted">
+          Default rates after the {terms.founding_days}-day founding period · no repeat-customer discount
+        </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: t.spacing.md }}>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="muted">One-off</Text>
+            <Text variant="calloutStrong">{percent(terms.time_based.one_off_bp)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="caption" color="muted">Recurring</Text>
+            <Text variant="calloutStrong">{percent(terms.time_based.recurring_bp)}</Text>
+          </View>
+        </View>
       </View>
     </Card>
   );

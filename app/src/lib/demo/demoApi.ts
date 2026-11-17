@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Api,
   AuthSession,
+  CommissionTerms,
   Coords,
   CreateBookingInput,
   PaymentLinkResponse,
@@ -19,7 +20,7 @@ import type {
   LiveCity,
 } from '../apiTypes';
 import { commissionRateBp, providerPayout, quoteSubtotals, requiredTotal } from '../money';
-import { coinRedemptionLimit, type CoinLedgerEntry, type CoinRedemptionPreview } from '../coins';
+import { DEFAULT_COINS_CONFIG, coinRedemptionLimit, type CoinLedgerEntry, type CoinRedemptionPreview } from '../coins';
 import type {
   Booking,
   BookingStatus,
@@ -1038,6 +1039,22 @@ export const demoApi: Api = {
     return publicBooking(b);
   },
 
+  async getBookingCommissionRate(bookingId) {
+    await wait();
+    const b = findBooking(bookingId);
+    assert(b.provider_id === uid(), 'Booking not found');
+    const provider = db.providers.find((p) => p.id === b.provider_id) ?? fail('Provider not found');
+    if (b.archetype === 'time_based') {
+      if (Date.now() < new Date(provider.created_at).getTime() + 30 * 86400000) return 0;
+      return b.recurring_schedule_id ? 800 : 1000;
+    }
+    return commissionRateBp({
+      jobsCompleted: provider.jobs_completed,
+      providerCreatedAt: new Date(provider.created_at),
+      at: new Date(),
+    });
+  },
+
   async getQuotes(bookingId) {
     await wait();
     return clone(db.quotes.filter((q) => q.booking_id === bookingId).sort((a, b) => b.version - a.version));
@@ -1242,6 +1259,7 @@ export const demoApi: Api = {
     const platformCap = Math.max(0, payout.commission + b.platform_fee - payout.gst);
     return {
       balance_paise: demoCoinBalance,
+      coin_paise: DEFAULT_COINS_CONFIG.coin_paise,
       service_cap_paise: serviceCap,
       platform_cap_paise: platformCap,
       maximum_paise: coinRedemptionLimit({
@@ -1372,6 +1390,31 @@ export const demoApi: Api = {
     await wait();
     const p = db.providers.find((x) => x.id === uid());
     return p ? publicProvider(p) : null;
+  },
+
+  async getCommissionTerms(): Promise<CommissionTerms> {
+    await wait();
+    const p = db.providers.find((x) => x.id === uid());
+    const foundingDays = 30;
+    const tiers = [
+      { min_jobs: 0, bp: 1200 },
+      { min_jobs: 50, bp: 1000 },
+      { min_jobs: 200, bp: 800 },
+    ];
+    const freeUntil = p ? new Date(new Date(p.created_at).getTime() + foundingDays * 86400000) : null;
+    const inFreePeriod = freeUntil != null && freeUntil.getTime() > Date.now();
+    const myBp = p
+      ? commissionRateBp({ jobsCompleted: p.jobs_completed, providerCreatedAt: new Date(p.created_at), at: new Date() })
+      : null;
+    return {
+      founding_days: foundingDays,
+      tiers,
+      repeat_discount_bp: 400,
+      repeat_floor_bp: 500,
+      time_based: { one_off_bp: 1000, recurring_bp: 800 },
+      my_bp: myBp,
+      my_free_until: inFreePeriod ? freeUntil!.toISOString() : null,
+    };
   },
 
   async upsertProviderProfile(input: ProviderProfileInput) {

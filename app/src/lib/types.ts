@@ -176,6 +176,7 @@ export interface Booking {
   completion_requested_at: string | null;
   completed_at: string | null;
   archetype?: BookingArchetype;
+  recurring_schedule_id?: string | null;
   category_config_version?: number;
   location_mode?: LocationMode;
   pricing_snapshot?: Record<string, unknown>;

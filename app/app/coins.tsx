@@ -1,12 +1,16 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import { Card, ErrorState, Header, Screen, Skeleton, Text } from '../src/components/ui';
+import { Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../src/components/ui';
 import { getMyCoinBalance, listCoinHistory } from '../src/lib/api';
-import { coinPaiseToCoins, type CoinLedgerEntry } from '../src/lib/coins';
+import { DEFAULT_COINS_CONFIG, coinPaiseToCoins, type CoinLedgerEntry, type CoinsConfig } from '../src/lib/coins';
+import { getCoinsConfig } from '../src/lib/coinsConfigApi';
 import { formatINR } from '../src/lib/money';
 import { useTheme } from '../src/theme';
+
+const CONVERSION_NOTICE_KEY = 'quickserve.coins.denomination-notice.v2';
 
 const LABELS: Record<CoinLedgerEntry['kind'], string> = {
   earn: 'Booking reward',
@@ -21,23 +25,41 @@ export default function CoinsScreen() {
   const t = useTheme();
   const [balance, setBalance] = useState<number | null>(null);
   const [history, setHistory] = useState<CoinLedgerEntry[]>([]);
+  const [config, setConfig] = useState<CoinsConfig>(DEFAULT_COINS_CONFIG);
+  const [showConversionNotice, setShowConversionNotice] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setError(null);
-    Promise.all([getMyCoinBalance(), listCoinHistory()])
-      .then(([nextBalance, nextHistory]) => {
+    Promise.all([getMyCoinBalance(), listCoinHistory(), getCoinsConfig(), AsyncStorage.getItem(CONVERSION_NOTICE_KEY)])
+      .then(([nextBalance, nextHistory, nextConfig, noticeSeen]) => {
         setBalance(nextBalance);
         setHistory(nextHistory);
+        setConfig(nextConfig);
+        setShowConversionNotice(nextConfig.coin_paise === 10 && noticeSeen !== 'seen');
       })
       .catch((e: Error) => setError(e.message));
   }, []);
 
   useFocusEffect(load);
 
+  const dismissConversionNotice = async () => {
+    await AsyncStorage.setItem(CONVERSION_NOTICE_KEY, 'seen');
+    setShowConversionNotice(false);
+  };
+
   return (
     <Screen header={<Header title="Seva Coins" />} gap={t.spacing.section}>
       {error ? <ErrorState message={error} onRetry={load} /> : null}
+      {showConversionNotice ? (
+        <InlineAlert
+          tone="info"
+          title="Coin denomination updated"
+          message="Coins are now 10 paise each. Your balance value hasn't changed."
+          actionLabel="Got it"
+          onAction={() => void dismissConversionNotice()}
+        />
+      ) : null}
       {balance == null ? (
         <Skeleton height={150} radius={t.radii.lg} />
       ) : (
@@ -47,10 +69,16 @@ export default function CoinsScreen() {
           </View>
           <Text variant="display" tabular>{formatINR(balance)}</Text>
           <Text variant="callout" color="textSecondary">
-            {coinPaiseToCoins(balance)} coins available
+            {coinPaiseToCoins(balance, config)} coins · {formatINR(balance)}
           </Text>
           <Text variant="footnote" color="muted" align="center">
-            Earn 2% after completed bookings. Use up to 10% of a service value, capped by QuickServe revenue.
+            {config.coins_earning_enabled
+              ? `Earn ${(config.earn_rate_bp / 100).toLocaleString('en-IN')}% after completed bookings. `
+              : 'Earning is paused. '}
+            {config.coins_redemption_enabled
+              ? `Use up to ${(config.redeem_cap_bp / 100).toLocaleString('en-IN')}% of a service value, capped by QuickServe revenue.`
+              : 'Redemption is paused.'}
+            {` Valid for ${config.expiry_months} months.`}
           </Text>
         </Card>
       )}

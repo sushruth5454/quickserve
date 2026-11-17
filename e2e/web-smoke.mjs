@@ -416,6 +416,13 @@ await step('me-customer', async () => {
   await go('/account');
   await visible('Switch to provider mode');
 });
+await step('coins-wallet', async () => {
+  await go('/account');
+  await page.getByText('Seva Coins', { exact: true }).first().click();
+  await page.waitForURL(/\/coins$/);
+  await visible('Seva Coins');
+  await visible('History');
+});
 await optional('me-customer-scrolled', () => snapScrolled('me-customer-scrolled', 900));
 await step('info-safety', async () => {
   await go('/info/safety');

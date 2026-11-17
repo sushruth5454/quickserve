@@ -1,11 +1,12 @@
-/** Pure provider-side derivations (commission tier progress, acceptance/completion rates). Rules from money.ts. */
-import { commissionRateBp, FREE_PERIOD_DAYS, RATE_BP, TIER_1_JOBS, TIER_2_JOBS } from './money';
+/** Pure provider-side derivations (commission tier progress, acceptance/completion rates). */
+import type { CommissionTerms } from './apiTypes';
 import type { BookingStatus } from './types';
 
 export interface TierProgress {
-  rateBp: number;
-  /** End of the 0% period, when the provider is still in it. */
+  rateBp: number | null;
+  /** Server-provided end of the 0% period, when the provider is still in it. */
   freeUntil: Date | null;
+  currentTierMinJobs: number | null;
   nextRateBp: number | null;
   /** Completed in-app jobs still needed for the next tier. */
   jobsToNext: number | null;
@@ -13,15 +14,45 @@ export interface TierProgress {
   progress: number;
 }
 
-export function tierProgress(p: { jobsCompleted: number; createdAt: Date; at: Date }): TierProgress {
-  const rateBp = commissionRateBp({ jobsCompleted: p.jobsCompleted, providerCreatedAt: p.createdAt, at: p.at });
-  const freeUntil = rateBp === RATE_BP.free ? new Date(p.createdAt.getTime() + FREE_PERIOD_DAYS * 86400000) : null;
-  const jobs = p.jobsCompleted;
-  if (jobs >= TIER_2_JOBS) return { rateBp, freeUntil, nextRateBp: null, jobsToNext: null, progress: 1 };
-  if (jobs >= TIER_1_JOBS) {
-    return { rateBp, freeUntil, nextRateBp: RATE_BP.tier2, jobsToNext: TIER_2_JOBS - jobs, progress: (jobs - TIER_1_JOBS) / (TIER_2_JOBS - TIER_1_JOBS) };
+export function tierProgress(p: { jobsCompleted: number; terms: CommissionTerms; at: Date }): TierProgress {
+  const tiers = [...p.terms.tiers].sort((a, b) => a.min_jobs - b.min_jobs);
+  const current = [...tiers].reverse().find((tier) => p.jobsCompleted >= tier.min_jobs) ?? null;
+  const next = tiers.find((tier) => tier.min_jobs > p.jobsCompleted) ?? null;
+  const parsedFreeUntil = p.terms.my_free_until ? new Date(p.terms.my_free_until) : null;
+  const freeUntil = parsedFreeUntil && Number.isFinite(parsedFreeUntil.getTime()) && parsedFreeUntil > p.at ? parsedFreeUntil : null;
+
+  if (!tiers.length) {
+    return { rateBp: p.terms.my_bp, freeUntil, currentTierMinJobs: null, nextRateBp: null, jobsToNext: null, progress: 0 };
   }
-  return { rateBp, freeUntil, nextRateBp: RATE_BP.tier1, jobsToNext: TIER_1_JOBS - jobs, progress: jobs / TIER_1_JOBS };
+  if (freeUntil) {
+    return {
+      rateBp: p.terms.my_bp,
+      freeUntil,
+      currentTierMinJobs: current?.min_jobs ?? null,
+      nextRateBp: current?.bp ?? null,
+      jobsToNext: null,
+      progress: 0,
+    };
+  }
+  if (!next || !current) {
+    return {
+      rateBp: p.terms.my_bp,
+      freeUntil: null,
+      currentTierMinJobs: current?.min_jobs ?? null,
+      nextRateBp: null,
+      jobsToNext: null,
+      progress: 1,
+    };
+  }
+  const span = next.min_jobs - current.min_jobs;
+  return {
+    rateBp: p.terms.my_bp,
+    freeUntil: null,
+    currentTierMinJobs: current.min_jobs,
+    nextRateBp: next.bp,
+    jobsToNext: next.min_jobs - p.jobsCompleted,
+    progress: span > 0 ? Math.max(0, Math.min(1, (p.jobsCompleted - current.min_jobs) / span)) : 0,
+  };
 }
 
 const NOT_ACCEPTED: BookingStatus[] = ['declined', 'expired'];

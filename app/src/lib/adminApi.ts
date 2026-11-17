@@ -1,4 +1,21 @@
 import { supabase } from './supabase';
+import type { CommissionTier, TimeBasedCommissionRates } from './apiTypes';
+
+export interface AdminCommissionConfig {
+  founding_days: number;
+  tiers: CommissionTier[];
+  repeat_discount_bp: number;
+  repeat_floor_bp: number;
+  time_based: TimeBasedCommissionRates;
+}
+
+export interface AdminCommissionCategory {
+  id: string;
+  name: string;
+  archetype: string;
+  active: boolean;
+  commission_bp: number | null;
+}
 
 export interface AdminFeatures {
   [key: string]: boolean | Record<string, boolean>;
@@ -134,6 +151,12 @@ export const getAppFeatures = () => rpc<AdminFeatures>('get_app_features');
 export const listFeatures = () => rpc<AdminFeature[]>('admin_list_features');
 export const setFeature = (key: string, enabled: boolean) => rpc<AdminFeatures>('admin_set_feature', { p_key: key, p_enabled: enabled });
 export const getDashboard = (days = 30) => rpc<AdminDashboard>('admin_dashboard', { p_days: days });
+export const getCommissionConfig = () => rpc<AdminCommissionConfig>('admin_get_commission_config');
+export const setCommissionConfig = (config: AdminCommissionConfig) =>
+  rpc<AdminCommissionConfig>('admin_set_commission', { p_config: config });
+export const listCommissionCategories = () => rpc<AdminCommissionCategory[]>('admin_list_commission_categories');
+export const setCategoryCommission = (categoryId: string, bp: number | null) =>
+  rpc<void>('admin_set_category_commission', { p_category_id: categoryId, p_bp: bp });
 export const listCategories = () => rpc<AdminCategory[]>('admin_list_categories');
 export const setCategoryActive = (id: string, active: boolean) =>
   rpc<void>('admin_set_category_active', { p_category_id: id, p_active: active });

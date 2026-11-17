@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { Button, Card, Chip, InlineAlert, Input, ListItem, Screen, Stepper, Text, useToast } from '../../components/ui';
 import { locateWithGps, placeSearchSupported, resolvePlace, searchPlaces, useSelectedLocation, type PlaceResult } from '../../lib/locationContext';
 import { newPlacesSession } from '../../lib/places';
-import { LAUNCH_CITY, POPULAR_AREAS } from '../../lib/locationModel';
+import { isAreaPickerEnabled, listAreas } from '../../lib/geographyApi';
+import { fromManagedArea, LAUNCH_CITY, type ManagedArea } from '../../lib/locationModel';
 import { onboardingApi } from '../../lib/onboarding';
 import { useTheme } from '../../theme';
 import { FieldLabel, Intro, SectionFooter, type SectionProps } from './parts';
@@ -39,7 +40,26 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
   const [results, setResults] = useState<PlaceResult[]>([]);
   const [busy, setBusy] = useState<'gps' | 'search' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quickPickAreas, setQuickPickAreas] = useState<ManagedArea[]>([]);
   const sessionRef = useRef(newPlacesSession());
+
+  useEffect(() => {
+    let alive = true;
+    void isAreaPickerEnabled()
+      .then((enabled) => (enabled ? listAreas() : []))
+      .then((areas) => {
+        if (alive) setQuickPickAreas(areas);
+      })
+      .catch((e: Error) => {
+        if (alive) {
+          setQuickPickAreas([]);
+          setError(`Managed areas are unavailable: ${e.message}`);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const applyPlace = (l: { lat: number; lng: number; area: string | null; city: string }) => {
     setPin(l);
@@ -85,11 +105,14 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
     }
   };
 
+  const cityAreas = useMemo(
+    () => quickPickAreas.filter((a) => a.city.trim().toLowerCase() === (city.trim() || LAUNCH_CITY).toLowerCase()),
+    [quickPickAreas, city],
+  );
   const nearby = useMemo(() => {
     if (!pin) return [];
-    if (city && city.toLowerCase() !== LAUNCH_CITY.toLowerCase()) return [];
-    return POPULAR_AREAS.filter((a) => km(pin, a) <= radius).map((a) => a.name);
-  }, [pin, radius, city]);
+    return cityAreas.filter((a) => km(pin, a) <= radius).map((a) => a.name);
+  }, [pin, radius, cityAreas]);
 
   const save = async () => {
     if (!pin) return setError('Set your base location.');
@@ -147,14 +170,21 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
         {results.map((r, i) => (
           <ListItem key={r.placeId ?? `${r.location?.lat},${r.location?.lng},${i}`} icon="location-outline" title={r.title} subtitle={r.subtitle} onPress={() => void pickResult(r)} />
         ))}
-        {!pin && (!city || city.toLowerCase() === LAUNCH_CITY.toLowerCase()) ? (
+        {!pin && cityAreas.length > 0 ? (
           <View style={{ gap: t.spacing.sm }}>
             <Text variant="footnote" color="muted">
-              Or pick the nearest area in {LAUNCH_CITY}:
+              Or pick an active area in {city.trim() || LAUNCH_CITY}:
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-              {POPULAR_AREAS.map((a) => (
-                <Chip key={a.name} label={a.name} onPress={() => applyPlace({ lat: a.lat, lng: a.lng, area: a.name, city: LAUNCH_CITY })} />
+              {cityAreas.map((a) => {
+                const location = fromManagedArea(a);
+                return (
+                  <Chip
+                    key={a.id}
+                    label={a.name}
+                    onPress={() => applyPlace({ lat: location.lat, lng: location.lng, area: location.area, city: location.city })}
+                  />
+                );
               ))}
             </View>
           </View>
