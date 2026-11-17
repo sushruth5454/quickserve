@@ -189,9 +189,24 @@ async function createQuote(bookingId) {
 }
 
 async function closeBooking(bookingId, quoteId) {
-  await asCustomer(`select approve_quote_with_coins($1, $2, false)`, [bookingId, quoteId]);
-  await service(`update bookings set status = 'completed' where id = $1`, [bookingId]);
-  await service(`update bookings set status = 'closed' where id = $1`, [bookingId]);
+  const [{ result }] = await asCustomer(
+    `select approve_quote_with_coins($1, $2, false) as result`, [bookingId, quoteId],
+  );
+  if (result.amount_due > 0) {
+    const [payment] = await service(`select * from prepare_payment($1, $2)`, [bookingId, customer]);
+    await service(`update payments set razorpay_link_id = $1, short_url = 'https://pay.test' where id = $2`,
+      [`link:${payment.payment_id}`, payment.payment_id]);
+    await service(`select record_payment_paid($1, $2, $3)`,
+      [`link:${payment.payment_id}`, `gateway:${payment.payment_id}`, payment.amount]);
+  }
+  await as(provider, 'authenticated', `select request_completion($1)`, [bookingId]);
+  const [{ end_otp: endOtp }] = await asCustomer(`select * from get_booking_otps($1)`, [bookingId]);
+  await as(provider, 'authenticated', `select complete_booking($1, $2)`, [bookingId, endOtp]);
+  await service(`update payouts set release_after = now() - interval '1 minute' where booking_id = $1`, [bookingId]);
+  const transfers = await service(`select * from claim_due_transfers()`);
+  for (const transfer of transfers) {
+    await service(`select complete_transfer($1, $2)`, [transfer.transfer_id, `transfer:${transfer.transfer_id}`]);
+  }
 }
 
 const testConfig = {
