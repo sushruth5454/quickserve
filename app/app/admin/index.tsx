@@ -18,7 +18,7 @@ export default function AdminDashboardScreen() {
     void getDashboard(30).then(setData).catch((e: Error) => setError(e.message));
   }, []);
   useFocusEffect(load);
-  const backToProfile = () => router.replace(returnTo === 'pro-account' ? '/pro-account' : '/account');
+  const backToProfile = () => router.dismissTo(returnTo === 'pro-account' ? '/pro-account' : '/account');
 
   return (
     <Screen header={<Header title="Admin" subtitle="QuickServe operations · last 30 days" onBack={backToProfile} />}>

@@ -9,7 +9,7 @@ export default function ProviderProfileSection() {
   const { section, returnTo } = useLocalSearchParams<{ section: string; returnTo?: string }>();
   const { data, error, reload } = useOnboardingData();
   const returnPath = returnTo === 'services' ? '/provider-profile/services' : '/provider-profile';
-  const done = () => router.replace(returnPath);
+  const done = () => router.dismissTo(returnPath);
 
   if (error && !data) {
     return (
