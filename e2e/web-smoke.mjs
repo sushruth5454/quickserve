@@ -8,6 +8,7 @@ const BASE = process.env.BASE_URL ?? 'http://localhost:8081';
 const SHOTS = process.env.SHOTS_DIR ?? 'e2e-shots';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON = process.env.SUPABASE_ANON_KEY;
+const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
 const PHONE = '9999999999';
 const OTP = '123456';
 const RAVI = '11111111-1111-1111-1111-111111111111';
@@ -112,7 +113,7 @@ await step('role-continue-customer', async () => {
   await visible('Bookings');
 });
 
-await runAllServiceScenarios({ page, go, step, visible });
+await runAllServiceScenarios({ page, go, step, visible, qaMarker: QA_MARKER });
 
 // ---------- Customer ----------
 await step('home', async () => {
@@ -202,6 +203,9 @@ const iso = (days) => new Date(Date.now() + days * 86400000).toISOString();
 let proToken = null;
 let proReelServiceId = null;
 let briefRequestId = null;
+let qaApprovalShopId = null;
+let qaApprovalShopName = null;
+let qaApprovalSkipReason = null;
 async function asPro(path, body, method = 'POST') {
   const res = await fetch(`${SUPABASE_URL}${path}`, {
     method,
@@ -223,6 +227,35 @@ await step('proposal-flow-pro-offers-reel-maker', async () => {
   proReelServiceId = rows[0]?.id;
   if (!proReelServiceId) throw new Error('reel-maker service not saved');
 });
+await step('phase-7a-owner-submits-shop', async () => {
+  const existingShop = await asPro('/rest/v1/rpc/get_my_shop', {});
+  if (existingShop) {
+    qaApprovalSkipReason = 'the existing test provider already owns a shop; refusing to overwrite unmarked data';
+    console.log(`  SKIPPED: ${qaApprovalSkipReason}`);
+    return;
+  }
+  qaApprovalShopName = `${QA_MARKER} approval shop`;
+  qaApprovalShopId = await asPro('/rest/v1/rpc/save_shop', {
+    p_name: qaApprovalShopName,
+    p_description: `${QA_MARKER} synthetic owner submission and admin approval; no real sales.`,
+    p_address_line: '88 QA Demo Market Road',
+    p_city: 'Vijayawada Demo',
+    p_area: 'Benz Circle',
+    p_lat: 16.5000,
+    p_lng: 80.6560,
+    p_delivery_radius_km: 10,
+    p_offers_delivery: false,
+    p_offers_pickup: true,
+    p_whatsapp_contact: false,
+    p_gstin: null,
+    p_category_slugs: ['sanitaryware'],
+  });
+  await asPro('/rest/v1/rpc/submit_shop', { p_shop_id: qaApprovalShopId });
+  const submitted = await asPro('/rest/v1/rpc/get_my_shop', {});
+  if (submitted?.id !== qaApprovalShopId || submitted.status !== 'submitted') {
+    throw new Error(`owner submission did not persist submitted status (got ${submitted?.status ?? 'no shop'})`);
+  }
+});
 await step('proposal-flow-customer-sends-brief', async () => {
   // The test pro works in Vijayawada; requests are routed only within the request's city.
   await go('/location');
@@ -232,7 +265,7 @@ await step('proposal-flow-customer-sends-brief', async () => {
   await page.getByText('Request proposal', { exact: true }).first().click();
   await page.waitForURL(/\/request\/new/);
   await page.getByText(/^Request a proposal from /).first().waitFor();
-  await page.getByLabel('What do you need?').first().fill('QA-E2E 30-second launch reel for my cafe, vertical, 2 revisions');
+  await page.getByLabel('What do you need?').first().fill(`${QA_MARKER} 30-second launch reel for my cafe, vertical, 2 revisions`);
   await page.getByLabel('Event date', { exact: true }).first().fill(iso(proposalDay).slice(0, 10));
   await page.getByLabel('Venue / area').first().fill('Benz Circle cafe');
   await page.getByLabel('Approximate maximum (₹)').first().fill('15000');
@@ -252,7 +285,7 @@ await step('proposal-flow-pro-sends-proposal', async () => {
       { label: 'On delivery', amount: 800000, due_rule: 'on_delivery' },
     ],
     p_valid_until: iso(3),
-    p_note: 'QA-E2E fixed proposal',
+    p_note: `${QA_MARKER} fixed proposal`,
     p_deliverables: [{ type: 'edited_reel', qty: 1, spec: '30s vertical 1080p with captions' }],
   });
 });
@@ -384,13 +417,13 @@ await step('booking-chat-send', async () => {
   await go(`/chat/${seeded('fc', 9)}`);
   const box = page.getByLabel('Message', { exact: true }).first();
   await box.waitFor();
-  await box.fill('QA-E2E web chat');
+  await box.fill(`${QA_MARKER} web chat`);
   await page.getByLabel('Send message').first().click();
-  await page.getByText('QA-E2E web chat').first().waitFor();
+  await page.getByText(`${QA_MARKER} web chat`, { exact: true }).first().waitFor();
 });
 // ---------- Unread: the pro (Ravi, booking fc6) messages the signed-in customer through the API ----------
 const FC6 = seeded('fc', 6);
-const unreadBody = `QA-E2E unread ${Date.now()}`;
+const unreadBody = `${QA_MARKER} unread ${Date.now()}`;
 await step('unread-badge-on-booking', async () => {
   const token = await signInAs('+919000000101');
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_booking_message`, {
@@ -420,8 +453,8 @@ await step('coins-wallet', async () => {
   await go('/account');
   await page.getByText('Seva Coins', { exact: true }).first().click();
   await page.waitForURL(/\/coins$/);
-  await visible('Seva Coins');
-  await page.getByText(/^History$/i).first().waitFor({ state: 'visible' });
+  await page.locator('text="Seva Coins" >> visible=true').last().waitFor();
+  await page.locator('text=/^History$/i >> visible=true').first().waitFor();
 });
 await optional('me-customer-scrolled', () => snapScrolled('me-customer-scrolled', 900));
 await step('info-safety', async () => {
@@ -726,6 +759,22 @@ await step('admin-feature-registry', async () => {
   await page.getByRole('button', { name: /Admin portal/ }).last().waitFor({ state: 'visible' });
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
+
+  await step('phase-7a-admin-approves-submitted-shop', async () => {
+    if (!qaApprovalShopId) {
+      console.log(`  SKIPPED: ${qaApprovalSkipReason ?? 'owner submission did not create a safe QA shop'}`);
+      return;
+    }
+    await go('/admin/shops');
+    await page.locator('text="Shop management" >> visible=true').last().waitFor();
+    await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
+    const shopCard = page.getByText(qaApprovalShopName, { exact: true })
+      .locator('xpath=ancestor::*[.//*[@role="button"]][1]');
+    await shopCard.getByRole('button', { name: 'Verify', exact: true }).click();
+    await page.locator('text="verified" >> visible=true').first().click();
+    await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
+    await go('/admin');
+  });
 
   const rows = [
     { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },

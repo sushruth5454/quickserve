@@ -3,6 +3,8 @@
 --
 -- NEVER run this file in a production project, and never include it in deploy-backend.yml.
 -- It creates synthetic users, providers, packages, requests and bookings prefixed with DEMO metadata.
+-- When migrations 0048-0050 are present, it also seeds verified sports and tile-marketplace fixtures.
+-- Legacy seed tests without those migrations keep the original service fixtures and skip marketplace rows.
 -- Creator/event categories deliberately remain inactive globally. Their seeded data is reachable only
 -- with an explicit app build using EXPO_PUBLIC_DEMO_CITY="Vijayawada Demo", or by authenticated
 -- demo-participant routes (proposal/request/booking IDs).
@@ -138,6 +140,35 @@ update public.app_config
 insert into public.app_config (key, value)
 values ('demo_payments', '{"enabled": true, "provider_ids": ["11111111-1111-1111-1111-111111111111"]}'::jsonb)
 on conflict (key) do update set value = excluded.value;
+
+-- Phase 6/7a marketplace capabilities are enabled only by this guarded demo seed.
+do $$
+begin
+  if to_regclass('public.feature_flags') is not null
+     and to_regclass('public.sports_activities') is not null
+     and to_regclass('public.sports_venues') is not null
+     and to_regclass('public.sports_resources') is not null
+     and to_regclass('public.sports_hours') is not null
+     and to_regclass('public.sports_price_rules') is not null
+     and to_regclass('public.shops') is not null
+     and to_regclass('public.shop_categories') is not null
+     and to_regclass('public.product_categories') is not null
+     and to_regclass('public.products') is not null
+     and to_regclass('public.product_enquiries') is not null
+     and to_regclass('public.product_enquiry_messages') is not null
+     and to_regclass('public.rfqs') is not null then
+    insert into public.feature_flags (key, enabled, label, description, group_name, sort_order)
+    values
+      ('sports', true, 'Sports & venues', 'Venue discovery and booking requests.', 'Marketplace', 30),
+      ('products', true, 'Products & shops', 'Shop catalogues and product search.', 'Marketplace', 40),
+      ('product_enquiries', true, 'Product enquiries', 'Customers message shops about products.', 'Marketplace', 41),
+      ('product_rfq', true, 'Bulk quotations (RFQ)', 'Customers request quotes from several shops.', 'Marketplace', 42)
+    on conflict (key) do update set enabled = true;
+  else
+    raise notice 'Phase 6/7a demo feature flags skipped; apply migrations 0048-0050 before marketplace E2E.';
+  end if;
+end;
+$$;
 
 create temp table demo_specs (
   slug text primary key,
@@ -437,6 +468,181 @@ select pg_temp.demo_sid('founder:demo-home'), id, 'Demo home',
 from demo_founder
 on conflict (id) do update
 set line1 = excluded.line1, city = excluded.city, lat = excluded.lat, lng = excluded.lng, is_default = false;
+
+-- Phase 6 sports and Phase 7a tile marketplace fixtures. Owners are existing synthetic demo
+-- providers, so the established demo-user reset cascades these rows without touching real accounts.
+do $$
+begin
+  if to_regclass('public.sports_activities') is not null
+     and to_regclass('public.feature_flags') is not null
+     and to_regclass('public.sports_venues') is not null
+     and to_regclass('public.sports_resources') is not null
+     and to_regclass('public.sports_hours') is not null
+     and to_regclass('public.sports_price_rules') is not null
+     and to_regclass('public.shops') is not null
+     and to_regclass('public.shop_categories') is not null
+     and to_regclass('public.product_categories') is not null
+     and to_regclass('public.products') is not null
+     and to_regclass('public.product_enquiries') is not null
+     and to_regclass('public.product_enquiry_messages') is not null
+     and to_regclass('public.rfqs') is not null then
+insert into public.sports_venues (
+  id, owner_id, name, description, address_line, city, area, lat, lng, amenities, photos,
+  status, status_reason, created_at, updated_at
+)
+values (
+  pg_temp.demo_sid('sports-venue:benz-circle-badminton'),
+  pg_temp.demo_sid('provider:plumber'),
+  'Benz Circle Demo Badminton Courts',
+  '[DEMO ONLY] Synthetic badminton venue for customer discovery and booking-request checks.',
+  '12 Demo Sports Lane, Benz Circle',
+  'Vijayawada Demo', 'Benz Circle', 16.4997, 80.6562,
+  array['Parking', 'Changing rooms'], '{}'::text[],
+  'verified', '[DEMO ONLY] Seeded CI venue', now() - interval '30 days', now()
+)
+on conflict (id) do update
+set owner_id = excluded.owner_id,
+    name = excluded.name,
+    description = excluded.description,
+    address_line = excluded.address_line,
+    city = excluded.city,
+    area = excluded.area,
+    lat = excluded.lat,
+    lng = excluded.lng,
+    amenities = excluded.amenities,
+    photos = excluded.photos,
+    status = 'verified',
+    status_reason = excluded.status_reason,
+    updated_at = now();
+
+insert into public.sports_resources (id, venue_id, activity_id, name, slot_minutes, active)
+select pg_temp.demo_sid('sports-resource:benz-circle-court-1'),
+       pg_temp.demo_sid('sports-venue:benz-circle-badminton'),
+       a.id, 'Demo Court 1', 60, true
+  from public.sports_activities a
+ where a.slug = 'badminton'
+on conflict (id) do update
+set venue_id = excluded.venue_id,
+    activity_id = excluded.activity_id,
+    name = excluded.name,
+    slot_minutes = excluded.slot_minutes,
+    active = true;
+
+insert into public.sports_hours (venue_id, weekday, opens, closes)
+select pg_temp.demo_sid('sports-venue:benz-circle-badminton'), d, time '06:00', time '22:00'
+  from generate_series(0, 6) d
+on conflict (venue_id, weekday) do update
+set opens = excluded.opens, closes = excluded.closes;
+
+insert into public.sports_price_rules (id, resource_id, weekday, starts, ends, price_paise, label)
+values (
+  pg_temp.demo_sid('sports-price:benz-circle-court-1'),
+  pg_temp.demo_sid('sports-resource:benz-circle-court-1'),
+  null, time '06:00', time '22:00', 30000, 'DEMO standard hourly rate'
+)
+on conflict (id) do update
+set resource_id = excluded.resource_id,
+    weekday = excluded.weekday,
+    starts = excluded.starts,
+    ends = excluded.ends,
+    price_paise = excluded.price_paise,
+    label = excluded.label;
+
+insert into public.shops (
+  id, owner_id, name, description, address_line, city, area, lat, lng,
+  delivery_radius_km, offers_delivery, offers_pickup, whatsapp_contact, status, status_reason,
+  created_at, updated_at
+)
+values
+  (
+    pg_temp.demo_sid('shop:benz-circle-tile-house'),
+    pg_temp.demo_sid('provider:carpenter'),
+    'Benz Circle Demo Tile House',
+    '[DEMO ONLY] Synthetic local tile catalogue for browsing and supplier quote requests.',
+    '18 Demo Market Road, Benz Circle', 'Vijayawada Demo', 'Benz Circle', 16.4998, 80.6560,
+    25, true, true, false, 'verified', '[DEMO ONLY] Seeded CI shop', now() - interval '30 days', now()
+  ),
+  (
+    pg_temp.demo_sid('shop:labbipet-tile-mart'),
+    pg_temp.demo_sid('provider:painter'),
+    'Labbipet Demo Tile Mart',
+    '[DEMO ONLY] Synthetic neighbourhood tile supplier for multi-shop RFQ routing.',
+    '7 Demo Plaza, Labbipet', 'Vijayawada Demo', 'Labbipet', 16.5020, 80.6530,
+    25, true, true, false, 'verified', '[DEMO ONLY] Seeded CI shop', now() - interval '30 days', now()
+  )
+on conflict (id) do update
+set owner_id = excluded.owner_id,
+    name = excluded.name,
+    description = excluded.description,
+    address_line = excluded.address_line,
+    city = excluded.city,
+    area = excluded.area,
+    lat = excluded.lat,
+    lng = excluded.lng,
+    delivery_radius_km = excluded.delivery_radius_km,
+    offers_delivery = excluded.offers_delivery,
+    offers_pickup = excluded.offers_pickup,
+    whatsapp_contact = excluded.whatsapp_contact,
+    status = 'verified',
+    status_reason = excluded.status_reason,
+    updated_at = now();
+
+insert into public.shop_categories (shop_id, category_id)
+select s.id, c.id
+  from (values
+    (pg_temp.demo_sid('shop:benz-circle-tile-house')),
+    (pg_temp.demo_sid('shop:labbipet-tile-mart'))
+  ) s(id)
+  join public.product_categories c on c.slug = 'tiles'
+on conflict (shop_id, category_id) do nothing;
+
+insert into public.products (
+  id, shop_id, category_id, name, brand, model, description, specs, unit,
+  indicative_price_paise, price_updated_at, in_stock, active, updated_at
+)
+select
+  f.id, f.shop_id, c.id, f.name, f.brand, f.model, f.description, f.specs::jsonb, 'sqft',
+  f.price_paise, now(), true, true, now()
+  from (values
+    (
+      pg_temp.demo_sid('product:demo-anti-skid-floor-tile'),
+      pg_temp.demo_sid('shop:benz-circle-tile-house'),
+      'Demo Sandstone Anti-Skid Floor Tile',
+      'Demo Ceramics', 'QS-SAND-600',
+      '[DEMO ONLY] Synthetic 600 mm anti-skid floor tile; no real stock or sale.',
+      '{"size":"600x600 mm","finish":"matte anti-skid","material":"ceramic"}',
+      85000
+    ),
+    (
+      pg_temp.demo_sid('product:demo-ivory-wall-tile'),
+      pg_temp.demo_sid('shop:labbipet-tile-mart'),
+      'Demo Ivory Ceramic Wall Tile',
+      'Demo Surfaces', 'QS-IVORY-300',
+      '[DEMO ONLY] Synthetic ivory wall tile; no real stock or sale.',
+      '{"size":"300x600 mm","finish":"gloss","material":"ceramic"}',
+      72000
+    )
+  ) f(id, shop_id, name, brand, model, description, specs, price_paise)
+  join public.product_categories c on c.slug = 'tiles'
+on conflict (id) do update
+set shop_id = excluded.shop_id,
+    category_id = excluded.category_id,
+    name = excluded.name,
+    brand = excluded.brand,
+    model = excluded.model,
+    description = excluded.description,
+    specs = excluded.specs,
+    unit = excluded.unit,
+    indicative_price_paise = excluded.indicative_price_paise,
+    price_updated_at = now(),
+    in_stock = true,
+    active = true,
+    updated_at = now();
+  else
+    raise notice 'Phase 6/7a demo fixtures skipped; apply migrations 0048-0050 before marketplace E2E.';
+  end if;
+end;
+$$;
 
 -- Proposal paths for every creator/event category. Participant RLS exposes these only to the founder.
 insert into public.service_requests (

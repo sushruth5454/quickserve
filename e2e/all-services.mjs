@@ -15,13 +15,17 @@ export const DEMO_IDS = Object.freeze({
   timePackage: sid('package:demo-home-tutor'),
   timeService: sid('service:demo-home-tutor'),
   timeBooking: sid('booking:time-session'),
+  sportsVenue: sid('sports-venue:benz-circle-badminton'),
+  tileShop: sid('shop:benz-circle-tile-house'),
+  tileProduct: sid('product:demo-anti-skid-floor-tile'),
 });
+const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
 
 /**
  * Reuses the signed-in founder page owned by web-smoke.mjs, so no second OTP is sent for CI.
- * It creates one fixed booking through the mocked checkout; every other route is inspection-only.
+ * The fixed-service checkout is mocked; marketplace requests are tagged for exact QA-E2E cleanup.
  */
-export async function runAllServiceScenarios({ page, go, step, visible }) {
+export async function runAllServiceScenarios({ page, go, step, visible, qaMarker = QA_MARKER }) {
   await step('demo-data-indicator', async () => {
     await go('/');
     await visible('DEMO DATA');
@@ -90,5 +94,71 @@ export async function runAllServiceScenarios({ page, go, step, visible }) {
     await page.getByText('Demo 60-minute session', { exact: true }).first().waitFor();
     await page.getByText('Session pack', { exact: true }).first().click();
     await page.getByText('Buy a session pack', { exact: true }).first().waitFor();
+  });
+
+  await step('phase-7a-shop-and-product-browse', async () => {
+    await go('/shop');
+    await page.getByText('Benz Circle Demo Tile House', { exact: true }).first().waitFor();
+    await page.getByText('Labbipet Demo Tile Mart', { exact: true }).first().waitFor();
+    await page.getByText('Benz Circle Demo Tile House', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === `/shop/${DEMO_IDS.tileShop}`);
+    await page.getByText('Catalogue', { exact: true }).first().waitFor();
+    await page.getByText('Demo Sandstone Anti-Skid Floor Tile', { exact: true }).first().waitFor();
+    await page.getByText('Demo Sandstone Anti-Skid Floor Tile', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === `/product/${DEMO_IDS.tileProduct}`);
+    await page.getByText('Enquire with the shop', { exact: true }).first().waitFor();
+  });
+
+  await step('phase-7a-product-enquiry', async () => {
+    await page.getByLabel('Message', { exact: true }).first().fill(`${qaMarker} product enquiry availability and delivery`);
+    await page.getByText('Send enquiry', { exact: true }).first().click();
+    await page.waitForURL(/\/enquiry\/[0-9a-f-]{36}$/);
+    await page.getByText(qaMarker, { exact: false }).first().waitFor();
+    await page.getByText('Conversation status: open', { exact: true }).first().waitFor();
+  });
+
+  await step('phase-7a-rfq-create-and-details', async () => {
+    await go('/products');
+    await visible('Products');
+    await page.getByText('Demo Sandstone Anti-Skid Floor Tile', { exact: true }).first().waitFor();
+    await page.getByText('Demo Ivory Ceramic Wall Tile', { exact: true }).first().waitFor();
+    await page.getByText('Request quotes from multiple shops', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === '/rfq/new');
+    await visible('Request product quotes');
+    await page.locator('text="Tiles" >> visible=true').last().click();
+    await page.getByLabel('Request title').fill(`${qaMarker} tile quotation`);
+    await page.getByLabel('Description').first().fill('Anti-skid floor tiles for a demo bathroom');
+    await page.getByLabel('Notes for suppliers (optional)').fill(qaMarker);
+    await page.getByText('Send request', { exact: true }).last().click();
+    await page.waitForURL(/\/rfq\/[0-9a-f-]{36}$/);
+    await page.getByText(`${qaMarker} tile quotation`, { exact: true }).first().waitFor();
+    const contacted = page.getByText(/^\d+ shops contacted$/).last();
+    await contacted.waitFor({ state: 'visible' });
+    const recipientCount = Number((await contacted.textContent())?.match(/^\d+/)?.[0] ?? 0);
+    if (recipientCount < 2) throw new Error(`expected at least two eligible shops, got ${recipientCount}`);
+    await page.getByText('Anti-skid floor tiles for a demo bathroom', { exact: true }).first().waitFor();
+    await page.getByText('Supplier comparison', { exact: true }).first().waitFor();
+  });
+
+  await step('phase-6-sports-booking-request', async () => {
+    await go('/sports');
+    await visible('Sports & venues');
+    await page.getByText('Badminton', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === '/sports/badminton');
+    await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor();
+    await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === `/venue/${DEMO_IDS.sportsVenue}`);
+    await page.getByText('Choose an activity and slot', { exact: true }).first().waitFor();
+    await page.getByText('Badminton · Demo Court 1', { exact: true }).first().waitFor();
+    await page.getByText('Tomorrow', { exact: true }).first().click();
+    const firstFreeSlot = page.getByRole('radio').nth(1);
+    await firstFreeSlot.waitFor({ state: 'visible' });
+    await firstFreeSlot.click();
+    await page.getByLabel('Note (optional)').fill(`${qaMarker} sports booking`);
+    await page.getByText('Request booking', { exact: true }).first().click();
+    await page.waitForURL(/\/sports-booking\/[0-9a-f-]{36}$/);
+    await visible('Sports booking');
+    await page.getByText('REQUESTED', { exact: true }).first().waitFor();
+    await page.getByText(qaMarker, { exact: false }).first().waitFor();
   });
 }

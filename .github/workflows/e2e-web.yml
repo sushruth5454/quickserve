@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/**'
       - 'supabase/migrations/**'
+      - 'supabase/seed-all-services.sql'
       - 'e2e/**'
       - '.github/workflows/e2e-web.yml'
   workflow_dispatch:
@@ -103,34 +104,113 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           SHOTS_DIR: ${{ github.workspace }}/e2e-shots
           NEW_PRO_PHONE: '9000000301'
+          QA_MARKER: 'QA-E2E web-smoke ${{ github.run_id }}-${{ github.run_attempt }}'
         run: node web-smoke.mjs
 
       - name: Remove QA-E2E rows created by the smoke test
-        # Runs even when the test fails, so live data never accumulates test chats, requests or bookings.
-        # Only rows the test marks with "QA-E2E" are touched. Bookings go first (they cascade to payments,
-        # schedule rows and chat); requests then cascade to their proposals and recipients.
+        # Runs even when the test fails. Source rows are selected by this run's exact QA marker;
+        # notifications are removed only when their payload points to one of those marked rows.
         if: always()
         continue-on-error: true
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          QA_MARKER: 'QA-E2E web-smoke ${{ github.run_id }}-${{ github.run_attempt }}'
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
-          sql = """
+          marker = os.environ["QA_MARKER"].replace("'", "''")
+          sql = f"""
           begin;
+          create temp table qa_sports_bookings on commit drop as
+            select id from public.sports_bookings
+             where note like '{marker} sports booking%';
+          create temp table qa_product_enquiry_messages on commit drop as
+            select id, enquiry_id, created_at from public.product_enquiry_messages
+             where body like '{marker} product enquiry%';
+          create temp table qa_new_product_enquiries on commit drop as
+            select e.id
+              from public.product_enquiries e
+              join (
+                select enquiry_id, min(created_at) as created_at
+                  from qa_product_enquiry_messages
+                 group by enquiry_id
+              ) m on m.enquiry_id = e.id and m.created_at = e.created_at;
+          create temp table qa_rfqs on commit drop as
+            select id from public.rfqs
+             where title like '{marker}%' or notes like '{marker}%';
+          create temp table qa_owner_shops on commit drop as
+            select id from public.shops
+             where name = '{marker} approval shop'
+               and description = '{marker} synthetic owner submission and admin approval; no real sales.';
+          create temp table qa_owner_shop_audit on commit drop as
+            select id from public.admin_audit_log
+               where target_id in (
+                 select s.id from public.shops s
+                  where s.id in (select id from qa_owner_shops)
+                    and not exists (select 1 from public.products p where p.shop_id = s.id)
+                    and not exists (select 1 from public.product_enquiries e where e.shop_id = s.id)
+                    and not exists (select 1 from public.rfq_recipients r where r.shop_id = s.id)
+                    and not exists (select 1 from public.supplier_quotes q where q.shop_id = s.id)
+               )
+               and action = 'set_shop_status'
+               and details ->> 'status' = 'verified';
+          create temp table qa_owner_shops_cleanup on commit drop as
+            select s.id from public.shops s
+               where s.id in (select id from qa_owner_shops)
+                 and not exists (select 1 from public.products p where p.shop_id = s.id)
+                 and not exists (select 1 from public.product_enquiries e where e.shop_id = s.id)
+                 and not exists (select 1 from public.rfq_recipients r where r.shop_id = s.id)
+                 and not exists (select 1 from public.supplier_quotes q where q.shop_id = s.id);
           create temp table qa_requests on commit drop as
-            select id from public.service_requests where intake::text like '%QA-E2E%';
+            select id from public.service_requests where intake::text like '%{marker}%';
           create temp table qa_bookings on commit drop as
             select b.id from public.bookings b
              where b.service_request_id in (select id from qa_requests)
-                or b.proposal_id in (select p.id from public.proposals p where p.note like 'QA-E2E%')
-                or b.description like '%QA-E2E%';
+                or b.proposal_id in (select p.id from public.proposals p where p.note like '{marker}%')
+                or b.description like '%{marker}%';
+          delete from public.notifications n
+           where n.data ->> 'sports_booking_id' in
+                   (select id::text from qa_sports_bookings)
+              or n.data ->> 'rfq_id' in
+                   (select id::text from qa_rfqs)
+              or (
+                   n.data ->> 'enquiry_id' in
+                     (select enquiry_id::text from qa_product_enquiry_messages)
+                   and n.body like '{marker} product enquiry%'
+                   and exists (
+                     select 1 from qa_product_enquiry_messages m
+                      where m.enquiry_id::text = n.data ->> 'enquiry_id'
+                        and n.created_at >= m.created_at
+                   )
+              );
           delete from public.bookings where id in (select id from qa_bookings);
           delete from public.service_requests where id in (select id from qa_requests);
-          delete from public.messages where body like 'QA-E2E%';
-          select (select count(*) from qa_bookings) as bookings_removed, (select count(*) from qa_requests) as requests_removed;
+          delete from public.messages where body like '{marker}%';
+          delete from public.product_enquiry_messages
+           where id in (select id from qa_product_enquiry_messages);
+          delete from public.product_enquiries e
+           where e.id in (select id from qa_new_product_enquiries)
+             and not exists (
+               select 1 from public.product_enquiry_messages m where m.enquiry_id = e.id
+             );
+          delete from public.rfqs where id in (select id from qa_rfqs);
+          delete from public.sports_bookings where id in (select id from qa_sports_bookings);
+          delete from public.admin_audit_log where id in (select id from qa_owner_shop_audit);
+          delete from public.shops s
+           where s.id in (select id from qa_owner_shops_cleanup);
+          select
+            (select count(*) from qa_bookings) as bookings_removed,
+            (select count(*) from qa_requests) as requests_removed,
+            (select count(*) from qa_sports_bookings) as sports_bookings_removed,
+            (select count(*) from qa_product_enquiry_messages) as product_messages_removed,
+            (select count(*) from qa_new_product_enquiries) as product_enquiries_considered,
+            (select count(*) from qa_rfqs) as rfqs_removed,
+            (select count(*) from qa_owner_shops) as owner_shops_matched,
+            (select count(*) from qa_owner_shops_cleanup) as owner_shops_removed,
+            (select count(*) from qa_owner_shop_audit) as owner_shop_audit_removed;
           commit;
           """
           Path("qa-cleanup-request.json").write_text(json.dumps({"query": sql}))
