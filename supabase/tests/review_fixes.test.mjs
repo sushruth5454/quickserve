@@ -84,10 +84,12 @@ const customer = '00000000-0000-0000-0000-0000000000c1';
 const provider = '00000000-0000-0000-0000-0000000000a1';
 const demoPro = '00000000-0000-0000-0000-0000000000d1';
 const admin = '00000000-0000-0000-0000-0000000000b1';
+const commissionCustomer = '00000000-0000-0000-0000-0000000000c3';
 await db.exec(`
   insert into auth.users (id, phone, raw_user_meta_data) values
     ('${customer}', '+919999000001', '{}'), ('${provider}', '+919999000002', '{}'),
     ('${demoPro}', '+919999000003', '{"demo_only":"true"}'),
+    ('${commissionCustomer}', '+919999000004', '{}'),
     ('${admin}', '+918888888888', '{}');
   update profiles set full_name = 'Person';
   insert into providers (id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended)
@@ -101,6 +103,10 @@ await db.exec(`
   values ('${customer}', 'Venue', 'Gate 2', 'Review City', 16.50, 80.60);
 `);
 const address = (await one(`select id from addresses where user_id = $1`, [customer])).id;
+const commissionAddress = (await one(`
+  insert into addresses (user_id, label, line1, city, lat, lng)
+  values ($1, 'Commission test', 'Gate 3', 'Review City', 16.50, 80.60) returning id
+`, [commissionCustomer])).id;
 
 const category = async (slug, archetype) => {
   const id = (await one(`
@@ -207,17 +213,20 @@ if (session2) {
 
 // ---------- proposal helpers ----------
 let eventDay = 2;
-const proposalBooking = async (pro, deliverables = '[]', advance = 300000, final = 700000) => {
+const proposalBooking = async (
+  pro, deliverables = '[]', advance = 300000, final = 700000,
+  requester = customer, requesterAddress = address,
+) => {
   eventDay += 3;
-  const request = (await as(customer, 'authenticated', `
+  const request = (await as(requester, 'authenticated', `
     select create_service_request($1, 'Review City', 'Area', now() + make_interval(days => $4), now() + make_interval(days => $4, hours => 4),
-      '{"brief":"Coverage"}', 800000, 1200000, $2, null, $3) id`, [proposalCat, address, pro, eventDay]))[0].id;
+      '{"brief":"Coverage"}', 800000, 1200000, $2, null, $3) id`, [proposalCat, requesterAddress, pro, eventDay]))[0].id;
   const proposal = (await as(pro, 'authenticated', `
     select send_proposal($1, $2::jsonb, $3::jsonb, now()+interval '1 day', 'Proposal', $4::jsonb) id`, [request,
     JSON.stringify([{ kind: 'package', title: 'Coverage', qty: 1, unit: 'event', unit_price: advance + final }]),
     JSON.stringify([{ label: 'Advance', amount: advance, due_rule: 'at_booking' }, { label: 'Final', amount: final, due_rule: 'on_completion' }]),
     deliverables]))[0].id;
-  return (await as(customer, 'authenticated', `select accept_proposal($1, $2) id`, [proposal, address]))[0].id;
+  return (await as(requester, 'authenticated', `select accept_proposal($1, $2) id`, [proposal, requesterAddress]))[0].id;
 };
 const payDue = async (booking) => {
   const prep = (await db.query(`select * from prepare_payment($1, $2)`, [booking, customer])).rows[0];
@@ -511,7 +520,7 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
            jobs_completed = 0
      where id = $1`, [provider]);
   await db.query(`update categories set commission_bp = null where id = $1`, [proposalCat]);
-  const booking = await proposalBooking(provider);
+  const booking = await proposalBooking(provider, '[]', 300000, 700000, commissionCustomer, commissionAddress);
   const baseRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(baseRate === 1200, `booking rate preserves the existing 12% default (${baseRate})`);
@@ -521,6 +530,8 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(overrideRate === 2000, `admin category override is applied to the booking (${overrideRate})`);
 
+  const priorBooking = await proposalBooking(provider, '[]', 300000, 700000, commissionCustomer, commissionAddress);
+  await db.query(`update bookings set status = 'completed', completed_at = now() where id = $1`, [priorBooking]);
   const repeatRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
   ok(repeatRate === 1600, `repeat discount applies after category override (${repeatRate})`);
