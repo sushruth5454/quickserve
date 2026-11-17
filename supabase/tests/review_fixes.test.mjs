@@ -549,10 +549,10 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
              + b.platform_fee
              - round(round(q.subtotal_labour::numeric * $2 / 10000) * 18 / 100),
              0
-           ) expected
+           )::int expected
       from bookings b join quotes q on q.id = b.approved_quote_id
      where b.id = $1`, [booking, floorRate]);
-  ok(coinCap.cap === coinCap.expected,
+  ok(coinCap.resolved_rate === floorRate && coinCap.cap === coinCap.expected,
     `coin redemption platform cap matches the booking-aware payout rate (${JSON.stringify(coinCap)}, rate=${floorRate})`);
   await db.query(`update bookings set booking_origin = 'byo' where id = $1`, [booking]);
   const byoRate = (await as(provider, 'authenticated',
