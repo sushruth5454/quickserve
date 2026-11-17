@@ -542,6 +542,8 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
   ok(floorRate === 500, `repeat discount respects the configured minimum floor (${floorRate})`);
   const coinCap = await one(`
     select public._coin_platform_cap(b.id, b.approved_quote_id) cap,
+           public._commission_bp(b.provider_id, b.customer_id, b.id, now()) as resolved_rate,
+           q.subtotal_labour, b.platform_fee,
            greatest(
              round(q.subtotal_labour::numeric * $2 / 10000)
              + b.platform_fee
@@ -550,7 +552,8 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
            ) expected
       from bookings b join quotes q on q.id = b.approved_quote_id
      where b.id = $1`, [booking, floorRate]);
-  ok(coinCap.cap === coinCap.expected, 'coin redemption platform cap matches the booking-aware payout rate');
+  ok(coinCap.cap === coinCap.expected,
+    `coin redemption platform cap matches the booking-aware payout rate (${JSON.stringify(coinCap)}, rate=${floorRate})`);
   await db.query(`update bookings set booking_origin = 'byo' where id = $1`, [booking]);
   const byoRate = (await as(provider, 'authenticated',
     `select get_booking_commission_rate($1) rate`, [booking]))[0]?.rate;
