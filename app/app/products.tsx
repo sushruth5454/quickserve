@@ -94,7 +94,7 @@ export default function ProductSearchScreen() {
       {loading ? <Skeleton height={100} radius={t.radii.lg} /> : products.length ? products.map((product) => (
         <ShopProductCard key={product.id} product={product} imageUrl={images[product.id] ?? null} onPress={() => router.push(`/product/${product.id}`)} />
       )) : (
-        <EmptyState title="No products found" description="Try a different product name, category, price or location." />
+        <EmptyState title="No products found" message="Try a different product name, category, price or location." />
       )}
       {!loading && products.length ? <Text variant="caption" color="muted">Showing verified shops, ordered by distance.</Text> : null}
     </Screen>

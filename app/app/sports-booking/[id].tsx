@@ -1,5 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
+import { View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
 import { useAuth } from '../../src/lib/auth';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';

@@ -46,7 +46,7 @@ export default function MerchantEnquiriesScreen() {
           onPress={() => router.push(`/enquiry/${enquiry.id}`)}
         />
       )) : (
-        <EmptyState title="No enquiries yet" description="Customer questions will appear here." />
+        <EmptyState title="No enquiries yet" message="Customer questions will appear here." />
       )}
     </Screen>
   );

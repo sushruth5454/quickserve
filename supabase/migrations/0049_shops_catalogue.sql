@@ -749,7 +749,7 @@ create or replace function public.search_products(
 returns table (
   id uuid, shop_id uuid, category_id uuid, category_slug text, category_name text,
   name text, brand text, model text, description text, specs jsonb, unit text,
-  indicative_price_paise int, price_updated_at timestamptz, in_stock boolean,
+  indicative_price_paise int, price_updated_at timestamptz, in_stock boolean, active boolean,
   image_paths text[], shop_name text, city text, area text, distance_km double precision
 )
 language plpgsql
@@ -771,7 +771,7 @@ begin
     with candidates as (
       select p.id, p.shop_id, p.category_id, c.slug as category_slug, c.name as category_name,
              p.name, p.brand, p.model, p.description, p.specs, p.unit, p.indicative_price_paise,
-             p.price_updated_at, p.in_stock,
+             p.price_updated_at, p.in_stock, p.active,
              coalesce((select array_agg(i.path order by i.sort_order) from public.product_images i where i.product_id = p.id), '{}'::text[]) as image_paths,
              s.name as shop_name, s.city, s.area,
              case when p_lat is null then null::double precision else
@@ -793,7 +793,7 @@ begin
          and (not coalesce(p_in_stock_only, false) or p.in_stock)
     )
     select c.id, c.shop_id, c.category_id, c.category_slug, c.category_name, c.name, c.brand, c.model,
-           c.description, c.specs, c.unit, c.indicative_price_paise, c.price_updated_at, c.in_stock,
+           c.description, c.specs, c.unit, c.indicative_price_paise, c.price_updated_at, c.in_stock, c.active,
            c.image_paths, c.shop_name, c.city, c.area, c.distance_km
       from candidates c
      where p_lat is null or (c.distance_km is not null and c.distance_km <= coalesce(p_radius_km, 15))
@@ -870,7 +870,7 @@ create or replace function public.list_shop_products(p_shop_id uuid)
 returns table (
   id uuid, shop_id uuid, category_id uuid, category_slug text, category_name text,
   name text, brand text, model text, description text, specs jsonb, unit text,
-  indicative_price_paise int, price_updated_at timestamptz, in_stock boolean, image_paths text[]
+  indicative_price_paise int, price_updated_at timestamptz, in_stock boolean, active boolean, image_paths text[]
 )
 language plpgsql
 stable
@@ -881,7 +881,7 @@ begin
   perform public._assert(public._shops_products_enabled(), 'products are disabled');
   return query
     select p.id, p.shop_id, p.category_id, c.slug, c.name, p.name, p.brand, p.model, p.description, p.specs,
-           p.unit, p.indicative_price_paise, p.price_updated_at, p.in_stock,
+           p.unit, p.indicative_price_paise, p.price_updated_at, p.in_stock, p.active,
            coalesce((select array_agg(i.path order by i.sort_order) from public.product_images i where i.product_id = p.id), '{}'::text[])
       from public.products p
       join public.product_categories c on c.id = p.category_id and c.active
@@ -896,7 +896,7 @@ create or replace function public.get_product(p_id uuid)
 returns table (
   id uuid, shop_id uuid, category_id uuid, category_slug text, category_name text, name text, brand text, model text,
   description text, specs jsonb, unit text, indicative_price_paise int, price_updated_at timestamptz,
-  in_stock boolean, shop_name text, city text, area text, image_paths text[]
+  in_stock boolean, active boolean, shop_name text, city text, area text, image_paths text[]
 )
 language plpgsql
 stable
@@ -907,7 +907,7 @@ begin
   perform public._assert(public._shops_products_enabled(), 'products are disabled');
   return query
     select p.id, p.shop_id, p.category_id, c.slug, c.name, p.name, p.brand, p.model, p.description, p.specs, p.unit,
-           p.indicative_price_paise, p.price_updated_at, p.in_stock, s.name, s.city, s.area,
+           p.indicative_price_paise, p.price_updated_at, p.in_stock, p.active, s.name, s.city, s.area,
            coalesce((select array_agg(i.path order by i.sort_order) from public.product_images i where i.product_id = p.id), '{}'::text[])
       from public.products p
       join public.product_categories c on c.id = p.category_id and c.active

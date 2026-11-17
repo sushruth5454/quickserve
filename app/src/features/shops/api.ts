@@ -67,6 +67,7 @@ export interface ShopProduct {
   indicative_price_paise: number | null;
   price_updated_at: string | null;
   in_stock: boolean;
+  active: boolean;
   image_paths: string[];
 }
 

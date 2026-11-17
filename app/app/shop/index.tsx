@@ -101,7 +101,7 @@ export default function ShopMarketplaceScreen() {
             </Text>
           </Card>
         )) : (
-          <EmptyState title="No verified shops nearby yet" description="Try searching for a product across other nearby areas." />
+          <EmptyState title="No verified shops nearby yet" message="Try searching for a product across other nearby areas." />
         )}
       </View>
     </Screen>
