@@ -126,10 +126,19 @@ const payLink = async (paymentId, amount, rpc = 'record_payment_paid') => {
 };
 
 // ---------- 1, 5, 7, 8: a pay-per-session booking runs end to end ----------
-const sessionAt = `date_trunc('day', now()) + interval '3 days 6 hours 30 minutes'`; // 12:00 IST
-const createSession = async () => (await one(`
-  select _create_session_booking($1, $2, null, ${sessionAt}, 60, 'Gate 2', 'Review City', 16.5, 80.6, 'session') id`,
-  [customer, sessionService])).id;
+const sessionProviderBefore = await one(`select created_at, jobs_completed from providers where id = $1`, [provider]);
+const sessionCommissionDefaults = (await as(admin, 'authenticated',
+  `select admin_get_commission_config() config`))[0].config;
+await db.query(`update providers set created_at = now() - interval '60 days', jobs_completed = 0 where id = $1`, [provider]);
+await as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [JSON.stringify({
+  ...sessionCommissionDefaults,
+  time_based: { one_off_bp: 1100, recurring_bp: 900 },
+})]);
+const createSession = async (dayOffset = 3) => (await one(`
+  select _create_session_booking(
+    $1, $2, null, date_trunc('day', now()) + make_interval(days => $3, hours => 6, mins => 30),
+    60, 'Gate 2', 'Review City', 16.5, 80.6, 'session'
+  ) id`, [customer, sessionService, dayOffset])).id;
 let session = null;
 const createError = await fails(async () => { session = await createSession(); });
 ok(!createError && session, `session booking is created with classified schedule rows (${createError ?? 'ok'})`);
@@ -153,7 +162,37 @@ if (session) {
   const autoError = await fails(() => db.query(`select auto_confirm_completions()`));
   ok(!autoError && (await one(`select status from bookings where id = $1`, [session])).status === 'completed',
     `auto-confirm completes sessions through their own settlement (${autoError ?? 'ok'})`);
+  const settlement = await one(`select commission, gst_on_commission, total_amount, platform_fee from bookings where id = $1`, [session]);
+  const expectedCommission = Math.round((settlement.total_amount - settlement.platform_fee) * 1100 / 10000);
+  ok(settlement.commission === expectedCommission && settlement.gst_on_commission === Math.round(expectedCommission * 18 / 100),
+    'one-off session payout uses the separately configured commission rate');
+  const oneOffRate = (await as(provider, 'authenticated',
+    `select get_booking_commission_rate($1) rate`, [session]))[0]?.rate;
+  ok(oneOffRate === 1100, 'booking-rate RPC reports the configured one-off session rate');
+
+  const repeatSession = await createSession(4);
+  const repeatRate = (await as(provider, 'authenticated',
+    `select get_booking_commission_rate($1) rate`, [repeatSession]))[0]?.rate;
+  ok(repeatRate === 1100, 'time-based repeat customers do not receive the marketplace repeat discount');
+
+  const recurringSchedule = (await one(`
+    insert into recurring_schedules (
+      customer_id, provider_id, provider_service_id, frequency, weekdays, start_time, timezone,
+      session_duration_min, payment_mode, address_line, city, lat, lng, description, starts_on
+    ) values (
+      $1, $2, $3, 'weekly', array[1]::smallint[], time '10:00', 'Asia/Kolkata',
+      60, 'per_session', 'Gate 2', 'Review City', 16.5, 80.6, '', current_date + 5
+    ) returning id`, [customer, provider, sessionService])).id;
+  const recurringSession = await createSession(5);
+  await db.query(`update bookings set recurring_schedule_id = $2 where id = $1`, [recurringSession, recurringSchedule]);
+  const recurringRate = (await as(provider, 'authenticated',
+    `select get_booking_commission_rate($1) rate`, [recurringSession]))[0]?.rate;
+  ok(recurringRate === 900, 'recurring session rate is independently configurable');
 }
+await as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [JSON.stringify(sessionCommissionDefaults)]);
+await db.query(`update providers set created_at = $2, jobs_completed = $3 where id = $1`, [
+  provider, sessionProviderBefore.created_at, sessionProviderBefore.jobs_completed,
+]);
 
 // ---------- 2: an early cancellation records the refund once ----------
 const session2 = await createSession().catch(() => null);

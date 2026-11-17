@@ -1,4 +1,4 @@
--- 0043: registry-backed commission policy. Defaults preserve the effective 30-day/12%/10%/8% terms.
+-- 0043: configurable commission policy. Defaults preserve global and time-based rates.
 -- Category overrides remain inactive unless an administrator explicitly sets them.
 
 insert into public.app_config (key, value)
@@ -6,7 +6,8 @@ values ('commission', '{
   "founding_days": 30,
   "tiers": [{"min_jobs": 200, "bp": 800}, {"min_jobs": 50, "bp": 1000}, {"min_jobs": 0, "bp": 1200}],
   "repeat_discount_bp": 400,
-  "repeat_floor_bp": 500
+  "repeat_floor_bp": 500,
+  "time_based": {"one_off_bp": 1000, "recurring_bp": 800}
 }'::jsonb)
 on conflict (key) do nothing;
 
@@ -29,7 +30,8 @@ begin
     "founding_days": 30,
     "tiers": [{"min_jobs": 200, "bp": 800}, {"min_jobs": 50, "bp": 1000}, {"min_jobs": 0, "bp": 1200}],
     "repeat_discount_bp": 400,
-    "repeat_floor_bp": 500
+    "repeat_floor_bp": 500,
+    "time_based": {"one_off_bp": 1000, "recurring_bp": 800}
   }'::jsonb);
   if p_at < p.created_at + make_interval(days => (v_config ->> 'founding_days')::int) then
     return 0;
@@ -95,6 +97,122 @@ begin
 end;
 $$;
 
+create or replace function public._time_based_commission_bp(p_booking_id uuid, p_at timestamptz)
+returns int
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  b public.bookings;
+  v_provider_created_at timestamptz;
+  v_override int;
+  v_config jsonb;
+begin
+  select bk, p.created_at, c.commission_bp
+    into b, v_provider_created_at, v_override
+    from public.bookings bk
+    join public.providers p on p.id = bk.provider_id
+    left join public.categories c on c.id = bk.category_id
+   where bk.id = p_booking_id
+     and bk.archetype = 'time_based';
+  if not found then return null; end if;
+
+  select value into v_config from public.app_config where key = 'commission';
+  v_config := coalesce(v_config, '{
+    "founding_days": 30,
+    "time_based": {"one_off_bp": 1000, "recurring_bp": 800}
+  }'::jsonb);
+  v_config := v_config || jsonb_build_object(
+    'time_based',
+    case when jsonb_typeof(v_config -> 'time_based') = 'object'
+      then v_config -> 'time_based'
+      else '{"one_off_bp":1000,"recurring_bp":800}'::jsonb
+    end
+  );
+  if p_at < v_provider_created_at + make_interval(days => (v_config ->> 'founding_days')::int) then
+    return 0;
+  end if;
+  if v_override is not null then return v_override; end if;
+  if b.recurring_schedule_id is not null then
+    return (v_config -> 'time_based' ->> 'recurring_bp')::int;
+  end if;
+  return (v_config -> 'time_based' ->> 'one_off_bp')::int;
+end;
+$$;
+
+create or replace function public._finalize_session_completion(p_booking_id uuid, p_actor uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  b public.bookings;
+  ps public.pack_sessions;
+  k public.pack_purchases;
+  p public.payments;
+  v_payout uuid;
+  v_bp int;
+  v_commission int;
+  v_gst int;
+  v_net int;
+  v_capacity int;
+begin
+  select * into b from public.bookings where id = p_booking_id for update;
+  if b.pack_session_id is not null then
+    select * into ps from public.pack_sessions where id = b.pack_session_id for update;
+    select * into k from public.pack_purchases where id = b.pack_purchase_id for update;
+    perform public._assert(k.payment_id is not null, 'pack payment is missing');
+    select * into p from public.payments where id = k.payment_id and status = 'paid' for update;
+  else
+    select pm.* into p
+      from public.payments pm
+      join public.payment_schedule o on o.id = pm.schedule_id
+     where pm.booking_id = b.id
+       and pm.status = 'paid'
+       and o.label = 'Session service'
+     order by pm.paid_at
+     limit 1
+     for update of pm;
+  end if;
+  perform public._assert(p.id is not null, 'session payment is missing');
+
+  v_bp := public._time_based_commission_bp(b.id, now());
+  v_commission := round((b.total_amount - coalesce(b.platform_fee, 0))::numeric * v_bp / 10000)::int;
+  v_gst := round(v_commission::numeric * 18 / 100)::int;
+  v_net := greatest((b.total_amount - b.platform_fee) - v_commission - v_gst, 0);
+  v_capacity := p.amount
+    - coalesce((select sum(t.amount) from public.payout_transfers t where t.source_payment_id = p.id), 0)
+    - coalesce((select sum(r.amount) from public.refunds r where r.payment_id = p.id and r.status <> 'failed'), 0);
+  perform public._assert(v_capacity >= v_net, 'pack payment does not cover provider payout');
+
+  insert into public.payouts (
+    booking_id, provider_id, gross, commission, gst_on_commission, amount, release_after
+  )
+  values (
+    b.id, b.provider_id, b.total_amount - b.platform_fee,
+    v_commission, v_gst, v_net, now() + interval '24 hours'
+  )
+  on conflict (booking_id) do nothing
+  returning id into v_payout;
+  if v_payout is not null then
+    insert into public.payout_transfers (payout_id, source_payment_id, amount) values (v_payout, p.id, v_net);
+    update public.bookings
+       set completed_at = now(), commission = v_commission, gst_on_commission = v_gst
+     where id = b.id;
+    update public.providers
+       set jobs_completed = jobs_completed + 1
+     where id = b.provider_id;
+    update public.pack_sessions
+       set status = 'completed', completed_at = now()
+     where id = b.pack_session_id;
+    perform public._set_status(b.id, 'completed', p_actor, 'session completed');
+  end if;
+end;
+$$;
+
 create or replace function public._coin_platform_cap(p_booking_id uuid, p_quote_id uuid)
 returns int
 language plpgsql
@@ -113,6 +231,7 @@ begin
   perform public._assert(found and b.id is not null, 'booking or quote not found');
   v_commission := round(q.subtotal_labour::numeric * case
     when b.booking_origin = 'byo' then 0
+    when b.archetype = 'time_based' then public._time_based_commission_bp(b.id, now())
     else public._commission_bp(b.provider_id, b.customer_id, b.id, now())
   end / 10000);
   v_gst := round(v_commission::numeric * 18 / 100);
@@ -139,8 +258,16 @@ begin
     "founding_days": 30,
     "tiers": [{"min_jobs": 200, "bp": 800}, {"min_jobs": 50, "bp": 1000}, {"min_jobs": 0, "bp": 1200}],
     "repeat_discount_bp": 400,
-    "repeat_floor_bp": 500
+    "repeat_floor_bp": 500,
+    "time_based": {"one_off_bp": 1000, "recurring_bp": 800}
   }'::jsonb);
+  v_config := v_config || jsonb_build_object(
+    'time_based',
+    case when jsonb_typeof(v_config -> 'time_based') = 'object'
+      then v_config -> 'time_based'
+      else '{"one_off_bp":1000,"recurring_bp":800}'::jsonb
+    end
+  );
   select * into p from public.providers where id = v_uid;
   if found then
     v_bp := public._commission_bp(v_uid, now());
@@ -166,6 +293,7 @@ begin
   select * into b from public.bookings where id = p_booking_id;
   perform public._assert(found and b.provider_id = v_uid, 'booking not found');
   if b.booking_origin = 'byo' then return 0; end if;
+  if b.archetype = 'time_based' then return public._time_based_commission_bp(b.id, now()); end if;
   return public._commission_bp(b.provider_id, b.customer_id, b.id, now());
 end;
 $$;
@@ -182,12 +310,20 @@ declare
 begin
   perform public._assert(public._is_admin(), 'admin only');
   select value into v_config from public.app_config where key = 'commission';
-  return coalesce(v_config, '{
+  v_config := coalesce(v_config, '{
     "founding_days": 30,
     "tiers": [{"min_jobs": 200, "bp": 800}, {"min_jobs": 50, "bp": 1000}, {"min_jobs": 0, "bp": 1200}],
     "repeat_discount_bp": 400,
-    "repeat_floor_bp": 500
+    "repeat_floor_bp": 500,
+    "time_based": {"one_off_bp": 1000, "recurring_bp": 800}
   }'::jsonb);
+  return v_config || jsonb_build_object(
+    'time_based',
+    case when jsonb_typeof(v_config -> 'time_based') = 'object'
+      then v_config -> 'time_based'
+      else '{"one_off_bp":1000,"recurring_bp":800}'::jsonb
+    end
+  );
 end;
 $$;
 
@@ -202,10 +338,13 @@ declare
   v_days int;
   v_discount int;
   v_floor int;
+  v_one_off int;
+  v_recurring int;
   v_count int;
   v_zero_tiers int;
   v_config jsonb;
   v_tiers jsonb;
+  v_time_based jsonb;
 begin
   perform public._assert(public._is_admin(), 'admin only');
   perform public._assert(coalesce(jsonb_typeof(p_config) = 'object', false), 'commission config must be an object');
@@ -226,6 +365,18 @@ begin
   v_floor := (p_config ->> 'repeat_floor_bp')::int;
   perform public._assert(v_discount between 0 and 3000 and v_floor between 0 and 3000,
     'repeat discount and floor must be between 0 and 3000 basis points');
+  select value -> 'time_based' into v_time_based
+    from public.app_config where key = 'commission';
+  v_time_based := coalesce(p_config -> 'time_based', v_time_based, '{"one_off_bp":1000,"recurring_bp":800}'::jsonb);
+  perform public._assert(coalesce(jsonb_typeof(v_time_based) = 'object', false),
+    'time-based commission must be an object');
+  perform public._assert(coalesce(v_time_based ->> 'one_off_bp', '') ~ '^[0-9]+$'
+    and coalesce(v_time_based ->> 'recurring_bp', '') ~ '^[0-9]+$',
+    'time-based commission rates must be integers');
+  v_one_off := (v_time_based ->> 'one_off_bp')::int;
+  v_recurring := (v_time_based ->> 'recurring_bp')::int;
+  perform public._assert(v_one_off between 0 and 3000 and v_recurring between 0 and 3000,
+    'time-based commission rates must be between 0 and 3000 basis points');
 
   select count(*), count(*) filter (where (tier ->> 'min_jobs')::int = 0)
     into v_count, v_zero_tiers
@@ -251,7 +402,8 @@ begin
     'founding_days', v_days,
     'tiers', v_tiers,
     'repeat_discount_bp', v_discount,
-    'repeat_floor_bp', v_floor
+    'repeat_floor_bp', v_floor,
+    'time_based', jsonb_build_object('one_off_bp', v_one_off, 'recurring_bp', v_recurring)
   );
   insert into public.app_config (key, value, updated_at, updated_by)
   values ('commission', v_config, now(), v_uid)
@@ -298,7 +450,9 @@ end;
 $$;
 
 revoke execute on function public._commission_bp(uuid, timestamptz),
-  public._commission_bp(uuid, uuid, uuid, timestamptz), public._coin_platform_cap(uuid, uuid)
+  public._commission_bp(uuid, uuid, uuid, timestamptz),
+  public._time_based_commission_bp(uuid, timestamptz),
+  public._coin_platform_cap(uuid, uuid)
 from public, anon, authenticated;
 revoke execute on function public.get_commission_terms(), public.get_booking_commission_rate(uuid) from public, anon;
 grant execute on function public.get_commission_terms(), public.get_booking_commission_rate(uuid) to authenticated;

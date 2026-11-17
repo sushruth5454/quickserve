@@ -138,12 +138,16 @@ if (commissionRow) {
   'commission policy preserves the current 12/10/8 percent job tiers');
   ok(c.repeat_discount_bp === 400 && c.repeat_floor_bp === 500,
     'commission policy preserves the current repeat discount and 5 percent floor');
+  ok(c.time_based?.one_off_bp === 1000 && c.time_based?.recurring_bp === 800,
+    'commission policy preserves separate 10% one-off and 8% recurring session rates');
 }
 const adminConfig = (await as(admin, 'authenticated', `select admin_get_commission_config() config`))[0]?.config;
 ok(adminConfig?.founding_days === 30, 'admin can read the stored commission policy');
 const terms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
 ok(terms?.my_bp === 0 && terms?.founding_days === 30, 'provider terms report the current free-period rate from server config');
 ok(terms?.tiers?.some((tier) => tier.min_jobs === 50 && tier.bp === 1000), 'provider terms expose configured commission tiers');
+ok(terms?.time_based?.one_off_bp === 1000 && terms?.time_based?.recurring_bp === 800,
+  'provider terms expose separate time-based commission rates');
 const customerTerms = (await as(customer, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
 ok(customerTerms?.my_bp === null && customerTerms?.my_free_until === null, 'non-provider terms never expose another provider rate');
 
@@ -157,6 +161,8 @@ await db.query(`update providers set created_at = now() - interval '60 days', jo
 const updatedConfig = (await as(admin, 'authenticated',
   `select admin_set_commission($1::jsonb) config`, [JSON.stringify(config)]))[0]?.config;
 ok(updatedConfig?.founding_days === 90, 'admin can update the global commission config');
+ok(updatedConfig?.time_based?.one_off_bp === 1000 && updatedConfig?.time_based?.recurring_bp === 800,
+  'global commission edits preserve time-based rates when omitted');
 const freeTerms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
 ok(freeTerms?.my_bp === 0 && freeTerms?.founding_days === 90, 'updated founding period applies without an app update');
 const invalidCommission = await fails(() => as(admin, 'authenticated',
@@ -172,10 +178,22 @@ const malformedTiers = await fails(() => as(admin, 'authenticated', `select admi
   JSON.stringify({ ...config, tiers: { min_jobs: 0, bp: 1200 } }),
 ]));
 ok(/commission requires 1 to 10 tiers/.test(malformedTiers ?? ''), 'commission config rejects a non-array tier value cleanly');
+const invalidTimeBasedCommission = await fails(() => as(admin, 'authenticated',
+  `select admin_set_commission($1::jsonb)`, [JSON.stringify({
+    ...config, time_based: { one_off_bp: 3001, recurring_bp: 800 },
+  })]));
+ok(/time-based commission rates/.test(invalidTimeBasedCommission ?? ''), 'time-based commission rates are range-validated');
+const customTimeBased = (await as(admin, 'authenticated', `select admin_set_commission($1::jsonb) config`, [
+  JSON.stringify({ ...config, time_based: { one_off_bp: 1100, recurring_bp: 900 } }),
+]))[0]?.config;
+ok(customTimeBased?.time_based?.one_off_bp === 1100 && customTimeBased?.time_based?.recurring_bp === 900,
+  'admin can independently configure one-off and recurring session rates');
 const normalCommissionDenied = await fails(() => as(customer, 'authenticated',
   `select admin_set_commission($1::jsonb)`, [JSON.stringify(config)]));
 ok(/admin only/.test(normalCommissionDenied ?? ''), 'normal users cannot change commission config');
-await as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [JSON.stringify({ ...config, founding_days: 30 })]);
+await as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [JSON.stringify({
+  ...config, founding_days: 30, time_based: { one_off_bp: 1000, recurring_bp: 800 },
+})]);
 const standardTerms = (await as(provider, 'authenticated', `select get_commission_terms() terms`))[0]?.terms;
 ok(standardTerms?.my_bp === 1200, 'restoring the 30-day founding period retains the current base tier');
 await db.query(`update providers set jobs_completed = 50 where id = $1`, [provider]);

@@ -235,7 +235,8 @@ insert into public.app_config (key, value) values ('commission', '{
   "founding_days": 30,
   "tiers": [{"min_jobs": 200, "bp": 800}, {"min_jobs": 50, "bp": 1000}, {"min_jobs": 0, "bp": 1200}],
   "repeat_discount_bp": 400,
-  "repeat_floor_bp": 500
+  "repeat_floor_bp": 500,
+  "time_based": {"one_off_bp": 1000, "recurring_bp": 800}
 }'::jsonb) on conflict (key) do nothing;
 ```
 
@@ -246,8 +247,10 @@ insert into public.app_config (key, value) values ('commission', '{
   1. `v_bp := _commission_bp(p_provider_id, p_at)`.
   2. If `v_bp > 0` and the booking's category has `categories.commission_bp is not null` → `v_bp := categories.commission_bp`.
   3. Repeat-customer rule as today, using `repeat_discount_bp` and `repeat_floor_bp` from config.
-- **New** `get_commission_terms()` (authenticated, any user): returns `{founding_days, tiers, my_bp, my_free_until}` where `my_*` is for the caller if they are a provider (else null). Used by the app instead of hardcoded text.
-- **New** `admin_set_commission(p_config jsonb)` (admin): validate `founding_days` 0–365, each `bp` 0–3000, `min_jobs` ≥ 0, last tier `min_jobs = 0`. Store; audit.
+- Preserve the separate time-based session policy: 30-day founding period, then `time_based.one_off_bp = 1000` or `time_based.recurring_bp = 800`; these values are admin-configurable, and time-based bookings do not receive the marketplace repeat discount.
+- Replace `_finalize_session_completion` to use the configured time-based rate for payout settlement; `get_booking_commission_rate(p_booking_id)` returns that same rate for time-based bookings.
+- **New** `get_commission_terms()` (authenticated, any user): returns `{founding_days, tiers, time_based, my_bp, my_free_until}` where `my_*` is for the caller if they are a provider (else null). Used by the app instead of hardcoded text.
+- **New** `admin_set_commission(p_config jsonb)` (admin): validate `founding_days` 0–365, each `bp` 0–3000, `min_jobs` ≥ 0, last tier `min_jobs = 0`, and each `time_based` rate 0–3000. Store; audit.
 - **New** `admin_set_category_commission(p_category_id uuid, p_bp int)` (admin): `p_bp` null or 0–3000.
 
 **Gotcha:** `_coin_platform_cap` currently calls the 2-argument tier-only overload. Replace it with the 4-argument booking-aware overload using `b.provider_id`, `b.customer_id`, `b.id`, and `now()`. The coin-redeemable platform-revenue cap must use the same category override and repeat rate as the payout; otherwise the preview may overstate available coins.
@@ -261,10 +264,11 @@ insert into public.app_config (key, value) values ('commission', '{
 | `app/app/(provider)/dashboard.tsx` | Computes rate with local `commissionRateBp` | Use `get_commission_terms().my_bp`; retain `money.ts` rules only for explicit demo mode. |
 | `app/app/(provider)/earnings.tsx` | 345 hardcoded tier copy and local calculation | Build title, free-until text, and tier progress from `get_commission_terms()`; use `tiers`. |
 | `app/app/quote/[bookingId].tsx` | Computes `rateBp` with local `commissionRateBp` | Add admin-independent `get_booking_commission_rate(p_booking_id)` RPC, provider-only; return the booking-aware rate including repeat discount and category override. Quote preview uses this server value; retain local calculation only for demo mode. |
-| **new** `app/app/admin/commission.tsx` | — | Form: founding days, tiers table, repeat discount/floor, per-category override list. Link from admin dashboard. |
+| **new** `app/app/admin/commission.tsx` | — | Form: founding days, global tiers, repeat discount/floor, separate one-off/recurring session rates, per-category override list. Link from admin dashboard. |
 
 ### 1.3 Tests
 - Defaults reproduce today: day 10 → 0; 0 jobs → 1200; 60 jobs → 1000; 250 jobs → 800; repeat customer at 1200 → 800; floor 500.
+- Time-based defaults remain 1000 bp for one-off sessions and 800 bp for recurring sessions; changing these in admin affects both the booking-rate RPC and payout.
 - Change `founding_days` to 90 → a 60-day-old provider gets 0.
 - Category override 500 applies after founding.
 - Invalid config rejected; normal user refused.
@@ -277,7 +281,9 @@ insert into public.app_config (key, value) values ('commission', '{
 
 **Goal:** 1 coin = 10 paise. Earning, caps, budget and redemption come from admin config. Earning and redemption each have a switch.
 
-### 2.1 Migration `0044_coins_config.sql`
+### 2.1 Migration `0047_coins_config.sql`
+
+Migrations `0044`–`0046` are assigned to the parallel creator-revisions, language, and geography phases; coins follow at `0047`.
 
 ```sql
 insert into public.app_config (key, value) values ('coins', '{
@@ -297,9 +303,9 @@ insert into public.feature_flags (key, enabled, label, description, group_name, 
 on conflict (key) do nothing;
 ```
 
-Values above are the **PRD values** (1% earn, max ₹20 per booking, ₹10 first-booking bonus, ₹10,000 pilot budget, 10% redemption cap). `monthly_cap_paise` keeps today's ₹1,000. **Confirm these numbers with the owner before enabling in production.**
+Values above are the **PRD values** (1% earn, max ₹20 per booking, ₹10 first-booking bonus, ₹10,000 pilot budget, 10% redemption cap). `monthly_cap_paise` keeps today's ₹1,000. The owner approved using these recommended defaults on November 17, 2026.
 
-Changes to `0015_seva_coins.sql` functions (redefine them in 0044):
+Changes to `0015_seva_coins.sql` functions (redefine them in 0047):
 
 | Today | New |
 |---|---|
@@ -337,7 +343,7 @@ New admin RPC `admin_coin_summary()` → `{issued_paise, redeemed_paise, expired
 
 **Goal:** after a creator submits deliverables, the customer can request a revision (up to an allowed number) instead of only accepting.
 
-### 3.1 Migration `0045_creator_revisions.sql`
+### 3.1 Migration `0044_creator_revisions.sql`
 
 - Flag `('creator_revisions', false, 'Creator revisions', 'Customers can ask creators to revise delivered work.', 'Creators', 10)`.
 - `alter table public.bookings add column if not exists revisions_allowed int not null default 2 check (revisions_allowed between 0 and 10), add column if not exists revisions_used int not null default 0 check (revisions_used >= 0);`
@@ -371,7 +377,7 @@ Revision allowed once, twice, third refused (default 2); flag off refused; provi
 | `app/src/i18n/te.ts` | `export const te: Partial<Record<keyof typeof en, string>> = { ... };` |
 | `app/src/i18n/index.tsx` | `LanguageProvider` (AsyncStorage key `quickserve.lang.v1`, values `'en' \| 'te'`), `useT()` returning `t(key, vars?)`. Missing Telugu key → English. `{name}` placeholders replaced from `vars`. |
 | `app/app/_layout.tsx` | Wrap with `LanguageProvider`. |
-| Migration `0046_preferred_language.sql` | `alter table public.profiles add column if not exists preferred_language text not null default 'en' check (preferred_language in ('en','te'));` + flag `('telugu_language', false, 'Telugu language', 'Show the language picker and Telugu text.', 'App', 40)`. |
+| Migration `0045_preferred_language.sql` | `alter table public.profiles add column if not exists preferred_language text not null default 'en' check (preferred_language in ('en','te'));` + flag `('telugu_language', false, 'Telugu language', 'Show the language picker and Telugu text.', 'App', 40)`. |
 
 ### 4.2 Steps
 1. Build the module and the Language picker in `AccountScreen` (replace "coming soon"). Hidden when `telugu_language` is off; then force `'en'`.
@@ -390,7 +396,7 @@ Revision allowed once, twice, third refused (default 2); flag off refused; provi
 
 **Goal:** admin manages states → districts → cities → areas. Remove hardcoded `POPULAR_AREAS`.
 
-### 5.1 Migration `0047_geography.sql`
+### 5.1 Migration `0046_managed_geography.sql`
 ```sql
 create table public.geo_states (id uuid primary key default gen_random_uuid(), name text not null unique, active boolean not null default true);
 create table public.geo_districts (id uuid primary key default gen_random_uuid(), state_id uuid not null references public.geo_states(id), name text not null, active boolean not null default true, unique (state_id, name));

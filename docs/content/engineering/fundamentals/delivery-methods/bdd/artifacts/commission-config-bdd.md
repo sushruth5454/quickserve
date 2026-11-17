@@ -1,6 +1,6 @@
 # QuickServe Phase 1 — Commission Configuration — BDD
 
-**Status:** Proposed for PRD v2 Phase 1; not implemented.
+**Status:** Approved behavior; implementation and CI validation in progress.
 
 ## Discovery
 
@@ -8,7 +8,8 @@
 - **Goal:** let an administrator configure commission terms while preserving today's effective rates until an administrator changes them.
 - **Scope:** default commission configuration, global and category rules, provider terms, and the booking-specific quote preview.
 - **Out of scope:** choosing new launch rates, changing unrelated booking/payment rules, or treating a client-side calculation as authoritative.
-- **Rules:** default founding period is 30 days; after it, rates are 12%, 10% at 50 completed jobs, and 8% at 200; repeat discount is 4 percentage points with a 5% floor. A category override replaces the tier only after the founding period, then the repeat rule applies.
+- **Rules:** default founding period is 30 days; after it, global rates are 12%, 10% at 50 completed jobs, and 8% at 200; repeat discount is 4 percentage points with a 5% floor. A category override replaces the tier only after the founding period, then the repeat rule applies.
+- **Owner decision:** time-based sessions preserve their separate rates (10% one-off, 8% recurring), make those rates independently admin-configurable, and do not receive the marketplace repeat discount.
 - **Current-source note:** `0018` has a nullable `categories.commission_bp` field, but the current `0016` resolver does not read it. A live read on November 17, 2026 found zero categories with a non-null override. Phase 1 must not make any previously inert category value effective merely because the resolver changes; keep it inactive until an administrator action.
 
 ## Scenarios
@@ -102,6 +103,20 @@ Feature: Commission configuration
     Then provider commission and GST on commission remain zero
 ```
 
+### CC-08 — Time-based session rates remain separate
+
+```gherkin
+Feature: Commission configuration
+  Scenario: Time-based rates are configurable without changing their current economics
+    Given the provider is past the configured founding period
+    And the default one-off and recurring session rates are 1000 bp and 800 bp
+    When the session payout is settled
+    Then a one-off session uses the one-off rate
+    And a recurring session uses the recurring rate
+    And neither rate receives the marketplace repeat-customer discount
+    And changing these settings affects both the booking-rate RPC and payout settlement
+```
+
 ## Automation readiness
 
 | Scenario | Observable outcome | Planned verification | Existing coverage (baseline only) |
@@ -113,6 +128,7 @@ Feature: Commission configuration
 | CC-05 | Quote preview displays the result of the booking-specific server lookup | SQL RPC authorization/rate assertions plus a quote/API test; no focused quote-rate app test was found | [`money.test.ts`](<../../../../../../../app/src/lib/__tests__/money.test.ts>) tests settlement math, not the quote screen's rate source |
 | CC-06 | Invalid values and non-admin calls fail without changing config | SQL assertions in `prd_v2.test.mjs` | No current commission-admin test; admin operations are proposed |
 | CC-07 | BYO payout remains at zero commission | Keep the existing payout assertion green | `leakage_programme.test.mjs` already asserts zero BYO commission and GST |
+| CC-08 | One-off/recurring rates are configurable independently and settle identically to the booking-rate RPC | Add SQL config assertions and exercise `_finalize_session_completion` for a time-based booking in `review_fixes.test.mjs` | `time_based_booking.test.mjs` does not cover commission settlement from Phase 1 config |
 
 ## Evidence and trace links
 
@@ -124,4 +140,4 @@ Feature: Commission configuration
 ## Phase status
 
 - **BDD:** target behavior defined for the proposed phase.
-- **Implementation and Phase 1 tests:** not present in this checkout; `0043_commission_config.sql` is planned, not implemented.
+- **Implementation and Phase 1 tests:** in progress; complete when CI proves both marketplace and time-based rates at preview and settlement.
