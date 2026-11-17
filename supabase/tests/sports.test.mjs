@@ -135,13 +135,16 @@ const offCalls = [
   () => as(customer1, 'authenticated', `select public.request_sports_slot(gen_random_uuid(), now() + interval '1 day', 1, '')`),
   () => as(owner, 'authenticated', `select public.decide_sports_booking(gen_random_uuid(), true, '')`),
   () => as(customer1, 'authenticated', `select public.cancel_sports_booking(gen_random_uuid(), '')`),
-  () => as(owner, 'authenticated', `select public.save_sports_venue(null, 'Off venue', '', '1 Test Road', 'Sangareddy', 'Center', 16.5, 80.6, '{}', '{}')`),
+  () => as(owner, 'authenticated', `select public.save_sports_venue(null::uuid, 'Off venue', '', '1 Test Road', 'Sangareddy', 'Center', 16.5::double precision, 80.6::double precision, array[]::text[], array[]::text[])`),
   () => db.query(`select public.expire_sports_requests()`),
 ];
 let allOffCallsRefused = true;
-for (const call of offCalls) {
+for (const [index, call] of offCalls.entries()) {
   const message = await fails(call);
-  if (!/turned off/.test(message ?? '')) allOffCallsRefused = false;
+  if (!/turned off/.test(message ?? '')) {
+    allOffCallsRefused = false;
+    console.error(`Flag-off sports RPC ${index + 1} returned ${message ?? 'without an error'}`);
+  }
 }
 ok(allOffCallsRefused, 'all customer, owner, admin and expiry RPCs are refused while the flag is off');
 const directOffRows = await as(customer1, 'authenticated', `select id from public.sports_activities`);

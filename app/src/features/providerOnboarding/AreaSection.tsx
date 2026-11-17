@@ -185,7 +185,7 @@ export function AreaSection({ data, reload, header, mode, onDone, onBack }: Sect
                     onPress={() => applyPlace({ lat: location.lat, lng: location.lng, area: location.area, city: location.city })}
                   />
                 );
-              ))}
+              })}
             </View>
           </View>
         ) : null}

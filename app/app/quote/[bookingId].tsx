@@ -25,10 +25,10 @@ import {
   TextArea,
   useToast,
 } from '../../src/components/ui';
-import { getBooking, getMyProvider, getQuotes, listMyServices, sendQuote, uploadJobPhoto } from '../../src/lib/api';
+import { getBooking, getBookingCommissionRate, getQuotes, listMyServices, sendQuote, uploadJobPhoto } from '../../src/lib/api';
 import { haptics } from '../../src/lib/haptics';
-import { commissionRateBp, formatINR, rupeesToPaise, settleQuotedJob, type LineInput, type LineKind } from '../../src/lib/money';
-import type { Booking, Provider, QuoteItemDraft, RateCardItem } from '../../src/lib/types';
+import { formatINR, quoteSubtotals, rupeesToPaise, settleQuotedJob, type LineInput, type LineKind } from '../../src/lib/money';
+import type { Booking, QuoteItemDraft, RateCardItem } from '../../src/lib/types';
 import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
 
@@ -87,7 +87,6 @@ export default function QuoteEditorScreen() {
   const { bookingId, changeOrder } = useLocalSearchParams<{ bookingId: string; changeOrder?: string }>();
   const isChangeOrder = changeOrder === '1';
   const [booking, setBooking] = useState<Booking | null>(null);
-  const [provider, setProvider] = useState<Provider | null>(null);
   const [lines, setLines] = useState<Line[]>([newLine('labour')]);
   const [note, setNote] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -96,13 +95,18 @@ export default function QuoteEditorScreen() {
   const [showErrors, setShowErrors] = useState(false);
   const [rateCard, setRateCard] = useState<RateCardItem[]>([]);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [rateBp, setRateBp] = useState<number | null>(null);
+  const [rateLoading, setRateLoading] = useState(true);
+  const [commissionError, setCommissionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bookingId) return;
-    Promise.all([getBooking(bookingId), getMyProvider(), getQuotes(bookingId), listMyServices(true).catch(() => [])])
-      .then(([b, p, quotes, services]) => {
+    setRateLoading(true);
+    setRateBp(null);
+    setCommissionError(null);
+    Promise.all([getBooking(bookingId), getQuotes(bookingId), listMyServices(true).catch(() => [])])
+      .then(async ([b, quotes, services]) => {
         setBooking(b);
-        setProvider(p);
         setRateCard(services.find((s) => s.category_id === b.category_id)?.rate_card_items ?? []);
         const base = quotes.find((q) => q.status === 'sent') ?? quotes.find((q) => q.id === b.approved_quote_id);
         if (base && base.quote_items.length > 0) {
@@ -112,8 +116,20 @@ export default function QuoteEditorScreen() {
               .map((i) => newLine(i.kind, i.title, Number(i.qty), String(i.unit_price / 100), i.bill_photo_url ?? undefined)),
           );
         }
+        try {
+          setRateBp(await getBookingCommissionRate(bookingId));
+          setCommissionError(null);
+        } catch (e) {
+          setRateBp(null);
+          setCommissionError((e as Error).message);
+        } finally {
+          setRateLoading(false);
+        }
       })
-      .catch((e: Error) => setLoadError(e.message));
+      .catch((e: Error) => {
+        setLoadError(e.message);
+        setRateLoading(false);
+      });
   }, [bookingId]);
 
   const parsed = useMemo<QuoteItemDraft[]>(
@@ -128,22 +144,25 @@ export default function QuoteEditorScreen() {
     [lines],
   );
 
-  const rateBp = provider
-    ? commissionRateBp({ jobsCompleted: provider.jobs_completed, providerCreatedAt: new Date(provider.created_at), at: new Date() })
-    : 1200;
-
-  const settlement = useMemo(() => {
-    const items: LineInput[] = parsed
+  const lineItems = useMemo<LineInput[]>(
+    () => parsed
       .filter((p) => Number.isFinite(p.unit_price) && p.qty > 0)
-      .map((p) => ({ kind: p.kind, qty: p.qty, unitPrice: p.unit_price }));
-    return settleQuotedJob({
-      items,
+      .map((p) => ({ kind: p.kind, qty: p.qty, unitPrice: p.unit_price })),
+    [parsed],
+  );
+  const subtotals = useMemo(() => quoteSubtotals(lineItems), [lineItems]);
+  const settlement = useMemo(() => rateBp == null ? null : settleQuotedJob({
+      items: lineItems,
       visitFee: booking?.visit_fee ?? 0,
       platformFee: booking?.platform_fee ?? 2900,
       rateBp,
       travelFee: booking?.travel_requests?.quoted_fee ?? 0,
-    });
-  }, [parsed, booking, rateBp]);
+    }), [lineItems, booking, rateBp]);
+  const displaySubtotals = settlement?.subtotals ?? {
+    ...subtotals,
+    other: subtotals.other + Math.max(0, booking?.travel_requests?.quoted_fee ?? 0),
+    total: subtotals.total + Math.max(0, booking?.travel_requests?.quoted_fee ?? 0),
+  };
 
   const update = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
@@ -155,7 +174,12 @@ export default function QuoteEditorScreen() {
       setError('Every line needs a description, a quantity and a price.');
       return;
     }
-    if (settlement.subtotals.total <= 0) {
+    if (rateBp == null) {
+      haptics.error();
+      setError('The booking-specific commission rate is unavailable. Retry the commission lookup before sending this quote.');
+      return;
+    }
+    if (displaySubtotals.total <= 0) {
       haptics.error();
       setError('The quote total is ₹0. Add a price to at least one item.');
       return;
@@ -190,8 +214,21 @@ export default function QuoteEditorScreen() {
     );
   }
 
-  const pct = rateBp / 100;
-  const fees = settlement.commission + settlement.gst;
+  const pct = rateBp == null ? null : rateBp / 100;
+  const fees = settlement ? settlement.commission + settlement.gst : null;
+  const retryCommissionRate = async () => {
+    if (!bookingId) return;
+    setRateLoading(true);
+    setCommissionError(null);
+    try {
+      setRateBp(await getBookingCommissionRate(bookingId));
+    } catch (e) {
+      setRateBp(null);
+      setCommissionError((e as Error).message);
+    } finally {
+      setRateLoading(false);
+    }
+  };
 
   const attachBill = async (key: string) => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
@@ -214,10 +251,10 @@ export default function QuoteEditorScreen() {
       footer={
         <View style={{ gap: t.spacing.md }}>
           <View style={{ gap: 4 }}>
-            <SummaryLine label="Quote total" value={formatINR(settlement.subtotals.total)} />
+            <SummaryLine label="Quote total" value={formatINR(displaySubtotals.total)} />
             <SummaryLine
-              label={`Fees · ${pct}% of labour${booking.travel_requests ? ' + travel' : ''} + GST`}
-              value={fees > 0 ? `−${formatINR(fees)}` : formatINR(0)}
+              label={pct == null ? 'Commission preview' : `Fees · ${pct}% of labour${booking.travel_requests ? ' + travel' : ''} + GST`}
+              value={fees == null ? 'Unavailable' : fees > 0 ? `−${formatINR(fees)}` : formatINR(0)}
               muted
             />
           </View>
@@ -227,7 +264,7 @@ export default function QuoteEditorScreen() {
                 You receive
               </Text>
               <Text variant="title2" color="successText" tabular>
-                {formatINR(settlement.providerPayout)}
+                {settlement ? formatINR(settlement.providerPayout) : 'Unavailable'}
               </Text>
             </View>
             <Button
@@ -235,6 +272,7 @@ export default function QuoteEditorScreen() {
               size="lg"
               onPress={() => void submit()}
               loading={submitting}
+              disabled={rateLoading || rateBp == null}
               style={{ flex: 1 }}
             />
           </View>
@@ -249,6 +287,12 @@ export default function QuoteEditorScreen() {
           tone="info"
           message={`Travel fee ${formatINR(booking.travel_requests.quoted_fee)} is attached automatically and commission applies to it. The customer sees it as a separate line.`}
         />
+      ) : null}
+      {rateLoading ? <InlineAlert tone="info" message="Loading the booking-specific commission rate…" /> : rateBp == null ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <InlineAlert tone="warning" message={`Commission preview unavailable. The quote cannot be sent until the server rate is loaded.${commissionError ? ` ${commissionError}` : ''}`} />
+          <Button title="Retry commission lookup" variant="outline" onPress={() => void retryCommissionRate()} />
+        </View>
       ) : null}
 
       {rateCard.length > 0 ? (
@@ -336,7 +380,7 @@ export default function QuoteEditorScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                     <Ionicons name={KIND_ICON[l.kind] ?? 'ellipsis-horizontal-circle-outline'} size={14} color={t.colors.muted} />
                     <Text variant="footnote" color="muted" style={{ flex: 1 }}>
-                      {l.kind === 'labour' ? `${pct}% commission applies` : 'No commission · passed through at cost'}
+                      {l.kind === 'labour' ? (pct == null ? 'Commission rate unavailable' : `${pct}% commission applies`) : 'No commission · passed through at cost'}
                     </Text>
                   </View>
                   <Text variant="calloutStrong" tabular>
@@ -406,27 +450,31 @@ export default function QuoteEditorScreen() {
         <Text variant="title3" style={{ marginBottom: 2 }}>
           Breakdown
         </Text>
-        <PriceRow label="Labour" amount={settlement.subtotals.labour} />
-        {settlement.subtotals.parts > 0 ? <PriceRow label="Parts" amount={settlement.subtotals.parts} hint="No commission" /> : null}
-        {settlement.subtotals.other > 0 ? <PriceRow label="Other" amount={settlement.subtotals.other} hint="No commission" /> : null}
+        <PriceRow label="Labour" amount={displaySubtotals.labour} />
+        {displaySubtotals.parts > 0 ? <PriceRow label="Parts" amount={displaySubtotals.parts} hint="No commission" /> : null}
+        {displaySubtotals.other > 0 ? <PriceRow label="Other, including travel" amount={displaySubtotals.other} hint={booking.travel_requests ? 'Travel is included' : 'No commission · passed through at cost'} /> : null}
         <Divider style={{ marginVertical: 2 }} />
-        <PriceRow label="Quote total" amount={settlement.subtotals.total} />
-        <PriceRow
-          label="Customer pays"
-          amount={settlement.customerTotal}
-          hint={`Incl. ${formatINR(booking.platform_fee)} platform fee; ${formatINR(booking.visit_fee)} visit fee already paid`}
-          emphasis="muted"
-        />
-        <Divider style={{ marginVertical: 2 }} />
-        <PriceRow label={`Commission (${pct}% of labour)`} amount={-settlement.commission} emphasis="muted" />
-        <PriceRow label="GST on commission (18%)" amount={-settlement.gst} emphasis="muted" />
-        <Divider dashed style={{ marginVertical: 2 }} />
-        <PriceRow label="You receive" amount={settlement.providerPayout} emphasis="total" />
-        <Text variant="footnote" color="muted">
-          {rateBp === 0 ? 'You are in your 0% commission period. ' : ''}
-          {settlement.subtotals.total < booking.visit_fee ? `Below the ${formatINR(booking.visit_fee)} visit fee, so the visit fee is billed instead. ` : ''}
-          Paid to your bank 24 hours after completion, before statutory TDS/TCS.
-        </Text>
+        <PriceRow label="Quote total" amount={displaySubtotals.total} />
+        {settlement ? (
+          <>
+            <PriceRow
+              label="Customer pays"
+              amount={settlement.customerTotal}
+              hint={`Incl. ${formatINR(booking.platform_fee)} platform fee; ${formatINR(booking.visit_fee)} visit fee already paid`}
+              emphasis="muted"
+            />
+            <Divider style={{ marginVertical: 2 }} />
+            <PriceRow label={`Commission (${rateBp! / 100}% of labour)`} amount={-settlement.commission} emphasis="muted" />
+            <PriceRow label="GST on commission (18%)" amount={-settlement.gst} emphasis="muted" />
+            <Divider dashed style={{ marginVertical: 2 }} />
+            <PriceRow label="You receive" amount={settlement.providerPayout} emphasis="total" />
+            <Text variant="footnote" color="muted">
+              {rateBp === 0 ? 'You are in your 0% commission period. ' : ''}
+              {displaySubtotals.total < booking.visit_fee ? `Below the ${formatINR(booking.visit_fee)} visit fee, so the visit fee is billed instead. ` : ''}
+              Paid to your bank 24 hours after completion, before statutory TDS/TCS.
+            </Text>
+          </>
+        ) : <Text variant="footnote" color="warningText">Commission, GST and payout totals are unavailable until the server rate loads.</Text>}
       </Card>
       <InlineAlert message={error} />
     </Screen>
