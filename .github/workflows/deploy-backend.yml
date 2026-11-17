@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**', 'supabase/functions/**']
+    paths: ['supabase/migrations/**', 'supabase/functions/**', 'supabase/tests/**', '.github/workflows/deploy-backend.yml']
 
 concurrency: deploy-backend
 
