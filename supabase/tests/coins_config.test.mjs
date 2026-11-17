@@ -188,11 +188,8 @@ async function createQuote(bookingId) {
   return quoteId;
 }
 
-async function closeBooking(bookingId, quoteId) {
-  const [{ result }] = await asCustomer(
-    `select approve_quote_with_coins($1, $2, false) as result`, [bookingId, quoteId],
-  );
-  if (result.amount_due > 0) {
+async function settleBooking(bookingId, amountDue) {
+  if (amountDue > 0) {
     const [payment] = await service(`select * from prepare_payment($1, $2)`, [bookingId, customer]);
     await service(`update payments set razorpay_link_id = $1, short_url = 'https://pay.test' where id = $2`,
       [`link:${payment.payment_id}`, payment.payment_id]);
@@ -207,6 +204,13 @@ async function closeBooking(bookingId, quoteId) {
   for (const transfer of transfers) {
     await service(`select complete_transfer($1, $2)`, [transfer.transfer_id, `transfer:${transfer.transfer_id}`]);
   }
+}
+
+async function closeBooking(bookingId, quoteId) {
+  const [{ result }] = await asCustomer(
+    `select approve_quote_with_coins($1, $2, false) as result`, [bookingId, quoteId],
+  );
+  await settleBooking(bookingId, result.amount_due);
 }
 
 const testConfig = {
@@ -255,17 +259,34 @@ const redemptionQuote = await createQuote(redemptionBooking);
 const [{ preview }] = await asCustomer(
   `select get_coin_redemption_preview($1, $2) as preview`, [redemptionBooking, redemptionQuote],
 );
-ok(preview.coin_paise === 10 && preview.service_cap_paise === 21500 && preview.maximum_paise === 17660,
+const [{ rate }] = await as(provider, 'authenticated',
+  `select get_booking_commission_rate($1) as rate`, [redemptionBooking]);
+const capInputs = (await db.query(`
+  select q.total, q.subtotal_labour, b.visit_fee, b.platform_fee
+    from public.bookings b join public.quotes q on q.id = $2 and q.booking_id = b.id
+   where b.id = $1
+`, [redemptionBooking, redemptionQuote])).rows[0];
+const commission = Math.round(capInputs.subtotal_labour * rate / 10000);
+const expectedPlatformCap = Math.max(commission + capInputs.platform_fee - Math.round(commission * 18 / 100), 0);
+const expectedServiceCap = Math.floor(Math.max(capInputs.total, capInputs.visit_fee) * testConfig.redeem_cap_bp / 10000);
+const expectedMaximum = Math.floor(
+  Math.min(preview.balance_paise, expectedServiceCap, expectedPlatformCap) / testConfig.coin_paise,
+) * testConfig.coin_paise;
+ok(preview.coin_paise === testConfig.coin_paise
+    && preview.service_cap_paise === expectedServiceCap
+    && preview.platform_cap_paise === expectedPlatformCap
+    && preview.maximum_paise === expectedMaximum,
   'preview caps redemption at the lesser of configured service cap and platform revenue');
 const [{ approved }] = await asCustomer(
   `select approve_quote_with_coins($1, $2, true) as approved`, [redemptionBooking, redemptionQuote],
 );
-ok(approved.coins_redeemed_paise === 17660,
+ok(approved.coins_redeemed_paise === expectedMaximum,
   'quote approval applies the server-computed redemption cap');
 
 await asAdmin(`select admin_set_feature('coins_earning', false)`);
-await service(`update bookings set status = 'completed' where id = $1`, [redemptionBooking]);
-await service(`update bookings set status = 'closed' where id = $1`, [redemptionBooking]);
+await settleBooking(redemptionBooking, approved.amount_due);
+ok((await db.query(`select count(*)::int n from coin_ledger where booking_id = $1 and kind in ('earn', 'bonus')`, [redemptionBooking])).rows[0].n === 0,
+  'coins_earning off suppresses credits when a redeemed booking settles');
 await asAdmin(`select admin_set_feature('coins_earning', true)`);
 
 await asAdmin(`select admin_set_feature('coins_redemption', false)`);
