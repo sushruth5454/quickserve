@@ -235,7 +235,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
               title="Add Instagram, YouTube & website links"
               variant="outline"
               leftIcon="link-outline"
-              onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio' } })}
+              onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio', returnTo: 'services' } })}
             />
           ) : null}
         </Card>
@@ -792,7 +792,7 @@ function ServiceCard(props: {
           size="sm"
           variant="outline"
           leftIcon="link-outline"
-          onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio' } })}
+          onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio', returnTo: 'services' } })}
         />
       ) : null}
       {items.map((r) => (

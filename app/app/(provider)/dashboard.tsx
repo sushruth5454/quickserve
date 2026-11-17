@@ -231,7 +231,7 @@ export default function ProviderDashboard() {
           <GoLiveStatusCard
             goLive={goLive.status}
             docTypes={goLive.docTypes}
-            onFix={(s) => router.push({ pathname: '/provider-profile/[section]', params: { section: s } })}
+            onFix={(s) => router.push({ pathname: '/provider-profile/[section]', params: { section: s, returnTo: 'hub' } })}
             onContinue={() => router.push('/onboarding')}
           />
         ) : !goLive && provider && provider.kyc_status !== 'verified' ? (

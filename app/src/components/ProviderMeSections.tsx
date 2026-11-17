@@ -63,14 +63,14 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
 
   return (
     <>
-      <Group title="My services" action={{ label: 'Add', onPress: () => router.push('/provider-profile/services') }}>
+      <Group title="My services" action={{ label: 'Add', onPress: () => router.push({ pathname: '/provider-profile/[section]', params: { section: 'services', returnTo: 'hub' } }) }}>
         {!services ? (
           <View style={{ padding: t.spacing.lg, gap: t.spacing.sm }}>
             <Skeleton width="60%" height={14} />
             <Skeleton width="40%" height={12} />
           </View>
         ) : services.length === 0 ? (
-          <ListItem icon="add-circle-outline" title="Add your first service" subtitle="Pick a category and set your fees" chevron onPress={() => router.push('/provider-profile/services')} />
+          <ListItem icon="add-circle-outline" title="Add your first service" subtitle="Pick a category and set your fees" chevron onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'services', returnTo: 'hub' } })} />
         ) : (
           services.map((s, i) => (
             <Fragment key={s.id}>
@@ -79,7 +79,7 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Edit ${s.categories?.name ?? 'service'}`}
-                  onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'services', edit: s.id } })}
+                  onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'services', edit: s.id, returnTo: 'hub' } })}
                   style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, paddingVertical: t.spacing.md, opacity: pressed ? 0.7 : 1 })}
                 >
                   <View style={{ opacity: s.active ? 1 : 0.5 }}>
@@ -111,9 +111,9 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
       </Group>
 
       <Group title="Work settings">
-        <ListItem icon="navigate-circle-outline" title="Service radius" value={`${provider.service_radius_km} km`} chevron onPress={() => router.push('/provider-profile/area')} />
+        <ListItem icon="navigate-circle-outline" title="Service radius" value={`${provider.service_radius_km} km`} chevron onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'area', returnTo: 'hub' } })} />
         <Divider inset={LIST_INSET} />
-        <ListItem icon="shield-checkmark-outline" title="Payout account & KYC" value={kycText} chevron onPress={() => router.push('/provider-profile/payouts')} />
+        <ListItem icon="shield-checkmark-outline" title="Payout account & KYC" value={kycText} chevron onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'payouts', returnTo: 'hub' } })} />
         <Divider inset={LIST_INSET} />
         <ListItem icon="list-outline" title="Job history" chevron onPress={() => router.push('/jobs')} />
       </Group>

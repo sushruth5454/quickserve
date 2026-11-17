@@ -46,7 +46,7 @@ export default function ProviderProfileHub() {
   if (!p) return <FullScreenLoader />;
   const c = completeness(state.checks);
   const submitted = !!p.submitted_at;
-  const open = (s: StepKey) => router.push({ pathname: '/provider-profile/[section]', params: { section: s } });
+  const open = (s: StepKey) => router.push({ pathname: '/provider-profile/[section]', params: { section: s, returnTo: 'hub' } });
 
   const run = async (key: string, fn: () => Promise<void>, ok?: string) => {
     setBusy(key);

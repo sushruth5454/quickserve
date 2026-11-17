@@ -531,6 +531,14 @@ await step('me-provider', async () => {
   await visible('My services');
   await page.getByLabel(/^Edit (AC Repair|Electrician)$/).first().waitFor();
 });
+await step('provider-profile-editor-back-to-hub', async () => {
+  await page.getByText('Service radius', { exact: true }).click();
+  await visible('Where do you work?');
+  await page.getByLabel('Go back').click();
+  await page.waitForURL((u) => new URL(u).pathname === '/provider-profile');
+  await visible('Profile strength');
+  await go('/pro-account');
+});
 await optional('me-provider-scrolled', () => snapScrolled('me-provider-scrolled', 800));
 
 // ---------- Provider, dark mode ----------
