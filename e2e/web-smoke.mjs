@@ -509,7 +509,7 @@ await optional('dashboard-scrolled', () => snapScrolled('dashboard-scrolled', 70
 await step('earnings', async () => {
   await go('/earnings');
   await visible('Earnings');
-  await page.getByText(/\d+% commission/).first().waitFor();
+  await page.getByText(/\d+% commission/).last().waitFor({ state: 'visible' });
 });
 await optional('earnings-scrolled', () => snapScrolled('earnings-scrolled', 700));
 for (const [n, label] of [

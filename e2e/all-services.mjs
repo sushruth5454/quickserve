@@ -113,7 +113,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByLabel('Message', { exact: true }).last().fill(`${qaMarker} product enquiry availability and delivery`);
     await page.getByText('Send enquiry', { exact: true }).first().click();
     await page.waitForURL(/\/enquiry\/[0-9a-f-]{36}$/);
-    await page.getByText(qaMarker, { exact: false }).first().waitFor();
+    await page.getByText(qaMarker, { exact: false }).last().waitFor({ state: 'visible' });
     await page.getByText('Conversation status: open', { exact: true }).first().waitFor();
   });
 
@@ -131,7 +131,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByLabel('Notes for suppliers (optional)').fill(qaMarker);
     await page.getByText('Send request', { exact: true }).last().click();
     await page.waitForURL(/\/rfq\/[0-9a-f-]{36}$/);
-    await page.getByText(qaMarker, { exact: true }).first().waitFor();
+    await page.getByText(qaMarker, { exact: true }).last().waitFor({ state: 'visible' });
     const contacted = page.getByText(/^\d+ shops contacted$/).last();
     await contacted.waitFor({ state: 'visible' });
     const recipientCount = Number((await contacted.textContent())?.match(/^\d+/)?.[0] ?? 0);

@@ -164,6 +164,8 @@ begin
       ('product_enquiries', true, 'Product enquiries', 'Customers message shops about products.', 'Marketplace', 41),
       ('product_rfq', true, 'Bulk quotations (RFQ)', 'Customers request quotes from several shops.', 'Marketplace', 42)
     on conflict (key) do update set enabled = true;
+    -- E2E assertions use English copy; Telugu remains off until its translations are reviewed.
+    update public.feature_flags set enabled = false where key = 'telugu_language';
   else
     raise notice 'Phase 6/7a demo feature flags skipped; apply migrations 0048-0050 before marketplace E2E.';
   end if;
