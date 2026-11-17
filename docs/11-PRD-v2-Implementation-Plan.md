@@ -47,7 +47,7 @@
 6. After pushing, check the GitHub Actions runs:
    - `supabase/**` changes trigger **Deploy backend (Supabase)**. It runs the SQL tests, then applies migrations and deploys functions.
    - `app/**` changes trigger **Publish app to Expo Go (EAS Update)**. It runs `npx tsc --noEmit` and `npx jest`.
-   - Run **E2E web smoke test** manually: `gh workflow run e2e-web.yml --repo sushruth5454/quickserve --ref main`.
+   - **E2E web smoke test** runs automatically on main pushes that change `app/**`, `supabase/migrations/**`, `e2e/**`, or its own workflow. If the run does not trigger, use `gh workflow run e2e-web.yml --repo sushruth5454/quickserve --ref main` (requires Actions dispatch permission).
 7. A phase is **done** only when: both workflows succeed, the E2E run shows `failed steps: 0, page errors: 0, console errors: 0`, and the phase's own "Done when" list is true.
 8. If a step is ambiguous, stop and ask the owner. Do not guess business rules (prices, percentages, legal text).
 
@@ -258,8 +258,9 @@ insert into public.app_config (key, value) values ('commission', '{
 |---|---|---|
 | `app/app/(auth)/role.tsx` | 24 `'0% commission for your first 30 days'` | Use `get_commission_terms().founding_days`. If the call fails, show `'Low commission on in-app jobs'`. |
 | `app/src/lib/providerInsights.ts` `tierProgress` | tiers hardcoded | Accept `tiers` and `foundingDays` as parameters. Update its Jest test. |
-| `app/app/(provider)/earnings.tsx` | 345 `'Then 12%, falling to 10% at 50 jobs.'` | Build from `tiers`. |
-| `app/app/quote/[bookingId].tsx` | already uses `rateBp` | No change; verify it reads the server value. |
+| `app/app/(provider)/dashboard.tsx` | Computes rate with local `commissionRateBp` | Use `get_commission_terms().my_bp`; retain `money.ts` rules only for explicit demo mode. |
+| `app/app/(provider)/earnings.tsx` | 345 hardcoded tier copy and local calculation | Build title, free-until text, and tier progress from `get_commission_terms()`; use `tiers`. |
+| `app/app/quote/[bookingId].tsx` | Computes `rateBp` with local `commissionRateBp` | Add admin-independent `get_booking_commission_rate(p_booking_id)` RPC, provider-only; return the booking-aware rate including repeat discount and category override. Quote preview uses this server value; retain local calculation only for demo mode. |
 | **new** `app/app/admin/commission.tsx` | — | Form: founding days, tiers table, repeat discount/floor, per-category override list. Link from admin dashboard. |
 
 ### 1.3 Tests

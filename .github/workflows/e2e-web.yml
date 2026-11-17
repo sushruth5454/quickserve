@@ -1,6 +1,13 @@
 name: E2E web smoke test
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'supabase/migrations/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-web.yml'
   workflow_dispatch:
 
 concurrency: e2e-web

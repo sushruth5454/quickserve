@@ -722,7 +722,7 @@ await step('admin-feature-registry', async () => {
   await visible('E2E registry probe');
   const switches = page.getByRole('switch');
   if (await switches.count() !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${await switches.count()}`);
-  await switches.last().click();
+  await switches.nth(3).click();
   if (!probeEnabled) throw new Error('admin UI did not send the dynamic registry key to admin_set_feature');
 });
 
