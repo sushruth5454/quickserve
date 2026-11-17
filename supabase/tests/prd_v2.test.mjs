@@ -131,9 +131,11 @@ ok(!!commissionRow, 'commission policy is present in app_config');
 if (commissionRow) {
   const c = commissionRow.value;
   ok(c.founding_days === 30, 'commission policy preserves the current 30-day founding period');
-  ok(JSON.stringify(c.tiers) === JSON.stringify([
-    { min_jobs: 200, bp: 800 }, { min_jobs: 50, bp: 1000 }, { min_jobs: 0, bp: 1200 },
-  ]), 'commission policy preserves the current 12/10/8 percent job tiers');
+  ok(c.tiers?.length === 3
+    && c.tiers[0].min_jobs === 200 && c.tiers[0].bp === 800
+    && c.tiers[1].min_jobs === 50 && c.tiers[1].bp === 1000
+    && c.tiers[2].min_jobs === 0 && c.tiers[2].bp === 1200,
+  'commission policy preserves the current 12/10/8 percent job tiers');
   ok(c.repeat_discount_bp === 400 && c.repeat_floor_bp === 500,
     'commission policy preserves the current repeat discount and 5 percent floor');
 }
@@ -161,7 +163,9 @@ const invalidCommission = await fails(() => as(admin, 'authenticated',
   `select admin_set_commission($1::jsonb)`, [JSON.stringify({ ...config, founding_days: 366 })]));
 ok(/founding days/.test(invalidCommission ?? ''), 'commission config rejects out-of-range founding periods');
 const duplicateTier = await fails(() => as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [
-  JSON.stringify({ ...config, tiers: [{ min_jobs: 0, bp: 1200 }, { min_jobs: 0, bp: 1000 }] }),
+  JSON.stringify({ ...config, tiers: [
+    { min_jobs: 0, bp: 1200 }, { min_jobs: 5, bp: 1000 }, { min_jobs: 5, bp: 900 },
+  ] }),
 ]));
 ok(/thresholds must be unique/.test(duplicateTier ?? ''), 'commission config rejects duplicate tier thresholds');
 const malformedTiers = await fails(() => as(admin, 'authenticated', `select admin_set_commission($1::jsonb)`, [
