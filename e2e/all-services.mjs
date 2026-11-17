@@ -131,13 +131,13 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByLabel('Notes for suppliers (optional)').fill(qaMarker);
     await page.getByText('Send request', { exact: true }).last().click();
     await page.waitForURL(/\/rfq\/[0-9a-f-]{36}$/);
-    await page.locator(`text="${qaMarker}" >> visible=true`).last().waitFor();
-    const contacted = page.locator('text=/^\\d+ shops contacted$/ >> visible=true').last();
+    await page.getByText(qaMarker, { exact: true }).last().waitFor({ state: 'visible' });
+    const contacted = page.getByText(/^\d+ shops contacted$/).last();
     await contacted.waitFor({ state: 'visible' });
     const recipientCount = Number((await contacted.textContent())?.match(/^\d+/)?.[0] ?? 0);
     if (recipientCount < 2) throw new Error(`expected at least two eligible shops, got ${recipientCount}`);
-    await page.locator('text="Anti-skid floor tiles for a demo bathroom" >> visible=true').last().waitFor();
-    await page.locator('text="Supplier comparison" >> visible=true').last().waitFor();
+    await page.getByText(/Anti-skid floor tiles for a demo bathroom/).last().waitFor({ state: 'visible' });
+    await page.getByText('Supplier comparison', { exact: true }).last().waitFor({ state: 'visible' });
   });
 
   await step('phase-6-sports-booking-request', async () => {
