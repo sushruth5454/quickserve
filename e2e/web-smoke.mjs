@@ -536,10 +536,10 @@ await step('provider-profile-editor-back-to-hub', async () => {
   await page.waitForURL((u) => new URL(u).pathname === '/provider-profile');
   await page.getByText('Service area', { exact: true }).click();
   await visible('Where do you work?');
-  await page.getByLabel('Go back').click();
+  await page.getByLabel('Go back').last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/provider-profile');
   await visible('Profile strength');
-  await page.getByLabel('Go back').click();
+  await page.getByLabel('Go back').last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/pro-account');
   await visible('My services');
 });
@@ -707,7 +707,7 @@ await step('admin-feature-registry', async () => {
   await go('/account');
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
-  await page.getByLabel('Go back').click();
+  await page.getByLabel('Go back').last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/account');
   await page.getByRole('button', { name: /Admin portal/ }).last().waitFor({ state: 'visible' });
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
