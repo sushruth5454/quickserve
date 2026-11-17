@@ -110,13 +110,16 @@ declare
   v_override int;
   v_config jsonb;
 begin
-  select bk, p.created_at, c.commission_bp
-    into b, v_provider_created_at, v_override
-    from public.bookings bk
-    join public.providers p on p.id = bk.provider_id
-    left join public.categories c on c.id = bk.category_id
-   where bk.id = p_booking_id
-     and bk.archetype = 'time_based';
+  select * into b
+    from public.bookings
+   where id = p_booking_id
+     and archetype = 'time_based';
+  if not found then return null; end if;
+  select p.created_at, c.commission_bp
+    into v_provider_created_at, v_override
+    from public.providers p
+    left join public.categories c on c.id = b.category_id
+   where p.id = b.provider_id;
   if not found then return null; end if;
 
   select value into v_config from public.app_config where key = 'commission';
