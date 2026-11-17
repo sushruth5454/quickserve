@@ -193,7 +193,7 @@ begin
   select coalesce(-sum(delta), 0)::bigint into v_expired
     from public.coin_ledger where kind = 'expire' and delta < 0;
   select coalesce(sum(l.remaining_paise), 0)::bigint into v_outstanding
-    from public._coin_lots_for_summary l;
+    from public._coin_lots_for_summary() l;
 
   return jsonb_build_object(
     'issued_paise', v_issued,
