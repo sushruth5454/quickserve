@@ -20,7 +20,8 @@ await db.exec(`
   );
   create table public.admins (user_id uuid primary key references public.profiles(id));
   create table public.notifications (
-    id uuid primary key default gen_random_uuid(), user_id uuid not null, kind text not null check (kind in ('chat_message')),
+    id uuid primary key default gen_random_uuid(), user_id uuid not null,
+    kind text not null check (kind in ('chat_message', 'product_enquiry', 'product_enquiry_reply')),
     booking_id uuid, title text not null, body text not null, data jsonb not null default '{}'::jsonb,
     collapse_key text, status text not null default 'pending', count int not null default 1,
     created_at timestamptz not null default now(), updated_at timestamptz not null default now()
@@ -85,6 +86,16 @@ await db.exec(`
   create function public._shop_is_owner(p_shop_id uuid) returns boolean language sql stable security definer set search_path = public as $$
     select exists (select 1 from public.shops where id = p_shop_id and owner_id = auth.uid())
   $$;
+  create function public._queue_notification(
+    p_user uuid, p_kind text, p_booking uuid, p_title text, p_body text, p_data jsonb, p_collapse_key text default null
+  ) returns void language plpgsql security definer set search_path = public as $$
+  begin
+    insert into public.notifications (user_id, kind, booking_id, title, body, data, collapse_key)
+    values (p_user, p_kind, p_booking, left(p_title, 120), left(p_body, 300), coalesce(p_data, '{}'::jsonb), p_collapse_key)
+    on conflict (user_id, collapse_key) where status = 'pending' and collapse_key is not null
+    do update set count = notifications.count + 1, title = excluded.title, body = excluded.body,
+      data = excluded.data, updated_at = now();
+  end $$;
   create function public._product_enquiry_post(
     p_enquiry_id uuid, p_sender_id uuid, p_from_shop boolean, p_body text, p_initial boolean default false
   ) returns void language plpgsql security definer set search_path = public as $$
@@ -100,16 +111,6 @@ await db.exec(`
     where id = e.id;
     perform public._queue_notification(s.owner_id, 'product_enquiry', null, 'New product enquiry', p_body,
       jsonb_build_object('url', '/enquiry/' || e.id, 'enquiry_id', e.id), null);
-  end $$;
-  create function public._queue_notification(
-    p_user uuid, p_kind text, p_booking uuid, p_title text, p_body text, p_data jsonb, p_collapse_key text default null
-  ) returns void language plpgsql security definer set search_path = public as $$
-  begin
-    insert into public.notifications (user_id, kind, booking_id, title, body, data, collapse_key)
-    values (p_user, p_kind, p_booking, left(p_title, 120), left(p_body, 300), coalesce(p_data, '{}'::jsonb), p_collapse_key)
-    on conflict (user_id, collapse_key) where status = 'pending' and collapse_key is not null
-    do update set count = notifications.count + 1, title = excluded.title, body = excluded.body,
-      data = excluded.data, updated_at = now();
   end $$;
   create function public._validate_product_specs(p_category_id uuid, p_specs jsonb)
   returns void language plpgsql stable security definer set search_path = public as $$
@@ -214,6 +215,11 @@ const nonRecipient = (await db.query(`select id, owner_id from public.shops orde
   .find((shop) => !routedIds.includes(shop.id));
 ok((await db.query(`select count(*)::int as count from public.notifications where kind = 'rfq_received' and data->>'rfq_id' = $1`, [rfqId])).rows[0].count === 10,
   'each routed shop owner receives an RFQ notification');
+const rfqNotificationUrl = (await db.query(`
+  select data->>'url' as url from public.notifications
+  where kind = 'rfq_received' and data->>'rfq_id' = $1 limit 1
+`, [rfqId])).rows[0].url;
+ok(rfqNotificationUrl === `/rfq/merchant/${rfqId}`, 'RFQ notifications deep-link to the routed supplier request');
 const deliveryRfq = (await as(customer, 'authenticated', `
   select public.create_rfq($1, 'Electrical delivery request', $2::jsonb, 'Vijayawada', 'Benz Circle',
     16.5, 80.6, true, current_date + 14, null) as id
@@ -222,17 +228,33 @@ const deliveryRecipients = await db.query(`select shop_id from public.rfq_recipi
 ok(deliveryRecipients.length === 2 && deliveryRecipients.includes(deliveryShop)
   && deliveryRecipients.includes(wrongCategoryShop) && !deliveryRecipients.includes(pickupOnlyShop),
   'delivery requests route only to category shops that offer delivery');
+const deliveryDetails = (await as(customer, 'authenticated', `select public.get_rfq($1) as data`, [deliveryRfq]))[0].data;
+const [deliveryItem] = deliveryDetails.items;
+const [shortQuote] = await as(merchants[15], 'authenticated', `
+  select public.send_supplier_quote($1, $2::jsonb, 0, 1, now() + interval '1 day', null) as id
+`, [deliveryRfq, JSON.stringify([{
+  rfq_item_id: deliveryItem.id, brand: 'CableCo', model: '', specs: {}, unit_price_paise: 1000,
+  gst_rate_bp: 1800, available: true,
+}])]);
+await db.query(`update public.supplier_quotes set valid_until = now() - interval '1 minute' where id = $1`, [shortQuote.id]);
+const [quoteExpiryCount] = await as(null, 'service_role', `select public.expire_rfqs() as count`);
+const shortQuoteStatus = await db.query(`
+  select q.status as quote_status, r.status as rfq_status
+  from public.supplier_quotes q join public.rfqs r on r.id = q.rfq_id where q.id = $1
+`, [shortQuote.id]).then((result) => result.rows[0]);
+ok(quoteExpiryCount.count === 0 && shortQuoteStatus.quote_status === 'expired' && shortQuoteStatus.rfq_status === 'open',
+  'an expired quote closes independently while its RFQ remains open');
 const hiddenFromOther = await as(otherCustomer, 'authenticated', `select id from public.rfqs where id = $1`, [rfqId]);
 ok(hiddenFromOther.length === 0, 'another customer cannot read the RFQ row through RLS');
 const hiddenFromUnroutedShop = await as(nonRecipient.owner_id, 'authenticated', `select id from public.rfqs where id = $1`, [rfqId]);
 ok(hiddenFromUnroutedShop.length === 0, 'an unrouted shop cannot read RFQ rows through RLS');
 await expectError(
   () => as(otherCustomer, 'authenticated', `select public.get_rfq($1)`, [rfqId]),
-  /rfq not found/,
+  /rfq not found/i,
   'another customer cannot read RFQ details',
 );
 await expectError(
-  () => as(nonRecipient.owner_id, 'authenticated', `select public.send_supplier_quote($1, '[]'::jsonb, 0, 0, null, null)`, [rfqId]),
+  () => as(merchants[13], 'authenticated', `select public.send_supplier_quote($1, '[]'::jsonb, 0, 0, null, null)`, [rfqId]),
   /shop is not a recipient/,
   'a shop outside the recipient list cannot quote',
 );
@@ -303,7 +325,7 @@ ok(comparedItem.brand_differs && comparedItem.specs_missing && comparedItem.miss
 ok(!Object.hasOwn(comparedItem, 'equivalent'), 'comparison does not infer item equivalence');
 await expectError(
   () => as(otherCustomer, 'authenticated', `select * from public.compare_rfq_quotes($1)`, [rfqId]),
-  /rfq not found/,
+  /rfq not found/i,
   'comparison results are private to the RFQ customer',
 );
 
@@ -346,6 +368,17 @@ const expiryStatuses = await db.query(`
 `, [expiryRfqId, expiryQuote.id]).then((result) => result.rows[0]);
 ok(expiredCount.count === 1 && expiryStatuses.rfq_status === 'expired' && expiryStatuses.quote_status === 'expired',
   'expiry job expires overdue RFQs and their outstanding sent quotes');
+
+await expectError(
+  () => as(otherCustomer, 'authenticated', `select public.admin_rfq_dashboard()`),
+  /admin only/,
+  'RFQ activity metrics are restricted to administrators',
+);
+await db.query(`insert into public.admins (user_id) values ($1)`, [merchants[0]]);
+const adminDashboard = (await as(merchants[0], 'authenticated', `select public.admin_rfq_dashboard() as data`))[0].data;
+ok(adminDashboard.total_rfqs === 3 && adminDashboard.recent_rfqs.length === 3
+  && typeof adminDashboard.average_response_minutes === 'number',
+  'administrators receive open-request, quote-count, and first-response metrics');
 
 if (failures) process.exitCode = 1;
 await db.close();
