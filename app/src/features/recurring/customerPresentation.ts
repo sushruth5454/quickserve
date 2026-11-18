@@ -20,18 +20,8 @@ export function getFixedBookingModeOptions(
   return recurringEnabled && recurrenceAllowed ? ['one-time', 'repeat'] : ['one-time'];
 }
 
-export function visibleBillingFrequencies(
-  configured: readonly BillingFrequency[],
-  recurringBillingEnabled: boolean,
-  prepaidEnabled: boolean,
-): BillingFrequency[] {
-  return configured.filter((frequency) =>
-    frequency === 'per_visit' ||
-    (recurringBillingEnabled &&
-      (frequency === 'weekly' ||
-        frequency === 'monthly' ||
-        (frequency === 'prepaid_package' && prepaidEnabled))),
-  );
+export function visibleBillingFrequencies(configured: readonly BillingFrequency[]): BillingFrequency[] {
+  return configured.includes('per_visit') ? ['per_visit'] : [];
 }
 
 export function getRecurringQuoteSummary(quote: RecurringQuote) {
@@ -73,7 +63,8 @@ export function getRecurringPlanActions(
 export function shouldShowRepeatPlansFilter(
   recurringEnabled: boolean,
   existingPlanCount: number,
+  planLookupPendingOrFailed = false,
 ): boolean {
-  // The switch blocks new plans, but customers must still reach existing plan records.
-  return recurringEnabled || existingPlanCount > 0;
+  // Keep the plan filter visible while lookup is pending or failed.
+  return recurringEnabled || existingPlanCount > 0 || planLookupPendingOrFailed;
 }

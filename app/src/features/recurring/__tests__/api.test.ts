@@ -112,18 +112,19 @@ test('allows per-visit plans when recurring billing is turned off', async () => 
   expect(rpcMock).toHaveBeenCalledWith('quote_recurring_plan', { p: quoteInput });
 });
 
-test('fails closed for cycle billing when its child feature is off', async () => {
+test('rejects cycle billing even when its child feature is off', async () => {
   getFeaturesMock.mockResolvedValue({ recurring_bookings: true, recurring_billing: false });
 
-  await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'weekly' })).rejects.toThrow('Recurring billing is turned off');
+  await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'weekly' }))
+    .rejects.toThrow('Recurring billing frequency is not available yet');
   expect(rpcMock).not.toHaveBeenCalled();
 });
 
-test('fails closed for prepaid plans when their child feature is off', async () => {
+test('rejects prepaid plans even when their child feature is off', async () => {
   getFeaturesMock.mockResolvedValue({ recurring_bookings: true, recurring_prepaid_packages: false });
 
   await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'prepaid_package' }))
-    .rejects.toThrow('Recurring prepaid packages are turned off');
+    .rejects.toThrow('Recurring billing frequency is not available yet');
   expect(rpcMock).not.toHaveBeenCalled();
 });
 
@@ -131,6 +132,8 @@ test('does not send cycle or prepaid billing to B1 until the billing engine is i
   getFeaturesMock.mockResolvedValue(features);
 
   await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'weekly' }))
+    .rejects.toThrow('Recurring billing frequency is not available yet');
+  await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'monthly' }))
     .rejects.toThrow('Recurring billing frequency is not available yet');
   await expect(createRecurringPlan({ ...planInput, billing_frequency: 'prepaid_package' }))
     .rejects.toThrow('Recurring billing frequency is not available yet');

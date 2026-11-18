@@ -10,8 +10,6 @@ import type {
 type SupabaseResult<T> = { data?: T | null; error: { message: string } | null };
 const FEATURE_ERRORS: Record<string, string> = {
   recurring_bookings: 'Recurring bookings are turned off right now.',
-  recurring_billing: 'Recurring billing is turned off right now.',
-  recurring_prepaid_packages: 'Recurring prepaid packages are turned off right now.',
   recurring_plan_acceptance: 'Recurring plan acceptance is turned off right now.',
   recurring_skip_pause: 'Recurring skip and pause are turned off right now.',
   recurring_reschedule: 'Recurring rescheduling is turned off right now.',
@@ -32,16 +30,10 @@ async function requireFeatures(...keys: string[]): Promise<void> {
 }
 
 async function requirePlanFeatures(input: Pick<RecurringPlanInput, 'billing_frequency'>): Promise<void> {
-  const keys = ['recurring_bookings'];
-  if (input.billing_frequency === 'weekly' || input.billing_frequency === 'monthly') {
-    keys.push('recurring_billing');
-  } else if (input.billing_frequency === 'prepaid_package') {
-    keys.push('recurring_prepaid_packages');
-  }
-  await requireFeatures(...keys);
   if (input.billing_frequency !== 'per_visit') {
     throw new Error('Recurring billing frequency is not available yet.');
   }
+  await requireFeatures('recurring_bookings');
 }
 
 export async function quoteRecurringPlan(input: RecurringPlanQuoteInput): Promise<RecurringQuote> {
