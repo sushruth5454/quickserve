@@ -773,25 +773,25 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
-| Q-00 / doc 17 T1 | code-owned failures in progress; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44395541860 (main E2E failed) | — |
-| Q-01 | step 1 merged; screenshot pass after Q-00 | integrator | — | 173be83 |
-| T-01 | implementing in parallel; lane CI/E2E validation running | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44402639230 (lane CI in progress); 44402639152 (E2E pending) | — |
+| Q-00 / doc 17 T1 | code-owned E2E fixes merged; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | fb069de |
+| Q-01 | workflow trigger and 14-day artifact retention integrated; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | main E2E pending | pending |
+| T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
-| I-01 | implemented; lane typecheck/Jest green; merge gated on Q-00 code-owned fixes | integrator | 44401816876 | — |
-| C-07 | implemented; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918 | — |
+| I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
+| C-07 | merged; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918; 44402357939 (cancelled) | 5f751fa |
 | R-01 | blocked by doc 17 H3 | — | — | — |
 | R-02 | blocked by doc 17 U1 | — | — | — |
 | R-03 | blocked by doc 17 B1 | — | — | — |
 | R-04 | blocked by doc 17 B2 | — | — | — |
 | R-05 | blocked by doc 17 O4 | — | — | — |
 | R-06 | blocked by doc 17 S2 | — | — | — |
-| R-07 | blocked by Q-00 | — | — | — |
-| C-01 | blocked by T-01 and I-01 | — | — | — |
-| C-02 | blocked by T-01 and I-01 | — | — | — |
+| R-07 | ready to launch; no doc 17 file conflict | pending | — | — |
+| C-01 | ready to launch | pending | — | — |
+| C-02 | ready to launch | pending | — | — |
 | C-03 | blocked by T-01, I-01, and C-02 | — | — | — |
-| C-04 | blocked by T-01 and I-01 | — | — | — |
-| C-05 | blocked by T-01 and I-01 | — | — | — |
-| C-06 | blocked by T-01 and I-01 | — | — | — |
+| C-04 | ready to launch | pending | — | — |
+| C-05 | ready to launch | pending | — | — |
+| C-06 | ready to launch | pending | — | — |
 | C-08 | blocked by T-01, I-01, and C-05 | — | — | — |
 | H-01 | blocked by components and doc 17 U3 | — | — | — |
 | H-02 | blocked by components | — | — | — |
