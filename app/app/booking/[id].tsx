@@ -329,7 +329,6 @@ export default function BookingDetail() {
 
   const openEditor = (changeOrder: boolean) =>
     router.push({ pathname: '/quote/[bookingId]', params: { bookingId: booking.id, changeOrder: changeOrder ? '1' : '0' } });
-  const call = () => toast({ message: 'Masked calling is coming soon. Use chat for now — numbers stay private.' });
   const navigate =
     !isCustomer && data.address?.lat != null && data.address?.lng != null
       ? () =>
@@ -482,16 +481,25 @@ export default function BookingDetail() {
     cancelledReason: booking.cancelled_reason,
   });
   const pro = booking.providers;
-  const helpItems: { key: string; title: string; icon: keyof typeof Ionicons.glyphMap; destructive?: boolean; onPress: () => void }[] = [
+  const helpItems: { key: string; title: string; icon: keyof typeof Ionicons.glyphMap; destructive?: boolean; subtitle?: string; onPress: () => void }[] = [
     {
       key: 'help',
       title: 'Get help with this booking',
+      subtitle: 'Ask support a question',
       icon: 'help-buoy-outline',
       onPress: () => router.push({ pathname: '/support/new', params: { bookingId: booking.id } }),
     },
     { key: 'safety', title: 'Safety & guarantee', icon: 'shield-checkmark-outline', onPress: () => router.push({ pathname: '/info/[topic]', params: { topic: 'safety' } }) },
   ];
-  if (canReport && !disputeOpen) helpItems.push({ key: 'report', title: 'Report a problem', icon: 'flag-outline', onPress: () => setDisputeOpen(true) });
+  if (canReport && !disputeOpen) {
+    helpItems.push({
+      key: 'report',
+      title: 'Report a problem',
+      subtitle: 'Pauses payment to the pro while support reviews',
+      icon: 'flag-outline',
+      onPress: () => setDisputeOpen(true),
+    });
+  }
   if (cancelAction) helpItems.push({ key: 'cancel', title: cancelAction[0], icon: 'close-circle-outline', destructive: true, onPress: () => void cancel(cancelAction[1]) });
 
   return (
@@ -681,7 +689,6 @@ export default function BookingDetail() {
               )}
             </View>
             <ChatButton bookingId={booking.id} count={unread.countFor(booking.id)} accessibilityLabel={`Chat with ${first}`} />
-            <IconButton icon="call-outline" variant="neutral" accessibilityLabel="Call" accessibilityHint="Masked calling is coming soon" onPress={call} />
             {navigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Open in Maps" onPress={() => void navigate()} /> : null}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -812,7 +819,7 @@ export default function BookingDetail() {
           {helpItems.map((h, i) => (
             <Fragment key={h.key}>
               {i > 0 ? <Divider inset={LIST_INSET} /> : null}
-              <ListItem title={h.title} icon={h.icon} destructive={h.destructive} chevron={!h.destructive} onPress={busy ? undefined : h.onPress} />
+              <ListItem title={h.title} subtitle={h.subtitle} icon={h.icon} destructive={h.destructive} chevron={!h.destructive} onPress={busy ? undefined : h.onPress} />
             </Fragment>
           ))}
         </Card>
