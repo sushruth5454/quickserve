@@ -22,6 +22,7 @@ export interface AdminFeaturePresentation {
   parentLabel: string | null;
   indentLevel: 0 | 1;
   disabledByParent: boolean;
+  switchDisabledByParent: boolean;
   explanation: string | null;
 }
 
@@ -32,18 +33,29 @@ export function getAdminFeaturePresentation(
 ): AdminFeaturePresentation {
   const parentKey = FEATURE_PARENTS[feature.key] ?? null;
   if (!parentKey) {
-    return { parentKey: null, parentLabel: null, indentLevel: 0, disabledByParent: false, explanation: null };
+    return {
+      parentKey: null,
+      parentLabel: null,
+      indentLevel: 0,
+      disabledByParent: false,
+      switchDisabledByParent: false,
+      explanation: null,
+    };
   }
 
   const parentLabel = allFeatures.find((row) => row.key === parentKey)?.label ?? parentKey;
   const disabledByParent = featureStates[parentKey] !== true;
+  const childEnabled = featureStates[feature.key] === true;
   return {
     parentKey,
     parentLabel,
     indentLevel: 1,
     disabledByParent,
+    switchDisabledByParent: disabledByParent && !childEnabled,
     explanation: disabledByParent
-      ? `Enable ${parentLabel} first; this child switch cannot take effect while its parent is off.`
+      ? childEnabled
+        ? `You can turn this child off while ${parentLabel} is off; enable it first to turn the child back on.`
+        : `Enable ${parentLabel} first; this child switch cannot be turned on while its parent is off.`
       : null,
   };
 }

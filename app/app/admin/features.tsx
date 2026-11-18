@@ -110,7 +110,7 @@ function FeatureRow({
         </View>
         <Switch
           value={featureStates[feature.key] === true}
-          disabled={saving === feature.key || presentation.disabledByParent}
+          disabled={saving === feature.key || presentation.switchDisabledByParent}
           onValueChange={(value) => void onChange(feature.key, value)}
         />
       </View>
