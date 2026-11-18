@@ -68,11 +68,13 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 ### 0.6 Source-row reconciliation decision
 **2026-11-18 · X3:** WS8-T02 and WS6-T04 overlap. X3 owns `demo_settle_payment`, `_allocate_payout`, `_create_payout`, `_create_sports_payout`, `claim_due_transfers`, and the demo-project setting/seed. Demo settlement requires server-owned `raw_app_meta_data.demo_only` and `app_config.deployment.is_demo_project = true` (default false); do not add an `allow_in_production` override or depend on `app.environment`, which has no definition in this repository. Demo payout rows use the new `payout_status` value `demo`, but demo payments must not create `payout_transfers`; the allocators return without transfers for demo payouts, and transfer claims also exclude `pay_demo_` payment ids. Add the enum value in `0060a`; use it only in the function migration `0060b`.
 
-**2026-11-18 · U3 / P1a:** Source rows are authoritative when they name files omitted from the original WP ownership lists. U3 therefore also owns the account-deletion migration/test and the `info`, location, customer-home, shared API/type/demo API, status, and booking-detail files named by WS1-T07/T08/T09/T14. The existing `addresses_own` policy in `0001_init.sql:1912-1913` is owner-scoped, so no address-RLS migration is needed; U3 uses migration `0069` for the deletion-request RPC. The SMS dashboard throttle is unavailable in this repo; use a 60-second client cooldown as the conservative documented “wait a minute” default, without claiming it matches the dashboard. Help uses the existing `support@quickserve.app` default. U3's booking-detail edit is sequenced after F3. P1a keeps WS3-T05 ownership and completes its two RFQ schema-field screens before P1b's WS3-T04/T09 edits to the same RFQ files; P1b must rebase after P1a merges.
+**2026-11-18 · U3 / P1a:** Source rows are authoritative when they name files omitted from the original WP ownership lists. U3 therefore also owns the account-deletion migration/test and the `info`, location, customer-home, shared API/type/demo API, status, booking-detail, and `e2e/web-smoke.mjs` (`login-help-link` step only) files named by WS1-T07/T08/T09/T12/T14. The existing `addresses_own` policy in `0001_init.sql:1912-1913` is owner-scoped, so no address-RLS migration is needed; U3 uses migration `0069` for the deletion-request RPC. The SMS dashboard throttle is unavailable in this repo; use a 60-second client cooldown as the conservative documented “wait a minute” default, without claiming it matches the dashboard. Help uses the existing `support@quickserve.app` default. U3's booking-detail edit is sequenced after F3; its E2E step follows T1 and U1. U3 may implement non-shared files in parallel, but cannot complete/merge until the sequenced file owners land. P1a keeps WS3-T05 ownership and completes its two RFQ schema-field screens before P1b's WS3-T04/T09 edits to the same RFQ files; P1b must rebase after P1a merges.
 
-**2026-11-18 · T2:** WS2-T12 explicitly specifies a new `ws2_lifecycle_latest.test.mjs` full-chain suite. T2 owns that suite and its package registration; it does not broaden scope by changing unrelated existing tests whose expectations encode known later-migration behavior (including WS2-31). The original WP table's reference to early-loader suites is superseded by this source-row-aligned scope.
+**2026-11-18 · T2:** WS2-T12 explicitly specifies a new `ws2_lifecycle_latest.test.mjs` full-chain suite. T2 owns that suite, its package registration, and the shared RP-27 test fixture correction described below; it does not change unrelated existing test expectations that encode known later-migration behavior (including WS2-31). CI runs for X3, F3, and T2 all failed the existing RP-27 recurring-plan fixture with `outside_working_hours`. T2 must make that test-only fixture deterministic without changing production code or weakening the RP-27 assertions. U3 independently carried the same test-only fixture correction in its branch; T2 owns the migration-free fix so it can merge before X3/F3, and those branches must merge main and rerun afterward. The original WP table's reference to early-loader suites is superseded by this source-row-aligned scope.
 
 **2026-11-18 · U1:** WS1-T01 explicitly requires a provider-profile E2E step, omitted from the original U1 ownership cell. U1 owns that step in `e2e/web-smoke.mjs`; because T1 also edits that file, T1 merges first and U1 then merges/revalidates against the resulting main.
+
+**2026-11-18 · X1/Q-00:** Main E2E run 44395541860 reported `DEMO_PROJECT` and `ADMIN_E2E_PHONE` as empty. X1's security migration is merged, but the admin E2E assertion is blocked until the owner sets repository variable `DEMO_PROJECT=1` and secret `ADMIN_E2E_PHONE` to a dedicated demo test phone included in that project's SMS test-OTP list; the old public admin phone must be removed from production `sms_test_otp`. Do not hard-code a phone, bypass the demo guard, or report the blocked step as passed.
 
 ---
 
@@ -111,12 +113,12 @@ Legend:
 | **U2** | Truthful home-service cancel: server refund preview RPC + policy-driven copy + every allowed cancel state | WS1-T03, WS2-T03 | new `preview_booking_cancellation` (calls `_cancellation_outcome` read-only); cancel UI in `app/app/booking/[id].tsx` | 0067 | F3 (same file) | M |
 | **B1** | Server-sourced price display: book screens and QuoteView show the server breakdown; fixed Pay includes the platform fee; show every line kind | WS9-T09, WS6-T21, WS2-T04, WS9-T05 | `app/app/book/**`, `app/app/book-fixed/**`, `QuoteView.tsx`, `PriceRow.tsx`; a read-only breakdown RPC if the source rows require one | 0068 | F3, U2 (shared files) | M |
 | **U1** | Booking entry and "Book again" routed by archetype | WS1-T01, WS1-T02, WS2-T14 | `app/app/provider/[id].tsx`, `app/src/features/activity/**` (book-again only), `e2e/web-smoke.mjs` (provider-profile E2E step only) | — | T1 (shared E2E file; merge T1 first) | S |
-| **U3** | Account basics: truthful deletion; manage saved addresses; contextual location permission; skip the role screen for returning users; plain OTP errors; public help path; status copy; respect the AI flag on all entry points | WS1-T06…T12, T14 | `components/AccountScreen.tsx`, `components/AddressEditor.tsx`, `app/app/location.tsx`, `app/app/info/[topic].tsx`, `app/app/(customer)/index.tsx` (location prompt only), `app/src/lib/locationContext.tsx`, `app/app/(auth)/**`, `app/app/assistant.tsx` (flag gate only), `app/app/category/[slug].tsx` (AI entry only), `app/src/lib/supabaseApi.ts`, `app/src/lib/apiTypes.ts`, `app/src/lib/demo/demoApi.ts`, `app/src/components/status.tsx`, `app/app/booking/[id].tsx` (status/help copy only), new `0069_u3_account_deletion.sql` and `supabase/tests/account_deletion.test.mjs` | 0069 | — | M |
+| **U3** | Account basics: truthful deletion; manage saved addresses; contextual location permission; skip the role screen for returning users; plain OTP errors; public help path; status copy; respect the AI flag on all entry points | WS1-T06…T12, T14 | `components/AccountScreen.tsx`, `components/AddressEditor.tsx`, `app/app/location.tsx`, `app/app/info/[topic].tsx`, `app/app/(customer)/index.tsx` (location prompt only), `app/src/lib/locationContext.tsx`, `app/app/(auth)/**`, `app/app/assistant.tsx` (flag gate only), `app/app/category/[slug].tsx` (AI entry only), `app/src/lib/supabaseApi.ts`, `app/src/lib/apiTypes.ts`, `app/src/lib/demo/demoApi.ts`, `app/src/components/status.tsx`, `app/app/booking/[id].tsx` (status/help copy only), `e2e/web-smoke.mjs` (`login-help-link` step only), new `0069_u3_account_deletion.sql` and `supabase/tests/account_deletion.test.mjs` | 0069 | F3 (booking detail), T1 and U1 (E2E file sequence) | M |
 | **P1a** | Shops: verified shops stay live on non-identity edits; unit + price date on prices; schema-driven spec fields; better product search; drop the WhatsApp promise; product removal | WS3-T01, T02, T05, T06, T08, T12 | `save_shop`, product save/search RPCs; `app/app/merchant-shop.tsx`, `app/app/shop/**`, `app/app/product/**`, `app/app/products.tsx`, `app/app/rfq/new.tsx` and `app/app/rfq/merchant/[id].tsx` (WS3-T05 schema fields only), `app/src/features/shops/**` | 0070 | — | M |
 | **P1b** | RFQ: honest comparison; GST clarity + earnings preview + "no commission"; cancel RFQ + outcomes; pack rounding; single quote-math source with tests; form basics | WS3-T03, T04, T07, T09, T10, T13 | RFQ RPCs incl. `send_supplier_quote_for_business`; `app/app/rfq/**`, `app/app/merchant-rfqs.tsx`, `app/src/features/rfq/**` | 0071 | P1a | M |
 | **R1** 🔒 | Reliability: idempotency keys for booking and request creation; EXECUTE privilege hygiene + regression guard; storage bucket limits; global AI budget; minor hardening | WS8-T05, T06, T07, T12, T13 | create-booking/request RPCs (idempotency param only); grants; bucket policies; AI usage config | 0072 | — | M |
 | **T1** | E2E green (same as doc 14 Q-00): discovery, category, sports, assistant-limit steps | WS1-T04, T05, WS4-T04 | `e2e/web-smoke.mjs`, `e2e/all-services.mjs` | — | X1 (same file; merge X1 first) | S |
-| **T2** | Add lifecycle coverage on the latest definitions | WS2-T12 | new `supabase/tests/ws2_lifecycle_latest.test.mjs`; `supabase/tests/package.json` | — | — | M |
+| **T2** | Add lifecycle coverage on the latest definitions | WS2-T12 | new `supabase/tests/ws2_lifecycle_latest.test.mjs`; `supabase/tests/package.json`; `supabase/tests/recurring_plans.test.mjs` (RP-27 fixture only) | — | — | M |
 
 ### Gate G2 — live payments
 
@@ -189,7 +191,7 @@ Legend:
 | `app/app/(provider)/earnings.tsx` | B4 |
 | `app/src/features/sports/**`, `app/app/sports*/**` | S1 → S2 → S3 |
 | `supabase/functions/razorpay-webhook/**`, `verify-payment/**` | F1 → F6 → F8 |
-| `e2e/*.mjs` | X1 → T1 → U1 → H3 → F8 → (doc 14 Q-01/Q-02) |
+| `e2e/*.mjs` | X1 → T1 → U1 → U3 → H3 → F8 → (doc 14 Q-01/Q-02) |
 
 ---
 
@@ -214,11 +216,12 @@ X3 ─► F1 ─┬─► F2 ─┬─► F7          F4 ─► H3
           ├─► F4 ─► O3
           ├─► F5 ─► F6 ; F5 ─► B2 ─► B6 (+O1)
           └─► F8 (+X2)
-F3 ─► U2 ─► B1 ─► C1 ;  F3 ─► F4 ;  F3 ─► B5
+F3 ─► U2 ─► B1 ─► C1 ;  F3 ─► F4 ;  F3 ─► B5 ; F3 ─► U3 (booking detail)
+T1 ─► U1 ─► U3 (E2E file sequence)
 H2a ─► H2b ;  H2a ─► doc12 D1
 S1 ─► S2 ─► S3 ;  S1 ─► B4
 P1a ─► P1b
-H1, O1, O2, U3, P1a, R1, T2 : independent
+H1, O1, O2, P1a, R1, T2 : independent
 Decisions: D1 ─► F2 · D2 ─► C1, C2 · D3 ─► S1 · D4 ─► F7(tax copy), B3 · D5 ─► X2 · D6 ─► U4
 ```
 
@@ -274,11 +277,11 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 
 | WP | Gate | Status | Agent | Lane run | Migration | Merged SHA |
 |---|---|---|---|---|---|---|
-| X1 | G1 | merged | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
+| X1 | G1 | merged; admin E2E step BLOCKED on owner config | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
 | X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
-| X3 | G1 | implementing reconciled scope | daa94142-b851-4a4e-8185-b0ddb5ffd01c | — | 0060a/b | — |
+| X3 | G1 | code pushed; lane blocked on shared RP-27 fixture fix in T2 | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44397883054 (RP-27 failed) | 0060a/b | — |
 | H1 | G1 | green; lower-model review clear; waiting for X3 migration order | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44392447601 | 0061 | — |
-| F3 | G1 | implementing | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | — | 0062 | — |
+| F3 | G1 | code pushed; lane blocked on shared RP-27 fixture fix in T2 | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44397987394 (RP-27 failed) | 0062 | — |
 | O1 | G1 | green; waiting for migration order | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 | 0063 | — |
 | O2 | G1 | green; waiting for migration order | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 | 0064 | — |
 | H2a | G1 | green; lower-model review clear; waiting for migration order | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 | 0065 | — |
@@ -286,12 +289,12 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | U2 | G1 | not started; blocked by F3 | — | — | 0067 | — |
 | B1 | G1 | not started; blocked by U2 | — | — | 0068 | — |
 | U1 | G1 | green; wait for T1, then rebase/revalidate shared E2E file | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44390029561 | — | — |
-| U3 | G1 | rework in progress; first lane was partial | bc0c8141-772b-4d97-9181-1286094f2f57 | 44390399814 (partial) | 0069 | — |
+| U3 | G1 | green partial; T14 booking detail waits for F3, T12 E2E waits for T1/U1 | bc0c8141-772b-4d97-9181-1286094f2f57 | 44399638736 (partial) | 0069 | — |
 | P1a | G1 | green; waiting for migrations through 0069 | 3f745efa-75d9-4e5b-bee7-be8d2fe6fea0 | 44395068717 | 0070 | — |
 | P1b | G1 | blocked by P1a; rebase and rerun after P1a merges | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (prior base) | 0071 | — |
 | R1 | G1 | green; lower-model review clear; waiting for migration order | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
-| T1 | G1 | implementing Q-00 baseline E2E repair | 6c5934c4-e869-4e30-b4d4-dd2469724210 | — | — | — |
-| T2 | G1 | rework in progress; source-aligned full-chain suite pending | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44394916162 (failed) | — | — |
+| T1 | G1 | fixing code-owned Q-00 failures; admin step BLOCKED on owner config | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44395541860 (main E2E failed) | — | — |
+| T2 | G1 | reworking source-aligned full-chain suite and shared RP-27 test fixture | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44398338049 (RP-27 failed) | — | — |
 | F1 | G2 | not started; blocked by X3 | — | — | 0073 | — |
 | F2 | G2 | not started; blocked by F1; D1 decided | — | — | 0074 | — |
 | F4 | G2 | not started; blocked by F3 and F1 | — | — | 0075 | — |

@@ -52,6 +52,9 @@ Worktree: <path>. Branch: lane/<TASK-ID>, created from origin/main @ <sha>.
 - Read them with `useAppFeatureFlags().isOn('<key>')`. An unknown key evaluates to **false** (`app/src/lib/featureFlagModel.ts`), so flagged UI is safe to merge before B-01 is applied.
 - Every flagged task must keep the **flag-off path identical to today** and test both states.
 
+### 0.6 Owner orchestration override (2026-11-18)
+The owner directed the integrator to start T-01 and C-07 while doc 17 T1/Q-00 is in progress; I-01 is integrator-owned and may proceed in parallel. These tasks have no shared-file conflict with Q-00. Their implementation and lane validation may proceed now; do not merge the UI foundation tasks until all code-owned Q-00 failures are green. The admin E2E step is explicitly owner-blocked until `DEMO_PROJECT=1` and `ADMIN_E2E_PHONE` are configured; never report that step as passed or weaken its guard.
+
 ---
 
 ## 1. Approved design inputs (source of truth)
@@ -770,12 +773,12 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
-| Q-00 / doc 17 T1 | implementing baseline repair | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44395541860 (main E2E, in progress) | — |
+| Q-00 / doc 17 T1 | code-owned failures in progress; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44395541860 (main E2E failed) | — |
 | Q-01 | step 1 merged; screenshot pass after Q-00 | integrator | — | 173be83 |
-| T-01 | blocked by Q-00 | — | — | — |
+| T-01 | implementing in parallel per owner direction; merge gated on Q-00 code-owned fixes | pending | — | — |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
-| I-01 | integrator task; blocked by Q-00 | integrator | — | — |
-| C-07 | blocked by Q-00 | — | — | — |
+| I-01 | implementing in parallel per owner direction; integrator-owned, merge gated on Q-00 | integrator | — | — |
+| C-07 | implementing in parallel per owner direction; merge gated on Q-00 code-owned fixes | pending | — | — |
 | R-01 | blocked by doc 17 H3 | — | — | — |
 | R-02 | blocked by doc 17 U1 | — | — | — |
 | R-03 | blocked by doc 17 B1 | — | — | — |
