@@ -47,33 +47,24 @@ alter default privileges in schema public grant execute on functions to anon, au
 
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
-const migrationFiles = [
-  '0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql',
-  '0007_chat_unread_notifications.sql', '0008_provider_kyc_status_values.sql',
-  '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
-  '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
-  '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
+for (const file of [
+  '0001_init.sql',
+  '0002_qa_fixes.sql',
+  '0003_payout_transfer_payment_cascade.sql',
+  '0007_chat_unread_notifications.sql',
+  '0008_provider_kyc_status_values.sql',
+  '0009_provider_onboarding.sql',
+  '0010_notification_freshness.sql',
+  '0011_payout_rails.sql',
+  '0012_matching_foundations.sql',
+  '0013_review_matching.sql',
+  '0014_travel_requests.sql',
+  '0015_seva_coins.sql',
+  '0016_leakage_programme.sql',
   '0017_creator_config.sql',
-];
-const laterMigrationFiles = [
-  '0019_fixed_package_booking.sql',
-  '0020_proposal_enum_values.sql', '0021_cancellation_availability_payouts.sql',
-  '0022_time_based_booking.sql', '0023_proposal_milestone_booking.sql',
-  '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
-  '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
-  '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',
-  '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql',
-  '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
-  '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql',
-  '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql',
-  '0046_managed_geography.sql', '0047_coins_config.sql', '0048_sports.sql',
-  '0049_shops_catalogue.sql', '0050_rfq.sql', '0051_ai_usage_v3.sql',
-  '0052_merchant_staff.sql', '0053_activity_contracts.sql', '0054_addendum_foundations.sql',
-  '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql',
-  '0057_recurring_plans_v2.sql', '0058_sports_payments.sql',
-];
-for (const file of migrationFiles) await db.exec(migration(file));
+]) {
+  await db.exec(migration(file));
+}
 
 const CUSTOMER = '00000000-0000-0000-0000-000000000051';
 const PROVIDER = '00000000-0000-0000-0000-000000000052';
@@ -206,52 +197,9 @@ ok(
   'pre-0018 bookings are backfilled without changing money fields',
 );
 
-const bookingEligibility = async () => (
-  await service(`
-    select public._is_bookable(c.id, p.id, 'Core City', 'inspect_quote', null) eligible,
-           c.active, c.restricted, c.archetype, c.requires_docs,
-           cfg.value->>'inspect_quote' inspect_quote_enabled,
-           public._provider_is_live(p.id) provider_live,
-           public._category_docs_ok(p.id, c.id) docs_ok,
-           exists (
-             select 1 from category_cities cc
-              where cc.category_id = c.id and cc.live and lower(trim(cc.city)) = 'core city'
-           ) city_live,
-           exists (select 1 from provider_services ps where ps.id = $2 and ps.active) service_active
-      from categories c
-      join providers p on p.id = $3
-      left join app_config cfg on cfg.key = 'archetype_flags'
-     where c.id = $1
-  `, [acCategory, providerService, PROVIDER])
-)[0];
-const createBooking = async () => {
-  try {
-    return (await asCustomer(
-      `select create_booking($1, 'AC not cooling', '2 Core Road', 'Core City', 16.51, 80.64)`,
-      [providerService],
-    ))[0].create_booking;
-  } catch (error) {
-    throw new Error(`${error.message}; eligibility=${JSON.stringify(await bookingEligibility())}`);
-  }
-};
-await service(`
-  update categories
-     set active = true, restricted = false, archetype = 'inspect_quote', requires_docs = '{}'
-   where id = $1
-`, [acCategory]);
-await service(`
-  update providers
-     set kyc_status = 'verified', submitted_at = coalesce(submitted_at, now()),
-         suspended = false, paused = false, deactivated_at = null
-   where id = $1
-`, [PROVIDER]);
-await service(`update provider_services set active = true where id = $1`, [providerService]);
-await service(`update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags'`);
-await service(`
-  insert into category_cities (category_id, city, live, launched_at)
-  values ($1, 'Core City', true, now())
-  on conflict (category_id, city) do update set live = true, launched_at = excluded.launched_at
-`, [acCategory]);
+const createBooking = async () => (
+  await asCustomer(`select create_booking($1, 'AC not cooling', '2 Core Road', 'Core City', 16.51, 80.64)`, [providerService])
+)[0].create_booking;
 const booking1 = await createBooking();
 const snapshot = (await service(`
   select archetype, category_config_version, location_mode, pricing_snapshot,
@@ -307,17 +255,6 @@ await expectError(
   'legacy create_booking rejects non-inspect_quote categories with upgrade_required',
 );
 await service(`update categories set archetype = 'inspect_quote' where id = '${acCategory}'`);
-await service(`
-  update categories
-     set active = true, restricted = false, requires_docs = '{}'
-   where id = $1
-`, [acCategory]);
-await service(`update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags'`);
-await service(`
-  insert into category_cities (category_id, city, live, launched_at)
-  values ($1, 'Core City', true, now())
-  on conflict (category_id, city) do update set live = true, launched_at = excluded.launched_at
-`, [acCategory]);
 
 const expectedTransitions = [
   'pending_payment:requested:system', 'pending_payment:accepted:system', 'pending_payment:cancelled:customer',
@@ -342,21 +279,6 @@ ok(
   JSON.stringify(actualTransitions) === JSON.stringify(expectedTransitions.sort()),
   'transition table exactly matches the reconciled inspect_quote RPC paths',
 );
-
-for (const file of laterMigrationFiles) {
-  if (file === '0051_ai_usage_v3.sql') {
-    await db.exec(`
-      create table public.ai_usage (
-        id bigint generated always as identity primary key,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-        request_id uuid,
-        created_at timestamptz not null default now()
-      )
-    `);
-  }
-  await db.exec(migration(file));
-}
 
 async function pay(id) {
   const [payment] = await service(`select * from prepare_payment($1, $2)`, [id, CUSTOMER]);

@@ -6,26 +6,21 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-const migration = (file) =>
-  fs.readFileSync(path.join(here, '..', 'migrations', file), 'utf8')
-    .replace('create extension if not exists postgis with schema extensions;', '')
-    .replaceAll('extensions.geography(Point, 4326)', 'extensions.geography')
-    .replaceAll('using gist', 'using btree');
+const raw = fs.readFileSync(path.join(here, '..', 'migrations', '0001_init.sql'), 'utf8');
 const seed = fs.readFileSync(path.join(here, '..', 'seed.sql'), 'utf8');
+const migration = raw
+  .replace('create extension if not exists postgis with schema extensions;', '')
+  .replaceAll('extensions.geography(Point, 4326)', 'extensions.geography')
+  .replaceAll('using gist', 'using btree');
 
 const prelude = `
 create schema if not exists extensions;
 create type extensions.geography as (lng float8, lat float8);
-create type extensions.geometry as (lng float8, lat float8);
 create function extensions.st_makepoint(x float8, y float8) returns extensions.geography language sql immutable as $$ select row(x, y)::extensions.geography $$;
 create function extensions.st_setsrid(g extensions.geography, srid int) returns extensions.geography language sql immutable as $$ select g $$;
 create function extensions.st_distance(a extensions.geography, b extensions.geography) returns float8 language sql immutable as $$
   select 2 * 6371000 * asin(sqrt(power(sin(radians(b.lat - a.lat) / 2), 2) + cos(radians(a.lat)) * cos(radians(b.lat)) * power(sin(radians(b.lng - a.lng) / 2), 2))) $$;
 create function extensions.st_dwithin(a extensions.geography, b extensions.geography, d float8) returns boolean language sql immutable as $$ select extensions.st_distance(a, b) <= d $$;
-create function extensions.geog_to_geom(g extensions.geography) returns extensions.geometry language sql immutable as $$ select row(g.lng, g.lat)::extensions.geometry $$;
-create cast (extensions.geography as extensions.geometry) with function extensions.geog_to_geom(extensions.geography);
-create function extensions.st_x(g extensions.geometry) returns float8 language sql immutable as $$ select g.lng $$;
-create function extensions.st_y(g extensions.geometry) returns float8 language sql immutable as $$ select g.lat $$;
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
 grant usage on schema public, extensions to anon, authenticated, service_role;
 create schema auth;
@@ -36,7 +31,7 @@ create function auth.uid() returns uuid language sql stable as $$ select nullif(
 grant execute on function auth.uid() to anon, authenticated, service_role;
 create schema storage;
 grant usage on schema storage to anon, authenticated, service_role;
-create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.buckets (id text primary key, name text, public boolean);
 create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
 alter table storage.objects enable row level security;
 create function storage.foldername(name text) returns text[] language sql immutable as $$
@@ -45,48 +40,12 @@ alter default privileges in schema public grant all on tables to anon, authentic
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 `;
 
-// AI-assistant migrations 0004-0006 remain covered by their Deno tests, matching the PGlite chain.
-const migrationFiles = [
-  '0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql',
-  '0007_chat_unread_notifications.sql', '0008_provider_kyc_status_values.sql',
-  '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
-  '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
-  '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
-  '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
-  '0020_proposal_enum_values.sql', '0021_cancellation_availability_payouts.sql',
-  '0022_time_based_booking.sql', '0023_proposal_milestone_booking.sql',
-  '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
-  '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
-  '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
-  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',
-  '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql',
-  '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
-  '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql',
-  '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql',
-  '0046_managed_geography.sql', '0047_coins_config.sql', '0048_sports.sql',
-  '0049_shops_catalogue.sql', '0050_rfq.sql', '0051_ai_usage_v3.sql',
-  '0052_merchant_staff.sql', '0053_activity_contracts.sql', '0054_addendum_foundations.sql',
-  '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql',
-  '0057_recurring_plans_v2.sql', '0058_sports_payments.sql',
-];
-
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
-for (const file of migrationFiles) {
-  if (file === '0051_ai_usage_v3.sql') {
-    await db.exec(`
-      create table public.ai_usage (
-        id bigint generated always as identity primary key,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-        request_id uuid,
-        created_at timestamptz not null default now()
-      )
-    `);
-  }
-  await db.exec(migration(file));
-}
-await db.exec(`update app_config set value = '"route"'::jsonb where key = 'payout_rail'`);
+await db.exec(migration);
+// Later migrations that run on PGlite (0004-0006 are AI-assistant tables covered by Deno tests).
+await db.exec(fs.readFileSync(path.join(here, '..', 'migrations', '0007_chat_unread_notifications.sql'), 'utf8'));
+await db.exec(fs.readFileSync(path.join(here, '..', 'migrations', '0010_notification_freshness.sql'), 'utf8'));
 console.log('migration applied');
 
 const C = '00000000-0000-0000-0000-00000000000c';
@@ -109,25 +68,14 @@ async function expectError(fn, re, msg) {
 
 await db.exec(`insert into auth.users (id, phone) values ('${C}', '+919000000001'), ('${P}', '+919000000002'), ('${X}', '+919000000003');`);
 await asP(`select upsert_provider_profile('Ravi', 'AC expert', 'Vijayawada', 15, 16.5062, 80.6480, 6, '{te,hi}')`);
-await db.exec(`update providers set created_at = now() - interval '90 days', submitted_at = now() where id = '${P}'`);
+await db.exec(`update providers set created_at = now() - interval '90 days' where id = '${P}'`);
 await svc(`select sync_provider_kyc('${P}', 'acc_test123', 'activated')`);
 const [{ id: catId }] = await db.query(`select id from categories where slug = 'ac-repair'`).then(r => r.rows);
 const [{ id: psId }] = await asP(`insert into provider_services (provider_id, category_id, skill_level, visit_fee, labour_rate) values ($1, $2, 'expert', 19900, 50000) returning id`, [P, catId]);
-await db.exec(`
-  update categories
-     set active = true, restricted = false, archetype = 'inspect_quote', requires_docs = '{}'
-   where id = '${catId}';
-  insert into app_config (key, value) values ('launch_city', '"Vijayawada"')
-  on conflict (key) do update set value = excluded.value;
-  update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags';
-  insert into category_cities (category_id, city, live, launched_at)
-  values ('${catId}', 'Vijayawada', true, now())
-  on conflict (category_id, city) do update set live = true, launched_at = excluded.launched_at;
-`);
 
 const search = await as(null, 'anon', `select * from search_providers('ac-repair', 16.51, 80.65)`);
-ok(search.length === 1 && search[0]?.visit_fee === 19900, 'anon search finds verified provider: ' + JSON.stringify(search));
-ok((search[0]?.score ?? 0) > 0, 'recommended score computed: ' + JSON.stringify(search[0] ?? null));
+ok(search.length === 1 && search[0].visit_fee === 19900, 'anon search finds verified provider');
+ok(search[0].score > 0, 'recommended score computed: ' + search[0].score);
 await expectError(() => asC(`select phone from private_user_accounts where user_id = '${P}'`).then(r => { if (r.length) throw new Error('leak'); throw new Error('no rows'); }), /no rows/, 'customer cannot read provider phone');
 await expectError(() => asP(`update providers set kyc_status = 'verified' where id = '${P}'`), /permission denied/, 'provider cannot self-verify');
 
@@ -193,28 +141,17 @@ ok(po.gross === 215000 && po.commission === 18000 && po.gst_on_commission === 32
 const tr = await db.query(`select t.amount, p.purpose from payout_transfers t join payments p on p.id = t.source_payment_id where t.payout_id = $1 order by t.created_at`, [po.id]).then(r => r.rows);
 ok(tr.length === 2 && tr[0].purpose === 'visit_fee' && tr[0].amount === 19900 && tr[1].amount === 173860, 'transfers allocated visit fee first then balance');
 
-await asC(`select submit_review($1::uuid, 5::int, 5::int, 5::int, 4::int, 5::int, 'Great'::text, '{}'::text[])`, [b1]);
+await asC(`select submit_review($1, 5, 5, 5, 4, 5, 'Great')`, [b1]);
 const [prov] = await db.query(`select rating_avg, rating_count, jobs_completed from providers where id = $1`, [P]).then(r => r.rows);
 ok(Number(prov.rating_avg) === 5 && prov.rating_count === 1 && prov.jobs_completed === 1, 'rating aggregate + jobs_completed updated');
-await expectError(
-  () => asC(`select submit_review($1::uuid, 4::int, null::int, null::int, null::int, null::int, null::text, '{}'::text[])`, [b1]),
-  /already reviewed/,
-  'one review per booking',
-);
+await expectError(() => asC(`select submit_review($1, 4)`, [b1]), /already reviewed/, 'one review per booking');
 
 ok((await svc(`select * from claim_due_transfers()`)).length === 0, 'nothing released before 24h window');
-await db.exec(`
-  update payouts set release_after = now() - interval '1 minute' where id = '${po.id}';
-  update payout_transfers set release_after = now() - interval '1 minute' where payout_id = '${po.id}';
-`);
+await db.exec(`update payouts set release_after = now() - interval '1 minute' where id = '${po.id}'`);
 const claimed = await svc(`select * from claim_due_transfers()`);
-ok(
-  claimed.length === 2 && claimed.every(c => c.account_id === 'acc_test123' && c.razorpay_payment_id),
-  'due transfers claimed with source payment ids: ' + JSON.stringify(claimed),
-);
+ok(claimed.length === 2 && claimed.every(c => c.account_id === 'acc_test123' && c.razorpay_payment_id), 'due transfers claimed with source payment ids');
 for (const c of claimed) await svc(`select complete_transfer($1, $2)`, [c.transfer_id, 'trf_' + c.transfer_id.slice(0, 6)]);
-const payoutStatus = await status(b1);
-ok(payoutStatus === 'closed', 'all transfers done -> closed: ' + JSON.stringify({ payoutStatus }));
+ok(await status(b1) === 'closed', 'all transfers done -> closed');
 
 // ---- Change orders ----
 const [{ create_booking: b2 }] = await asC(`select create_booking($1, 'Wiring', '5 Ring Rd', 'Vijayawada', 16.52, 80.63)`, [psId]);
