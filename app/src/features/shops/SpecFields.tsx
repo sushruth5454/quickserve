@@ -3,13 +3,7 @@ import { Input } from '../../components/ui';
 import { useTheme } from '../../theme';
 import type { ProductCategory } from './api';
 
-export function cleanSpecs(value: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(value)
-      .map(([key, text]) => [key, text.trim()] as const)
-      .filter(([, text]) => text.length > 0),
-  );
-}
+export { cleanSpecs } from './specs';
 
 function humanise(key: string): string {
   return key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());

@@ -10,8 +10,11 @@ const migrationsDir = path.join(here, '..', 'migrations');
 const prelude = `
 create schema if not exists extensions;
 create type extensions.geography as (lng float8, lat float8);
+create domain extensions.geometry as extensions.geography;
 create function extensions.st_makepoint(x float8, y float8) returns extensions.geography language sql immutable as $$ select row(x, y)::extensions.geography $$;
 create function extensions.st_setsrid(g extensions.geography, srid int) returns extensions.geography language sql immutable as $$ select g $$;
+create function extensions.st_x(g extensions.geometry) returns float8 language sql immutable as $$ select (g::extensions.geography).lng $$;
+create function extensions.st_y(g extensions.geometry) returns float8 language sql immutable as $$ select (g::extensions.geography).lat $$;
 create function extensions.st_distance(a extensions.geography, b extensions.geography) returns float8 language sql immutable as $$
   select 2 * 6371000 * asin(sqrt(power(sin(radians(b.lat - a.lat) / 2), 2) + cos(radians(a.lat)) * cos(radians(b.lat)) * power(sin(radians(b.lng - a.lng) / 2), 2))) $$;
 create function extensions.st_dwithin(a extensions.geography, b extensions.geography, d float8) returns boolean language sql immutable as $$ select extensions.st_distance(a, b) <= d $$;

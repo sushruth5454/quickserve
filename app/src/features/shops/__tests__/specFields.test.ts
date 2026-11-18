@@ -1,4 +1,4 @@
-import { cleanSpecs } from '../SpecFields';
+import { cleanSpecs } from '../specs';
 
 describe('schema-driven product specifications', () => {
   it('trims entered values and omits blank fields', () => {

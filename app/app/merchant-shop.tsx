@@ -20,8 +20,9 @@ import {
   type ShopProduct,
 } from '../src/features/shops/api';
 import { FeatureUnavailable, IndicativePrice, ShopStatusLabel, useShopFeatureFlags } from '../src/features/shops/components';
-import { cleanSpecs, SpecFields } from '../src/features/shops/SpecFields';
+import { SpecFields } from '../src/features/shops/SpecFields';
 import { UNIT_LABELS } from '../src/features/shops/format';
+import { cleanSpecs } from '../src/features/shops/specs';
 import { useSelectedLocation, resolvePlace, searchPlaces, type PlaceResult } from '../src/lib/locationContext';
 import { newPlacesSession } from '../src/lib/places';
 import { parseRupees } from '../src/lib/onboarding/validation';
