@@ -225,7 +225,7 @@ if (session2) {
 }
 
 // ---------- proposal helpers ----------
-let eventDay = 2;
+let eventDay = 10;
 const proposalBooking = async (
   pro, deliverables = '[]', advance = 300000, final = 700000,
   requester = customer, requesterAddress = address,
