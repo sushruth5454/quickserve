@@ -34,7 +34,9 @@ create function auth.uid() returns uuid language sql stable as $$ select nullif(
 grant execute on function auth.uid() to anon, authenticated, service_role;
 create schema storage;
 grant usage on schema storage to anon, authenticated, service_role;
-create table storage.buckets (id text, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.buckets (
+  id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]
+);
 create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
 alter table storage.objects enable row level security;
 grant select, insert, delete on storage.objects to authenticated, anon, service_role;
@@ -47,6 +49,18 @@ alter default privileges in schema public grant execute on functions to anon, au
 
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
+const bucketPrimaryKey = await db.query(`
+  select exists (
+    select 1
+      from pg_constraint
+     where conrelid = 'storage.buckets'::regclass
+       and contype = 'p'
+       and pg_get_constraintdef(oid) = 'PRIMARY KEY (id)'
+  ) as present
+`);
+if (!bucketPrimaryKey.rows[0].present) {
+  throw new Error('PGlite fixture must model the storage.buckets id primary key');
+}
 const legacyHomeSlugs = [
   'house-cleaning', 'electrician', 'plumber', 'ac-repair', 'appliance-repair',
   'carpenter', 'painter', 'pest-control', 'water-tank-cleaning',
