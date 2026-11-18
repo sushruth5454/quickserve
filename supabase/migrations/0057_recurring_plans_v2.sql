@@ -1316,6 +1316,7 @@ declare
   r public.recurring_schedules;
   b record;
   v_cancelled int := 0;
+  v_has_future_open boolean;
   v_reason text := left(coalesce(nullif(trim(p_reason), ''), 'recurring plan cancelled'), 300);
 begin
   select * into r from public.recurring_schedules where id = p_id for update;
@@ -1323,7 +1324,21 @@ begin
   if r.status = 'cancelled' then
     return 0;
   end if;
-  perform public._assert(r.status in ('active', 'paused'), 'recurring plan is already closed');
+  select exists (
+    select 1
+      from public.bookings bk
+     where bk.recurring_schedule_id = r.id
+       and bk.scheduled_at > now()
+       and bk.status::text in (
+         'pending_payment', 'requested', 'accepted', 'confirmed', 'en_route',
+         'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress',
+         'completion_requested'
+       )
+  ) into v_has_future_open;
+  perform public._assert(
+    r.status in ('active', 'paused') or (r.status = 'completed' and v_has_future_open),
+    'recurring plan is already closed'
+  );
 
   update public.recurring_schedules
      set status = 'cancelled', cancelled_at = now(), paused_at = null, pause_until = null, updated_at = now()
@@ -1634,8 +1649,20 @@ begin
      set generated_through = greatest(coalesce(generated_through, p_through_date), p_through_date),
          occurrences_created = v_occurrences_created,
          status = case
-           when (ends_on is not null and ends_on <= p_through_date)
+           when (
+             (ends_on is not null and ends_on <= p_through_date)
              or (max_occurrences is not null and v_occurrences_created >= max_occurrences)
+           ) and not exists (
+               select 1
+                 from public.bookings future
+                where future.recurring_schedule_id = r.id
+                  and future.scheduled_at > now()
+                  and future.status::text in (
+                    'pending_payment', 'requested', 'accepted', 'confirmed', 'en_route',
+                    'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress',
+                    'completion_requested'
+                  )
+             )
              then 'completed'
            else status
          end,
@@ -1719,7 +1746,10 @@ begin
       and b.scheduled_at > now() + make_interval(hours => v_cutoff),
     'visit is past the reschedule cutoff or cannot be rescheduled'
   );
-  perform public._assert(p_new_at is not null and p_new_at > now() + interval '30 minutes', 'new visit time must be in the future');
+  perform public._assert(
+    p_new_at is not null and p_new_at > now() + interval '60 minutes',
+    'new visit time must be more than 60 minutes ahead'
+  );
   perform public._assert(char_length(trim(coalesce(p_reason, ''))) > 0, 'reschedule reason is required');
 
   if exists (
@@ -1812,6 +1842,10 @@ begin
   perform public._assert(b.scheduled_at = c.original_at, 'visit changed after the reschedule request');
 
   if p_accept then
+    perform public._assert(
+      c.new_at is not null and c.new_at > now() + interval '60 minutes',
+      'reschedule time must remain more than 60 minutes ahead when accepted'
+    );
     v_duration := coalesce(upper(b.service_window) - lower(b.service_window),
       make_interval(mins => coalesce(b.session_duration_min, 60)));
     v_new_window := tstzrange(c.new_at, c.new_at + v_duration, '[)');

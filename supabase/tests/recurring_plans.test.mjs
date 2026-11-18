@@ -761,8 +761,8 @@ const fixedRows = await db.query(
 const fixedState = await one(`select status, occurrences_created from recurring_schedules where id=$1`, [fixedPlan]);
 ok(fixedRows.rows.length === 2 && fixedRows.rows.every((row) => row.archetype === 'fixed')
   && fixedRows.rows.every((row) => row.status === 'pending_payment')
-  && fixedState.status === 'completed' && fixedState.occurrences_created === 2,
-  '[RP-09/RP-10] fixed generation creates package bookings and stops at max_occurrences');
+  && fixedState.status === 'active' && fixedState.occurrences_created === 2,
+  '[RP-09/RP-10] fixed generation stops at max_occurrences but stays active while future visits remain open');
 
 // RP-12/RP-13: skip uses the existing cancellation/refund path, records once, and enforces the cutoff.
 const skipPlan = await createPlan(input({ start_date: dateOffset(3), end_date: addDays(dateOffset(3), 1), start_time: '14:00' }));
@@ -899,6 +899,11 @@ const responseError = await fails(() => as(provider, 'authenticated',
 const moved = await one(`select scheduled_at from bookings where id=$1`, [rescheduleBooking]);
 ok(!responseError && new Date(moved.scheduled_at).toISOString() === new Date(newAt).toISOString(),
   '[RP-18] the other party can accept and move a visit to an available window');
+const tooSoonRescheduleRequest = await fails(() => as(customer, 'authenticated',
+  `select request_visit_reschedule($1, now()+interval '45 minutes', 'too soon')`,
+  [rescheduleBooking]));
+ok(/60 minutes/i.test(tooSoonRescheduleRequest ?? ''),
+  '[RP-18] reschedule requests under the 60-minute lead are rejected');
 const declineAt = `${addDays(dateOffset(20), 2)}T12:00:00+05:30`;
 const declineChange = (await as(customer, 'authenticated',
   `select request_visit_reschedule($1, $2::timestamptz, 'decline test') id`,
@@ -911,6 +916,27 @@ const declinedChange = await one(`
 const unchangedTime = await one(`select scheduled_at from bookings where id=$1`, [rescheduleBooking]);
 ok(declinedChange.n === 1 && new Date(unchangedTime.scheduled_at).toISOString() === new Date(newAt).toISOString(),
   '[RP-18] declining a reschedule records the decision and leaves the visit time unchanged');
+const delayedChangeId = (await as(customer, 'authenticated',
+  `select request_visit_reschedule($1, now()+interval '90 minutes', 'delayed accept') id`,
+  [rescheduleBooking]))[0].id;
+await db.query(`update recurring_occurrence_changes
+   set new_at=now()+interval '45 minutes' where id=$1`, [delayedChangeId]);
+const delayedTarget = (await one(
+  `select new_at from recurring_occurrence_changes where id=$1`, [delayedChangeId])).new_at;
+const delayedAcceptError = await fails(() => as(provider, 'authenticated',
+  `select respond_visit_reschedule($1, true)`, [delayedChangeId]));
+const unchangedAfterDelayedAccept = await one(
+  `select scheduled_at from bookings where id=$1`, [rescheduleBooking]);
+const delayedRescheduleOutcome = await one(`
+  select count(*)::int n from recurring_occurrence_changes
+   where booking_id=$1 and original_at=$2::timestamptz and new_at=$3::timestamptz
+     and kind in ('rescheduled','reschedule_declined')`,
+  [rescheduleBooking, newAt, delayedTarget]);
+ok(/60 minutes/i.test(delayedAcceptError ?? '')
+  && new Date(unchangedAfterDelayedAccept.scheduled_at).toISOString() === new Date(newAt).toISOString()
+  && delayedRescheduleOutcome.n === 0,
+  '[RP-18] a delayed accept inside 60 minutes is refused and leaves the original visit time unchanged');
+await as(provider, 'authenticated', `select respond_visit_reschedule($1, false)`, [delayedChangeId]);
 const rescheduleBlockerDate = addDays(dateOffset(20), 3);
 await one(`
   select _create_session_booking(
@@ -2133,5 +2159,62 @@ ok(!customerSkipError && customerSkipState.status === 'completed'
   && customerSkipState.payouts === 1
   && customerSkipState.skips === 1,
   '[RP-34] a customer skip past four hours applies customer late-cancellation charges, not provider-fault refunds');
+
+// RP-35: horizon exhaustion does not close a plan while future visits remain open.
+const endBoundedStart = dateOffset(5);
+const endBoundedPlan = await createLegacySchedule(
+  expiryService, endBoundedStart, addDays(endBoundedStart, 15), '10:00', 15);
+const endBoundedBeforeCancel = await one(`
+  select r.status plan_status, count(b.id) filter (
+           where b.scheduled_at > now()
+             and b.status::text in ('pending_payment','requested','accepted','confirmed')
+         )::int open_future
+    from recurring_schedules r
+    left join bookings b on b.recurring_schedule_id=r.id
+   where r.id=$1 group by r.id`, [endBoundedPlan]);
+const endBoundedCancelCount = (await as(customer, 'authenticated',
+  `select cancel_recurring_plan($1, 'cancel end-bounded plan with open visits') cancelled`,
+  [endBoundedPlan]))[0].cancelled;
+const endBoundedAfterCancel = await one(`
+  select r.status plan_status,
+         count(b.id) filter (where b.status::text='cancelled')::int cancelled,
+         count(b.id) filter (
+           where b.scheduled_at > now()
+             and b.status::text in ('pending_payment','requested','accepted','confirmed')
+         )::int open_future
+    from recurring_schedules r
+    left join bookings b on b.recurring_schedule_id=r.id
+   where r.id=$1 group by r.id`, [endBoundedPlan]);
+
+const completedPlanCancel = await createLegacySchedule(
+  expiryService, dateOffset(6), addDays(dateOffset(6), 15), '11:00', 15);
+await db.query(`update recurring_schedules set status='completed' where id=$1`, [completedPlanCancel]);
+const completedPlanCancelResult = (await as(customer, 'authenticated',
+  `select cancel_recurring_plan($1, 'cancel completed legacy plan') cancelled`,
+  [completedPlanCancel]))[0].cancelled;
+const completedScheduleCancel = await createLegacySchedule(
+  expiryService, dateOffset(7), addDays(dateOffset(7), 15), '12:00', 15);
+await db.query(`update recurring_schedules set status='completed' where id=$1`, [completedScheduleCancel]);
+const completedScheduleCancelResult = (await as(customer, 'authenticated',
+  `select cancel_recurring_schedule($1, true) cancelled`,
+  [completedScheduleCancel]))[0].cancelled;
+const completedCancellationStates = await one(`
+  select
+    (select count(*)::int from bookings where recurring_schedule_id=$1 and status::text='cancelled') plan_cancelled,
+    (select count(*)::int from bookings where recurring_schedule_id=$2 and status::text='cancelled') schedule_cancelled,
+    (select status from recurring_schedules where id=$1) plan_status,
+    (select status from recurring_schedules where id=$2) schedule_status`,
+  [completedPlanCancel, completedScheduleCancel]);
+ok(endBoundedBeforeCancel.plan_status === 'active' && endBoundedBeforeCancel.open_future > 0
+  && endBoundedAfterCancel.plan_status === 'cancelled'
+  && endBoundedAfterCancel.cancelled === endBoundedBeforeCancel.open_future
+  && endBoundedAfterCancel.open_future === 0
+  && Number(endBoundedCancelCount) === endBoundedBeforeCancel.open_future
+  && Number(completedPlanCancelResult) > 0 && Number(completedScheduleCancelResult) > 0
+  && completedCancellationStates.plan_status === 'cancelled'
+  && completedCancellationStates.schedule_status === 'cancelled'
+  && completedCancellationStates.plan_cancelled > 0
+  && completedCancellationStates.schedule_cancelled > 0,
+  '[RP-35] plans with future open visits remain active through horizon completion and both cancellation RPCs close legacy completed plans');
 
 if (failures > 0) process.exitCode = 1;

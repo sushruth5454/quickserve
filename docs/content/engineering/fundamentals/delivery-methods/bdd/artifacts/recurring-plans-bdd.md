@@ -162,7 +162,14 @@ Feature: Plan limits
     Given an accepted plan has an end date or maximum occurrence count
     When the generator reaches that boundary
     Then it creates no later or additional visits
-    And the plan is marked completed when its configured lifetime is exhausted
+    And the plan is marked completed only when no future open visits remain
+
+  Scenario: An end date inside the generation horizon does not close open visits
+    Given an accepted plan's end date is inside the current generation horizon
+    And generation creates future pending-payment visits through that end date
+    When the generator reaches the end date
+    Then the plan remains active while any future visit is open
+    And the customer can still cancel the plan and those visits
 ```
 
 ### RP-11 — Acceptance mode falls back to per-visit decisions when disabled
@@ -228,6 +235,12 @@ Feature: Recurring-plan pause
     Then the plan is cancelled and future visits follow the existing cancellation policy
     And cancellation changes are recorded and the provider is notified
     And the feature switch does not block this existing-work safety action
+
+  Scenario: A completed legacy plan with future open visits remains cancellable
+    Given a legacy plan is marked completed but still has future open visits
+    When the customer cancels it through cancel_recurring_plan or cancel_recurring_schedule
+    Then the plan is cancelled and all future open visits are cancelled through the existing policy
+    And each cancellation is recorded
 ```
 
 ### RP-15 — Provider holidays and time off prevent new visits
@@ -281,6 +294,19 @@ Feature: Visit rescheduling
     When the availability check or response is processed
     Then the original visit time remains unchanged
     And the outcome is recorded as declined when a request existed
+
+  Scenario: A reschedule request and its later acceptance both require more than 60 minutes
+    Given the requested new time is more than 60 minutes ahead when requested
+    And the request is not accepted until that time is 60 minutes or less away
+    When the other party accepts the request
+    Then acceptance is refused under the booking lock
+    And the original visit time remains unchanged
+
+  Scenario: A party cannot request a new time inside the 60-minute lead
+    Given a party proposes a new time 60 minutes or less from now
+    When the reschedule request is submitted
+    Then the server refuses the request
+    And the original visit time remains unchanged
 ```
 
 ### RP-19 — A provider absence follows the existing refund path
@@ -605,6 +631,25 @@ Feature: Recurring cancellation actor safety
     And the customer is not treated as a provider fault
 ```
 
+### RP-35 — Horizon completion waits for future visits and preserves cancellation safety
+
+```gherkin
+Feature: Plan completion and cancellation
+  Scenario: An end date inside the horizon leaves a plan active while visits remain open
+    Given an accepted plan ends inside the current generation horizon
+    And generation creates future pending-payment visits through that end date
+    When the generator reaches the end date
+    Then the plan remains active while future visits are open
+    And the customer can cancel the plan and all of those visits
+
+  Scenario: A historical completed legacy plan with future open visits can still be cancelled
+    Given a legacy plan is marked completed but still has future open visits
+    When the customer cancels it through cancel_recurring_plan or cancel_recurring_schedule
+    Then the plan is cancelled
+    And all future open visits are cancelled through the existing lifecycle
+    And cancellation changes are recorded
+```
+
 ## Acceptance criteria
 
 1. The six date fixture vectors in the implementation plan produce exactly the listed dates.
@@ -625,6 +670,10 @@ Feature: Recurring cancellation actor safety
 16. The exact `service not available` error from an inactive legacy provider service is recorded as per-date unavailability, while unrelated errors still abort generation.
 17. A near-term per-visit `due_at` is never backdated; expiry uses the earlier of the configured grace deadline and `scheduled_at - 30 minutes`.
 18. Fixed recurring package duration must be 15–480 minutes; a legacy address error is isolated per date; an expiry failure is persisted without changing that booking; customer skips cannot request provider-fault treatment.
+19. A plan with a reached end/max boundary stays active while future open visits remain; cancellation RPCs can close a historical completed legacy plan that still has future open visits.
+20. Reschedule request and acceptance both require `new_at > now() + 60 minutes`; a delayed acceptance that crosses the threshold leaves the original visit unchanged.
+21. A plan becomes completed only after its end/max boundary is reached and no future open occurrence remains.
+22. Both customer cancellation RPCs can cancel a completed legacy plan that still has future open visits.
 
 ## Automation readiness
 
@@ -655,6 +704,7 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-32 | Recurring Plan Management | A multi-unit fixed quote whose duration exceeds 480 minutes is rejected. |
 | RP-33 | Occurrence Scheduling / Existing Booking Lifecycle | Legacy missing-address dates do not starve valid plans; one expiry rollback logs safely, preserves its reservation, and permits other bookings to expire. |
 | RP-34 | Occurrence Change Management | A customer skip after the configured cutoff uses customer cancellation policy, never provider fault. |
+| RP-35 | Occurrence Scheduling / Recurring Plan Management | End/max completion waits for open future visits; active end-bounded and historical completed legacy plans remain cancellable through both customer RPCs. |
 
 ## Trace links
 
