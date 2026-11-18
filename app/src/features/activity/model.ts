@@ -12,6 +12,8 @@ export interface ActivityFeatureVisibility {
   sports: boolean;
 }
 
+export { bookAgainRoute as bookAgainTarget } from './bookAgain';
+
 export function parseActivityUnreadCounts(value: unknown): ActivityUnreadCounts {
   const row = Array.isArray(value) ? value[0] : value;
   if (!row || typeof row !== 'object' || Array.isArray(row)) {

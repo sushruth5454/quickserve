@@ -107,6 +107,13 @@ export default function ProviderDetailScreen() {
   const rating = Number(provider.rating_avg);
   const service = services.find((s) => s.id === selected) ?? services[0];
   const proposalService = service?.categories?.archetype === 'proposal';
+  const pkgArchetype = service?.categories?.archetype === 'fixed' || service?.categories?.archetype === 'time_based';
+  const packagePrices = (service?.service_packages ?? [])
+    .filter((item) => item.active && item.price_type !== 'quote')
+    .map((item) => item.price_type === 'fixed' ? item.price : item.price_min)
+    .filter((price): price is number => typeof price === 'number' && Number.isFinite(price));
+  const minPackagePrice = packagePrices.length ? Math.min(...packagePrices) : null;
+  const hasInspectQuoteService = services.some((item) => item.categories?.archetype === 'inspect_quote');
   const subs = [
     ['Punctuality', avg(reviews, 'punctuality')],
     ['Quality', avg(reviews, 'quality')],
@@ -127,6 +134,27 @@ export default function ProviderDetailScreen() {
     haptics.tap();
     const url = Linking.createURL(`/provider/${provider.id}`);
     await Share.share({ message: `Book ${name} on QuickServe: ${url}`, url }).catch(() => undefined);
+  };
+  const bookSelectedService = () => {
+    if (!service) return;
+    if (otherCity) {
+      void switchToCity(provider.city);
+      return;
+    }
+    if (proposalService) {
+      router.push({
+        pathname: '/request/new',
+        params: { categoryId: service.category_id, name: service.categories?.name ?? 'service', providerId: provider.id, providerName: first },
+      });
+      return;
+    }
+    if (pkgArchetype) {
+      const category = service.categories;
+      if (!category?.slug) return;
+      router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } });
+      return;
+    }
+    router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } });
   };
   const gutter = { paddingHorizontal: t.spacing.lg };
 
@@ -152,10 +180,14 @@ export default function ProviderDetailScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
             <View style={{ flexShrink: 1 }}>
               <Text variant="caption" color="muted" numberOfLines={1}>
-                {service.categories?.name} · {proposalService ? 'price' : 'visit fee'}
+                {service.categories?.name} · {proposalService ? 'price' : pkgArchetype ? 'packages' : 'visit fee'}
               </Text>
               {proposalService ? (
                 <Text variant="calloutStrong">Fixed quote per brief</Text>
+              ) : pkgArchetype ? (
+                <Text variant="title2" tabular>
+                  {minPackagePrice == null ? 'Packages available' : `From ${formatINR(minPackagePrice)}`}
+                </Text>
               ) : (
                 <Text variant="title2" tabular>
                   {formatINR(service.visit_fee)}
@@ -169,16 +201,7 @@ export default function ProviderDetailScreen() {
               style={{ flex: 1 }}
               disabled={unavailable}
               loading={switching}
-              onPress={() =>
-                otherCity
-                  ? void switchToCity(provider.city)
-                  : proposalService
-                  ? router.push({
-                      pathname: '/request/new',
-                      params: { categoryId: service.category_id, name: service.categories?.name ?? 'service', providerId: provider.id, providerName: first },
-                    })
-                  : router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } })
-              }
+              onPress={bookSelectedService}
             />
           </View>
           </View>
@@ -314,7 +337,15 @@ export default function ProviderDetailScreen() {
                 key={s.id}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: active }}
-                accessibilityLabel={`${s.categories?.name}, visit fee ${formatINR(s.visit_fee)}`}
+                accessibilityLabel={`${s.categories?.name}, ${
+                  s.categories?.archetype === 'fixed'
+                    ? 'fixed-price packages'
+                    : s.categories?.archetype === 'time_based'
+                      ? 'session packages'
+                      : s.categories?.archetype === 'proposal'
+                        ? 'proposals'
+                        : `visit fee ${formatINR(s.visit_fee)}`
+                }`}
                 onPress={() => {
                   haptics.select();
                   setSelected(s.id);
@@ -340,7 +371,7 @@ export default function ProviderDetailScreen() {
                   <Text variant="footnote" color="textSecondary">
                     Sends a fixed, itemised proposal for your brief. You pay an advance only after accepting it.
                   </Text>
-                ) : (
+                ) : s.categories?.archetype === 'fixed' || s.categories?.archetype === 'time_based' ? null : (
                   <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
                     <Pill label="Visit fee" value={formatINR(s.visit_fee)} />
                     <Pill label={`Labour per ${s.rate_unit}`} value={formatINR(s.labour_rate)} />
@@ -381,12 +412,14 @@ export default function ProviderDetailScreen() {
               </Pressable>
             );
           })}
-          <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start' }}>
-            <Ionicons name="information-circle-outline" size={16} color={t.colors.muted} style={{ marginTop: 1 }} />
-            <Text variant="footnote" color="muted" style={{ flex: 1 }}>
-              The visit fee is adjusted in the final bill. You approve an itemised quote before any work starts.
-            </Text>
-          </View>
+          {hasInspectQuoteService ? (
+            <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start' }}>
+              <Ionicons name="information-circle-outline" size={16} color={t.colors.muted} style={{ marginTop: 1 }} />
+              <Text variant="footnote" color="muted" style={{ flex: 1 }}>
+                The visit fee is adjusted in the final bill. You approve an itemised quote before any work starts.
+              </Text>
+            </View>
+          ) : null}
         </Section>
       </View>
 

@@ -1,4 +1,10 @@
-import { DEFAULT_COINS_CONFIG, coinPaiseToCoins, coinRedemptionLimit, earnedCoinPaise } from '../coins';
+import {
+  DEFAULT_COINS_CONFIG,
+  coinPaiseToCoins,
+  coinRedemptionLimit,
+  coinRedemptionPreviewState,
+  earnedCoinPaise,
+} from '../coins';
 
 describe('Seva Coins', () => {
   it('uses the owner-approved 1% policy and rounds to 10-paise coins', () => {
@@ -18,6 +24,30 @@ describe('Seva Coins', () => {
       { balancePaise: 1050, serviceValuePaise: 20000, platformRevenuePaise: 50000 },
       { coin_paise: 100, redeem_cap_bp: 1000 },
     )).toBe(1000);
+  });
+
+  it('uses server eligibility and preserves legacy applied coins in previews', () => {
+    const preview = {
+      balance_paise: 5000,
+      coin_paise: 10,
+      service_cap_paise: 193,
+      platform_cap_paise: 17660,
+    };
+    const actual = [
+      coinRedemptionPreviewState({ ...preview, maximum_paise: 190, applied_paise: 0 }),
+      coinRedemptionPreviewState({ ...preview, maximum_paise: 190, applied_paise: 5000 }),
+      coinRedemptionPreviewState({
+        ...preview,
+        maximum_paise: 190,
+        applied_paise: 0,
+        can_redeem: false,
+      }),
+    ];
+    expect(JSON.stringify(actual)).toBe(JSON.stringify([
+      { canRedeem: true, appliedPaise: 0 },
+      { canRedeem: false, appliedPaise: 5000 },
+      { canRedeem: false, appliedPaise: 190 },
+    ]));
   });
 
   it('applies the configured per-booking cap, first-booking bonus, monthly cap and budget', () => {
