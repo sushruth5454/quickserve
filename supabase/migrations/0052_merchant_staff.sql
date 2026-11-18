@@ -237,7 +237,7 @@ begin
     return public.get_my_provider() || jsonb_build_object('business_role', v_role);
   end if;
   return (to_jsonb(v_provider) - array[
-           'base_location', 'razorpay_account_id', 'kyc_reference', 'gender',
+           'base_location', 'razorpay_account_id', 'kyc_reference', 'kyc_status', 'gender',
            'kyc_reason', 'kyc_requirements', 'kyc_updated_at', 'review_note',
            'terms_version', 'terms_accepted_at', 'onboarding_step', 'submitted_at',
            'deactivated_at', 'commission_tier'
