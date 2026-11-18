@@ -206,12 +206,18 @@ const catalogueFlag = await one(
   "select enabled from public.feature_flags where key = 'home_services_catalogue_v2'",
 );
 ok(
-  legacyBookingError === null
-    && catalogueFlag?.enabled === false
-    && legacyBooking?.archetype === 'inspect_quote'
+  legacyBookingError === null,
+  `HSC-01 create_booking expected success; error=${legacyBookingError ?? 'none'}`,
+);
+ok(
+  catalogueFlag?.enabled === false,
+  `HSC-01 catalogue v2 expected off; actual=${JSON.stringify(catalogueFlag)}`,
+);
+ok(
+  legacyBooking?.archetype === 'inspect_quote'
     && legacyBooking.payment_template_snapshot?.key === 'visit_then_balance'
     && legacyBooking.cancellation_snapshot?.key === 'standard_visit',
-  'HSC-01 inspect_quote create_booking remains available when catalogue v2 is off and no fixed package exists',
+  `HSC-01 legacy snapshot expected inspect_quote/visit_then_balance/standard_visit; id=${legacyBookingId ?? 'none'} row=${JSON.stringify(legacyBooking)}`,
 );
 
 const parentId = async (slug) =>
@@ -663,13 +669,24 @@ const remainsUnrestricted = await one(
 );
 await as(admin, 'authenticated', 'select public.admin_set_category_active($1::uuid, false)', [firstId]);
 ok(
-  protectedActivation?.includes('required documents')
-    && !stillInactive.active
-    && allowedActivation === null
-    && restrictedEdit?.includes('required documents before they can remain active')
-    && remainsUnrestricted.active
-    && !remainsUnrestricted.restricted,
-  'HSC-06 restricted categories cannot activate without documents and can activate after requirements are set',
+  protectedActivation?.includes('require documents'),
+  `HSC-06 activation without documents expected the requirement error; actual=${protectedActivation ?? 'none'}`,
+);
+ok(
+  !stillInactive.active,
+  `HSC-06 rejected activation expected inactive row; actual=${JSON.stringify(stillInactive)}`,
+);
+ok(
+  allowedActivation === null,
+  `HSC-06 activation with requirements expected success; error=${allowedActivation ?? 'none'}`,
+);
+ok(
+  restrictedEdit?.includes('require documents before they can remain active'),
+  `HSC-06 restricted edit expected the missing-requirements error; actual=${restrictedEdit ?? 'none'}`,
+);
+ok(
+  remainsUnrestricted.active && !remainsUnrestricted.restricted,
+  `HSC-06 rejected edit expected original active/unrestricted row; actual=${JSON.stringify(remainsUnrestricted)}`,
 );
 
 await db.exec(`
