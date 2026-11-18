@@ -40,6 +40,7 @@ import { GoLiveStatusCard } from '../../src/features/providerOnboarding/GoLiveSt
 import { onboardingApi, type DocumentType, type GoLive } from '../../src/lib/onboarding';
 import { TravelRequestInbox } from '../../src/features/travel/TravelRequestInbox';
 import { ProviderProposalInbox } from '../../src/features/proposals/ProviderProposalInbox';
+import { ProviderRecurringOverview } from '../../src/features/recurring/ProviderRecurringOverview';
 
 /** Active statuses in the order a pro should look at them (most time-critical first). */
 const ACTIVE_PRIORITY: BookingStatus[] = [
@@ -227,6 +228,7 @@ export default function ProviderDashboard() {
         </Card>
         {error ? <InlineAlert message={error} /> : null}
         {provider.business_role === 'manager' ? <ProviderProposalInbox providerId={provider.id} /> : null}
+        <ProviderRecurringOverview providerId={provider.id} role={provider.business_role} />
         <Section title="Assigned jobs">
           {!jobs ? <SkeletonCard lines={3} /> : jobs.length === 0 ? (
             <Text variant="footnote" color="muted">No jobs are assigned to this business.</Text>
@@ -322,6 +324,7 @@ export default function ProviderDashboard() {
       </View>
       {provider ? (
         <View style={gutter}>
+          <ProviderRecurringOverview providerId={provider.id} role={provider.business_role} />
           <ProviderProposalInbox providerId={provider.id} />
         </View>
       ) : null}
