@@ -65,7 +65,13 @@ describe('ChipRow', () => {
       accessibilityLabel: 'Browse category',
     }) as RowElement;
 
-    const chip = React.Children.only(row.props.children) as ChipElement;
+    const chips = React.Children.toArray(row.props.children) as ChipElement[];
+    expect(chips).toHaveLength(1);
+    const chip = chips[0];
+    if (!chip) {
+      throw new Error('Expected ChipRow to render one chip');
+    }
+
     chip.props.onPress();
 
     expect(onChange).toHaveBeenCalledWith('sports');
