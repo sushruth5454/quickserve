@@ -46,7 +46,7 @@ export function CategoryStep({ categories, selectedId, locked, activeCategoryIds
               }}
             >
               <CategoryIcon icon={iconForSlug(category.slug)} size={44} />
-              <View style={{ flex: 1, gap: 3 }}>
+              <View style={{ flex: 1, gap: t.spacing.xs }}>
                 <Text variant="calloutStrong" color={selected ? 'primaryText' : 'text'}>{category.name}</Text>
                 <Text variant="footnote" color="muted">{activeCategoryIds.has(category.id) ? 'Already added · tap to edit' : 'Choose this service'}</Text>
               </View>

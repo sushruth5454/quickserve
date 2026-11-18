@@ -48,7 +48,7 @@ function PriceGuidanceCard({ guidance, city, hasCategory }: { guidance: PriceGui
     body = parts.join('\n');
   }
   return (
-    <View style={{ backgroundColor: t.colors.infoSoft, borderRadius: t.radii.md, padding: t.spacing.md, gap: 4 }} accessibilityLabel={`Local price guidance for ${city || 'your city'}`}>
+    <View style={{ backgroundColor: t.colors.infoSoft, borderRadius: t.radii.md, padding: t.spacing.md, gap: t.spacing.xs }} accessibilityLabel={`Local price guidance for ${city || 'your city'}`}>
       <Text variant="footnoteStrong" color="infoText">Local prices in {city || 'your city'}</Text>
       <Text variant="footnote" color="textSecondary">{body}</Text>
     </View>
