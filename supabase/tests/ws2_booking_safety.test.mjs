@@ -102,7 +102,16 @@ async function prepareFixtures() {
       ($3::uuid, 'Vijayawada', extensions.st_setsrid(extensions.st_makepoint(80.62,16.50),4326), 'verified', now(), true, false, false),
       ($4::uuid, 'Vijayawada', extensions.st_setsrid(extensions.st_makepoint(80.63,16.50),4326), 'verified', now(), true, false, false)`,
   actors.map(({ provider }) => provider));
-  const categoryId = (await one(`select id from categories where slug=$1::text`, ['ac-repair'])).id;
+  const categoryId = (await one(`
+    insert into categories (
+      slug, name, pricing_mode, active, archetype, cancellation_policy, min_lead_hours, max_lead_days
+    ) values ($1::text, $2::text, 'quote', true, 'inspect_quote', 'standard_visit', 0, 365)
+    returning id`,
+  ['h1-booking-safety', 'H1 booking safety'])).id;
+  await db.query(`
+    update app_config
+       set value=jsonb_set(value, '{inspect_quote}', 'true'::jsonb, true)
+     where key='archetype_flags'`);
   await db.query(`
     insert into category_cities (category_id, city, live, launched_at)
     values ($1::uuid, 'Vijayawada', true, now())
