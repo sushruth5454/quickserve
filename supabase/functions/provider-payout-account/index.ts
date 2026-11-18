@@ -1,5 +1,5 @@
 /**
- * provider-payout-account (JWT verified at the gateway): the provider's payout beneficiary on the active rail.
+ * provider-payout-account (JWT verified at the gateway): a provider or verified venue owner's payout beneficiary.
  *  POST {action:"status"}  -> rail + masked account record (no gateway call)
  *  POST {action:"submit", legal_name, pan, email, account_number, confirm_account_number, ifsc, address?}
  *  POST {action:"refresh"} -> polls the gateway (and resumes a blocked bank validation)
@@ -11,6 +11,7 @@ import { GatewayError, isGatewayUnavailable, type RailName } from "../_shared/pa
 import {
   activeRail,
   applyResult,
+  logOnboardingEvent,
   PAYOUT_ACCOUNT_COLUMNS,
   persistIds,
   railsFromEnv,
@@ -18,7 +19,14 @@ import {
   refreshBeneficiary,
   type PayoutAccountRow,
 } from "../_shared/payout-beneficiary.ts";
-import { friendlyGatewayError, maskAccount, parseSubmit, type SubmitBody } from "./logic.ts";
+import {
+  canManagePayoutAccount,
+  canSubmitPayoutAccount,
+  friendlyGatewayError,
+  maskAccount,
+  parseSubmit,
+  type SubmitBody,
+} from "./logic.ts";
 
 const UNAVAILABLE = {
   state: "unavailable",
@@ -41,7 +49,12 @@ Deno.serve(async (req) => {
     const action = body.action ?? "status";
 
     const { data: provider } = await admin.from("providers").select("id").eq("id", uid).maybeSingle();
-    if (!provider) return json({ error: "Create your provider profile first." }, 400);
+    const { data: venue } = await admin.from("sports_venues").select("id")
+      .eq("owner_id", uid).eq("status", "verified").limit(1).maybeSingle();
+    const isProvider = !!provider;
+    if (!canManagePayoutAccount(isProvider, !!venue)) {
+      return json({ error: "Create a provider profile or verify a sports venue first." }, 400);
+    }
 
     const { data: existingRaw } = await admin.from("provider_payout_accounts").select(PAYOUT_ACCOUNT_COLUMNS).eq("provider_id", uid).maybeSingle();
     const existing = existingRaw as PayoutAccountRow | null;
@@ -67,6 +80,13 @@ Deno.serve(async (req) => {
     }
 
     if (action !== "submit") return json({ error: "unknown action" }, 400);
+    if (!isProvider) {
+      const { data: features, error: featureError } = await admin.rpc("get_app_features");
+      if (featureError) return json({ error: "sports payout setup availability could not be checked" }, 503);
+      if (!canSubmitPayoutAccount(isProvider, !!venue, features)) {
+        return json({ error: "Sports online payments are turned off right now." }, 403);
+      }
+    }
 
     const { data: account } = await admin.from("private_user_accounts").select("phone").eq("user_id", uid).maybeSingle();
     const parsed = parseSubmit(body, { providerId: uid, phone: account?.phone ?? "", rail });
@@ -94,8 +114,14 @@ Deno.serve(async (req) => {
     try {
       const result = await rails[rail].onboardBeneficiary(input, existing ?? {}, persistIds(admin, uid));
       const kyc = await applyResult(admin, uid, result);
-      await admin.from("provider_onboarding_events").insert({ provider_id: uid, kind: "payout_submitted", details: { rail, status: result.status } });
-      return json({ rail, state: "submitted", gateway_status: result.status, kyc_status: kyc, requirements: result.requirements });
+      await logOnboardingEvent(admin, uid, "payout_submitted", { rail, status: result.status });
+      return json({
+        rail,
+        state: "submitted",
+        gateway_status: result.status,
+        ...(isProvider ? { kyc_status: kyc } : { payout_account_status: result.status }),
+        requirements: result.requirements,
+      });
     } catch (e) {
       if (isGatewayUnavailable(e)) {
         await recordUnavailable(admin, uid, rail, e);
@@ -104,7 +130,7 @@ Deno.serve(async (req) => {
       if (e instanceof GatewayError && !e.ambiguous) {
         const message = friendlyGatewayError(e.field, e.description);
         await admin.from("provider_payout_accounts").update({ last_error: message, last_error_at: now }).eq("provider_id", uid);
-        await admin.from("provider_onboarding_events").insert({ provider_id: uid, kind: "payout_setup_failed", details: { rail, status: e.status } });
+        await logOnboardingEvent(admin, uid, "payout_setup_failed", { rail, status: e.status });
         console.warn("payout submit rejected", rail, uid, e.status);
         return json({ error: message }, 422);
       }

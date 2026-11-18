@@ -2,21 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { cancelRetiredLinks, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import { type RailName } from "../_shared/payout-rail.ts";
 import { PAYOUT_ACCOUNT_COLUMNS, railsFromEnv, refreshBeneficiary, type PayoutAccountRow } from "../_shared/payout-beneficiary.ts";
-
-interface DueTransfer {
-  transfer_id: string;
-  payout_id: string;
-  booking_id: string;
-  provider_id: string;
-  amount: number;
-  gross_amount: number;
-  rail: RailName;
-  razorpay_payment_id: string | null;
-  account_id: string | null;
-  fund_account_id: string | null;
-  attempts: number;
-  idempotency_key: string;
-}
+import { toReleaseRequest, type DueTransfer } from "./logic.ts";
 
 interface DueReversal {
   reversal_id: string;
@@ -95,21 +81,12 @@ Deno.serve(async (req) => {
   const { data: due, error } = await admin.rpc("claim_due_transfers", { p_limit: 50 });
   if (error) return json({ error: error.message }, 500);
 
+  // Migration 0058 resolves both the payee account and the booking reference for sports payouts in claim_due_transfers.
   const results: { transfer_id: string; rail: RailName; ok: boolean; error?: string }[] = [];
   for (const t of (due ?? []) as DueTransfer[]) {
     let externalId: string;
     try {
-      const r = await rails[t.rail].release({
-        transferId: t.transfer_id,
-        payoutId: t.payout_id,
-        bookingId: t.booking_id,
-        amount: t.amount,
-        attempts: t.attempts,
-        idempotencyKey: t.idempotency_key,
-        razorpayPaymentId: t.razorpay_payment_id,
-        accountId: t.account_id,
-        fundAccountId: t.fund_account_id,
-      });
+      const r = await rails[t.rail].release(toReleaseRequest(t));
       externalId = r.externalId;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

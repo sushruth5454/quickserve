@@ -465,6 +465,42 @@ export interface RpcClient {
   };
 }
 
+/** Provider KYC is synchronized by SQL; venue owners have only a profile payout account, not a provider row. */
+export async function syncBeneficiaryStatus(
+  admin: RpcClient,
+  input: { accountId: string; status: string; requirements?: unknown; eventAt: string },
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  let account = await admin.from("provider_payout_accounts").select("provider_id")
+    .eq("razorpay_account_id", input.accountId).maybeSingle();
+  if (account.error) return { data: null, error: { message: String((account.error as { message?: string }).message ?? account.error) } };
+  if (!account.data) {
+    account = await admin.from("provider_payout_accounts").select("provider_id")
+      .eq("fund_account_id", input.accountId).maybeSingle();
+    if (account.error) return { data: null, error: { message: String((account.error as { message?: string }).message ?? account.error) } };
+  }
+
+  if (account.data) {
+    const profileId = String(account.data.provider_id);
+    const provider = await admin.from("providers").select("id").eq("id", profileId).maybeSingle();
+    if (provider.error) return { data: null, error: { message: String((provider.error as { message?: string }).message ?? provider.error) } };
+    if (!provider.data) {
+      return await admin.rpc("sync_venue_payout_status", {
+        p_account_id: input.accountId,
+        p_status: input.status,
+        p_requirements: input.requirements ?? [],
+        p_event_at: input.eventAt,
+      });
+    }
+  }
+
+  return await admin.rpc("sync_provider_payout_status", {
+    p_account_id: input.accountId,
+    p_status: input.status,
+    p_requirements: input.requirements ?? [],
+    p_event_at: input.eventAt,
+  });
+}
+
 export interface RailWebhookEvent {
   event: string;
   account_id?: string;
@@ -487,8 +523,8 @@ export async function handleRailWebhook(admin: RpcClient, ev: RailWebhookEvent):
     const status = String(entity.activation_status ?? ev.event.slice("product.route.".length));
     const requirements = (mp?.data as { requirements?: Requirement[] } | undefined)?.requirements ?? [];
     if (!accountId) return { status: 400, body: { error: "missing account" } };
-    const { data, error } = await admin.rpc("sync_provider_payout_status", {
-      p_account_id: accountId, p_status: status, p_requirements: requirements, p_event_at: at,
+    const { data, error } = await syncBeneficiaryStatus(admin, {
+      accountId, status, requirements, eventAt: at,
     });
     if (error) return { status: 500, body: { error: "processing failed" } };
     return { status: 200, body: { received: true, result: data } };
@@ -502,8 +538,8 @@ export async function handleRailWebhook(admin: RpcClient, ev: RailWebhookEvent):
     if (!row) return { status: 200, body: { received: true, ignored: "unknown fund account" } };
     if (row.validation_id && row.validation_id !== v.id) return { status: 200, body: { received: true, ignored: "superseded validation" } };
     const m = mapValidation(v, String(row.beneficiary_name ?? ""));
-    const { data, error } = await admin.rpc("sync_provider_payout_status", {
-      p_account_id: faId, p_status: m.status, p_requirements: m.requirements, p_event_at: at,
+    const { data, error } = await syncBeneficiaryStatus(admin, {
+      accountId: faId, status: m.status, requirements: m.requirements, eventAt: at,
     });
     if (error) return { status: 500, body: { error: "processing failed" } };
     return { status: 200, body: { received: true, result: data } };

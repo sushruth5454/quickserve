@@ -14,7 +14,13 @@ import {
   type Http,
   type RpcClient,
 } from "../_shared/payout-rail.ts";
-import { friendlyGatewayError, maskAccount, parseSubmit } from "./logic.ts";
+import {
+  canManagePayoutAccount,
+  canSubmitPayoutAccount,
+  friendlyGatewayError,
+  maskAccount,
+  parseSubmit,
+} from "./logic.ts";
 
 interface Call {
   method: string;
@@ -221,15 +227,30 @@ Deno.test("namesMatch: honorifics, initials, order, score threshold", () => {
 // ---------------------------------------------------------------------------------------------------------------
 // Webhooks
 // ---------------------------------------------------------------------------------------------------------------
-function mockAdmin(row: Record<string, unknown> | null = { beneficiary_name: "Ravi Kumar", validation_id: "fav_1" }) {
+function mockAdmin(row: Record<string, unknown> | null = {
+  provider_id: "provider_1",
+  razorpay_account_id: "acc_1",
+  fund_account_id: "fa_1",
+  beneficiary_name: "Ravi Kumar",
+  validation_id: "fav_1",
+}) {
   const rpcs: { fn: string; args: Record<string, unknown> }[] = [];
   const admin: RpcClient = {
     rpc(fn, args) {
       rpcs.push({ fn, args });
       return Promise.resolve({ data: { ok: true }, error: null });
     },
-    from() {
-      return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: row, error: null }) }) }) };
+    from(table) {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({
+              data: table === "providers" ? row?.provider_id ? { id: row.provider_id } : null : row,
+              error: null,
+            }),
+          }),
+        }),
+      };
     },
   };
   return { admin, rpcs };
@@ -289,7 +310,9 @@ Deno.test("webhook: payout.processed / payout.reversed call record_payout_gatewa
 Deno.test("webhook: rpc failure returns 500 so Razorpay retries", async () => {
   const admin: RpcClient = {
     rpc: () => Promise.resolve({ data: null, error: { message: "boom" } }),
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }),
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }),
+    }),
   };
   const r = await handleRailWebhook(admin, {
     event: "product.route.activated",
@@ -299,9 +322,92 @@ Deno.test("webhook: rpc failure returns 500 so Razorpay retries", async () => {
   assertEquals(r.status, 500);
 });
 
+Deno.test("webhook: verified venue owner payout status updates the profile payout account", async () => {
+  const rpcs: { fn: string; args: Record<string, unknown> }[] = [];
+  const admin: RpcClient = {
+    rpc(fn, args) {
+      rpcs.push({ fn, args });
+      return Promise.resolve({ data: { ok: true }, error: null });
+    },
+    from(table) {
+      return {
+        select() {
+          return {
+            eq() {
+              return {
+                maybeSingle: async () => ({
+                  data: table === "provider_payout_accounts" ? { provider_id: "venue-owner" } : null,
+                  error: null,
+                }),
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+  const r = await handleRailWebhook(admin, {
+    event: "product.route.activated",
+    account_id: "acc_venue_owner",
+    created_at: 1747047578,
+    payload: { merchant_product: { entity: { merchant_id: "acc_venue_owner", activation_status: "activated" } } },
+  });
+  assertEquals(r.status, 200);
+  assertEquals(rpcs, [{
+    fn: "sync_venue_payout_status",
+    args: {
+      p_account_id: "acc_venue_owner",
+      p_status: "activated",
+      p_requirements: [],
+      p_event_at: new Date(1747047578 * 1000).toISOString(),
+    },
+  }]);
+});
+
+Deno.test("webhook: venue-owner payout status write failure returns 500 for retry", async () => {
+  const admin: RpcClient = {
+    rpc: (fn) => Promise.resolve({
+      data: null,
+      error: fn === "sync_venue_payout_status" ? { message: "write failed" } : null,
+    }),
+    from(table) {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: table === "provider_payout_accounts" ? { provider_id: "venue-owner" } : null,
+              error: null,
+            }),
+          }),
+        }),
+      };
+    },
+  };
+  const r = await handleRailWebhook(admin, {
+    event: "product.route.activated",
+    account_id: "acc_venue_owner",
+    payload: { merchant_product: { entity: { merchant_id: "acc_venue_owner", activation_status: "activated" } } },
+  });
+  assertEquals(r.status, 500);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // Form validation
 // ---------------------------------------------------------------------------------------------------------------
+Deno.test("payout account access accepts providers and verified venue owners, not other users or staff", () => {
+  assert(canManagePayoutAccount(true, false));
+  assert(canManagePayoutAccount(false, true));
+  assert(!canManagePayoutAccount(false, false));
+});
+
+Deno.test("venue-owner payout submit requires both sports flags while provider enrollment remains unchanged", () => {
+  assert(canSubmitPayoutAccount(true, true, { sports: false, sports_online_payments: false }));
+  assert(canSubmitPayoutAccount(false, true, { sports: true, sports_online_payments: true }));
+  assert(!canSubmitPayoutAccount(false, true, { sports: false, sports_online_payments: true }));
+  assert(!canSubmitPayoutAccount(false, true, { sports: true, sports_online_payments: false }));
+  assert(!canSubmitPayoutAccount(false, false, { sports: true, sports_online_payments: true }));
+});
+
 Deno.test("parseSubmit: validates PAN (individual), IFSC, account confirmation, email; address only on route", () => {
   const ok = parseSubmit(
     { legal_name: " Ravi  Kumar ", pan: "abcpk1234f", email: "Ravi@Example.com", account_number: "1234 5678 9012", confirm_account_number: "123456789012", ifsc: "hdfc0001234" },

@@ -1,11 +1,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { cancelRetiredLinks, corsHeaders, json, razorpay, RazorpayError, requireEnv } from "../_shared/razorpay.ts";
+import {
+  recoverSportsCheckoutRace,
+  resolveSportsPaymentRequest,
+  sportsPaymentPreparation,
+  sportsPaymentsEnabled,
+} from "./logic.ts";
 
 interface PreparedPayment {
   payment_id: string;
   amount: number;
   purpose: "visit_fee" | "balance" | "fixed" | "package" | "advance" | "milestone" | "final" | "platform_fee" | "addon" | "session";
   short_url: string | null;
+  url?: string | null;
   schedule_id?: string | null;
 }
 
@@ -34,11 +41,21 @@ Deno.serve(async (req) => {
     const bookingId = typeof body.booking_id === "string" ? body.booking_id : null;
     const packId = typeof body.pack_id === "string" ? body.pack_id : null;
     const scheduleId = typeof body.schedule_id === "string" ? body.schedule_id : null;
-    if (!bookingId && !packId) return json({ error: "booking_id or pack_id is required" }, 400);
+    const sportsRequest = resolveSportsPaymentRequest(body, user.id);
+    if (sportsRequest && "error" in sportsRequest) return json({ error: sportsRequest.error }, 400);
+    if (!sportsRequest && !bookingId && !packId) return json({ error: "booking_id or pack_id is required" }, 400);
 
     let prepared: PreparedPayment | null = null;
     let prepError: { message: string } | null = null;
-    if (packId) {
+    if (sportsRequest) {
+      const { data: features, error: featureError } = await admin.rpc("get_app_features");
+      if (featureError) return json({ error: "sports payment availability could not be checked" }, 503);
+      if (!sportsPaymentsEnabled(features)) return json({ error: "Sports online payments are turned off right now." }, 403);
+      const preparation = sportsPaymentPreparation(sportsRequest);
+      const result = await admin.rpc(preparation.rpc, preparation.args).single<PreparedPayment>();
+      prepared = result.data ? { ...result.data, short_url: result.data.url ?? null } : null;
+      prepError = result.error;
+    } else if (packId) {
       const result = await admin.rpc("prepare_pack_payment", { p_pack_id: packId, p_user_id: user.id })
         .single<PreparedPayment>();
       prepared = result.data;
@@ -65,13 +82,14 @@ Deno.serve(async (req) => {
     if (prepError || !prepared) return json({ error: prepError?.message ?? "cannot prepare payment" }, 400);
 
     // Links retired by prepare_payment / change orders must not stay payable.
-    await cancelRetiredLinks(admin, bookingId);
+    // The shared cancellation RPC filters bookings.booking_id; sports retries are retired by their own SQL path.
+    if (!sportsRequest) await cancelRetiredLinks(admin, bookingId);
 
     if (prepared.short_url) {
       return json({ short_url: prepared.short_url, amount: prepared.amount, purpose: prepared.purpose, schedule_id: prepared.schedule_id ?? scheduleId });
     }
 
-    const { data: booking, error: bookingError } = bookingId
+    const { data: booking, error: bookingError } = bookingId && !sportsRequest
       ? await admin
           .from("bookings")
           .select("booking_origin")
@@ -101,7 +119,7 @@ Deno.serve(async (req) => {
         currency: "INR",
         receipt: prepared.payment_id,
         notes: {
-          booking_id: bookingId,
+          ...(sportsRequest ? { sports_booking_id: sportsRequest.bookingId } : { booking_id: bookingId }),
           pack_id: packId,
           payment_id: prepared.payment_id,
           purpose: prepared.purpose,
@@ -134,18 +152,47 @@ Deno.serve(async (req) => {
 
     // Attach only while this attempt is still live: a concurrent checkout may have retired it while the link
     // was being created. A link that lost the race is queued for cancellation and the customer retries.
-    const { data: attached, error: updError } = await admin
+    const attachQuery = admin
       .from("payments")
       .update({ razorpay_link_id: link.id, short_url: link.short_url })
       .eq("id", prepared.payment_id)
-      .eq("status", "created")
-      .select("id");
+      .eq("status", "created");
+    const { data: attached, error: updError } = sportsRequest
+      ? await attachQuery.is("razorpay_link_id", null).select("id")
+      : await attachQuery.select("id");
     if (updError) throw updError;
     if (!attached?.length) {
+      if (sportsRequest) {
+        const winner = await recoverSportsCheckoutRace(
+          {
+            bookingId: sportsRequest.bookingId,
+            purpose: prepared.purpose,
+            amount: prepared.amount,
+            orderId: link.id,
+            shortUrl: link.short_url,
+          },
+          async (attempt) => {
+            const { error } = await admin.from("payments").insert(attempt);
+            if (error) throw error;
+          },
+          async () => {
+            const preparation = sportsPaymentPreparation(sportsRequest);
+            const { data, error } = await admin.rpc(preparation.rpc, preparation.args).single<PreparedPayment>();
+            if (error) throw error;
+            if (!data || typeof data.url !== "string" || !data.url) return null;
+            return { short_url: data.url, amount: data.amount, purpose: data.purpose };
+          },
+        );
+        if (winner) {
+          return json({ short_url: winner.short_url, amount: winner.amount, purpose: winner.purpose });
+        }
+        return json({ error: "This sports payment was updated in another window. Please tap Pay again." }, 409);
+      }
+
       await admin.from("payments")
         .update({ razorpay_link_id: link.id, short_url: link.short_url, cancel_link_pending: true })
         .eq("id", prepared.payment_id);
-      await cancelRetiredLinks(admin, bookingId);
+      if (!sportsRequest) await cancelRetiredLinks(admin, bookingId);
       return json({ error: "This payment was updated in another window. Please tap Pay again." }, 409);
     }
 

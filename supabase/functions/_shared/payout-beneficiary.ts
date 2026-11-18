@@ -1,6 +1,5 @@
 /**
- * Provider payout beneficiary orchestration shared by the provider-payout-account Edge Function (submit / refresh)
- * and the release-payouts cron (resumes validations that were blocked while the gateway product was unavailable).
+ * Payout beneficiary orchestration shared by provider/venue-owner enrollment and payout release retries.
  */
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import {
@@ -8,9 +7,11 @@ import {
   isGatewayUnavailable,
   railFor,
   razorpayHttp,
+  syncBeneficiaryStatus,
   type BeneficiaryIds,
   type OnboardResult,
   type PayoutRail,
+  type RpcClient,
   type RailName,
 } from "./payout-rail.ts";
 
@@ -45,23 +46,26 @@ export function persistIds(admin: SupabaseClient, providerId: string) {
 }
 
 export async function logOnboardingEvent(admin: SupabaseClient, providerId: string, kind: string, details: Record<string, unknown>) {
+  const { data: provider } = await admin.from("providers").select("id").eq("id", providerId).maybeSingle();
+  if (!provider) return;
   const { error } = await admin.from("provider_onboarding_events").insert({ provider_id: providerId, kind, details });
   if (error) console.error("onboarding event insert failed", kind, error.message);
 }
 
 /** Applies a gateway result: kyc_status via the single SQL sync function, plus the name-match score. */
 export async function applyResult(admin: SupabaseClient, providerId: string, r: OnboardResult): Promise<string | null> {
-  const { data, error } = await admin.rpc("sync_provider_payout_status", {
-    p_account_id: r.syncId,
-    p_status: r.status,
-    p_requirements: r.requirements,
-    p_event_at: new Date().toISOString(),
+  const { data, error } = await syncBeneficiaryStatus(admin as unknown as RpcClient, {
+    accountId: r.syncId,
+    status: r.status,
+    requirements: r.requirements,
+    eventAt: new Date().toISOString(),
   });
   if (error) throw new Error(`sync_provider_payout_status failed: ${error.message}`);
-  await admin
+  const { error: accountError } = await admin
     .from("provider_payout_accounts")
     .update({ last_error: null, name_match_score: r.nameMatchScore ?? null, updated_at: new Date().toISOString() })
     .eq("provider_id", providerId);
+  if (accountError) throw new Error(`payout account update failed: ${accountError.message}`);
   return (data as { kyc_status?: string } | null)?.kyc_status ?? null;
 }
 

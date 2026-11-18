@@ -14,6 +14,17 @@ export type FieldErrors = Partial<Record<"legal_name" | "pan" | "email" | "accou
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
+export function canManagePayoutAccount(isProvider: boolean, hasVerifiedVenue: boolean): boolean {
+  return isProvider || hasVerifiedVenue;
+}
+
+export function canSubmitPayoutAccount(isProvider: boolean, hasVerifiedVenue: boolean, features: unknown): boolean {
+  if (isProvider) return true;
+  if (!hasVerifiedVenue || !features || typeof features !== "object") return false;
+  const flags = features as Record<string, unknown>;
+  return flags.sports === true && flags.sports_online_payments === true;
+}
+
 /** Validates the payout form. Address is required only on the Route rail (linked-account registered address). */
 export function parseSubmit(
   body: SubmitBody,
