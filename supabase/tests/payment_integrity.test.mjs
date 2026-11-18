@@ -140,6 +140,11 @@ async function createHomePayment() {
 async function createTimeService() {
   const actors = await createActors();
   const suffix = actors.provider.replaceAll('-', '').slice(0, 12);
+  await db.query(
+    `update public.app_config
+        set value = value || '{"time_based":true}'::jsonb
+      where key = 'archetype_flags'`,
+  );
   const [{ id: categoryId }] = (await db.query(
     `insert into public.categories (
        slug, name, pricing_mode, active, archetype, intake_schema, config_version, max_lead_days,
