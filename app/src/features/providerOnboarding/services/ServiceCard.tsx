@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 import { CategoryIcon, iconForSlug } from '../../../components/CategoryIcon';
 import { SkillBadge } from '../../../components/ProviderCard';
-import { Badge, Button, Card, Chip, InlineAlert, Input, Text } from '../../../components/ui';
+import { Badge, Button, Card, Chip, EmptyState, InlineAlert, Input, Text } from '../../../components/ui';
 import { addRateCardItem } from '../../../lib/api';
 import { formatINR } from '../../../lib/money';
 import { onboardingApi } from '../../../lib/onboarding';
@@ -33,6 +33,7 @@ export function ServiceCard(props: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const items = s.rate_card_items ?? [];
+  const packages = s.service_packages ?? [];
   const unusedSuggestions = useMemo(() => props.rateSuggestions.filter((r) => !items.some((i) => i.title === r)), [props.rateSuggestions, items]);
 
   const add = async () => {
@@ -59,9 +60,9 @@ export function ServiceCard(props: {
         <View style={{ opacity: s.active ? 1 : 0.5 }}>
           <CategoryIcon icon={iconForSlug(s.categories?.slug)} size={44} />
         </View>
-        <View style={{ flex: 1, gap: 4 }}>
+        <View style={{ flex: 1, gap: t.spacing.xs }}>
           <Text variant="title3">{s.categories?.name}</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ flexDirection: 'row', gap: t.spacing.xs + t.spacing.xxs }}>
             <SkillBadge level={s.skill_level} />
             {!s.active ? <Badge label="Removed" tone="neutral" /> : null}
           </View>
@@ -92,7 +93,7 @@ export function ServiceCard(props: {
           onPress={() => router.push({ pathname: '/provider-profile/[section]', params: { section: 'portfolio', returnTo: 'services' } })}
         />
       ) : null}
-      {items.map((r) => (
+      {items.length ? items.map((r) => (
         <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
           <Text variant="callout" style={{ flex: 1 }}>
             {r.title}
@@ -108,7 +109,9 @@ export function ServiceCard(props: {
             onPress={() => void onboardingApi.deleteRateCardItem(r.id).then(props.onChanged).catch((e: Error) => setErr(e.message))}
           />
         </View>
-      ))}
+      )) : !adding ? (
+        <EmptyState compact title="No rate card items yet" message="Add common services with clear prices." />
+      ) : null}
       <View style={{ gap: t.spacing.md, borderTopWidth: 1, borderTopColor: t.colors.border, paddingTop: t.spacing.md }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text variant="footnoteStrong" color="muted">
@@ -118,8 +121,8 @@ export function ServiceCard(props: {
             <Button title="Add package" size="sm" variant="ghost" leftIcon="add" onPress={() => setPackageEditing('new')} />
           ) : null}
         </View>
-        {(s.service_packages ?? []).map((item) => (
-          <View key={item.id} style={{ gap: 6, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, padding: t.spacing.md }}>
+        {packages.length ? packages.map((item) => (
+          <View key={item.id} style={{ gap: t.spacing.xs + t.spacing.xxs, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, padding: t.spacing.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
               <Text variant="calloutStrong" style={{ flex: 1 }}>
                 {item.title}
@@ -148,7 +151,9 @@ export function ServiceCard(props: {
               }
             />
           </View>
-        ))}
+        )) : !packageEditing ? (
+          <EmptyState compact title="No packages yet" message="Add a package to show customers a fixed service option." />
+        ) : null}
         {packageEditing ? (
           <ProviderPackageEditor
             key={packageEditing === 'new' ? 'new' : packageEditing.id}
@@ -173,8 +178,8 @@ export function ServiceCard(props: {
             </ScrollView>
           ) : null}
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            <Input placeholder="e.g. Gas refill" value={title} onChangeText={setTitle} containerStyle={{ flex: 2 }} accessibilityLabel="Rate card item" maxLength={80} />
-            <Input prefix="₹" keyboardType="decimal-pad" value={price} onChangeText={(v) => setPrice(v.replace(/[^\d.]/g, ''))} containerStyle={{ flex: 1 }} accessibilityLabel="Price" />
+            <Input label="Rate card item" placeholder="e.g. Gas refill" value={title} onChangeText={setTitle} containerStyle={{ flex: 2 }} accessibilityLabel="Rate card item" maxLength={80} />
+            <Input label="Price" prefix="₹" keyboardType="decimal-pad" value={price} onChangeText={(v) => setPrice(v.replace(/[^\d.]/g, ''))} containerStyle={{ flex: 1 }} accessibilityLabel="Price in rupees" />
           </View>
           <Button title="Add to rate card" size="sm" onPress={() => void add()} loading={busy} />
         </View>
