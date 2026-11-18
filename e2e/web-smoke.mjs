@@ -2,7 +2,7 @@
 // Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
-import { runAllServiceScenarios } from './all-services.mjs';
+import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8081';
 const SHOTS = process.env.SHOTS_DIR ?? 'e2e-shots';
@@ -354,6 +354,20 @@ await step('provider-detail', async () => {
   await visible('Ratings & reviews');
 });
 await optional('provider-detail-scrolled', () => snapScrolled('provider-detail-scrolled', 900));
+const fixedServiceRows = await rest(`provider_services?select=id,provider_id,categories(slug)&id=eq.${DEMO_IDS.fixedService}&active=eq.true`).catch(() => []);
+await step('provider-detail-fixed-service-routes-to-packages', async () => {
+  const fixedService = fixedServiceRows[0];
+  if (!fixedService?.provider_id || !fixedService.categories?.slug) throw new Error('seeded fixed service is unavailable');
+  await go(`/provider/${fixedService.provider_id}?category=${encodeURIComponent(fixedService.categories.slug)}`);
+  await visible('Ratings & reviews');
+  if (await page.getByText(/^(Visit fee|Labour per )/).count()) {
+    throw new Error('fixed service profile still shows visit-fee pricing');
+  }
+  await page.getByText(/^From ₹/).first().waitFor();
+  await page.getByRole('button', { name: /^Book / }).last().click();
+  await page.waitForURL(new RegExp(`/category/${fixedService.categories.slug}(?:\\?|$)`));
+  await page.getByText('Demo 2 BHK deep clean', { exact: true }).first().waitFor();
+});
 const raviServices = await rest(`provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`).catch(() => []);
 await step('book-screen', async () => {
   if (!raviServices[0]) throw new Error('no active service for Ravi');
