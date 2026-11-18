@@ -10,7 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(here, '..', 'migrations');
 const targetMigration = '0061_h1_provider_cancellation_and_recurring_privacy.sql';
 const migrationFiles = fs.readdirSync(migrationsDir)
-  .filter((file) => /^\d{4}_.+\.sql$/.test(file) && Number(file.slice(0, 4)) <= 61)
+  .filter((file) => /^\d{4}[a-z]?_.+\.sql$/.test(file) && Number(file.slice(0, 4)) <= 61)
   .sort();
 if (!migrationFiles.includes(targetMigration)) {
   throw new Error(`missing reserved H1 migration: ${targetMigration}`);

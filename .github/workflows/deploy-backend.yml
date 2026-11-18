@@ -395,6 +395,9 @@ jobs:
               ("0056", "0056_home_services_catalogue.sql"),
               ("0057", "0057_recurring_plans_v2.sql"),
               ("0058", "0058_sports_payments.sql"),
+             ("0059", "0059_admin_identity_hardening.sql"),
+             ("0060a", "0060a_demo_payout_status.sql"),
+             ("0060b", "0060b_demo_payout_isolation.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
