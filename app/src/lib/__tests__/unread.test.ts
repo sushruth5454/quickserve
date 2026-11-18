@@ -113,6 +113,7 @@ describe('unread helpers', () => {
 
   it('routes recurring plan and sports booking notifications to validated in-app screens', () => {
     expect(notificationRoute({ plan_id: 'plan-1' }, 'recurring_plan_requested')).toBe('/recurring/plan-1');
+    expect(notificationRoute({ plan_id: 'plan-1' }, 'recurring_visit_unavailable')).toBe('/recurring/plan-1');
     expect(notificationRoute({ sports_booking_id: 'sports-1' }, 'sports_payment_due')).toBe('/sports-booking/sports-1');
     expect(notificationRoute({ plan_id: '../external' }, 'recurring_plan_requested')).toBeNull();
     expect(notificationRoute({ sports_booking_id: '../external' }, 'sports_payment_due')).toBeNull();

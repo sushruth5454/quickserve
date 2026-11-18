@@ -331,7 +331,7 @@ jobs:
           print("0019 live fixed-booking verification succeeded (rolled back fixture).")
           PY
 
-      - name: Apply migrations 0020-0054 through the Management API
+      - name: Apply migrations 0020-0055 through the Management API
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.PROJECT_REF != ''
         env:
           MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -413,6 +413,7 @@ jobs:
               ("0052", "0052_merchant_staff.sql"),
               ("0053", "0053_activity_contracts.sql"),
               ("0054", "0054_addendum_foundations.sql"),
+              ("0055", "0055_addendum_foundation_hardening.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

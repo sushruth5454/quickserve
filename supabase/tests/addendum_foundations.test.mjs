@@ -63,6 +63,7 @@ const provider = '00000000-0000-0000-0000-000000000003';
 await db.query('insert into public.profiles (id) values ($1), ($2), ($3)', [admin, customer, provider]);
 await db.query('insert into public.admins (user_id) values ($1)', [admin]);
 await db.exec(fs.readFileSync(new URL('../migrations/0054_addendum_foundations.sql', import.meta.url), 'utf8'));
+await db.exec(fs.readFileSync(new URL('../migrations/0055_addendum_foundation_hardening.sql', import.meta.url), 'utf8'));
 
 async function as(userId, role, query, params = []) {
   await db.exec(`
@@ -120,6 +121,15 @@ assert.equal((await db.query(`select public._sports_feature('sports_online_payme
 const adminRules = (await as(admin, 'authenticated', `select public.admin_get_rules('recurring_rules') value`))[0].value;
 assert.equal(adminRules.horizon_days, 28);
 assert.equal(adminRules.billing_grace_hours, 24);
+assert.equal((await db.query(`select public._recurring_rule('horizon_days') value`)).rows[0].value, '28',
+  'private recurring rule reader returns the configured scalar');
+assert.equal((await db.query(`select public._sports_rule('commission_bp') value`)).rows[0].value, '1000',
+  'private sports rule reader returns the configured scalar');
+await expectError(
+  () => as(admin, 'authenticated', `select public._recurring_rule('horizon_days')`),
+  /permission denied/,
+  'rule readers are not directly executable by authenticated clients',
+);
 const updatedRules = { ...adminRules, horizon_days: 35, recurring_discount_bp: 250 };
 assert.deepEqual((await as(admin, 'authenticated', `select public.admin_set_rules('recurring_rules', $1::jsonb) value`, [
   JSON.stringify(updatedRules),
@@ -161,6 +171,13 @@ await expectError(
   ]),
   /full_refund_hours must be greater than or equal to partial_refund_hours/,
   'inconsistent sports refund windows are rejected',
+);
+await expectError(
+  () => as(admin, 'authenticated', `select public.admin_set_rules('sports_rules', $1::jsonb)`, [
+    JSON.stringify({ ...updatedSportsRules, partial_refund_bp: 5001 }),
+  ]),
+  /partial_refund_bp must be between 0 and 5000/,
+  'partial sports refunds respect the configured maximum basis points',
 );
 assert.equal((await db.query(`select count(*)::int n from public.admin_audit_log where action = 'set_booking_rules'`)).rows[0].n, 2,
   'successful rule changes are audited');

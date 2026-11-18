@@ -27,20 +27,21 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | ID | Task (section) | Mig | Blocked by | Parallel with | Merge order |
 |---|---|---|---|---|---|
 | **W0** | Foundations: flags, notification kinds, rules config, overlap helper, cron check (§3) — **integrator does this itself, no agent** | 0054 | Phase 9 green | — | 1 |
-| **A1** | Catalogue migration: new columns, re-parent existing slugs, seed new categories, admin category RPCs + SQL test (§4.2, §4.4) | 0055 | W0 | B1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 2 |
-| **A2** | Admin category editor UI: `admin/services.tsx` + `admin/category/[id].tsx` + reorder (§4.3 first bullet) | — | W0 (codes against §4.2.4 RPC names) | all Wave 1 | after A1 |
+| **W0b** | Forward-only foundation correction: add private rule readers, cap sports partial refunds at 5000 bp; migration hardening test — **integrator does this itself, no agent** | 0055 | W0 | — | 2 |
+| **A1** | Catalogue migration: new columns, re-parent existing slugs, seed new categories, admin category RPCs + SQL test (§4.2, §4.4) | 0056 | W0b | B1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 3 |
+| **A2** | Admin category editor UI: `admin/services.tsx` + `admin/category/[id].tsx` + reorder (§4.3 first bullet) | — | W0b (codes against §4.2.4 RPC names) | all Wave 1 | after A1 |
 | **A3** | Customer catalogue groups + icons: `catalogue/model.ts`, `CatalogueSections.tsx`, `CategoryIcon.tsx`, Jest (§4.3 bullets 2–3) | — | A1 merged | B2, E2, C1*, F1*, H1, D*, G* | any after A1 |
-| **B1** | Recurring engine migration: schema changes, `recurring_occurrence_changes`, `_recurrence_dates`, all §5.4 RPCs, generator + cron, holiday rules, SQL test (§5) | 0056 | W0 | A1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 3 |
-| **E1** | Sports payments migration: schema, `book_sports_slot`, capacity, holds, `prepare/record_sports_payment`, expiry, cancel/refund, `_create_sports_payout`, payout generalisation, SQL test (§6.2–§6.4 SQL parts) | 0057 | W0 | A1, B1, A2, H1, C1a, C1b, F1a, F1b, T0 | 4 |
+| **B1** | Recurring engine migration: schema changes, `recurring_occurrence_changes`, `_recurrence_dates`, all §5.4 RPCs, generator + cron, holiday rules, SQL test (§5) | 0057 | W0b | A1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 4 |
+| **E1** | Sports payments migration: schema, `book_sports_slot`, capacity, holds, `prepare/record_sports_payment`, expiry, cancel/refund, `_create_sports_payout`, payout generalisation, SQL test (§6.2–§6.4 SQL parts) | 0058 | W0b | A1, B1, A2, H1, C1a, C1b, F1a, F1b, T0 | 5 |
 | **E2** | Payment edge functions for sports: `create-payment` `kind:'sports'`, verify/webhook routing, `provider-payout-account` venue owners, `release-payouts` payee, `demo_settle_payment` note, Deno tests (§6.2 last bullet, §6.3 edge bullet) | — | E1 merged | A3, B2, C2, F2, G*, D1 (D1 must **not** touch edge functions until E2 merged) | 5 |
-| **H1** | Admin rules screen `admin/rules.tsx` + `adminRulesApi.ts` + Jest conversions (§7), plus parent/child grouping and disabled-child explanation in `admin/features.tsx` (§Feature switches rule 4) | — | W0 | all Wave 1 | any after W0 |
-| **C1a** | Recurring pure-TS: `features/recurring/types.ts`, `dates.ts`, Jest with §5.7 vectors, typed `api.ts` per §5.4 names (§9 C1) | — | W0 | all Wave 1 | any after W0 |
-| **C1b** | Customer recurring screens: wizard `recurring/new/[providerServiceId].tsx`, plan detail `recurring/[id].tsx`, One-time/Repeat toggle in book screens, "Repeat plans" filter in My Activity (§9 C1) — imports C1a types; if C1a not merged yet, create the same file paths with identical content from §5.6 and let the integrator dedupe | — | W0 | all Wave 1 | after C1a |
-| **F1a** | Sports customer booking UI: venue duration/participants/payment choice, `sports-checkout/[id].tsx`, booking list/detail statuses (§8 F1 items 1–3) | — | W0 (codes against §6.5) | all Wave 1 | any after W0 |
-| **F1b** | Venue settings UI in `sports/manage.tsx` (booking mode, capacity, payment modes, payout status) + `sports/index.tsx` copy (§8 F1 item 4) | — | W0 | all Wave 1 (F1a edits different files) | any after W0 |
-| **T0** | E2E scaffolding: new step functions in `e2e/all-services.mjs` for catalogue groups, recurring wizard, sports checkout (behind `optional` until their features merge); validate each lane's BDD/DDD files exist (§12 items 1–2) | — | W0 | all Wave 1 | any |
+| **H1** | Admin rules screen `admin/rules.tsx` + `adminRulesApi.ts` + Jest conversions (§7), plus parent/child grouping and disabled-child explanation in `admin/features.tsx` (§Feature switches rule 4) | — | W0b | all Wave 1 | any after W0b |
+| **C1a** | Recurring pure-TS: `features/recurring/types.ts`, `dates.ts`, Jest with §5.7 vectors, typed `api.ts` per §5.4 names (§9 C1) | — | W0b | all Wave 1 | any after W0b |
+| **C1b** | Customer recurring screens: wizard `recurring/new/[providerServiceId].tsx`, plan detail `recurring/[id].tsx`, One-time/Repeat toggle in book screens, "Repeat plans" filter in My Activity (§9 C1) — imports C1a types; if C1a not merged yet, create the same file paths with identical content from §5.6 and let the integrator dedupe | — | W0b | all Wave 1 | after C1a |
+| **F1a** | Sports customer booking UI: venue duration/participants/payment choice, `sports-checkout/[id].tsx`, booking list/detail statuses (§8 F1 items 1–3) | — | W0b (codes against §6.5) | all Wave 1 | any after W0b |
+| **F1b** | Venue settings UI in `sports/manage.tsx` (booking mode, capacity, payment modes, payout status) + `sports/index.tsx` copy (§8 F1 item 4) | — | W0b | all Wave 1 (F1a edits different files) | any after W0b |
+| **T0** | E2E scaffolding: new step functions in `e2e/all-services.mjs` for catalogue groups, recurring wizard, sports checkout (behind `optional` until their features merge); validate each lane's BDD/DDD files exist (§12 items 1–2) | — | W0b | all Wave 1 | any |
 | **B2** | Recurring hardening pass: review B1 against §5.8, add missing tests, fix CI failures reported by integrator (only if B1 report lists gaps) | 0056 fixes only | B1 merged | A3, E2, D1, G1, G2, C2, F2 | after B1 |
-| **D1** | Recurring billing migration: `recurring_billing_cycles`, payment parent check, cycle RPCs, credits/refunds, `process_recurring_billing` cron, occurrence payouts, SQL test (§10 items 1–5, 7) | 0058 | B1 merged **and** E1 merged | A3, E2, G1, G2, C2, F2, T1 | 6 |
+| **D1** | Recurring billing migration: `recurring_billing_cycles`, payment parent check, cycle RPCs, credits/refunds, `process_recurring_billing` cron, occurrence payouts, SQL test (§10 items 1–5, 7) | 0059 | B1 merged **and** E1 merged | A3, E2, G1, G2, C2, F2, T1 | 7 |
 | **D2** | Recurring billing edge functions: `create-payment` `kind:'recurring_cycle'`, verify/webhook routing, Deno tests (§10 item 6) | — | D1 merged **and** E2 merged | G*, C2, F2, T1 | 7 |
 | **G1** | Provider recurring UX: `merchant-calendar.tsx`, repeat-requests section in dashboard, `recurring/provider/[id].tsx`, holiday banner (§11 items 1–4, 6) | — | B1 merged | A3, E2, D1, D2, G2, C2, F2, T1 | any after B1 |
 | **G2** | Venue calendar + merchant earnings rows (recurring + sports `payee_id`) in `sports/manage.tsx` tabs and `earnings.tsx` (§11 items 1, 5) | — | E1 merged **and** F1b merged | A3, B2, D*, G1, C2, F2, T1 | any after blockers |
@@ -50,9 +51,9 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | **T2** | Traceability artifacts with real CI run IDs, status tables in this doc and `01-PRD.md`, owner production checklist (§12 items 2–4) | — | all tasks merged green | — | last |
 
 **Max parallel snapshot (what should be running at once):**
-- **After W0 merges → launch 10 agents in one response:** A1, A2, B1, E1, H1, C1a, C1b, F1a, F1b, T0.
+- **After W0b merges → launch 10 agents in one response:** A1, A2, B1, E1, H1, C1a, C1b, F1a, F1b, T0.
 - **As soon as A1 merges → launch A3.** As soon as B1 merges → launch B2 (if needed), G1, C2. As soon as E1 merges → launch E2 (and G2 once F1b is in). As soon as B1 + E1 merge → launch D1. As soon as D1 + E2 merge → launch D2. Keep T1 running alongside Wave 2.
-- **Only these are strictly sequential:** W0 → {A1, B1, E1} (migrations merge in order 0055 → 0056 → 0057) → D1 (0058) → D2; and E1 → E2 (shared payment edge functions). Everything else is parallel.
+- **Only these are strictly sequential:** W0 (0054) → W0b (0055) → {A1, B1, E1} (migrations merge in order 0056 → 0057 → 0058) → D1 (0059) → D2; and E1 → E2 (shared payment edge functions). Everything else is parallel.
 
 ### File-conflict rules that make this parallelism safe
 | Shared file | Owner (only this task may edit it) |
@@ -193,8 +194,9 @@ Work ONLY in the git worktree <path> on branch lane/<ID>. Edit ONLY the files yo
 | Wave | Lanes (run **in parallel**) | Migration numbers | Depends on |
 |---|---|---|---|
 | **0** (integrator only, small, sequential) | W0 Foundations | `0054_addendum_foundations.sql` | Phase 9 green |
-| **1** | **A** Catalogue + admin category editor · **B** Recurring engine (backend) · **E** Sports payments (backend + payment entry points) · **H** Admin rule controls (UI) · **C1** Recurring pure-TS module + customer recurring UI against the §5.6 contract · **F1** Sports customer/venue UI against the §8.6 contract | A=`0055`, B=`0056`, E=`0057`, H=none, C1=none, F1=none | W0 |
-| **2** | **D** Recurring billing & payments · **G** Merchant portal (provider recurring calendar, sports venue calendar/earnings) · **C2** wire customer recurring UI to merged B/D RPCs · **F2** wire sports UI to merged E RPCs | D=`0058` | B (for D, G, C2), E (for F2) |
+| **0b** (integrator only, sequential) | W0 forward-only correction: private config readers and partial-refund cap | `0055_addendum_foundation_hardening.sql` | W0 |
+| **1** | **A** Catalogue + admin category editor · **B** Recurring engine (backend) · **E** Sports payments (backend + payment entry points) · **H** Admin rule controls (UI) · **C1** Recurring pure-TS module + customer recurring UI against the §5.6 contract · **F1** Sports customer/venue UI against the §8.6 contract | A=`0056`, B=`0057`, E=`0058`, H=none, C1=none, F1=none | W0b |
+| **2** | **D** Recurring billing & payments · **G** Merchant portal (provider recurring calendar, sports venue calendar/earnings) · **C2** wire customer recurring UI to merged B/D RPCs · **F2** wire sports UI to merged E RPCs | D=`0059` | B (for D, G, C2), E (for F2) |
 | **3** (integrator + 1 agent) | **T** End-to-end tests, BDD/DDD/traceability artifacts, PRD status update | none | all |
 
 ### 0.7 BDD/DDD/TDD ownership (do not duplicate or race on artifact files)
@@ -203,16 +205,16 @@ The W0 foundation BDD/DDD/traceability packet is already authored at the three f
 
 | Feature | BDD/DDD owner (writes before implementation) | TDD owner | Traceability owner |
 |---|---|---|---|
-| Expanded Home Services catalogue/admin categories | A1 writes `home-services-catalogue-{bdd,ddd}.md` before migration 0055 code; A2/A3 add test references to their final reports, not the artifact files | A1 SQL + A2/A3 Jest/E2E | T2 |
-| Recurring plan lifecycle, provider schedule, skip/reschedule/absence | B1 writes `recurring-plans-{bdd,ddd}.md` before migration 0056 code; C/G do not edit those files | B1 SQL + C1 Jest + G1 UI/E2E | T2 |
-| Recurring cycle billing/refunds | D1 writes `recurring-billing-{bdd,ddd}.md` before migration 0058 code | D1 SQL/Deno + C2 Jest/E2E | T2 |
-| Sports online payments/settlement | E1 writes `sports-payments-{bdd,ddd}.md` before migration 0057 code; E2/F/G do not edit those files | E1 SQL + E2 Deno + F/G app/E2E | T2 |
+| Expanded Home Services catalogue/admin categories | A1 writes `home-services-catalogue-{bdd,ddd}.md` before migration 0056 code; A2/A3 add test references to their final reports, not the artifact files | A1 SQL + A2/A3 Jest/E2E | T2 |
+| Recurring plan lifecycle, provider schedule, skip/reschedule/absence | B1 writes `recurring-plans-{bdd,ddd}.md` before migration 0057 code; C/G do not edit those files | B1 SQL + C1 Jest + G1 UI/E2E | T2 |
+| Recurring cycle billing/refunds | D1 writes `recurring-billing-{bdd,ddd}.md` before migration 0059 code | D1 SQL/Deno + C2 Jest/E2E | T2 |
+| Sports online payments/settlement | E1 writes `sports-payments-{bdd,ddd}.md` before migration 0058 code; E2/F/G do not edit those files | E1 SQL + E2 Deno + F/G app/E2E | T2 |
 | Admin rules screen | H1 extends the W0 foundations BDD/DDD scenarios with UI scenarios before UI code; do not make a duplicate admin-rules artifact | H1 Jest | T2 |
 | Cross-feature | T0/T2 never invent or replace BDD/DDD; they only verify links and consolidate scenario/test/source mappings | T1/T2 E2E/traceability | T2 |
 
 **If the named artifact owner is still writing:** dependent implementation tasks may prepare a worktree or inspect source, but must not change runtime code until the BDD and DDD files are committed in the owner branch. Merge the artifacts before merging implementation. Tests must map to BDD scenario IDs; every behavior needs a DDD context/aggregate, test reference and implementation file in the final traceability table.
 
-Merge order inside Wave 1: `0055` (A) → `0056` (B) → `0057` (E) → UI-only lanes (H, C1, F1) in any order. Wave 2: `0058` (D) → G → C2 → F2.
+Merge order inside Wave 1: `0056` (A) → `0057` (B) → `0058` (E) → UI-only lanes (H, C1, F1) in any order. Wave 2: `0059` (D) → G → C2 → F2.
 
 Lanes C1/F1/H are UI-only and compile against the **contracts** in §5.6 and §8.6. They must call RPCs only through a typed API module, so wiring changes in Wave 2 are confined to that module.
 
@@ -309,14 +311,23 @@ Add `admin_get_rules(p_key text) returns jsonb` and `admin_set_rules(p_key text,
 - `_assert_provider_window_free(p_provider_id uuid, p_window tstzrange, p_exclude_booking_id uuid default null, p_exclusive boolean default true)`: takes `pg_advisory_xact_lock(hashtext(p_provider_id::text))` and applies **the same predicate** as `_reserve_booking_service_window` (`0021:570-588`) excluding `p_exclude_booking_id`. Private. `p_exclusive` preserves the existing trigger rule `(existing.exclusive OR new.exclusive)`.
 - Deploy workflow verification (integrator, in `deploy-backend.yml` after the migration step): query `select jobname, schedule from cron.job` via the Management API and print it. If `cron` schema is missing, print a `::warning::` saying recurring generation and expiry jobs will not run until `pg_cron` is enabled (README "Scheduled jobs").
 
-### 3.5 Done when
-Backend CI green; SQL test `addendum_foundations.test.mjs` proves: flags default off; kinds insertable; `admin_set_rules` validates and rejects bad values and non-admins; `_assert_provider_window_free` rejects an overlap and ignores the excluded booking.
+### 3.5 W0 Done when
+Backend, app and E2E CI green for `0054`; SQL test `addendum_foundations.test.mjs` proves: flags default off; kinds insertable; `admin_set_rules` validates and rejects bad values and non-admins; `_assert_provider_window_free` rejects an overlap and ignores the excluded booking.
+
+### 3.6 W0b — Forward-only hardening after migration `0054` was applied
+Migration `0054` is already deployed and must never be edited in place. The code review found two contract gaps. Migration `0055_addendum_foundation_hardening.sql`:
+1. Adds private `stable` `_recurring_rule(p_path text)` and `_sports_rule(p_path text)` readers with a strict per-key allowlist.
+2. Adds a `BEFORE INSERT OR UPDATE OF value` trigger on `app_config` that rejects `sports_rules.partial_refund_bp` above 5000 or non-integer JSON values. This closes the validator gap in the already-deployed `admin_set_rules` without changing the shipped migration.
+3. Extends `addendum_foundations.test.mjs` to load both 0054 and 0055 and prove the readers are private, the configured value is returned, and a 5001-bp partial refund is refused.
+4. Registers 0055 after 0054 in the deploy migration list, package parser chain and full-chain PGlite migration array.
+
+**W0b Done when:** backend CI is green through migration 0055, app CI is green, and the W0 feature/config/notification/overlap tests pass. Wave 1 agents stay blocked until W0b is green.
 
 ---
 
-## 4. Lane A — Expanded Home Services catalogue + admin category editor (migration `0055_home_services_catalogue.sql`)
+## 4. Lane A — Expanded Home Services catalogue + admin category editor (migration `0056_home_services_catalogue.sql`)
 
-**Parallel with:** B, E, H, C1, F1. **Files you own:** `0055_*.sql`, `supabase/tests/home_services_catalogue.test.mjs`, `app/app/admin/services.tsx` (+ new `app/app/admin/category/[id].tsx`), `app/src/lib/adminApi.ts` (category functions only), `app/src/features/catalogue/model.ts`, `CatalogueSections.tsx`, `app/src/components/CategoryIcon.tsx`, catalogue Jest tests.
+**Parallel with:** B, E, H, C1, F1. **Files you own:** `0056_*.sql`, `supabase/tests/home_services_catalogue.test.mjs`, `app/app/admin/services.tsx` (+ new `app/app/admin/category/[id].tsx`), `app/src/lib/adminApi.ts` (category functions only), `app/src/features/catalogue/model.ts`, `CatalogueSections.tsx`, `app/src/components/CategoryIcon.tsx`, catalogue Jest tests.
 
 ### 4.1 Existing (verified)
 `categories` has `slug, name, icon, pricing_mode, sort_order, active, vertical, parent_id, archetype, location_modes, pricing_units, intake_schema, payment_template, cancellation_policy, commission_bp, lead-time bounds, restricted, config_version, requires_docs, recommended_docs` (`0001:78-85`, `0018:7-20`, `0009:34-36`, `0017:14-18`). City availability: `category_cities` (`0018:186-218`). Admin today can only toggle active/city-live (`0041:145-208`, `admin/services.tsx`). Packages support units `job, hour, day, session, person, plate, sqft, bhk, seat, litre, event, month` (`0017:258-280`).
@@ -375,9 +386,9 @@ Admin can add, edit, disable and reorder a category and sub-category without an 
 
 ---
 
-## 5. Lane B — Recurring engine v2, backend (migration `0056_recurring_plans_v2.sql`)
+## 5. Lane B — Recurring engine v2, backend (migration `0057_recurring_plans_v2.sql`)
 
-**Parallel with:** A, E, H, C1, F1. **Files you own:** `0056_*.sql`, `supabase/tests/recurring_plans.test.mjs`.
+**Parallel with:** A, E, H, C1, F1. **Files you own:** `0057_*.sql`, `supabase/tests/recurring_plans.test.mjs`.
 
 ### 5.1 Existing (verified)
 `recurring_schedules` (weekly only, `weekdays int[]`, `start_time`, `timezone`, `session_duration_min`, `payment_mode ∈ per_session|pack_prepaid|monthly_prepaid`, `starts_on/ends_on/generated_through`, `status ∈ active|paused|cancelled|completed`) (`0022:348-390`); unique partial index on bookings `(recurring_schedule_id, scheduled_at)`; `create_recurring_schedule`, `materialize_recurring_schedule(uuid, date)`, `generate_recurring_sessions(int)` (`FOR UPDATE SKIP LOCKED`), `cancel_recurring_schedule(uuid, boolean)` (`0022:1194-1373`). **No cron schedules the generator. No pause/resume/skip RPC. Holiday mode does not stop materialization** (`0031:1-4`). Provider acceptance is per booking only.
@@ -465,9 +476,9 @@ All tests green in CI; with the flag on, a plan produces individual booking rows
 
 ---
 
-## 6. Lane E — Sports online payments, backend (migration `0057_sports_payments.sql`)
+## 6. Lane E — Sports online payments, backend (migration `0058_sports_payments.sql`)
 
-**Parallel with:** A, B, H, C1, F1. **Files you own (Wave 1):** `0057_*.sql`, `supabase/tests/sports_payments.test.mjs`, `supabase/functions/create-payment/index.ts`, `verify-payment/index.ts`, `razorpay-webhook/index.ts`, `release-payouts/index.ts`, `supabase/functions/_shared/payout-beneficiary.ts`, `provider-payout-account/index.ts`, their Deno tests.
+**Parallel with:** A, B, H, C1, F1. **Files you own (Wave 1):** `0058_*.sql`, `supabase/tests/sports_payments.test.mjs`, `supabase/functions/create-payment/index.ts`, `verify-payment/index.ts`, `razorpay-webhook/index.ts`, `release-payouts/index.ts`, `supabase/functions/_shared/payout-beneficiary.ts`, `provider-payout-account/index.ts`, their Deno tests.
 
 ### 6.1 Existing (verified)
 Sports tables/RPCs `0048_sports.sql` (statuses `requested, accepted, declined, cancelled, completed, expired`; `request_sports_slot(uuid, timestamptz, int default 1, text)` with advisory lock and server price `:721-825`; `get_sports_slots` `:661-719`; `decide_sports_booking` `:889-927`; `cancel_sports_booking` `:929-957`; `expire_sports_requests` cron every 5 min `:959-1046`). Pay-at-venue only; no payment/refund/settlement fields; no capacity; UI books one slot. Payments: Razorpay **Orders** via `create-payment`, HMAC-verified `verify-payment` + webhook, recorders dedupe by gateway payment id; `_queue_refund`/`_refund_partial`; `process-refunds` with idempotency header; `payouts` (one per **booking**, `booking_id not null unique`, `provider_id not null references providers`) and `payout_transfers`; beneficiary in `provider_payout_accounts` keyed by `provider_id` (`0009:198`).
@@ -555,9 +566,9 @@ Wire to merged B/D RPCs; billing cycle display (paid/due/next charge) from Lane 
 
 ---
 
-## 10. Lane D — Recurring billing & payments (migration `0058_recurring_billing.sql`, Wave 2)
+## 10. Lane D — Recurring billing & payments (migration `0059_recurring_billing.sql`, Wave 2)
 
-**Depends on B merged. Files you own:** `0058_*.sql`, `supabase/tests/recurring_billing.test.mjs`, payment edge functions (after E is merged — rebase first).
+**Depends on B merged. Files you own:** `0059_*.sql`, `supabase/tests/recurring_billing.test.mjs`, payment edge functions (after E is merged — rebase first).
 
 1. Table `recurring_billing_cycles`: `id, schedule_id fk, period_start date, period_end date, visits_planned int, visit_booking_ids uuid[], amount_paise int, status text check (in ('upcoming','due','paid','failed','cancelled','settled')), due_at timestamptz, payment_id uuid fk, credited_paise int default 0, created_at`; unique `(schedule_id, period_start)`.
 2. `payments.recurring_cycle_id uuid fk` + extend the one-parent check (coordinate with E's check: now `num_nonnulls(booking_id, pack_purchase_id, sports_booking_id, recurring_cycle_id) = 1`).
@@ -622,7 +633,8 @@ Wire to merged B/D RPCs; billing cycle display (paid/due/next charge) from Lane 
 
 | Wave/Lane | Status | CI evidence |
 |---|---|---|
-| W0 | Not started | — |
-| A, B, E, H, C1, F1 | Not started | — |
+| W0 (`0054`) | Complete; all flags/config/admin gates, notification kinds, overlap helper and parent-aware client helper are green | Backend `44270432354`; app `44270432248`; E2E `44270434243` (155 screens, 0 failed/soft-failed steps, 0 page/console errors) |
+| W0b (`0055`) | In progress; forward-only private readers + partial-refund cap correction, waiting for CI | — |
+| A, B, E, H, C1, F1 | Blocked until W0b CI is green | — |
 | D, G, C2, F2 | Not started | — |
 | T | Not started | — |

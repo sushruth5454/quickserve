@@ -107,7 +107,7 @@ export function notificationRoute(data: unknown, kind?: string | null, userId?: 
   const sportsBooking = typeof d.sports_booking_id === 'string' && ID.test(d.sports_booking_id) ? d.sports_booking_id : null;
   if (sportsBooking && (k?.startsWith('sports_') ?? false)) return `/sports-booking/${sportsBooking}`;
   const plan = typeof d.plan_id === 'string' && ID.test(d.plan_id) ? d.plan_id : null;
-  if (plan && (k?.startsWith('recurring_plan_') ?? false)) return `/recurring/${plan}`;
+  if (plan && (k?.startsWith('recurring_') ?? false)) return `/recurring/${plan}`;
   const request = typeof d.request_id === 'string' && ID.test(d.request_id) ? d.request_id : null;
   if (request) {
     const toProvider = k === 'proposal_request_received' || (k === 'request_message' && !!userId && d.provider_id === userId);
