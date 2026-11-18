@@ -3,8 +3,11 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Chip, EmptyState, Header, InlineAlert, Input, Screen, Skeleton, Text } from '../src/components/ui';
 import { listProductCategories, searchProducts, signedProductImage, type ProductCategory, type SearchProduct } from '../src/features/shops/api';
+import { searchProductsWithAi } from '../src/features/ai/productSearch';
 import { FeatureUnavailable, ShopProductCard, useShopFeatureFlags } from '../src/features/shops/components';
 import { useRfqFeatureFlags } from '../src/features/rfq/components';
+import { isDemoMode } from '../src/lib/config';
+import { useAppFeatureFlags } from '../src/lib/featureFlags';
 import { parseRupees } from '../src/lib/onboarding/validation';
 import { useSelectedLocation } from '../src/lib/locationContext';
 import { useTheme } from '../src/theme';
@@ -12,6 +15,8 @@ import { useTheme } from '../src/theme';
 export default function ProductSearchScreen() {
   const t = useTheme();
   const features = useShopFeatureFlags();
+  const appFeatures = useAppFeatureFlags();
+  const aiProductSearch = !isDemoMode && appFeatures.isOn('ai_product_search');
   const { rfq: rfqEnabled } = useRfqFeatureFlags();
   const { location } = useSelectedLocation();
   const params = useLocalSearchParams<{ q?: string; category?: string }>();
@@ -25,6 +30,40 @@ export default function ProductSearchScreen() {
   const [images, setImages] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const askAiToSearch = useCallback(async () => {
+    if (aiQuery.trim().length < 2) {
+      setError('Describe the product you need.');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const result = await searchProductsWithAi({
+        query: aiQuery,
+        lat: location.lat,
+        lng: location.lng,
+      });
+      setQuery(result.filters.query ?? '');
+      setCategory(result.filters.category_slug ?? '');
+      setMaxPrice(result.filters.max_price_paise == null
+        ? ''
+        : (result.filters.max_price_paise / 100).toFixed(2).replace(/\.?0+$/, ''));
+      setInStockOnly(result.filters.in_stock_only);
+      setProducts(result.products);
+      const nextImages = await Promise.all(result.products.map(async (product) => [
+        product.id,
+        await signedProductImage(product.image_paths[0]).catch(() => null),
+      ] as const));
+      setImages(Object.fromEntries(nextImages));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiQuery, location.lat, location.lng]);
 
   const load = useCallback(async () => {
     if (!features.products) return;
@@ -79,6 +118,27 @@ export default function ProductSearchScreen() {
       onRefresh={() => void load()}
     >
       <InlineAlert message={error} />
+      {aiProductSearch ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Input
+            label="Ask in your words"
+            value={aiQuery}
+            onChangeText={setAiQuery}
+            placeholder="e.g. waterproof tiles under ₹500 per box"
+            helper="Do not enter contact or address details; recognizable address-like searches are declined."
+            multiline
+            maxLength={500}
+          />
+          <Button
+            title="Search with AI"
+            variant="outline"
+            loading={aiLoading}
+            disabled={aiQuery.trim().length < 2}
+            onPress={() => void askAiToSearch()}
+          />
+          <Text variant="caption" color="muted">Review and edit the filters below before searching again.</Text>
+        </View>
+      ) : null}
       <Input label="Search products" value={query} onChangeText={setQuery} placeholder="Name, brand or model" returnKeyType="search" onSubmitEditing={() => void load()} />
       <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-end' }}>
         <View style={{ flex: 1 }}>

@@ -1,5 +1,6 @@
 // QuickServe AI booking assistant. Verifies the caller's JWT, applies kill switches / CORS / abuse limits and serves:
 //   mode "transcribe": voice clip → { transcript_original, transcript_en, language, clarity } for the customer to review
+//   mode "product_search": natural-language product intent → validated filters and database-owned catalogue rows
 //   mode "chat" (default): Gemini function calling over read-only tools that query Postgres AS THE USER (RLS); with
 //     `Accept: text/event-stream` it streams truthful progress stages ({type:"stage"}) and then {type:"final"}.
 // The assistant never creates or pays for bookings: draft cards hand off to the app's normal checkout, where
@@ -8,9 +9,19 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { decodeBase64, encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { allRejected, type AttemptRecord, runAgent, withFallback } from "./agent.ts";
 import { buildJobBrief, renderBrief } from "./brief.ts";
+import { chatUsageRows, recordChatModelCall, type ChatModelUsage } from "./chat_usage.ts";
 import { type AiConfig, attemptPlan, corsFor, loadConfig } from "./config.ts";
 import { AbortedError, type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
-import { type ImageMime, ImageFormatError, sniffImage, stripImageMetadata } from "./image.ts";
+import { type ImageMime, ImageFormatError, sniffImage, stripImageMetadata, visualPiiRedactionReady } from "./image.ts";
+import {
+  estimateTokenCostMicrosUsd,
+  parseProductSearchFilters,
+  ProductSearchInputError,
+  reserveCostMicrosUsd,
+  sanitizeProductSearchQuery,
+  type ProductSearchFilters,
+} from "./product_search.ts";
+import { resolveRequestMode } from "./request_mode.ts";
 import {
   areaFromLine,
   clampText,
@@ -329,7 +340,9 @@ function parseAudio(cfg: AiConfig, v: unknown): { data: string; mimeType: string
 function parseImage(cfg: AiConfig, v: unknown): { bytes: Uint8Array; mime: ImageMime; removed: string[] } | null {
   const im = obj(v);
   if (!im) return null;
-  if (!cfg.photosEnabled) throw new HttpError(403, "photos_disabled", "Photos are switched off right now. Please describe the problem instead.");
+  if (!cfg.photosEnabled || !visualPiiRedactionReady) {
+    throw new HttpError(403, "photos_disabled", "Photos are switched off until visual privacy redaction is available. Please describe the product or problem instead.");
+  }
   const data = typeof im.data === "string" ? im.data.replace(/^data:[^,]+,/, "").replace(/\s+/g, "") : "";
   if (!data || !B64.test(data)) throw new HttpError(400, "bad_image", "That photo could not be read. Please use a JPG or PNG photo.");
   if (data.length > Math.ceil((cfg.maxImageBytes * 4) / 3) + 4) {
@@ -367,6 +380,211 @@ async function usageCounts(admin: SupabaseClient, uid: string, now: Date, clock:
   const err = all.error ?? voice.error ?? photos.error ?? burstMsgs.error ?? burstVoice.error;
   if (err) throw err;
   return { messages: all.count ?? 0, voice: voice.count ?? 0, photos: photos.count ?? 0, burst: (burstMsgs.count ?? 0) + (burstVoice.count ?? 0) };
+}
+
+async function productSearch(
+  cfg: AiConfig,
+  auth: Auth,
+  body: Json,
+  apiKey: string,
+  requestId: string,
+  started: number,
+  signal: AbortSignal,
+) {
+  const catalogueEnabled = await auth.admin.rpc("_feature_enabled", { p_key: "products" });
+  if (catalogueEnabled.error || catalogueEnabled.data !== true) {
+    throw new HttpError(503, "products_disabled", "Products are switched off right now.");
+  }
+  const enabled = await auth.admin.rpc("_feature_enabled", { p_key: "ai_product_search" });
+  if (enabled.error || enabled.data !== true) {
+    throw new HttpError(503, "product_search_disabled", "AI product search is switched off right now.");
+  }
+
+  const safeQuery = sanitizeProductSearchQuery(body.query);
+  if (safeQuery.length < 2) {
+    throw new HttpError(400, "empty_search", "Enter a product need without phone numbers or address details.");
+  }
+
+  const lat = body.lat == null ? null : num(body.lat, -90, 90);
+  const lng = body.lng == null ? null : num(body.lng, -180, 180);
+  if ((body.lat != null && lat == null) || (body.lng != null && lng == null) || (lat == null) !== (lng == null)) {
+    throw new HttpError(400, "bad_location", "The selected search location is invalid.");
+  }
+
+  const { data: categoryRows, error: categoryError } = await auth.userClient.rpc("list_product_categories");
+  if (categoryError) throw new HttpError(503, "catalogue_unavailable", "The product catalogue is unavailable right now.");
+  const categories = ((categoryRows ?? []) as { slug: string; name: string }[])
+    .slice(0, 64)
+    .map((category) => ({ slug: category.slug.slice(0, 60), name: category.name.slice(0, 80) }));
+
+  const now = new Date();
+  const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
+  const local = clock.parts(now);
+  const monthStart = clock.instant(`${local.y}-${String(local.m).padStart(2, "0")}-01`, 0).toISOString();
+  const modelPlan = attemptPlan(cfg);
+  const reservedCost = reserveCostMicrosUsd(modelPlan.map((p) => p.model), 32_768, 256, now);
+  if (reservedCost == null) {
+    throw new HttpError(503, "unpriced_model", "AI product search is unavailable until this model has a configured cost rate.");
+  }
+
+  const { data: reservationRows, error: reservationError } = await auth.admin.rpc("begin_ai_usage", {
+    p_user_id: auth.uid,
+    p_kind: "product_search",
+    p_feature: "ai_product_search",
+    p_request_id: requestId,
+    p_day_start: clock.midnight(now).toISOString(),
+    p_month_start: monthStart,
+    p_model: cfg.primaryModel,
+    p_reserved_cost_micros_usd: reservedCost,
+  });
+  if (reservationError) {
+    log("error", { event: "usage_reservation_failed", request_id: requestId, user: auth.uid, feature: "ai_product_search" });
+    throw new HttpError(503, "usage_unavailable", "AI product search is unavailable right now.");
+  }
+  const reservation = ((reservationRows ?? []) as { usage_id: number | null; rejection: string | null }[])[0];
+  if (!reservation?.usage_id) {
+    if (reservation?.rejection === "daily_limit") throw new HttpError(429, "daily_limit", "Daily limit reached.");
+    if (reservation?.rejection === "monthly_budget") throw new HttpError(429, "monthly_budget", "The monthly AI budget has been reached.");
+    if (reservation?.rejection === "feature_disabled") throw new HttpError(503, "product_search_disabled", "AI product search is switched off right now.");
+    throw new HttpError(503, "usage_unavailable", "AI product search is unavailable right now.");
+  }
+
+  const usageByModel = new Map<string, { input: number; output: number }>();
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let tokenMetadataComplete = true;
+  let modelCalls = 0;
+  let model = cfg.primaryModel;
+  let costMicros = reservedCost;
+  let ok = false;
+  try {
+    const categoryList = categories;
+    const fb = await withFallback(
+      {
+        plan: modelPlan,
+        primaryModel: cfg.primaryModel,
+        hasFallback: !!cfg.fallbackModel,
+        cooldown: primaryCooldown,
+        cooldownMs: cfg.primaryCooldownMs,
+        deadline: started + Math.min(cfg.requestBudgetMs, 30_000),
+        signal,
+      },
+      async (attemptModel, callTimeoutMs) => {
+        model = attemptModel;
+        const response = await generateContent(
+          cfg.apiBase,
+          attemptModel,
+          {
+            systemInstruction: {
+              parts: [{
+                text: [
+                  "Convert the customer's product need into search filters.",
+                  "Return exactly one JSON object with keys category_slug, query, brand, max_price_paise, in_stock_only.",
+                  "Never create product listings, names, prices, availability, or shop details.",
+                  "Use a category slug only from the allowed categories; use null if none matches.",
+                  "Use null for absent query, brand, or price; in_stock_only must be a boolean.",
+                  "The user text has already had contact and address details removed. Do not infer or restore them.",
+                  `Allowed categories: ${JSON.stringify(categoryList)}`,
+                ].join("\n"),
+              }],
+            },
+            contents: [{ role: "user", parts: [{ text: safeQuery }] }],
+            generationConfig: { responseMimeType: "application/json", maxOutputTokens: 256 },
+          },
+          apiKey,
+          Math.min(callTimeoutMs, started + 30_000 - Date.now()),
+          signal,
+        );
+        modelCalls += 1;
+        const metadata = response.usageMetadata;
+        if (Number.isSafeInteger(metadata?.promptTokenCount) && Number.isSafeInteger(metadata?.candidatesTokenCount)) {
+          const callInput = metadata!.promptTokenCount!;
+          const callOutput = metadata!.candidatesTokenCount! + (metadata!.thoughtsTokenCount ?? 0);
+          inputTokens += callInput;
+          outputTokens += callOutput;
+          const prior = usageByModel.get(attemptModel) ?? { input: 0, output: 0 };
+          usageByModel.set(attemptModel, { input: prior.input + callInput, output: prior.output + callOutput });
+        } else {
+          tokenMetadataComplete = false;
+        }
+        return response;
+      },
+    );
+    if (!fb.result) {
+      tokenMetadataComplete = false;
+      throw modelFailure(fb.attempts, fb.lastError, started, cfg, Math.min(cfg.requestBudgetMs, 30_000));
+    }
+    model = fb.model ?? model;
+
+    const hasUnmeteredAttempt = fb.attempts.some((attempt) => attempt.error && attempt.error !== "skipped (cooldown)");
+    tokenMetadataComplete = tokenMetadataComplete && modelCalls > 0 && !hasUnmeteredAttempt;
+    if (tokenMetadataComplete && usageByModel.size > 0) {
+      let actual = 0;
+      for (const [usedModel, usage] of usageByModel) {
+        const cost = estimateTokenCostMicrosUsd(usedModel, usage.input, usage.output, now);
+        if (cost == null) {
+          actual = reservedCost;
+          break;
+        }
+        actual += cost;
+      }
+      costMicros = actual;
+    }
+
+    const responseText = (fb.result.candidates?.[0]?.content?.parts ?? [])
+      .filter((part) => typeof part.text === "string" && !part.thought)
+      .map((part) => part.text)
+      .join("")
+      .trim();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      throw new HttpError(502, "bad_ai_filters", "AI product search could not read those filters. Please try another description.");
+    }
+    let filters: ProductSearchFilters;
+    try {
+      filters = parseProductSearchFilters(parsed, categories.map((category) => category.slug));
+    } catch (e) {
+      if (e instanceof ProductSearchInputError) {
+        throw new HttpError(502, "bad_ai_filters", "AI product search returned invalid filters. Please try again.");
+      }
+      throw e;
+    }
+
+    const effectiveQuery = [filters.query, filters.brand].filter(Boolean).join(" ").trim() || null;
+    const { data: products, error: searchError } = await auth.userClient.rpc("search_products", {
+      p_query: effectiveQuery,
+      p_category_slug: filters.category_slug,
+      p_lat: lat,
+      p_lng: lng,
+      p_radius_km: 15,
+      p_max_price_paise: filters.max_price_paise,
+      p_in_stock_only: filters.in_stock_only,
+      p_limit: 50,
+    });
+    if (searchError) throw new HttpError(503, "catalogue_unavailable", "The product catalogue is unavailable right now.");
+
+    ok = true;
+    return {
+      filters: { ...filters, query: effectiveQuery },
+      products: products ?? [],
+    };
+  } finally {
+    const { error } = await auth.admin.rpc("finish_ai_usage", {
+      p_usage_id: reservation.usage_id,
+      p_model: model,
+      p_input_tokens: tokenMetadataComplete ? inputTokens : null,
+      p_output_tokens: tokenMetadataComplete ? outputTokens : null,
+      p_cost_micros_usd: costMicros,
+      p_latency_ms: Math.max(0, Date.now() - started),
+      p_ok: ok,
+    });
+    if (error) {
+      log("error", { event: "usage_completion_failed", request_id: requestId, user: auth.uid, feature: "ai_product_search" });
+      throw new HttpError(503, "usage_unavailable", "AI product search could not be recorded.");
+    }
+  }
 }
 
 function modelFailure(attempts: AttemptRecord[], lastErr: GeminiError | null, started: number, cfg: AiConfig, budgetMs = cfg.requestBudgetMs): HttpError {
@@ -671,6 +889,28 @@ async function purgeOldPhotos(admin: SupabaseClient, uid: string, days: number, 
 }
 
 async function runChat(p: Prepared, stages: StageTracker, signal: AbortSignal, streamed: boolean) {
+  const modelCalls: ChatModelUsage[] = [];
+  let completed = false;
+  try {
+    const result = await runChatCore(p, stages, signal, streamed, modelCalls);
+    completed = true;
+    return result;
+  } finally {
+    if (!completed) modelCalls.forEach((call) => {
+      call.ok = false;
+    });
+    if (modelCalls.length) {
+      try {
+        const { error } = await p.admin.from("ai_usage").insert(chatUsageRows(p.uid, p.requestId, modelCalls));
+        if (error) log("warn", { event: "chat_usage_write_failed", request_id: p.requestId, user: p.uid, calls: modelCalls.length });
+      } catch {
+        log("warn", { event: "chat_usage_write_failed", request_id: p.requestId, user: p.uid, calls: modelCalls.length });
+      }
+    }
+  }
+}
+
+async function runChatCore(p: Prepared, stages: StageTracker, signal: AbortSignal, streamed: boolean, modelCalls: ChatModelUsage[]) {
   const { cfg, ctx, admin, uid, requestId, started } = p;
   const deadline = started + cfg.requestBudgetMs;
   let state = newState();
@@ -694,7 +934,12 @@ async function runChat(p: Prepared, stages: StageTracker, signal: AbortSignal, s
           p.contents,
           state,
           {
-            generate: (m, body, timeoutMs, sig) => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
+            generate: (m, body, timeoutMs, sig) => recordChatModelCall(
+              modelCalls,
+              m,
+              new Date(),
+              () => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
+            ),
             execTool: (name, args) => execTool(ctx, state, name, args),
             stages,
             signal,
@@ -961,7 +1206,13 @@ Deno.serve(async (req) => {
 
     const body = obj(await req.json().catch(() => null));
     if (!body) throw new HttpError(400, "bad_request", "Invalid request.");
-    if (body.mode === "transcribe") return json(await transcribe(cfg, auth, body, apiKey, requestId, started, req.signal));
+    const requestMode = resolveRequestMode(body.mode);
+    if ("error" in requestMode && requestMode.error === "quote_extract_unavailable") {
+      throw new HttpError(503, "quote_extract_unavailable", "Quote photo reading is unavailable until the image privacy safeguard is ready.");
+    }
+    if ("error" in requestMode) throw new HttpError(400, "unknown_mode", "That AI request mode is not supported.");
+    if (requestMode.mode === "transcribe") return json(await transcribe(cfg, auth, body, apiKey, requestId, started, req.signal));
+    if (requestMode.mode === "product_search") return json(await productSearch(cfg, auth, body, apiKey, requestId, started, req.signal));
 
     // Validation, limits and context happen before streaming starts, so those errors keep real HTTP status codes.
     const prepared = await prepareChat(cfg, auth, body, apiKey, requestId, started);

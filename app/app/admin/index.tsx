@@ -47,6 +47,7 @@ export default function AdminDashboardScreen() {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             <Action label="Features" icon="toggle-outline" onPress={() => router.push('/admin/features')} />
+            <Action label="AI usage" icon="sparkles-outline" onPress={() => router.push('/admin/ai')} />
             <Action label="Commission" icon="cash-outline" onPress={() => router.push('/admin/commission')} />
             <Action label="Coins" icon="sparkles-outline" onPress={() => router.push('/admin/coins')} />
             <Action label="Geography" icon="map-outline" onPress={() => router.push('/admin/geography')} />

@@ -15,6 +15,7 @@ import { track } from '../src/lib/analytics';
 import { getMyProfile, listMyBookings } from '../src/lib/api';
 import { AssistantError, sendToAssistant, transcribeVoice } from '../src/lib/assistant/client';
 import { listConversations, loadConversation, photoUrl, setFeedback, type FeedbackReason, type StoredTurn } from '../src/lib/assistant/history';
+import { visualPiiRedactionReady } from '../src/features/ai/imagePrivacy';
 import type { AssistantErrorKind } from '../src/lib/assistant/parse';
 import { draftToBookParams } from '../src/lib/assistant/prefill';
 import { applyStage, uiLanguage, type ProgressRow } from '../src/lib/assistant/progress';
@@ -292,6 +293,7 @@ export default function AssistantScreen() {
 
   const pickPhoto = async (source: 'camera' | 'library') => {
     setAttachMenu(false);
+    if (!visualPiiRedactionReady) return;
     try {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -300,7 +302,7 @@ export default function AssistantScreen() {
           return;
         }
       }
-      // Re-encoded JPEG without EXIF; the server strips any remaining metadata (GPS etc.) before storing or AI use.
+      // EXIF removal is not visual redaction; the server gate remains closed until visible text is scrubbed.
       const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, base64: true, exif: false };
       const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       const a = res.canceled ? null : res.assets[0];
@@ -322,11 +324,14 @@ export default function AssistantScreen() {
   };
 
   const sendText = (text: string) => {
-    if (photo) {
+    if (photo && visualPiiRedactionReady) {
       const p = photo;
       setPhoto(null);
       void send({ message: text, image: { data: p.data, mimeType: p.mimeType }, photoUri: p.uri });
-    } else void send({ message: text });
+    } else {
+      if (photo) setPhoto(null);
+      void send({ message: text });
+    }
   };
 
   const rate = (msgId: string, messageId: number | null, rating: 1 | -1, reason: FeedbackReason | null) => {
@@ -376,7 +381,7 @@ export default function AssistantScreen() {
   }
 
   const attachButton =
-    voice || busy ? null : (
+    voice || busy || !visualPiiRedactionReady ? null : (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={photo ? 'Change attached photo' : 'Attach a photo of the problem'}
@@ -415,7 +420,12 @@ export default function AssistantScreen() {
       scrollProps={{ onContentSizeChange: () => scrollRef.current?.scrollToEnd({ animated: false }) }}
       footer={
         <View style={{ gap: t.spacing.sm }}>
-          {permIssue ? (
+          {!visualPiiRedactionReady ? (
+            <Text variant="caption" color="muted" align="center">
+              Photo input is temporarily unavailable until visible phone numbers and addresses can be safely redacted.
+            </Text>
+          ) : null}
+          {permIssue === 'mic' || (permIssue === 'camera' && visualPiiRedactionReady) ? (
             <View
               style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, padding: t.spacing.md, borderRadius: 14, backgroundColor: t.colors.warningSoft }}
               accessibilityLiveRegion="polite"
@@ -429,13 +439,13 @@ export default function AssistantScreen() {
             </View>
           ) : null}
           <QuickReplies items={quickReplies} onPick={(q) => (q === CHANGE_ADDRESS ? router.push('/location') : void send({ message: q }))} disabled={busy} />
-          {attachMenu ? (
+          {attachMenu && visualPiiRedactionReady ? (
             <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
               <Button title="Take photo" size="sm" variant="outline" leftIcon="camera-outline" onPress={() => void pickPhoto('camera')} />
               <Button title="Choose from gallery" size="sm" variant="outline" leftIcon="images-outline" onPress={() => void pickPhoto('library')} />
             </View>
           ) : null}
-          {photo ? (
+          {photo && visualPiiRedactionReady ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
               <Image source={{ uri: photo.uri }} style={{ width: 52, height: 52, borderRadius: 10 }} contentFit="cover" accessibilityLabel="Attached photo" />
               <Text variant="caption" color="textSecondary" style={{ flex: 1 }}>
@@ -464,7 +474,7 @@ export default function AssistantScreen() {
               onMicDenied={() => setPermIssue('mic')}
               onStop={stop}
               attach={attachButton}
-              canSendEmpty={!!photo}
+              canSendEmpty={!!photo && visualPiiRedactionReady}
             />
           )}
           <Text variant="micro" color="muted" align="center">
