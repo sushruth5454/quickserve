@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../../src/components/AddressEditor';
 import { skillLabel } from '../../src/components/ProviderCard';
-import { Avatar, Button, Card, Chip, Divider, ErrorState, Header, InlineAlert, PriceRow, Screen, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
+import { Avatar, Button, Card, Chip, Divider, ErrorState, Header, InlineAlert, PriceRow, Screen, SegmentedControl, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
 import {
   createBooking,
   createTravelRequest,
@@ -22,6 +22,7 @@ import { useSelectedLocation } from '../../src/lib/locationContext';
 import { fromSavedAddress } from '../../src/lib/locationModel';
 import { formatINR, PLATFORM_FEE_PAISE } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
+import { useAppFeatureFlags, useFeature } from '../../src/lib/featureFlags';
 import { typicalRange } from '../../src/lib/pricing';
 import { dayLabel, firstAvailableDay, nextDays, WINDOW_START_HOURS, windowAvailable, windowLabel, windowStart } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
@@ -30,10 +31,24 @@ import { asapAvailable, windowFits } from '../../src/lib/onboarding/availability
 import type { TravelPreview } from '../../src/lib/types';
 import { PackageBookingScreen } from '../../src/features/booking/packages/PackageBookingScreen';
 
+export type BookingModeOption = 'one-time' | 'repeat';
+
+export function getBookingModeOptions(
+  recurringEnabled: boolean,
+  recurrenceAllowed: boolean,
+  archetype: string | null | undefined,
+): BookingModeOption[] {
+  return recurringEnabled && recurrenceAllowed && (archetype === 'time_based' || archetype === 'fixed')
+    ? ['one-time', 'repeat']
+    : ['one-time'];
+}
+
 export default function BookScreen() {
   const t = useTheme();
   const toast = useToast();
   const pay = usePayment();
+  const recurringEnabled = useFeature('recurring_bookings');
+  const featureFlags = useAppFeatureFlags();
   const { providerServiceId, packageId, archetype, ...prefillParams } = useLocalSearchParams<{
     providerServiceId: string;
     packageId?: string;
@@ -244,6 +259,16 @@ export default function BookScreen() {
   }
   const firstName = providerName.split(' ')[0] ?? providerName;
   const slug = service.categories?.slug;
+  const recurrenceCategory = service.categories as (typeof service.categories & {
+    recurrence_allowed?: boolean;
+    allowed_frequencies?: string[];
+  });
+  const serviceArchetype = recurrenceCategory?.archetype;
+  const bookingModeOptions = getBookingModeOptions(
+    recurringEnabled && !!serviceArchetype && featureFlags.archetypes?.[serviceArchetype] === true,
+    !!recurrenceCategory?.recurrence_allowed && !!recurrenceCategory.allowed_frequencies?.length,
+    serviceArchetype,
+  );
   const range = typicalRange(slug);
   const rating = Number(service.providers?.rating_avg ?? 0);
   const ratingCount = service.providers?.rating_count ?? 0;
@@ -327,6 +352,30 @@ export default function BookScreen() {
             </View>
           </View>
         </View>
+
+        {bookingModeOptions.length > 1 ? (
+          <SegmentedControl
+            options={bookingModeOptions.map((value) => ({
+              value,
+              label: value === 'one-time' ? 'One-time' : 'Repeat',
+            }))}
+            value="one-time"
+            onChange={(value) => {
+              if (value === 'repeat') {
+                router.push({
+                  pathname: '/recurring/new/[providerServiceId]',
+                  params: {
+                    providerServiceId: service.id,
+                    archetype: serviceArchetype ?? 'time_based',
+                    description: description.trim(),
+                    addressId: location.addressId ?? '',
+                  },
+                });
+              }
+            }}
+            accessibilityLabel="Booking frequency"
+          />
+        ) : null}
 
         {/* Issue */}
         <Block title="Describe the issue" hint="Pick what applies or write it in your words">

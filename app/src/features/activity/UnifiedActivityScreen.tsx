@@ -10,6 +10,7 @@ import { UnreadMessagesRow } from '../../components/UnreadChat';
 import {
   Button,
   Card,
+  Chip,
   EmptyState,
   ErrorState,
   Header,
@@ -21,7 +22,7 @@ import {
   Text,
 } from '../../components/ui';
 import { listMyBookings, listMyServiceRequests } from '../../lib/api';
-import { useAppFeatureFlags } from '../../lib/featureFlags';
+import { useAppFeatureFlags, useFeature } from '../../lib/featureFlags';
 import { formatINR } from '../../lib/money';
 import { bookingRef, scheduleLabel } from '../../lib/schedule';
 import type { Booking, ServiceRequest } from '../../lib/types';
@@ -34,6 +35,8 @@ import { useActivityUnread } from './ActivityUnreadProvider';
 import { listMyCustomerRfqs, type CustomerRfqSummary } from '../rfq/api';
 import { RfqStatusLabel } from '../rfq/components';
 import { listMyCustomerSportsBookings, type CustomerSportsBooking } from '../sports/api';
+import { listMyRecurringPlans } from '../recurring/api';
+import type { Frequency, PlanStatus } from '../recurring/types';
 import { visibleActivitySegments, type ActivitySegment } from './model';
 
 const LABELS: Record<ActivitySegment, string> = {
@@ -44,6 +47,64 @@ const LABELS: Record<ActivitySegment, string> = {
 };
 
 const NO_REFRESH = async () => {};
+
+type ActivityPlanSummary = {
+  plan: {
+    id: string;
+    status: PlanStatus;
+    provider_acceptance: string;
+    frequency?: Frequency;
+    weekdays?: number[];
+  };
+  occurrences: { id: string; scheduled_at: string; status: string }[];
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseActivityPlans(value: unknown): ActivityPlanSummary[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || !isRecord(item.plan) || !Array.isArray(item.occurrences)) return [];
+    const plan = item.plan;
+    if (
+      typeof plan.id !== 'string' ||
+      !['active', 'paused', 'cancelled', 'completed'].includes(String(plan.status)) ||
+      typeof plan.provider_acceptance !== 'string'
+    ) return [];
+    const occurrences = item.occurrences.filter(
+      (row): row is ActivityPlanSummary['occurrences'][number] =>
+        isRecord(row) && typeof row.id === 'string' && typeof row.scheduled_at === 'string' && typeof row.status === 'string',
+    );
+    return [{
+      plan: plan as ActivityPlanSummary['plan'],
+      occurrences,
+    }];
+  });
+}
+
+export function shouldShowRepeatPlansFilter(recurringEnabled: boolean, existingPlanCount: number): boolean {
+  // The switch blocks new plans, but customers must still reach existing plan records.
+  return recurringEnabled || existingPlanCount > 0;
+}
+
+function planFrequencyLabel(plan: ActivityPlanSummary['plan']) {
+  const labels: Record<Frequency, string> = {
+    daily: 'Every day',
+    alternate_days: 'Every other day',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+    custom: 'Custom dates',
+  };
+  const frequency = plan.frequency ? labels[plan.frequency] ?? 'Repeat plan' : 'Repeat plan';
+  if (plan.frequency !== 'weekly' || !Array.isArray(plan.weekdays)) return frequency;
+  const days = plan.weekdays
+    .map((day) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][day - 1])
+    .filter(Boolean)
+    .join(', ');
+  return days ? `${frequency} · ${days}` : frequency;
+}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -141,17 +202,31 @@ type MarkRead = ReturnType<typeof useActivityUnread>['markRead'];
 
 function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: RegisterRefresh; markRead: MarkRead }) {
   const t = useTheme();
+  const recurringEnabled = useFeature('recurring_bookings');
   const unread = useUnread();
   const [bookings, setBookings] = useState<Booking[] | null>(null);
-  const [tab, setTab] = useState<'active' | 'past'>('active');
+  const [plans, setPlans] = useState<ActivityPlanSummary[] | null>(null);
+  const [tab, setTab] = useState<'active' | 'past' | 'plans'>('active');
   const [error, setError] = useState<string | null>(null);
+  const [plansError, setPlansError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
-      setBookings(await listMyBookings());
+    const [bookingResult, planResult] = await Promise.allSettled([
+      listMyBookings(),
+      listMyRecurringPlans(),
+    ]);
+    if (bookingResult.status === 'fulfilled') {
+      setBookings(bookingResult.value);
       setError(null);
-    } catch (e) {
-      setError((e as Error).message);
+    } else {
+      setError((bookingResult.reason as Error).message);
+    }
+    if (planResult.status === 'fulfilled') {
+      setPlans(parseActivityPlans(planResult.value));
+      setPlansError(null);
+    } else {
+      setPlans([]);
+      setPlansError((planResult.reason as Error).message);
     }
   }, []);
 
@@ -161,6 +236,10 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
   const active = (bookings ?? []).filter((booking) => activeStatuses.includes(booking.status));
   const past = (bookings ?? []).filter((booking) => !activeStatuses.includes(booking.status));
   const list = tab === 'active' ? active : past;
+  const showPlansFilter = shouldShowRepeatPlansFilter(recurringEnabled, plans?.length ?? 0);
+  useEffect(() => {
+    if (tab === 'plans' && !showPlansFilter) setTab('active');
+  }, [tab, showPlansFilter]);
   const open = (booking: Booking) => {
     void markRead('booking', booking.id).catch(() => undefined);
     router.push({ pathname: '/booking/[id]', params: { id: booking.id } });
@@ -175,12 +254,42 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
         options={[
           { value: 'active', label: 'Active', badge: active.length || undefined },
           { value: 'past', label: 'Past' },
+          ...(showPlansFilter ? [{ value: 'plans' as const, label: 'Repeat plans', badge: plans?.length || undefined }] : []),
         ]}
         value={tab}
         onChange={setTab}
-        accessibilityLabel="Service booking filter"
+        accessibilityLabel="Service activity filter"
       />
-      {list.length === 0 ? (
+      {tab === 'plans' ? (
+        plansError && !plans?.length ? (
+          <ErrorState message={plansError} onRetry={() => void load()} />
+        ) : !plans ? (
+          Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} height={94} radius={t.radii.lg} />)
+        ) : plans.length === 0 ? (
+          <EmptyState icon="repeat-outline" title="No repeat plans yet" message="Repeat service requests you create will appear here." />
+        ) : (
+          plans.map((item) => {
+            const nextVisit = item.occurrences
+              .filter((visit) => new Date(visit.scheduled_at).getTime() >= Date.now())
+              .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0];
+            return (
+              <Card
+                key={item.plan.id}
+                onPress={() => router.push({ pathname: '/recurring/[id]', params: { id: item.plan.id } })}
+                gap={t.spacing.sm}
+                accessibilityLabel={`${planFrequencyLabel(item.plan)}, ${item.plan.status}`}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
+                  <Text variant="bodyStrong" style={{ flex: 1 }}>{planFrequencyLabel(item.plan)}</Text>
+                  <Chip label={item.plan.status.replace(/_/g, ' ')} />
+                </View>
+                <Text variant="footnote" color="muted">Provider response: {item.plan.provider_acceptance.replace(/_/g, ' ')}</Text>
+                {nextVisit ? <Text variant="footnote" color="textSecondary">Next visit · {fmtDate(nextVisit.scheduled_at)}</Text> : null}
+              </Card>
+            );
+          })
+        )
+      ) : list.length === 0 ? (
         <EmptyState
           icon={tab === 'active' ? 'calendar-outline' : 'time-outline'}
           title={tab === 'active' ? 'No active bookings' : 'No past bookings yet'}

@@ -1,20 +1,34 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
+import { Button, Card, ErrorState, Header, InlineAlert, Screen, SegmentedControl, Skeleton, Text, useToast } from '../../src/components/ui';
+import { getProviderService, type ProviderServiceWithProvider } from '../../src/lib/api';
 import { createFixedBooking, listFixedPackages } from '../../src/lib/fixedBooking';
+import { useAppFeatureFlags, useFeature } from '../../src/lib/featureFlags';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { formatINR } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
 import type { ServicePackage } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 
+export type FixedBookingModeOption = 'one-time' | 'repeat';
+
+export function getFixedBookingModeOptions(
+  recurringEnabled: boolean,
+  recurrenceAllowed: boolean,
+): FixedBookingModeOption[] {
+  return recurringEnabled && recurrenceAllowed ? ['one-time', 'repeat'] : ['one-time'];
+}
+
 export default function FixedPackageBookScreen() {
   const t = useTheme();
   const toast = useToast();
   const pay = usePayment();
+  const recurringEnabled = useFeature('recurring_bookings');
+  const featureFlags = useAppFeatureFlags();
   const { providerServiceId } = useLocalSearchParams<{ providerServiceId: string }>();
   const { location } = useSelectedLocation();
+  const [providerService, setProviderService] = useState<ProviderServiceWithProvider | null>(null);
   const [packages, setPackages] = useState<ServicePackage[] | null>(null);
   const [selected, setSelected] = useState<ServicePackage | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -33,11 +47,33 @@ export default function FixedPackageBookScreen() {
       .catch((e: Error) => setError(e.message));
   }, [providerServiceId]);
 
+  useEffect(() => {
+    if (!providerServiceId || !recurringEnabled) {
+      setProviderService(null);
+      return;
+    }
+    let active = true;
+    getProviderService(providerServiceId)
+      .then((row) => active && setProviderService(row))
+      .catch(() => active && setProviderService(null));
+    return () => {
+      active = false;
+    };
+  }, [providerServiceId, recurringEnabled]);
+
   const end = selected
     ? new Date(start.getTime() + Math.max(60, selected.duration_min ?? 60) * Math.max(1, Math.ceil(quantity)) * 60000)
     : start;
   const serviceTotal = selected ? Math.round((selected.price ?? 0) * quantity) : 0;
   const platformFee = 2900;
+  const recurrenceCategory = providerService?.categories as ({
+    recurrence_allowed?: boolean;
+    allowed_frequencies?: string[];
+  }) | null | undefined;
+  const bookingModeOptions = getFixedBookingModeOptions(
+    recurringEnabled && featureFlags.archetypes?.fixed === true,
+    !!recurrenceCategory?.recurrence_allowed && !!recurrenceCategory.allowed_frequencies?.length,
+  );
 
   const submit = async () => {
     if (!selected || !location.line1) return;
@@ -97,6 +133,30 @@ export default function FixedPackageBookScreen() {
       }
     >
       <InlineAlert tone="info" title="Fixed price, paid upfront" message="The package price and platform fee are calculated by the server. Any on-site add-on requires your approval." />
+      {bookingModeOptions.length > 1 ? (
+        <SegmentedControl
+          options={bookingModeOptions.map((value) => ({
+            value,
+            label: value === 'one-time' ? 'One-time' : 'Repeat',
+          }))}
+          value="one-time"
+          onChange={(value) => {
+            if (value === 'repeat') {
+              router.push({
+                pathname: '/recurring/new/[providerServiceId]',
+                params: {
+                  providerServiceId,
+                  archetype: 'fixed',
+                  packageId: selected?.id ?? '',
+                  packageQty: String(quantity),
+                  addressId: location.addressId ?? '',
+                },
+              });
+            }
+          }}
+          accessibilityLabel="Booking frequency"
+        />
+      ) : null}
       <View style={{ gap: t.spacing.md }}>
         {packages.map((item) => (
           <Pressable key={item.id} onPress={() => { setSelected(item); setQuantity(Math.max(1, item.qty_min)); }}>
