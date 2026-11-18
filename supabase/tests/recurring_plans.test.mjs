@@ -210,6 +210,15 @@ const input = (overrides = {}) => ({
 const createPlan = async (value, uid = customer) => (await as(
   uid, 'authenticated', `select create_recurring_plan($1::jsonb) id`, [JSON.stringify(value)]
 ))[0].id;
+const createLegacySchedule = async (serviceId, start, end = start) => (await as(
+  customer,
+  'authenticated',
+  `select create_recurring_schedule(
+    $1, null, null, 'per_session', array[$2]::smallint[], time '10:00',
+    'Asia/Kolkata', 60, $3::date, $4::date, 'Gate 2', 'Recurring City', 16.5, 80.6, 'legacy test'
+  ) id`,
+  [serviceId, isoDow(start), start, end]
+))[0].id;
 const setFlag = (key, enabled) =>
   db.query(`update feature_flags set enabled=$2 where key=$1`, [key, enabled]);
 
@@ -317,6 +326,41 @@ await db.query(`update categories set recurrence_allowed=true where id=$1`, [tim
 ok(!!badFrequency && !!badInterval && !!ineligibleCategory,
   '[RP-04] unsupported frequencies, invalid intervals, and ineligible categories are rejected');
 
+const fixedQuoteInput = input({
+  provider_service_id: fixedService, package_id: fixedPackage, archetype: 'fixed',
+  package_qty: 1, duration_min: null,
+});
+const plansBeforeDiscountChecks = await one(`select count(*)::int n from recurring_schedules where customer_id=$1`, [customer]);
+await db.query(`update categories set recurring_discount_bp=500 where id=$1`, [timeCategory]);
+const categoryTimeDiscountQuote = await fails(() => as(customer, 'authenticated',
+  `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(input())]));
+const categoryTimeDiscountCreate = await fails(() => as(customer, 'authenticated',
+  `select create_recurring_plan($1::jsonb)`, [JSON.stringify(input())]));
+await db.query(`update categories set recurring_discount_bp=500 where id=$1`, [fixedCategory]);
+const categoryFixedDiscountQuote = await fails(() => as(customer, 'authenticated',
+  `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(fixedQuoteInput)]));
+const categoryFixedDiscountCreate = await fails(() => as(customer, 'authenticated',
+  `select create_recurring_plan($1::jsonb)`, [JSON.stringify(fixedQuoteInput)]));
+await db.query(`update categories set recurring_discount_bp=0 where id in ($1, $2)`,
+  [timeCategory, fixedCategory]);
+await db.query(`update app_config
+  set value=jsonb_set(value, '{recurring_discount_bp}', '500'::jsonb)
+  where key='recurring_rules'`);
+const globalTimeDiscountQuote = await fails(() => as(customer, 'authenticated',
+  `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(input())]));
+const globalFixedDiscountCreate = await fails(() => as(customer, 'authenticated',
+  `select create_recurring_plan($1::jsonb)`, [JSON.stringify(fixedQuoteInput)]));
+await db.query(`update app_config
+  set value=jsonb_set(value, '{recurring_discount_bp}', '0'::jsonb)
+  where key='recurring_rules'`);
+const plansAfterDiscountChecks = await one(
+  `select count(*)::int n from recurring_schedules where customer_id=$1`, [customer]);
+ok(!!categoryTimeDiscountQuote && !!categoryTimeDiscountCreate
+  && !!categoryFixedDiscountQuote && !!categoryFixedDiscountCreate
+  && !!globalTimeDiscountQuote && !!globalFixedDiscountCreate
+  && plansBeforeDiscountChecks.n === plansAfterDiscountChecks.n,
+  '[RP-03] configured category/global discounts are rejected until both archetype occurrence charges apply them');
+
 const existingPlanForSafety = await createPlan(input({
   start_date: dateOffset(15), end_date: dateOffset(15), start_time: '08:00',
 }));
@@ -377,6 +421,25 @@ ok(Number(skippedGeneration[0].n) === 0 && (await generatedBookings(flagOffPlan)
   && refundWhileOff.amount === existingPaymentAmount,
   '[RP-01/RP-02/RP-14/RP-23] parent-off blocks new child actions but existing cancellation/refund remains available');
 await setFlag('recurring_bookings', true);
+await setFlag('recurring_billing', true);
+await setFlag('recurring_prepaid_packages', true);
+const plansBeforeUnsupportedBilling = await one(
+  `select count(*)::int n from recurring_schedules where customer_id=$1`, [customer]);
+const unsupportedBillingResults = [];
+for (const billingFrequency of ['weekly', 'monthly', 'prepaid_package']) {
+  const billingInput = billingFrequency === 'prepaid_package'
+    ? { ...fixedQuoteInput, billing_frequency: billingFrequency }
+    : input({ billing_frequency: billingFrequency });
+  unsupportedBillingResults.push(await fails(() => as(customer, 'authenticated',
+    `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(billingInput)])));
+  unsupportedBillingResults.push(await fails(() => as(customer, 'authenticated',
+    `select create_recurring_plan($1::jsonb)`, [JSON.stringify(billingInput)])));
+}
+const plansAfterUnsupportedBilling = await one(
+  `select count(*)::int n from recurring_schedules where customer_id=$1`, [customer]);
+ok(unsupportedBillingResults.every(Boolean)
+  && plansBeforeUnsupportedBilling.n === plansAfterUnsupportedBilling.n,
+  '[RP-03/RP-23] weekly, monthly, and prepaid billing remain rejected even when all recurring flags are on');
 await setFlag('recurring_prepaid_packages', false);
 const prepaidOff = await fails(() => as(customer, 'authenticated',
   `select create_recurring_plan($1::jsonb)`,
@@ -742,11 +805,7 @@ ok(Array.isArray(providerCalendar[0].rows) && providerCalendar[0].rows.some((row
 
 // RP-21: the legacy RPC remains callable and still creates accepted weekly schedules.
 const legacyStart = dateOffset(24);
-const legacyId = (await as(customer, 'authenticated', `
-  select create_recurring_schedule(
-    $1, null, null, 'per_session', array[$2]::smallint[], time '10:00',
-    'Asia/Kolkata', 60, $3::date, $4::date, 'Gate 2', 'Recurring City', 16.5, 80.6, 'legacy'
-  ) id`, [timeService, isoDow(legacyStart), legacyStart, legacyStart]))[0].id;
+const legacyId = await createLegacySchedule(timeService, legacyStart);
 const legacy = await one(`select frequency, provider_acceptance, acceptance_mode from recurring_schedules where id=$1`, [legacyId]);
 const legacyGen = await as(null, 'service_role', `select generate_recurring_sessions(100) n`);
 ok(legacy.frequency === 'weekly' && legacy.provider_acceptance === 'accepted'
@@ -754,6 +813,41 @@ ok(legacy.frequency === 'weekly' && legacy.provider_acceptance === 'accepted'
   && (await generatedBookings(legacyId)) === 1
   && Number(legacyGen[0].n) >= 1,
   '[RP-21] legacy weekly schedules retain accepted provider and per-occurrence behavior');
+
+await db.query(`update categories set recurrence_allowed=false where id=$1`, [timeCategory]);
+const legacyCategoryOff = await fails(() => createLegacySchedule(timeService, dateOffset(26)));
+await db.query(`update categories set recurrence_allowed=true where id=$1`, [timeCategory]);
+await db.query(`update categories set allowed_frequencies=array['daily']::text[] where id=$1`, [timeCategory]);
+const legacyWeeklyOff = await fails(() => createLegacySchedule(timeService, dateOffset(27)));
+await db.query(`update categories set allowed_frequencies=
+  array['daily','alternate_days','weekly','monthly','custom']::text[] where id=$1`, [timeCategory]);
+
+const legacyOpenStart = dateOffset(26);
+const legacyOpenId = await createLegacySchedule(
+  timeService, legacyOpenStart, addDays(legacyOpenStart, 30));
+await as(null, 'service_role', `select generate_recurring_occurrences(100)`);
+const legacyOpenBookingsBeforeCancel = await generatedBookings(legacyOpenId);
+await setFlag('recurring_bookings', false);
+const legacyCreateOff = await fails(() => createLegacySchedule(timeService, dateOffset(61)));
+const legacyReadWhileOff = (await as(customer, 'authenticated',
+  `select get_recurring_plan($1) plan`, [legacyOpenId]))[0].plan;
+const legacyCancelWhileOff = await fails(() => as(customer, 'authenticated',
+  `select cancel_recurring_schedule($1, true)`, [legacyOpenId]));
+const legacyAfterCancel = await one(`
+  select r.status, r.frequency, r.provider_acceptance, r.acceptance_mode,
+         count(b.id) filter (where b.status::text='cancelled')::int cancelled_visits
+    from recurring_schedules r left join bookings b on b.recurring_schedule_id=r.id
+   where r.id=$1 group by r.id`, [legacyOpenId]);
+ok(!!legacyCategoryOff && !!legacyWeeklyOff && legacyOpenBookingsBeforeCancel === 1 && !!legacyCreateOff
+  && /turned off/i.test(legacyCreateOff) && !legacyCancelWhileOff
+  && legacyReadWhileOff?.plan?.provider_acceptance === 'accepted'
+  && legacyAfterCancel.status === 'cancelled'
+  && legacyAfterCancel.frequency === 'weekly'
+  && legacyAfterCancel.provider_acceptance === 'accepted'
+  && legacyAfterCancel.acceptance_mode === 'occurrence'
+  && legacyAfterCancel.cancelled_visits === 1,
+  '[RP-21] new legacy schedules obey master/category gates while existing legacy plans remain readable and cancellable');
+await setFlag('recurring_bookings', true);
 
 // RP-22: reminder gating and collapse-key deduplication do not affect occurrence generation.
 await db.query(`update app_config set value=jsonb_set(value, '{reminder_hours_before}', '720'::jsonb) where key='recurring_rules'`);
@@ -777,5 +871,109 @@ await as(provider, 'authenticated', `select respond_recurring_plan($1, true, nul
 ok(Number(reminderOff[0].n) === 0 && (await generatedBookings(remindersOffPlan)) === 1,
   '[RP-22] reminders-off returns zero without stopping recurring generation');
 await setFlag('recurring_reminders', true);
+
+// RP-24: one invalidated v2 category is paused and recorded without starving a valid plan.
+const invalidatedPlan = await insertSchedule({
+  provider_service_id: fixedService,
+  service_package_id: fixedPackage,
+  archetype: 'fixed',
+  package_qty: 1,
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(27),
+  ends_on: dateOffset(27),
+  start_time: '20:00',
+});
+const validBatchPlan = await insertSchedule({
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(28),
+  ends_on: dateOffset(28),
+  start_time: '21:00',
+});
+await db.query(`update recurring_schedules set plan_version='v2' where id in ($1, $2)`,
+  [invalidatedPlan, validBatchPlan]);
+await db.query(`update categories set recurrence_allowed=false where id=$1`, [fixedCategory]);
+const isolatedGeneration = await as(null, 'service_role',
+  `select generate_recurring_occurrences(500) generated`);
+const invalidatedState = await one(`
+  select status, generated_through from recurring_schedules where id=$1`, [invalidatedPlan]);
+const generationFailure = await one(`
+  select error_code, message, attempted_through
+    from recurring_plan_generation_failures
+   where schedule_id=$1 order by created_at desc limit 1`, [invalidatedPlan]);
+const invalidatedPayload = (await as(customer, 'authenticated',
+  `select get_recurring_plan($1) plan`, [invalidatedPlan]))[0].plan;
+await db.query(`update categories set recurrence_allowed=true where id=$1`, [fixedCategory]);
+ok(invalidatedState.status === 'paused' && invalidatedState.generated_through === null
+  && generationFailure.error_code === 'P0001'
+  && /category is no longer eligible/i.test(generationFailure.message)
+  && generationFailure.attempted_through === dateOffset(28)
+  && Array.isArray(invalidatedPayload.generation_failures)
+  && invalidatedPayload.generation_failures[0]?.message === generationFailure.message
+  && (await generatedBookings(validBatchPlan)) === 1
+  && Number(isolatedGeneration[0].generated) >= 1,
+  '[RP-24] a category-invalid plan is paused with visible failure evidence while a valid plan generates');
+
+const unexpectedPlan = await insertSchedule({
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(1),
+  ends_on: dateOffset(1),
+  timezone: 'not/a-timezone',
+});
+await db.query(`update recurring_schedules set plan_version='v2' where id=$1`, [unexpectedPlan]);
+const unexpectedGenerationError = await fails(() => as(null, 'service_role',
+  `select generate_recurring_occurrences(1)`));
+ok(!!unexpectedGenerationError && /time zone/i.test(unexpectedGenerationError),
+  '[RP-24] unclassified database errors propagate instead of being silently discarded');
+
+// RP-25: recurring pending-payment visits keep their provider reservation beyond 30 minutes.
+const reservationPlan = await createPlan(input({
+  start_date: dateOffset(28), end_date: dateOffset(28), start_time: '07:00',
+}));
+await as(manager, 'authenticated', `select respond_recurring_plan($1, true, null)`, [reservationPlan]);
+const reservedOccurrence = await one(`
+  select id, scheduled_at from bookings where recurring_schedule_id=$1`, [reservationPlan]);
+await db.query(`update bookings set created_at=now()-interval '31 minutes' where id=$1`,
+  [reservedOccurrence.id]);
+const staleWindowOverlap = await fails(() => one(`
+  select _create_session_booking(
+    $1, $2, null, $3::timestamptz, 60,
+    'Gate 3', 'Recurring City', 16.5, 80.61, 'overlap after generic hold'
+  ) id`, [otherCustomer, timeService, reservedOccurrence.scheduled_at]));
+const reservationState = await one(`
+  select b.status::text status, count(overlap.id)::int overlapping_rows
+    from bookings b
+    left join bookings overlap
+      on overlap.provider_id=b.provider_id
+     and overlap.scheduled_at=b.scheduled_at
+     and overlap.id<>b.id
+   where b.id=$1 group by b.id`, [reservedOccurrence.id]);
+const reservationPaymentAmount = (await one(`
+  select sum(amount)::int amount from payment_schedule where booking_id=$1 and status='due'`,
+  [reservedOccurrence.id])).amount;
+const reservationPayment = (await one(`
+  insert into payments (booking_id, purpose, amount, status, razorpay_link_id)
+  values ($1, 'session', $2, 'created', 'rp-stale-window-link') returning id`,
+  [reservedOccurrence.id, reservationPaymentAmount])).id;
+await db.query(`
+  insert into payment_obligations (payment_id, schedule_id, amount)
+  select $1, id, amount from payment_schedule where booking_id=$2 and status='due'`,
+  [reservationPayment, reservedOccurrence.id]);
+await as(null, 'service_role',
+  `select record_session_payment_paid($1, $2, $3)`,
+  ['rp-stale-window-link', 'rp-stale-window-paid', reservationPaymentAmount]);
+const reservationAfterPayment = await one(
+  `select status::text status from bookings where id=$1`, [reservedOccurrence.id]);
+ok(!!staleWindowOverlap && reservationState.status === 'pending_payment'
+  && reservationState.overlapping_rows === 0 && reservationAfterPayment.status === 'requested',
+  '[RP-25] a stale pending recurring occurrence blocks overlaps and still follows its payment lifecycle');
 
 if (failures > 0) process.exitCode = 1;

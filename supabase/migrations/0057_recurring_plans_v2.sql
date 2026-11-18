@@ -15,7 +15,8 @@ alter table public.recurring_schedules
   add column if not exists decline_reason text,
   add column if not exists paused_at timestamptz,
   add column if not exists pause_until date,
-  add column if not exists billing_frequency text not null default 'per_visit';
+  add column if not exists billing_frequency text not null default 'per_visit',
+  add column if not exists plan_version text not null default 'legacy';
 
 alter table public.recurring_schedules
   drop constraint if exists recurring_schedules_frequency_check;
@@ -53,6 +54,8 @@ alter table public.recurring_schedules
     check (provider_acceptance in ('pending', 'accepted', 'declined')),
   add constraint recurring_schedules_acceptance_mode_check
     check (acceptance_mode in ('plan', 'occurrence')),
+  add constraint recurring_schedules_plan_version_check
+    check (plan_version in ('legacy', 'v2')),
   add constraint recurring_schedules_billing_frequency_check
     check (billing_frequency in ('per_visit', 'weekly', 'monthly', 'prepaid_package')),
   add constraint recurring_schedules_weekdays_frequency_check
@@ -149,6 +152,59 @@ create policy recurring_occurrence_changes_participants
   on public.recurring_occurrence_changes
   for select to authenticated
   using (public._can_read_recurring_occurrence_changes(schedule_id));
+
+create table public.recurring_plan_generation_failures (
+  id uuid primary key default gen_random_uuid(),
+  schedule_id uuid not null references public.recurring_schedules (id) on delete cascade,
+  attempted_through date not null,
+  error_code text not null check (char_length(error_code) = 5),
+  message text not null check (char_length(message) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+create index recurring_plan_generation_failures_schedule_idx
+  on public.recurring_plan_generation_failures (schedule_id, created_at desc);
+alter table public.recurring_plan_generation_failures enable row level security;
+revoke all on public.recurring_plan_generation_failures from public, anon, authenticated;
+grant select on public.recurring_plan_generation_failures to authenticated;
+grant all on public.recurring_plan_generation_failures to service_role;
+create policy recurring_plan_generation_failures_participants
+  on public.recurring_plan_generation_failures
+  for select to authenticated
+  using (public._can_read_recurring_occurrence_changes(schedule_id));
+
+create or replace function public._guard_recurring_pending_window()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.provider_id is null or new.service_window is null or isempty(new.service_window)
+     or new.status::text not in (
+       'pending_payment', 'requested', 'accepted', 'confirmed', 'en_route',
+       'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress', 'completion_requested'
+     ) then
+    return new;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(new.provider_id::text));
+  perform public._assert(not exists (
+    select 1
+      from public.bookings existing
+     where existing.id is distinct from new.id
+       and existing.provider_id = new.provider_id
+       and existing.recurring_schedule_id is not null
+       and existing.status::text = 'pending_payment'
+       and existing.service_window && new.service_window
+       and (existing.exclusive or new.exclusive)
+  ), 'provider_unavailable: recurring pending occurrence still reserves this window');
+  return new;
+end;
+$$;
+drop trigger if exists bookings_a_recurring_pending_window_guard on public.bookings;
+create trigger bookings_a_recurring_pending_window_guard
+  before insert or update of provider_id, service_window, status on public.bookings
+  for each row execute function public._guard_recurring_pending_window();
 
 insert into public.archetype_transitions (archetype, from_status, to_status, actor)
 values
@@ -335,6 +391,10 @@ begin
   v_archetype := p ->> 'archetype';
   v_frequency := p ->> 'frequency';
   v_billing_frequency := coalesce(p ->> 'billing_frequency', 'per_visit');
+  perform public._assert(
+    v_billing_frequency = 'per_visit',
+    'weekly, monthly, and prepaid recurring billing are unavailable until cycle billing is integrated'
+  );
   v_interval := coalesce(nullif(p ->> 'interval_count', '')::int, 1);
   v_month_day := nullif(p ->> 'month_day', '')::int;
   v_start_date := nullif(p ->> 'start_date', '')::date;
@@ -367,11 +427,6 @@ begin
     coalesce(v_rules -> 'payment_frequencies', '[]'::jsonb) ? v_billing_frequency,
     'billing frequency is not allowed by recurring rules'
   );
-  if v_billing_frequency in ('weekly', 'monthly') then
-    perform public._assert(public._recurring_feature('recurring_billing'), 'Recurring billing is turned off right now.');
-  elsif v_billing_frequency = 'prepaid_package' then
-    perform public._assert(public._recurring_feature('recurring_prepaid_packages'), 'Recurring prepaid packages are turned off right now.');
-  end if;
 
   select * into v_service
     from public.provider_services
@@ -483,6 +538,11 @@ begin
   perform public._assert(v_service_paise > 0 and v_service_paise <= 100000000, 'invalid per-visit amount');
 
   v_discount_bp := coalesce(v_category.recurring_discount_bp, nullif(public._recurring_rule('recurring_discount_bp'), '')::int, 0);
+  perform public._assert(
+    v_discount_bp = 0
+      and coalesce(nullif(public._recurring_rule('recurring_discount_bp'), '')::int, 0) = 0,
+    'recurring discounts are unavailable until both occurrence charge paths apply them'
+  );
   v_discount_per_visit := round(v_service_paise::numeric * v_discount_bp / 10000)::int;
   v_max_plan_days := coalesce(nullif(public._recurring_rule('max_plan_days'), '')::int, 365);
 
@@ -756,7 +816,7 @@ begin
     frequency, interval_count, weekdays, month_day, custom_dates, start_time, timezone,
     session_duration_min, payment_mode, billing_frequency, archetype, package_qty,
     address_line, city, lat, lng, description, starts_on, ends_on, max_occurrences,
-    provider_acceptance, acceptance_mode, decided_at
+    plan_version, provider_acceptance, acceptance_mode, decided_at
   ) values (
     v_uid, (v_internal ->> 'provider_id')::uuid,
     (v_internal ->> 'provider_service_id')::uuid,
@@ -782,6 +842,7 @@ begin
     (v_internal ->> 'starts_on')::date,
     nullif(v_internal ->> 'ends_on', '')::date,
     nullif(v_internal ->> 'max_occurrences', '')::int,
+    'v2',
     v_provider_acceptance,
     v_acceptance_mode,
     case when v_provider_acceptance = 'accepted' then now() else null end
@@ -1203,6 +1264,19 @@ begin
     update public.recurring_schedules set acceptance_mode = 'occurrence', updated_at = now() where id = r.id;
     r.acceptance_mode := 'occurrence';
   end if;
+  if r.plan_version = 'v2' then
+    perform public._assert(exists (
+      select 1
+        from public.provider_services ps
+        join public.categories c on c.id = ps.category_id
+       where ps.id = r.provider_service_id
+         and ps.active
+         and c.active
+         and c.recurrence_allowed
+         and c.archetype = r.archetype
+         and r.frequency = any(c.allowed_frequencies)
+    ), 'recurring service/category is no longer eligible');
+  end if;
   v_horizon_limit := r.starts_on + coalesce(nullif(public._recurring_rule('max_plan_days'), '')::int, 365);
   p_through_date := least(
     p_through_date,
@@ -1353,6 +1427,8 @@ declare
   r record;
   v_total int := 0;
   v_horizon int := coalesce(nullif(public._recurring_rule('horizon_days'), '')::int, 28);
+  v_sqlstate text;
+  v_error text;
 begin
   if not public._recurring_feature('recurring_bookings') then
     return 0;
@@ -1365,7 +1441,37 @@ begin
      limit greatest(least(coalesce(p_limit, 100), 500), 1)
      for update skip locked
   loop
-    v_total := v_total + public.materialize_recurring_schedule(r.id, current_date + v_horizon);
+    begin
+      v_total := v_total + public.materialize_recurring_schedule(r.id, current_date + v_horizon);
+    exception
+      when sqlstate 'P0001' then
+        get stacked diagnostics v_sqlstate = returned_sqlstate, v_error = message_text;
+        if v_error ilike '%recurring service/category is no longer eligible%'
+           or v_error ilike '%service not available%'
+           or v_error ilike '%session package is unavailable%'
+           or v_error ilike '%package does not belong to this service%'
+           or v_error ilike '%session package must be fixed-price%'
+           or v_error ilike '%session package price is required%'
+           or v_error ilike '%active fixed package not found%'
+           or v_error ilike '%category must use the fixed archetype%'
+           or v_error ilike '%quantity is outside the package bounds%'
+           or v_error ilike '%quantity exceeds the configured maximum%' then
+          insert into public.recurring_plan_generation_failures (
+            schedule_id, attempted_through, error_code, message
+          ) values (
+            r.id, current_date + v_horizon, v_sqlstate, left(v_error, 500)
+          );
+          update public.recurring_schedules
+             set status = 'paused',
+                 paused_at = coalesce(paused_at, now()),
+                 updated_at = now()
+           where id = r.id and status = 'active';
+          raise warning 'Recurring plan % paused after generation error %: %',
+            r.id, v_sqlstate, left(v_error, 300);
+        else
+          raise;
+        end if;
+    end;
   end loop;
   return v_total;
 end;
@@ -1593,6 +1699,7 @@ declare
   v_plan jsonb;
   v_occurrences jsonb;
   v_changes jsonb;
+  v_generation_failures jsonb;
 begin
   select * into r from public.recurring_schedules where id = p_id;
   if not found then
@@ -1604,6 +1711,7 @@ begin
     'provider_id', r.provider_id,
     'provider_service_id', r.provider_service_id,
     'service_package_id', r.service_package_id,
+    'plan_version', r.plan_version,
     'frequency', r.frequency,
     'interval_count', r.interval_count,
     'weekdays', to_jsonb(r.weekdays),
@@ -1663,7 +1771,22 @@ begin
     into v_changes
     from public.recurring_occurrence_changes c
    where c.schedule_id = r.id;
-  return jsonb_build_object('plan', v_plan, 'occurrences', v_occurrences, 'changes', v_changes);
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', f.id,
+    'attempted_through', f.attempted_through,
+    'sqlstate', f.error_code,
+    'message', f.message,
+    'created_at', f.created_at
+  ) order by f.created_at desc), '[]'::jsonb)
+    into v_generation_failures
+    from public.recurring_plan_generation_failures f
+   where f.schedule_id = r.id;
+  return jsonb_build_object(
+    'plan', v_plan,
+    'occurrences', v_occurrences,
+    'changes', v_changes,
+    'generation_failures', v_generation_failures
+  );
 end;
 $$;
 
@@ -1823,11 +1946,21 @@ as $$
 declare
   v_uid uuid := public._require_uid();
   ps public.provider_services;
+  v_category public.categories;
   k public.pack_purchases;
   v_id uuid;
 begin
+  perform public._assert(public._recurring_feature('recurring_bookings'), 'Recurring bookings are turned off right now.');
   select * into ps from public.provider_services where id = p_provider_service_id and active;
   perform public._assert(found, 'service not available');
+  select * into v_category from public.categories where id = ps.category_id;
+  perform public._assert(found and v_category.active, 'service category is not available');
+  perform public._assert(
+    v_category.archetype = 'time_based'
+      and v_category.recurrence_allowed
+      and 'weekly' = any(v_category.allowed_frequencies),
+    'weekly recurrence is not enabled for this service category'
+  );
   perform public._assert(public._provider_is_live(ps.provider_id), 'provider is not available');
   perform public._assert_provider_not_paused(ps.provider_id);
   perform public._assert(ps.provider_id <> v_uid, 'cannot schedule your own service');
@@ -1856,7 +1989,8 @@ begin
     customer_id, provider_id, provider_service_id, service_package_id, pack_purchase_id,
     frequency, interval_count, weekdays, month_day, custom_dates, start_time, timezone,
     session_duration_min, payment_mode, billing_frequency, archetype, address_line,
-    city, lat, lng, description, starts_on, ends_on, provider_acceptance, acceptance_mode
+    city, lat, lng, description, starts_on, ends_on, plan_version,
+    provider_acceptance, acceptance_mode
   ) values (
     v_uid, ps.provider_id, ps.id, p_service_package_id, p_pack_id,
     'weekly', 1, array(select distinct x from unnest(p_weekdays) x order by x), null, '{}'::date[],
@@ -1869,7 +2003,7 @@ begin
       else 'per_visit'
     end,
     'time_based', trim(p_address_line), trim(p_city), p_lat, p_lng,
-    coalesce(p_description, ''), p_starts_on, p_ends_on, 'accepted', 'occurrence'
+    coalesce(p_description, ''), p_starts_on, p_ends_on, 'legacy', 'accepted', 'occurrence'
   ) returning id into v_id;
   return v_id;
 end;
@@ -1898,7 +2032,8 @@ revoke all on function public._cancel_recurring_occurrence(uuid, uuid, boolean, 
   public._cancel_recurring_plan_internal(uuid, uuid, boolean, text),
   public._record_recurring_unavailable(uuid, date, timestamptz, text),
   public._recurring_plan_payload(uuid),
-  public._assert_recurring_provider_window(uuid, tstzrange, uuid)
+  public._assert_recurring_provider_window(uuid, tstzrange, uuid),
+  public._guard_recurring_pending_window()
 from public, anon, authenticated;
 
 revoke execute on function public.quote_recurring_plan(jsonb),

@@ -1,6 +1,6 @@
 # Recurring Plans & Visits — BDD
 
-**Status:** Behavior contract for B1; runtime implementation and CI validation pending.
+**Status:** Behavior contract for B1; runtime changes are committed on the B1 lane and CI validation is pending.
 
 ## Discovery
 
@@ -10,7 +10,7 @@
 - **Scope:** recurring-plan validation and quotes; daily, alternate-day, weekly, monthly, and custom-date recurrence; accepted-plan generation; skip, pause, resume, cancellation, rescheduling, provider absence, holiday/time-off handling, reminders, access control, and compatibility with the legacy recurring-schedule RPC.
 - **Out of scope:** recurring billing-cycle execution and payment collection (D1); customer or provider screens (C1/G); changes to the existing booking status model; recurrence for `inspect_quote` or `proposal` services.
 - **Assumptions from the implementation plan:** only `time_based` and `fixed` archetypes can recur; the `recurring_bookings` master flag and its child flags are enforced server-side; category and admin-managed rules govern allowed frequencies and billing options; new customer-facing flags start OFF. Existing plans and bookings remain readable, and money-safety paths for existing work are not disabled by a feature switch.
-- **Business-rule boundaries:** skip/reschedule cutoffs, generation horizon, maximum plan length, reminder lead time, and allowed frequencies come from validated admin-managed rules. Frequencies use schedule-local calendar dates and the plan's configured start time/timezone.
+- **Business-rule boundaries:** skip/reschedule cutoffs, generation horizon, maximum plan length, reminder lead time, and allowed frequencies come from validated admin-managed rules. Frequencies use schedule-local calendar dates and the plan's configured start time/timezone. B1 v2 supports `per_visit` only; its cycle/prepaid billing is rejected until D1 is integrated. Positive v2 recurring discounts are rejected until both archetype charge paths apply them. The legacy schedule RPC keeps its existing payment-mode contract.
 - **Unresolved questions:** none block defining this contract. Prices, fees, discount, time windows, and policy values must be resolved from existing server-side pricing logic and admin-managed rules; the client is never authoritative.
 
 ## Scenarios
@@ -53,6 +53,18 @@ Feature: Recurring-plan quotes
     When the customer requests a quote
     Then the quote contains the server-calculated visit price, applicable fees and tax, discount, and cycle total
     And it reports the first cycle's visit count, total visit count when bounded, billing frequency, and next ten dates
+    And no plan or booking is created
+
+  Scenario: Cycle billing is not quoted even when its flags are enabled
+    Given recurring billing-cycle or prepaid flags have been enabled by an administrator
+    When the customer requests a quote or creates a plan with weekly, monthly, or prepaid billing
+    Then v2 weekly, monthly, and prepaid billing frequencies are rejected until D1's cycle engine is integrated
+    And no plan or booking is created
+
+  Scenario: A discount is not quoted until occurrence charges apply it
+    Given a time-based or fixed category or the global recurring rules have a positive discount
+    When the customer requests a quote or creates a plan
+    Then the server rejects the request until both occurrence charge paths apply the configured discount
     And no plan or booking is created
 ```
 
@@ -306,6 +318,18 @@ Feature: Legacy recurring schedule compatibility
     When the legacy schedule is created
     Then it retains the existing weekly behavior and accepted provider behavior
     And no existing booking status or transition is removed or renamed
+
+  Scenario: New legacy schedule requests obey recurring and category eligibility
+    Given recurring bookings are disabled or the service category disallows weekly recurrence
+    When a caller submits a new legacy recurring-schedule request
+    Then the server refuses the request
+
+  Scenario: Existing legacy schedules remain readable and cancellable when recurring is disabled
+    Given a legacy weekly schedule already exists
+    And recurring bookings have been disabled
+    When its participant reads or cancels that schedule
+    Then the schedule remains readable and cancellation remains available
+    And accepted-provider and per-occurrence lifecycle semantics are unchanged
 ```
 
 ### RP-22 — Reminders are optional and idempotent
@@ -344,6 +368,36 @@ Feature: Recurring child capabilities
     When a customer requests a quote or creates a prepaid-package plan
     Then the server refuses the prepaid-package option
     And existing plans and their money-safety operations remain available
+
+  Scenario: Cycle billing remains unavailable until its engine is integrated
+    Given recurring bookings and recurring billing child flags are enabled
+    When a customer quotes or creates a weekly, monthly, or prepaid plan
+    Then the server refuses the unsupported billing frequency
+```
+
+### RP-24 — One invalidated plan does not starve other plans
+
+```gherkin
+Feature: Recurring generation failure isolation
+  Scenario: A permanently invalidated plan is paused and recorded while the batch continues
+    Given one accepted plan's service, package, or category is no longer eligible
+    And another accepted plan has a valid occurrence in the same generation batch
+    When the generator processes both plans
+    Then the invalid plan is paused without advancing its generated-through date
+    And its SQL error code, message, and attempted-through date are persisted and visible to plan participants
+    And the valid plan still generates its occurrence in the same batch
+    And unclassified database errors are not silently discarded
+```
+
+### RP-25 — Recurring pending-payment visits reserve their provider window
+
+```gherkin
+Feature: Recurring visit reservations
+  Scenario: A pending recurring occurrence remains reserved after the generic hold window
+    Given a recurring occurrence is still pending payment after 30 minutes
+    When another booking attempts to reserve an overlapping provider window
+    Then the new booking is refused under the provider's serialized overlap lock
+    And the recurring occurrence can still follow its existing payment and acceptance lifecycle
 ```
 
 ## Acceptance criteria
@@ -356,6 +410,9 @@ Feature: Recurring child capabilities
 6. Every plan/visit query and mutation enforces participant and provider-role rules.
 7. The master and child feature switches fail closed, while existing-work cancellation/refund paths remain available.
 8. The legacy `create_recurring_schedule` contract and existing booking statuses remain supported.
+9. B1 v2 quotes and creates only `per_visit` plans; positive category or global discounts remain rejected until both v2 archetype charge paths apply them.
+10. A known invalidated plan records a visible failure and is paused without preventing valid plans from generating; unexpected database errors remain surfaced.
+11. A pending recurring payment occurrence continues reserving its provider window after the generic 30-minute pending-payment cutoff.
 
 ## Automation readiness
 
@@ -363,7 +420,7 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 
 | Scenario IDs | Primary DDD context | Planned observable test |
 |---|---|---|
-| RP-01–RP-04 | Recurring Plan Management | Flag-off and child-parent-off rejections; valid quote has no writes; invalid/ineligible inputs are rejected. |
+| RP-01–RP-04 | Recurring Plan Management | Flag-off and child-parent-off rejections; safe quote has no writes; unsupported billing, positive discounts, and invalid/ineligible inputs are rejected. |
 | RP-05–RP-06 | Provider Plan Acceptance | Create leaves zero occurrences; provider/manager acceptance generates; decline requires a reason and notifies. |
 | RP-07–RP-10 | Occurrence Scheduling | Fixture vectors; one booking per eligible date; repeat generation is idempotent; end/max-occurrence limits hold. |
 | RP-11 | Provider Plan Acceptance | Acceptance child flag off selects occurrence-level acceptance. |
@@ -372,9 +429,11 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-18 | Occurrence Change Management | Request, accepted move, decline, cutoff, and occupied-window behavior. |
 | RP-19 | Existing Booking Lifecycle | Provider absence uses the existing cancellation/refund path and records the change. |
 | RP-20 | Recurring Plan Management | Participant reads, unauthorized customer rejection, and manager-versus-staff response authorization. |
-| RP-21 | Legacy Booking Compatibility | Existing `create_recurring_schedule` contract still creates a weekly schedule with legacy behavior. |
+| RP-21 | Legacy Booking Compatibility | New legacy requests obey master/category gates; existing schedules remain readable/cancellable with legacy behavior. |
 | RP-22 | Recurring Notifications | Reminder feature gating and duplicate suppression; reminder-off does not disable generation. |
 | RP-23 | Recurring Plan Management | Skip/pause, reschedule, and prepaid child-flag rejections; plan cancellation remains available with the master flag off. |
+| RP-24 | Occurrence Scheduling | Invalidated plan failure is persisted/visible and isolated while another plan generates; unclassified errors surface. |
+| RP-25 | Provider Availability | A stale pending recurring occurrence blocks an overlapping booking under the provider lock. |
 
 ## Trace links
 
