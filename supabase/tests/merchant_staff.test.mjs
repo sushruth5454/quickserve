@@ -334,10 +334,10 @@ await db.exec(`
   insert into public.sports_activities (id, name, slug) values ('${activity}', 'Badminton', 'badminton');
   insert into public.sports_resources (id, venue_id, activity_id) values
     ('${resourceA}', '${venueA}', '${activity}'), ('${resourceB}', '${venueB}', '${activity}');
-  insert into public.bookings (id, customer_id, provider_id, address_id) values
-    ('10000000-0000-0000-0000-000000000001', '${customer}', '${ownerA}', '80000000-0000-0000-0000-000000000001'),
-    ('10000000-0000-0000-0000-000000000002', '${customer}', '${ownerB}', '80000000-0000-0000-0000-000000000001'),
-    ('10000000-0000-0000-0000-000000000003', '${customer}', '${ownerA}', '80000000-0000-0000-0000-000000000001');
+  insert into public.bookings (id, customer_id, provider_id, category_id, address_id) values
+    ('10000000-0000-0000-0000-000000000001', '${customer}', '${ownerA}', '70000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001'),
+    ('10000000-0000-0000-0000-000000000002', '${customer}', '${ownerB}', '70000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001'),
+    ('10000000-0000-0000-0000-000000000003', '${customer}', '${ownerA}', '70000000-0000-0000-0000-000000000001', '80000000-0000-0000-0000-000000000001');
   update public.bookings set status = 'inspecting' where id = '10000000-0000-0000-0000-000000000003';
   insert into public.messages (booking_id, sender_id, body) values
     ('10000000-0000-0000-0000-000000000001', '${customer}', 'A chat'),
