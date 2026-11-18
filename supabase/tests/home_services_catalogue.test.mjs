@@ -190,7 +190,7 @@ const legacyBookingError = await fails(async () => {
     'authenticated',
     `select public.create_booking(
        $1::uuid, 'Legacy cleaning request', '12 Main Road', 'Review City',
-       17.626, 80.60, null, '{}'::text[], null
+       16.50, 80.60, null, '{}'::text[], null
      ) as id`,
     [legacyServiceId],
   ))[0].id;
