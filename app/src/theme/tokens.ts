@@ -48,13 +48,22 @@ export interface Palette {
   toastBg: string;
   toastBorder: string;
   segmentThumb: string;
+  /** Category identity (pillars) only. Never status, never CTA fill. */
+  catHome: string;
+  catHomeSoft: string;
+  catShops: string;
+  catShopsSoft: string;
+  catSports: string;
+  catSportsSoft: string;
+  catCreators: string;
+  catCreatorsSoft: string;
 }
 
 export const lightPalette: Palette = {
-  primary: '#1E5EFF',
-  primaryPressed: '#1849CC',
-  primarySoft: '#EEF3FF',
-  primaryText: '#1E5EFF',
+  primary: '#1F4FD1',
+  primaryPressed: '#1A40AA',
+  primarySoft: '#EEF2FD',
+  primaryText: '#1F4FD1',
   onPrimary: '#FFFFFF',
   success: '#12B76A',
   successStrong: '#067647',
@@ -85,13 +94,21 @@ export const lightPalette: Palette = {
   star: '#FDB022',
   overlay: 'rgba(16,24,40,0.45)',
   skeleton: '#E9ECF1',
-  bubbleMine: '#1E5EFF',
+  bubbleMine: '#1F4FD1',
   bubbleTheirs: '#F2F4F7',
-  heroFrom: '#1E5EFF',
-  heroTo: '#1849CC',
+  heroFrom: '#1F4FD1',
+  heroTo: '#1A40AA',
   toastBg: '#101828',
   toastBorder: '#101828',
   segmentThumb: '#FFFFFF',
+  catHome: '#0F766E',
+  catHomeSoft: '#E6F4F1',
+  catShops: '#B45309',
+  catShopsSoft: '#FEF3E2',
+  catSports: '#BE185D',
+  catSportsSoft: '#FCE7F1',
+  catCreators: '#6D28D9',
+  catCreatorsSoft: '#F1EBFE',
 };
 
 export const darkPalette: Palette = {
@@ -136,6 +153,14 @@ export const darkPalette: Palette = {
   toastBg: '#1F2A3D',
   toastBorder: '#344054',
   segmentThumb: '#2A3550',
+  catHome: '#5EEAD4',
+  catHomeSoft: '#0B2A27',
+  catShops: '#FCD34D',
+  catShopsSoft: '#2E2208',
+  catSports: '#F9A8D4',
+  catSportsSoft: '#33101F',
+  catCreators: '#C4B5FD',
+  catCreatorsSoft: '#221447',
 };
 
 /** 4-pt scale. Screen gutter 16, card padding 16, sibling cards 12, sections 28. */
