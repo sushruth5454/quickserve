@@ -340,7 +340,7 @@ Format: **Owns** = files the task may edit or create. **Blocked by** = tasks tha
 #### Q-01 E2E on lanes + 3-viewport screenshot baseline (integrator)
 - **Owns:** `.github/workflows/e2e-web.yml`, `e2e/web-smoke.mjs` (screenshot helper only; edit **after** Q-00 merges).
 - **Steps:**
-  1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add a concurrency group `concurrency: { group: e2e-shared-backend, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time.
+  1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add `concurrency: { group: e2e-shared-backend, queue: max, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time; retain queued runs instead of replacing an existing pending run.
   2. Keep the existing screenshot directory: the workflow sets `SHOTS_DIR=${{ github.workspace }}/e2e-shots` (`e2e-web.yml:105`) and already uploads `e2e-shots` (`e2e-web.yml:228`). Only confirm `if: always()` and set retention to 14 days.
   3. Today `web-smoke.mjs` builds one context from `devices['iPhone 15']` (`web-smoke.mjs:26-34`), so an env var alone does nothing. Add a separate **screenshot-only pass**: read `E2E_VIEWPORTS` (default empty = skip). For each `WxH`, create a **new** `browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: W < 768, hasTouch: W < 768 })`, log in, and visit a fixed list of read-only routes (`/`, `/category/<first slug>`, `/sports`, `/shop`, `/bookings`, `/account`). Save each screenshot as `${SHOTS}/vp-${W}x${H}-<route>.png`. The functional steps keep the iPhone 15 context unchanged.
 - **Acceptance:**
@@ -774,7 +774,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
 | Q-00 / doc 17 T1 | code-owned E2E fixes merged; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | fb069de |
-| Q-01 | workflow trigger and 14-day artifact retention integrated; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | main E2E pending | pending |
+| Q-01 | workflow trigger, 14-day retention, and pending-run queue integrated; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351 (cancelled before jobs); 44406412365 (app publish green) | pending |
 | T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
 | I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
