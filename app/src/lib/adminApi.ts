@@ -61,13 +61,46 @@ export interface AdminCategory {
   id: string;
   name: string;
   slug: string;
-  archetype: string;
+  icon: string;
+  parent_id: string | null;
+  vertical: string;
+  archetype: string | null;
+  pricing_units: string[];
+  recurrence_allowed: boolean;
+  allowed_frequencies: string[];
+  recurring_discount_bp: number | null;
+  cancellation_policy: string;
+  requires_docs: string[];
+  restricted: boolean;
+  intake_schema: Record<string, unknown>;
   active: boolean;
   sort_order: number;
   cities: { city: string; live: boolean }[];
   providers: number;
   bookings_30d: number;
 }
+
+interface AdminCategoryUpsertFields {
+  name: string;
+  icon: string;
+  parent_id: string | null;
+  vertical: string;
+  archetype: string | null;
+  pricing_units: string[];
+  recurrence_allowed: boolean;
+  allowed_frequencies: string[];
+  recurring_discount_bp: number | null;
+  cancellation_policy: string;
+  requires_docs: string[];
+  restricted: boolean;
+  sort_order: number;
+  intake_schema: Record<string, unknown>;
+}
+
+export type AdminCategoryUpsert = AdminCategoryUpsertFields & (
+  | { id?: never; slug: string }
+  | { id: string; slug?: never }
+);
 
 export interface AdminProvider {
   id: string;
@@ -158,6 +191,10 @@ export const listCommissionCategories = () => rpc<AdminCommissionCategory[]>('ad
 export const setCategoryCommission = (categoryId: string, bp: number | null) =>
   rpc<void>('admin_set_category_commission', { p_category_id: categoryId, p_bp: bp });
 export const listCategories = () => rpc<AdminCategory[]>('admin_list_categories');
+export const adminUpsertCategory = (category: AdminCategoryUpsert) =>
+  rpc<string>('admin_upsert_category', { p: category });
+export const adminReorderCategories = (ids: string[]) =>
+  rpc<unknown>('admin_reorder_categories', { p_ids: ids });
 export const setCategoryActive = (id: string, active: boolean) =>
   rpc<void>('admin_set_category_active', { p_category_id: id, p_active: active });
 export const setCategoryCity = (id: string, city: string, live: boolean) =>
