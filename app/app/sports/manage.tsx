@@ -87,12 +87,23 @@ export function getSportsVenueSettingsVisibility({
 
 export function resolveSportsVenuePaymentModes(
   configuredModes: readonly SportsPaymentMode[] | null | undefined,
-  onlinePaymentsEnabled: boolean,
-  payoutAccountReady: boolean,
 ): SportsPaymentMode[] {
-  const canUseOnline = onlinePaymentsEnabled && payoutAccountReady;
-  const availableModes = (configuredModes ?? []).filter((mode) => mode === 'pay_at_venue' || (mode === 'online' && canUseOnline));
-  return availableModes.length > 0 ? availableModes : ['pay_at_venue'];
+  const savedModes = (configuredModes ?? []).filter((mode) => mode === 'pay_at_venue' || mode === 'online');
+  return savedModes.length > 0 ? savedModes : ['pay_at_venue'];
+}
+
+export function resolveSportsVenuePaymentModesForSave(
+  configuredModes: readonly SportsPaymentMode[] | null | undefined,
+  selectedModes: readonly SportsPaymentMode[],
+  canSelectOnlinePayment: boolean,
+): SportsPaymentMode[] {
+  const modesToSave = canSelectOnlinePayment
+    ? [...selectedModes]
+    : [
+        ...((configuredModes ?? []).includes('online') ? ['online' as const] : []),
+        ...(selectedModes.includes('pay_at_venue') ? ['pay_at_venue' as const] : []),
+      ];
+  return modesToSave.length > 0 ? modesToSave : ['pay_at_venue'];
 }
 
 export function isSportsCapacityValid(value: string | number): boolean {
@@ -105,10 +116,11 @@ export function resolveSportsResourceSettings(
   capacity: string | number,
   instantBookingEnabled: boolean,
   capacitySlotsEnabled: boolean,
+  storedSettings?: { bookingMode?: SportsBookingMode; capacity?: number },
 ): { bookingMode: SportsBookingMode; capacity: number } {
   return {
-    bookingMode: instantBookingEnabled ? bookingMode : 'approval',
-    capacity: capacitySlotsEnabled ? Number(capacity) : 1,
+    bookingMode: instantBookingEnabled ? bookingMode : (storedSettings?.bookingMode ?? 'approval'),
+    capacity: capacitySlotsEnabled ? Number(capacity) : (storedSettings?.capacity ?? 1),
   };
 }
 
@@ -187,6 +199,7 @@ export default function SportsVenueManagementScreen() {
 
   const selected = useMemo(() => venues.find((item) => item.venue.id === selectedId) ?? null, [selectedId, venues]);
   const resources = selected?.resources ?? [];
+  const selectedResource = resources.find((item) => item.id === resourceId);
   const settingsVisibility = getSportsVenueSettingsVisibility({
     isVenueOwner: Boolean(selected && selected.venue.owner_id === userId),
     instantBookingEnabled,
@@ -247,13 +260,15 @@ export default function SportsVenueManagementScreen() {
   useEffect(() => {
     setPaymentModes(resolveSportsVenuePaymentModes(
       selected?.venue.payment_modes,
-      onlinePaymentsEnabled,
-      selected?.payout_account_ready === true,
     ));
   }, [selected, onlinePaymentsEnabled]);
 
   const saveVenue = async () => {
-    const modesToSave: ('online' | 'pay_at_venue')[] = settingsVisibility.canSelectOnlinePayment ? paymentModes : ['pay_at_venue'];
+    const modesToSave = resolveSportsVenuePaymentModesForSave(
+      selected?.venue.payment_modes,
+      paymentModes,
+      settingsVisibility.canSelectOnlinePayment,
+    );
     setBusy(true);
     setError(null);
     const { data, error: rpcError } = await supabase.rpc('save_sports_venue', {
@@ -286,6 +301,7 @@ export default function SportsVenueManagementScreen() {
       capacity,
       instantBookingEnabled,
       capacitySlotsEnabled,
+      selectedResource,
     );
     if (!isSportsCapacityValid(resourceSettings.capacity)) {
       setError('Capacity must be a whole number from 1 to 100.');
@@ -498,6 +514,16 @@ export default function SportsVenueManagementScreen() {
                     <Text variant="footnoteStrong">Pay at venue</Text>
                   </Card>
                 </Pressable>
+                {!settingsVisibility.showOnlinePaymentOption ? (
+                  <View style={{ gap: t.spacing.xs }}>
+                    <Text variant="footnoteStrong">Online payment (read-only)</Text>
+                    <Text variant="caption" color="muted">
+                      {selected.venue.payment_modes?.includes('online')
+                        ? 'Online payment is configured but unavailable to edit right now. Saving venue details preserves this setting.'
+                        : 'Online payment cannot be selected while the feature is unavailable.'}
+                    </Text>
+                  </View>
+                ) : null}
                 {settingsVisibility.showOnlinePaymentOption ? (
                   <Pressable
                     accessibilityRole="checkbox"
@@ -593,7 +619,17 @@ export default function SportsVenueManagementScreen() {
                       ))}
                     </View>
                   </View>
-                ) : null}
+                ) : (
+                  <View style={{ gap: t.spacing.xs }}>
+                    <Text variant="footnoteStrong">Booking mode (read-only)</Text>
+                    <Text variant="caption" color="muted">
+                      Current setting: {selectedResource?.booking_mode === 'instant' ? 'Instant booking' : 'Venue approval'}.
+                      {' '}{selectedResource
+                        ? 'Instant booking is unavailable right now; saving other resource details preserves this setting.'
+                        : 'New resources use venue approval until instant booking is available.'}
+                    </Text>
+                  </View>
+                )}
                 {settingsVisibility.canEditCapacity ? (
                   <Input
                     label="Participant capacity (1–100)"
@@ -601,7 +637,17 @@ export default function SportsVenueManagementScreen() {
                     onChangeText={setCapacity}
                     keyboardType="number-pad"
                   />
-                ) : null}
+                ) : (
+                  <View style={{ gap: t.spacing.xs }}>
+                    <Text variant="footnoteStrong">Participant capacity (read-only)</Text>
+                    <Text variant="caption" color="muted">
+                      Current setting: {selectedResource?.capacity ?? 1}.
+                      {' '}{selectedResource
+                        ? 'Capacity editing is unavailable right now; saving other resource details preserves this setting.'
+                        : 'New resources use capacity 1 until capacity editing is available.'}
+                    </Text>
+                  </View>
+                )}
                 <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
                   <Button title="Save resource" onPress={() => void saveResource()} loading={busy} disabled={busy || !activityId || (capacitySlotsEnabled && !capacityValid)} style={{ flex: 1 }} />
                   <Button title="Add new" variant="outline" onPress={() => {
