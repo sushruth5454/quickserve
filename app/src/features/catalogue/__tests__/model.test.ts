@@ -1,10 +1,155 @@
-import type { Category } from '../../../lib/types';
-import { groupCatalogueFamilies, groupVerticals, normaliseCatalogue, packagePrice } from '../model';
+import { iconForSlug } from '../../../components/CategoryIcon';
+import {
+  buildCatalogueSections,
+  groupCatalogueFamilies,
+  groupVerticals,
+  normaliseCatalogue,
+  packagePrice,
+  type CatalogueCategory,
+} from '../model';
 import { validateSchema, validateValues } from '../schema';
 import { canPayInstantly, packageDuration, packageTotal } from '../../booking/packages/packageModel';
 
-const category = (id: string, vertical: string, sort_order: number, patch: Partial<Category> = {}): Category => ({
+const category = (id: string, vertical: string, sort_order: number, patch: Partial<CatalogueCategory> = {}): CatalogueCategory => ({
   id, slug: id, name: id, icon: 'construct', pricing_mode: 'quote', sort_order, vertical, ...patch,
+});
+
+test('HSC-03 ON groups serviceable children and preserves server recurrence metadata', () => {
+  const parent = category('group-household', 'household-help', 1, {
+    slug: 'household-help',
+    name: 'Household help',
+    archetype: null as never,
+    parent_id: null,
+    active: false,
+  });
+  const service = category('house-cleaning', 'household-help', 2, {
+    parent_id: parent.id,
+    recurrence_allowed: true,
+    allowed_frequencies: ['daily', 'weekly'],
+  });
+  const inactiveService = category('inactive-cleaning', 'household-help', 3, {
+    parent_id: parent.id,
+    active: false,
+  });
+  const catalogue = normaliseCatalogue([parent, service, inactiveService]);
+
+  expect(catalogue.categories.map((item) => item.slug)).toEqual(['household-help', 'house-cleaning']);
+  expect(catalogue.categories.find((item) => item.slug === 'house-cleaning')).toMatchObject({
+    parent_id: parent.id,
+    recurrence_allowed: true,
+    allowed_frequencies: ['daily', 'weekly'],
+  });
+  expect(buildCatalogueSections(catalogue.verticals, true).map((section) => [
+    section.label,
+    section.categories.map((item) => item.slug),
+  ])).toEqual([['Household help', ['house-cleaning']]]);
+});
+
+test('HSC-03 ON shows legacy cleaning-vertical categories exactly once under their parent groups', () => {
+  const household = category('group-household', 'household-help', 30, {
+    slug: 'household-help',
+    name: 'Household help',
+    archetype: null as never,
+  });
+  const repairs = category('group-repairs', 'home-repairs', 40, {
+    slug: 'home-repairs',
+    name: 'Repair & maintenance',
+    archetype: null as never,
+  });
+  const catalogue = normaliseCatalogue([
+    household,
+    repairs,
+    category('house-cleaning', 'cleaning', 1, { parent_id: household.id, archetype: 'fixed' }),
+    category('pest-control', 'cleaning', 2, { parent_id: repairs.id, archetype: 'fixed' }),
+    category('water-tank-cleaning', 'cleaning', 3, { parent_id: repairs.id, archetype: 'fixed' }),
+  ]);
+  const sections = buildCatalogueSections(catalogue.verticals, true);
+  const slugs = sections.flatMap((section) => section.categories.map((item) => item.slug));
+
+  expect(slugs).toEqual(['house-cleaning', 'pest-control', 'water-tank-cleaning']);
+  expect(sections.map((section) => section.label)).toEqual(['Household help', 'Repair & maintenance']);
+});
+
+test.each(['household-help', 'home-repairs', 'home-other'])(
+  'HSC-03 ON keeps parentless %s services in an explicit fallback section',
+  (vertical) => {
+    const verticals = groupVerticals([
+      category('uncategorized-service', vertical, 10, { parent_id: null, archetype: 'inspect_quote' }),
+    ]);
+
+    expect(buildCatalogueSections(verticals, true).map((section) => [
+      section.label,
+      section.categories.map((item) => item.slug),
+    ])).toEqual([['Other home services', ['uncategorized-service']]]);
+  },
+);
+
+test('HSC-03 ON keeps visible services whose parent group is missing in the fallback section', () => {
+  const catalogue = normaliseCatalogue([
+    category('service-with-missing-parent', 'home-repairs', 10, {
+      parent_id: 'unreturned-group',
+      archetype: 'inspect_quote',
+    }),
+  ]);
+
+  expect(buildCatalogueSections(catalogue.verticals, true).map((section) => [
+    section.label,
+    section.categories.map((item) => item.slug),
+  ])).toEqual([['Other home services', ['service-with-missing-parent']]]);
+});
+
+test('HSC-03 OFF preserves the legacy family label and flat category list', () => {
+  const catalogue = normaliseCatalogue([
+    category('electrician', 'home-repairs', 10, { parent_id: 'legacy-group' }),
+    category('plumber', 'home-repairs', 20, { parent_id: 'legacy-group' }),
+  ]);
+
+  expect(groupCatalogueFamilies(catalogue.verticals)).toEqual([
+    { slug: 'home', label: 'Home & vehicle services', verticalSlugs: ['home-repairs'] },
+  ]);
+  expect(buildCatalogueSections(catalogue.verticals, false).map((section) => [
+    section.label,
+    section.categories.map((item) => item.slug),
+  ])).toEqual([['Home repairs', ['electrician', 'plumber']]]);
+});
+
+test('HSC-03 maps the expanded home-service verticals without claiming other verticals', () => {
+  const homeSlugs = ['household-help', 'home-repairs', 'home-other', 'cleaning', 'auto'];
+  const verticals = groupVerticals([
+    ...homeSlugs.map((slug, index) => category(`group-${slug}`, slug, index + 1, {
+      name: slug,
+      archetype: null as never,
+    })),
+    category('unknown', 'specialist-services', 20),
+  ]);
+
+  expect(groupCatalogueFamilies(verticals)).toEqual([
+    { slug: 'home', label: 'Home services', verticalSlugs: homeSlugs },
+    { slug: 'more', label: 'More services', verticalSlugs: ['specialist-services'] },
+  ]);
+});
+
+test('HSC-03 omits parent groups that have no serviceable children', () => {
+  const parent = category('group-household', 'household-help', 1, {
+    name: 'Household help',
+    archetype: null as never,
+  });
+
+  expect(buildCatalogueSections(groupVerticals([parent]), true)).toEqual([]);
+});
+
+test('HSC-03 provides icon mappings for every seeded home-service category slug', () => {
+  const seededSlugs = [
+    'household-help', 'home-repairs', 'home-other', 'house-cleaning', 'deep-cleaning',
+    'bathroom-cleaning', 'kitchen-cleaning', 'sofa-carpet-cleaning', 'full-house-cleaning',
+    'dishwashing', 'laundry-ironing', 'cooking-meal-prep', 'daily-cook', 'part-time-cook',
+    'full-time-cook', 'maid-household-helper', 'electrician', 'plumber', 'carpenter',
+    'painter', 'ac-repair', 'ac-servicing', 'appliance-repair', 'fridge-washing-machine-repair',
+    'ro-water-purifier-service', 'pest-control', 'water-tank-cleaning', 'appliance-installation',
+    'gardening', 'packers-movers', 'home-sanitisation', 'babysitting', 'elderly-assistance',
+  ];
+
+  expect(seededSlugs.filter((slug) => !iconForSlug(slug))).toEqual([]);
 });
 
 test('normalises flat and vertical catalogue payloads without a fixed category count', () => {
