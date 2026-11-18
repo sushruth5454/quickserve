@@ -116,20 +116,22 @@ export default function UnifiedActivityScreen() {
       onRefresh={() => void refreshAll()}
       gap={t.spacing.md}
     >
-      {activeSegment === 'services' ? (
-        <ServicesSegment registerRefresh={registerRefresh} markRead={activityUnread.markRead} />
-      ) : activeSegment === 'requests' ? (
-        <RequestsSegment registerRefresh={registerRefresh} markRead={activityUnread.markRead} />
-      ) : activeSegment === 'shop' ? (
-        <ShopSegment
-          enquiriesEnabled={productsEnabled && flags.isOn('product_enquiries')}
-          rfqEnabled={productsEnabled && flags.isOn('product_rfq')}
-          registerRefresh={registerRefresh}
-          markRead={activityUnread.markRead}
-        />
-      ) : (
-        <SportsSegment registerRefresh={registerRefresh} markRead={activityUnread.markRead} />
-      )}
+      <View testID={`my-activity-panel-${activeSegment}`}>
+        {activeSegment === 'services' ? (
+          <ServicesSegment registerRefresh={registerRefresh} markRead={activityUnread.markRead} />
+        ) : activeSegment === 'requests' ? (
+          <RequestsSegment registerRefresh={registerRefresh} markRead={activityUnread.markRead} />
+        ) : activeSegment === 'shop' ? (
+          <ShopSegment
+            enquiriesEnabled={productsEnabled && flags.isOn('product_enquiries')}
+            rfqEnabled={productsEnabled && flags.isOn('product_rfq')}
+            registerRefresh={registerRefresh}
+            markRead={activityUnread.markRead}
+          />
+        ) : (
+          <SportsSegment registerRefresh={registerRefresh} markRead={activityUnread.markRead} />
+        )}
+      </View>
     </Screen>
   );
 }

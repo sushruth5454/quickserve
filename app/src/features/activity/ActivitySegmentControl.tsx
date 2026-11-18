@@ -34,6 +34,7 @@ export function ActivitySegmentControl({
         return (
           <Pressable
             key={option.value}
+            testID={`activity-segment-${option.value}`}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             accessibilityLabel={label}
