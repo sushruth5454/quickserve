@@ -2,6 +2,9 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../../src/components/ui';
+import { SpecFields } from '../../../src/features/shops/SpecFields';
+import { listProductCategories, type ProductCategory } from '../../../src/features/shops/api';
+import { cleanSpecs } from '../../../src/features/shops/specs';
 import {
   getSupplierRfq,
   sendSupplierQuote,
@@ -15,7 +18,7 @@ type QuoteDraft = {
   rfqItemId: string;
   brand: string;
   model: string;
-  specs: string;
+  specs: Record<string, string>;
   unitPriceRupees: string;
   gstRate: string;
   available: boolean;
@@ -23,18 +26,13 @@ type QuoteDraft = {
 
 const gstRates = [0, 500, 1200, 1800, 2800];
 
-function parseSpecs(value: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(value || '{}');
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Quoted specifications must be a JSON object.');
-  return parsed as Record<string, unknown>;
-}
-
 export default function MerchantRfqQuoteScreen() {
   const t = useTheme();
   const toast = useToast();
   const { rfq: enabled } = useRfqFeatureFlags();
   const { id, shopId } = useLocalSearchParams<{ id: string; shopId?: string }>();
   const [rfq, setRfq] = useState<SupplierRfq | null>(null);
+  const [attributeSchema, setAttributeSchema] = useState<ProductCategory['attribute_schema']>({ properties: {} });
   const [drafts, setDrafts] = useState<QuoteDraft[]>([]);
   const [deliveryCharge, setDeliveryCharge] = useState('0');
   const [deliveryDays, setDeliveryDays] = useState('');
@@ -47,13 +45,17 @@ export default function MerchantRfqQuoteScreen() {
     if (!enabled || !id) return;
     setLoading(true);
     try {
-      const next = await getSupplierRfq(id, shopId || undefined);
+      const [next, categories] = await Promise.all([
+        getSupplierRfq(id, shopId || undefined),
+        listProductCategories(),
+      ]);
       setRfq(next);
+      setAttributeSchema(categories.find((category) => category.name === next.category_name)?.attribute_schema ?? { properties: {} });
       setDrafts((current) => current.length ? current : next.items.map((item) => ({
         rfqItemId: item.id,
         brand: '',
         model: '',
-        specs: '{}',
+        specs: {},
         unitPriceRupees: '',
         gstRate: '1800',
         available: true,
@@ -88,7 +90,7 @@ export default function MerchantRfqQuoteScreen() {
           rfq_item_id: draft.rfqItemId,
           brand: draft.brand.trim(),
           model: draft.model.trim(),
-          specs: parseSpecs(draft.specs),
+          specs: cleanSpecs(draft.specs),
           unit_price_paise: draft.available ? Math.round(rupees * 100) : 0,
           gst_rate_bp: gstRate,
           available: draft.available,
@@ -181,7 +183,11 @@ export default function MerchantRfqQuoteScreen() {
                     <Input label="Unit price" prefix="₹" keyboardType="decimal-pad" value={draft.unitPriceRupees} onChangeText={(value) => updateDraft(item.id, { unitPriceRupees: value })} />
                     <Input label="Brand offered" value={draft.brand} onChangeText={(value) => updateDraft(item.id, { brand: value })} maxLength={80} />
                     <Input label="Model (optional)" value={draft.model} onChangeText={(value) => updateDraft(item.id, { model: value })} maxLength={80} />
-                    <TextArea label="Specifications offered (JSON object)" value={draft.specs} onChangeText={(value) => updateDraft(item.id, { specs: value })} maxLength={1000} />
+                    <SpecFields
+                      schema={attributeSchema}
+                      value={draft.specs}
+                      onChange={(value) => updateDraft(item.id, { specs: value })}
+                    />
                     <View style={{ gap: t.spacing.xs }}>
                       <Text variant="subhead" color="textSecondary">GST rate</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
