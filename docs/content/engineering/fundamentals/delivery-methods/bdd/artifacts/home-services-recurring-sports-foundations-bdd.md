@@ -8,6 +8,75 @@ W0 establishes admin-managed feature switches, parent/child switch semantics, va
 
 ## Scenarios
 
+### H1-SC-01 — Admin rules entry point follows its feature switch
+
+```gherkin
+Feature: Admin rules editor visibility
+  Scenario: An authorized admin opens the rules editor while enabled
+    Given the caller is an authorized admin
+    And admin_rules_editor is enabled
+    When the caller opens the admin home
+    Then the Rules entry point is visible
+    And opening Rules loads the recurring and sports rules
+
+  Scenario: The rules editor is unavailable while disabled
+    Given admin_rules_editor is disabled
+    When a caller opens the admin home or navigates to the rules route
+    Then the Rules entry point is hidden
+    And the rules screen does not expose editable rule controls
+```
+
+### H1-SC-02 — Rules display loading, error, and formatted values
+
+```gherkin
+Feature: Admin rules presentation
+  Scenario: Saved integer rules are displayed in human units
+    Given the rules are loading
+    When the rules response is received
+    Then a loading state is replaced by the Recurring rules and Sports rules sections
+    And paise amounts are displayed as rupees
+    And basis-point percentages are displayed as percentages
+
+  Scenario: Rules fail to load
+    Given the rules request fails
+    When the screen handles the failure
+    Then an error state is shown with a retry action
+    And the screen does not present unsaved defaults as saved rules
+```
+
+### H1-SC-03 — Admin edits and saves rules without losing storage precision
+
+```gherkin
+Feature: Admin rules editing
+  Scenario: Valid human-unit values are converted and saved
+    Given an authorized admin has loaded the current rules
+    When the admin enters valid rupee, percentage, and other rule values
+    And saves the recurring or sports rules
+    Then the client sends integer paise and basis-point values to admin_set_rules
+    And a successful save is acknowledged
+    And the saved values remain displayed in human units
+
+  Scenario: Invalid values or a rejected save are not reported as successful
+    Given an authorized admin is editing rules
+    When an amount or percentage is malformed or outside the supported range
+    Then validation identifies the invalid input and prevents the save
+    When the server rejects an otherwise submitted rules object
+    Then the server error is shown and the screen does not show a success state
+```
+
+### H1-SC-04 — Child feature switches explain their disabled parent
+
+```gherkin
+Feature: Parent and child feature switch presentation
+  Scenario: Child switches are visibly dependent on a disabled parent
+    Given a feature-switch group contains a parent and child switches
+    And the parent switch is disabled
+    When an admin views the feature-switch registry
+    Then the child switches are grouped beneath and visually de-emphasized from the parent
+    And each child is disabled for interaction
+    And an explanation says that the child cannot take effect until its parent is enabled
+```
+
 ### W0-SC-01 — Every addendum feature has an admin switch
 
 ```gherkin

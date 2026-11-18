@@ -23,8 +23,26 @@ The existing feature registry and `app_config` remain the configuration source o
 |---|---|---|
 | **Feature configuration** | `feature_flags`, parent-child effective checks, client `useFeature` helper | Registry is the source of truth. Child flags fail closed unless the parent is enabled. The client hides affordances, but every server write independently enforces the same gate. |
 | **Admin policy configuration** | Allowlisted `recurring_rules` and `sports_rules` JSON in `app_config`; admin read/write RPCs | Only admins can write. RPC validates keys, types, enums and ranges; every write is audited. Business decisions never trust client-provided policy values. |
+| **Admin rules presentation (H1)** | Admin rules route, rules navigation entry, typed rules API adapter, human-unit input and display | The `admin_rules_editor` switch controls the admin UI entry point and editor. The API adapter calls only `admin_get_rules` and `admin_set_rules`; the server remains the authorization and validation boundary. Stored amounts remain integer paise and percentages remain integer basis points. |
 | **Notification contract** | Addendum notification kinds and safe client-route mapping | Extend the existing kind constraint using its current expression; do not replace unrelated legacy kinds. Unknown route payloads fail closed. |
 | **Availability** | Private `_assert_provider_window_free` helper | Acquires the provider advisory transaction lock and uses the existing overlap predicate. Callers must still validate provider hours, holidays, time-off, and business authorization. |
+
+## H1 UI invariants
+
+- The Rules entry point and editable rules controls are hidden when `admin_rules_editor` is off; hiding is a UI affordance, not a replacement for the admin-only RPC checks.
+- The rules screen reads and writes through a typed adapter for the existing `admin_get_rules(p_key text)` and `admin_set_rules(p_key text, p_value jsonb)` contract. It does not read or write `app_config` directly.
+- The UI displays paise as rupees and basis points as percentages, and converts back to integer storage units before saving. Invalid, non-finite, out-of-range, or unrepresentable values are not submitted; server validation errors remain visible to the admin.
+- Loading, retryable error, and successful-save feedback are distinct screen states. A failed read or write must not be presented as a successful save.
+- Child feature switches remain grouped with their parent. When a parent is off, each child is visibly disabled and explains that enabling the child alone cannot make it effective.
+
+## H1 scenario and test mapping
+
+| BDD scenario | Domain responsibility | Planned Jest coverage |
+|---|---|---|
+| `H1-SC-01` | Feature configuration / Admin rules presentation | Hide the Rules entry and editor when `admin_rules_editor` is off; expose it when on for the authorized admin UI. |
+| `H1-SC-02` | Admin rules presentation | Loading/error/retry states and paise/basis-point formatting. |
+| `H1-SC-03` | Admin policy configuration / Admin rules presentation | Exact rupee↔paise and percentage↔basis-point conversions; validation and save-error feedback. |
+| `H1-SC-04` | Feature configuration | Parent/child grouping and disabled-child explanation while the parent is off. |
 
 ## Cross-cutting policy
 
