@@ -55,6 +55,16 @@ const migrationFiles = fs.readdirSync(migrationsDir)
 for (const name of migrationFiles) await db.exec(migration(name));
 await db.exec(migration('0062_coins_hardening.sql'));
 await db.exec("set timezone = 'UTC'");
+const [{ id: acRepairCategoryId }] = (await db.query(
+  `select id from public.categories where slug = 'ac-repair'`,
+)).rows;
+await db.query(
+  `insert into public.category_cities (category_id, city, live, launched_at)
+   values ($1::uuid, $2::text, true, now())
+   on conflict (category_id, city) do update
+     set live = true, launched_at = coalesce(public.category_cities.launched_at, excluded.launched_at)`,
+  [acRepairCategoryId, 'Vijayawada'],
+);
 
 const { ok, scenario, finish } = createHarness();
 const check = (condition, label, actual) =>
@@ -370,7 +380,7 @@ await scenario('WS9-T16 closing without an approved quote does not block payout 
   const bookingId = await createVisit(actors);
   await db.query(
     `update public.bookings
-        set archetype = 'time_based', approved_quote_id = null, status = 'completed'
+        set approved_quote_id = null, status = 'completed'
       where id = $1::uuid`,
     [bookingId],
   );
