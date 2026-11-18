@@ -340,7 +340,7 @@ Format: **Owns** = files the task may edit or create. **Blocked by** = tasks tha
 #### Q-01 E2E on lanes + 3-viewport screenshot baseline (integrator)
 - **Owns:** `.github/workflows/e2e-web.yml`, `e2e/web-smoke.mjs` (screenshot helper only; edit **after** Q-00 merges).
 - **Steps:**
-  1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add a concurrency group `concurrency: { group: e2e-shared-backend, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time.
+  1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add `concurrency: { group: e2e-shared-backend, queue: max, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time; retain queued runs instead of replacing an existing pending run.
   2. Keep the existing screenshot directory: the workflow sets `SHOTS_DIR=${{ github.workspace }}/e2e-shots` (`e2e-web.yml:105`) and already uploads `e2e-shots` (`e2e-web.yml:228`). Only confirm `if: always()` and set retention to 14 days.
   3. Today `web-smoke.mjs` builds one context from `devices['iPhone 15']` (`web-smoke.mjs:26-34`), so an env var alone does nothing. Add a separate **screenshot-only pass**: read `E2E_VIEWPORTS` (default empty = skip). For each `WxH`, create a **new** `browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: W < 768, hasTouch: W < 768 })`, log in, and visit a fixed list of read-only routes (`/`, `/category/<first slug>`, `/sports`, `/shop`, `/bookings`, `/account`). Save each screenshot as `${SHOTS}/vp-${W}x${H}-<route>.png`. The functional steps keep the iPhone 15 context unchanged.
 - **Acceptance:**
@@ -774,7 +774,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
 | Q-00 / doc 17 T1 | code-owned E2E fixes merged; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | fb069de |
-| Q-01 | workflow trigger and 14-day artifact retention integrated; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | main E2E pending | pending |
+| Q-01 | workflow trigger, 14-day retention, and pending-run queue integrated; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351 (cancelled before jobs); 44406412365 (app publish green) | 5152f6c |
 | T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
 | I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
@@ -785,13 +785,13 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | R-04 | blocked by doc 17 B2 | — | — | — |
 | R-05 | blocked by doc 17 O4 | — | — | — |
 | R-06 | blocked by doc 17 S2 | — | — | — |
-| R-07 | ready to launch; no doc 17 file conflict | pending | — | — |
-| C-01 | ready to launch | pending | — | — |
-| C-02 | ready to launch | pending | — | — |
+| R-07 | implementing; no doc 17 file conflict | 300c6bc6-044b-4430-84e0-d3a3d0c3ebfc | pending | — |
+| C-01 | implementing; lane CI running | 1fb8208b-f4e6-4809-94a5-2450f1f4578f | 44407653200 (in progress); 44407653134 (E2E cancelled) | — |
+| C-02 | lane CI green; ready for merge; E2E cancelled before execution | 46d09a0a-7fdb-4228-8221-dfcd109d0f01 | 44407464640 (green); 44407464583 (E2E cancelled) | — |
 | C-03 | blocked by T-01, I-01, and C-02 | — | — | — |
-| C-04 | ready to launch | pending | — | — |
-| C-05 | ready to launch | pending | — | — |
-| C-06 | ready to launch | pending | — | — |
+| C-04 | fixing lane CI failures in one follow-up push | 2ad9ec1a-b7ad-47c3-98b5-c09729e3acce | 44407189279 (failed); 44407648537 (follow-up in progress); 44407648329 (E2E cancelled) | — |
+| C-05 | implementing; lane CI running | 07879722-0a44-46a3-b508-a7924f3e168a | 44407691801 (in progress); 44407691759 (E2E cancelled) | — |
+| C-06 | fixing typecheck failure; follow-up CI queued | 0328e331-9d52-4778-97e5-e6737df3e1a8 | 44407569867 (failed); 44407916876 (queued); 44407916872 (E2E pending) | — |
 | C-08 | blocked by T-01, I-01, and C-05 | — | — | — |
 | H-01 | blocked by components and doc 17 U3 | — | — | — |
 | H-02 | blocked by components | — | — | — |
