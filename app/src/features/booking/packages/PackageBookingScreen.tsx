@@ -7,16 +7,16 @@ import { useSelectedLocation } from '../../../lib/locationContext';
 import { friendlyDbError } from '../../../lib/onboarding/supabaseOnboarding';
 import { formatINR } from '../../../lib/money';
 import { usePayment } from '../../../lib/payments';
-import { asapStart, dayLabel, istParts, nextDays, relativeTimeLabel, SERVICE_TIMEZONE, windowLabel, windowStart } from '../../../lib/schedule';
+import { asapStart, dayLabel, nextDays, relativeTimeLabel, windowLabel, windowStart } from '../../../lib/schedule';
 import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
 import { asapAvailable } from '../../../lib/onboarding/availability';
 import { useTheme } from '../../../theme';
 import { useAppFeatureFlags } from '../../../lib/featureFlags';
-import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
+import { createFixedPackageBooking, createPackPayment, createTimeBooking, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
-import { canPayInstantly, getTimeBookingModes, packageDuration, packageTotal } from './packageModel';
+import { canPayInstantly, getTimeBookingModes, packageDuration, packageRepeatPlanRoute, packageTotal } from './packageModel';
 
 export function PackageBookingScreen({ packageId, archetype }: { packageId: string; archetype: 'fixed' | 'time_based' }) {
   const t = useTheme();
@@ -28,7 +28,6 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [pack, setPack] = useState(false);
-  const [recurring, setRecurring] = useState(false);
   const [dayIndex, setDayIndex] = useState(0);
   const [hour, setHour] = useState(10);
   const [intake, setIntake] = useState<Record<string, unknown>>({});
@@ -36,9 +35,11 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const [asap, setAsap] = useState(archetype === 'fixed');
   const [sched, setSched] = useState<ProviderSchedule | null>(null);
   const days = useMemo(() => nextDays(new Date(), 14), []);
-  const timeBookingModes = getTimeBookingModes(flags.isOn('recurring_bookings'), item?.category);
-  const weeklyRecurrenceAvailable = timeBookingModes.includes('weekly');
-  const useRecurring = recurring && weeklyRecurrenceAvailable && !pack;
+  const timeBookingModes = getTimeBookingModes(
+    flags.isOn('recurring_bookings') && flags.archetypes?.time_based === true,
+    item?.category,
+  );
+  const repeatPlanAvailable = timeBookingModes.includes('repeat') && quantity === 1;
   const day = days[dayIndex]!;
   const load = () => {
     setError(null);
@@ -68,10 +69,6 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       .catch((caught: Error) => alive && setError(caught.message));
     return () => { alive = false; };
   }, [packageId]);
-
-  useEffect(() => {
-    if (!weeklyRecurrenceAvailable) setRecurring(false);
-  }, [weeklyRecurrenceAvailable]);
 
   if (!item) return (
     <Screen header={<Header title="Book package" />}>
@@ -118,28 +115,6 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         await pay(bookingId);
         router.replace({ pathname: '/booking/[id]', params: { id: bookingId } });
       } else {
-        if (useRecurring) {
-          await createRecurringSchedule({
-            providerServiceId: item.providerServiceId,
-            packageId,
-            packId: null,
-            paymentMode: 'per_session',
-            weekdays: [istParts(start).weekday === 0 ? 7 : istParts(start).weekday],
-            startTime: `${String(hour).padStart(2, '0')}:00`,
-            timezone: SERVICE_TIMEZONE,
-            durationMin: totalMinutes,
-            startsOn: start,
-            endsOn: null,
-            addressLine: location.line1 ?? '',
-            city: location.city,
-            lat: location.lat,
-            lng: location.lng,
-            description: JSON.stringify(intake),
-          });
-          router.replace('/bookings');
-          toast({ message: 'Weekly schedule created', tone: 'success' });
-          return;
-        }
         const result = await createTimeBooking({
           packageId,
           quantity,
@@ -180,8 +155,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       header={<Header title={archetype === 'fixed' ? 'Book package' : pack ? 'Buy a session pack' : 'Book a session'} right={<IconButton icon="location-outline" onPress={() => router.push('/location')} accessibilityLabel="Change service address" />} />}
       footer={
         <View style={{ gap: t.spacing.sm }}>
-          <PriceRow label={pack ? `${quantity} sessions + ₹49 pack fee` : useRecurring ? 'Per session' : 'Total'} amount={useRecurring ? total : dueNow} emphasis="total" />
-          <Button title={useRecurring ? 'Schedule weekly' : `Pay ${formatINR(dueNow)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon={useRecurring ? 'calendar-outline' : 'lock-closed'} />
+          <PriceRow label={pack ? `${quantity} sessions + ₹49 pack fee` : 'Total'} amount={dueNow} emphasis="total" />
+          <Button title={`Pay ${formatINR(dueNow)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon="lock-closed" />
         </View>
       }
     >
@@ -197,11 +172,21 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         <View style={{ gap: t.spacing.sm }}>
           <Text variant="title3">Booking type</Text>
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            <Choice label="One session" selected={!pack && !useRecurring} onPress={() => { setPack(false); setRecurring(false); setQuantity(1); }} />
-            {weeklyRecurrenceAvailable ? <Choice label="Weekly" selected={useRecurring} onPress={() => { setPack(false); setRecurring(true); setQuantity(1); }} /> : null}
-            <Choice label="Session pack" selected={pack} onPress={() => { setPack(true); setRecurring(false); setQuantity(Math.max(3, Number(item.package.qty_min))); }} />
+            <Choice label="One session" selected={!pack} onPress={() => { setPack(false); setQuantity(1); }} />
+            {repeatPlanAvailable ? (
+              <Choice
+                label="Repeat plan"
+                selected={false}
+                onPress={() => router.push(packageRepeatPlanRoute(
+                  item.providerServiceId,
+                  packageId,
+                  packageDuration(item.package, 1),
+                  JSON.stringify(intake),
+                ))}
+              />
+            ) : null}
+            <Choice label="Session pack" selected={pack} onPress={() => { setPack(true); setQuantity(Math.max(3, Number(item.package.qty_min))); }} />
           </View>
-          {useRecurring ? <Text variant="footnote" color="muted">Same weekday and time for the next 28 days. Pay each session separately.</Text> : null}
         </View>
       ) : null}
 

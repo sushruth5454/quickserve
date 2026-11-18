@@ -22,7 +22,7 @@ export interface RecurringPlanInput {
   description: string;
 }
 
-export type RecurringPlanQuoteInput = Omit<RecurringPlanInput, 'address_id' | 'description'>;
+export type RecurringPlanQuoteInput = Omit<RecurringPlanInput, 'description'>;
 
 export interface RecurringQuote {
   per_visit_paise: number;

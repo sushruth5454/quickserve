@@ -25,46 +25,34 @@ describe('customer recurring screens', () => {
     expect(getFixedBookingModeOptions(true, true)).toEqual(['one-time', 'repeat']);
   });
 
-  it('RP-23 limits billing choices to per-visit when recurring billing is off', () => {
-    expect(visibleBillingFrequencies(['per_visit', 'weekly', 'monthly', 'prepaid_package'], false, true)).toEqual([
+  it('RP-23 exposes only B1 per-visit billing before D1 is integrated', () => {
+    expect(visibleBillingFrequencies(['per_visit', 'weekly', 'monthly', 'prepaid_package'])).toEqual([
       'per_visit',
     ]);
-  });
-
-  it('RP-23 hides prepaid packages when their child switch is off', () => {
-    expect(visibleBillingFrequencies(['per_visit', 'prepaid_package'], true, false)).toEqual(['per_visit']);
-  });
-
-  it('RP-23 shows only configured billing choices when their switches are on', () => {
-    expect(visibleBillingFrequencies(['per_visit', 'weekly', 'monthly', 'prepaid_package'], true, true)).toEqual([
-      'per_visit',
-      'weekly',
-      'monthly',
-      'prepaid_package',
-    ]);
+    expect(visibleBillingFrequencies(['weekly', 'monthly', 'prepaid_package'])).toEqual([]);
   });
 
   it('RP-03 displays the server quote values and only the next five server dates', () => {
     const dates = ['2026-12-01', '2026-12-03', '2026-12-05', '2026-12-07', '2026-12-09', '2026-12-11'];
     expect(getRecurringQuoteSummary({
       per_visit_paise: 12500,
-      visits_in_first_cycle: 4,
+      visits_in_first_cycle: 1,
       visits_total: 12,
-      discount_bp: 500,
-      discount_paise: 2500,
+      discount_bp: 0,
+      discount_paise: 0,
       platform_fee_paise: 2900,
       gst_paise: 0,
-      total_paise_per_cycle: 50400,
+      total_paise_per_cycle: 15400,
       billing_frequency: 'per_visit',
       first_dates: dates,
     })).toEqual({
       perVisitPaise: 12500,
-      visitsInFirstCycle: 4,
+      visitsInFirstCycle: 1,
       visitsTotal: 12,
-      discountPaise: 2500,
+      discountPaise: 0,
       platformFeePaise: 2900,
       gstPaise: 0,
-      totalPaisePerCycle: 50400,
+      totalPaisePerCycle: 15400,
       billingFrequency: 'per_visit',
       firstDates: dates.slice(0, 5),
     });
@@ -101,5 +89,6 @@ describe('customer recurring screens', () => {
     expect(shouldShowRepeatPlansFilter(false, 0)).toBe(false);
     expect(shouldShowRepeatPlansFilter(false, 1)).toBe(true);
     expect(shouldShowRepeatPlansFilter(true, 0)).toBe(true);
+    expect(shouldShowRepeatPlansFilter(false, 0, true)).toBe(true);
   });
 });

@@ -205,24 +205,29 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
   const [tab, setTab] = useState<'active' | 'past' | 'plans'>('active');
   const [error, setError] = useState<string | null>(null);
   const [plansError, setPlansError] = useState<string | null>(null);
+  const [plansLoading, setPlansLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [bookingResult, planResult] = await Promise.allSettled([
-      listMyBookings(),
-      listMyRecurringPlans(),
-    ]);
-    if (bookingResult.status === 'fulfilled') {
-      setBookings(bookingResult.value);
-      setError(null);
-    } else {
-      setError((bookingResult.reason as Error).message);
-    }
-    if (planResult.status === 'fulfilled') {
-      setPlans(parseActivityPlans(planResult.value));
-      setPlansError(null);
-    } else {
-      setPlans([]);
-      setPlansError((planResult.reason as Error).message);
+    setPlansLoading(true);
+    setPlansError(null);
+    try {
+      const [bookingResult, planResult] = await Promise.allSettled([
+        listMyBookings(),
+        listMyRecurringPlans(),
+      ]);
+      if (bookingResult.status === 'fulfilled') {
+        setBookings(bookingResult.value);
+        setError(null);
+      } else {
+        setError((bookingResult.reason as Error).message);
+      }
+      if (planResult.status === 'fulfilled') {
+        setPlans(parseActivityPlans(planResult.value));
+      } else {
+        setPlansError((planResult.reason as Error).message);
+      }
+    } finally {
+      setPlansLoading(false);
     }
   }, []);
 
@@ -232,7 +237,11 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
   const active = (bookings ?? []).filter((booking) => activeStatuses.includes(booking.status));
   const past = (bookings ?? []).filter((booking) => !activeStatuses.includes(booking.status));
   const list = tab === 'active' ? active : past;
-  const showPlansFilter = shouldShowRepeatPlansFilter(recurringEnabled, plans?.length ?? 0);
+  const showPlansFilter = shouldShowRepeatPlansFilter(
+    recurringEnabled,
+    plans?.length ?? 0,
+    plans === null || plansLoading || !!plansError,
+  );
   useEffect(() => {
     if (tab === 'plans' && !showPlansFilter) setTab('active');
   }, [tab, showPlansFilter]);
@@ -240,9 +249,6 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
     void markRead('booking', booking.id).catch(() => undefined);
     router.push({ pathname: '/booking/[id]', params: { id: booking.id } });
   };
-
-  if (error && !bookings) return <ErrorState message={error} onRetry={() => void load()} />;
-  if (!bookings) return Array.from({ length: 4 }).map((_, index) => <SkeletonBookingCard key={index} />);
 
   return (
     <>
@@ -256,6 +262,24 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
         onChange={setTab}
         accessibilityLabel="Service activity filter"
       />
+      {tab !== 'plans' && error && !!bookings?.length ? (
+        <InlineAlert
+          tone="danger"
+          title="Could not refresh bookings"
+          message={error}
+          actionLabel="Retry"
+          onAction={() => void load()}
+        />
+      ) : null}
+      {tab === 'plans' && plansError && !!plans?.length ? (
+        <InlineAlert
+          tone="danger"
+          title="Could not refresh repeat plans"
+          message={plansError}
+          actionLabel="Retry"
+          onAction={() => void load()}
+        />
+      ) : null}
       {tab === 'plans' ? (
         plansError && !plans?.length ? (
           <ErrorState message={plansError} onRetry={() => void load()} />
@@ -285,6 +309,10 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
             );
           })
         )
+      ) : error && !bookings ? (
+        <ErrorState message={error} onRetry={() => void load()} />
+      ) : !bookings ? (
+        Array.from({ length: 4 }).map((_, index) => <SkeletonBookingCard key={index} />)
       ) : list.length === 0 ? (
         <EmptyState
           icon={tab === 'active' ? 'calendar-outline' : 'time-outline'}

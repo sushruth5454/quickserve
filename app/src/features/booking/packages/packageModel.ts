@@ -1,7 +1,32 @@
 import { formatINR } from '../../../lib/money';
 import type { Category, ServicePackage } from '../../../lib/types';
 
-export type TimeBookingMode = 'one-time' | 'weekly' | 'session-pack';
+export type TimeBookingMode = 'one-time' | 'repeat' | 'session-pack';
+
+const RECURRING_FREQUENCIES = new Set(['daily', 'alternate_days', 'weekly', 'monthly', 'custom']);
+
+export function hasSupportedRecurringFrequency(frequencies: readonly string[] | null | undefined): boolean {
+  return frequencies?.some((frequency) => RECURRING_FREQUENCIES.has(frequency)) ?? false;
+}
+
+export function packageRepeatPlanRoute(
+  providerServiceId: string,
+  packageId: string,
+  durationMin: number,
+  description: string,
+) {
+  return {
+    pathname: '/recurring/new/[providerServiceId]',
+    params: {
+      providerServiceId,
+      archetype: 'time_based',
+      packageId,
+      durationMin: String(durationMin),
+      description,
+      source: 'package-booking',
+    },
+  } as const;
+}
 
 export function getTimeBookingModes(
   recurringBookingsEnabled: boolean,
@@ -11,9 +36,9 @@ export function getTimeBookingModes(
   if (
     recurringBookingsEnabled &&
     category?.recurrence_allowed === true &&
-    category.allowed_frequencies?.includes('weekly')
+    hasSupportedRecurringFrequency(category.allowed_frequencies)
   ) {
-    modes.push('weekly');
+    modes.push('repeat');
   }
   modes.push('session-pack');
   return modes;

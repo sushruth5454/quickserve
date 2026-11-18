@@ -74,19 +74,18 @@ function frequencyLabel(frequency: BillingFrequency) {
 export default function NewRecurringPlanScreen() {
   const t = useTheme();
   const toast = useToast();
-  const { providerServiceId, packageId, packageQty, archetype: archetypeParam, description: descriptionParam, source } =
+  const { providerServiceId, packageId, packageQty, durationMin: durationMinParam, archetype: archetypeParam, description: descriptionParam, source } =
     useLocalSearchParams<{
       providerServiceId: string;
       packageId?: string;
       packageQty?: string;
+      durationMin?: string;
       archetype?: string;
       description?: string;
       source?: string;
     }>();
   const recurringEnabled = useFeature('recurring_bookings');
   const featureFlags = useAppFeatureFlags();
-  const recurringBillingEnabled = featureFlags.isOn('recurring_billing');
-  const recurringPrepaidEnabled = featureFlags.isOn('recurring_prepaid_packages');
   const { location } = useSelectedLocation();
   const [service, setService] = useState<ProviderServiceWithProvider | null>(null);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
@@ -102,7 +101,7 @@ export default function NewRecurringPlanScreen() {
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [startHour, setStartHour] = useState<number>(WINDOW_START_HOURS[0]);
-  const [durationMin, setDurationMin] = useState('');
+  const [durationMin, setDurationMin] = useState(durationMinParam ?? (packageId ? '60' : ''));
   const [endMode, setEndMode] = useState<EndMode>('none');
   const [endDate, setEndDate] = useState('');
   const [maxOccurrences, setMaxOccurrences] = useState('');
@@ -165,11 +164,7 @@ export default function NewRecurringPlanScreen() {
   }, [allowedFrequencies.join('|'), frequency]);
   const categoryEligible = !!category?.recurrence_allowed && allowedFrequencies.length > 0;
   const archetypeEnabled = !!archetype && featureFlags.archetypes?.[archetype] === true;
-  const allowedBillingFrequencies = visibleBillingFrequencies(
-    ['per_visit'],
-    recurringBillingEnabled,
-    recurringPrepaidEnabled,
-  );
+  const allowedBillingFrequencies = visibleBillingFrequencies(['per_visit']);
   const parsedInterval = Number(intervalCount);
   const parsedDuration = Number(durationMin);
   const parsedMonthDay = Number(monthDay);
@@ -186,7 +181,7 @@ export default function NewRecurringPlanScreen() {
     if (!providerServiceId || !archetype || !startDate || !allowedFrequencies.includes(frequency)) return null;
     return {
       provider_service_id: providerServiceId,
-      package_id: archetype === 'fixed' ? selectedPackage?.id ?? null : null,
+      package_id: archetype === 'fixed' ? selectedPackage?.id ?? null : packageId || null,
       archetype,
       frequency,
       interval_count: frequency === 'weekly' || frequency === 'monthly' ? parsedInterval : 1,
@@ -231,6 +226,7 @@ export default function NewRecurringPlanScreen() {
     !!planInput &&
     recurrenceValid &&
     (archetype !== 'fixed' || (!!selectedPackage && !packagesLoading)) &&
+    allowedBillingFrequencies.includes('per_visit') &&
     (archetype !== 'time_based' || Number.isInteger(parsedDuration) && parsedDuration > 0);
   const quoteKey = planInput
     ? JSON.stringify({
@@ -340,13 +336,17 @@ export default function NewRecurringPlanScreen() {
             <Card gap={t.spacing.xs}>
               <Text variant="subheadStrong">Server quote</Text>
               <Text variant="footnote" color="textSecondary">
-                {formatINR(quoteSummary.perVisitPaise)} per visit · {quoteSummary.visitsInFirstCycle} visits this cycle
+                {formatINR(quoteSummary.perVisitPaise)} per visit · {quoteSummary.visitsInFirstCycle}{' '}
+                {quoteSummary.visitsInFirstCycle === 1 ? 'visit' : 'visits'} this cycle
               </Text>
               {quoteSummary.visitsTotal != null ? <Text variant="footnote" color="textSecondary">{quoteSummary.visitsTotal} visits in total</Text> : null}
               {quoteSummary.discountPaise > 0 ? <Text variant="footnote" color="textSecondary">Discount: −{formatINR(quoteSummary.discountPaise)}</Text> : null}
               <Text variant="footnote" color="textSecondary">Platform fee: {formatINR(quoteSummary.platformFeePaise)}</Text>
               {quoteSummary.gstPaise > 0 ? <Text variant="footnote" color="textSecondary">Taxes: {formatINR(quoteSummary.gstPaise)}</Text> : null}
-              <Text variant="title3">Total per cycle: {formatINR(quoteSummary.totalPaisePerCycle)}</Text>
+              <Text variant="title3">
+                Total {quoteSummary.billingFrequency === 'per_visit' ? 'per visit' : 'per cycle'}:{' '}
+                {formatINR(quoteSummary.totalPaisePerCycle)}
+              </Text>
               <Text variant="caption" color="muted">{frequencyLabel(quoteSummary.billingFrequency)}</Text>
               <Text variant="caption" color="muted">
                 Next visits: {quoteSummary.firstDates.map(dateLabel).join(' · ')}
@@ -485,15 +485,27 @@ export default function NewRecurringPlanScreen() {
         </View>
         {archetype === 'time_based' ? (
           <View style={{ gap: t.spacing.xs }}>
-            <Text variant="footnoteStrong">Visit duration (minutes)</Text>
-            <TextInput
-              value={durationMin}
-              onChangeText={setDurationMin}
-              keyboardType="number-pad"
-              placeholder="Enter the visit duration"
-              accessibilityLabel="Visit duration in minutes"
-              style={{ borderWidth: 1, borderColor: t.colors.border, color: t.colors.text, borderRadius: t.radii.md, padding: t.spacing.md }}
-            />
+            {packageId ? (
+              <>
+                <Text variant="footnoteStrong">Selected service package</Text>
+                <Text variant="footnote" color="textSecondary">
+                  The server validates the package price and applies its configured visit duration.
+                </Text>
+                <Text variant="caption" color="muted">Visit duration: {durationMin || '60'} minutes</Text>
+              </>
+            ) : (
+              <>
+                <Text variant="footnoteStrong">Visit duration (minutes)</Text>
+                <TextInput
+                  value={durationMin}
+                  onChangeText={setDurationMin}
+                  keyboardType="number-pad"
+                  placeholder="Enter the visit duration"
+                  accessibilityLabel="Visit duration in minutes"
+                  style={{ borderWidth: 1, borderColor: t.colors.border, color: t.colors.text, borderRadius: t.radii.md, padding: t.spacing.md }}
+                />
+              </>
+            )}
           </View>
         ) : null}
       </View>
@@ -583,9 +595,7 @@ export default function NewRecurringPlanScreen() {
           {allowedBillingFrequencies.map((value) => (
             <Text key={value} variant="calloutStrong">{frequencyLabel(value)}</Text>
           ))}
-          {!recurringBillingEnabled ? (
-            <Text variant="caption" color="muted">Other payment schedules are not available right now.</Text>
-          ) : null}
+          <Text variant="caption" color="muted">Weekly, monthly, and prepaid billing will be available after recurring cycle billing is integrated.</Text>
         </Card>
       </View>
 

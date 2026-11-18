@@ -39,6 +39,9 @@ async function requirePlanFeatures(input: Pick<RecurringPlanInput, 'billing_freq
     keys.push('recurring_prepaid_packages');
   }
   await requireFeatures(...keys);
+  if (input.billing_frequency !== 'per_visit') {
+    throw new Error('Recurring billing frequency is not available yet.');
+  }
 }
 
 export async function quoteRecurringPlan(input: RecurringPlanQuoteInput): Promise<RecurringQuote> {

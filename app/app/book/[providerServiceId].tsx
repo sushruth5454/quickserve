@@ -30,6 +30,7 @@ import { onboardingApi, type ProviderSchedule } from '../../src/lib/onboarding';
 import { asapAvailable, windowFits } from '../../src/lib/onboarding/availability';
 import type { TravelPreview } from '../../src/lib/types';
 import { PackageBookingScreen } from '../../src/features/booking/packages/PackageBookingScreen';
+import { hasSupportedRecurringFrequency } from '../../src/features/booking/packages/packageModel';
 import { getBookingModeOptions } from '../../src/features/recurring/customerPresentation';
 
 export default function BookScreen() {
@@ -252,7 +253,7 @@ export default function BookScreen() {
   const serviceArchetype = recurrenceCategory?.archetype;
   const bookingModeOptions = getBookingModeOptions(
     recurringEnabled && !!serviceArchetype && featureFlags.archetypes?.[serviceArchetype] === true,
-    !!recurrenceCategory?.recurrence_allowed && !!recurrenceCategory.allowed_frequencies?.length,
+    !!recurrenceCategory?.recurrence_allowed && hasSupportedRecurringFrequency(recurrenceCategory.allowed_frequencies),
     serviceArchetype,
   );
   const range = typicalRange(slug);

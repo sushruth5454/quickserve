@@ -59,6 +59,7 @@ const quoteInput: RecurringPlanQuoteInput = {
   duration_min: planInput.duration_min,
   package_qty: planInput.package_qty,
   billing_frequency: planInput.billing_frequency,
+  address_id: planInput.address_id,
 };
 
 const quote: RecurringQuote = {
@@ -123,6 +124,16 @@ test('fails closed for prepaid plans when their child feature is off', async () 
 
   await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'prepaid_package' }))
     .rejects.toThrow('Recurring prepaid packages are turned off');
+  expect(rpcMock).not.toHaveBeenCalled();
+});
+
+test('does not send cycle or prepaid billing to B1 until the billing engine is integrated', async () => {
+  getFeaturesMock.mockResolvedValue(features);
+
+  await expect(quoteRecurringPlan({ ...quoteInput, billing_frequency: 'weekly' }))
+    .rejects.toThrow('Recurring billing frequency is not available yet');
+  await expect(createRecurringPlan({ ...planInput, billing_frequency: 'prepaid_package' }))
+    .rejects.toThrow('Recurring billing frequency is not available yet');
   expect(rpcMock).not.toHaveBeenCalled();
 });
 

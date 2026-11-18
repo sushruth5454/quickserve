@@ -10,6 +10,7 @@ import { formatINR } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
 import type { ServicePackage } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
+import { hasSupportedRecurringFrequency } from '../../src/features/booking/packages/packageModel';
 import { getFixedBookingModeOptions } from '../../src/features/recurring/customerPresentation';
 
 export default function FixedPackageBookScreen() {
@@ -61,7 +62,7 @@ export default function FixedPackageBookScreen() {
   const recurrenceCategory = providerService?.categories;
   const bookingModeOptions = getFixedBookingModeOptions(
     recurringEnabled && featureFlags.archetypes?.fixed === true,
-    !!recurrenceCategory?.recurrence_allowed && !!recurrenceCategory.allowed_frequencies?.length,
+    !!recurrenceCategory?.recurrence_allowed && hasSupportedRecurringFrequency(recurrenceCategory.allowed_frequencies),
   );
 
   const submit = async () => {
