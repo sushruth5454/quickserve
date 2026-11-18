@@ -38,7 +38,7 @@ export function SearchField({
     ...t.shadows.sm,
   };
   const webInputStyle: TextStyle | undefined =
-    Platform.OS === 'web' ? { outlineStyle: 'none' } : undefined;
+    Platform.OS === 'web' ? { outlineWidth: 0 } : undefined;
 
   if (mode === 'entry') {
     return (
