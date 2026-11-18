@@ -1544,11 +1544,15 @@ const autoSlot = indiaSlotInLeadWindow(65, 15);
 await setFlag('recurring_plan_acceptance', false);
 const autoPlan = await createPlan(nearTermPlanInput(autoService, autoSlot));
 const autoState = await one(`
-  select provider_acceptance, acceptance_mode from recurring_schedules where id=$1`, [autoPlan]);
+  select provider_acceptance, acceptance_mode, status, generated_through::text generated_through
+    from recurring_schedules where id=$1`, [autoPlan]);
 const autoOccurrencesBeforeCron = await generatedBookings(autoPlan);
 const autoFirstAt = (await one(
   `select min(scheduled_at) at from bookings where recurring_schedule_id=$1`, [autoPlan])).at;
 const autoLeadMinutes = (new Date(autoFirstAt).getTime() - Date.now()) / 60_000;
+const autoPlanChanges = await db.query(`
+  select occurrence_date::text occurrence_date, kind, reason
+    from recurring_occurrence_changes where schedule_id=$1 order by occurrence_date`, [autoPlan]);
 await setFlag('recurring_plan_acceptance', true);
 
 const legacySlot = indiaSlotInLeadWindow(65, 15);
@@ -1572,6 +1576,7 @@ const recurringAcceptanceDiagnostic = {
   autoState,
   autoOccurrencesBeforeCron,
   autoLeadMinutes,
+  autoPlanChanges: autoPlanChanges.rows,
   legacyOccurrencesBeforeCron,
   legacyLeadMinutes,
   afterCron: recurringAcceptanceAfterCron,
@@ -1946,6 +1951,26 @@ const inactiveLegacyNoticesAfterRetry = await one(`
    where user_id=$1 and kind='recurring_visit_unavailable'
      and data ->> 'recurring_schedule_id'=$2::text`,
   [customer, inactiveLegacyPlan]);
+const sameBatchValidState = await one(`
+  select status, generated_through::text generated_through
+    from recurring_schedules where id=$1`, [sameBatchValidPlan]);
+const sameBatchValidChanges = await db.query(`
+  select occurrence_date::text occurrence_date, kind, reason
+    from recurring_occurrence_changes where schedule_id=$1 order by occurrence_date`,
+  [sameBatchValidPlan]);
+const inactiveLegacyDiagnostic = {
+  state: inactiveLegacyState,
+  changes: inactiveLegacyChanges,
+  notices: inactiveLegacyNotices.n,
+  retry: inactiveLegacyChangesAfterRetry.n,
+  noticesAfterRetry: inactiveLegacyNoticesAfterRetry.n,
+  legacyBookings: await generatedBookings(inactiveLegacyPlan),
+  validState: sameBatchValidState,
+  validChanges: sameBatchValidChanges.rows,
+  validBookings: await generatedBookings(sameBatchValidPlan),
+  batchError: legacyServiceBatchError,
+  generated: legacyServiceBatch?.[0]?.generated,
+};
 await db.query(`update provider_services set active=true where id=$1`, [legacyService]);
 await setFlag('recurring_skip_pause', true);
 ok(inactiveLegacyState.plan_version === 'legacy' && inactiveLegacyState.status === 'active'
@@ -1957,7 +1982,7 @@ ok(inactiveLegacyState.plan_version === 'legacy' && inactiveLegacyState.status =
   && (await generatedBookings(sameBatchValidPlan)) === 1
   && !legacyServiceBatchError
   && Number(legacyServiceBatch?.[0]?.generated ?? 0) >= 1,
-  '[RP-30] inactive legacy service errors become deduped per-date unavailability without starving a valid batch plan');
+  `[RP-30] inactive legacy service errors become deduped per-date unavailability without starving a valid batch plan (${JSON.stringify(inactiveLegacyDiagnostic)})`);
 
 // RP-31: a 60–90-minute booking gets a usable payment window and releases by the 30-minute buffer.
 const graceWindowPlan = await createPlan(input({
