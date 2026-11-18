@@ -2,6 +2,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { Card, ErrorState, Header, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
+import { getAdminFeaturePresentation } from '../../src/lib/adminFeaturePresentation';
 import { getAppFeatures, listFeatures, setFeature, type AdminFeature, type AdminFeatures } from '../../src/lib/adminApi';
 import { useTheme } from '../../src/theme';
 
@@ -54,15 +55,14 @@ export default function AdminFeaturesScreen() {
             <View key={groupName} style={{ gap: t.spacing.sm }}>
               <Text variant="title3">{groupName}</Text>
               {rows.map((feature) => (
-                <Card key={feature.key}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text variant="calloutStrong">{feature.label}</Text>
-                      <Text variant="footnote" color="muted">{feature.description}</Text>
-                    </View>
-                    <Switch value={features[feature.key] === true} disabled={saving === feature.key} onValueChange={(v) => void change(feature.key, v)} />
-                  </View>
-                </Card>
+                <FeatureRow
+                  key={feature.key}
+                  feature={feature}
+                  allFeatures={featureRows}
+                  featureStates={features}
+                  saving={saving}
+                  onChange={change}
+                />
               ))}
             </View>
           ))}
@@ -78,5 +78,42 @@ export default function AdminFeaturesScreen() {
         </>
       )}
     </Screen>
+  );
+}
+
+function FeatureRow({
+  feature,
+  allFeatures,
+  featureStates,
+  saving,
+  onChange,
+}: {
+  feature: AdminFeature;
+  allFeatures: AdminFeature[];
+  featureStates: AdminFeatures;
+  saving: string | null;
+  onChange: (key: string, enabled: boolean) => Promise<void>;
+}) {
+  const t = useTheme();
+  const presentation = getAdminFeaturePresentation(feature, allFeatures, featureStates);
+  return (
+    <Card>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+        <View style={{ flex: 1, gap: 4, marginLeft: presentation.indentLevel ? t.spacing.lg : 0, opacity: presentation.disabledByParent ? 0.55 : 1 }}>
+          <Text variant="calloutStrong">{feature.label}</Text>
+          <Text variant="footnote" color="muted">{feature.description}</Text>
+          {presentation.parentLabel ? (
+            <Text variant="caption" color={presentation.disabledByParent ? 'warningText' : 'muted'}>
+              {presentation.explanation ?? `Requires ${presentation.parentLabel}`}
+            </Text>
+          ) : null}
+        </View>
+        <Switch
+          value={featureStates[feature.key] === true}
+          disabled={saving === feature.key || presentation.disabledByParent}
+          onValueChange={(value) => void onChange(feature.key, value)}
+        />
+      </View>
+    </Card>
   );
 }
