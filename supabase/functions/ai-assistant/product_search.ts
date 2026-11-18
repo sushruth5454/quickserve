@@ -51,7 +51,9 @@ export function sanitizeProductSearchQuery(value: unknown): string {
   }
   const locality = /\b(?:\d+[\-/]\d+[\-/]?\d*\s+)?[\p{L}'-]+\s+(?:circle|junction|nagar|residency|colony|sector|phase|layout|cross|ward|road|street|lane)\b/iu.exec(query);
   const withoutLocality = locality
-    ? query.slice(0, locality.index).replace(/\b(?:for|in|at|near|around|from|opposite|behind|beside|next\s+to)\s*$/i, "")
+    ? query.slice(0, locality.index)
+      .replace(/(?:#\s*)?\b\d+(?:[-/]\d+)*\s*$/u, "")
+      .replace(/\b(?:for|in|at|near|around|from|opposite|behind|beside|next\s+to)\s*$/i, "")
     : query;
   return withoutPersonalDetails(withoutLocality);
 }
