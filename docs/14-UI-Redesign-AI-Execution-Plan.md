@@ -5,6 +5,7 @@
 | **Status** | **Do not start until the owner approves [`13-UI-UX-Audit-and-Design-Specification.md`](13-UI-UX-Audit-and-Design-Specification.md) §I.** If any §I decision is rejected, the integrator removes or edits the affected tasks before launching agents. |
 | **Code baseline** | `main` @ `2c59548` (latest migration `0058_sports_payments.sql`). Migration `0059` is reserved for recurring billing (doc 12 task D1). |
 | **Audience** | The implementing model and the agents it launches. Every step is meant to be followed literally. Do not make product or design decisions. If something is not specified here or in doc 13, **stop and report**; do not guess. |
+| **Sequencing (overrides §5 where they conflict)** | [doc 17](17-Nearo-Audit-Remediation-Implementation-Plan.md) functional fixes take priority. **Q-00 is doc 17 task T1, owned there**: do not run it twice. R-01 waits for doc 17 H3, R-02 for U1, R-04 for B2, R-06 for S2, R-05 for O4 (or immediately if O4 is deferred), R-03 for B1. B-01/G-01 wait for doc 17 X1 and R1. Doc 12's `0059` reservation is released; every migration here takes the next free number at merge time. |
 | **Rule zero** | Preserve every existing feature, route, API call, status, flag and test. Visual work never changes business logic, RPC arguments or navigation targets unless a task says so explicitly. |
 
 ---
@@ -270,6 +271,7 @@ export function PriceFooter(props: {
   cta: { title: string; onPress: () => void; disabled?: boolean; loading?: boolean; leftIcon?: IconName; accessibilityHint?: string };
   note?: { text: string; tone?: 'muted' | 'warningText' } | null;
   above?: React.ReactNode;         // optional message above the row (e.g. city mismatch)
+  amountVariant?: 'amount' | 'text'; // 'amount' (default) = title2 tabular; 'text' = calloutStrong (proposal: "Fixed quote per brief", provider/[id].tsx:153-165)
 }): JSX.Element;
 ```
 Extract this from the existing footers in `app/app/provider/[id].tsx` (lines 143–180) and `app/app/book/[providerServiceId].tsx` (lines 276–300). The rendered output for both screens must be **pixel-identical** to today: same variants, `Button size="lg"` with `flex: 1`, and amount in `title2 tabular`. C-05 creates the component only. Adoption happens in HS-01/HS-02.
@@ -283,6 +285,7 @@ export function QuoteCompareTable(props: { rows: CompareRow[]; detailHeaders: [s
 - The lowest row gets `Badge tone="success" label={t('compare.lowest')}`.
 - Each row is a `Card` with a `Button size="sm"` select.
 - Tests: `sortByPrice` handles ties stably; the lowest-price badge goes only to the first row of the minimum.
+- **Summary only.** `QuoteCompareTable` is a summary *above* detailed cards, never a replacement for them. Extra props: `warnings?: Record<string, string[]>` (per row id, rendered as `Badge tone="warning"`), `selectable?: (id: string) => boolean` (the select button is hidden when false), and `excludeFromLowest?: (id: string) => boolean` (incomplete quotes never get the lowest badge).
 
 ### 3.7 `friendlyError` (task C-07)
 `app/src/lib/errors.ts`:
@@ -315,7 +318,7 @@ Format: **Owns** = files the task may edit or create. **Blocked by** = tasks tha
 
 ### Phase 0 — Baseline (strictly first)
 
-#### Q-00 Make `main` E2E green
+#### Q-00 Make `main` E2E green (= doc 17 T1; executed there, listed here only as a dependency)
 - **Objective:** Fix the 7 failed steps of run `44365580570` so the redesign has a trustworthy baseline: `home`, `home-family-drilldown-and-marketplace-entry-points`, `category-packers-movers`, `category-kitchen-cleaning`, `phase-6-sports-booking-request`, `my-activity-sports-segment`, `assistant`.
 - **Owns:** `e2e/web-smoke.mjs`, `e2e/all-services.mjs`. An app file is allowed **only** when the root cause is a real app bug; list it in the report.
 - **Steps:**
@@ -335,8 +338,8 @@ Format: **Owns** = files the task may edit or create. **Blocked by** = tasks tha
 - **Owns:** `.github/workflows/e2e-web.yml`, `e2e/web-smoke.mjs` (screenshot helper only; edit **after** Q-00 merges).
 - **Steps:**
   1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add a concurrency group `concurrency: { group: e2e-shared-backend, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time.
-  2. Add `actions/upload-artifact@v4` for `e2e/screenshots/**` (`if: always()`, retention 14 days).
-  3. In `web-smoke.mjs`, read `E2E_VIEWPORTS` (default `390x844`). In the workflow, run the smoke once with `E2E_VIEWPORTS=360x640,390x844,768x1024`. Screenshot files are prefixed with the viewport.
+  2. Keep the existing screenshot directory: the workflow sets `SHOTS_DIR=${{ github.workspace }}/e2e-shots` (`e2e-web.yml:105`) and already uploads `e2e-shots` (`e2e-web.yml:228`). Only confirm `if: always()` and set retention to 14 days.
+  3. Today `web-smoke.mjs` builds one context from `devices['iPhone 15']` (`web-smoke.mjs:26-34`), so an env var alone does nothing. Add a separate **screenshot-only pass**: read `E2E_VIEWPORTS` (default empty = skip). For each `WxH`, create a **new** `browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: W < 768, hasTouch: W < 768 })`, log in, and visit a fixed list of read-only routes (`/`, `/category/<first slug>`, `/sports`, `/shop`, `/bookings`, `/account`). Save each screenshot as `${SHOTS}/vp-${W}x${H}-<route>.png`. The functional steps keep the iPhone 15 context unchanged.
 - **Acceptance:**
   - A `main` run uploads screenshots for all 3 viewports.
   - The integrator stores the artifact link in §7 as **baseline**.
@@ -375,13 +378,20 @@ Format: **Owns** = files the task may edit or create. **Blocked by** = tasks tha
      - `sports/index` (`list_sports_activities`), `sports/[activity]` (`search_sports_venues`), `venue/[id]` (`getCustomerSportsVenue`, `getSportsSlots`)
      - `shop/index` (`search_shops`, `listProductCategories`), `products` (`searchProducts`), `product/[id]`, `shop/[id]`
      - `top-rated`, `location`
+     - `category/[slug]` also calls `searchProviders` and `listCategories` (`app/app/category/[slug].tsx:80-104`).
+     - **Storage:** `product/[id]` creates signed URLs in the private `product-images` bucket (`app/src/features/shops/api.ts:239-243`); the read policy allows only `authenticated` (`0049_shops_catalogue.sql:255-263`).
 
-     Find each call in the source; do not assume.
+     Find each call in the source, and record the exact RPC/table name and argument list per screen; do not assume.
   3. **Test first:** `guest_read_access.test.mjs` uses `createHarness()` + `scenario()`. As role `anon`:
      - Each read in step 2 returns rows for active/verified data **without error**.
-     - The scenario asserts it **cannot** see `phone`/`email`/address columns of providers or customers.
+     - The scenario asserts it **cannot** see `phone`/`email`/address columns of providers or customers. Test this directly: `select phone from <table>` as anon must error or return null for every table/RPC the screens read.
+     - As anon, a signed URL can be created only for images of **publicly visible** products (active shop + active product); it fails for any other object in `product-images`.
      - The scenario asserts that **every write RPC fails** (`create_fixed_booking`, `book_sports_slot`, `start_product_enquiry`, `create_service_request`).
-  4. Migration: `grant execute … to anon` only on the read RPCs that the test proves are needed, and add `select` RLS policies `to anon` only for rows that are already public (active + verified) **and** only the columns the screens read. If a read requires exposing a private column, **stop and report**.
+  4. Migration:
+     - `grant execute … to anon` only on the read RPCs that the test proves are needed.
+     - **Rows** and **columns** are separate controls. RLS `select … to anon` policies limit *rows* to already-public ones (active + verified). *Columns* are limited by column-level `grant select (col1, col2…) … to anon` (pattern: existing shop grants in `0049_shops_catalogue.sql:135-141`), or by reading through a security-definer RPC that returns only public columns. Never grant table-wide select to anon.
+     - Storage: add a storage `select` policy `to anon` on `product-images` that uses the same public-visibility check as `_product_image_access`, restricted to active products of active shops. **Never make the bucket public.**
+     - If a read requires exposing a private column, **stop and report**.
 - **Acceptance:**
   - Lane SQL run is green.
   - A lower-model review has no unresolved findings.
@@ -420,7 +430,7 @@ Common rules for all R tasks:
 | R-06 | `app/app/sports/manage.tsx` (706) | `app/src/features/sports/manage/*` + the route file |
 | R-07 | `app/src/features/providerOnboarding/ServicesSection.tsx` (860) | `app/src/features/providerOnboarding/services/*` + that file |
 
-All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
+R tasks run in parallel with each other and with T-01, I-01 and C-07, **but each R task first waits for its doc 17 hot-file owner** (see the Sequencing row in the header): R-01 after H3, R-02 after U1, R-03 after B1, R-04 after B2, R-05 after O4 (or immediately if O4 is deferred), R-06 after S2. R-07 has no wait.
 
 ### Phase 2 — Shared components (parallel; each blocked by T-01 + I-01)
 
@@ -444,13 +454,13 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
 
 #### H-01 Home v2 (`home_v2`)
 - **Owns:** `app/app/(customer)/index.tsx`, new `app/src/features/home/LegacyHome.tsx`, new `app/src/features/home/HomeV2.tsx`, new `app/src/features/home/homeModel.ts` + tests.
-- **Blocked by:** C-01, C-02, C-03.
+- **Blocked by:** C-01, C-02, C-03, C-04.
 - **Steps:**
   1. Move the current `index.tsx` body into `LegacyHome.tsx` **unchanged**. The only exception is the AI card subtitle, which uses `t('ai.cardSubtitle')` in both homes (doc 13 §I-6).
   2. `index.tsx` = `flags.isOn('home_v2') ? <HomeV2/> : <LegacyHome/>`.
   3. `HomeV2` renders the sections in doc 13 §C.2 order:
      1. Location bar + bell (copy from Legacy).
-     2. `SearchField mode="entry"` → `router.push('/search')` when `isOn('unified_search')`. Otherwise keep the legacy inline search behavior.
+     2. Search: when `isOn('unified_search')` is **on**, render `SearchField mode="entry"` → `router.push('/search')`. When it is **off**, render the existing inline search control and its category filtering exactly as in `LegacyHome` (do not use `SearchField` in this case).
      3. Active booking card (copy from Legacy).
      4. Pillar grid: `visiblePillars(...)` → `PillarCard` 2 per row, gap `spacing.md`.
      5. `Popular in {city}`: `ChipRow`-styled list of the first 8 `catalogue.categories` (catalogue order) → `router.push('/category/' + slug)`.
@@ -502,8 +512,8 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
   - Jest is green.
 
 #### G-01 Guest browsing (`guest_browse`)
-- **Owns:** `app/app/_layout.tsx`, `app/app/(auth)/login.tsx`, `app/app/(auth)/verify.tsx`, new `app/src/lib/authGate.ts` + tests.
-- **Blocked by:** B-01 (applied on `main`).
+- **Owns:** `app/app/_layout.tsx`, `app/app/(auth)/login.tsx`, `app/app/(auth)/verify.tsx`, `app/app/(auth)/role.tsx`, `app/app/(customer)/_layout.tsx` (guest guards only; coordinate with H-02, which merges first), new `app/src/lib/authGate.ts` + tests, new `app/src/components/GuestGate.tsx`.
+- **Blocked by:** B-01 (applied on `main`), H-02 (same customer layout file), doc 17 X1 and R1. **Commit-action wiring is part of this task** (step 4); `guest_browse` must not be enabled before step 4's list is fully wired.
 - **Steps:**
   1. `authGate.ts` (pure):
      - `BROWSE_SEGMENTS = ['(customer)', 'category', 'provider', 'sports', 'venue', 'shop', 'products', 'product', 'creators', 'top-rated', 'location', 'info', 'byo']`.
@@ -511,23 +521,31 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
      - `safeReturnTo(path)` accepts only internal paths starting with `/` and **not** starting with `//`.
      - Jest covers both functions.
   2. Root guard (`_layout.tsx` lines 56–61): when signed out and `guest_browse` is on and `isBrowseRoute`, **do not redirect**. Otherwise `router.replace({ pathname: '/login', params: { returnTo: currentPath } })`. Move the protected `Stack.Screen` declarations that are browse routes (`(customer)`, `category/[slug]`, `provider/[id]`, `top-rated`, `location`) out of `Stack.Protected` **only when the flag is on**. Keep `book/*`, `booking/*`, `chat/*`, `quote/*`, `onboarding`, `jobs`, `assistant` protected.
-  3. `login`/`verify`: after a successful sign-in, if `safeReturnTo(returnTo)` passes, `router.replace(returnTo)`. Otherwise keep the current behavior.
-  4. On browse screens, every **commit action** that calls a write API directly must call `requireSignIn(returnTo)` first. Find them with `grep -n "supabase.rpc\|supabase.from(.*).insert\|startProductEnquiry\|create" app/app/{product,shop,provider,sports,venue}*`. List them in the report. **Do not edit those screen files.** The integrator assigns the wiring to the screen's owning task (HS-01, SH-01, SP-01, SP-02), or to a follow-up `G-02` if that task has already merged.
+  3. **Private tabs inside `(customer)`.** Opening the `(customer)` group also exposes the Bookings and Account tabs, which load personal data (`UnifiedActivityScreen.tsx:215`, `AccountScreen.tsx:38`). An effect redirect is not enough:
+     - `GuestGate` wraps the Bookings and Account tab screens. When there is no session, it renders a sign-in prompt (`guest.signInToContinue` + `Button` → login with `returnTo`) and **does not mount** the data-loading screen.
+     - Tab presses on Bookings/Account while signed out go to the same prompt (use the tab `listeners.tabPress` to route to login with `returnTo`).
+     - Jest: `GuestGate` never renders its child without a session (pure `shouldRenderPrivate(session)` helper + test).
+  4. **Commit actions (owned here).** Grep browse screens for direct writes: `grep -rn "supabase.rpc\|\.insert(\|startProductEnquiry\|bookSportsSlot\|create" app/app/product app/app/shop app/app/provider app/app/sports app/app/venue app/src/features/sports app/src/features/shops`. For each hit that is a user commit action, call `requireSignIn(returnTo)` (exported from `authGate.ts`; it returns `false` and routes to login when signed out) before the write. Record every call site in the report. If the owning screen task (HS-01, SH-01, SP-01, SP-02) has not merged yet, G-01 still owns these one-line insertions and the screen task rebases on top.
+  5. **Return path through the real auth flow.** Today login passes `phone` and `inviteToken` to verify (`login.tsx:35-45`). Verify sets `choosingRole=true` and routes to `/role` (`verify.tsx:37-40`), and the role screen finishes sign-in (`role.tsx:58-81`). The protected group requires `!choosingRole` (`_layout.tsx:75-92`). Therefore:
+     - Carry `returnTo` as a route param: login → verify → role.
+     - In `role.tsx`, **after** the role is chosen and `setChoosingRole(false)` has run, call `router.replace(returnTo)` if `safeReturnTo(returnTo)` passes **and** the chosen role is customer. Otherwise keep today's navigation.
+     - Invite tokens keep precedence: if `inviteToken` is present, ignore `returnTo`.
+     - Returning customers still pass through role today; do not add a role-skip here (doc 17 U3 owns that).
 - **Regression watch:**
   - With the flag off, behavior is identical: the E2E login flow passes unchanged.
   - Push registration (`NotificationsBridge`) must not run for guests.
 - **Acceptance:**
   - Jest is green.
-  - A new Q-02 E2E step "guest browses sports → taps Book → lands on login → returns to the venue after OTP" passes with the flag on.
+  - A new Q-02 E2E step "guest browses sports → taps Book → lands on login → OTP → role (customer) → returns to the venue" passes with the flag on.
+  - A guest opening `/bookings` or `/account` directly sees the sign-in prompt, and no personal-data request is made (assert no network call to the activity/profile RPCs in the E2E step).
 
 #### HS-01 Home services listing + provider profile
-- **Owns:** `app/app/category/[slug].tsx`, `app/src/features/providerProfile/*`, `app/src/components/ProviderCard.tsx` (used only by `category/[slug].tsx:241`). **Do not edit `TopRatedCard.tsx`**: the legacy Home uses it (`(customer)/index.tsx:388-390`) and must stay identical with `home_v2` off.
+- **Owns:** `app/app/category/[slug].tsx`, `app/src/features/providerProfile/*`, `app/src/components/ProviderCard.tsx` (used by `category/[slug].tsx:241` **and** by `app/src/features/catalogue/ArchetypeCategory.tsx:117` for creator/proposal results). **Do not edit `TopRatedCard.tsx`**: the legacy Home uses it (`(customer)/index.tsx:388-390`) and must stay identical with `home_v2` off.
 - **Blocked by:** R-02, C-03, C-05.
 - **Steps:**
   1. Render category results with `ListingCard variant="provider"`. Keep sort/filter sheets and all data calls unchanged.
-  2. Make `ProviderCard` delegate to `ListingCard` while keeping its exported props, so callers compile unchanged.
+  2. Make `ProviderCard` delegate to `ListingCard` while keeping its exported props, so callers compile unchanged. **Preserve the proposal-mode price label and CTA** rendered for `ArchetypeCategory.tsx:117` (`ProviderCard.tsx:63-84`). Add a Jest test on a pure `providerCardModel(props)` that returns the same price label and CTA text as today for both normal and proposal mode.
   3. In the provider profile, replace the footer markup with `PriceFooter`, using the **same copy and logic**.
-  4. Wire `requireSignIn` into the commit actions listed by G-01 (if G-01 is merged).
 - **Acceptance:**
   - The E2E category steps are green.
   - The footer screenshot is unchanged.
@@ -569,14 +587,17 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
 - **Acceptance:** E2E `phase-7a-owner-submits-shop` + product steps are green.
 
 #### SH-02 RFQ quote comparison
-- **Owns:** `app/app/rfq/[id].tsx`.
-- **Blocked by:** C-06.
-- **Steps:** Map existing quotes to `CompareRow`s: `who` = shop name, `pricePaise` = total, `detail1` = delivery days, `detail2` = validity. Only use fields that exist in the `features/rfq/api.ts` types; leave out any field that does not exist. `onSelect` calls the **existing** accept function.
-- **Acceptance:** Jest tests the row mapping.
+- **Owns:** `app/app/rfq/[id].tsx`, new `app/src/features/rfq/comparePresentation.ts` + `app/src/features/rfq/__tests__/comparePresentation.test.ts`.
+- **Blocked by:** C-06, and doc 17 P1b (it changes the same comparison rules; merge P1b first).
+- **Steps:**
+  1. **Keep everything the screen shows today** (`rfq/[id].tsx:97-146`): subtotal, GST, delivery, unavailable items, changed brands, missing specifications, per-item offers, and today's selection gates (only a *sent* quote on an *open* RFQ, when enquiries are enabled).
+  2. Add `QuoteCompareTable` as a summary **above** the existing detail cards. Build its rows in `comparePresentation.ts`: `who` = shop name, `pricePaise` = total, `detail1` = delivery, `detail2` = validity (only fields that exist in `features/rfq/api.ts` types). `warnings` = unavailable items / changed brand / missing specs. `excludeFromLowest` = quote does not cover every RFQ line. `selectable` = today's selection gate.
+  3. `onSelect` calls the **existing** select function.
+- **Acceptance:** Jest tests `comparePresentation.ts`: an incomplete quote never gets the lowest badge; warnings appear for unavailable items and changed brands; a non-selectable quote has no select action.
 
 #### SP-01 Sports discovery
-- **Owns:** `app/app/sports/index.tsx`, `app/app/sports/[activity].tsx`.
-- **Blocked by:** C-02, C-03, C-04.
+- **Owns:** `app/app/sports/index.tsx`, `app/app/sports/[activity].tsx`, new `app/src/features/sports/activityPresentation.ts` + `app/src/features/sports/__tests__/activityPresentation.test.ts`.
+- **Blocked by:** C-02, C-03, C-04, and doc 17 S2 (sports files are owned there first).
 - **Steps:**
   1. Hub: activities as a 2-column tile grid (sports accent); "My sports requests" and the provider-only "My venues" become `ListingCard`-row style. **Keep the `activeRole === 'provider'` condition.**
   2. Activity list:
@@ -586,19 +607,20 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
      - Remove the `Pressable` wrapper and the `VERIFIED` text.
 - **Acceptance:**
   - E2E sports steps are green.
-  - Jest tests `titleFromSlug`.
+  - Jest tests `titleFromSlug` in `activityPresentation.ts` (the route imports it; the test never imports the route).
 
 #### SP-02 Venue booking, checkout, booking detail
 - **Owns:** `app/src/features/sports/SportsVenueBookingScreen.tsx`, `app/app/sports-checkout/[id].tsx`, `app/app/sports-booking/[id].tsx`.
-- **Blocked by:** C-05, Q-00.
+- **Blocked by:** C-05, Q-00, doc 17 S1 and S2 (same sports files).
 - **Steps:**
-  1. Slot grid states use existing data only:
-     | State | Style |
-     |---|---|
-     | available | outlined |
-     | selected | `primary` fill |
-     | held/booked | `surfaceAlt` + strikethrough label |
-     | past | hidden |
+  1. Slot grid states use the API contract `state: 'free' | 'taken' | 'blocked' | 'past'` (`app/src/features/sports/api.ts:25`). Today the screen hides every non-free slot (`SportsVenueBookingScreen.tsx:182-186,269-289`).
+     | API state | Style | Selectable |
+     |---|---|---|
+     | `free` | outlined | yes |
+     | selected `free` | `primary` fill | yes |
+     | `taken`, `blocked` | `surfaceAlt` + label "Unavailable" | **no** (`accessibilityState.disabled`) |
+     | `past` | hidden | — |
+     Do **not** label cells "held" or "booked"; the backend does not distinguish them. Add a pure `slotCellState(slot, selectedIds)` helper in `app/src/features/sports/model.ts` with a Jest test proving `taken`/`blocked` are never selectable.
   2. The footer is `PriceFooter` with the existing total and CTA.
   3. Show the existing cancellation policy text above the footer before payment.
   4. **No change** to `bookSportsSlot` / `createSportsPayment` arguments.
@@ -614,11 +636,11 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
 - **Acceptance:** Jest tests `creatorCategories(catalogue)`.
 
 #### CR-02 Proposal compare + delivery
-- **Owns:** `app/app/request/[id].tsx`, `app/app/proposal/[id].tsx`, `app/app/proposal-delivery/[id].tsx`.
-- **Blocked by:** C-06.
+- **Owns:** `app/app/request/[id].tsx`, `app/app/proposal/[id].tsx`.
+- **Blocked by:** C-06, doc 17 C1 and C2 (they change the proposal and delivery flows first).
 - **Steps:**
-  1. Proposals on `request/[id]` use `QuoteCompareTable`. `onSelect` opens the existing `proposal/[id]`.
-  2. On delivery, show "revisions remaining" **only if** the existing proposal/delivery type already has a revision count field. Otherwise skip it and report it as a backend gap.
+  1. Proposals on `request/[id]` use `QuoteCompareTable` as a summary above the existing proposal cards. `onSelect` opens the existing `proposal/[id]`.
+  2. **Out of scope:** `app/app/proposal-delivery/[id].tsx` is the *creator's* submission form (`submitDelivery`, "Send to customer"). Do not restyle or change it. The *customer's* delivery review/acceptance (visible deliverables, revisions remaining, accept/request revision) is built by doc 17 **C1** in the booking detail delivery section; CR-02 does not touch it.
 - **Acceptance:** E2E `proposal-flow-*` steps are green.
 
 #### BD-01 Booking detail status header
@@ -646,8 +668,8 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
 
 | ID | Owns | Blocked by | Steps / acceptance |
 |---|---|---|---|
-| Q-02 | `e2e/web-smoke.mjs`, `e2e/all-services.mjs` (+ integrator edits `e2e-web.yml`) | Each feature it covers | Flags are changed only by workflow SQL steps (the Management API `database/query` calls already used for demo resets, `e2e-web.yml:73-93`), not from the `.mjs` files. **Pass A** (existing run, the six flags off) asserts the legacy UI. The integrator then adds a workflow step `update public.feature_flags set enabled = true where key in ('home_v2','unified_search','guest_browse','creators_landing','booking_steps','book_again')` and **Pass B** `E2E_FLAGS=on node web-smoke.mjs`, where steps guarded by `process.env.E2E_FLAGS === 'on'` assert the new UI and the G-01 guest journey. A final `always()` step sets them back to `false`. **Acceptance:** both passes green on `main`. |
-| Q-03 | new `scripts/ci/ui-lint.sh` (+ integrator adds it to `lane-ci.yml`) | All Phase 3 merged | Fails when new or changed `app/**/*.tsx` lines contain `#[0-9A-Fa-f]{6}`, `fontSize:`, `fontFamily:` (outside `src/theme/` and `RouteErrorBoundary.tsx`), or `<Pressable` without `accessibilityRole` within 5 lines. It checks only lines added relative to `origin/main`. |
+| Q-02 | `e2e/web-smoke.mjs`, `e2e/all-services.mjs` (+ integrator edits `e2e-web.yml`) | Each feature it covers | Flags are changed only by workflow SQL steps (the Management API `database/query` calls already used for demo resets, `e2e-web.yml:73-93`), not from the `.mjs` files. **Pass A** (existing run, the six flags off) asserts the legacy UI. The integrator then adds a workflow step `update public.feature_flags set enabled = true where key in ('home_v2','unified_search','guest_browse','creators_landing','booking_steps','book_again')` and **Pass B** `E2E_FLAGS=on node web-smoke.mjs`, where steps guarded by `process.env.E2E_FLAGS === 'on'` assert the new UI and the G-01 guest journey. **State safety:** before Pass A, a workflow step **snapshots** the six flags (`select key, enabled from public.feature_flags where key in (...)`) to `flags-snapshot.json` and fails the job if the snapshot fails. Pass A explicitly sets the six flags to `false` before running. The final `always()` step **restores the snapshot** (not blindly `false`) and fails loudly if the restore fails. All backend-mutating passes run under the `e2e-shared-backend` concurrency group (Q-01). **Acceptance:** both passes green on `main`, and a post-run query shows the six flags equal to the snapshot. |
+| Q-03 | new `scripts/ci/ui-lint.sh` (+ integrator adds it to `lane-ci.yml`) | All Phase 3 merged | Fails when new or changed `app/**/*.tsx` lines contain `#[0-9A-Fa-f]{6}`, `fontSize:`, `fontFamily:` (outside `src/theme/` and `RouteErrorBoundary.tsx`), or `<Pressable` without `accessibilityRole` within 5 lines. **Two modes:** (1) **One-time redesign audit:** the integrator records the pre-redesign baseline SHA (the `main` SHA when Phase 1 starts) in §7, and Q-03 checks every line added between that baseline and `HEAD` (`git diff <baseline>...HEAD`). (2) **Ongoing lane gate:** in `lane-ci.yml`, check lines added relative to `git merge-base origin/main HEAD`. |
 | Q-04 | `docs/14` §7 table | All | Manual device checklist (§6.2) on an EAS preview build. Record device, OS and pass/fail per row. |
 | P2-01 | Remaining files with hex/`fontSize` literals not owned by any earlier task | Q-03 | Move `CategoryIcon` tints into `categoryGlyphTints` in `tokens.ts` with explicit dark values (doc 13 §D.5). Replace the `ActivityIndicator` in `location.tsx` with `Skeleton` rows. Leave `RouteErrorBoundary` literals in place but import them from `lightPalette`. |
 | T-99 (integrator) | `docs/13`, `docs/14` status tables, `docs/01-PRD.md` | All | Update status tables with merged SHAs and run IDs. |
@@ -660,16 +682,16 @@ All R tasks run in parallel with each other and with T-01, B-01, I-01 and C-07.
 ```
 Q-00 ──► Q-01
   │
-  ├──► T-01 ──┬──► C-01 ─┬──► H-01 ◄── C-02, C-03
+  ├──► T-01 ──┬──► C-01 ─┬──► H-01 ◄── C-02, C-03, C-04
   │           ├──► C-02 ─┼──► C-03 ──► HS-01 ◄── R-02, C-05
   ├──► I-01 ──┤          │            SH-01 ◄── C-01, C-04
   │           ├──► C-04 ─┘            SP-01 ◄── C-02, C-04
   │           ├──► C-05 ──► C-08 ──► HS-02 ◄── R-03
-  │           └──► C-06 ──► SH-02, CR-02
+  │           └──► C-06 ──► SH-02 (+doc17 P1b), CR-02 (+doc17 C1, C2)
   ├──► C-07 ──► BD-01 ◄── R-01 ;  A-01
-  ├──► B-01 ──► G-01   (B-01 must be APPLIED on main)
+  ├──► B-01 ──► G-01 ◄── H-02, doc17 X1 + R1   (B-01 must be APPLIED on main)
   ├──► R-01..R-07 (independent)  R-04 ──► HS-03 ; R-05/6/7 ──► M-01/2/3 (+T-01)
-  ├──► SP-02 ◄── C-05
+  ├──► SP-02 ◄── C-05, doc17 S1 + S2 ;  SP-01 ◄── doc17 S2
   └──► CR-01 ◄── C-02, C-03
 All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 ```
@@ -678,10 +700,10 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Wave | Starts when | Tasks (agents) | Count |
 |---|---|---|---|
-| 0 | Approval | Q-00 (agent) + Q-01 step 1 (integrator) | 1 |
-| 1 | Q-00 merged | T-01, B-01, C-07, R-01, R-02, R-03, R-04, R-05, R-06, R-07 (+ I-01 by integrator) | **10** |
+| 0 | Approval | Q-00 is run as doc 17 T1 (not here) + Q-01 step 1 (integrator) | 0 |
+| 1 | Q-00 (doc 17 T1) merged | T-01, C-07, R-07 (+ I-01 by integrator). B-01 after doc 17 X1 + R1. Each other R task after its doc 17 hot-file owner (header Sequencing row). | 3–9 |
 | 2 | T-01 + I-01 merged | C-01, C-02, C-04, C-05, C-06, A-01 (C-07 merged), and BD-01/HS-03/M-01..03 as soon as their R task is merged | up to **11** |
-| 3 | Blockers merged | C-03, C-08, then H-01, H-02, HS-01, HS-02, SH-01, SH-02, SP-01, SP-02, CR-01, CR-02, G-01 | up to **13** |
+| 3 | Blockers merged (incl. doc 17 owners) | C-03, C-08, then H-01, H-02, HS-01, HS-02, SH-01, SH-02, SP-01, SP-02, CR-01, CR-02, then G-01 (after H-02) | up to **13** |
 | 4 | Phase 3 merged | Q-02, Q-03, then P2-01, Q-04, T-99 | 2–3 |
 
 ### 5.3 Shared-file conflict matrix (only the owner may edit)
@@ -728,7 +750,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 |---|---|---|---|---|
 | 1 | Home v2: pillars render 2×2, no text clipping at font scale 1.0 and 1.3 | | | |
 | 2 | Search: keyboard does not cover results; clear button works | | | |
-| 3 | Guest: browse sports → Book → login → returns to venue | | | |
+| 3 | Guest: browse sports → Book → login → OTP → role → returns to venue; Bookings/Account tabs show sign-in prompt | | | |
 | 4 | Home service booking end-to-end in Razorpay test mode | | | |
 | 5 | Sports booking: slot select → pay online (test) → confirmation | | | |
 | 6 | Shop: product grid images load; RFQ banner → form | | | |
