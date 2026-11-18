@@ -37,6 +37,7 @@ export function sanitizeProductSearchQuery(value: unknown): string {
   const redacted = redactBrief(bounded);
   const addressStart = redacted.toLowerCase().indexOf("[address]");
   let query = addressStart >= 0 ? redacted.slice(0, addressStart) : redacted;
+  if (addressStart >= 0) query = query.replace(/(?:#\s*)?\b\d+(?:[-/]\d+)*\s*$/u, "");
   if (addressStart < 0) {
     const pinStart = query.toLowerCase().indexOf("[pin]");
     if (pinStart >= 0) {
