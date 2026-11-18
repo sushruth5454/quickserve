@@ -414,6 +414,7 @@ jobs:
               ("0053", "0053_activity_contracts.sql"),
               ("0054", "0054_addendum_foundations.sql"),
               ("0055", "0055_addendum_foundation_hardening.sql"),
+              ("0056", "0056_home_services_catalogue.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
