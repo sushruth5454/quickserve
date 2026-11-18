@@ -774,13 +774,13 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
 | Q-00 / doc 17 T1 | code-owned E2E fixes merged; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | fb069de |
-| Q-01 | workflow trigger, 14-day retention, and queue:max merged; main E2E runs are queued; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351; 44408156814 (cancelled before jobs); 44411077594; 44412263196 (pending); 44411077650 (app publish green); 44411077684; 44412263137 (backend green) | 5152f6c |
+| Q-01 | workflow trigger, 14-day retention, and queue:max merged; X3 seed fix is now integrated for a main rerun; admin step remains owner-blocked; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351; 44408156814; 44412263196; 44413775287 (cancelled before jobs); 44411077594 (proposal + admin failed); 44418061376 (X3 seed fix green); 44418061318 (E2E pending); 44413775484 (backend green); 44413775385 (app publish green) | 5152f6c |
 | T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
 | I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
 | C-07 | merged; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918; 44402357939 (cancelled) | 5f751fa |
 | R-01 | blocked by doc 17 H3 | — | — | — |
-| R-02 | blocked by doc 17 U1 | — | — | — |
+| R-02 | ready to launch after this U1 integration push | — | — | — |
 | R-03 | blocked by doc 17 B1 | — | — | — |
 | R-04 | blocked by doc 17 B2 | — | — | — |
 | R-05 | blocked by doc 17 O4 | — | — | — |
@@ -803,7 +803,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | SH-02 | blocked by C-06 and doc 17 P1b | — | — | — |
 | SP-01 | blocked by components and doc 17 S2 | — | — | — |
 | SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
-| CR-01 | ready to launch after C-03 reaches main | — | — | — |
+| CR-01 | merged; lane CI green; existing Card/CategoryIcon retained per spec | 6878626f-8b83-4ae5-9c10-10eb19c470dd | 44414854482 (green) | 0a12c33 (lane 52f3ba6) |
 | CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
 | BD-01 | blocked by R-01, C-07, and doc 17 U3 | — | — | — |
 | A-01 | blocked by C-07 and doc 17 U3 | — | — | — |

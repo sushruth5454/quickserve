@@ -279,22 +279,22 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 |---|---|---|---|---|---|---|
 | X1 | G1 | merged; admin E2E step BLOCKED on owner config | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
 | X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
-| X3 | G1 | merged; 0060a/b applied and recorded by successful main deployment | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44411077684 (main success) | 0060a/b | 9bd12a5 (lane 7562163) |
+| X3 | G1 | 0060a/b deployed; legacy E2E provider seed fix merged; main E2E rerun pending | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal E2E failure) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
 | H1 | G1 | merged; 0061 applied and recorded by successful main deployment | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44411611254 (revalidation green); 44411611318 (E2E pending); 44412263137 (main success) | 0061 | 83ca69f (lane 7fc2ed9) |
-| F3 | G1 | H1-base lane green, but out-of-WP demoApi edits are being trimmed before review/merge | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44412649463 (green before scope trim) | 0062 | — |
+| F3 | G1 | scope-corrected lane green; lower-model review clear; 0062 merged, main validation pending | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44414018378 (green); 44412649463 (prior green) | 0062 | 6e89494 (lane 68c1c4d) |
 | O1 | G1 | green; waiting for migration order | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 | 0063 | — |
 | O2 | G1 | green; waiting for migration order | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 | 0064 | — |
 | H2a | G1 | green; lower-model review clear; waiting for migration order | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 | 0065 | — |
 | H2b | G1 | not started; blocked by H2a | — | — | 0066 | — |
 | U2 | G1 | not started; blocked by F3 | — | — | 0067 | — |
 | B1 | G1 | not started; blocked by U2 | — | — | 0068 | — |
-| U1 | G1 | lane CI green on current main; E2E pending under shared queue | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44409886831 (lane CI); 44409886798 (E2E pending) | — | — |
+| U1 | G1 | merged; lane CI green; E2E remains queued | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44413025536 (lane CI); 44413025293 (E2E pending) | — | 7c7f3b7 (lane 290a0c7) |
 | U3 | G1 | green partial; T14 booking detail waits for F3, T12 E2E waits for T1/U1 | bc0c8141-772b-4d97-9181-1286094f2f57 | 44399638736 (partial) | 0069 | — |
 | P1a | G1 | green; waiting for migrations through 0069 | 3f745efa-75d9-4e5b-bee7-be8d2fe6fea0 | 44395068717 | 0070 | — |
 | P1b | G1 | blocked by P1a; rebase and rerun after P1a merges | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (prior base) | 0071 | — |
 | R1 | G1 | green; lower-model review clear; waiting for migration order | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
 | T1 | G1 | merged; code-owned Q-00 steps pass; admin E2E step BLOCKED on owner config | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | — | fb069de (lane d8cea17) |
-| T2 | G1 | RP-29 isolated-provider, future-safe date-offset fix integrated; main validation follows H1 push | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44410255193; 44411901585 (both green); 44410255110 (E2E pending); 44411077684 (main success) | — | caed73d; c409974 (lane f05803e); 61a5f78 (lane 4052664) |
+| T2 | G1 | RP-29 isolated-provider, future-safe date-offset fix merged; main SQL validation green | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44410255193; 44411901585 (lane green); 44410255110 (E2E pending); 44413775484 (main success) | — | caed73d; c409974 (lane f05803e); 61a5f78 (lane 4052664) |
 | F1 | G2 | not started; blocked by X3 | — | — | 0073 | — |
 | F2 | G2 | not started; blocked by F1; D1 decided | — | — | 0074 | — |
 | F4 | G2 | not started; blocked by F3 and F1 | — | — | 0075 | — |
