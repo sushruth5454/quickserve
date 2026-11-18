@@ -30,6 +30,7 @@ export const {
   listCategories: listCategoriesFromBackend,
   listMyAddresses,
   addAddress,
+  deleteAddress,
   searchProviders,
   listTopRated,
   listLiveCities,

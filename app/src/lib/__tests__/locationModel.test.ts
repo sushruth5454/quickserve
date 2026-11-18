@@ -1,4 +1,4 @@
-import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, geocodeQuery, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
+import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, geocodeQuery, needsLocationPrompt, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
 import { bookingRef, firstAvailableDay, nextDays, relativeTimeLabel, scheduleLabel, urgentStartOptions, windowAvailable, windowLabel, windowStart } from '../schedule';
 import type { SavedAddress } from '../types';
 
@@ -61,6 +61,14 @@ describe('saved addresses', () => {
     const a = fromSavedAddress(addr({ id: 'x' }));
     expect(sameLocation(a, fromSavedAddress(addr({ id: 'x', lat: 1 })))).toBe(true);
     expect(sameLocation(a, { ...a, addressId: null, source: 'area' })).toBe(false);
+  });
+});
+
+describe('location prompt', () => {
+  it('asks the customer to set a location only while the default is active', () => {
+    expect(needsLocationPrompt(DEFAULT_LOCATION)).toBe(true);
+    expect(needsLocationPrompt({ ...DEFAULT_LOCATION, source: 'gps' })).toBe(false);
+    expect(needsLocationPrompt({ ...DEFAULT_LOCATION, source: 'saved' })).toBe(false);
   });
 });
 

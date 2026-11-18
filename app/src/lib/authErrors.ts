@@ -8,3 +8,9 @@ export function authErrorMessage(e: Error): string {
   }
   return 'Something went wrong. Try again.';
 }
+
+export function formatOtpCountdown(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, '0')}`;
+}

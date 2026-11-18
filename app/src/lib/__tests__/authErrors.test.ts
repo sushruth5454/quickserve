@@ -1,4 +1,4 @@
-import { authErrorMessage } from '../authErrors';
+import { authErrorMessage, formatOtpCountdown } from '../authErrors';
 
 describe('authErrorMessage', () => {
   it('uses plain copy for invalid and expired verification codes', () => {
@@ -16,5 +16,12 @@ describe('authErrorMessage', () => {
 
   it('hides unknown provider errors behind generic copy', () => {
     expect(authErrorMessage(new Error('Internal provider response'))).toBe('Something went wrong. Try again.');
+  });
+});
+
+describe('formatOtpCountdown', () => {
+  it('formats the configured one-minute resend delay as 1:00', () => {
+    expect(formatOtpCountdown(60)).toBe('1:00');
+    expect(formatOtpCountdown(30)).toBe('0:30');
   });
 });

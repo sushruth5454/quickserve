@@ -53,7 +53,7 @@ export default function LoginScreen() {
     }
   };
 
-  const link = (topic: 'terms' | 'privacy') => router.push({ pathname: '/info/[topic]', params: { topic } });
+  const link = (topic: 'terms' | 'privacy' | 'help') => router.push({ pathname: '/info/[topic]', params: { topic } });
   const legalText = tr('login.legal.template', { terms: '__TERMS_LINK__', privacy: '__PRIVACY_LINK__' });
   const [legalBeforeTerms, legalAfterTerms = ''] = legalText.split('__TERMS_LINK__');
   const [legalBetweenLinks, legalAfterPrivacy = ''] = legalAfterTerms.split('__PRIVACY_LINK__');
@@ -174,7 +174,7 @@ export default function LoginScreen() {
         </Text>
         <Pressable
           accessibilityRole="link"
-          onPress={() => router.push('/help')}
+          onPress={() => link('help')}
           style={{ minHeight: 44, justifyContent: 'center' }}
         >
           <Text variant="callout" color="primaryText" align="center" style={{ textDecorationLine: 'underline' }}>

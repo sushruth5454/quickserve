@@ -4,13 +4,13 @@ import { Pressable, View } from 'react-native';
 import { Button, Header, InlineAlert, OTPInput, Screen, Text, useToast } from '../../src/components/ui';
 import { getMyProfile, getMyProvider, isDemoMode, sendOtp, verifyOtp } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
-import { authErrorMessage } from '../../src/lib/authErrors';
+import { authErrorMessage, formatOtpCountdown } from '../../src/lib/authErrors';
 import { haptics } from '../../src/lib/haptics';
 import { formatPhone } from '../../src/lib/phone';
 import { hasCompletedOnboarding, returningUserRole } from '../../src/lib/returningUser';
 import { useTheme } from '../../src/theme';
 
-const RESEND_SECONDS = 30;
+const RESEND_SECONDS = 60;
 
 export default function VerifyScreen() {
   const t = useTheme();
@@ -126,7 +126,7 @@ export default function VerifyScreen() {
           <Text variant="callout" color="muted">
             Resend code in{' '}
             <Text variant="calloutStrong" color="textSecondary" tabular>
-              0:{String(left).padStart(2, '0')}
+              {formatOtpCountdown(left)}
             </Text>
           </Text>
         ) : (
