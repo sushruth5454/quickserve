@@ -73,6 +73,11 @@ for (const file of [
   await db.exec(migration(file));
 }
 
+const cancellationNotification = migration('0063_o1_notifications.sql')
+  .match(/create or replace function public\._on_booking_event_notify\(\)[\s\S]*?\n\$\$;/i)?.[0];
+if (!cancellationNotification) throw new Error('0063 must define _on_booking_event_notify');
+await db.exec(cancellationNotification);
+
 let failures = 0;
 const ok = (condition, message) => {
   if (condition) console.log('ok  :', message);
@@ -318,5 +323,117 @@ const refunds = await service(
 );
 ok(debt.length === 1 && debt[0].amount === 4000, 'unreversible RazorpayX amount becomes provider debt');
 ok(refunds[0].amount === 4000, 'customer refund is queued before provider recovery');
+
+const categoryName = (await service(`select name from categories where id = $1::uuid`, [categoryId]))[0].name;
+const cancellationNoticeFixtures = [
+  {
+    customer: '00000000-0000-0000-0000-000000000201',
+    provider: '00000000-0000-0000-0000-000000000202',
+    scheduledAt: '2027-01-04T04:30:00Z',
+    customerName: 'Cancellation Customer One',
+    providerName: 'Cancellation Pro One',
+  },
+  {
+    customer: '00000000-0000-0000-0000-000000000203',
+    provider: '00000000-0000-0000-0000-000000000204',
+    scheduledAt: '2027-01-05T05:00:00Z',
+    customerName: 'Cancellation Customer Two',
+    providerName: 'Cancellation Pro Two',
+  },
+  {
+    customer: '00000000-0000-0000-0000-000000000205',
+    provider: '00000000-0000-0000-0000-000000000206',
+    scheduledAt: '2027-01-06T05:30:00Z',
+    customerName: 'Cancellation Customer Three',
+    providerName: 'Cancellation Pro Three',
+  },
+];
+await service(
+  `update categories set min_lead_hours = 0, max_lead_days = 365, exclusive = false where id = $1::uuid`,
+  [categoryId],
+);
+for (const fixture of cancellationNoticeFixtures) {
+  await db.query(`
+    insert into auth.users (id, raw_user_meta_data)
+    values ($1::uuid, $2::jsonb), ($3::uuid, $4::jsonb)
+  `, [
+    fixture.customer, JSON.stringify({ full_name: fixture.customerName }),
+    fixture.provider, JSON.stringify({ full_name: fixture.providerName }),
+  ]);
+  await db.query(`update profiles set role_provider = true where id = $1::uuid`, [fixture.provider]);
+  await db.query(`
+    insert into providers (
+      id, city, kyc_status, razorpay_account_id, submitted_at, terms_version, onboarding_step
+    ) values ($1::uuid, 'Vijayawada', 'verified', $2::text, now(), 'legacy', 7)
+  `, [fixture.provider, `acc_${fixture.provider}`]);
+  fixture.serviceId = (await db.query(`
+    insert into provider_services (provider_id, category_id, visit_fee, labour_rate)
+    values ($1::uuid, $2::uuid, 19900, 50000) returning id
+  `, [fixture.provider, categoryId])).rows[0].id;
+  fixture.addressId = (await db.query(`
+    insert into addresses (user_id, label, line1, city, lat, lng)
+    values ($1::uuid, 'Test', '1 Road', 'Vijayawada', 16.5, 80.6) returning id
+  `, [fixture.customer])).rows[0].id;
+}
+const cancellationNoticeBooking = async (fixture, description) => {
+  return (await service(
+    `insert into bookings (
+       customer_id, provider_id, category_id, provider_service_id, address_id, description,
+       scheduled_at, status, visit_fee, platform_fee, service_window
+     ) values ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::text,
+               $7::timestamptz, 'accepted', 19900, 0,
+               tstzrange($7::timestamptz, $7::timestamptz + interval '2 hours', '[)'))
+     returning id`,
+    [fixture.customer, fixture.provider, categoryId, fixture.serviceId, fixture.addressId,
+      description, fixture.scheduledAt],
+  ))[0].id;
+};
+const cancellationNoticeRows = (bookingId) => service(
+  `select user_id, title, body from notifications
+    where booking_id = $1::uuid and kind = 'booking_cancelled' order by user_id`,
+  [bookingId],
+);
+
+const providerCancelFixture = cancellationNoticeFixtures[0];
+const providerCancelledBooking = await cancellationNoticeBooking(
+  providerCancelFixture, 'provider cancellation notification');
+await as(providerCancelFixture.provider, 'authenticated',
+  `select provider_cancel_booking($1::uuid, $2::text, $3::text)`,
+  [providerCancelledBooking, 'provider_cancellation', 'test cancellation'],
+);
+const providerCancellationNotice = await cancellationNoticeRows(providerCancelledBooking);
+const cancellationProviderName = (await service(
+  `select _first_name($1::uuid, 'Your pro') name`,
+  [providerCancelFixture.provider],
+))[0].name;
+ok(providerCancellationNotice.length === 1
+  && providerCancellationNotice[0].user_id === providerCancelFixture.customer
+  && providerCancellationNotice[0].title === 'Booking cancelled by your pro'
+  && providerCancellationNotice[0].body === `${cancellationProviderName} cancelled your ${categoryName} booking. Any refund due is on its way.`,
+  `[WS7-T01] provider cancellation notifies the customer (${JSON.stringify(providerCancellationNotice)})`);
+
+const customerCancelFixture = cancellationNoticeFixtures[1];
+const customerCancelledBooking = await cancellationNoticeBooking(
+  customerCancelFixture, 'customer cancellation notification');
+await as(customerCancelFixture.customer, 'authenticated',
+  `select cancel_booking($1::uuid, $2::text)`,
+  [customerCancelledBooking, 'test cancellation']);
+const customerCancellationNotice = await cancellationNoticeRows(customerCancelledBooking);
+ok(customerCancellationNotice.length === 1
+  && customerCancellationNotice[0].user_id === customerCancelFixture.provider
+  && customerCancellationNotice[0].body === `The customer cancelled the ${categoryName} booking.`,
+  `[WS7-T01] customer cancellation notifies the provider (${JSON.stringify(customerCancellationNotice)})`);
+
+const systemCancelFixture = cancellationNoticeFixtures[2];
+const systemCancelledBooking = await cancellationNoticeBooking(
+  systemCancelFixture, 'system cancellation notification');
+await service(`select public._set_status($1::uuid, 'cancelled'::public.booking_status, null::uuid, $2::text)`,
+  [systemCancelledBooking, 'system cancellation']);
+const systemCancellationNotices = await cancellationNoticeRows(systemCancelledBooking);
+ok(systemCancellationNotices.length === 2
+  && systemCancellationNotices.map((row) => row.user_id).sort().join(',')
+    === [systemCancelFixture.customer, systemCancelFixture.provider].sort().join(',')
+  && systemCancellationNotices.every((row) => row.body === `This ${categoryName} booking was cancelled.`),
+  `[WS7-T01] system cancellation notifies both parties with neutral text (${JSON.stringify(systemCancellationNotices)})`);
 
 if (failures) process.exitCode = 1;
