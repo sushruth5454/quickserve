@@ -858,10 +858,20 @@ await db.query(`update recurring_schedules set generated_through=$2::date where 
   [pausePlan, dateOffset(27)]);
 await as(customer, 'authenticated', `select resume_recurring_plan($1)`, [pausePlan]);
 const resumed = await one(`select status from recurring_schedules where id=$1`, [pausePlan]);
+const resumedBookingCount = await generatedBookings(pausePlan);
+const pauseDiagnostic = {
+  pauseOff: !!pauseOff,
+  pauseError,
+  pauseBefore,
+  cancelled: cancelledDuringPause.n,
+  paused: paused.status,
+  resumed: resumed.status,
+  resumedBookingCount,
+};
 ok(!!pauseOff && !pauseError && pauseBefore > 0 && cancelledDuringPause.n === pauseBefore
   && paused.status === 'paused' && resumed.status === 'active'
-  && (await generatedBookings(pausePlan)) === pauseBefore + 1,
-  '[RP-14/RP-23] pause cancels unpaid visits, child-off refuses pause, and resume materializes the next date');
+  && resumedBookingCount === pauseBefore + 1,
+  `[RP-14/RP-23] pause cancels unpaid visits, child-off refuses pause, and resume materializes the next date (${JSON.stringify(pauseDiagnostic)})`);
 
 // RP-15/RP-16: provider holiday/time off and occupied windows affect only the unavailable date.
 const existingVisitPlan = await createPlan(input({
@@ -1058,11 +1068,16 @@ const legacyStart = dateOffset(24);
 const legacyId = await createLegacySchedule(timeService, legacyStart);
 const legacy = await one(`select frequency, provider_acceptance, acceptance_mode from recurring_schedules where id=$1`, [legacyId]);
 const legacyGen = await as(null, 'service_role', `select generate_recurring_sessions(100) n`);
+const legacyBookings = await generatedBookings(legacyId);
 ok(legacy.frequency === 'weekly' && legacy.provider_acceptance === 'accepted'
   && legacy.acceptance_mode === 'occurrence'
-  && (await generatedBookings(legacyId)) === 1
+  && legacyBookings === 1
   && Number(legacyGen[0].n) >= 1,
-  '[RP-21] legacy weekly schedules retain accepted provider and per-occurrence behavior');
+  `[RP-21] legacy weekly schedules retain accepted provider and per-occurrence behavior (${JSON.stringify({
+    schedule: legacy,
+    bookings: legacyBookings,
+    generated: legacyGen[0].n,
+  })})`);
 
 await db.query(`update categories set recurrence_allowed=false where id=$1`, [timeCategory]);
 const legacyCategoryOff = await fails(() => createLegacySchedule(timeService, dateOffset(26)));
@@ -1174,6 +1189,16 @@ const noticesAfterRetry = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
      and data ->> 'recurring_schedule_id'=$2::text`, [customer, invalidatedPlan]);
+const invalidatedValidBookings = await generatedBookings(validBatchPlan);
+const invalidatedDiagnostic = {
+  state: invalidatedState,
+  changes: invalidatedChanges,
+  notices: invalidatedNotices.n,
+  retry: invalidatedRetry.changes,
+  noticesAfterRetry: noticesAfterRetry.n,
+  validBookings: invalidatedValidBookings,
+  generated: isolatedGeneration[0].generated,
+};
 await db.query(`update categories set recurrence_allowed=true where id=$1`, [fixedCategory]);
 await setFlag('recurring_skip_pause', true);
 ok(invalidatedState.status === 'active' && invalidatedState.paused_at === null
@@ -1181,9 +1206,9 @@ ok(invalidatedState.status === 'active' && invalidatedState.paused_at === null
   && invalidatedChanges.n === 2 && invalidatedChanges.reasons === 2
   && invalidatedNotices.n === 2 && invalidatedRetry.changes === 2
   && noticesAfterRetry.n === 2
-  && (await generatedBookings(validBatchPlan)) === 1
+  && invalidatedValidBookings === 1
   && Number(isolatedGeneration[0].generated) >= 1,
-  '[RP-24] category invalidation is per-date, notified/deduped, does not system-pause with skip/pause off, and does not starve a valid plan');
+  `[RP-24] category invalidation is per-date, notified/deduped, does not system-pause with skip/pause off, and does not starve a valid plan (${JSON.stringify(invalidatedDiagnostic)})`);
 
 const verificationPlan = await insertSchedule({
   status: 'active',
@@ -1241,6 +1266,18 @@ const verificationNoticesAfterRetry = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
      and data ->> 'recurring_schedule_id'=$2::text`, [customer, verificationPlan]);
+const verificationPlanBookings = await generatedBookings(verificationPlan);
+const verificationValidBookings = await generatedBookings(verificationValidPlan);
+const verificationDiagnostic = {
+  state: verificationState,
+  changes: verificationChanges,
+  notices: verificationNotices.n,
+  retry: verificationRetry.n,
+  noticesAfterRetry: verificationNoticesAfterRetry.n,
+  unavailablePlanBookings: verificationPlanBookings,
+  validPlanBookings: verificationValidBookings,
+  generated: verificationGeneration[0].generated,
+};
 await db.query(`update categories set requires_docs='{}'::text[] where id=$1`, [timeCategory]);
 await setFlag('recurring_skip_pause', true);
 ok(verificationState.status === 'active' && verificationState.paused_at === null
@@ -1248,10 +1285,10 @@ ok(verificationState.status === 'active' && verificationState.paused_at === null
   && verificationChanges.n === 2 && verificationChanges.reasons === 2
   && verificationNotices.n === 2 && verificationRetry.n === 2
   && verificationNoticesAfterRetry.n === 2
-  && (await generatedBookings(verificationPlan)) === 0
-  && (await generatedBookings(verificationValidPlan)) === 1
+  && verificationPlanBookings === 0
+  && verificationValidBookings === 1
   && Number(verificationGeneration[0].generated) >= 1,
-  '[RP-24] a verification lapse records/notifies unavailable dates without system pause and does not starve a valid plan');
+  `[RP-24] a verification lapse records/notifies unavailable dates without system pause and does not starve a valid plan (${JSON.stringify(verificationDiagnostic)})`);
 
 const expiredPackId = await createPackFixture({ expired: true });
 const depletedPackId = await createPackFixture({ sessionStatus: 'consumed' });
@@ -1323,6 +1360,21 @@ const expiredPackNoticesAfterRetry = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
      and data ->> 'recurring_schedule_id'=$2::text`, [customer, expiredPackPlan]);
+const expiredPackBookings = await generatedBookings(expiredPackPlan);
+const depletedPackBookings = await generatedBookings(depletedPackPlan);
+const validPackBookings = await generatedBookings(packBatchValidPlan);
+const packDiagnostic = {
+  failures: packFailures.rows,
+  expiredState: expiredPackState,
+  depletedState: depletedPackState,
+  notices: packNotices.n,
+  retry: expiredPackRetry.n,
+  noticesAfterRetry: expiredPackNoticesAfterRetry.n,
+  expiredBookings: expiredPackBookings,
+  depletedBookings: depletedPackBookings,
+  validBookings: validPackBookings,
+  generated: packGeneration[0].generated,
+};
 await setFlag('recurring_skip_pause', true);
 ok(packFailures.rows.length === 4
   && packFailures.rows.filter((row) => row.schedule_id === expiredPackPlan && /pack has expired/i.test(row.reason)).length === 2
@@ -1333,11 +1385,11 @@ ok(packFailures.rows.length === 4
   && depletedPackState.generated_through === dateOffset(28)
   && packNotices.n === 4 && expiredPackRetry.n === 2
   && expiredPackNoticesAfterRetry.n === 2
-  && (await generatedBookings(expiredPackPlan)) === 0
-  && (await generatedBookings(depletedPackPlan)) === 0
-  && (await generatedBookings(packBatchValidPlan)) === 1
+  && expiredPackBookings === 0
+  && depletedPackBookings === 0
+  && validPackBookings === 1
   && Number(packGeneration[0].generated) >= 1,
-  '[RP-24] expired/exhausted packs are per-date unavailable, deduped/notified, and do not starve a valid plan');
+  `[RP-24] expired/exhausted packs are per-date unavailable, deduped/notified, and do not starve a valid plan (${JSON.stringify(packDiagnostic)})`);
 
 // RP-26: unexpected database errors still fail the batch loudly.
 const unexpectedPlan = await insertSchedule({
@@ -1399,7 +1451,7 @@ ok(!!staleWindowOverlap && reservationState.status === 'pending_payment'
   && reservationState.overlapping_rows === 0 && reservationAfterPayment.status === 'requested',
   '[RP-25] a stale pending recurring occurrence blocks overlaps and still follows its payment lifecycle');
 
-const oneTimeSlot = indiaSlot(70, 15);
+const oneTimeSlot = indiaSlot(70, 120);
 const oneTimePending = (await one(`
   select _create_session_booking(
     $1, $2, null, $3::timestamptz, 15,
