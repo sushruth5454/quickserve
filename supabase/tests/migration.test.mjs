@@ -6,21 +6,26 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-const raw = fs.readFileSync(path.join(here, '..', 'migrations', '0001_init.sql'), 'utf8');
+const migration = (file) =>
+  fs.readFileSync(path.join(here, '..', 'migrations', file), 'utf8')
+    .replace('create extension if not exists postgis with schema extensions;', '')
+    .replaceAll('extensions.geography(Point, 4326)', 'extensions.geography')
+    .replaceAll('using gist', 'using btree');
 const seed = fs.readFileSync(path.join(here, '..', 'seed.sql'), 'utf8');
-const migration = raw
-  .replace('create extension if not exists postgis with schema extensions;', '')
-  .replaceAll('extensions.geography(Point, 4326)', 'extensions.geography')
-  .replaceAll('using gist', 'using btree');
 
 const prelude = `
 create schema if not exists extensions;
 create type extensions.geography as (lng float8, lat float8);
+create type extensions.geometry as (lng float8, lat float8);
 create function extensions.st_makepoint(x float8, y float8) returns extensions.geography language sql immutable as $$ select row(x, y)::extensions.geography $$;
 create function extensions.st_setsrid(g extensions.geography, srid int) returns extensions.geography language sql immutable as $$ select g $$;
 create function extensions.st_distance(a extensions.geography, b extensions.geography) returns float8 language sql immutable as $$
   select 2 * 6371000 * asin(sqrt(power(sin(radians(b.lat - a.lat) / 2), 2) + cos(radians(a.lat)) * cos(radians(b.lat)) * power(sin(radians(b.lng - a.lng) / 2), 2))) $$;
 create function extensions.st_dwithin(a extensions.geography, b extensions.geography, d float8) returns boolean language sql immutable as $$ select extensions.st_distance(a, b) <= d $$;
+create function extensions.geog_to_geom(g extensions.geography) returns extensions.geometry language sql immutable as $$ select row(g.lng, g.lat)::extensions.geometry $$;
+create cast (extensions.geography as extensions.geometry) with function extensions.geog_to_geom(extensions.geography);
+create function extensions.st_x(g extensions.geometry) returns float8 language sql immutable as $$ select g.lng $$;
+create function extensions.st_y(g extensions.geometry) returns float8 language sql immutable as $$ select g.lat $$;
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
 grant usage on schema public, extensions to anon, authenticated, service_role;
 create schema auth;
@@ -31,7 +36,7 @@ create function auth.uid() returns uuid language sql stable as $$ select nullif(
 grant execute on function auth.uid() to anon, authenticated, service_role;
 create schema storage;
 grant usage on schema storage to anon, authenticated, service_role;
-create table storage.buckets (id text primary key, name text, public boolean);
+create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
 create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
 alter table storage.objects enable row level security;
 create function storage.foldername(name text) returns text[] language sql immutable as $$
@@ -40,12 +45,47 @@ alter default privileges in schema public grant all on tables to anon, authentic
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 `;
 
+// AI-assistant migrations 0004-0006 remain covered by their Deno tests, matching the PGlite chain.
+const migrationFiles = [
+  '0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql',
+  '0007_chat_unread_notifications.sql', '0008_provider_kyc_status_values.sql',
+  '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
+  '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
+  '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
+  '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
+  '0020_proposal_enum_values.sql', '0021_cancellation_availability_payouts.sql',
+  '0022_time_based_booking.sql', '0023_proposal_milestone_booking.sql',
+  '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
+  '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
+  '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
+  '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql',
+  '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql',
+  '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
+  '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql',
+  '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql',
+  '0046_managed_geography.sql', '0047_coins_config.sql', '0048_sports.sql',
+  '0049_shops_catalogue.sql', '0050_rfq.sql', '0051_ai_usage_v3.sql',
+  '0052_merchant_staff.sql', '0053_activity_contracts.sql', '0054_addendum_foundations.sql',
+  '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql',
+  '0057_recurring_plans_v2.sql', '0058_sports_payments.sql',
+];
+
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
-await db.exec(migration);
-// Later migrations that run on PGlite (0004-0006 are AI-assistant tables covered by Deno tests).
-await db.exec(fs.readFileSync(path.join(here, '..', 'migrations', '0007_chat_unread_notifications.sql'), 'utf8'));
-await db.exec(fs.readFileSync(path.join(here, '..', 'migrations', '0010_notification_freshness.sql'), 'utf8'));
+for (const file of migrationFiles) {
+  if (file === '0051_ai_usage_v3.sql') {
+    await db.exec(`
+      create table public.ai_usage (
+        id bigint generated always as identity primary key,
+        user_id uuid not null references public.profiles (id) on delete cascade,
+        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
+        request_id uuid,
+        created_at timestamptz not null default now()
+      )
+    `);
+  }
+  await db.exec(migration(file));
+}
 console.log('migration applied');
 
 const C = '00000000-0000-0000-0000-00000000000c';
