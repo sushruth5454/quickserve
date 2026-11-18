@@ -224,6 +224,8 @@ await db.exec(`
      'verified', now(), true, false, false),
     ('${expiryProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.65,16.50),4326),
      'verified', now(), true, false, false);
+  update providers set timezone='UTC'
+   where id in ('${syncProvider}', '${autoProvider}', '${legacyProvider}');
   update app_config
      set value = value || '{"time_based":true,"fixed":true}'::jsonb
    where key = 'archetype_flags';
@@ -854,9 +856,16 @@ const paused = await one(`select status from recurring_schedules where id=$1`, [
 const cancelledDuringPause = await one(`
   select count(*)::int n from recurring_occurrence_changes
    where schedule_id=$1 and kind='cancelled'`, [pausePlan]);
-await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
-  [pausePlan, dateOffset(27)]);
+const recurringRulesBeforeResume = (await one(
+  `select value from app_config where key='recurring_rules'`)).value;
+const horizonDaysBeforeResume = recurringRulesBeforeResume.horizon_days ?? 28;
+await db.query(`update app_config
+  set value=jsonb_set(value, '{horizon_days}', $1::jsonb)
+  where key='recurring_rules'`, [JSON.stringify(horizonDaysBeforeResume + 1)]);
 await as(customer, 'authenticated', `select resume_recurring_plan($1)`, [pausePlan]);
+await db.query(`update app_config
+  set value=jsonb_set(value, '{horizon_days}', $1::jsonb)
+  where key='recurring_rules'`, [JSON.stringify(horizonDaysBeforeResume)]);
 const resumed = await one(`select status from recurring_schedules where id=$1`, [pausePlan]);
 const resumedBookingCount = await generatedBookings(pausePlan);
 const pauseDiagnostic = {
@@ -1067,14 +1076,16 @@ ok(Array.isArray(providerCalendar[0].rows) && providerCalendar[0].rows.some((row
 const legacyStart = dateOffset(24);
 const legacyId = await createLegacySchedule(timeService, legacyStart);
 const legacy = await one(`select frequency, provider_acceptance, acceptance_mode from recurring_schedules where id=$1`, [legacyId]);
+const legacyBookingsBeforeGeneration = await generatedBookings(legacyId);
 const legacyGen = await as(null, 'service_role', `select generate_recurring_sessions(100) n`);
 const legacyBookings = await generatedBookings(legacyId);
 ok(legacy.frequency === 'weekly' && legacy.provider_acceptance === 'accepted'
   && legacy.acceptance_mode === 'occurrence'
-  && legacyBookings === 1
-  && Number(legacyGen[0].n) >= 1,
+  && legacyBookingsBeforeGeneration === 1
+  && legacyBookings === 1,
   `[RP-21] legacy weekly schedules retain accepted provider and per-occurrence behavior (${JSON.stringify({
     schedule: legacy,
+    bookingsBeforeGeneration: legacyBookingsBeforeGeneration,
     bookings: legacyBookings,
     generated: legacyGen[0].n,
   })})`);
@@ -1167,7 +1178,8 @@ await setFlag('recurring_skip_pause', false);
 const isolatedGeneration = await as(null, 'service_role',
   `select generate_recurring_occurrences(500) generated`);
 const invalidatedState = await one(`
-  select status, generated_through, paused_at from recurring_schedules where id=$1`, [invalidatedPlan]);
+  select status, generated_through::text generated_through, paused_at
+    from recurring_schedules where id=$1`, [invalidatedPlan]);
 const invalidatedChanges = await one(`
   select count(*)::int n,
          count(*) filter (where reason='recurring service/category is no longer eligible')::int reasons
@@ -1244,7 +1256,8 @@ await setFlag('recurring_skip_pause', false);
 const verificationGeneration = await as(null, 'service_role',
   `select generate_recurring_occurrences(500) generated`);
 const verificationState = await one(`
-  select status, generated_through, paused_at from recurring_schedules where id=$1`, [verificationPlan]);
+  select status, generated_through::text generated_through, paused_at
+    from recurring_schedules where id=$1`, [verificationPlan]);
 const verificationChanges = await one(`
   select count(*)::int n,
          count(*) filter (where reason='provider verification is incomplete')::int reasons
@@ -1268,6 +1281,13 @@ const verificationNoticesAfterRetry = await one(`
      and data ->> 'recurring_schedule_id'=$2::text`, [customer, verificationPlan]);
 const verificationPlanBookings = await generatedBookings(verificationPlan);
 const verificationValidBookings = await generatedBookings(verificationValidPlan);
+const verificationValidState = await one(`
+  select status, generated_through::text generated_through, paused_at
+    from recurring_schedules where id=$1`, [verificationValidPlan]);
+const verificationValidChanges = await db.query(`
+  select occurrence_date::text occurrence_date, kind, reason
+    from recurring_occurrence_changes where schedule_id=$1 order by occurrence_date`,
+  [verificationValidPlan]);
 const verificationDiagnostic = {
   state: verificationState,
   changes: verificationChanges,
@@ -1276,6 +1296,8 @@ const verificationDiagnostic = {
   noticesAfterRetry: verificationNoticesAfterRetry.n,
   unavailablePlanBookings: verificationPlanBookings,
   validPlanBookings: verificationValidBookings,
+  validPlanState: verificationValidState,
+  validPlanChanges: verificationValidChanges.rows,
   generated: verificationGeneration[0].generated,
 };
 await db.query(`update categories set requires_docs='{}'::text[] where id=$1`, [timeCategory]);
@@ -1340,9 +1362,11 @@ const packFailures = await db.query(`
    where schedule_id in ($1, $2) and kind='provider_unavailable'
    order by schedule_id, occurrence_date`, [expiredPackPlan, depletedPackPlan]);
 const expiredPackState = await one(
-  `select status, generated_through, paused_at from recurring_schedules where id=$1`, [expiredPackPlan]);
+  `select status, generated_through::text generated_through, paused_at
+     from recurring_schedules where id=$1`, [expiredPackPlan]);
 const depletedPackState = await one(
-  `select status, generated_through, paused_at from recurring_schedules where id=$1`, [depletedPackPlan]);
+  `select status, generated_through::text generated_through, paused_at
+     from recurring_schedules where id=$1`, [depletedPackPlan]);
 const packNotices = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
@@ -1363,6 +1387,13 @@ const expiredPackNoticesAfterRetry = await one(`
 const expiredPackBookings = await generatedBookings(expiredPackPlan);
 const depletedPackBookings = await generatedBookings(depletedPackPlan);
 const validPackBookings = await generatedBookings(packBatchValidPlan);
+const validPackState = await one(`
+  select status, generated_through::text generated_through, paused_at
+    from recurring_schedules where id=$1`, [packBatchValidPlan]);
+const validPackChanges = await db.query(`
+  select occurrence_date::text occurrence_date, kind, reason
+    from recurring_occurrence_changes where schedule_id=$1 order by occurrence_date`,
+  [packBatchValidPlan]);
 const packDiagnostic = {
   failures: packFailures.rows,
   expiredState: expiredPackState,
@@ -1373,6 +1404,8 @@ const packDiagnostic = {
   expiredBookings: expiredPackBookings,
   depletedBookings: depletedPackBookings,
   validBookings: validPackBookings,
+  validPlanState: validPackState,
+  validPlanChanges: validPackChanges.rows,
   generated: packGeneration[0].generated,
 };
 await setFlag('recurring_skip_pause', true);
@@ -1522,15 +1555,31 @@ const legacyFirstAt = (await one(
 const legacyLeadMinutes = (new Date(legacyFirstAt).getTime() - Date.now()) / 60_000;
 
 await as(null, 'service_role', `select generate_recurring_occurrences(500)`);
+const recurringAcceptanceAfterCron = {
+  respond: await generatedBookings(respondPlan),
+  auto: await generatedBookings(autoPlan),
+  legacy: await generatedBookings(legacySoonPlan),
+};
+const recurringAcceptanceDiagnostic = {
+  respondCountBefore,
+  respondOccurrencesBeforeCron,
+  respondLeadMinutes,
+  autoState,
+  autoOccurrencesBeforeCron,
+  autoLeadMinutes,
+  legacyOccurrencesBeforeCron,
+  legacyLeadMinutes,
+  afterCron: recurringAcceptanceAfterCron,
+};
 ok(respondCountBefore === 0 && respondOccurrencesBeforeCron === 1
   && respondLeadMinutes >= 60 && respondLeadMinutes <= 90
   && autoState.provider_acceptance === 'accepted' && autoState.acceptance_mode === 'occurrence'
   && autoOccurrencesBeforeCron === 1 && autoLeadMinutes >= 60 && autoLeadMinutes <= 90
   && legacyOccurrencesBeforeCron > 0 && legacyLeadMinutes >= 60 && legacyLeadMinutes <= 90
-  && (await generatedBookings(respondPlan)) === respondOccurrencesBeforeCron
-  && (await generatedBookings(autoPlan)) === autoOccurrencesBeforeCron
-  && (await generatedBookings(legacySoonPlan)) === legacyOccurrencesBeforeCron,
-  '[RP-27] all acceptance paths materialize 60–90-minute first visits synchronously and cron remains idempotent');
+  && recurringAcceptanceAfterCron.respond === respondOccurrencesBeforeCron
+  && recurringAcceptanceAfterCron.auto === autoOccurrencesBeforeCron
+  && recurringAcceptanceAfterCron.legacy === legacyOccurrencesBeforeCron,
+  `[RP-27] all acceptance paths materialize 60–90-minute first visits synchronously and cron remains idempotent (${JSON.stringify(recurringAcceptanceDiagnostic)})`);
 
 const tooSoonSlot = indiaWallSlot(45);
 const tooSoonQuoteError = await fails(() => as(customer, 'authenticated',
@@ -1865,7 +1914,8 @@ const legacyServiceBatchError = await fails(async () => {
     `select generate_recurring_occurrences(500) generated`);
 });
 const inactiveLegacyState = await one(`
-  select plan_version, status, generated_through from recurring_schedules where id=$1`,
+  select plan_version, status, generated_through::text generated_through
+    from recurring_schedules where id=$1`,
   [inactiveLegacyPlan]);
 const inactiveLegacyChanges = await one(`
   select count(*)::int n, bool_and(reason='service not available') exact_reason
@@ -1943,7 +1993,7 @@ await db.query(`update payment_schedule set due_at=now()-interval '25 hours'
 const beforeServiceExpiry = await as(null, 'service_role',
   `select expire_recurring_occurrences(500) n`);
 const graceWindowExpired = await one(`
-  select status::text status, scheduled_at > now() service_future,
+  select b.status::text status, b.scheduled_at > now() service_future,
          count(ps.id) filter (where ps.status='waived')::int waived
     from bookings b left join payment_schedule ps on ps.booking_id=b.id
    where b.id=$1 group by b.id`, [graceWindowOccurrence.id]);
@@ -2062,10 +2112,12 @@ const addressBatchError = await fails(async () => {
     `select generate_recurring_occurrences(500) generated`);
 });
 const missingAddressState = await one(`
-  select plan_version, status, generated_through from recurring_schedules where id=$1`,
+  select plan_version, status, generated_through::text generated_through
+    from recurring_schedules where id=$1`,
   [missingAddressLegacyPlan]);
 const missingAddressV2State = await one(`
-  select plan_version, status, generated_through from recurring_schedules where id=$1`,
+  select plan_version, status, generated_through::text generated_through
+    from recurring_schedules where id=$1`,
   [missingAddressV2Plan]);
 const missingAddressChange = await one(`
   select count(*)::int n, bool_and(reason='address is required') expected_reason
