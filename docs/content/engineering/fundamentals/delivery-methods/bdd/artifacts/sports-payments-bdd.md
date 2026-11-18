@@ -247,6 +247,28 @@ Feature: Sports business read authorization
     And direct sports_bookings participant reads return no rows
 ```
 
+### SP-18 — Owner payout readiness is independent of online booking eligibility
+
+```gherkin
+Feature: Venue payout-account readiness
+  Scenario: An owner can check an activated payout account before enabling online payment
+    Given the owner has an activated payout account
+    And the venue accepts only pay-at-venue
+    And sports_online_payments is off
+    When the owner reads the management venue
+    Then venue.payout_account_ready is true
+    And online_payment_ready is false
+
+  Scenario: An unactivated account is not ready and staff are not represented as owners
+    Given the payout account is not activated
+    When the owner reads the management venue
+    Then venue.payout_account_ready is false
+    When assigned staff reads the management venue
+    Then venue.business_role remains staff
+    And venue.payout_account_ready is absent
+    And neither result exposes payout-account identifiers, status, or bank details
+```
+
 ## Automation readiness
 
 | Scenario | Planned observable SQL-test evidence |
@@ -261,6 +283,7 @@ Feature: Sports business read authorization
 | SP-15 | New online request is blocked while existing payment/refund/cancel/expiry/settlement paths and pay-at-venue remain safe. |
 | SP-16 | Customer venue and booking reads expose accurate payment-mode/readiness and resource/booking fields; pending and approved checkout deadlines map to `hold_expires_at` and `pay_by`; payout identifiers are absent. |
 | SP-17 | `get_my_business_sports_venues`, `get_my_business_sports_bookings`, `get_business_sports_booking`, and participant RLS preserve active staff scope, `business_role`, and the parent-flag guard. |
+| SP-18 | `get_my_business_sports_venues` exposes owner-only `payout_account_ready` from activation state alone; it stays independent of online mode/feature eligibility and is absent for staff. |
 
 These are acceptance criteria for E1's SQL tests; payment-edge routing tests are owned by E2. Tests and CI evidence are pending.
 

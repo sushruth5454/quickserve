@@ -400,7 +400,17 @@ declare
 begin
   perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
   select coalesce(jsonb_agg(jsonb_build_object(
-    'venue', to_jsonb(v) || jsonb_build_object('business_role', public._business_role(v.owner_id)),
+    'venue',
+      to_jsonb(v) || jsonb_build_object('business_role', public._business_role(v.owner_id))
+      || case
+        when v.owner_id = auth.uid() then jsonb_build_object(
+          'payout_account_ready', exists (
+            select 1 from public.provider_payout_accounts pa
+             where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+          )
+        )
+        else '{}'::jsonb
+      end,
     'online_payment_ready', coalesce(
       public._sports_feature('sports_online_payments')
       and 'online' = any(v.payment_modes)
