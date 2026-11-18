@@ -52,6 +52,7 @@ export interface CoinRedemptionPreview {
   platform_cap_paise: number;
   maximum_paise: number;
   applied_paise: number;
+  can_redeem: boolean;
 }
 
 export function coinPaiseToCoins(paise: number, config: Pick<CoinsConfig, 'coin_paise'> = DEFAULT_COINS_CONFIG): number {

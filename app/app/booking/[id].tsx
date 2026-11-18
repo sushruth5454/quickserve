@@ -38,7 +38,7 @@ import { useAuth } from '../../src/lib/auth';
 import { isDemoMode } from '../../src/lib/config';
 import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../src/lib/demo/seed';
 import { haptics } from '../../src/lib/haptics';
-import { amountDue, formatINR } from '../../src/lib/money';
+import { amountDue, customerDueNow, formatINR, requiredTotal } from '../../src/lib/money';
 import { coinPaiseToCoins, earnedCoinPaise, type CoinRedemptionPreview } from '../../src/lib/coins';
 import { creatorRevisionsEnabled, requestCreatorRevision } from '../../src/lib/creatorRevisions';
 import { usePayment } from '../../src/lib/payments';
@@ -236,6 +236,9 @@ export default function BookingDetail() {
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;
+  const coinDiscountPreview = data.coinPreview?.can_redeem
+    ? (useCoins ? data.coinPreview.maximum_paise : 0)
+    : data.coinPreview?.maximum_paise ?? 0;
   const shownQuoteIds = new Set([openQuote?.id, pendingPaymentQuote?.id].filter(Boolean));
   const typical = typicalRange(booking.categories?.slug);
   const customerRespondsToQuote = isCustomer && !!openQuote && (s === 'quote_sent' || s === 'in_progress');
@@ -267,7 +270,11 @@ export default function BookingDetail() {
 
   const approve = (quote: Quote) =>
     run(async () => {
-      const res = await api.approveQuote(booking.id, quote.id, useCoins);
+      const res = await api.approveQuote(
+        booking.id,
+        quote.id,
+        useCoins && (data.coinPreview?.maximum_paise ?? 0) > 0,
+      );
       if (res.amount_due > 0) await startPayment(booking.id);
     }, 'Quote approved');
 
@@ -328,11 +335,16 @@ export default function BookingDetail() {
   let footer: ReactNode;
   if (isCustomer) {
     if (customerRespondsToQuote && openQuote) {
-      const previewDiscount = useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0;
-      const due = Math.max(
-        0,
-        amountDue({ quoteTotal: openQuote.total, visitFee: booking.visit_fee, platformFee: booking.platform_fee, alreadyPaid: paid })
-          - previewDiscount,
+      const previewDiscount = useCoins && data.coinPreview?.can_redeem
+        ? data.coinPreview.maximum_paise
+        : 0;
+      const appliedCoinDiscount = !data.coinPreview?.can_redeem
+        ? data.coinPreview?.maximum_paise ?? 0
+        : 0;
+      const due = customerDueNow(
+        requiredTotal(openQuote.total, booking.visit_fee, booking.platform_fee),
+        Math.max(0, paid - coinPaid),
+        previewDiscount + appliedCoinDiscount,
       );
       footer = (
         <AmountFooter label={openQuote.is_change_order ? 'Extra to pay' : 'To pay now'} amount={due}>
@@ -528,7 +540,7 @@ export default function BookingDetail() {
       ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
-          {data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
+          {data.coinPreview?.can_redeem && data.coinPreview.maximum_paise > 0 ? (
             <Card
               gap={t.spacing.sm}
               style={{ flexDirection: 'row', alignItems: 'center' }}
@@ -557,7 +569,7 @@ export default function BookingDetail() {
             platformFee={booking.platform_fee}
             alreadyPaid={paid}
             counterpartName={data.counterpart}
-            coinDiscountPreview={useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0}
+            coinDiscountPreview={coinDiscountPreview}
             coinPaid={coinPaid}
             typical={openQuote.is_change_order ? null : typical}
           />

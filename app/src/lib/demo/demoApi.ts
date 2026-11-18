@@ -62,17 +62,19 @@ let autopilot = true;
 const demoWaitlist = new Set<string>();
 let bookingSeq = 1046;
 let idSeq = 1;
-let demoCoinBalance = 12500;
+const INITIAL_DEMO_COIN_BALANCE_PAISE = 12500;
+let demoCoinBalance = INITIAL_DEMO_COIN_BALANCE_PAISE;
 let travelRequests: TravelRequest[] = [];
 let serviceRequests: ServiceRequest[] = [];
 let proposals: Proposal[] = [];
 let requestMessages: RequestMessage[] = [];
 let paymentSchedules: PaymentSchedule[] = [];
-const demoCoinHistory: CoinLedgerEntry[] = [
-  {
+
+function demoWelcomeCoinEntry(): CoinLedgerEntry {
+  return {
     id: 'coin-seed-1',
     user_id: DEMO_USER_ID,
-    delta: 12500,
+    delta: INITIAL_DEMO_COIN_BALANCE_PAISE,
     kind: 'admin',
     booking_id: null,
     source_ledger_id: null,
@@ -81,8 +83,15 @@ const demoCoinHistory: CoinLedgerEntry[] = [
     reason: 'Demo wallet credit',
     created_by: null,
     created_at: new Date().toISOString(),
-  },
-];
+  };
+}
+
+const demoCoinHistory: CoinLedgerEntry[] = [demoWelcomeCoinEntry()];
+
+function resetDemoCoins() {
+  demoCoinBalance = INITIAL_DEMO_COIN_BALANCE_PAISE;
+  demoCoinHistory.splice(0, demoCoinHistory.length, demoWelcomeCoinEntry());
+}
 const authListeners = new Set<(s: AuthSession | null) => void>();
 const bookingListeners = new Map<string, Set<() => void>>();
 const messageListeners = new Map<string, Set<(m: Message) => void>>();
@@ -1184,7 +1193,56 @@ export const demoApi: Api = {
     const q = db.quotes.find((x) => x.id === quoteId && x.booking_id === b.id);
     assert(q && q.status === 'sent', 'quote is not open');
     let redeemed = b.coin_discount ?? 0;
-    if (!redeemed && useCoins) {
+    if (redeemed > 0) {
+      const provider = db.providers.find((p) => p.id === b.provider_id)!;
+      const rateBp = commissionRateBp({
+        jobsCompleted: provider.jobs_completed,
+        providerCreatedAt: new Date(provider.created_at),
+        at: new Date(),
+      });
+      const payout = providerPayout({ gross: q.total, commissionable: q.subtotal_labour, rateBp });
+      const serviceCap = Math.floor(Math.max(q.total, b.visit_fee) * DEFAULT_COINS_CONFIG.redeem_cap_bp / 10000);
+      const platformCap = Math.max(0, payout.commission + b.platform_fee - payout.gst);
+      redeemed = Math.floor(
+        Math.min(redeemed, serviceCap, platformCap) / DEFAULT_COINS_CONFIG.coin_paise,
+      ) * DEFAULT_COINS_CONFIG.coin_paise;
+      const restored = (b.coin_discount ?? 0) - redeemed;
+      if (restored > 0) {
+        const ref = `demo:restore:${b.id}:${q.id}`;
+        if (!demoCoinHistory.some((entry) => entry.ref === ref)) {
+          demoCoinBalance += restored;
+          demoCoinHistory.unshift({
+            id: newId('coin'),
+            user_id: uid(),
+            delta: restored,
+            kind: 'admin',
+            booking_id: b.id,
+            source_ledger_id: null,
+            expires_at: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+            ref,
+            reason: 'coins restored because a lower change order reduced the redemption cap',
+            created_by: null,
+            created_at: nowIso(),
+          });
+        }
+      }
+      const coinPayment = db.payments.find(
+        (payment) => payment.booking_id === b.id && payment.funding_source === 'coins' && payment.status === 'paid',
+      );
+      if (redeemed > 0 && coinPayment) {
+        coinPayment.amount = redeemed;
+        coinPayment.quote_id = q.id;
+      } else if (redeemed === 0) {
+        for (let i = db.payments.length - 1; i >= 0; i--) {
+          const payment = db.payments[i];
+          if (payment.booking_id === b.id && payment.funding_source === 'coins' && payment.status === 'paid') {
+            db.payments.splice(i, 1);
+          }
+        }
+      }
+      b.coin_discount = redeemed;
+      q.coin_discount = redeemed;
+    } else if (useCoins) {
       const provider = db.providers.find((p) => p.id === b.provider_id)!;
       const rateBp = commissionRateBp({
         jobsCompleted: provider.jobs_completed,
@@ -1221,7 +1279,7 @@ export const demoApi: Api = {
           booking_id: b.id,
           source_ledger_id: demoCoinHistory[0]?.id ?? null,
           expires_at: null,
-          ref: `demo:redeem:${b.id}`,
+          ref: `demo:redeem:${b.id}:${q.id}`,
           reason: 'Seva Coins redeemed on a QuickServe booking',
           created_by: null,
           created_at: createdAt,
@@ -1257,17 +1315,23 @@ export const demoApi: Api = {
     const payout = providerPayout({ gross: q.total, commissionable: q.subtotal_labour, rateBp });
     const serviceCap = Math.floor(Math.max(q.total, b.visit_fee) * 0.1);
     const platformCap = Math.max(0, payout.commission + b.platform_fee - payout.gst);
+    const alreadyRedeemed = (b.coin_discount ?? 0) > 0;
+    const applied = Math.min(b.coin_discount ?? 0, serviceCap, platformCap);
+    const maximum = alreadyRedeemed
+      ? Math.floor(applied / DEFAULT_COINS_CONFIG.coin_paise) * DEFAULT_COINS_CONFIG.coin_paise
+      : coinRedemptionLimit({
+          balancePaise: demoCoinBalance,
+          serviceValuePaise: Math.max(q.total, b.visit_fee),
+          platformRevenuePaise: platformCap,
+        });
     return {
       balance_paise: demoCoinBalance,
       coin_paise: DEFAULT_COINS_CONFIG.coin_paise,
       service_cap_paise: serviceCap,
       platform_cap_paise: platformCap,
-      maximum_paise: coinRedemptionLimit({
-        balancePaise: demoCoinBalance,
-        serviceValuePaise: Math.max(q.total, b.visit_fee),
-        platformRevenuePaise: platformCap,
-      }),
-      applied_paise: Math.min(b.coin_discount ?? 0, serviceCap, platformCap),
+      maximum_paise: maximum,
+      applied_paise: applied,
+      can_redeem: !alreadyRedeemed,
     };
   },
 
@@ -1659,6 +1723,7 @@ export const demoControls = {
   reset(now?: number) {
     clearTimers();
     db = buildSeed(now);
+    resetDemoCoins();
     chatReads = {};
     session = null;
     sessionLoaded = true;
@@ -1671,8 +1736,8 @@ export const demoControls = {
     autopilot = on;
     if (!on) clearTimers();
   },
-  signInForTests() {
-    session = { userId: DEMO_USER_ID, phone: '+919876543210' };
+  signInForTests(userId = DEMO_USER_ID) {
+    session = { userId, phone: '+919876543210' };
     sessionLoaded = true;
   },
   db: () => db,

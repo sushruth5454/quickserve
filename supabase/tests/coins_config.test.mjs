@@ -109,6 +109,7 @@ await asAdmin(`select admin_adjust_coins($1, 5000, 'pre-migration balance')`, [c
 await db.exec(migration('0042_feature_registry.sql'));
 await db.exec(migration('0043_commission_config.sql'));
 await db.exec(migration('0047_coins_config.sql'));
+await db.exec(migration('0062_coins_hardening.sql'));
 
 let failures = 0;
 const ok = (condition, message) => {
@@ -296,12 +297,11 @@ const [{ disabled_preview: disabledPreview }] = await asCustomer(
   `select get_coin_redemption_preview($1, $2) as disabled_preview`, [disabledBooking, disabledQuote],
 );
 ok(disabledPreview.maximum_paise === 0, 'redemption preview returns zero while redemption is disabled');
-try {
-  await asCustomer(`select approve_quote_with_coins($1, $2, true)`, [disabledBooking, disabledQuote]);
-  ok(false, 'redemption succeeded while coins_redemption was off');
-} catch (error) {
-  ok(/Coins can't be used right now/.test(error.message), 'server refuses redemption while coins_redemption is off');
-}
+const [{ disabled_approval: disabledApproval }] = await asCustomer(
+  `select approve_quote_with_coins($1::uuid, $2::uuid, true) as disabled_approval`, [disabledBooking, disabledQuote],
+);
+ok(disabledApproval.coins_redeemed_paise === 0 && disabledApproval.amount_due === 198000,
+  `approval succeeds while coins_redemption is off with exact cash due; actual=${JSON.stringify(disabledApproval)}`);
 await asAdmin(`select admin_set_feature('coins_redemption', true)`);
 
 await asAdmin(`select admin_set_coins_config($1::jsonb)`, [JSON.stringify({ ...testConfig, expiry_months: 2, pilot_budget_paise: null })]);
