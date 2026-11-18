@@ -247,6 +247,15 @@ const venueRead = json((await as(owner, 'authenticated',
   `select public.get_my_business_sports_venues() result`))[0].result)[0];
 const venueReadJson = JSON.stringify(venueRead);
 const payoutAccountDetails = /razorpay_account_id|fund_account_id|stakeholder_id|product_id|contact_id|validation_id|activation_status|beneficiary_name|bank_last4|ifsc|requirements|last_error|email|rail|payout_account_status/;
+const venueReadDiagnostics = {
+  businessRole: venueRead.venue.business_role,
+  payoutAccountReady: venueRead.payout_account_ready,
+  payoutAccountReadyLeaked: 'payout_account_ready' in venueRead.venue,
+  paymentModes: venueRead.venue.payment_modes,
+  onlinePaymentReady: venueRead.online_payment_ready,
+  hasInstantResource: venueRead.resources.some((item) => item.booking_mode === 'instant' && item.capacity === 1),
+  payoutDetailsLeaked: payoutAccountDetails.test(venueReadJson),
+};
 ok(venueRead.venue.business_role === 'owner'
   && venueRead.payout_account_ready === true
   && !('payout_account_ready' in venueRead.venue)
@@ -254,7 +263,7 @@ ok(venueRead.venue.business_role === 'owner'
   && venueRead.resources.some((item) => item.booking_mode === 'instant' && item.capacity === 1)
   && venueRead.online_payment_ready === true
   && !payoutAccountDetails.test(venueReadJson),
-  '[SP-01] venue settings read returns payment eligibility without payout-account details');
+  `[SP-01] venue settings read returns payment eligibility without payout-account details (${JSON.stringify(venueReadDiagnostics)})`);
 
 await db.query(`update public.sports_venues set payment_modes=array['pay_at_venue'] where id=$1`, [venue]);
 await db.query(`update public.feature_flags set enabled=false where key='sports_online_payments'`);
@@ -428,7 +437,7 @@ const capacityRace = await Promise.all([
 ]);
 ok(capacityRace.filter((result) => result.ok).length === 1,
   '[SP-02] concurrent bookings serialize so participant occupancy never exceeds capacity');
-const tooManySlot = await slotAt('11:00');
+const tooManySlot = await slotAt('14:00');
 const tooMany = await fails(() =>
   book(customer1, capacityResource, tooManySlot, 'sp-too-many', 'online', 1, 4));
 ok(/capacity|participants/.test(tooMany ?? ''),
@@ -627,7 +636,7 @@ ok(mismatchPayout.price_paise === 20000 && mismatchPayout.refund_paise === 0
 await db.query(`update public.app_config set value=$1::jsonb where key='sports_rules'`,
   [JSON.stringify(sportsRulesBeforeMismatchPayout)]);
 
-const extraCaptureBooking = await book(customer2, instantResource, await slotAt('18:00'), 'sp-extra-capture');
+const extraCaptureBooking = await book(customer2, capacityResource, await slotAt('18:00'), 'sp-extra-capture');
 const extraCaptureAttempt = await prepare(extraCaptureBooking.booking_id, customer2);
 await attachOrder(extraCaptureAttempt.payment_id, 'order_sp_extra_capture');
 const firstExtraCapture = await recordPaid(
