@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Header, Screen } from '../ui/Screen';
 import { StepIndicator } from '../ui/Stepper';
 
@@ -9,7 +9,7 @@ export function BookingStepLayout(props: {
   footer: ReactNode;
   children: ReactNode;
   onBack?: () => void;
-}): JSX.Element {
+}): ReactElement {
   const { title, steps, current, footer, children, onBack } = props;
 
   return (
