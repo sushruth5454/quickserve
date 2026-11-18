@@ -10,15 +10,7 @@ import { formatINR } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
 import type { ServicePackage } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
-
-export type FixedBookingModeOption = 'one-time' | 'repeat';
-
-export function getFixedBookingModeOptions(
-  recurringEnabled: boolean,
-  recurrenceAllowed: boolean,
-): FixedBookingModeOption[] {
-  return recurringEnabled && recurrenceAllowed ? ['one-time', 'repeat'] : ['one-time'];
-}
+import { getFixedBookingModeOptions } from '../../src/features/recurring/customerPresentation';
 
 export default function FixedPackageBookScreen() {
   const t = useTheme();

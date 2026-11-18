@@ -30,18 +30,7 @@ import { onboardingApi, type ProviderSchedule } from '../../src/lib/onboarding';
 import { asapAvailable, windowFits } from '../../src/lib/onboarding/availability';
 import type { TravelPreview } from '../../src/lib/types';
 import { PackageBookingScreen } from '../../src/features/booking/packages/PackageBookingScreen';
-
-export type BookingModeOption = 'one-time' | 'repeat';
-
-export function getBookingModeOptions(
-  recurringEnabled: boolean,
-  recurrenceAllowed: boolean,
-  archetype: string | null | undefined,
-): BookingModeOption[] {
-  return recurringEnabled && recurrenceAllowed && (archetype === 'time_based' || archetype === 'fixed')
-    ? ['one-time', 'repeat']
-    : ['one-time'];
-}
+import { getBookingModeOptions } from '../../src/features/recurring/customerPresentation';
 
 export default function BookScreen() {
   const t = useTheme();

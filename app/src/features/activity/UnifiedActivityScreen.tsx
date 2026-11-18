@@ -36,6 +36,7 @@ import { listMyCustomerRfqs, type CustomerRfqSummary } from '../rfq/api';
 import { RfqStatusLabel } from '../rfq/components';
 import { listMyCustomerSportsBookings, type CustomerSportsBooking } from '../sports/api';
 import { listMyRecurringPlans } from '../recurring/api';
+import { shouldShowRepeatPlansFilter } from '../recurring/customerPresentation';
 import type { Frequency, PlanStatus } from '../recurring/types';
 import { visibleActivitySegments, type ActivitySegment } from './model';
 
@@ -82,11 +83,6 @@ function parseActivityPlans(value: unknown): ActivityPlanSummary[] {
       occurrences,
     }];
   });
-}
-
-export function shouldShowRepeatPlansFilter(recurringEnabled: boolean, existingPlanCount: number): boolean {
-  // The switch blocks new plans, but customers must still reach existing plan records.
-  return recurringEnabled || existingPlanCount > 0;
 }
 
 function planFrequencyLabel(plan: ActivityPlanSummary['plan']) {

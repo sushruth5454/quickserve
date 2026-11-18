@@ -1,8 +1,11 @@
-import { getBookingModeOptions } from '../../../../app/book/[providerServiceId]';
-import { getFixedBookingModeOptions } from '../../../../app/book-fixed/[providerServiceId]';
-import { getRecurringQuoteSummary, visibleBillingFrequencies } from '../../../../app/recurring/new/[providerServiceId]';
-import { getRecurringPlanActions } from '../../../../app/recurring/[id]';
-import { shouldShowRepeatPlansFilter } from '../UnifiedActivityScreen';
+import {
+  getBookingModeOptions,
+  getFixedBookingModeOptions,
+  getRecurringPlanActions,
+  getRecurringQuoteSummary,
+  shouldShowRepeatPlansFilter,
+  visibleBillingFrequencies,
+} from '../../recurring/customerPresentation';
 
 describe('customer recurring screens', () => {
   it('RP-01/RP-04 keeps repeat hidden when the feature, category, or archetype is ineligible', () => {

@@ -14,6 +14,10 @@ import {
   createRecurringPlan,
   quoteRecurringPlan,
 } from '../../../src/features/recurring/api';
+import {
+  getRecurringQuoteSummary,
+  visibleBillingFrequencies,
+} from '../../../src/features/recurring/customerPresentation';
 import type {
   BillingFrequency,
   Frequency,
@@ -41,34 +45,6 @@ const WEEKDAYS = [
   { day: 6, label: 'Sat' },
   { day: 7, label: 'Sun' },
 ] as const;
-
-export function visibleBillingFrequencies(
-  configured: readonly BillingFrequency[],
-  recurringBillingEnabled: boolean,
-  prepaidEnabled: boolean,
-): BillingFrequency[] {
-  return configured.filter((frequency) =>
-    frequency === 'per_visit' ||
-    (recurringBillingEnabled &&
-      (frequency === 'weekly' ||
-        frequency === 'monthly' ||
-        (frequency === 'prepaid_package' && prepaidEnabled))),
-  );
-}
-
-export function getRecurringQuoteSummary(quote: RecurringQuote) {
-  return {
-    perVisitPaise: quote.per_visit_paise,
-    visitsInFirstCycle: quote.visits_in_first_cycle,
-    visitsTotal: quote.visits_total,
-    discountPaise: quote.discount_paise,
-    platformFeePaise: quote.platform_fee_paise,
-    gstPaise: quote.gst_paise,
-    totalPaisePerCycle: quote.total_paise_per_cycle,
-    billingFrequency: quote.billing_frequency,
-    firstDates: quote.first_dates.slice(0, 5),
-  };
-}
 
 function dateLabel(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-IN', {

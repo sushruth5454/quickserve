@@ -11,30 +11,9 @@ import {
   resumeRecurringPlan,
   skipRecurringVisit,
 } from '../../src/features/recurring/api';
+import { getRecurringPlanActions } from '../../src/features/recurring/customerPresentation';
 import type { ChangeKind, Frequency, PlanStatus } from '../../src/features/recurring/types';
 import { useTheme } from '../../src/theme';
-
-type PlanActionVisibility = {
-  skip: boolean;
-  pause: boolean;
-  resume: boolean;
-  reschedule: boolean;
-  cancel: boolean;
-};
-
-export function getRecurringPlanActions(
-  status: PlanStatus,
-  skipPauseEnabled: boolean,
-  rescheduleEnabled: boolean,
-): PlanActionVisibility {
-  return {
-    skip: status === 'active' && skipPauseEnabled,
-    pause: status === 'active' && skipPauseEnabled,
-    resume: status === 'paused' && skipPauseEnabled,
-    reschedule: status === 'active' && rescheduleEnabled,
-    cancel: status === 'active' || status === 'paused',
-  };
-}
 
 type PlanFields = Record<string, unknown> & {
   id: string;
