@@ -1229,9 +1229,11 @@ export const demoApi: Api = {
       const coinPayment = db.payments.find(
         (payment) => payment.booking_id === b.id && payment.funding_source === 'coins' && payment.status === 'paid',
       );
-      if (redeemed > 0 && coinPayment) {
-        coinPayment.amount = redeemed;
-        coinPayment.quote_id = q.id;
+      if (redeemed > 0) {
+        if (coinPayment) {
+          coinPayment.amount = redeemed;
+          coinPayment.quote_id = q.id;
+        }
       } else if (redeemed === 0) {
         for (let i = db.payments.length - 1; i >= 0; i--) {
           const payment = db.payments[i];

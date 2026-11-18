@@ -3,7 +3,9 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 import { completeDemoPayment, demoApi as api, demoControls, demoInternals } from '../demo/demoApi';
+import type { DemoBooking } from '../demo/seed';
 import { DEMO_PROVIDER_END_CODE } from '../demo/seed';
+import type { Quote } from '../types';
 
 beforeEach(() => {
   demoControls.reset();
@@ -135,7 +137,7 @@ describe('demo api — coin change orders', () => {
       created_at: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
     });
     db.services.push({ ...seedService, id: serviceId, provider_id: providerId });
-    const booking = {
+    const booking: DemoBooking = {
       ...seedBooking,
       id: bookingId,
       customer_id: customerId,
@@ -151,7 +153,7 @@ describe('demo api — coin change orders', () => {
       coin_discount: 0,
     };
     db.bookings.push(booking);
-    const originalQuote = {
+    const originalQuote: Quote = {
       ...seedQuote,
       id: 'f3-demo-initial-quote',
       booking_id: bookingId,

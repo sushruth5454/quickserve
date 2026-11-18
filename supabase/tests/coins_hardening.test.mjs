@@ -88,18 +88,23 @@ async function createActors() {
   );
   await db.query(`insert into public.admins (user_id) values ($1::uuid)`, [admin]);
   await db.query(
-    `insert into public.providers (id, bio, city, years_experience, kyc_status, razorpay_account_id, created_at)
-     values ($1::uuid, 'F3 test provider', 'Vijayawada', 5, 'verified', $2::text, now() - interval '90 days')`,
+    `insert into public.providers (
+       id, bio, city, years_experience, kyc_status, razorpay_account_id, created_at,
+       submitted_at, is_online, suspended, paused
+     ) values (
+       $1::uuid, 'F3 test provider', 'Vijayawada', 5, 'verified', $2::text,
+       now() - interval '90 days', now(), true, false, false
+     )`,
     [provider, `acc_${provider.slice(0, 8)}`],
   );
   const [{ id: categoryId }] = (await db.query(
     `select id from public.categories where slug = 'ac-repair'`,
   )).rows;
-  const [{ id: serviceId }] = await db.query(
-    `insert into public.provider_services (provider_id, category_id, skill_level, visit_fee, labour_rate)
-     values ($1::uuid, $2::uuid, 'expert', 19900, 50000) returning id`,
+  const [{ id: serviceId }] = (await db.query(
+    `insert into public.provider_services (provider_id, category_id, skill_level, visit_fee, labour_rate, active)
+     values ($1::uuid, $2::uuid, 'expert', 19900, 50000, true) returning id`,
     [provider, categoryId],
-  ).then((result) => result.rows);
+  )).rows;
   return { customer, provider, admin, serviceId };
 }
 
