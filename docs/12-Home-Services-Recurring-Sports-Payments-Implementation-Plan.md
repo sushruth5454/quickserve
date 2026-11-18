@@ -30,7 +30,7 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | **W0b** | Forward-only foundation correction: add private rule readers, cap sports partial refunds at 5000 bp; migration hardening test — **integrator does this itself, no agent** | 0055 | W0 | — | 2 |
 | **A1** | Catalogue migration: new columns, re-parent existing slugs, seed new categories, admin category RPCs + SQL test (§4.2, §4.4) | 0056 | W0b | B1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 3 |
 | **A2** | Admin category editor UI: `admin/services.tsx` + `admin/category/[id].tsx` + reorder (§4.3 first bullet) | — | W0b (codes against §4.2.4 RPC names) | all Wave 1 | after A1 |
-| **A3** | Customer catalogue groups + icons: `catalogue/model.ts`, `CatalogueSections.tsx`, `CategoryIcon.tsx`, Jest (§4.3 bullets 2–3) | — | A1 merged | B2, E2, C1*, F1*, H1, D*, G* | any after A1 |
+| **A3** | Customer catalogue groups + icons: public category API/types, `catalogue/model.ts`, `CatalogueSections.tsx`, `CategoryIcon.tsx`, Jest (§4.3 bullets 2–3) | — | A1 merged | B2, E2, C1*, F1*, H1, D*, G* | any after A1 |
 | **B1** | Recurring engine migration: schema changes, `recurring_occurrence_changes`, `_recurrence_dates`, all §5.4 RPCs, generator + cron, holiday rules, SQL test (§5) | 0057 | W0b | A1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 4 |
 | **E1** | Sports payments migration: schema, `book_sports_slot`, capacity, holds, `prepare/record_sports_payment`, expiry, cancel/refund, `_create_sports_payout`, payout generalisation, SQL test (§6.2–§6.4 SQL parts) | 0058 | W0b | A1, B1, A2, H1, C1a, C1b, F1a, F1b, T0 | 5 |
 | **E2** | Payment edge functions for sports: `create-payment` `kind:'sports'`, verify/webhook routing, `provider-payout-account` venue owners, `release-payouts` payee, `demo_settle_payment` note, Deno tests (§6.2 last bullet, §6.3 edge bullet) | — | E1 merged | A3, B2, C2, F2, G*, D1 (D1 must **not** touch edge functions until E2 merged) | 5 |
@@ -40,7 +40,7 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | **F1a** | Sports customer booking UI: venue duration/participants/payment choice, `sports-checkout/[id].tsx`, booking list/detail statuses (§8 F1 items 1–3) | — | W0b (codes against §6.5) | all Wave 1 | any after W0b |
 | **F1b** | Venue settings UI in `sports/manage.tsx` (booking mode, capacity, payment modes, payout status) + `sports/index.tsx` copy (§8 F1 item 4) | — | W0b | all Wave 1 (F1a edits different files) | any after W0b |
 | **T0** | E2E scaffolding: new step functions in `e2e/all-services.mjs` for catalogue groups, recurring wizard, sports checkout (behind `optional` until their features merge); validate each lane's BDD/DDD files exist (§12 items 1–2) | — | W0b | all Wave 1 | any |
-| **B2** | Recurring hardening pass: review B1 against §5.8, add missing tests, fix CI failures reported by integrator (only if B1 report lists gaps) | 0056 fixes only | B1 merged | A3, E2, D1, G1, G2, C2, F2 | after B1 |
+| **B2** | Recurring hardening pass: review B1 against §5.8, add missing tests, fix CI failures reported by integrator (only if B1 report lists gaps) | 0057 fixes only | B1 merged | A3, E2, D1, G1, G2, C2, F2 | after B1 |
 | **D1** | Recurring billing migration: `recurring_billing_cycles`, payment parent check, cycle RPCs, credits/refunds, `process_recurring_billing` cron, occurrence payouts, SQL test (§10 items 1–5, 7) | 0059 | B1 merged **and** E1 merged | A3, E2, G1, G2, C2, F2, T1 | 7 |
 | **D2** | Recurring billing edge functions: `create-payment` `kind:'recurring_cycle'`, verify/webhook routing, Deno tests (§10 item 6) | — | D1 merged **and** E2 merged | G*, C2, F2, T1 | 7 |
 | **G1** | Provider recurring UX: `merchant-calendar.tsx`, repeat-requests section in dashboard, `recurring/provider/[id].tsx`, holiday banner (§11 items 1–4, 6) | — | B1 merged | A3, E2, D1, D2, G2, C2, F2, T1 | any after B1 |
@@ -61,6 +61,7 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | `supabase/tests/package.json`, `.github/workflows/deploy-backend.yml`, `.github/workflows/e2e-web.yml`, `supabase/tests/review_fixes.test.mjs`, `app/src/lib/unread.ts` | Integrator only |
 | `supabase/functions/create-payment`, `verify-payment`, `razorpay-webhook` | E2 first, then D2 (never concurrently) |
 | `app/src/lib/adminApi.ts` | A2 only (H1 uses new `adminRulesApi.ts`) |
+| `app/src/lib/api.ts`, public category shape in `app/src/lib/types.ts` | A3 only |
 | `app/app/sports/manage.tsx` | F1b (settings section) → then G2 (calendar/earnings tabs; rebase on F1b) |
 | `app/app/book/[providerServiceId].tsx`, `book-fixed/[providerServiceId].tsx` | C1b only |
 | `app/app/(provider)/dashboard.tsx` | G1 only |
@@ -376,6 +377,7 @@ Migration `0054` is already deployed and must never be edited in place. The code
 ### 4.3 App
 - `admin/services.tsx`: add "New service" button and per-row "Edit" → `admin/category/[id].tsx` form (fields of 4.2.4, grouped: Basics, Booking type, Recurring, Verification, Cities). Up/down reorder within a group. Loading/error/empty/success states.
 - `catalogue/model.ts`: map verticals `household-help`, `home-repairs`, `home-other`, `cleaning`, `auto` → family "Home services" (rename family label from "Home & vehicle services" only in display text; keep its key). Inside the family, render **groups → child categories** (use `parent_id`). Unmapped verticals still go to "More services".
+- Public catalogue contract: A3 owns the `Category` shape in `app/src/lib/types.ts` and the `listCategories` select/return type in `app/src/lib/api.ts`; extend them with `parent_id`, `recurrence_allowed`, and `allowed_frequencies` without changing existing fields.
 - `CategoryIcon.tsx`: add icon keys for every new slug (Ionicons names already used by the app; fall back to generic tools icon).
 
 ### 4.4 Tests (`home_services_catalogue.test.mjs`)
