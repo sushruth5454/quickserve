@@ -6,9 +6,15 @@ import type { Api } from './apiTypes';
 import { isDemoMode } from './config';
 import { demoApi } from './demo/demoApi';
 import * as supabaseApi from './supabaseApi';
+import type { Category } from './types';
 
 export type * from './apiTypes';
 export { isDemoMode };
+
+export type PublicCategory = Category & {
+  recurrence_allowed?: boolean;
+  allowed_frequencies?: string[];
+};
 
 const impl: Api = isDemoMode ? demoApi : supabaseApi;
 
@@ -21,7 +27,7 @@ export const {
   requestAccountDeletion,
   getMyProfile,
   updateMyProfile,
-  listCategories,
+  listCategories: listCategoriesFromBackend,
   listMyAddresses,
   addAddress,
   searchProviders,
@@ -115,3 +121,7 @@ export const {
   submitDelivery,
   acceptDelivery,
 } = impl;
+
+export function listCategories(city?: string): Promise<PublicCategory[]> {
+  return listCategoriesFromBackend(city) as Promise<PublicCategory[]>;
+}
