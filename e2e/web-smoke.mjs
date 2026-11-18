@@ -418,7 +418,9 @@ await optional('provider-detail-scrolled', () => snapScrolled('provider-detail-s
 const fixedServiceRows = await rest(`provider_services?select=id,provider_id,categories(slug,archetype)&id=eq.${DEMO_IDS.fixedService}&active=eq.true`).catch(() => []);
 await step('provider-detail-fixed-service-routes-to-packages', async () => {
   const fixedService = fixedServiceRows[0];
-  if (!fixedService?.provider_id || !fixedService.categories?.slug) throw new Error('seeded fixed service is unavailable');
+  if (!fixedService?.provider_id || !fixedService.categories?.slug) {
+    throw new Error(`seeded fixed service is unavailable: ${JSON.stringify(fixedService)}`);
+  }
   const providerServices = await rest(`provider_services?select=id,categories(archetype)&provider_id=eq.${fixedService.provider_id}&active=eq.true`);
   if (
     fixedService.categories.archetype !== 'fixed' ||
