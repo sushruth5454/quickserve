@@ -448,10 +448,20 @@ Feature: Recurring generator error handling
 ```gherkin
 Feature: Timely recurring occurrence creation
   Scenario: Accepted, auto-accepted, and legacy plans do not wait for the hourly cron
-    Given a plan's first eligible occurrence is between 30 and 90 minutes away
+    Given a plan's first eligible occurrence is between 60 and 90 minutes away
     When it is accepted through provider response, auto-accepted at v2 creation, or created through the legacy RPC
     Then an eligible first booking exists before that RPC returns
     And a later hourly generator run creates no duplicate
+
+  Scenario: New plans cannot request a first occurrence with less than 60 minutes' lead
+    Given a quote or legacy schedule request starts its first visit less than 60 minutes from now
+    When the request is validated
+    Then the server rejects the request before creating a plan
+
+  Scenario: A delayed materializer does not create a visit inside the minimum lead
+    Given an already accepted plan's next occurrence is 30 to 59 minutes away
+    When the delayed materializer runs
+    Then it records only that date as unavailable and does not create a booking
 ```
 
 ### RP-28 — Unpaid recurring visits expire and release provider windows safely
@@ -494,6 +504,7 @@ Feature: Per-visit recurring payment expiry
 Feature: Valid recurring payment windows
   Scenario: The seeded rules expire unpaid holds one day before service
     Given the recurring rules use the new default payment_due_hours_before of 48 and billing_grace_hours of 24
+    And the occurrence is at least 48 hours away when its obligation is created
     When a per-visit obligation is created
     Then due_at is 48 hours before the occurrence
     And its expiry deadline is 24 hours before the occurrence
@@ -531,6 +542,69 @@ Feature: Legacy recurring service invalidation
     And unexpected database errors still propagate
 ```
 
+### RP-31 — Near-term payment holds remain useful and release before service
+
+```gherkin
+Feature: Near-term recurring payment expiry
+  Scenario: A visit 60 to 90 minutes away does not receive a forced overdue due_at
+    Given a new or rescheduled recurring occurrence is 60 to 90 minutes from now
+    And payment_due_hours_before exceeds its remaining lead
+    When its payment obligations are created or refreshed
+    Then due_at is no earlier than creation time
+    And the unpaid occurrence remains reserved during the grace window
+
+  Scenario: The final expiry buffer releases a visit while service is still in the future
+    Given a recurring occurrence has passed its payment grace deadline
+    And its scheduled_at is still in the future
+    When the expiry job runs
+    Then the hold is released no later than 30 minutes before service
+    And another booking can reserve the released provider window
+```
+
+### RP-32 — Fixed recurring duration stays within booking limits
+
+```gherkin
+Feature: Fixed recurring package duration
+  Scenario: A multi-unit fixed package cannot exceed the supported occurrence duration
+    Given a fixed package quantity produces a recurring occurrence duration above 480 minutes
+    When the customer requests a quote
+    Then the server rejects the quote with a duration validation error
+    And no plan or booking is created
+```
+
+### RP-33 — Legacy input and expiry failures are isolated safely
+
+```gherkin
+Feature: Recurring lifecycle error isolation
+  Scenario: A legacy row with a missing address affects only its own occurrence
+    Given an old accepted legacy schedule has an empty address
+    And another accepted plan has a valid occurrence in the same generator batch
+    When the generator runs
+    Then the legacy date is recorded and notified once as provider-unavailable
+    And the valid plan still generates
+    And a new legacy request with a missing address is rejected
+
+  Scenario: An expiry failure rolls back only the failing booking
+    Given an overdue partially paid booking encounters a refund or status error
+    And another overdue booking in the same expiry batch can complete
+    When the expiry job runs
+    Then the failed booking's payment, obligations, and pending-payment status remain unchanged
+    And its provider slot remains reserved
+    And a sanitized operational failure record is persisted
+    And the other booking expires and the failed booking can be retried later
+```
+
+### RP-34 — Customer skip is never treated as provider fault
+
+```gherkin
+Feature: Recurring cancellation actor safety
+  Scenario: A customer skips a visit outside the configured four-hour cutoff
+    Given skip_cutoff_hours is 4 and the visit starts more than 4 but less than 12 hours from now
+    When the customer skips the visit
+    Then the existing customer late-cancellation policy applies
+    And the customer is not treated as a provider fault
+```
+
 ## Acceptance criteria
 
 1. The six date fixture vectors in the implementation plan produce exactly the listed dates.
@@ -545,10 +619,12 @@ Feature: Legacy recurring service invalidation
 10. Service/category invalidation, verification lapse, and pack expiration/exhaustion are recorded and announced per date, do not system-pause a plan when skip/pause is OFF, and do not block valid plans in the same batch.
 11. A pending recurring payment occurrence continues reserving its provider window after the generic 30-minute pending-payment cutoff, while a status-only payment transition is not subjected to the insert/window-change guard.
 12. Unclassified database errors propagate rather than being swallowed as availability outcomes.
-13. Provider response, v2 auto-accept, and legacy schedule creation synchronously materialize near-term occurrences; a later cron run is idempotent.
+13. Provider response, v2 auto-accept, and legacy schedule creation synchronously materialize a first occurrence only when it is at least 60 minutes away; a later cron run is idempotent.
 14. Per-visit `due_at` uses `payment_due_hours_before`; unpaid recurring bookings expire only after `billing_grace_hours`, while paid/late-webhook money-safety paths remain intact.
 15. Every insert/update of recurring rules preserves `payment_due_hours_before > billing_grace_hours`; missing payment-window values default to 48/24 hours, and an overdue hold can release before its service time.
 16. The exact `service not available` error from an inactive legacy provider service is recorded as per-date unavailability, while unrelated errors still abort generation.
+17. A near-term per-visit `due_at` is never backdated; expiry uses the earlier of the configured grace deadline and `scheduled_at - 30 minutes`.
+18. Fixed recurring package duration must be 15–480 minutes; a legacy address error is isolated per date; an expiry failure is persisted without changing that booking; customer skips cannot request provider-fault treatment.
 
 ## Automation readiness
 
@@ -571,10 +647,14 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-24 | Occurrence Scheduling | Service/category, verification, and expired/exhausted-pack failures record and notify per date while another plan generates; retry dedupes and the plan remains eligible. |
 | RP-25 | Existing Booking Lifecycle | A stale recurring pending row blocks overlapping inserts, but a status-only payment webhook transition succeeds. |
 | RP-26 | Occurrence Scheduling | Unclassified database errors propagate instead of being silently dropped. |
-| RP-27 | Occurrence Scheduling | Provider-accepted, auto-accepted, and legacy plans materialize a 30–90-minute first visit synchronously; later generation does not duplicate it. |
+| RP-27 | Occurrence Scheduling | Provider-accepted, auto-accepted, and legacy plans materialize a 60–90-minute first visit synchronously; shorter new requests reject and delayed visits are recorded unavailable. |
 | RP-28 | Existing Booking Lifecycle | Due/grace rules set due_at; unpaid rows expire and release holds; paid and late-webhook paths remain safe. |
 | RP-29 | Existing Booking Lifecycle | The 48/24-hour default, cross-field rejection on admin/direct writes, and pre-service window release are verified. |
 | RP-30 | Occurrence Scheduling | An inactive legacy service records/notifies only its date while a valid plan in the same generator batch succeeds; retry dedupes. |
+| RP-31 | Existing Booking Lifecycle | Near-term due_at is floored at creation time; grace holds are preserved and expiry releases by the 30-minute pre-service buffer. |
+| RP-32 | Recurring Plan Management | A multi-unit fixed quote whose duration exceeds 480 minutes is rejected. |
+| RP-33 | Occurrence Scheduling / Existing Booking Lifecycle | Legacy missing-address dates do not starve valid plans; one expiry rollback logs safely, preserves its reservation, and permits other bookings to expire. |
+| RP-34 | Occurrence Change Management | A customer skip after the configured cutoff uses customer cancellation policy, never provider fault. |
 
 ## Trace links
 

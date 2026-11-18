@@ -186,7 +186,7 @@ begin
   );
 
   update public.payment_schedule ps
-     set due_at = b.scheduled_at - make_interval(hours => v_due_hours),
+     set due_at = greatest(b.scheduled_at - make_interval(hours => v_due_hours), now()),
          updated_at = now()
     from public.bookings b
     join public.recurring_schedules r on r.id = b.recurring_schedule_id
@@ -259,6 +259,28 @@ create policy recurring_occurrence_changes_participants
   for select to authenticated
   using (public._can_read_recurring_occurrence_changes(schedule_id));
 
+create table public.recurring_expiry_failures (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null unique references public.bookings (id) on delete cascade,
+  schedule_id uuid not null references public.recurring_schedules (id) on delete cascade,
+  occurrence_date date not null,
+  failure_sqlstate text not null check (char_length(failure_sqlstate) = 5),
+  failure_stage text not null check (failure_stage = 'booking_lifecycle'),
+  failure_message text not null
+    default 'Recurring occurrence expiry failed; booking remains reserved.'
+    check (failure_message = 'Recurring occurrence expiry failed; booking remains reserved.'),
+  attempts int not null default 1 check (attempts > 0),
+  first_failed_at timestamptz not null default now(),
+  last_failed_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+create index recurring_expiry_failures_open_idx
+  on public.recurring_expiry_failures (last_failed_at)
+  where resolved_at is null;
+alter table public.recurring_expiry_failures enable row level security;
+revoke all on public.recurring_expiry_failures from public, anon, authenticated;
+grant select, insert, update on public.recurring_expiry_failures to service_role;
+
 create or replace function public._guard_recurring_pending_window()
 returns trigger
 language plpgsql
@@ -319,7 +341,7 @@ begin
    where c.key = 'recurring_rules'
    for share;
   v_due_hours := coalesce(v_due_hours, 48);
-  new.due_at := v_scheduled_at - make_interval(hours => v_due_hours);
+  new.due_at := greatest(v_scheduled_at - make_interval(hours => v_due_hours), now());
   return new;
 end;
 $$;
@@ -353,7 +375,7 @@ begin
    for share;
   v_due_hours := coalesce(v_due_hours, 48);
   update public.payment_schedule
-     set due_at = new.scheduled_at - make_interval(hours => v_due_hours),
+     set due_at = greatest(new.scheduled_at - make_interval(hours => v_due_hours), now()),
          updated_at = now()
    where booking_id = new.id
      and status in ('due', 'upcoming');
@@ -368,8 +390,11 @@ create trigger bookings_recurring_payment_due_at
   execute function public._refresh_recurring_payment_due_at();
 
 update public.payment_schedule ps
-   set due_at = b.scheduled_at - make_interval(
-     hours => coalesce(nullif(c.value ->> 'payment_due_hours_before', '')::int, 48)
+   set due_at = greatest(
+     b.scheduled_at - make_interval(
+       hours => coalesce(nullif(c.value ->> 'payment_due_hours_before', '')::int, 48)
+     ),
+     now()
    )
   from public.bookings b
   join public.recurring_schedules r on r.id = b.recurring_schedule_id
@@ -708,6 +733,10 @@ begin
       when v_package.qty_min = 1 and v_package.qty_max = 1 then coalesce(v_package.duration_min, 60)
       else coalesce(v_package.duration_min, 60) * ceil(v_package_qty)::int
     end;
+    perform public._assert(
+      v_duration between 15 and 480,
+      'fixed recurring duration must be between 15 and 480 minutes'
+    );
     v_platform_fee := greatest(coalesce((public._fixed_booking_config() ->> 'platform_fee_paise')::int, 2900), 0);
   end if;
   perform public._assert(v_service_paise > 0 and v_service_paise <= 100000000, 'invalid per-visit amount');
@@ -779,8 +808,8 @@ begin
     extract(second from v_start_time),
     v_timezone
   );
-  perform public._assert(v_first_at > now() + interval '30 minutes',
-    'first recurring visit must be scheduled at least 30 minutes ahead');
+  perform public._assert(v_first_at >= now() + interval '60 minutes',
+    'first recurring visit must be scheduled at least 60 minutes ahead');
 
   return jsonb_build_object(
     'quote', jsonb_build_object(
@@ -1108,7 +1137,9 @@ begin
   b := public._lock_booking(p_booking_id);
   if b.archetype = 'time_based'
      and b.status::text in ('pending_payment', 'requested', 'accepted') then
-    return public._cancel_session_booking(b.id, p_actor_id, p_provider_fault, p_reason);
+    return public._cancel_session_booking(
+      b.id, p_actor_id, p_provider_fault and p_actor_id = b.provider_id, p_reason
+    );
   end if;
 
   if p_provider_fault and p_actor_id = b.provider_id then
@@ -1166,7 +1197,7 @@ begin
        )
      for update
   loop
-    perform public._cancel_recurring_occurrence(b.id, v_uid, true, 'recurring plan paused');
+    perform public._cancel_recurring_occurrence(b.id, v_uid, false, 'recurring plan paused');
     insert into public.recurring_occurrence_changes (
       schedule_id, booking_id, occurrence_date, original_at, kind, actor_id, reason
     ) values (
@@ -1252,7 +1283,7 @@ begin
   perform public._assert(char_length(coalesce(p_reason, '')) <= 300, 'reason must be 300 characters or fewer');
 
   perform public._cancel_recurring_occurrence(
-    b.id, v_uid, b.archetype = 'time_based',
+    b.id, v_uid, false,
     coalesce(nullif(trim(p_reason), ''), 'recurring visit skipped')
   );
   insert into public.recurring_occurrence_changes (
@@ -1528,8 +1559,8 @@ begin
       else coalesce(r.session_duration_min, 60)
     end;
     v_window := tstzrange(v_at, v_at + make_interval(mins => v_duration), '[)');
-    if v_at <= now() + interval '30 minutes' then
-      perform public._record_recurring_unavailable(r.id, d, v_at, 'planned time is no longer bookable');
+    if v_at < now() + interval '60 minutes' then
+      perform public._record_recurring_unavailable(r.id, d, v_at, 'planned time is less than 60 minutes away');
       d := d + 1;
       continue;
     end if;
@@ -1578,6 +1609,7 @@ begin
            or v_reason ilike '%category_not_bookable%'
            or v_reason ilike '%recurring service/category is no longer eligible%'
            or (r.plan_version = 'legacy' and v_reason = 'service not available')
+           or (r.plan_version = 'legacy' and v_reason = 'address is required')
            or v_reason ilike '%provider verification is incomplete%'
            or v_reason ilike '%session package is unavailable%'
            or v_reason ilike '%package does not belong to this service%'
@@ -2084,6 +2116,7 @@ declare
   p record;
   v_due_hours int;
   v_grace_hours int;
+  v_failure_sqlstate text;
   v_count int := 0;
   v_reason text := 'recurring occurrence payment grace period expired';
 begin
@@ -2124,65 +2157,92 @@ begin
          select 1 from public.payment_schedule ps
           where ps.booking_id = bk.id
             and ps.status in ('due', 'upcoming')
-            and (ps.due_at is null or ps.due_at + make_interval(hours => v_grace_hours) > now())
+            and (ps.due_at is null or least(
+              ps.due_at + make_interval(hours => v_grace_hours),
+              bk.scheduled_at - interval '30 minutes'
+            ) > now())
        )
      order by bk.scheduled_at, bk.id
      limit greatest(least(coalesce(p_limit, 100), 500), 1)
      for update of bk skip locked
   loop
-    -- Recheck after acquiring the booking lock; only remaining obligations can expire.
-    if exists (
-      select 1 from public.payment_schedule ps
-       where ps.booking_id = b.id and ps.status in ('due', 'upcoming')
-    ) and not exists (
-      select 1 from public.payment_schedule ps
-       where ps.booking_id = b.id and ps.status in ('due', 'upcoming')
-         and (ps.due_at is null or ps.due_at + make_interval(hours => v_grace_hours) > now())
-    ) then
-      for p in
-        select pay.id
-          from public.payments pay
-         where pay.booking_id = b.id and pay.status = 'created'
-         order by pay.id
-      loop
-        begin
-          -- A webhook may hold this link while waiting for the booking lock. Skip it rather
-          -- than deadlocking; waived obligations make its eventual capture refundable.
-          perform 1 from public.payments pay where pay.id = p.id for update nowait;
-          update public.payments
-             set status = 'failed', cancel_link_pending = true
-           where id = p.id and status = 'created';
-        exception when lock_not_available then
-          null;
-        end;
-      end loop;
+    begin
+      -- Recheck after acquiring the booking lock; only remaining obligations can expire.
+      if exists (
+        select 1 from public.payment_schedule ps
+         where ps.booking_id = b.id and ps.status in ('due', 'upcoming')
+      ) and not exists (
+        select 1 from public.payment_schedule ps
+         where ps.booking_id = b.id and ps.status in ('due', 'upcoming')
+           and (ps.due_at is null or least(
+             ps.due_at + make_interval(hours => v_grace_hours),
+             b.scheduled_at - interval '30 minutes'
+           ) > now())
+      ) then
+        for p in
+          select pay.id
+            from public.payments pay
+           where pay.booking_id = b.id and pay.status = 'created'
+           order by pay.id
+        loop
+          begin
+            -- A webhook may hold this link while waiting for the booking lock. Skip rather
+            -- than deadlocking; waived obligations make its eventual capture refundable.
+            perform 1 from public.payments pay where pay.id = p.id for update nowait;
+            update public.payments
+               set status = 'failed', cancel_link_pending = true
+             where id = p.id and status = 'created';
+          exception when lock_not_available then
+            null;
+          end;
+        end loop;
 
-      update public.payment_schedule
-         set status = 'waived', updated_at = now()
-       where booking_id = b.id and status in ('due', 'upcoming');
-      perform public._refund_booking_payments(b.id, v_reason);
-      perform public._set_status(b.id, 'expired', null, v_reason);
-      insert into public.recurring_occurrence_changes (
-        schedule_id, booking_id, occurrence_date, original_at, kind, actor_id, reason
+        update public.payment_schedule
+           set status = 'waived', updated_at = now()
+         where booking_id = b.id and status in ('due', 'upcoming');
+        perform public._refund_booking_payments(b.id, v_reason);
+        perform public._set_status(b.id, 'expired', null, v_reason);
+        insert into public.recurring_occurrence_changes (
+          schedule_id, booking_id, occurrence_date, original_at, kind, actor_id, reason
+        ) values (
+          b.schedule_id, b.id, (b.scheduled_at at time zone b.timezone)::date,
+          b.scheduled_at, 'cancelled', null, v_reason
+        ) on conflict do nothing;
+
+        perform public._queue_notification(
+          b.customer_id, 'recurring_visit_unavailable', b.id, 'Recurring visit expired',
+          'The payment window for this recurring visit expired, so the visit was released.',
+          jsonb_build_object('booking_id', b.id, 'recurring_schedule_id', b.schedule_id),
+          'recurring-unpaid-expiry:' || b.id::text || ':customer'
+        );
+        perform public._queue_notification(
+          b.provider_id, 'recurring_visit_unavailable', b.id, 'Recurring visit expired',
+          'The unpaid recurring visit expired and the provider window is available again.',
+          jsonb_build_object('booking_id', b.id, 'recurring_schedule_id', b.schedule_id),
+          'recurring-unpaid-expiry:' || b.id::text || ':provider'
+        );
+        update public.recurring_expiry_failures
+           set resolved_at = now()
+         where booking_id = b.id and resolved_at is null;
+        v_count := v_count + 1;
+      end if;
+    exception when others then
+      get stacked diagnostics v_failure_sqlstate = returned_sqlstate;
+      insert into public.recurring_expiry_failures as prior_failure (
+        booking_id, schedule_id, occurrence_date, failure_sqlstate, failure_stage
       ) values (
-        b.schedule_id, b.id, (b.scheduled_at at time zone b.timezone)::date,
-        b.scheduled_at, 'cancelled', null, v_reason
-      ) on conflict do nothing;
-
-      perform public._queue_notification(
-        b.customer_id, 'recurring_visit_unavailable', b.id, 'Recurring visit expired',
-        'The payment window for this recurring visit expired, so the visit was released.',
-        jsonb_build_object('booking_id', b.id, 'recurring_schedule_id', b.schedule_id),
-        'recurring-unpaid-expiry:' || b.id::text || ':customer'
-      );
-      perform public._queue_notification(
-        b.provider_id, 'recurring_visit_unavailable', b.id, 'Recurring visit expired',
-        'The unpaid recurring visit expired and the provider window is available again.',
-        jsonb_build_object('booking_id', b.id, 'recurring_schedule_id', b.schedule_id),
-        'recurring-unpaid-expiry:' || b.id::text || ':provider'
-      );
-      v_count := v_count + 1;
-    end if;
+        b.id, b.schedule_id, (b.scheduled_at at time zone b.timezone)::date,
+        v_failure_sqlstate, 'booking_lifecycle'
+      )
+      on conflict (booking_id) do update
+         set schedule_id = excluded.schedule_id,
+             occurrence_date = excluded.occurrence_date,
+             failure_sqlstate = excluded.failure_sqlstate,
+             failure_stage = excluded.failure_stage,
+             attempts = prior_failure.attempts + 1,
+             last_failed_at = now(),
+             resolved_at = null;
+    end;
   end loop;
   return v_count;
 end;
@@ -2215,6 +2275,9 @@ declare
   ps public.provider_services;
   v_category public.categories;
   k public.pack_purchases;
+  v_schedule public.recurring_schedules;
+  v_first_date date;
+  v_first_at timestamptz;
   v_id uuid;
   v_horizon int := coalesce(nullif(public._recurring_rule('horizon_days'), '')::int, 28);
 begin
@@ -2239,9 +2302,15 @@ begin
     'weekdays must be ISO days 1 through 7'
   );
   perform public._assert(p_duration_min between 15 and 480, 'invalid session duration');
+  perform public._assert(p_start_time is not null, 'start time is required');
   perform public._assert(p_starts_on >= current_date, 'recurring start date is in the past');
   perform public._assert(p_ends_on is null or p_ends_on <= p_starts_on + interval '366 days',
     'recurring schedule may span at most one year');
+  perform public._assert(
+    coalesce(trim(p_address_line), '') <> '' and coalesce(trim(p_city), '') <> '',
+    'address is required'
+  );
+  perform public._assert(p_lat is not null and p_lng is not null, 'location is required');
   if p_service_package_id is not null then
     perform public._assert_session_package(ps.id, p_service_package_id);
   end if;
@@ -2273,6 +2342,27 @@ begin
     'time_based', trim(p_address_line), trim(p_city), p_lat, p_lng,
     coalesce(p_description, ''), p_starts_on, p_ends_on, 'legacy', 'accepted', 'occurrence'
   ) returning id into v_id;
+
+  select * into v_schedule from public.recurring_schedules where id = v_id;
+  select min(d) into v_first_date
+    from public._recurrence_dates(
+      v_schedule, v_schedule.starts_on,
+      coalesce(v_schedule.ends_on, v_schedule.starts_on + coalesce(nullif(public._recurring_rule('max_plan_days'), '')::int, 365))
+    ) d;
+  perform public._assert(v_first_date is not null, 'recurring schedule has no occurrence in its date range');
+  v_first_at := make_timestamptz(
+    extract(year from v_first_date)::int,
+    extract(month from v_first_date)::int,
+    extract(day from v_first_date)::int,
+    extract(hour from v_schedule.start_time)::int,
+    extract(minute from v_schedule.start_time)::int,
+    extract(second from v_schedule.start_time),
+    v_schedule.timezone
+  );
+  perform public._assert(
+    v_first_at >= now() + interval '60 minutes',
+    'first recurring visit must be scheduled at least 60 minutes ahead'
+  );
   perform public.materialize_recurring_schedule(v_id, current_date + v_horizon);
   return v_id;
 end;
