@@ -1,5 +1,23 @@
 import { formatINR } from '../../../lib/money';
-import type { ServicePackage } from '../../../lib/types';
+import type { Category, ServicePackage } from '../../../lib/types';
+
+export type TimeBookingMode = 'one-time' | 'weekly' | 'session-pack';
+
+export function getTimeBookingModes(
+  recurringBookingsEnabled: boolean,
+  category: Pick<Category, 'recurrence_allowed' | 'allowed_frequencies'> | null | undefined,
+): TimeBookingMode[] {
+  const modes: TimeBookingMode[] = ['one-time'];
+  if (
+    recurringBookingsEnabled &&
+    category?.recurrence_allowed === true &&
+    category.allowed_frequencies?.includes('weekly')
+  ) {
+    modes.push('weekly');
+  }
+  modes.push('session-pack');
+  return modes;
+}
 
 export function packageDisplayPrice(servicePackage: ServicePackage): string {
   switch (servicePackage.price_type) {

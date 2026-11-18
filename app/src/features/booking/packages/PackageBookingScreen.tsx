@@ -16,7 +16,7 @@ import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, 
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
-import { canPayInstantly, packageDuration, packageTotal } from './packageModel';
+import { canPayInstantly, getTimeBookingModes, packageDuration, packageTotal } from './packageModel';
 
 export function PackageBookingScreen({ packageId, archetype }: { packageId: string; archetype: 'fixed' | 'time_based' }) {
   const t = useTheme();
@@ -36,6 +36,9 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const [asap, setAsap] = useState(archetype === 'fixed');
   const [sched, setSched] = useState<ProviderSchedule | null>(null);
   const days = useMemo(() => nextDays(new Date(), 14), []);
+  const timeBookingModes = getTimeBookingModes(flags.isOn('recurring_bookings'), item?.category);
+  const weeklyRecurrenceAvailable = timeBookingModes.includes('weekly');
+  const useRecurring = recurring && weeklyRecurrenceAvailable && !pack;
   const day = days[dayIndex]!;
   const load = () => {
     setError(null);
@@ -65,6 +68,10 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       .catch((caught: Error) => alive && setError(caught.message));
     return () => { alive = false; };
   }, [packageId]);
+
+  useEffect(() => {
+    if (!weeklyRecurrenceAvailable) setRecurring(false);
+  }, [weeklyRecurrenceAvailable]);
 
   if (!item) return (
     <Screen header={<Header title="Book package" />}>
@@ -111,7 +118,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         await pay(bookingId);
         router.replace({ pathname: '/booking/[id]', params: { id: bookingId } });
       } else {
-        if (recurring && !pack) {
+        if (useRecurring) {
           const scheduleId = await createRecurringSchedule({
             providerServiceId: item.providerServiceId,
             packageId,
@@ -174,8 +181,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       header={<Header title={archetype === 'fixed' ? 'Book package' : pack ? 'Buy a session pack' : 'Book a session'} right={<IconButton icon="location-outline" onPress={() => router.push('/location')} accessibilityLabel="Change service address" />} />}
       footer={
         <View style={{ gap: t.spacing.sm }}>
-          <PriceRow label={pack ? `${quantity} sessions + ₹49 pack fee` : recurring ? 'Per session' : 'Total'} amount={recurring ? total : dueNow} emphasis="total" />
-          <Button title={recurring ? 'Schedule weekly' : `Pay ${formatINR(dueNow)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon={recurring ? 'calendar-outline' : 'lock-closed'} />
+          <PriceRow label={pack ? `${quantity} sessions + ₹49 pack fee` : useRecurring ? 'Per session' : 'Total'} amount={useRecurring ? total : dueNow} emphasis="total" />
+          <Button title={useRecurring ? 'Schedule weekly' : `Pay ${formatINR(dueNow)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon={useRecurring ? 'calendar-outline' : 'lock-closed'} />
         </View>
       }
     >
@@ -191,11 +198,11 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         <View style={{ gap: t.spacing.sm }}>
           <Text variant="title3">Booking type</Text>
           <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            <Choice label="One session" selected={!pack && !recurring} onPress={() => { setPack(false); setRecurring(false); setQuantity(1); }} />
-            <Choice label="Weekly" selected={recurring && !pack} onPress={() => { setPack(false); setRecurring(true); setQuantity(1); }} />
+            <Choice label="One session" selected={!pack && !useRecurring} onPress={() => { setPack(false); setRecurring(false); setQuantity(1); }} />
+            {weeklyRecurrenceAvailable ? <Choice label="Weekly" selected={useRecurring} onPress={() => { setPack(false); setRecurring(true); setQuantity(1); }} /> : null}
             <Choice label="Session pack" selected={pack} onPress={() => { setPack(true); setRecurring(false); setQuantity(Math.max(3, Number(item.package.qty_min))); }} />
           </View>
-          {recurring ? <Text variant="footnote" color="muted">Same weekday and time for the next 28 days. Pay each session separately.</Text> : null}
+          {useRecurring ? <Text variant="footnote" color="muted">Same weekday and time for the next 28 days. Pay each session separately.</Text> : null}
         </View>
       ) : null}
 
