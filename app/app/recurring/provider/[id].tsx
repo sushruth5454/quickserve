@@ -61,8 +61,8 @@ export default function ProviderRecurringPlanScreen() {
   const requestedProviderId = normalizedParam(params.providerId);
   const flags = useAppFeatureFlags();
   const rescheduleEnabled = canUseRecurringReschedule({
-    recurring_bookings: flags.recurring_bookings,
-    recurring_reschedule: flags.recurring_reschedule,
+    recurring_bookings: flags.isOn('recurring_bookings'),
+    recurring_reschedule: flags.isOn('recurring_reschedule'),
   });
   const [payload, setPayload] = useState<RecurringPlanPayload | null>(null);
   const [provider, setProvider] = useState<BusinessProviderContext | null>(null);

@@ -39,8 +39,8 @@ export default function MerchantCalendarScreen() {
   const requestedProviderId = normalizedParam(params.providerId);
   const flags = useAppFeatureFlags();
   const calendarEnabled = canShowProviderCalendar({
-    merchant_calendar: flags.merchant_calendar,
-    recurring_bookings: flags.recurring_bookings,
+    merchant_calendar: flags.isOn('merchant_calendar'),
+    recurring_bookings: flags.isOn('recurring_bookings'),
   });
   const [mode, setMode] = useState<ViewMode>('week');
   const [offset, setOffset] = useState(0);

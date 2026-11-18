@@ -32,12 +32,12 @@ export function ProviderRecurringOverview({ providerId, role }: ProviderRecurrin
   const flags = useAppFeatureFlags();
   const recurringEnabled = flags.isOn('recurring_bookings');
   const calendarEnabled = canShowProviderCalendar({
-    merchant_calendar: flags.merchant_calendar,
-    recurring_bookings: flags.recurring_bookings,
+    merchant_calendar: flags.isOn('merchant_calendar'),
+    recurring_bookings: flags.isOn('recurring_bookings'),
   });
   const acceptanceEnabled = canUsePlanAcceptance({
-    recurring_bookings: flags.recurring_bookings,
-    recurring_plan_acceptance: flags.recurring_plan_acceptance,
+    recurring_bookings: flags.isOn('recurring_bookings'),
+    recurring_plan_acceptance: flags.isOn('recurring_plan_acceptance'),
   });
   const canManage = role === 'owner' || role === 'manager';
   const [plans, setPlans] = useState<RecurringPlanPayload[] | null>(null);
