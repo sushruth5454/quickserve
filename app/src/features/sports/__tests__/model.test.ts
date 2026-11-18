@@ -16,16 +16,21 @@ const slots: SportsSlotAvailability[] = [
   { starts_at: '2026-11-19T11:00:00.000Z', ends_at: '2026-11-19T12:00:00.000Z', state: 'taken', price_paise: 50000, remaining: 0 },
   { starts_at: '2026-11-19T13:00:00.000Z', ends_at: '2026-11-19T14:00:00.000Z', state: 'free', price_paise: 50000, remaining: 4 },
 ];
+const [firstSlot, secondSlot, , fourthSlot] = slots;
+
+if (!firstSlot || !secondSlot || !fourthSlot) {
+  throw new Error('The sports slot fixture must include its first, second, and fourth slots.');
+}
 
 describe('sports customer booking presentation', () => {
   it('SP-01: offers only durations whose consecutive slots have enough remaining capacity', () => {
-    expect(getAvailableSportsDurations(slots, slots[0].starts_at, 2)).toEqual([1, 2]);
-    expect(getAvailableSportsDurations(slots, slots[0].starts_at, 3)).toEqual([1]);
+    expect(getAvailableSportsDurations(slots, firstSlot.starts_at, 2)).toEqual([1, 2]);
+    expect(getAvailableSportsDurations(slots, firstSlot.starts_at, 3)).toEqual([1]);
   });
 
   it('SB-03: stops duration choices at taken, blocked, or non-consecutive slots', () => {
-    expect(getAvailableSportsDurations(slots, slots[1].starts_at, 1)).toEqual([1]);
-    expect(getAvailableSportsDurations(slots, slots[3].starts_at, 1)).toEqual([1]);
+    expect(getAvailableSportsDurations(slots, secondSlot.starts_at, 1)).toEqual([1]);
+    expect(getAvailableSportsDurations(slots, fourthSlot.starts_at, 1)).toEqual([1]);
   });
 
   it('SP-05 and SP-15: offers online payment only when parent, child, venue, and payout prerequisites are on', () => {
