@@ -77,13 +77,13 @@ The implementation plan is the current business contract. B1 owns the recurring-
 
 ## ADR linkage
 
-- **Existing governance:** [ADR-0001 — Feature Flag Registry](../../../../../../adr/ADR-0001-feature-flag-registry.md) governs feature registry semantics.
+- **Existing decision record:** No recurring-plan-specific ADR is currently in the repository. The recurring decisions here are grounded in the implementation plan; no ADR is cited as their approval.
 - **Governing business/technical contract:** [Home Services, Recurring & Sports Payments](../../../../../../12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md), decisions R1–R4 and §5.
-- **ADR candidate placeholder — not approved or authored:** `ADR-REC-001 — Recurring plan and occurrence consistency`. Record the existing-plan reuse decision, separate booking-per-occurrence boundary, append-only change ledger, and idempotent generation consistency contract if the owner requires a durable ADR beyond the implementation plan.
+- **Proposed ADR candidate — not approved or authored:** Recurring plan and occurrence consistency. It could record the existing-plan reuse decision, separate booking-per-occurrence boundary, append-only change ledger, and idempotent generation contract if the owner requests a durable ADR. No file path or ADR identifier is assigned.
 - **No ownership transfer is proposed:** recurring plans coordinate existing booking, availability, feature-governance, notification, and future billing contexts; those contexts retain their existing owners.
 
 ## Trace links
 
 - BDD: [Recurring Plans & Visits — BDD](../../bdd/artifacts/recurring-plans-bdd.md)
-- Traceability: owned by T2; planned artifact `../../bdd-ddd-tdd/artifacts/recurring-plans-traceability.md`.
+- Traceability: owned by T2; not yet authored.
 - Governing plan: [Home Services, Recurring & Sports Payments](../../../../../../12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md), §5.
