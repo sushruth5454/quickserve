@@ -113,6 +113,15 @@ ok(initial.provider_categories >= 31, 'one provider service exists for every con
 ok(initial.packages >= 31 && initial.package_categories >= 31, 'every configured demo category has a package');
 ok(initial.proposals >= 19, 'every creator/event category has a participant-scoped proposal');
 ok(initial.bookings >= 6, 'inspect_quote, fixed and proposal booking paths are seeded');
+const demoConfig = (await db.query(`select value->>'is_demo_project' is_demo from public.app_config where key='deployment'`)).rows[0];
+const demoMetadata = (await db.query(`
+  select count(*)::int missing_app_flag
+    from auth.users
+   where raw_user_meta_data->>'demo_only' = 'true'
+     and coalesce(raw_app_meta_data->>'demo_only', 'false') <> 'true'
+`)).rows[0];
+ok(demoConfig.is_demo === 'true' && demoMetadata.missing_app_flag === 0,
+  `guarded seed enables demo project and sets service-controlled provider metadata: ${JSON.stringify({ demoConfig, demoMetadata })}`);
 ok(JSON.stringify(initial) === JSON.stringify(repeated), 'seed reset is idempotent');
 
 const [gates] = (await db.query(`
