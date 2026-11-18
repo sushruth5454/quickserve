@@ -1,18 +1,17 @@
 jest.mock('../supabase', () => ({
   supabase: { from: jest.fn(), rpc: jest.fn(), auth: { getSession: jest.fn() } },
 }));
-jest.mock('react-native', () => {
-  const actual = jest.requireActual('react-native');
-  return { ...actual, Linking: { ...actual.Linking, openURL: jest.fn() } };
-});
 
 import { deleteAddress, getProviderService, requestAccountDeletion } from '../supabaseApi';
 import { supabase } from '../supabase';
 import { Linking } from 'react-native';
 import { supportContact } from '../config';
 
+const openURL = jest.spyOn(Linking, 'openURL');
+
 beforeEach(() => {
   jest.clearAllMocks();
+  openURL.mockResolvedValue(undefined);
   (supabase.auth.getSession as jest.Mock).mockResolvedValue({
     data: { session: { user: { id: 'user-1' } } },
   });
@@ -71,14 +70,12 @@ describe('requestAccountDeletion', () => {
 
     await expect(requestAccountDeletion()).resolves.toBe('recorded');
     expect(supabase.rpc).toHaveBeenCalledWith('request_account_deletion');
-    expect(Linking.openURL).not.toHaveBeenCalled();
+    expect(openURL).not.toHaveBeenCalled();
   });
 
   it('opens the configured support email only when the RPC fails', async () => {
     (supabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: { message: 'RPC unavailable' } });
-    (Linking.openURL as jest.Mock).mockResolvedValue(undefined);
-
     await expect(requestAccountDeletion()).resolves.toBe('email');
-    expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining(`mailto:${supportContact.email}`));
+    expect(openURL).toHaveBeenCalledWith(expect.stringContaining(`mailto:${supportContact.email}`));
   });
 });

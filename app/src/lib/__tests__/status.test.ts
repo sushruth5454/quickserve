@@ -1,3 +1,5 @@
+jest.mock('../../components/ui', () => ({ Badge: () => null }));
+
 import { nextStepCopy, statusLabel } from '../../components/status';
 
 describe('pending payment status copy', () => {
