@@ -744,15 +744,16 @@ ok(!acceptError && acceptedCount === 3 && finalCount === 3
   `[RP-06/RP-09] manager acceptance creates individual payable visits and repeat generation is idempotent (${acceptError ?? 'ok'})`);
 
 // RP-07/RP-09: the generator must create only dates selected by the recurrence rule.
-const weeklyStart = dateOffset(3);
+const weeklyStart = dateOffset(5);
 const weeklyPlan = await createPlan(input({
+  provider_service_id: syncService,
   frequency: 'weekly',
   weekdays: [isoDow(weeklyStart)],
   start_date: weeklyStart,
   end_date: addDays(weeklyStart, 60),
   start_time: '11:00',
 }));
-await as(manager, 'authenticated', `select respond_recurring_plan($1, true, null)`, [weeklyPlan]);
+await as(syncProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [weeklyPlan]);
 const weeklyOccurrences = await db.query(`
   select (scheduled_at at time zone 'Asia/Kolkata')::date::text date
     from bookings where recurring_schedule_id=$1 order by scheduled_at`, [weeklyPlan]);
@@ -830,8 +831,13 @@ const lateSkip = await fails(() => as(customer, 'authenticated',
 ok(!!lateSkip, '[RP-13] skip after the configured cutoff is refused');
 
 // RP-14: pause cancels only eligible unpaid future visits, and resume fills the schedule again.
-const pausePlan = await createPlan(input({ start_date: dateOffset(3), end_date: null, start_time: '18:00' }));
-await as(provider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [pausePlan]);
+const pausePlan = await createPlan(input({
+  provider_service_id: expiryService,
+  start_date: dateOffset(3),
+  end_date: null,
+  start_time: '18:00',
+}));
+await as(expiryProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [pausePlan]);
 const pauseBefore = await generatedBookings(pausePlan);
 await setFlag('recurring_skip_pause', false);
 const pauseOff = await fails(() => as(customer, 'authenticated',
@@ -941,9 +947,10 @@ const declinedChange = await one(`
 const unchangedTime = await one(`select scheduled_at from bookings where id=$1`, [rescheduleBooking]);
 ok(declinedChange.n === 1 && new Date(unchangedTime.scheduled_at).toISOString() === new Date(newAt).toISOString(),
   '[RP-18] declining a reschedule records the decision and leaves the visit time unchanged');
+const delayedRequestAt = `${addDays(dateOffset(20), 3)}T12:00:00+05:30`;
 const delayedChangeId = (await as(customer, 'authenticated',
-  `select request_visit_reschedule($1, now()+interval '90 minutes', 'delayed accept') id`,
-  [rescheduleBooking]))[0].id;
+  `select request_visit_reschedule($1, $2::timestamptz, 'delayed accept') id`,
+  [rescheduleBooking, delayedRequestAt]))[0].id;
 await db.query(`update recurring_occurrence_changes
    set new_at=now()+interval '45 minutes' where id=$1`, [delayedChangeId]);
 const delayedTarget = (await one(
