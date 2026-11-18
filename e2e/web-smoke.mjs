@@ -11,6 +11,7 @@ const ANON = process.env.SUPABASE_ANON_KEY;
 const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
 const PHONE = '9999999999';
 const OTP = '123456';
+const ADMIN_E2E_PHONE = process.env.ADMIN_E2E_PHONE;
 const RAVI = '11111111-1111-1111-1111-111111111111';
 // Fresh-provider onboarding user: test OTP number reset by e2e-web.yml before each run (no seed data).
 const NEW_PRO_PHONE = process.env.NEW_PRO_PHONE ?? '9000000301';
@@ -95,6 +96,53 @@ async function signInAs(phone) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers, body: JSON.stringify({ phone, token: OTP, type: 'sms' }) });
   if (!res.ok) throw new Error(`verify ${res.status}: ${await res.text()}`);
   return (await res.json()).access_token;
+}
+
+function getAdminPhone() {
+  const raw = ADMIN_E2E_PHONE?.trim();
+  if (!raw || !/^(?:\+91)?[6-9]\d{9}$/.test(raw)) {
+    throw new Error('ADMIN_E2E_PHONE must be a 10-digit Indian number or +91 E.164 number');
+  }
+  return raw.startsWith('+91') ? raw : `+91${raw}`;
+}
+
+async function grantE2eAdminMembership(phone) {
+  if (process.env.DEMO_PROJECT !== '1') {
+    throw new Error('Admin E2E membership may only be provisioned when DEMO_PROJECT=1');
+  }
+  const token = process.env.SUPABASE_ACCESS_TOKEN;
+  const projectRef = process.env.PROJECT_REF;
+  if (!token || !projectRef) {
+    throw new Error('Admin E2E requires the demo project reference and Management API token');
+  }
+
+  const query = `insert into public.admins (user_id)
+    select id from auth.users where phone = '${phone}'
+    on conflict (user_id) do nothing`;
+  const response = await fetch(
+    `https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    },
+  );
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Admin E2E provisioning failed (${response.status}): ${responseText.slice(0, 200)}`);
+  }
+  if (responseText.trim()) {
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      throw new Error('Admin E2E provisioning returned an invalid Management API response');
+    }
+    if (result?.error) throw new Error('Management API returned a database error');
+  }
 }
 
 // ---------- Auth (one OTP send per run: the test number is rate limited) ----------
@@ -800,7 +848,8 @@ await step('admin-feature-registry', async () => {
   await visible('Log out?');
   await page.getByText('Log out', { exact: true }).last().click();
   await page.getByLabel('Mobile number, India plus 91').waitFor();
-  await page.getByLabel('Mobile number, India plus 91').fill('8888888888');
+  const adminPhone = getAdminPhone();
+  await page.getByLabel('Mobile number, India plus 91').fill(adminPhone.slice(3));
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
   await page.getByLabel('6-digit verification code').fill(OTP);
@@ -808,6 +857,7 @@ await step('admin-feature-registry', async () => {
   await optional('admin display name', () => page.getByLabel('Your name').fill('QuickServe Admin', { timeout: 3000 }));
   await page.getByText('Continue', { exact: true }).click();
   await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+  await grantE2eAdminMembership(adminPhone);
   await go('/account');
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
