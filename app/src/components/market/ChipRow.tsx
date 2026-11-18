@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { ScrollView } from 'react-native';
 import { Chip } from '../ui/Badge';
 import { useTheme } from '../../theme';
@@ -12,7 +13,7 @@ export function ChipRow<T extends string>({
   value: T;
   onChange: (v: T) => void;
   accessibilityLabel: string;
-}): JSX.Element {
+}): ReactElement {
   const theme = useTheme();
 
   return (

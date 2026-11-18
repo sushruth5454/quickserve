@@ -17,6 +17,7 @@ type RowElement = ReactElement<{
 
 type ChipElement = ReactElement<{
   label: string;
+  accessibilityLabel: string;
   selected: boolean;
   check: boolean;
   onPress: () => void;
@@ -43,9 +44,15 @@ describe('ChipRow', () => {
     });
 
     const chips = React.Children.toArray(row.props.children) as ChipElement[];
-    expect(chips.map((chip) => chip.props)).toEqual([
-      { label: 'All', selected: false, check: false, onPress: expect.any(Function) },
-      { label: 'Services', selected: true, check: false, onPress: expect.any(Function) },
+    expect(chips.map(({ props }) => ({
+      label: props.label,
+      accessibilityLabel: props.accessibilityLabel,
+      selected: props.selected,
+      check: props.check,
+      onPress: props.onPress,
+    }))).toEqual([
+      { label: 'All', accessibilityLabel: 'All', selected: false, check: false, onPress: expect.any(Function) },
+      { label: 'Services', accessibilityLabel: 'Services', selected: true, check: false, onPress: expect.any(Function) },
     ]);
   });
 
@@ -58,7 +65,7 @@ describe('ChipRow', () => {
       accessibilityLabel: 'Browse category',
     }) as RowElement;
 
-    const [chip] = React.Children.toArray(row.props.children) as ChipElement[];
+    const chip = React.Children.only(row.props.children) as ChipElement;
     chip.props.onPress();
 
     expect(onChange).toHaveBeenCalledWith('sports');
