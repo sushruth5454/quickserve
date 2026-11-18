@@ -39,7 +39,12 @@ import { isDemoMode } from '../../src/lib/config';
 import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../src/lib/demo/seed';
 import { haptics } from '../../src/lib/haptics';
 import { amountDue, customerDueNow, formatINR, requiredTotal } from '../../src/lib/money';
-import { coinPaiseToCoins, earnedCoinPaise, type CoinRedemptionPreview } from '../../src/lib/coins';
+import {
+  coinPaiseToCoins,
+  coinRedemptionPreviewState,
+  earnedCoinPaise,
+  type CoinRedemptionPreview,
+} from '../../src/lib/coins';
 import { creatorRevisionsEnabled, requestCreatorRevision } from '../../src/lib/creatorRevisions';
 import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
@@ -236,9 +241,11 @@ export default function BookingDetail() {
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;
-  const coinDiscountPreview = data.coinPreview?.can_redeem
-    ? (useCoins ? data.coinPreview.maximum_paise : 0)
-    : data.coinPreview?.maximum_paise ?? 0;
+  const coinPreviewState = data.coinPreview ? coinRedemptionPreviewState(data.coinPreview) : null;
+  const coinCanRedeem = coinPreviewState?.canRedeem ?? false;
+  const coinDiscountPreview = coinCanRedeem
+    ? (useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0)
+    : coinPreviewState?.appliedPaise ?? 0;
   const shownQuoteIds = new Set([openQuote?.id, pendingPaymentQuote?.id].filter(Boolean));
   const typical = typicalRange(booking.categories?.slug);
   const customerRespondsToQuote = isCustomer && !!openQuote && (s === 'quote_sent' || s === 'in_progress');
@@ -335,11 +342,11 @@ export default function BookingDetail() {
   let footer: ReactNode;
   if (isCustomer) {
     if (customerRespondsToQuote && openQuote) {
-      const previewDiscount = useCoins && data.coinPreview?.can_redeem
-        ? data.coinPreview.maximum_paise
-        : 0;
-      const appliedCoinDiscount = !data.coinPreview?.can_redeem
+      const previewDiscount = useCoins && coinCanRedeem
         ? data.coinPreview?.maximum_paise ?? 0
+        : 0;
+      const appliedCoinDiscount = !coinCanRedeem
+        ? coinPreviewState?.appliedPaise ?? 0
         : 0;
       const due = customerDueNow(
         requiredTotal(openQuote.total, booking.visit_fee, booking.platform_fee),
@@ -540,7 +547,7 @@ export default function BookingDetail() {
       ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
-          {data.coinPreview?.can_redeem && data.coinPreview.maximum_paise > 0 ? (
+          {coinCanRedeem && data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
             <Card
               gap={t.spacing.sm}
               style={{ flexDirection: 'row', alignItems: 'center' }}
