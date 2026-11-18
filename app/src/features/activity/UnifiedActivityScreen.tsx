@@ -38,6 +38,7 @@ import { listMyCustomerSportsBookings, type CustomerSportsBooking } from '../spo
 import { listMyRecurringPlans } from '../recurring/api';
 import { shouldShowRepeatPlansFilter } from '../recurring/customerPresentation';
 import type { Frequency, PlanStatus } from '../recurring/types';
+import { bookAgainRoute } from './bookAgain';
 import { visibleActivitySegments, type ActivitySegment } from './model';
 
 const LABELS: Record<ActivitySegment, string> = {
@@ -324,6 +325,7 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
       ) : (
         list.map((booking, index) => {
           const done = booking.status === 'completed' || booking.status === 'closed';
+          const bookAgain = bookAgainRoute(booking);
           return (
             <Animated.View key={booking.id} entering={FadeInDown.delay(Math.min(index, 6) * 30).duration(240)}>
               <Card
@@ -367,14 +369,16 @@ function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: Regis
                     {booking.status === 'completed' ? (
                       <Button title="Rate" size="sm" variant="secondary" leftIcon="star-outline" onPress={() => open(booking)} style={{ flex: 1 }} />
                     ) : null}
-                    <Button
-                      title="Book again"
-                      size="sm"
-                      variant="outline"
-                      leftIcon="refresh"
-                      onPress={() => router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: booking.provider_service_id } })}
-                      style={{ flex: 1 }}
-                    />
+                    {bookAgain ? (
+                      <Button
+                        title="Book again"
+                        size="sm"
+                        variant="outline"
+                        leftIcon="refresh"
+                        onPress={() => router.push(bookAgain)}
+                        style={{ flex: 1 }}
+                      />
+                    ) : null}
                     <Button
                       title={done ? 'Receipt' : 'Details'}
                       size="sm"
