@@ -1,5 +1,5 @@
 import type { Category } from '../../../lib/types';
-import { groupVerticals, normaliseCatalogue, packagePrice } from '../model';
+import { groupCatalogueFamilies, groupVerticals, normaliseCatalogue, packagePrice } from '../model';
 import { validateSchema, validateValues } from '../schema';
 import { canPayInstantly, packageDuration, packageTotal } from '../../booking/packages/packageModel';
 
@@ -20,6 +20,24 @@ test('normalises flat and vertical catalogue payloads without a fixed category c
 test('groups server-returned categories by vertical', () => {
   const groups = groupVerticals([category('one', 'events', 2), category('two', 'events', 3), category('three', 'care', 1)]);
   expect(groups.map((group) => [group.slug, group.categories.length])).toEqual([['care', 1], ['events', 2]]);
+});
+
+test('maps existing verticals to customer-facing service families without dropping unknown verticals', () => {
+  const verticals = groupVerticals([
+    category('plumber', 'home-repairs', 1),
+    category('mechanic', 'auto', 2),
+    category('creator', 'creators', 3),
+    category('photographer', 'photo-video', 4),
+    category('tutor', 'learning', 5),
+    category('specialist', 'new-market', 6),
+  ]);
+
+  expect(groupCatalogueFamilies(verticals).map((family) => [family.slug, family.label, family.verticalSlugs])).toEqual([
+    ['home', 'Home & vehicle services', ['home-repairs', 'auto']],
+    ['creative-events', 'Creators & events', ['creators', 'photo-video']],
+    ['learning', 'Learning & sessions', ['learning']],
+    ['more', 'More services', ['new-market']],
+  ]);
 });
 
 test('unsupported schema keywords block rather than silently hide fields', () => {

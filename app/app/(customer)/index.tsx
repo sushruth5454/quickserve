@@ -19,7 +19,7 @@ import type { Booking, Category } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 import { getCatalogue } from '../../src/features/catalogue/api';
 import { CatalogueSections } from '../../src/features/catalogue/CatalogueSections';
-import type { Catalogue } from '../../src/features/catalogue/model';
+import { groupCatalogueFamilies, type Catalogue } from '../../src/features/catalogue/model';
 
 export default function CustomerHome() {
   const t = useTheme();
@@ -36,6 +36,7 @@ export default function CustomerHome() {
   const [active, setActive] = useState<Booking | null>(null);
   const [firstName, setFirstName] = useState('');
   const [query, setQuery] = useState('');
+  const [selectedFamilySlug, setSelectedFamilySlug] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,10 +69,16 @@ export default function CustomerHome() {
     setRefreshing(false);
   };
 
-  const filtered = useMemo(
-    () => (catalogue?.categories ?? []).filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase())),
-    [catalogue, query],
-  );
+  const families = useMemo(() => groupCatalogueFamilies(catalogue?.verticals ?? []), [catalogue?.verticals]);
+  const selectedFamily = families.find((family) => family.slug === selectedFamilySlug) ?? null;
+  const activeFamilySlug = selectedFamily?.slug ?? 'all';
+  const filtered = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return (catalogue?.categories ?? []).filter((category) => {
+      const familyMatches = !selectedFamily || selectedFamily.verticalSlugs.includes(category.vertical ?? 'other');
+      return familyMatches && category.name.toLowerCase().includes(text);
+    });
+  }, [catalogue?.categories, query, selectedFamily]);
   // Nothing is live at this location: replace search, AI and listings with the "not here yet" card.
   const unserved = categories !== null && categories.length === 0;
   const activeCity = active?.providers?.city ?? null;
@@ -188,71 +195,6 @@ export default function CustomerHome() {
         </View>
         )}
 
-        {aiEnabled && !unserved ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ask QuickServe AI"
-          accessibilityHint="Describe the problem by text or voice and get a pre-filled booking"
-          onPress={() => router.push('/assistant')}
-          style={({ pressed }) => [
-            {
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: t.spacing.md,
-              padding: t.spacing.md,
-              borderRadius: t.radii.lg,
-              backgroundColor: t.colors.primarySoft,
-              borderWidth: 1,
-              borderColor: t.dark ? t.colors.border : 'transparent',
-              opacity: pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="sparkles" size={22} color={t.colors.onPrimary} />
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text variant="calloutStrong" color="primaryText">
-              Ask QuickServe AI
-            </Text>
-            <Text variant="footnote" color="textSecondary" numberOfLines={2}>
-              Describe the problem, or speak in English, हिंदी or తెలుగు
-            </Text>
-          </View>
-          <Ionicons name="mic-outline" size={20} color={t.colors.primaryText} />
-        </Pressable>
-        ) : null}
-
-        {!unserved && (flags.isOn('sports') || flags.isOn('products')) ? (
-          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            {flags.isOn('sports') ? (
-              <Card
-                onPress={() => router.push('/sports')}
-                style={{ flex: 1 }}
-                accessibilityLabel="Sports and venues"
-              >
-                <View style={{ gap: t.spacing.xs }}>
-                  <Ionicons name="football-outline" size={22} color={t.colors.primaryText} />
-                  <Text variant="calloutStrong">Sports & venues</Text>
-                  <Text variant="caption" color="muted">Find a court or book a slot</Text>
-                </View>
-              </Card>
-            ) : null}
-            {flags.isOn('products') ? (
-              <Card
-                onPress={() => router.push('/shop')}
-                style={{ flex: 1 }}
-                accessibilityLabel="Shop local"
-              >
-                <View style={{ gap: t.spacing.xs }}>
-                  <Ionicons name="storefront-outline" size={22} color={t.colors.primaryText} />
-                  <Text variant="calloutStrong">Shop local</Text>
-                  <Text variant="caption" color="muted">Browse nearby shops and products</Text>
-                </View>
-              </Card>
-            ) : null}
-          </View>
-        ) : null}
       </View>
 
       {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
@@ -268,7 +210,36 @@ export default function CustomerHome() {
             {active ? activeCard : null}
           </>
         ) : (
-        <Section title="Services">
+        <>
+        <Section title="Browse by need">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginHorizontal: -t.spacing.lg }}
+            contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}
+          >
+            <BrowseFamilyChip
+              label="All"
+              selected={activeFamilySlug === 'all'}
+              onPress={() => setSelectedFamilySlug('all')}
+            />
+            {families.map((family) => (
+              <BrowseFamilyChip
+                key={family.slug}
+                label={family.label}
+                selected={activeFamilySlug === family.slug}
+                onPress={() => setSelectedFamilySlug(family.slug)}
+              />
+            ))}
+            {flags.isOn('sports') ? (
+              <BrowseFamilyChip label="Sports & venues" onPress={() => router.push('/sports')} />
+            ) : null}
+            {flags.isOn('products') ? (
+              <BrowseFamilyChip label="Shop local" onPress={() => router.push('/shop')} />
+            ) : null}
+          </ScrollView>
+        </Section>
+        <Section title={selectedFamily?.label ?? 'Services'}>
           {!categories ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
               {Array.from({ length: 8 }).map((_, i) => (
@@ -288,11 +259,49 @@ export default function CustomerHome() {
               onAction={aiEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
             />
           ) : (
-            <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} />
+            <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} verticalSlugs={selectedFamily?.verticalSlugs} />
           )}
         </Section>
+        </>
         )}
       </View>
+
+      {aiEnabled && !unserved ? (
+        <View style={gutter}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ask QuickServe AI"
+            accessibilityHint="Describe the problem by text or voice and get a pre-filled booking"
+            onPress={() => router.push('/assistant')}
+            style={({ pressed }) => [
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: t.spacing.md,
+                padding: t.spacing.md,
+                borderRadius: t.radii.lg,
+                backgroundColor: t.colors.primarySoft,
+                borderWidth: 1,
+                borderColor: t.dark ? t.colors.border : 'transparent',
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="sparkles" size={22} color={t.colors.onPrimary} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="calloutStrong" color="primaryText">
+                Ask QuickServe AI
+              </Text>
+              <Text variant="footnote" color="textSecondary" numberOfLines={2}>
+                Describe the problem, or speak in English, हिंदी or తెలుగు
+              </Text>
+            </View>
+            <Ionicons name="mic-outline" size={20} color={t.colors.primaryText} />
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Guarantee banner */}
       <View style={gutter}>
@@ -304,10 +313,10 @@ export default function CustomerHome() {
         >
           <View style={{ flex: 1, gap: 4 }}>
             <Text variant="title3" style={{ color: '#FFFFFF' }}>
-              No surprise bills
+              Know what happens next
             </Text>
             <Text variant="footnote" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              Approve an itemised quote before work starts. Your money is held until the job is done.
+              Review service quotes, venue details, or shop offers before deciding. Payment steps depend on what you choose.
             </Text>
           </View>
           <View
@@ -319,7 +328,7 @@ export default function CustomerHome() {
       </View>
 
       {/* Top rated */}
-      {unserved || (categories && topRated.length === 0) ? null : (
+      {unserved || selectedFamily || (categories && topRated.length === 0) ? null : (
         <View style={{ gap: t.spacing.md }}>
           <View style={gutter}>
             <Section
@@ -354,5 +363,39 @@ export default function CustomerHome() {
         </View>
       )}
     </Screen>
+  );
+}
+
+function BrowseFamilyChip({
+  label,
+  selected = false,
+  onPress,
+}: {
+  label: string;
+  selected?: boolean;
+  onPress: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 40,
+        justifyContent: 'center',
+        paddingHorizontal: t.spacing.md,
+        borderRadius: t.radii.pill,
+        backgroundColor: selected ? t.colors.primary : t.colors.surfaceAlt,
+        borderWidth: selected || t.dark ? 1 : 0,
+        borderColor: selected ? t.colors.primary : t.colors.border,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Text variant="caption" color={selected ? 'onPrimary' : 'textSecondary'} style={{ fontWeight: '600' }}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }

@@ -120,6 +120,21 @@ await step('home', async () => {
   await go('/');
   await visible('AC Repair');
 });
+await step('home-family-filter-and-marketplace-entry-points', async () => {
+  await page.getByRole('button', { name: 'Learning & sessions' }).click();
+  await visible('Demo Home Tutor');
+  if (await page.getByText('AC Repair', { exact: true }).count()) {
+    throw new Error('selecting Learning & sessions left unrelated home-service categories visible');
+  }
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await visible('AC Repair');
+  await page.getByRole('button', { name: 'Sports & venues' }).click();
+  await page.waitForURL(/\/sports/);
+  await go('/');
+  await page.getByRole('button', { name: 'Shop local' }).click();
+  await page.waitForURL(/\/shop/);
+  await go('/');
+});
 await optional('home-top-rated', async () => {
   await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
   await page.mouse.move(195, 420);

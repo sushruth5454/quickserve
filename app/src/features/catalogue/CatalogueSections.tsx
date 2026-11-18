@@ -10,13 +10,16 @@ import type { CatalogueVertical } from './model';
 export function CatalogueSections({
   verticals,
   filter,
+  verticalSlugs,
 }: {
   verticals: CatalogueVertical[];
   filter: string;
+  verticalSlugs?: string[];
 }) {
   const t = useTheme();
   const query = filter.trim().toLowerCase();
-  const visible = verticals.map((vertical) => ({
+  const allowedVerticals = verticalSlugs ? new Set(verticalSlugs) : null;
+  const visible = verticals.filter((vertical) => !allowedVerticals || allowedVerticals.has(vertical.slug)).map((vertical) => ({
     ...vertical,
     categories: vertical.categories.filter((category) => category.name.toLowerCase().includes(query)),
   })).filter((vertical) => vertical.categories.length > 0);

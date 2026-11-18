@@ -11,6 +11,19 @@ export interface CatalogueVertical {
   categories: Category[];
 }
 
+export interface CatalogueFamily {
+  slug: string;
+  label: string;
+  verticalSlugs: string[];
+}
+
+const FAMILY_DEFINITIONS: Array<Pick<CatalogueFamily, 'slug' | 'label'> & { verticalSlugs: string[] }> = [
+  { slug: 'home', label: 'Home & vehicle services', verticalSlugs: ['home-repairs', 'home-services', 'cleaning', 'auto'] },
+  { slug: 'creative-events', label: 'Creators & events', verticalSlugs: ['creators', 'photo-video', 'weddings-events'] },
+  { slug: 'beauty-wellness', label: 'Beauty & wellness', verticalSlugs: ['beauty-wellness', 'beauty', 'wellness'] },
+  { slug: 'learning', label: 'Learning & sessions', verticalSlugs: ['learning', 'education', 'tutoring'] },
+];
+
 const LABELS: Record<string, string> = {
   'home-repairs': 'Home repairs',
   'home-services': 'Home services',
@@ -69,6 +82,21 @@ export function groupVerticals(categories: Category[]): CatalogueVertical[] {
     const second = Math.min(...b.categories.map((item) => item.sort_order));
     return first - second || a.label.localeCompare(b.label);
   });
+}
+
+export function groupCatalogueFamilies(verticals: CatalogueVertical[]): CatalogueFamily[] {
+  const assigned = new Set<string>();
+  const families = FAMILY_DEFINITIONS.flatMap((definition) => {
+    const members = verticals.filter((vertical) => definition.verticalSlugs.includes(vertical.slug));
+    if (members.length === 0) return [];
+    members.forEach((vertical) => assigned.add(vertical.slug));
+    return [{ slug: definition.slug, label: definition.label, verticalSlugs: members.map((vertical) => vertical.slug) }];
+  });
+  const remaining = verticals.filter((vertical) => !assigned.has(vertical.slug));
+  if (remaining.length > 0) {
+    families.push({ slug: 'more', label: 'More services', verticalSlugs: remaining.map((vertical) => vertical.slug) });
+  }
+  return families;
 }
 
 export function titleCase(value: string): string {
