@@ -109,7 +109,10 @@ await scenario('phone allowlist no longer grants admin', async () => {
   ok(/admin only/.test(denied ?? ''), `allowlisted phone is denied admin RPCs: ${JSON.stringify({ denied })}`);
 
   const [notificationRecipient] = await db.query(
-    `select exists (select 1 from public._admin_user_ids() where user_id = $1::uuid) as included`,
+    `select exists (
+       select 1 from public._admin_user_ids() as admin_ids(user_id)
+        where admin_ids.user_id = $1::uuid
+     ) as included`,
     [phoneOnlyUser],
   ).then((result) => result.rows);
   ok(
@@ -129,7 +132,10 @@ await scenario('admins table grants admin', async () => {
   ok(identity.is_admin === true, `admins-table member is an admin: ${JSON.stringify({ identity })}`);
 
   const [notificationRecipient] = await db.query(
-    `select exists (select 1 from public._admin_user_ids() where user_id = $1::uuid) as included`,
+    `select exists (
+       select 1 from public._admin_user_ids() as admin_ids(user_id)
+        where admin_ids.user_id = $1::uuid
+     ) as included`,
     [tableAdmin],
   ).then((result) => result.rows);
   ok(
