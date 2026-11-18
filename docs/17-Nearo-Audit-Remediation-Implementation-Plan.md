@@ -287,8 +287,8 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | X3 | G1 | 0060a/b deployed; legacy E2E provider seed fix merged; main E2E verification pending | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal E2E failure); 44419846387 (backend success); 44419845866 (main E2E pending) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
 | H1 | G1 | merged; 0061 applied and recorded by successful main deployment | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44411611254 (revalidation green); 44411611318 (E2E pending); 44412263137 (main success) | 0061 | 83ca69f (lane 7fc2ed9) |
 | F3 | G1 | scope-corrected lane green; lower-model review clear; 0062 applied and recorded on main | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44414018378 (green); 44412649463 (prior green); 44419846387 (main success) | 0062 | 6e89494 (lane 68c1c4d) |
-| O1 | G1 | lane revalidated green; lower-model review pending before 0063 integration | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 (prior green); 44420825698 (revalidated green) | 0063 | — |
-| O2 | G1 | green; waiting for migration order | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 | 0064 | — |
+| O1 | G1 | merged; lower-model review clear; 0063 registered; main deployment pending | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 (prior green); 44420825698 (revalidated green) | 0063 | 66931b8 |
+| O2 | G1 | revalidating after O1 0063 integration; next migration | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 (prior green) | 0064 | — |
 | H2a | G1 | green; lower-model review clear; waiting for migration order | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 | 0065 | — |
 | H2b | G1 | not started; blocked by H2a | — | — | 0066 | — |
 | U2 | G1 | not started; blocked by U3 booking-detail sequence and migration order | — | — | 0068 | — |
@@ -307,7 +307,7 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | F5 | G2 | not started; blocked by F1 | — | — | 0076 | — |
 | F7 | G2 | not started; blocked by F2; tax wording remains placeholder-only until review | — | — | 0078 | — |
 | F8 | G2 | not started; blocked by F1 and owner-blocked X2 | — | — | — | — |
-| S1 | G2 | waiting for O1 merge; shares sports functions and `sports_payments.test.mjs` | — | — | 0079 | — |
+| S1 | G2 | ready after O1 merge; lane launch pending main push; preserve O1 sports notification changes | — | — | 0079 | — |
 | S2 | G2 | not started; blocked by S1 | — | — | 0080 | — |
 | C1 | G2 | not started; blocked by B1; D2 decided | — | — | 0081 | — |
 | C2 | G2 | not started; blocked by F2; D2 decided | — | — | 0082 | — |
