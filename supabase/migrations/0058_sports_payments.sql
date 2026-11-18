@@ -526,13 +526,16 @@ declare
 begin
   perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
   perform pg_advisory_xact_lock(hashtext(p_resource_id::text));
-  select r.id, r.venue_id, r.slot_minutes, r.capacity, v.owner_id, v.name venue_name, v.status, a.active
+  select r.id, r.venue_id, r.slot_minutes, r.capacity, v.owner_id, v.name venue_name,
+         v.status, v.payment_modes, a.active
     into v_resource
     from public.sports_resources r
     join public.sports_venues v on v.id = r.venue_id
     join public.sports_activities a on a.id = r.activity_id
    where r.id = p_resource_id and r.active;
   perform public._assert(found and v_resource.status = 'verified' and v_resource.active, 'resource is unavailable');
+  perform public._assert('pay_at_venue' = any(v_resource.payment_modes),
+                         'This venue does not accept pay-at-venue booking yet');
   perform public._assert(v_resource.owner_id <> v_uid, 'venue owners cannot book their own venue');
   perform public._assert(p_starts_at > now() and p_starts_at <= now() + interval '30 days',
                          'start time must be within the next 30 days');

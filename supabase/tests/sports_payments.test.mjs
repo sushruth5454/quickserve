@@ -148,6 +148,27 @@ for (const resource of [instantResource, capacityResource, approvalResource]) {
       time '08:00', time '20:00', 20000, 'Standard')
   `, [resource]);
 }
+const defaultPayVenue = await one(`
+  insert into public.sports_venues
+    (owner_id, name, address_line, city, area, lat, lng, status)
+  values ($1::uuid, 'Default Pay Court', '1 Test Road', 'Sangareddy', 'Center',
+          16.5::double precision, 80.6::double precision, 'verified')
+  returning id, payment_modes
+`, [owner]);
+const defaultPayResource = await one(`
+  insert into public.sports_resources
+    (venue_id, activity_id, name, slot_minutes, active, booking_mode, capacity)
+  values ($1::uuid, $2::uuid, 'Default Pay Court', 60, true, 'approval', 1)
+  returning id
+`, [defaultPayVenue.id, activity]);
+await db.query(`
+  insert into public.sports_hours (venue_id, weekday, opens, closes)
+  values ($1::uuid, $2::smallint, time '08:00', time '20:00')
+`, [defaultPayVenue.id, weekday]);
+await db.query(`
+  insert into public.sports_price_rules (resource_id, weekday, starts, ends, price_paise)
+  values ($1::uuid, $2::smallint, time '08:00', time '20:00', 20000)
+`, [defaultPayResource.id, weekday]);
 await as(owner, 'authenticated', `select public.submit_sports_venue($1::uuid)`, [venue]);
 await as(admin, 'authenticated', `select public.admin_set_venue_status($1::uuid, 'verified', '')`, [venue]);
 await db.query(`
@@ -397,17 +418,32 @@ const duplicatePaid = await recordPaid('order_sp_retry', 'pay_sp_retry', retried
 ok(duplicatePaid.duplicate === true,
   '[SP-11] recording the same gateway payment twice is idempotent');
 
+const unavailableLegacySlot = await slotAt('17:00');
+await db.query(`update public.sports_venues set payment_modes=array['online'] where id=$1`, [venue]);
+const unavailableLegacy = await fails(() => as(customer2, 'authenticated', `
+  select public.request_sports_slot($1::uuid, $2::timestamptz, 1, '')
+`, [instantResource, unavailableLegacySlot]));
+const unavailableLegacyCount = (await one(`
+  select count(*)::int count from public.sports_bookings
+   where resource_id=$1 and starts_at=$2::timestamptz
+`, [instantResource, unavailableLegacySlot])).count;
+ok(/does not accept pay-at-venue booking yet/.test(unavailableLegacy ?? '')
+  && unavailableLegacyCount === 0,
+  '[SP-08] legacy pay-at-venue requests are rejected when the verified venue is online-only');
+await db.query(`update public.sports_venues set payment_modes=array['online','pay_at_venue'] where id=$1`, [venue]);
+
 const legacySlot = await slotAt('17:00');
 const legacyBookingId = (await as(customer2, 'authenticated', `
   select public.request_sports_slot($1::uuid, $2::timestamptz, 1, '') id
-`, [instantResource, legacySlot]))[0].id;
+`, [defaultPayResource.id, legacySlot]))[0].id;
 const legacyBefore = (await one(`select status, payment_mode, participants from public.sports_bookings where id=$1`,
   [legacyBookingId]));
 await as(owner, 'authenticated', `select public.decide_sports_booking($1::uuid, true, '')`, [legacyBookingId]);
 const legacyAfter = (await one(`select status from public.sports_bookings where id=$1`, [legacyBookingId])).status;
-ok(legacyBefore.status === 'requested' && legacyBefore.payment_mode === 'pay_at_venue'
+ok(defaultPayVenue.payment_modes.includes('pay_at_venue')
+  && legacyBefore.status === 'requested' && legacyBefore.payment_mode === 'pay_at_venue'
   && legacyBefore.participants === 1 && legacyAfter === 'accepted',
-  '[SP-08] request_sports_slot keeps its legacy pay-at-venue request and accepted statuses');
+  '[SP-08] request_sports_slot preserves pay-at-venue booking for a venue using the schema default');
 
 const holdExpirySlot = await slotAt('18:00');
 const expiring = await book(customer1, instantResource, holdExpirySlot, 'sp-expiry');
