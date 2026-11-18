@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { formatINR } from '../../lib/money';
 import { useT } from '../../i18n';
@@ -31,7 +32,7 @@ export function QuoteCompareTable({
   warnings = {},
   selectable,
   excludeFromLowest,
-}: QuoteCompareTableProps): JSX.Element {
+}: QuoteCompareTableProps): ReactElement {
   const t = useT();
   const theme = useTheme();
   const sortedRows = sortByPrice(rows);
