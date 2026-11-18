@@ -67,6 +67,57 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 
 ---
 
+## 🔀 FEATURE SWITCHES — MANDATORY (project rule: every feature is configurable and can be enabled/disabled)
+
+> **Project rule:** every feature and sub-feature in this plan must be (1) **switchable on/off by an admin at runtime** via `feature_flags` (no app update), (2) **configurable** via admin-editable `app_config` rules or per-category/per-venue settings, (3) **enforced on the server** (RPC refuses when off), and (4) **hidden in the app** when off. A task is **not done** until its switches exist, are enforced, are hidden in the UI and have flag-off tests.
+
+### Switch matrix (W0 creates all of these, disabled by default unless stated)
+
+| Flag key | Parent (child is effective only if parent is ON) | Controls | Server enforcement (owner task) | UI hidden when OFF (owner task) | Default |
+|---|---|---|---|---|---|
+| `home_services_catalogue_v2` | — | Grouped Home-services view + new categories visible to customers | catalogue read RPC returns only legacy categories (A1) | groups collapse to legacy flat list (A3) | off |
+| `admin_category_editor` | — | Admin create/edit/reorder categories | `admin_upsert_category`, `admin_reorder_categories` refuse (A1) | "New service"/"Edit"/reorder hidden (A2) | **on** (admin-only tool) |
+| `recurring_bookings` | — | Master switch for repeat plans | `quote/create_recurring_plan`, `respond_recurring_plan` refuse; generator skips (B1) | One-time/Repeat toggle, "Repeat plans" filter hidden (C1b) | off |
+| `recurring_skip_pause` | `recurring_bookings` | Customer skip visit, pause/resume | `skip_recurring_visit`, `pause/resume_recurring_plan` refuse (B1) | Skip/Pause/Resume buttons hidden (C1b) | off |
+| `recurring_reschedule` | `recurring_bookings` | Reschedule requests (both sides) | `request/respond_visit_reschedule` refuse (B1) | Reschedule actions hidden (C1b, G1) | off |
+| `recurring_plan_acceptance` | `recurring_bookings` | Provider accepts whole plan (`acceptance_mode='plan'`); when OFF all plans use per-visit acceptance | `create_recurring_plan` forces `acceptance_mode='occurrence'` (B1) | "Accept plan" hidden, per-visit accept shown (G1) | off |
+| `recurring_reminders` | `recurring_bookings` | Upcoming-visit reminders | `queue_recurring_reminders` returns 0 (B1) | — | off |
+| `recurring_billing` | `recurring_bookings` | Weekly/monthly billing cycles | cycle RPCs refuse; `create_recurring_plan` allows only `per_visit` (D1) | weekly/monthly payment options hidden (C1b/C2) | off |
+| `recurring_prepaid_packages` | `recurring_bookings` | Prepaid package plans | `create_recurring_plan` refuses `prepaid_package` (B1/D1) | prepaid option hidden (C1b) | off |
+| `sports_online_payments` | `sports` (existing) | Master switch for paying sports bookings in-app | `book_sports_slot` refuses `online`; `prepare_sports_payment` refuses (E1) | "Pay online", checkout screen hidden; sports copy says pay at venue (F1a/F1b) | off |
+| `sports_instant_booking` | `sports` | Instant-confirm resources (`booking_mode='instant'`) | when OFF every booking follows approval flow (E1) | instant badge/"Book" hidden → "Send request" (F1a); booking-mode setting hidden (F1b) | off |
+| `sports_capacity_slots` | `sports` | Capacity > 1 resources (coaching, classes, pools) | capacity treated as 1, participants forced to 1 (E1) | participants picker + capacity setting hidden (F1a/F1b) | off |
+| `sports_multi_slot` | `sports` | Booking more than one consecutive slot | `book_sports_slot` refuses `p_slots > 1` (E1) | duration picker hidden (F1a) | off |
+| `merchant_calendar` | — | Provider/venue calendar screen | list RPCs still work (they are reads); flag gates the screen | calendar entry points hidden (G1/G2) | off |
+| `admin_rules_editor` | — | Admin rules screen | `admin_set_rules` refuses (W0) | admin "Rules" row hidden (H1) | **on** (admin-only tool) |
+
+Existing flags reused unchanged: `sports` (master for all sports), `merchant_staff`, archetype flags in `app_config.archetype_flags` (`time_based` and `fixed` must be ON for recurring plans of that archetype).
+
+### Configuration (not on/off, but admin-editable without an app update)
+| Setting | Where | Owner |
+|---|---|---|
+| Allowed recurrence frequencies (global), horizon, max plan length, skip/reschedule cut-offs, reminder hours, payment-due hours, allowed payment frequencies, default recurring discount | `app_config.recurring_rules` via `admin_set_rules` | W0 + H1 |
+| Per-category: recurrence allowed, allowed frequencies, recurring discount, archetype, pricing units, cancellation policy, required verification docs, active, city availability, order, parent group | `categories` via `admin_upsert_category` / existing `admin_set_category_active`, `admin_set_category_city` | A1 + A2 |
+| Sports: hold minutes, approval pay window, commission, customer fee, refund windows and %, payout release hours | `app_config.sports_rules` via `admin_set_rules` | W0 + H1 |
+| Per-venue/resource: payment modes, booking mode, capacity, cancellation rules | `sports_venues` / `sports_resources` via venue owner RPCs (E1) + admin override | E1 + F1b |
+| Commission tiers / category overrides | existing `admin/commission.tsx` | existing |
+| Geography | existing `admin/geography.tsx` | existing |
+
+### Implementation rules for switches
+1. **Helper per area** (W0): `_recurring_feature(p_key text) returns boolean` = `_feature_enabled('recurring_bookings') and _feature_enabled(p_key)`; `_sports_feature(p_key text)` = `_feature_enabled('sports') and _feature_enabled(p_key)`. Same pattern as `_shops_enquiries_enabled` (`0049`). Use these in every RPC; never check a child flag alone.
+2. **App helper** (W0, integrator): `useFeature(key)` in `app/src/lib/featureFlags.ts` that applies the same parent rule client-side (parent map hard-coded to the table above). UI tasks use only this helper.
+3. **Switch-off behaviour (safety — never strand money or customers):**
+   - Turning a flag OFF blocks **new** actions only. Existing plans, bookings and payments stay readable.
+   - **Never gate money-safety jobs**: payment recording (webhook/verify), refunds, payout release, booking/hold **expiry**, and customer **cancel** of an existing booking/plan always run regardless of flags (otherwise money or slots get stuck).
+   - `recurring_bookings` OFF: generator creates no new occurrences; already-created occurrences proceed normally; plans show "Paused by QuickServe" banner (computed, status not changed).
+   - `recurring_billing` OFF: no new cycles; existing `due` cycles can still be paid until `due_at + grace`, then follow the normal failed-cycle path.
+   - `sports_online_payments` OFF: existing `pending_payment`/`awaiting_payment` bookings can still be paid until their hold/pay-by expires; new bookings are pay-at-venue only (if the venue allows) else refused with a clear message.
+4. **Admin UI:** the existing `admin/features.tsx` lists all flags from the registry grouped by `group_name` — put these flags in groups `Home services`, `Recurring`, `Sports payments`, `Admin tools`, with `description` text that explains what users see when OFF. Show child flags indented/greyed when the parent is OFF (A2 or H1 may extend `admin/features.tsx`; **owner: H1**).
+5. **Tests (every task):** for each flag it enforces — ON works; OFF refuses new action with the "turned off" message; parent OFF + child ON still refuses; switch-off mid-flight keeps money-safety paths working (pay/refund/expire/cancel). UI: Jest test that `useFeature` hides the entry point.
+6. **Done-when addition for every task:** "All switches in the matrix that this task owns exist, are enforced server-side, are hidden in the app, and have the tests in rule 5."
+
+---
+
 ## 0. How to execute this plan (orchestration — READ FIRST)
 
 ### 0.1 You MUST use parallel background agents
@@ -159,7 +210,7 @@ Lanes C1/F1/H are UI-only and compile against the **contracts** in §5.6 and §8
 | R6 | Sports "confirmed" stays status **`accepted`** (existing UI/unread counts use it). New sports statuses: `pending_payment` (instant booking, slot held) and `awaiting_payment` (approved, customer must pay). `sports_bookings.status` is a text check constraint, so it can be extended. | Preserves Phase 6/9 behaviour. |
 | R7 | Sports overlap protection = per-resource advisory lock + capacity count (existing pattern `0048:721-825`). **No exclusion constraints** (PGlite tests rewrite `gist`→`btree`, doc 11 §2.2). | Test harness compatibility; same guarantee under the lock. |
 | R8 | Sensitive categories (babysitting, elderly assistance) are seeded **inactive** with `restricted=true` and required documents (police verification). Admin activates per city only after verification. | Safety requirement. |
-| R9 | All new behaviour is behind **disabled-by-default feature flags**: `recurring_bookings`, `recurring_billing`, `sports_online_payments`. Catalogue rows ship `active=false` until admin enables. | Doc 11 D3. |
+| R9 | **Every feature and sub-feature is behind its own admin switch** (see "Feature switches" matrix at the top), disabled by default except admin-only tools; children require their parent ON; money-safety jobs are never gated. Catalogue rows ship `active=false` until admin enables. | Project rule: everything configurable and enable/disable-able (doc 11 D3). |
 | R10 | Business numbers (sports commission, recurring discount, hold minutes, skip cutoff) are **admin config in `app_config`**, seeded with conservative defaults (§3.3). The owner must confirm them before enabling flags in production. | No hardcoded commissions. |
 
 ---
@@ -188,7 +239,7 @@ Use doc 11 §2.3–§2.4 verbatim. Every customer/merchant RPC: `_require_uid()`
 - SQL: one isolated test file per lane in `supabase/tests/<lane>.test.mjs` that loads the **full real chain** (copy prelude + loader from `review_fixes.test.mjs:1-80`) and adds its migration last. Minimum cases are listed in each lane's "Tests" list.
 - Pure TS logic: Jest tests under `app/src/features/<feature>/__tests__/`.
 - UI flows: steps in `e2e/all-services.mjs` (Lane T consolidates).
-- Every flagged RPC: (a) works with flag on, (b) refused with flag off, (c) other user refused, (d) admin RPC refused for normal user.
+- Every flagged RPC: (a) works with flag on, (b) refused with flag off, (c) other user refused, (d) admin RPC refused for normal user, (e) parent flag off + child on still refused, (f) money-safety paths (pay, refund, expire, cancel existing) still work with the flag off. See "Feature switches" rule 5.
 
 ### 2.5 UI rules (customer simplicity)
 - Every new screen has **loading (Skeleton), error (ErrorState with retry), empty (EmptyState), success (toast)** states — copy existing patterns from `app/src/features/activity/UnifiedActivityScreen.tsx`.
@@ -203,13 +254,16 @@ Use doc 11 §2.3–§2.4 verbatim. Every customer/merchant RPC: `_require_uid()`
 Small, sequential, merged **before** launching Wave 1. Prevents shared-constraint conflicts.
 
 ### 3.1 Feature flags
+Insert **every** flag of the "Feature switches" matrix (top of this doc) in one statement, with `group_name` and a `description` that says what users see when it is OFF. Defaults: all `false` except `admin_category_editor` and `admin_rules_editor` (`true`). Example shape:
 ```sql
 insert into public.feature_flags (key, enabled, label, description, group_name, sort_order) values
-  ('recurring_bookings', false, 'Recurring bookings', 'Customers book repeating home-service visits.', 'Marketplace', 70),
-  ('recurring_billing', false, 'Recurring billing', 'Weekly/monthly/prepaid payment for recurring plans.', 'Marketplace', 71),
-  ('sports_online_payments', false, 'Sports online payments', 'Pay for sports bookings in the app.', 'Marketplace', 72)
+  ('recurring_bookings', false, 'Recurring bookings', 'Customers book repeating home-service visits. Off: one-time booking only.', 'Recurring', 70),
+  ('recurring_skip_pause', false, 'Skip & pause visits', 'Customers skip a visit or pause a plan. Off: buttons hidden.', 'Recurring', 71),
+  -- … one row per matrix entry …
+  ('admin_rules_editor', true, 'Admin rules editor', 'Admins edit recurring and sports rules.', 'Admin tools', 95)
 on conflict (key) do nothing;
 ```
+Also add `_recurring_feature(text)`, `_sports_feature(text)` (Feature switches rule 1) and the app `useFeature(key)` helper (rule 2) with a Jest test for the parent rule.
 
 ### 3.2 Notification kinds (append, dynamic pattern from `0050_rfq.sql:707-727`)
 `recurring_plan_requested, recurring_plan_accepted, recurring_plan_declined, recurring_plan_paused, recurring_plan_resumed, recurring_plan_cancelled, recurring_visit_upcoming, recurring_visit_skipped, recurring_visit_unavailable, recurring_visit_reschedule_requested, recurring_visit_rescheduled, recurring_visit_cancelled_by_provider, recurring_visit_completed, recurring_payment_due, recurring_payment_failed, sports_booking_confirmed, sports_payment_due, sports_payment_failed, sports_booking_expired, sports_booking_cancelled, sports_refund_issued`.
