@@ -272,14 +272,15 @@ The **complete matrix** (383 rows: feature, role, status, evidence, notes) is th
 
 ---
 
-## 7. Owner decisions required before implementation
+## 7. Owner decisions
+Decided by the owner on 2026-11-18.
 
-| # | Decision | Needed by | Recommendation |
+| # | Decision | Needed by | **Owner decision** |
 |---|---|---|---|
-| D1 | Commission per archetype and line kind: fixed, add-ons, proposals, "other" lines, recurring fixed | WP-F2 | Follow doc 07 (fixed 15/13/12%, proposal 8% capped ₹5,000) unless changed |
-| D2 | Creator policies: acceptance window (server uses 7 days, app says 24 h), default revisions (server 2, docs 1), deliver-by required? | WP-C1 | 72 h acceptance, 1 revision default, deliver-by required for remote work |
-| D3 | Sports late-cancel retained share: venue's share vs platform | WP-S1 | Retained share to venue minus commission |
-| D4 | GST/TDS/TCS treatment of platform fee, commission and provider services; who issues tax invoices | WP-B3 | **Professional tax/legal review required**; ship non-tax receipts first |
-| D5 | Separate production Supabase project + SMS provider (cost) | WP-X2 | Yes; a separate prod project with deploy approval |
-| D6 | Rebrand to Nearo now or after pilot | WP-U4 | Now: single brand constant; copy sweep |
-| D7 | Should products/RFQ ever take payment? | — | Not before pilot (keep enquiry-only; state "No commission" clearly) |
+| D1 | Commission per archetype and line kind | WP-F2 | **Doc 07 rates.** Fixed packages 15/13/12% by provider tier on package value **plus add-ons**. Proposals 8%, capped at ₹5,000. Parts/material stay non-commissionable. |
+| D2 | Creator policies | WP-C1, WP-C2 | **72-hour acceptance window** after delivery, then auto-accept and final payment due (creator may mark payment default if unpaid). **1 revision by default** (creator may offer more in the proposal). **Deliver-by date required** on every proposal; if missed, the customer may cancel with the advance refunded. |
+| D3 | Sports late-cancel kept amount | WP-S1 | **Venue receives the kept amount minus normal commission + GST.** The ₹5 customer fee is **non-refundable**. |
+| D4 | GST/TDS/TCS and tax invoices | WP-F7, WP-B3 | **Non-tax receipts and provider statements now** (tax fields stored as 0; remove the false TDS/TCS copy). **CA review before live payments** (no advisor yet; the owner must engage one). Tax invoices after that review. |
+| D5 | Production environment + SMS | WP-X2 | **SMS: MSG91** (DLT template registration required). **Separate production Supabase project: noted but deferred.** The owner wants to finish testing first; it must be re-decided before live payments (G2). |
+| D6 | Rebrand to Nearo | WP-U4 | **Brand constant now; full copy sweep before the pilot.** Coin name to be decided at rebrand time (currently "Seva Coins"). |
+| D7 | Products/RFQ payments | — | **Enquiry-only for the pilot.** Every quote states "Pay the shop directly. Nearo charges no commission." Revisit after the pilot. |

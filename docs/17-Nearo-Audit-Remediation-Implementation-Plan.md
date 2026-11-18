@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **Do not start until the owner approves [doc 15](15-Nearo-Functional-Audit-Report.md) and answers its §7 decisions D1–D7.** Work packages (WPs) that depend on an unanswered decision stay blocked. |
+| **Status** | Owner decisions D1–D7 recorded on 2026-11-18 in [doc 15 §7](15-Nearo-Functional-Audit-Report.md#7-owner-decisions). **Start only after the owner approves execution.** |
 | **Baseline** | `main` @ `bfa999f`; latest migration `0058_sports_payments.sql` |
 | **Audience** | The implementing (lower-capability) model and its agents. Every WP points to **source task rows** in the appendices. Those rows hold the exact files, required change, acceptance criteria and tests. This doc adds ownership, ordering, migration numbers and integration rules. **Do not redesign anything; implement the source rows.** |
 | **Relationship to other plans** | [doc 12](12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md) remaining tasks (D1, D2, F2, G2, T1, T2) and [doc 14](14-UI-Redesign-AI-Execution-Plan.md) UI redesign are sequenced in §6. **This plan takes priority:** it fixes money, security and privacy defects. |
@@ -71,7 +71,7 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 | Gate | Meaning | Exit criteria |
 |---|---|---|
 | **G1 — Closed pilot** | Real users, **Razorpay test keys only**, demo payments disabled, real SMS OTP | All G1 WPs merged; E2E green; doc 15 P0-01, 02, 04 and 09 closed |
-| **G2 — Live payments** | Razorpay live keys and real payouts | All G2 WPs merged; all 13 P0s closed; WP-F8 Razorpay test-mode lane green; daily reconciliation running; receipts and provider statements live; separate production project (D5) |
+| **G2 — Live payments** | Razorpay live keys and real payouts | All G2 WPs merged; all 13 P0s closed; WP-F8 Razorpay test-mode lane green; daily reconciliation running; receipts and provider statements live; CA review done (D4); separate production project re-decided by the owner (D5, deferred) |
 | **G3 — Scaling** | Open sign-ups across cities | G3 WPs merged; concurrency proof (WP-S3); Telugu provider surfaces |
 | **Later** | Improvements | — |
 
@@ -90,7 +90,7 @@ Legend:
 | WP | Title | Sources (full spec) | Owns: files / SQL functions | Mig | Depends | Cx |
 |---|---|---|---|---|---|---|
 | **X1** 🔒 | Close the public admin backdoor; require a confirmed phone for the admin allowlist; E2E admin via a secret | WS8-T01 (+WS8-04) | admin allowlist function(s) from `0041`; `e2e/web-smoke.mjs` admin login lines only | 0059 | — | S |
-| **X2** | Environments: separate prod Supabase project + deploy approval gate; SMS OTP provider; push readiness (Expo projectId, FCM) | WS8-T10, WS7-17, WS7-T14 | **Integrator + owner** (secrets, workflows, `app.json`/`eas.json`) | — | D5 | M |
+| **X2** | SMS OTP via **MSG91** (D5) + push readiness (Expo projectId, FCM). Separate prod Supabase project + deploy approval gate is **deferred by the owner** until testing is complete; re-decide before G2. | WS8-T10, WS7-17, WS7-T14 | **Integrator + owner** (secrets, workflows, `app.json`/`eas.json`) | — | D5 | M |
 | **X3** 🔒 | Make demo settlement unforgeable; exclude demo money from payouts | WS8-T02, WS6-T04 | `demo_settle_payment`, payout eligibility in `claim_due_transfers`; demo flag read path | 0060 | — | M |
 | **H1** 🔒 | Close provider-cancellation abuse; hide the customer address before plan acceptance and after decline | WS2-T01, WS2-T08 | `provider_cancel_booking`; recurring plan provider read RPC/policy | 0061 | — | S |
 | **F3** 🔒 | Coin fixes: approval independent of the redemption switch; no double subtraction in QuoteView; single restore; preview shows "already redeemed"; earning never blocks close | WS9-T01, T02, T03, T04, T16 | `_apply_quote_coins`, `_restore_coins_for_terminal_booking`, `get_coin_redemption_preview`, coin earn on close; `app/app/booking/[id].tsx` (coins default only); `app/src/components/QuoteView.tsx` (coin due only) | 0062 | — | M |
