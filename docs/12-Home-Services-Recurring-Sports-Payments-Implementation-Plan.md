@@ -33,7 +33,7 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | **B1** | Recurring engine migration: schema changes, `recurring_occurrence_changes`, `_recurrence_dates`, all §5.4 RPCs, generator + cron, holiday rules, SQL test (§5) | 0056 | W0 | A1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 3 |
 | **E1** | Sports payments migration: schema, `book_sports_slot`, capacity, holds, `prepare/record_sports_payment`, expiry, cancel/refund, `_create_sports_payout`, payout generalisation, SQL test (§6.2–§6.4 SQL parts) | 0057 | W0 | A1, B1, A2, H1, C1a, C1b, F1a, F1b, T0 | 4 |
 | **E2** | Payment edge functions for sports: `create-payment` `kind:'sports'`, verify/webhook routing, `provider-payout-account` venue owners, `release-payouts` payee, `demo_settle_payment` note, Deno tests (§6.2 last bullet, §6.3 edge bullet) | — | E1 merged | A3, B2, C2, F2, G*, D1 (D1 must **not** touch edge functions until E2 merged) | 5 |
-| **H1** | Admin rules screen `admin/rules.tsx` + `adminRulesApi.ts` + Jest conversions (§7) | — | W0 | all Wave 1 | any after W0 |
+| **H1** | Admin rules screen `admin/rules.tsx` + `adminRulesApi.ts` + Jest conversions (§7), plus parent/child grouping and disabled-child explanation in `admin/features.tsx` (§Feature switches rule 4) | — | W0 | all Wave 1 | any after W0 |
 | **C1a** | Recurring pure-TS: `features/recurring/types.ts`, `dates.ts`, Jest with §5.7 vectors, typed `api.ts` per §5.4 names (§9 C1) | — | W0 | all Wave 1 | any after W0 |
 | **C1b** | Customer recurring screens: wizard `recurring/new/[providerServiceId].tsx`, plan detail `recurring/[id].tsx`, One-time/Repeat toggle in book screens, "Repeat plans" filter in My Activity (§9 C1) — imports C1a types; if C1a not merged yet, create the same file paths with identical content from §5.6 and let the integrator dedupe | — | W0 | all Wave 1 | after C1a |
 | **F1a** | Sports customer booking UI: venue duration/participants/payment choice, `sports-checkout/[id].tsx`, booking list/detail statuses (§8 F1 items 1–3) | — | W0 (codes against §6.5) | all Wave 1 | any after W0 |
@@ -89,7 +89,7 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | `sports_instant_booking` | `sports` | Instant-confirm resources (`booking_mode='instant'`) | when OFF every booking follows approval flow (E1) | instant badge/"Book" hidden → "Send request" (F1a); booking-mode setting hidden (F1b) | off |
 | `sports_capacity_slots` | `sports` | Capacity > 1 resources (coaching, classes, pools) | capacity treated as 1, participants forced to 1 (E1) | participants picker + capacity setting hidden (F1a/F1b) | off |
 | `sports_multi_slot` | `sports` | Booking more than one consecutive slot | `book_sports_slot` refuses `p_slots > 1` (E1) | duration picker hidden (F1a) | off |
-| `merchant_calendar` | — | Provider/venue calendar screen | list RPCs still work (they are reads); flag gates the screen | calendar entry points hidden (G1/G2) | off |
+| `merchant_calendar` | — | Provider/venue calendar screen | New calendar RPCs refuse when off; existing booking/work list RPCs remain available for current workflows (G1/G2) | calendar entry points hidden (G1/G2) | off |
 | `admin_rules_editor` | — | Admin rules screen | `admin_set_rules` refuses (W0) | admin "Rules" row hidden (H1) | **on** (admin-only tool) |
 
 Existing flags reused unchanged: `sports` (master for all sports), `merchant_staff`, archetype flags in `app_config.archetype_flags` (`time_based` and `fixed` must be ON for recurring plans of that archetype).
@@ -105,7 +105,7 @@ Existing flags reused unchanged: `sports` (master for all sports), `merchant_sta
 | Geography | existing `admin/geography.tsx` | existing |
 
 ### Implementation rules for switches
-1. **Helper per area** (W0): `_recurring_feature(p_key text) returns boolean` = `_feature_enabled('recurring_bookings') and _feature_enabled(p_key)`; `_sports_feature(p_key text)` = `_feature_enabled('sports') and _feature_enabled(p_key)`. Same pattern as `_shops_enquiries_enabled` (`0049`). Use these in every RPC; never check a child flag alone.
+1. **Helper per area** (W0): `_recurring_feature(p_key text) returns boolean` accepts only `recurring_bookings` or its six registered children, and requires the master plus the selected child; `_sports_feature(p_key text)` accepts only `sports` or its four registered children, and requires the existing `sports` master plus the selected child. Unknown keys fail closed. Same pattern as `_shops_enquiries_enabled` (`0049`). Use these in every RPC; never check a child flag alone.
 2. **App helper** (W0, integrator): `useFeature(key)` in `app/src/lib/featureFlags.ts` that applies the same parent rule client-side (parent map hard-coded to the table above). UI tasks use only this helper.
 3. **Switch-off behaviour (safety — never strand money or customers):**
    - Turning a flag OFF blocks **new** actions only. Existing plans, bookings and payments stay readable.
@@ -286,7 +286,7 @@ on conflict (key) do nothing;
 Also add `_recurring_feature(text)`, `_sports_feature(text)` (Feature switches rule 1) and the app `useFeature(key)` helper (rule 2) with a Jest test for the parent rule.
 
 ### 3.2 Notification kinds (append, dynamic pattern from `0050_rfq.sql:707-727`)
-`recurring_plan_requested, recurring_plan_accepted, recurring_plan_declined, recurring_plan_paused, recurring_plan_resumed, recurring_plan_cancelled, recurring_visit_upcoming, recurring_visit_skipped, recurring_visit_unavailable, recurring_visit_reschedule_requested, recurring_visit_rescheduled, recurring_visit_cancelled_by_provider, recurring_visit_completed, recurring_payment_due, recurring_payment_failed, sports_booking_confirmed, sports_payment_due, sports_payment_failed, sports_booking_expired, sports_booking_cancelled, sports_refund_issued`.
+`recurring_plan_requested, recurring_plan_accepted, recurring_plan_declined, recurring_plan_paused, recurring_plan_resumed, recurring_plan_cancelled, recurring_visit_upcoming, recurring_visit_skipped, recurring_visit_unavailable, recurring_visit_reschedule_requested, recurring_visit_rescheduled, recurring_visit_reschedule_declined, recurring_visit_cancelled_by_provider, recurring_visit_completed, recurring_payment_due, recurring_payment_failed, sports_booking_confirmed, sports_payment_due, sports_payment_failed, sports_booking_expired, sports_booking_cancelled, sports_refund_issued`.
 
 Integrator also adds app routes in `app/src/lib/unread.ts` `notificationRoute`: `recurring_*` → `/recurring/<data.plan_id>` (or `/booking/<booking_id>` when `booking_id` present); `sports_*` → `/sports-booking/<data.sports_booking_id>`. Add `/recurring/` to `SAFE_ROUTE`.
 
@@ -295,7 +295,7 @@ Integrator also adds app routes in `app/src/lib/unread.ts` `notificationRoute`: 
 insert into public.app_config (key, value) values
  ('recurring_rules', '{"frequencies":["daily","alternate_days","weekly","monthly","custom"],
    "horizon_days":28,"max_plan_days":365,"skip_cutoff_hours":12,"reschedule_cutoff_hours":12,
-   "reminder_hours_before":12,"payment_due_hours_before":24,
+   "reminder_hours_before":12,"payment_due_hours_before":24,"billing_grace_hours":24,
    "payment_frequencies":["per_visit","weekly","monthly","prepaid_package"],
    "recurring_discount_bp":0}'::jsonb),
  ('sports_rules', '{"payment_hold_minutes":10,"approval_pay_window_minutes":60,
@@ -306,7 +306,7 @@ on conflict (key) do nothing;
 Add `admin_get_rules(p_key text) returns jsonb` and `admin_set_rules(p_key text, p_value jsonb)` (admin-only, audit-logged, key ∈ `('recurring_rules','sports_rules')`, validate every field type/range server-side: hours 0–720, bp 0–5000, minutes 5–1440, arrays ⊂ allowed values). Add readers `_recurring_rule(p_path text) returns text` and `_sports_rule(p_path text) returns text` (private, `stable`).
 
 ### 3.4 Shared helpers
-- `_assert_provider_window_free(p_provider uuid, p_window tstzrange, p_exclude_booking uuid)`: takes `pg_advisory_xact_lock(hashtext(p_provider::text))` and applies **the same predicate** as `_reserve_booking_service_window` (`0021:570-588`) excluding `p_exclude_booking`. Private.
+- `_assert_provider_window_free(p_provider_id uuid, p_window tstzrange, p_exclude_booking_id uuid default null, p_exclusive boolean default true)`: takes `pg_advisory_xact_lock(hashtext(p_provider_id::text))` and applies **the same predicate** as `_reserve_booking_service_window` (`0021:570-588`) excluding `p_exclude_booking_id`. Private. `p_exclusive` preserves the existing trigger rule `(existing.exclusive OR new.exclusive)`.
 - Deploy workflow verification (integrator, in `deploy-backend.yml` after the migration step): query `select jobname, schedule from cron.job` via the Management API and print it. If `cron` schema is missing, print a `::warning::` saying recurring generation and expiry jobs will not run until `pg_cron` is enabled (README "Scheduled jobs").
 
 ### 3.5 Done when

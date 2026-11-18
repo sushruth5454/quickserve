@@ -87,6 +87,7 @@ describe('unread helpers', () => {
     expect(notificationRoute({ url: '/booking/abc' })).toBe('/booking/abc');
     expect(notificationRoute({ url: '/venue/venue-1' })).toBe('/venue/venue-1');
     expect(notificationRoute({ url: '/sports-booking/booking-1' })).toBe('/sports-booking/booking-1');
+    expect(notificationRoute({ url: '/recurring/plan-1' })).toBe('/recurring/plan-1');
     expect(notificationRoute({ url: '/shop/shop-1' })).toBe('/shop/shop-1');
     expect(notificationRoute({ url: '/product/product-1' })).toBe('/product/product-1');
     expect(notificationRoute({ url: '/enquiry/enquiry-1' })).toBe('/enquiry/enquiry-1');
@@ -108,6 +109,13 @@ describe('unread helpers', () => {
     expect(notificationRoute({ booking_id: 'b9', kind: 'chat_message' })).toBe('/chat/b9');
     expect(notificationRoute({ url: '/provider/dashboard' }, 'travel_request_created')).toBe('/dashboard');
     expect(notificationRoute({ request_id: '../x' }, 'proposal_received')).toBeNull();
+  });
+
+  it('routes recurring plan and sports booking notifications to validated in-app screens', () => {
+    expect(notificationRoute({ plan_id: 'plan-1' }, 'recurring_plan_requested')).toBe('/recurring/plan-1');
+    expect(notificationRoute({ sports_booking_id: 'sports-1' }, 'sports_payment_due')).toBe('/sports-booking/sports-1');
+    expect(notificationRoute({ plan_id: '../external' }, 'recurring_plan_requested')).toBeNull();
+    expect(notificationRoute({ sports_booking_id: '../external' }, 'sports_payment_due')).toBeNull();
   });
 
   it('lists one entry per chat ("New message from Ravi · AC Repair booking") and newest first', () => {

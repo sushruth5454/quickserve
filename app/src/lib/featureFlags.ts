@@ -35,3 +35,7 @@ export function useAppFeatureFlags() {
   }, []);
   return { ...features, isOn: (key: string) => isFeatureOn(features, key) };
 }
+
+export function useFeature(key: string): boolean {
+  return useAppFeatureFlags().isOn(key);
+}

@@ -331,7 +331,7 @@ jobs:
           print("0019 live fixed-booking verification succeeded (rolled back fixture).")
           PY
 
-      - name: Apply migrations 0020-0053 through the Management API
+      - name: Apply migrations 0020-0054 through the Management API
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.PROJECT_REF != ''
         env:
           MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -412,6 +412,7 @@ jobs:
               ("0051", "0051_ai_usage_v3.sql"),
               ("0052", "0052_merchant_staff.sql"),
               ("0053", "0053_activity_contracts.sql"),
+              ("0054", "0054_addendum_foundations.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
@@ -427,6 +428,53 @@ jobs:
                     "commit;"
               )
               print(f"{version} applied and migration version recorded.")
+          PY
+
+      - name: Verify scheduled-job prerequisites
+        if: env.SUPABASE_ACCESS_TOKEN != '' && env.PROJECT_REF != ''
+        env:
+          MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          MANAGEMENT_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          url = f"https://api.supabase.com/v1/projects/{os.environ['MANAGEMENT_PROJECT_REF']}/database/query"
+
+          def query(sql):
+              request = urllib.request.Request(
+                  url,
+                  data=json.dumps({"query": sql}).encode(),
+                  headers={
+                      "Authorization": f"Bearer {os.environ['MANAGEMENT_TOKEN']}",
+                      "Content-Type": "application/json",
+                      "User-Agent": "quickserve-scheduled-job-check",
+                  },
+                  method="POST",
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  return json.loads(response.read().decode() or "[]")
+
+          try:
+              rows = query("select to_regnamespace('cron') is not null as enabled")
+              enabled = bool(rows and rows[0].get("enabled"))
+          except (urllib.error.URLError, TimeoutError) as error:
+              print(f"::warning::Could not verify pg_cron availability: {error}")
+              raise SystemExit(0)
+
+          if not enabled:
+              print("::warning::pg_cron is not enabled. Recurring generation and expiry jobs will not run until the database extension is enabled.")
+          else:
+              try:
+                  jobs = query("select jobname, schedule from cron.job order by jobname")
+                  print(f"pg_cron is enabled; {len(jobs)} scheduled jobs are configured.")
+                  for job in jobs:
+                      print(f"  {job['jobname']}: {job['schedule']}")
+              except (urllib.error.URLError, TimeoutError) as error:
+                  print(f"::warning::pg_cron is enabled but scheduled jobs could not be listed: {error}")
           PY
 
       - name: Set function secrets (only those provided)
