@@ -652,6 +652,11 @@ begin
     from public.addresses
    where id = v_address_id and user_id = p_customer_id;
   perform public._assert(found, 'saved address not found');
+  perform public._assert(
+    nullif(btrim(coalesce(v_address.line1, '')), '') is not null
+      and nullif(btrim(coalesce(v_address.city, '')), '') is not null,
+    'saved address must include a non-empty line and city'
+  );
   perform public._assert_bookable(v_category.id, v_service.provider_id, v_address.city, v_archetype, null);
 
   if v_frequency = 'weekly' then
@@ -910,6 +915,10 @@ begin
     when v_package.qty_min = 1 and v_package.qty_max = 1 then coalesce(v_package.duration_min, 60)
     else coalesce(v_package.duration_min, 60) * ceil(v_quantity)::int
   end;
+  perform public._assert(
+    v_duration between 15 and 480,
+    'fixed recurring duration must be between 15 and 480 minutes'
+  );
   v_service_total := round(v_package.price::numeric * v_quantity)::int;
   v_platform_fee := greatest(coalesce((public._fixed_booking_config() ->> 'platform_fee_paise')::int, 2900), 0);
   v_window := tstzrange(p_scheduled_at, p_scheduled_at + make_interval(mins => v_duration), '[)');
@@ -1624,7 +1633,7 @@ begin
            or v_reason ilike '%category_not_bookable%'
            or v_reason ilike '%recurring service/category is no longer eligible%'
            or (r.plan_version = 'legacy' and v_reason = 'service not available')
-           or (r.plan_version = 'legacy' and v_reason = 'address is required')
+           or v_reason = 'address is required'
            or v_reason ilike '%provider verification is incomplete%'
            or v_reason ilike '%session package is unavailable%'
            or v_reason ilike '%package does not belong to this service%'
@@ -1634,6 +1643,7 @@ begin
            or v_reason ilike '%category must use the fixed archetype%'
            or v_reason ilike '%quantity is outside the package bounds%'
            or v_reason ilike '%quantity exceeds the configured maximum%'
+           or v_reason = 'fixed recurring duration must be between 15 and 480 minutes'
            or v_reason ilike '%pack is not available for this session%'
            or v_reason ilike '%pack has expired%'
            or v_reason ilike '%pack has no unused sessions%' then

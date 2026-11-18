@@ -498,6 +498,26 @@ ok(!quoteError && quote?.per_visit_paise === 60000 && quote?.first_dates?.length
   && quote?.total_paise_per_cycle === 62900
   && beforeQuote.n === afterQuote.n,
   `[RP-03] quote uses server prices, returns first dates, and creates no plan (${quoteError ?? 'ok'})`);
+// RP-36: new v2 quotes require non-empty saved-address line and city fields.
+const quoteAddressBeforeValidation = await one(
+  `select line1, city from addresses where id=$1`, [address]);
+await db.query(`update addresses set line1='   ' where id=$1`, [address]);
+const blankAddressLineError = await fails(() => as(customer, 'authenticated',
+  `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(input())]));
+await db.query(`update addresses set line1=$2 where id=$1`,
+  [address, quoteAddressBeforeValidation.line1]);
+await db.query(`update addresses set city='   ' where id=$1`, [address]);
+const blankAddressCityError = await fails(() => as(customer, 'authenticated',
+  `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(input())]));
+await db.query(`update addresses set city=$2 where id=$1`,
+  [address, quoteAddressBeforeValidation.city]);
+const plansAfterAddressValidation = await one(
+  `select count(*)::int n from recurring_schedules where customer_id=$1`, [customer]);
+const invalidAddressMessage = /saved address must include a non-empty line and city/i;
+ok(invalidAddressMessage.test(blankAddressLineError ?? '')
+  && invalidAddressMessage.test(blankAddressCityError ?? '')
+  && beforeQuote.n === plansAfterAddressValidation.n,
+  '[RP-36] v2 quotes reject blank saved-address line and city values without creating a plan');
 const badFrequency = await fails(() => as(customer, 'authenticated',
   `select quote_recurring_plan($1::jsonb)`, [JSON.stringify(input({ frequency: 'yearly' }))]));
 const badInterval = await fails(() => as(customer, 'authenticated',
@@ -1928,6 +1948,21 @@ const missingAddressLegacyPlan = await insertSchedule({
   provider_acceptance: 'accepted',
   acceptance_mode: 'occurrence',
 });
+const missingAddressV2Plan = await insertSchedule({
+  provider_id: syncProvider,
+  provider_service_id: syncService,
+  frequency: 'custom',
+  weekdays: [],
+  custom_dates: [missingAddressDate],
+  starts_on: missingAddressDate,
+  ends_on: null,
+  start_time: '12:00',
+  address_line: '   ',
+  status: 'active',
+  provider_acceptance: 'accepted',
+  acceptance_mode: 'occurrence',
+});
+await db.query(`update recurring_schedules set plan_version='v2' where id=$1`, [missingAddressV2Plan]);
 const addressBatchValidPlan = await insertSchedule({
   customer_id: otherCustomer,
   provider_id: autoProvider,
@@ -1945,8 +1980,8 @@ const addressBatchValidPlan = await insertSchedule({
   provider_acceptance: 'accepted',
   acceptance_mode: 'occurrence',
 });
-await db.query(`update recurring_schedules set generated_through=$2::date where id in ($1,$3)`,
-  [missingAddressLegacyPlan, addDays(missingAddressDate, -1), addressBatchValidPlan]);
+await db.query(`update recurring_schedules set generated_through=$2::date where id in ($1,$3,$4)`,
+  [missingAddressLegacyPlan, addDays(missingAddressDate, -1), addressBatchValidPlan, missingAddressV2Plan]);
 await setFlag('recurring_skip_pause', false);
 let addressBatch;
 const addressBatchError = await fails(async () => {
@@ -1956,43 +1991,77 @@ const addressBatchError = await fails(async () => {
 const missingAddressState = await one(`
   select plan_version, status, generated_through from recurring_schedules where id=$1`,
   [missingAddressLegacyPlan]);
+const missingAddressV2State = await one(`
+  select plan_version, status, generated_through from recurring_schedules where id=$1`,
+  [missingAddressV2Plan]);
 const missingAddressChange = await one(`
   select count(*)::int n, bool_and(reason='address is required') expected_reason
     from recurring_occurrence_changes
    where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
   [missingAddressLegacyPlan, missingAddressDate]);
+const missingAddressV2Change = await one(`
+  select count(*)::int n, bool_and(reason='address is required') expected_reason
+    from recurring_occurrence_changes
+   where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
+  [missingAddressV2Plan, missingAddressDate]);
 const missingAddressNotice = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
      and data ->> 'recurring_schedule_id'=$2::text`,
   [customer, missingAddressLegacyPlan]);
+const missingAddressV2Notice = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`,
+  [customer, missingAddressV2Plan]);
 await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
   [missingAddressLegacyPlan, addDays(missingAddressDate, -1)]);
+await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
+  [missingAddressV2Plan, addDays(missingAddressDate, -1)]);
 const missingAddressRetryError = await fails(() => as(null, 'service_role',
   `select materialize_recurring_schedule($1, $2::date)`,
   [missingAddressLegacyPlan, missingAddressDate]));
+const missingAddressV2RetryError = await fails(() => as(null, 'service_role',
+  `select materialize_recurring_schedule($1, $2::date)`,
+  [missingAddressV2Plan, missingAddressDate]));
 const missingAddressChangeAfterRetry = await one(`
   select count(*)::int n from recurring_occurrence_changes
    where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
   [missingAddressLegacyPlan, missingAddressDate]);
+const missingAddressV2ChangeAfterRetry = await one(`
+  select count(*)::int n from recurring_occurrence_changes
+   where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
+  [missingAddressV2Plan, missingAddressDate]);
 const missingAddressNoticeAfterRetry = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
      and data ->> 'recurring_schedule_id'=$2::text`,
   [customer, missingAddressLegacyPlan]);
+const missingAddressV2NoticeAfterRetry = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`,
+  [customer, missingAddressV2Plan]);
 await setFlag('recurring_skip_pause', true);
 ok(/address is required/i.test(newLegacyAddressError ?? '')
   && legacySchedulesBeforeInvalidAddress.n === legacySchedulesAfterInvalidAddress.n
   && missingAddressState.plan_version === 'legacy' && missingAddressState.status === 'active'
   && missingAddressState.generated_through === dateOffset(28)
+  && missingAddressV2State.plan_version === 'v2' && missingAddressV2State.status === 'active'
+  && missingAddressV2State.generated_through === dateOffset(28)
   && missingAddressChange.n === 1 && missingAddressChange.expected_reason
+  && missingAddressV2Change.n === 1 && missingAddressV2Change.expected_reason
   && missingAddressNotice.n === 1 && missingAddressChangeAfterRetry.n === 1
+  && missingAddressV2Notice.n === 1 && missingAddressV2ChangeAfterRetry.n === 1
   && missingAddressNoticeAfterRetry.n === 1
+  && missingAddressV2NoticeAfterRetry.n === 1
   && !missingAddressRetryError
+  && !missingAddressV2RetryError
   && (await generatedBookings(missingAddressLegacyPlan)) === 0
+  && (await generatedBookings(missingAddressV2Plan)) === 0
   && (await generatedBookings(addressBatchValidPlan)) === 1
   && !addressBatchError && Number(addressBatch?.[0]?.generated ?? 0) >= 1,
-  '[RP-33] new legacy addresses are validated and old empty-address rows fail per date without starving a valid batch');
+  '[RP-33/RP-36] new legacy addresses are validated and old empty-address v2/legacy rows fail per date without starving a valid batch');
 
 // RP-33: one booking's refund/status failure rolls back only that booking and is operationally recorded.
 const expiryFailureDate = dateOffset(27);
@@ -2216,5 +2285,107 @@ ok(endBoundedBeforeCancel.plan_status === 'active' && endBoundedBeforeCancel.ope
   && completedCancellationStates.plan_cancelled > 0
   && completedCancellationStates.schedule_cancelled > 0,
   '[RP-35] plans with future open visits remain active through horizon completion and both cancellation RPCs close legacy completed plans');
+
+// RP-37: revalidate a fixed package's duration at materialization after an admin edit.
+await setFlag('recurring_plan_acceptance', true);
+const mutablePackageSlot = await one(`
+  select d::date::text slot_date,
+         to_char(candidate.slot_start at time zone 'Asia/Kolkata', 'HH24:MI') slot_time
+    from generate_series(current_date + 3, current_date + 28, interval '1 day') days(d)
+    cross join generate_series(0, 26) slots(slot_index)
+    cross join lateral (
+      select make_timestamptz(
+        extract(year from d)::int,
+        extract(month from d)::int,
+        extract(day from d)::int,
+        (slot_index / 2)::int,
+        mod(slot_index, 2) * 30,
+        0,
+        'Asia/Kolkata'
+      ) slot_start
+    ) candidate
+   where not exists (
+     select 1 from bookings b
+      where b.provider_id=$1
+        and b.status::text not in ('cancelled','declined','expired','refunded','closed_no_work')
+        and b.service_window && tstzrange(
+          candidate.slot_start, candidate.slot_start + interval '10 hours', '[)')
+   )
+   order by d, slot_index
+   limit 1`, [provider]);
+const mutablePackageValidSlot = await one(`
+  select to_char(candidate.slot_start at time zone 'Asia/Kolkata', 'HH24:MI') slot_time
+    from generate_series(0, 91) slots(slot_index)
+    cross join lateral (
+      select make_timestamptz(
+        extract(year from $2::date)::int,
+        extract(month from $2::date)::int,
+        extract(day from $2::date)::int,
+        (slot_index * 15 / 60)::int,
+        mod(slot_index * 15, 60),
+        0,
+        'Asia/Kolkata'
+      ) slot_start
+    ) candidate
+   where not exists (
+     select 1 from bookings b
+      where b.provider_id=$1
+        and b.status::text not in ('cancelled','declined','expired','refunded','closed_no_work')
+        and b.service_window && tstzrange(
+          candidate.slot_start, candidate.slot_start + interval '60 minutes', '[)')
+   )
+   order by slot_index
+   limit 1`, [autoProvider, mutablePackageSlot.slot_date]);
+const mutablePackage = (await one(`
+  insert into service_packages (
+    provider_service_id, title, description, price_type, price, price_min, price_max,
+    unit, qty_min, qty_max, duration_min, active
+  ) values ($1, 'Mutable recurring package', '', 'fixed', 40000, 40000, 40000,
+            'visit', 1, 2, 200, true)
+  returning id`, [fixedService])).id;
+const mutableFixedPlan = await createPlan(input({
+  provider_service_id: fixedService,
+  package_id: mutablePackage,
+  archetype: 'fixed',
+  package_qty: 2,
+  duration_min: null,
+  frequency: 'custom',
+  custom_dates: [mutablePackageSlot.slot_date],
+  start_date: mutablePackageSlot.slot_date,
+  end_date: null,
+  start_time: mutablePackageSlot.slot_time,
+}));
+const mutablePackageValidPlan = await createPlan(input({
+  provider_service_id: autoService,
+  frequency: 'custom',
+  custom_dates: [mutablePackageSlot.slot_date],
+  start_date: mutablePackageSlot.slot_date,
+  end_date: null,
+  start_time: mutablePackageValidSlot.slot_time,
+}));
+await db.query(`update service_packages set duration_min=300 where id=$1`, [mutablePackage]);
+await db.query(`
+  update recurring_schedules
+     set status='paused', paused_at=now(), updated_at=now()
+   where status='active' and id not in ($1,$2)`,
+  [mutableFixedPlan, mutablePackageValidPlan]);
+await db.query(`
+  update recurring_schedules
+     set status='active', provider_acceptance='accepted', decided_at=now(),
+         generated_through=$3::date - 1, updated_at=now()
+   where id in ($1,$2)`,
+  [mutableFixedPlan, mutablePackageValidPlan, mutablePackageSlot.slot_date]);
+const mutablePackageBatchError = await fails(() => as(null, 'service_role',
+  `select generate_recurring_occurrences(500)`));
+const mutableDurationFailure = await one(`
+  select count(*)::int n, bool_and(reason='fixed recurring duration must be between 15 and 480 minutes') expected_reason
+    from recurring_occurrence_changes
+   where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
+  [mutableFixedPlan, mutablePackageSlot.slot_date]);
+ok(!mutablePackageBatchError
+  && mutableDurationFailure.n === 1 && mutableDurationFailure.expected_reason
+  && (await generatedBookings(mutableFixedPlan)) === 0
+  && (await generatedBookings(mutablePackageValidPlan)) === 1,
+  '[RP-37] an edited fixed package over the duration limit is isolated per date while another plan generates');
 
 if (failures > 0) process.exitCode = 1;

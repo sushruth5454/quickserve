@@ -650,6 +650,38 @@ Feature: Plan completion and cancellation
     And cancellation changes are recorded
 ```
 
+### RP-36 — V2 recurring plans require a usable saved address
+
+```gherkin
+Feature: Recurring-plan address validation
+  Scenario: A v2 quote rejects a blank saved-address line or city
+    Given the customer's saved address has a blank or whitespace-only line or city
+    When the customer requests a recurring-plan quote
+    Then the server rejects the quote with an address validation error
+    And no plan is created
+
+  Scenario: An old v2 plan with an empty address affects only its own occurrence
+    Given an accepted v2 plan created before address validation has an empty address line
+    And another accepted plan has a valid occurrence in the same generator batch
+    When the generator runs
+    Then the v2 date is recorded and notified once as provider-unavailable
+    And the valid plan still generates
+```
+
+### RP-37 — Fixed package edits cannot create an overlong occurrence
+
+```gherkin
+Feature: Fixed recurring package duration
+  Scenario: A changed package duration is revalidated during materialization
+    Given a fixed recurring plan was created while its package duration was within 15–480 minutes
+    And an administrator edits the package so the stored quantity now exceeds 480 minutes
+    And another accepted plan has a valid occurrence in the same generator batch
+    When the generator materializes both plans
+    Then the fixed date is recorded and notified once as provider-unavailable
+    And no overlong booking window is created
+    And the valid plan still generates
+```
+
 ## Acceptance criteria
 
 1. The six date fixture vectors in the implementation plan produce exactly the listed dates.
@@ -674,6 +706,8 @@ Feature: Plan completion and cancellation
 20. Reschedule request and acceptance both require `new_at > now() + 60 minutes`; a delayed acceptance that crosses the threshold leaves the original visit unchanged.
 21. A plan becomes completed only after its end/max boundary is reached and no future open occurrence remains.
 22. Both customer cancellation RPCs can cancel a completed legacy plan that still has future open visits.
+23. A v2 recurring quote rejects saved addresses whose line or city is empty after trimming; address failures in already-stored v2 or legacy rows are isolated and announced per occurrence.
+24. Fixed occurrence materialization revalidates the current computed package duration against 15–480 minutes; an edited invalid package is recorded per date without blocking another plan in the batch.
 
 ## Automation readiness
 
@@ -705,6 +739,8 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-33 | Occurrence Scheduling / Existing Booking Lifecycle | Legacy missing-address dates do not starve valid plans; one expiry rollback logs safely, preserves its reservation, and permits other bookings to expire. |
 | RP-34 | Occurrence Change Management | A customer skip after the configured cutoff uses customer cancellation policy, never provider fault. |
 | RP-35 | Occurrence Scheduling / Recurring Plan Management | End/max completion waits for open future visits; active end-bounded and historical completed legacy plans remain cancellable through both customer RPCs. |
+| RP-36 | Recurring Plan Management / Occurrence Scheduling | V2 quotes reject blank address line/city; old v2 address failures are announced per date while another plan generates. |
+| RP-37 | Occurrence Scheduling / Existing Booking Lifecycle | A fixed-package edit that pushes duration over 480 minutes creates no booking and does not starve a valid plan in the same batch. |
 
 ## Trace links
 
