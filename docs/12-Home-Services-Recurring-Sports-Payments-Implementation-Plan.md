@@ -17,7 +17,8 @@
 > 3. Do **not** wait for a whole wave to finish. The moment a task merges green, re-read the board and launch every task that just became READY — in one response.
 > 4. While agents run, you (the integrator) only: create worktrees, review finished diffs, merge in the order of the *Merge order* column, do integrator-owned edits (§0.5), watch CI, and send fixes back to the same agent with `write_agent`.
 > 5. Before launching, print the current board as a table (Task · Status · Agent ID) so the owner can see what is running in parallel. Update it after every merge.
-> 6. Target concurrency: **Wave 1 = 10 agents, Wave 2 = 8 agents, Wave 3 = 5 agents.** If fewer are running, you are not following this plan.
+> 6. **BDD → DDD → TDD per feature:** before changing runtime code, the named artifact owner adds the feature's BDD scenarios and DDD ownership mapping, then the implementation task writes/updates failing tests, then implements. Do not start implementation first and promise artifacts later. Artifact ownership is defined in §0.7.
+> 7. Target concurrency: **Wave 1 = 10 agents, Wave 2 = 8 agents, Wave 3 = 5 agents.** If fewer are running, you are not following this plan.
 
 ### Task board (unit of parallel work = one task = one agent = one worktree/branch)
 
@@ -37,7 +38,7 @@ Legend: **Mig** = migration number the task owns (only one task per number). **P
 | **C1b** | Customer recurring screens: wizard `recurring/new/[providerServiceId].tsx`, plan detail `recurring/[id].tsx`, One-time/Repeat toggle in book screens, "Repeat plans" filter in My Activity (§9 C1) — imports C1a types; if C1a not merged yet, create the same file paths with identical content from §5.6 and let the integrator dedupe | — | W0 | all Wave 1 | after C1a |
 | **F1a** | Sports customer booking UI: venue duration/participants/payment choice, `sports-checkout/[id].tsx`, booking list/detail statuses (§8 F1 items 1–3) | — | W0 (codes against §6.5) | all Wave 1 | any after W0 |
 | **F1b** | Venue settings UI in `sports/manage.tsx` (booking mode, capacity, payment modes, payout status) + `sports/index.tsx` copy (§8 F1 item 4) | — | W0 | all Wave 1 (F1a edits different files) | any after W0 |
-| **T0** | E2E scaffolding: new step functions in `e2e/all-services.mjs` for catalogue groups, recurring wizard, sports checkout (behind `optional` until their features merge); BDD + DDD drafts for 5 features (§12 items 1–2) | — | W0 | all Wave 1 | any |
+| **T0** | E2E scaffolding: new step functions in `e2e/all-services.mjs` for catalogue groups, recurring wizard, sports checkout (behind `optional` until their features merge); validate each lane's BDD/DDD files exist (§12 items 1–2) | — | W0 | all Wave 1 | any |
 | **B2** | Recurring hardening pass: review B1 against §5.8, add missing tests, fix CI failures reported by integrator (only if B1 report lists gaps) | 0056 fixes only | B1 merged | A3, E2, D1, G1, G2, C2, F2 | after B1 |
 | **D1** | Recurring billing migration: `recurring_billing_cycles`, payment parent check, cycle RPCs, credits/refunds, `process_recurring_billing` cron, occurrence payouts, SQL test (§10 items 1–5, 7) | 0058 | B1 merged **and** E1 merged | A3, E2, G1, G2, C2, F2, T1 | 6 |
 | **D2** | Recurring billing edge functions: `create-payment` `kind:'recurring_cycle'`, verify/webhook routing, Deno tests (§10 item 6) | — | D1 merged **and** E2 merged | G*, C2, F2, T1 | 7 |
@@ -147,14 +148,18 @@ Work ONLY in the git worktree <path> on branch lane/<ID>. Edit ONLY the files yo
 "File-conflict rules" table at the top of the doc lists files you must never touch.
 1. Read the Task board, docs/12-...md sections 0, 1, 2 and your task's section <§N> completely before editing.
 2. Read docs/11-PRD-v2-Implementation-Plan.md §2 (rules, templates, gotchas).
-3. Implement exactly your task's owned files. Do NOT edit any file in the "Integrator-owned files"
+3. If you are the named BDD/DDD artifact owner in §0.7: create and commit those BDD/DDD files first,
+   report the artifact commit to the parent, and wait until the parent confirms it is on main before
+   writing tests or runtime code. If you are not the artifact owner and the artifacts are not on main,
+   only inspect source and prepare a written contract; do not edit runtime files yet.
+4. After the artifact gate, implement exactly your task's owned files. Do NOT edit any file in the "Integrator-owned files"
    table (§0.5). If you need a change there, write it in your final report under "Integrator requests".
-4. Your migration number is <NNNN or "none">. Do not create any other migration file.
+5. Your migration number is <NNNN or "none">. Do not create any other migration file.
    If your task is UI-only and its backend is not merged yet, code against the documented contract
    (§5.6 / §6.5) through a typed API module only; never invent RPC names.
-5. Never run npm/npx install, deno remote imports, pip, local builds or local tests on this machine.
+6. Never run npm/npx install, deno remote imports, pip, local builds or local tests on this machine.
    All validation runs in GitHub Actions after the integrator merges your branch.
-6. Before every commit: git checkout -- app/tsconfig.json (if it changed). Commit with trailers:
+7. Before every commit: git checkout -- app/tsconfig.json (if it changed). Commit with trailers:
    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 7. Finish with a report: commits, files changed, RPC signatures added (exact), notification kinds used,
    tests added, "Integrator requests", and every assumption you made. Do not claim anything was tested.
@@ -191,6 +196,21 @@ Work ONLY in the git worktree <path> on branch lane/<ID>. Edit ONLY the files yo
 | **1** | **A** Catalogue + admin category editor · **B** Recurring engine (backend) · **E** Sports payments (backend + payment entry points) · **H** Admin rule controls (UI) · **C1** Recurring pure-TS module + customer recurring UI against the §5.6 contract · **F1** Sports customer/venue UI against the §8.6 contract | A=`0055`, B=`0056`, E=`0057`, H=none, C1=none, F1=none | W0 |
 | **2** | **D** Recurring billing & payments · **G** Merchant portal (provider recurring calendar, sports venue calendar/earnings) · **C2** wire customer recurring UI to merged B/D RPCs · **F2** wire sports UI to merged E RPCs | D=`0058` | B (for D, G, C2), E (for F2) |
 | **3** (integrator + 1 agent) | **T** End-to-end tests, BDD/DDD/traceability artifacts, PRD status update | none | all |
+
+### 0.7 BDD/DDD/TDD ownership (do not duplicate or race on artifact files)
+
+The W0 foundation BDD/DDD/traceability packet is already authored at the three files linked in §3. Every lane must read its feature BDD/DDD before implementation. These are the only artifact writers:
+
+| Feature | BDD/DDD owner (writes before implementation) | TDD owner | Traceability owner |
+|---|---|---|---|
+| Expanded Home Services catalogue/admin categories | A1 writes `home-services-catalogue-{bdd,ddd}.md` before migration 0055 code; A2/A3 add test references to their final reports, not the artifact files | A1 SQL + A2/A3 Jest/E2E | T2 |
+| Recurring plan lifecycle, provider schedule, skip/reschedule/absence | B1 writes `recurring-plans-{bdd,ddd}.md` before migration 0056 code; C/G do not edit those files | B1 SQL + C1 Jest + G1 UI/E2E | T2 |
+| Recurring cycle billing/refunds | D1 writes `recurring-billing-{bdd,ddd}.md` before migration 0058 code | D1 SQL/Deno + C2 Jest/E2E | T2 |
+| Sports online payments/settlement | E1 writes `sports-payments-{bdd,ddd}.md` before migration 0057 code; E2/F/G do not edit those files | E1 SQL + E2 Deno + F/G app/E2E | T2 |
+| Admin rules screen | H1 extends the W0 foundations BDD/DDD scenarios with UI scenarios before UI code; do not make a duplicate admin-rules artifact | H1 Jest | T2 |
+| Cross-feature | T0/T2 never invent or replace BDD/DDD; they only verify links and consolidate scenario/test/source mappings | T1/T2 E2E/traceability | T2 |
+
+**If the named artifact owner is still writing:** dependent implementation tasks may prepare a worktree or inspect source, but must not change runtime code until the BDD and DDD files are committed in the owner branch. Merge the artifacts before merging implementation. Tests must map to BDD scenario IDs; every behavior needs a DDD context/aggregate, test reference and implementation file in the final traceability table.
 
 Merge order inside Wave 1: `0055` (A) → `0056` (B) → `0057` (E) → UI-only lanes (H, C1, F1) in any order. Wave 2: `0058` (D) → G → C2 → F2.
 
