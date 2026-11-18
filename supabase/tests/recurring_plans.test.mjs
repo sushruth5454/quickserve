@@ -1007,9 +1007,13 @@ const privatePlan = await createPlan(input({ start_date: dateOffset(23), end_dat
 await as(provider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [privatePlan]);
 const otherRead = await fails(() => as(otherCustomer, 'authenticated',
   `select get_recurring_plan($1)`, [privatePlan]));
+const privateBooking = await one(
+  `select id from bookings where recurring_schedule_id=$1 limit 1`,
+  [privatePlan],
+);
 const otherSkip = await fails(() => as(otherCustomer, 'authenticated',
   `select skip_recurring_visit($1, '')`,
-  [(await one(`select id from bookings where recurring_schedule_id=$1 limit 1`, [privatePlan])).id]));
+  [privateBooking.id]));
 const customerList = await as(customer, 'authenticated', `select list_my_recurring_plans() plans`);
 const visiblePlan = (await as(customer, 'authenticated',
   `select get_recurring_plan($1) plan`, [privatePlan]))[0].plan;
