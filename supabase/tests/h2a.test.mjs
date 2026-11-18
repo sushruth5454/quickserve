@@ -169,7 +169,7 @@ async function fixture(index, archetype = 'time_based', { packagePrice = 50000, 
      where key in (
        'recurring_bookings', 'recurring_skip_pause', 'recurring_reschedule',
        'recurring_plan_acceptance', 'recurring_reminders', 'recurring_prepaid_packages',
-       'recurring_billing'
+       'recurring_billing', 'merchant_staff'
      )`);
   return { customer, provider, manager, city, categoryId, serviceId, savedAddressId, servicePackageId, archetype };
 }
