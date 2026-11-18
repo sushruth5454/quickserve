@@ -171,10 +171,11 @@ try {
       `select public.admin_set_provider_review($1::uuid, $2::text, $3::text)`,
       [APPROVABLE, 'approved', null]);
     const [approvedPendingKyc] = await as(ADMIN, 'authenticated',
-      `select admin_review_status, kyc_status::text as kyc_status,
-              public._provider_is_live($1::uuid) as is_live
-         from public.providers where id = $1::uuid`,
-      [APPROVABLE]);
+      `select ap.admin_review_status, ap.kyc_status,
+              public._provider_is_live(ap.id) as is_live
+         from public.admin_list_providers($1::text, $2::text) ap
+        where ap.id = $3::uuid`,
+      ['all', null, APPROVABLE]);
     ok(approvedPendingKyc.admin_review_status === 'approved' && approvedPendingKyc.kyc_status === 'pending'
       && !approvedPendingKyc.is_live,
     `approval leaves KYC pending and provider not live: ${JSON.stringify(approvedPendingKyc)}`);
@@ -189,12 +190,11 @@ try {
     await as(ADMIN, 'authenticated',
       `select public.admin_set_provider_review($1::uuid, $2::text, $3::text)`,
       [APPROVABLE, 'needs_clarification', 'Please update your documents']);
-    const [clarification] = await as(ADMIN, 'authenticated',
-      `select admin_review_status, review_note from public.providers where id = $1::uuid`,
-      [APPROVABLE]);
-    ok(clarification.admin_review_status === 'needs_clarification'
-      && clarification.review_note === 'Please update your documents',
-    `clarification reason is saved for the provider: ${JSON.stringify(clarification)}`);
+    const [clarification] = await as(APPROVABLE, 'authenticated',
+      `select public.get_my_provider_onboarding() as onboarding`);
+    const reviewNote = clarification.onboarding.go_live.reasons.find((item) => item.code === 'admin_note');
+    ok(!!reviewNote && reviewNote.detail === 'Please update your documents',
+      `clarification reason is visible to the provider: ${JSON.stringify(clarification.onboarding.go_live.reasons)}`);
 
     await as(ADMIN, 'authenticated',
       `select public.admin_set_provider_review($1::uuid, $2::text, $3::text)`,
@@ -203,10 +203,11 @@ try {
       `select public.sync_provider_payout_status($1::text, $2::text)`,
       ['fa_o2_rejected', 'activated']);
     const [afterGateway] = await as(ADMIN, 'authenticated',
-      `select admin_review_status, kyc_status::text as kyc_status,
-              public._provider_is_live($1::uuid) as is_live
-         from public.providers where id = $1::uuid`,
-      [REJECTED]);
+      `select ap.admin_review_status, ap.kyc_status,
+              public._provider_is_live(ap.id) as is_live
+         from public.admin_list_providers($1::text, $2::text) ap
+        where ap.id = $3::uuid`,
+      ['all', null, REJECTED]);
     ok(afterGateway.admin_review_status === 'rejected' && afterGateway.kyc_status === 'verified'
       && !afterGateway.is_live,
     `gateway activation preserves admin rejection: ${JSON.stringify(afterGateway)}`);
