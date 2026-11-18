@@ -2,22 +2,10 @@ import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../src/components/ui';
-import { useAppFeatureFlags } from '../../src/lib/featureFlags';
+import { listMyCustomerSportsBookings, type CustomerSportsBooking } from '../../src/features/sports/api';
+import { getSportsBookingStatusLabel, getSportsPaymentSummary } from '../../src/features/sports/model';
 import { formatINR } from '../../src/lib/money';
-import { supabase } from '../../src/lib/supabase';
 import { useTheme } from '../../src/theme';
-
-interface SportsBookingRow {
-  id: string;
-  venue_name: string;
-  resource_name: string;
-  activity_name: string;
-  starts_at: string;
-  ends_at: string;
-  status: string;
-  price_paise: number;
-  expires_at: string;
-}
 
 function slotLabel(value: string) {
   return new Date(value).toLocaleString('en-IN', {
@@ -32,57 +20,70 @@ function slotLabel(value: string) {
 
 export default function MySportsBookingsScreen() {
   const t = useTheme();
-  const flags = useAppFeatureFlags();
-  const enabled = flags.isOn('sports');
-  const [bookings, setBookings] = useState<SportsBookingRow[] | null>(null);
+  const [bookings, setBookings] = useState<CustomerSportsBooking[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!enabled) return;
-    setError(null);
-    const { data, error: rpcError } = await supabase.rpc('get_my_business_sports_bookings');
-    if (rpcError) {
-      setError(rpcError.message);
-      return;
+    try {
+      setError(null);
+      setBookings(await listMyCustomerSportsBookings());
+    } catch (caught) {
+      setError((caught as Error).message);
     }
-    setBookings((data ?? []) as SportsBookingRow[]);
-  }, [enabled]);
+  }, []);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+  }, [load]));
 
   return (
-    <Screen header={<Header title="My sports requests" onBack={() => router.back()} />}>
-      {!enabled ? (
-        <InlineAlert message="Sports & venues are turned off right now." />
-      ) : error ? (
+    <Screen header={<Header
+      title="My sports bookings"
+      onBack={() => router.canGoBack() ? router.back() : router.replace('/sports' as Href)}
+    />}>
+      {error && !bookings ? (
         <ErrorState message={error} onRetry={() => void load()} />
       ) : !bookings ? (
         [0, 1, 2].map((i) => <Skeleton key={i} height={94} radius={t.radii.lg} />)
       ) : bookings.length === 0 ? (
-        <EmptyState icon="calendar-outline" title="No sports requests yet" message="Your sports booking requests will appear here." />
+        <EmptyState icon="calendar-outline" title="No sports bookings yet" message="Your sports bookings will appear here." />
       ) : (
         <View style={{ gap: t.spacing.sm }}>
-          {bookings.map((booking) => (
-            <Pressable key={booking.id} accessibilityRole="button" onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
-              <Card gap={t.spacing.xs}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-                  <Text variant="bodyStrong" style={{ flex: 1 }}>{booking.venue_name}</Text>
-                  <Text variant="captionStrong" color={booking.status === 'accepted' ? 'successText' : 'muted'}>
-                    {booking.status.toUpperCase()}
+          {bookings.map((booking) => {
+            const deadline = booking.status === 'pending_payment'
+              ? booking.hold_expires_at ?? booking.expires_at
+              : booking.pay_by ?? booking.expires_at;
+            return (
+              <Pressable key={booking.id} accessibilityRole="button" onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+                <Card gap={t.spacing.xs}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+                    <Text variant="bodyStrong" style={{ flex: 1 }}>{booking.venue_name}</Text>
+                    <Text variant="captionStrong" color={booking.status === 'accepted' ? 'successText' : 'muted'}>
+                      {getSportsBookingStatusLabel(booking.status)}
+                    </Text>
+                  </View>
+                  <Text variant="footnote" color="muted">{booking.activity_name} · {booking.resource_name}</Text>
+                  <Text variant="footnote">{slotLabel(booking.starts_at)}</Text>
+                  <Text variant="footnote">
+                    {formatINR(booking.total_paise ?? booking.price_paise)}
+                    {' · '}
+                    {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
                   </Text>
-                </View>
-                <Text variant="footnote" color="muted">{booking.activity_name} · {booking.resource_name}</Text>
-                <Text variant="footnote">
-                  {slotLabel(booking.starts_at)} · {formatINR(booking.price_paise)} · {booking.status === 'accepted' ? 'Pay at venue' : 'No online payment'}
-                </Text>
-                {booking.status === 'requested' ? (
-                  <Text variant="caption" color="muted">Owner response due by {slotLabel(booking.expires_at)}</Text>
-                ) : null}
-              </Card>
-            </Pressable>
-          ))}
+                  {booking.refund_paise ? (
+                    <Text variant="caption" color="muted">Refund · {formatINR(booking.refund_paise)}</Text>
+                  ) : null}
+                  {deadline && ['requested', 'pending_payment', 'awaiting_payment'].includes(booking.status) ? (
+                    <Text variant="caption" color="muted">
+                      {booking.status === 'requested' ? 'Venue response due by ' : 'Payment due by '}{slotLabel(deadline)}
+                    </Text>
+                  ) : null}
+                </Card>
+              </Pressable>
+            );
+          })}
         </View>
       )}
+      <InlineAlert message={error && bookings ? error : null} />
     </Screen>
   );
 }
