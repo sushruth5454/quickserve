@@ -65,6 +65,9 @@ export interface RfqQuoteItemComparison {
   brand_differs: boolean;
   specs_missing: boolean;
   missing_spec_keys: string[];
+  specs_differ: boolean;
+  differing_spec_keys: string[];
+  quantity_rounded_up: boolean;
 }
 
 export interface RfqQuoteComparison {
@@ -81,6 +84,9 @@ export interface RfqQuoteComparison {
   gst_paise: number;
   total_paise: number;
   unavailable_count: number;
+  complete: boolean;
+  arrives_after_needed_by: boolean;
+  delivery_terms_missing: boolean;
   items: RfqQuoteItemComparison[];
 }
 
@@ -97,12 +103,15 @@ export interface SupplierRfqSummary {
   created_at: string;
   item_count: number;
   quote_status: SupplierQuoteStatus | null;
+  rfq_status: RfqStatus;
+  my_outcome: SupplierQuoteStatus | null;
   business_role: 'owner' | 'manager' | 'staff';
 }
 
 export interface SupplierRfq extends Omit<Rfq, 'customer_id' | 'category_id' | 'lat' | 'lng' | 'recipient_count' | 'created_at'> {
   shop_id: string;
   business_role: 'owner' | 'manager' | 'staff';
+  shop_has_gstin: boolean;
   my_quote: {
     id: string;
     version: number;
@@ -139,6 +148,7 @@ export interface SupplierQuoteItemInput {
   unit_price_paise: number;
   gst_rate_bp: number;
   available: boolean;
+  offered_quantity?: number;
 }
 
 function unwrap<T>(data: T | null, error: { message: string } | null): T {
@@ -191,6 +201,11 @@ export async function compareRfqQuotes(rfqId: string): Promise<RfqQuoteCompariso
 export async function selectSupplierQuote(quoteId: string): Promise<{ rfq_id: string; enquiry_id: string }> {
   const { data, error } = await supabase.rpc('select_supplier_quote', { p_quote_id: quoteId });
   return unwrap(data as { rfq_id: string; enquiry_id: string } | null, error);
+}
+
+export async function cancelRfq(rfqId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_rfq', { p_rfq_id: rfqId });
+  if (error) throw new Error(error.message.replace(/^[a-z_]+: /, ''));
 }
 
 export async function listMySupplierRfqs(): Promise<SupplierRfqSummary[]> {

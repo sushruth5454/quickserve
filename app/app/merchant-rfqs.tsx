@@ -39,21 +39,28 @@ export default function MerchantRfqsScreen() {
       onRefresh={() => void load()}
     >
       <InlineAlert message={error} />
-      {loading ? <Skeleton height={84} radius={t.radii.lg} /> : rfqs.length ? rfqs.map((rfq) => (
-        <ListItem
-          key={`${rfq.shop_id}:${rfq.rfq_id}`}
-          icon="document-text-outline"
-          title={rfq.title}
-          subtitle={`${rfq.category_name} · ${rfq.item_count} item(s) · ${rfq.area}, ${rfq.city} · Needed by ${new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString()}`}
-          right={<Text variant="captionStrong" color={rfq.quote_status ? 'successText' : 'primaryText'}>{rfq.quote_status ? 'Quote sent' : 'Reply'}</Text>}
-          chevron
-          onPress={() => router.push({
-            pathname: '/rfq/merchant/[id]',
-            params: { id: rfq.rfq_id, shopId: rfq.shop_id },
-          })}
-        />
-      )) : (
-        <EmptyState title="No open RFQs" message="Customer product quote requests routed to your shop will appear here." />
+      {loading ? <Skeleton height={84} radius={t.radii.lg} /> : rfqs.length ? rfqs.map((rfq) => {
+        const outcomeLabel = rfq.my_outcome === 'selected' ? 'Selected'
+          : rfq.my_outcome === 'rejected' ? 'Not selected'
+            : rfq.rfq_status === 'cancelled' ? 'Cancelled'
+              : rfq.rfq_status === 'expired' ? 'Expired'
+                : rfq.quote_status ? 'Quote sent' : 'Reply';
+        return (
+          <ListItem
+            key={`${rfq.shop_id}:${rfq.rfq_id}`}
+            icon="document-text-outline"
+            title={rfq.title}
+            subtitle={`${rfq.category_name} · ${rfq.item_count} item(s) · ${rfq.area}, ${rfq.city} · Needed by ${new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString()}`}
+            right={<Text variant="captionStrong" color={rfq.my_outcome === 'selected' ? 'successText' : rfq.my_outcome === 'rejected' ? 'muted' : 'primaryText'}>{outcomeLabel}</Text>}
+            chevron
+            onPress={() => router.push({
+              pathname: '/rfq/merchant/[id]',
+              params: { id: rfq.rfq_id, shopId: rfq.shop_id },
+            })}
+          />
+        );
+      }) : (
+        <EmptyState title="No recent RFQs" message="Requests routed to your shop and their outcomes appear here for 30 days." />
       )}
       <Button title="Manage my shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
     </Screen>

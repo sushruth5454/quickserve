@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../../src/components/ui';
 import { SpecFields } from '../../../src/features/shops/SpecFields';
@@ -12,6 +12,8 @@ import {
   type SupplierRfq,
 } from '../../../src/features/rfq/api';
 import { RfqFeatureUnavailable, RfqStatusLabel, useRfqFeatureFlags } from '../../../src/features/rfq/components';
+import { estimateQuoteTotals } from '../../../src/features/rfq/quoteMath';
+import { formatINR } from '../../../src/lib/money';
 import { useTheme } from '../../../src/theme';
 
 type QuoteDraft = {
@@ -19,6 +21,7 @@ type QuoteDraft = {
   brand: string;
   model: string;
   specs: Record<string, string>;
+  offeredQuantity: string;
   unitPriceRupees: string;
   gstRate: string;
   available: boolean;
@@ -51,15 +54,18 @@ export default function MerchantRfqQuoteScreen() {
       ]);
       setRfq(next);
       setAttributeSchema(categories.find((category) => category.name === next.category_name)?.attribute_schema ?? { properties: {} });
-      setDrafts((current) => current.length ? current : next.items.map((item) => ({
-        rfqItemId: item.id,
-        brand: '',
-        model: '',
-        specs: {},
-        unitPriceRupees: '',
-        gstRate: '1800',
-        available: true,
-      })));
+      setDrafts((current) => current.length
+        ? next.shop_has_gstin ? current : current.map((draft) => ({ ...draft, gstRate: '0' }))
+        : next.items.map((item) => ({
+          rfqItemId: item.id,
+          brand: '',
+          model: '',
+          specs: '{}',
+          offeredQuantity: '',
+          unitPriceRupees: '',
+          gstRate: next.shop_has_gstin ? '1800' : '0',
+          available: true,
+        })));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -74,6 +80,26 @@ export default function MerchantRfqQuoteScreen() {
     setDrafts((current) => current.map((draft) => draft.rfqItemId === rfqItemId ? { ...draft, ...patch } : draft));
   };
 
+  const canQuote = rfq?.business_role === 'owner' || rfq?.business_role === 'manager';
+  const deliveryRupees = Number(deliveryCharge);
+  const estimatedDeliveryPaise = Number.isFinite(deliveryRupees) && deliveryRupees >= 0
+    ? Math.round(deliveryRupees * 100)
+    : 0;
+  const estimatedTotals = useMemo(() => estimateQuoteTotals(
+    (rfq?.items ?? []).map((item) => {
+      const draft = drafts.find((entry) => entry.rfqItemId === item.id);
+      const offeredQuantity = draft?.offeredQuantity.trim() ? Number(draft.offeredQuantity) : Number(item.quantity);
+      const unitPriceRupees = Number(draft?.unitPriceRupees ?? '');
+      return {
+        quantity: Number.isFinite(offeredQuantity) ? offeredQuantity : Number(item.quantity),
+        unitPricePaise: Number.isFinite(unitPriceRupees) ? Math.round(unitPriceRupees * 100) : 0,
+        gstRateBp: rfq?.shop_has_gstin ? Number(draft?.gstRate ?? 0) : 0,
+        available: !!draft?.available,
+      };
+    }),
+    estimatedDeliveryPaise,
+  ), [drafts, estimatedDeliveryPaise, rfq]);
+
   const submit = async () => {
     if (!rfq || rfq.status !== 'open' || !canQuote) return;
     setSaving(true);
@@ -82,18 +108,25 @@ export default function MerchantRfqQuoteScreen() {
       const quoteItems: SupplierQuoteItemInput[] = drafts.map((draft) => {
         const rupees = Number(draft.unitPriceRupees);
         const gstRate = Number(draft.gstRate);
+        const offeredQuantity = draft.offeredQuantity.trim() ? Number(draft.offeredQuantity) : undefined;
         if (draft.available && (!draft.unitPriceRupees.trim() || !Number.isFinite(rupees) || rupees < 0)) {
           throw new Error('Enter a non-negative unit price for every available item.');
         }
-        if (!gstRates.includes(gstRate)) throw new Error('Choose a supported GST rate for each item.');
+        if (draft.available && offeredQuantity !== undefined && (!Number.isFinite(offeredQuantity) || offeredQuantity <= 0)) {
+          throw new Error('Enter a valid offered quantity or leave it blank.');
+        }
+        if (!gstRates.includes(gstRate) || (!rfq.shop_has_gstin && gstRate !== 0)) {
+          throw new Error('Choose a supported GST rate for each item.');
+        }
         return {
           rfq_item_id: draft.rfqItemId,
           brand: draft.brand.trim(),
           model: draft.model.trim(),
           specs: cleanSpecs(draft.specs),
           unit_price_paise: draft.available ? Math.round(rupees * 100) : 0,
-          gst_rate_bp: gstRate,
+          gst_rate_bp: rfq.shop_has_gstin ? gstRate : 0,
           available: draft.available,
+          ...(draft.available && offeredQuantity !== undefined ? { offered_quantity: offeredQuantity } : {}),
         };
       });
       const chargeRupees = Number(deliveryCharge);
@@ -120,8 +153,6 @@ export default function MerchantRfqQuoteScreen() {
   if (!enabled) {
     return <Screen header={<Header title="Prepare supplier quote" />}><RfqFeatureUnavailable /></Screen>;
   }
-
-  const canQuote = rfq?.business_role === 'owner' || rfq?.business_role === 'manager';
 
   return (
     <Screen
@@ -180,7 +211,19 @@ export default function MerchantRfqQuoteScreen() {
                 </View> : null}
                 {!canQuote ? null : draft.available ? (
                   <>
-                    <Input label="Unit price" prefix="₹" keyboardType="decimal-pad" value={draft.unitPriceRupees} onChangeText={(value) => updateDraft(item.id, { unitPriceRupees: value })} />
+                    <Input
+                      label={`Quantity you will supply (${item.unit}, optional)`}
+                      keyboardType="decimal-pad"
+                      value={draft.offeredQuantity}
+                      onChangeText={(value) => updateDraft(item.id, { offeredQuantity: value })}
+                    />
+                    <Input
+                      label={`Unit price before GST (₹ per ${item.unit})`}
+                      prefix="₹"
+                      keyboardType="decimal-pad"
+                      value={draft.unitPriceRupees}
+                      onChangeText={(value) => updateDraft(item.id, { unitPriceRupees: value })}
+                    />
                     <Input label="Brand offered" value={draft.brand} onChangeText={(value) => updateDraft(item.id, { brand: value })} maxLength={80} />
                     <Input label="Model (optional)" value={draft.model} onChangeText={(value) => updateDraft(item.id, { model: value })} maxLength={80} />
                     <SpecFields
@@ -191,10 +234,13 @@ export default function MerchantRfqQuoteScreen() {
                     <View style={{ gap: t.spacing.xs }}>
                       <Text variant="subhead" color="textSecondary">GST rate</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
-                        {gstRates.map((rate) => (
+                        {(rfq.shop_has_gstin ? gstRates : [0]).map((rate) => (
                           <Chip key={rate} label={`${rate / 100}%`} selected={Number(draft.gstRate) === rate} onPress={() => updateDraft(item.id, { gstRate: String(rate) })} />
                         ))}
                       </View>
+                      {!rfq.shop_has_gstin ? (
+                        <Text variant="caption" color="muted">Add your GSTIN in My shop to charge GST.</Text>
+                      ) : null}
                     </View>
                   </>
                 ) : <Text color="muted">This line will be marked unavailable and excluded from the quote subtotal.</Text>}
@@ -206,9 +252,15 @@ export default function MerchantRfqQuoteScreen() {
               <Input label="Delivery charge" prefix="₹" keyboardType="decimal-pad" value={deliveryCharge} onChangeText={setDeliveryCharge} />
               <Input label="Delivery days (optional)" keyboardType="number-pad" value={deliveryDays} onChangeText={setDeliveryDays} />
               <TextArea label="Notes for the customer" value={notes} onChangeText={setNotes} maxLength={2000} />
-              <Text variant="caption" color="muted">
-                The server uses the requested quantities and calculates line totals, GST, and the final total.
-              </Text>
+              <Card style={{ gap: t.spacing.xs }}>
+                <Text variant="subheadStrong">Estimated customer total {formatINR(estimatedTotals.total)}</Text>
+                <Text variant="caption" color="muted">
+                  Items {formatINR(estimatedTotals.subtotal)} + GST {formatINR(estimatedTotals.gst)} + delivery {formatINR(estimatedDeliveryPaise)}
+                </Text>
+                <Text variant="caption" color="muted">
+                  You receive this directly from the customer — Nearo charges no commission on product quotes.
+                </Text>
+              </Card>
             </>
           ) : null}
         </>
