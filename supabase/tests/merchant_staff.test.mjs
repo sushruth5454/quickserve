@@ -352,9 +352,9 @@ await db.exec(`
     ('62000000-0000-0000-0000-000000000001', '${rfqA}', 1, 'Tiles', 1, 'piece');
   insert into public.rfq_recipients (rfq_id, shop_id) values
     ('${rfqA}', '${shopA}'), ('${rfqB}', '${shopB}');
-  insert into public.service_requests (id, customer_id, category_id, title) values
-    ('${requestA}', '${customer}', '70000000-0000-0000-0000-000000000001', 'Request A'),
-    ('${requestB}', '${customer}', '70000000-0000-0000-0000-000000000001', 'Request B');
+  insert into public.service_requests (id, customer_id, category_id) values
+    ('${requestA}', '${customer}', '70000000-0000-0000-0000-000000000001'),
+    ('${requestB}', '${customer}', '70000000-0000-0000-0000-000000000001');
   insert into public.request_recipients (request_id, provider_id) values
     ('${requestA}', '${ownerA}'), ('${requestB}', '${ownerB}');
   insert into public.request_messages (request_id, provider_id, sender_id, body) values

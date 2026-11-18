@@ -5,6 +5,7 @@ import { supabase } from '../../src/lib/supabase';
 import { badgeLabel } from '../../src/lib/unread';
 import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
+import { Button, InlineAlert, Screen } from '../../src/components/ui';
 import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
@@ -13,25 +14,40 @@ export default function ProviderTabs() {
   const { activeRole } = useAuth();
   const [businessRole, setBusinessRole] = useState<string | null>(null);
   const [checkingAccess, setCheckingAccess] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessAttempt, setAccessAttempt] = useState(0);
   const screenOptions = useTabScreenOptions();
   const t = useTheme();
   const unread = useUnread().total('provider');
   useEffect(() => {
     let active = true;
     setCheckingAccess(true);
-    void supabase.rpc('get_provider_business_context').then(({ data }) => {
-      if (!active) return;
-      setBusinessRole((data as { business_role?: string } | null)?.business_role ?? null);
-      setCheckingAccess(false);
-    }).catch(() => {
-      if (active) {
-        setBusinessRole(null);
-        setCheckingAccess(false);
+    setAccessError(null);
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_provider_business_context');
+        if (error) throw new Error(error.message);
+        if (active) setBusinessRole((data as { business_role?: string } | null)?.business_role ?? null);
+      } catch (error) {
+        if (active) {
+          setBusinessRole(null);
+          setAccessError(error instanceof Error ? error.message : 'Unable to verify business access.');
+        }
+      } finally {
+        if (active) setCheckingAccess(false);
       }
-    });
+    })();
     return () => { active = false; };
-  }, [activeRole]);
+  }, [activeRole, accessAttempt]);
   if (checkingAccess) return null;
+  if (accessError) {
+    return (
+      <Screen>
+        <InlineAlert message={accessError} />
+        <Button title="Retry" onPress={() => setAccessAttempt((attempt) => attempt + 1)} />
+      </Screen>
+    );
+  }
   if (activeRole === 'customer' && !businessRole) return <Redirect href="/" />;
   const isOwner = businessRole === 'owner';
   return (
