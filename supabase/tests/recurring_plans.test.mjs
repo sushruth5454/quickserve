@@ -1868,7 +1868,7 @@ const rp29Address = (await one(`
   values ($1::uuid, 'RP-29 home', 'Gate 9', 'Recurring City', 16.50, 80.67)
   returning id
 `, [rp29Customer])).id;
-const preServiceSlot = { date: '2026-12-15', time: '10:00' };
+const preServiceSlot = { date: dateOffset(27), time: '10:00' };
 const preServicePlan = await createPlan(input({
   provider_service_id: rp29Service,
   address_id: rp29Address,
