@@ -16,10 +16,17 @@ interface Activity {
   sort_order: number;
 }
 
+export function getSportsHomePaymentNotice(onlinePaymentsEnabled: boolean): string {
+  return onlinePaymentsEnabled
+    ? 'Pay at the venue or online where available.'
+    : 'Pay at the venue. QuickServe does not collect sports booking payments.';
+}
+
 export default function SportsHomeScreen() {
   const t = useTheme();
   const flags = useAppFeatureFlags();
   const enabled = flags.isOn('sports');
+  const onlinePaymentsEnabled = flags.isOn('sports_online_payments');
   const { activeRole } = useAuth();
   const [activities, setActivities] = useState<Activity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +96,7 @@ export default function SportsHomeScreen() {
             ))}
           </View>
           <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>
-            Pay at the venue. QuickServe does not collect sports booking payments.
+            {getSportsHomePaymentNotice(onlinePaymentsEnabled)}
           </Text>
         </>
       )}
