@@ -63,6 +63,7 @@ for (const file of [
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
   '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql', '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql', '0046_managed_geography.sql', '0047_coins_config.sql', '0048_sports.sql', '0049_shops_catalogue.sql', '0050_rfq.sql', '0051_ai_usage_v3.sql', '0052_merchant_staff.sql', '0053_activity_contracts.sql', '0054_addendum_foundations.sql', '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql', '0057_recurring_plans_v2.sql', '0058_sports_payments.sql',
   '0059_admin_identity_hardening.sql',
+  '0060a_demo_payout_status.sql', '0060b_demo_payout_isolation.sql',
 ]) {
   if (file === '0051_ai_usage_v3.sql') {
     await db.exec(`
@@ -97,23 +98,26 @@ const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
 const customer = '00000000-0000-0000-0000-0000000000c1';
 const provider = '00000000-0000-0000-0000-0000000000a1';
 const demoPro = '00000000-0000-0000-0000-0000000000d1';
+const spoofPro = '00000000-0000-0000-0000-0000000000d2';
 const admin = '00000000-0000-0000-0000-0000000000b1';
 const commissionCustomer = '00000000-0000-0000-0000-0000000000c3';
 await db.exec(`
-  insert into auth.users (id, phone, raw_user_meta_data) values
-    ('${customer}', '+919999000001', '{}'), ('${provider}', '+919999000002', '{}'),
-    ('${demoPro}', '+919999000003', '{"demo_only":"true"}'),
-    ('${commissionCustomer}', '+919999000004', '{}'),
-    ('${admin}', '+918888888888', '{}');
+  insert into auth.users (id, phone, raw_app_meta_data, raw_user_meta_data) values
+    ('${customer}', '+919999000001', '{}', '{}'), ('${provider}', '+919999000002', '{}', '{}'),
+    ('${demoPro}', '+919999000003', '{"demo_only":"true"}', '{"demo_only":"true"}'),
+    ('${spoofPro}', '+919999000005', '{}', '{"demo_only":"true"}'),
+    ('${commissionCustomer}', '+919999000004', '{}', '{}'),
+    ('${admin}', '+918888888888', '{}', '{}');
   insert into admins (user_id) values ('${admin}');
   update profiles set full_name = 'Person';
   insert into providers (id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended)
   values
     ('${provider}', 'Review City', extensions.st_setsrid(extensions.st_makepoint(80.60,16.50),4326), 'verified', now(), true, false, false),
-    ('${demoPro}', 'Review City', extensions.st_setsrid(extensions.st_makepoint(80.61,16.50),4326), 'verified', now(), true, false, false);
+    ('${demoPro}', 'Review City', extensions.st_setsrid(extensions.st_makepoint(80.61,16.50),4326), 'verified', now(), true, false, false),
+    ('${spoofPro}', 'Review City', extensions.st_setsrid(extensions.st_makepoint(80.62,16.50),4326), 'verified', now(), true, false, false);
   update app_config set value = value || '{"proposal":true,"time_based":true}'::jsonb where key = 'archetype_flags';
   insert into provider_availability (provider_id, weekday, start_time, end_time)
-  select p, d, time '00:00', time '23:59' from unnest(array['${provider}','${demoPro}']::uuid[]) p cross join generate_series(0, 6) d;
+  select p, d, time '00:00', time '23:59' from unnest(array['${provider}','${demoPro}','${spoofPro}']::uuid[]) p cross join generate_series(0, 6) d;
   insert into addresses (user_id, label, line1, city, lat, lng)
   values ('${customer}', 'Venue', 'Gate 2', 'Review City', 16.50, 80.60);
 `);
@@ -137,7 +141,8 @@ const proposalCat = await category('review-proposal', 'proposal');
 await db.query(`update categories set cancellation_policy = 'event_moderate' where id = $1`, [proposalCat]);
 await db.query(`
   insert into provider_services (provider_id, category_id, visit_fee, labour_rate, active)
-  values ($1, $3, 0, 60000, true), ($1, $4, 0, 0, true), ($2, $4, 0, 0, true)`, [provider, demoPro, sessionCat, proposalCat]);
+  values ($1, $3, 0, 60000, true), ($1, $4, 0, 0, true), ($2, $4, 0, 0, true), ($5, $4, 0, 0, true)`,
+  [provider, demoPro, sessionCat, proposalCat, spoofPro]);
 const sessionService = (await one(`select id from provider_services where provider_id = $1 and category_id = $2`, [provider, sessionCat])).id;
 
 const payLink = async (paymentId, amount, rpc = 'record_payment_paid') => {
@@ -314,13 +319,21 @@ ok((await one(`select status from provider_links where provider_id = $1 and kind
 
 // ---------- 12: demo settlement ----------
 const demoBooking = await proposalBooking(demoPro);
-const disabled = await fails(() => as(customer, 'authenticated', `select demo_settle_payment($1)`, [demoBooking]));
+const disabled = await fails(() => as(customer, 'authenticated', `select demo_settle_payment($1::uuid)`, [demoBooking]));
 ok(/disabled/.test(disabled ?? ''), 'demo settlement is off unless enabled');
 await db.exec(`update app_config set value = '{"enabled": true, "provider_ids": []}' where key = 'demo_payments'`);
-await as(customer, 'authenticated', `select demo_settle_payment($1)`, [demoBooking]);
+const outsideDemoProject = await fails(() => as(customer, 'authenticated', `select demo_settle_payment($1::uuid)`, [demoBooking]));
+ok(/demo payments are disabled/.test(outsideDemoProject ?? ''),
+  `demo settlement fails closed outside a demo project (${JSON.stringify({ error: outsideDemoProject })})`);
+await db.exec(`update app_config set value = '{"is_demo_project": true}'::jsonb where key = 'deployment'`);
+await as(customer, 'authenticated', `select demo_settle_payment($1::uuid)`, [demoBooking]);
 ok((await one(`select status from bookings where id = $1`, [demoBooking])).status === 'confirmed', 'demo settlement confirms a demo-provider booking');
+const spoofBooking = await proposalBooking(spoofPro);
+const spoofedDemo = await fails(() => as(customer, 'authenticated', `select demo_settle_payment($1::uuid)`, [spoofBooking]));
+ok(/demo providers/.test(spoofedDemo ?? ''),
+  `user_metadata.demo_only cannot self-authorize demo settlement (${JSON.stringify({ error: spoofedDemo })})`);
 const realBooking = await proposalBooking(provider);
-const notDemo = await fails(() => as(customer, 'authenticated', `select demo_settle_payment($1)`, [realBooking]));
+const notDemo = await fails(() => as(customer, 'authenticated', `select demo_settle_payment($1::uuid)`, [realBooking]));
 ok(/demo providers/.test(notDemo ?? ''), 'demo settlement never settles a real provider booking');
 
 // ---------- 11: caller-supplied user ids are service-role only ----------
