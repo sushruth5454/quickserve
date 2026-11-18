@@ -86,6 +86,7 @@ for (const file of migrationFiles) {
   }
   await db.exec(migration(file));
 }
+await db.exec(`update app_config set value = '"route"'::jsonb where key = 'payout_rail'`);
 console.log('migration applied');
 
 const C = '00000000-0000-0000-0000-00000000000c';

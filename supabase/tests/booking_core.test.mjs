@@ -53,7 +53,10 @@ const migrationFiles = [
   '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
   '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
   '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
-  '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
+  '0017_creator_config.sql',
+];
+const laterMigrationFiles = [
+  '0019_fixed_package_booking.sql',
   '0020_proposal_enum_values.sql', '0021_cancellation_availability_payouts.sql',
   '0022_time_based_booking.sql', '0023_proposal_milestone_booking.sql',
   '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
@@ -70,20 +73,7 @@ const migrationFiles = [
   '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql',
   '0057_recurring_plans_v2.sql', '0058_sports_payments.sql',
 ];
-for (const file of migrationFiles) {
-  if (file === '0051_ai_usage_v3.sql') {
-    await db.exec(`
-      create table public.ai_usage (
-        id bigint generated always as identity primary key,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-        request_id uuid,
-        created_at timestamptz not null default now()
-      )
-    `);
-  }
-  await db.exec(migration(file));
-}
+for (const file of migrationFiles) await db.exec(migration(file));
 
 const CUSTOMER = '00000000-0000-0000-0000-000000000051';
 const PROVIDER = '00000000-0000-0000-0000-000000000052';
@@ -352,6 +342,21 @@ ok(
   JSON.stringify(actualTransitions) === JSON.stringify(expectedTransitions.sort()),
   'transition table exactly matches the reconciled inspect_quote RPC paths',
 );
+
+for (const file of laterMigrationFiles) {
+  if (file === '0051_ai_usage_v3.sql') {
+    await db.exec(`
+      create table public.ai_usage (
+        id bigint generated always as identity primary key,
+        user_id uuid not null references public.profiles (id) on delete cascade,
+        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
+        request_id uuid,
+        created_at timestamptz not null default now()
+      )
+    `);
+  }
+  await db.exec(migration(file));
+}
 
 async function pay(id) {
   const [payment] = await service(`select * from prepare_payment($1, $2)`, [id, CUSTOMER]);
