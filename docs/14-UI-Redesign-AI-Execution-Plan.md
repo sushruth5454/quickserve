@@ -770,9 +770,48 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
-| Q-00 | not started | | | |
-| Q-01 | not started | | | |
-| *(one row per task in §4)* | | | | |
+| Q-00 / doc 17 T1 | implementing baseline repair | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44395541860 (main E2E, in progress) | — |
+| Q-01 | step 1 merged; screenshot pass after Q-00 | integrator | — | 173be83 |
+| T-01 | blocked by Q-00 | — | — | — |
+| B-01 | blocked by Q-00 and R1 | — | — | — |
+| I-01 | integrator task; blocked by Q-00 | integrator | — | — |
+| C-07 | blocked by Q-00 | — | — | — |
+| R-01 | blocked by doc 17 H3 | — | — | — |
+| R-02 | blocked by doc 17 U1 | — | — | — |
+| R-03 | blocked by doc 17 B1 | — | — | — |
+| R-04 | blocked by doc 17 B2 | — | — | — |
+| R-05 | blocked by doc 17 O4 | — | — | — |
+| R-06 | blocked by doc 17 S2 | — | — | — |
+| R-07 | blocked by Q-00 | — | — | — |
+| C-01 | blocked by T-01 and I-01 | — | — | — |
+| C-02 | blocked by T-01 and I-01 | — | — | — |
+| C-03 | blocked by T-01, I-01, and C-02 | — | — | — |
+| C-04 | blocked by T-01 and I-01 | — | — | — |
+| C-05 | blocked by T-01 and I-01 | — | — | — |
+| C-06 | blocked by T-01 and I-01 | — | — | — |
+| C-08 | blocked by T-01, I-01, and C-05 | — | — | — |
+| H-01 | blocked by components and doc 17 U3 | — | — | — |
+| H-02 | blocked by components | — | — | — |
+| G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
+| HS-01 | blocked by R-02, C-03, C-05 | — | — | — |
+| HS-02 | blocked by R-03 and C-08 | — | — | — |
+| HS-03 | blocked by R-04 | — | — | — |
+| SH-01 | blocked by components and doc 17 P1a | — | — | — |
+| SH-02 | blocked by C-06 and doc 17 P1b | — | — | — |
+| SP-01 | blocked by components and doc 17 S2 | — | — | — |
+| SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
+| CR-01 | blocked by C-02/C-03 | — | — | — |
+| CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
+| BD-01 | blocked by R-01, C-07, and doc 17 U3 | — | — | — |
+| A-01 | blocked by C-07 and doc 17 U3 | — | — | — |
+| M-01 | blocked by R-05 and T-01 | — | — | — |
+| M-02 | blocked by R-06 and T-01 | — | — | — |
+| M-03 | blocked by R-07 and T-01 | — | — | — |
+| Q-02 | blocked by all covered Phase 3 tasks | — | — | — |
+| Q-03 | blocked by all Phase 3 tasks | — | — | — |
+| P2-01 | blocked by Q-03 | — | — | — |
+| Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
+| T-99 | blocked by all | integrator | — | — |
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 

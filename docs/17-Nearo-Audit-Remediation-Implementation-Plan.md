@@ -70,6 +70,8 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 
 **2026-11-18 · U3 / P1a:** Source rows are authoritative when they name files omitted from the original WP ownership lists. U3 therefore also owns the account-deletion migration/test and the `info`, location, customer-home, shared API/type/demo API, status, and booking-detail files named by WS1-T07/T08/T09/T14. The existing `addresses_own` policy in `0001_init.sql:1912-1913` is owner-scoped, so no address-RLS migration is needed; U3 uses migration `0069` for the deletion-request RPC. The SMS dashboard throttle is unavailable in this repo; use a 60-second client cooldown as the conservative documented “wait a minute” default, without claiming it matches the dashboard. Help uses the existing `support@quickserve.app` default. U3's booking-detail edit is sequenced after F3. P1a keeps WS3-T05 ownership and completes its two RFQ schema-field screens before P1b's WS3-T04/T09 edits to the same RFQ files; P1b must rebase after P1a merges.
 
+**2026-11-18 · T2:** WS2-T12 explicitly specifies a new `ws2_lifecycle_latest.test.mjs` full-chain suite. T2 owns that suite and its package registration; it does not broaden scope by changing unrelated existing tests whose expectations encode known later-migration behavior (including WS2-31). The original WP table's reference to early-loader suites is superseded by this source-row-aligned scope.
+
 ---
 
 ## 1. Release gates
@@ -112,7 +114,7 @@ Legend:
 | **P1b** | RFQ: honest comparison; GST clarity + earnings preview + "no commission"; cancel RFQ + outcomes; pack rounding; single quote-math source with tests; form basics | WS3-T03, T04, T07, T09, T10, T13 | RFQ RPCs incl. `send_supplier_quote_for_business`; `app/app/rfq/**`, `app/app/merchant-rfqs.tsx`, `app/src/features/rfq/**` | 0071 | P1a | M |
 | **R1** 🔒 | Reliability: idempotency keys for booking and request creation; EXECUTE privilege hygiene + regression guard; storage bucket limits; global AI budget; minor hardening | WS8-T05, T06, T07, T12, T13 | create-booking/request RPCs (idempotency param only); grants; bucket policies; AI usage config | 0072 | — | M |
 | **T1** | E2E green (same as doc 14 Q-00): discovery, category, sports, assistant-limit steps | WS1-T04, T05, WS4-T04 | `e2e/web-smoke.mjs`, `e2e/all-services.mjs` | — | X1 (same file; merge X1 first) | S |
-| **T2** | Tests on latest definitions: lifecycle suites load the full migration chain | WS2-T12 | `supabase/tests/migration.test.mjs` and the other early-loader suites named in the source row | — | — | M |
+| **T2** | Add lifecycle coverage on the latest definitions | WS2-T12 | new `supabase/tests/ws2_lifecycle_latest.test.mjs`; `supabase/tests/package.json` | — | — | M |
 
 ### Gate G2 — live payments
 
@@ -270,8 +272,48 @@ WPs without migrations (U1, T1, T2, X2, F8) merge whenever they are green.
 
 | WP | Gate | Status | Agent | Lane run | Migration | Merged SHA |
 |---|---|---|---|---|---|---|
-| X1 | G1 | not started | | | 0059 | |
-| *(one row per WP in §2)* | | | | | | |
+| X1 | G1 | merged | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 92cb959 |
+| X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
+| X3 | G1 | implementing reconciled scope | daa94142-b851-4a4e-8185-b0ddb5ffd01c | — | 0060a/b | — |
+| H1 | G1 | green; lower-model review clear; waiting for X3 migration order | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44392447601 | 0061 | — |
+| F3 | G1 | implementing | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | — | 0062 | — |
+| O1 | G1 | green; waiting for migration order | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 | 0063 | — |
+| O2 | G1 | green; waiting for migration order | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 | 0064 | — |
+| H2a | G1 | green; lower-model review clear; waiting for migration order | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 | 0065 | — |
+| H2b | G1 | not started; blocked by H2a | — | — | 0066 | — |
+| U2 | G1 | not started; blocked by F3 | — | — | 0067 | — |
+| B1 | G1 | not started; blocked by U2 | — | — | 0068 | — |
+| U1 | G1 | implementing | c44e9364-73ac-4c6e-919f-ab14808f8b64 | — | — | — |
+| U3 | G1 | rework in progress; first lane was partial | bc0c8141-772b-4d97-9181-1286094f2f57 | 44390399814 (partial) | 0069 | — |
+| P1a | G1 | green; waiting for migrations through 0069 | 3f745efa-75d9-4e5b-bee7-be8d2fe6fea0 | 44395068717 | 0070 | — |
+| P1b | G1 | blocked by P1a; rebase and rerun after P1a merges | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (prior base) | 0071 | — |
+| R1 | G1 | green; lower-model review pending | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
+| T1 | G1 | implementing Q-00 baseline E2E repair | 6c5934c4-e869-4e30-b4d4-dd2469724210 | — | — | — |
+| T2 | G1 | rework in progress; source-aligned full-chain suite pending | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44394916162 (failed) | — | — |
+| F1 | G2 | not started; blocked by X3 | — | — | 0073 | — |
+| F2 | G2 | not started; blocked by F1; D1 decided | — | — | 0074 | — |
+| F4 | G2 | not started; blocked by F3 and F1 | — | — | 0075 | — |
+| F6 | G2 | not started; blocked by F1 and F5 | — | — | 0077 | — |
+| F5 | G2 | not started; blocked by F1 | — | — | 0076 | — |
+| F7 | G2 | not started; blocked by F2; tax wording remains placeholder-only until review | — | — | 0078 | — |
+| F8 | G2 | not started; blocked by F1 and owner-blocked X2 | — | — | — | — |
+| S1 | G2 | not started; D3 decided | — | — | 0079 | — |
+| S2 | G2 | not started; blocked by S1 | — | — | 0080 | — |
+| C1 | G2 | not started; blocked by B1; D2 decided | — | — | 0081 | — |
+| C2 | G2 | not started; blocked by F2; D2 decided | — | — | 0082 | — |
+| H3 | G2 | not started; blocked by F4 and T1 | — | — | 0083 | — |
+| B2 | G2 | not started; blocked by F1 and F5 | — | — | 0084 | — |
+| B4 | G2 | not started; blocked by F2 and S1 | — | — | 0085 | — |
+| B6 | G2 | not started; blocked by F1, O1, and B2 | — | — | 0086a/b | — |
+| O3 | G2 | not started; blocked by F1 and F4 | — | — | 0087 | — |
+| B3 | G2 | BLOCKED — owner to engage CA/professional tax reviewer before tax invoices | — | — | later | — |
+| S3 | G3 | deferred until G2/S2 | — | — | — | — |
+| C3 | G3 | deferred until C2 | — | — | — | — |
+| O4 | G3 | not started; later wave | — | — | — | — |
+| O5 | G3 | deferred until O4 and B6 | — | — | — | — |
+| B5 | Later | deferred until F3 | — | — | — | — |
+| U4 | Later | BLOCKED — owner to choose coin name at rebrand; other U4 work waits for current UI wave | — | — | — | — |
+| U5 | Later | deferred | — | — | — | — |
 
 Manual verification log (device, OS, date, result): SMS OTP · push delivery · Razorpay test-mode checkout on Android and iPhone.
 
