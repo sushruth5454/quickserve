@@ -821,8 +821,13 @@ ok(!!skipOff && !skipError && skipState.status === 'cancelled' && skipState.chan
   && skippedDateBookings.total === 1 && skippedDateBookings.active === 0
   && (await generatedBookings(skipPlan)) === 2,
   '[RP-12] skip is idempotently recorded and remains excluded from occurrence generation');
-const latePlan = await createPlan(input({ start_date: dateOffset(3), end_date: addDays(dateOffset(3), 1), start_time: '16:00' }));
-await as(provider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [latePlan]);
+const latePlan = await createPlan(input({
+  provider_service_id: autoService,
+  start_date: dateOffset(3),
+  end_date: addDays(dateOffset(3), 1),
+  start_time: '16:00',
+}));
+await as(autoProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [latePlan]);
 const lateBooking = (await one(`select id from bookings where recurring_schedule_id=$1 order by scheduled_at limit 1`, [latePlan])).id;
 await db.query(`update bookings set scheduled_at=now()+interval '2 hours',
   service_window=tstzrange(now()+interval '2 hours', now()+interval '3 hours','[)') where id=$1`, [lateBooking]);
@@ -832,12 +837,12 @@ ok(!!lateSkip, '[RP-13] skip after the configured cutoff is refused');
 
 // RP-14: pause cancels only eligible unpaid future visits, and resume fills the schedule again.
 const pausePlan = await createPlan(input({
-  provider_service_id: expiryService,
+  provider_service_id: legacyService,
   start_date: dateOffset(3),
   end_date: null,
   start_time: '18:00',
 }));
-await as(expiryProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [pausePlan]);
+await as(legacyProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [pausePlan]);
 const pauseBefore = await generatedBookings(pausePlan);
 await setFlag('recurring_skip_pause', false);
 const pauseOff = await fails(() => as(customer, 'authenticated',
