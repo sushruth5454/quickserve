@@ -1,6 +1,6 @@
 import type { SportsBookingStatus, SportsPaymentMode, SportsSlotAvailability } from './api';
 
-export type { SportsSlotAvailability } from './api';
+export type { SportsPaymentMode, SportsSlotAvailability } from './api';
 export type SportsBookingMode = 'instant' | 'approval';
 
 export function getAvailableSportsDurations(
