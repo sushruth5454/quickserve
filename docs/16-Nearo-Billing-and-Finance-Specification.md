@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | **PROPOSAL — awaiting owner approval.** Tax/GST/TDS/TCS items are **placeholders that require professional tax/legal review**. Nothing here is a legal conclusion. |
+| **Status** | **Owner decisions D1–D7 finalized on 2026-11-18. Tax/GST/TDS/TCS items remain placeholders pending professional review; nothing here is a legal conclusion.** |
 | **Baseline** | `main` @ `bfa999f`. "TODAY" = verified current behavior (evidence in [doc 15](15-Nearo-Functional-Audit-Report.md) and appendices [WS6](audit/15-WS6-payments-settlements.md), [WS9](audit/15-WS9-billing-forms-receipts-coins.md)). "RECOMMENDED" = change to implement through [doc 17](17-Nearo-Audit-Remediation-Implementation-Plan.md). |
 
 ## 1. Principles (non-negotiable)
