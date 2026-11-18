@@ -727,7 +727,7 @@ const makePaidBooking = async (user, start, key, price = 20000, fee = 500) => {
     insert into public.sports_bookings
       (customer_id,venue_id,resource_id,starts_at,ends_at,status,price_paise,note,expires_at,
        payment_mode,participants,customer_fee_paise,total_paise,commission_bp,paid_at)
-    values ($1,$2,$3,$4,$4+interval '1 hour','accepted',$5,'',now()+interval '2 hours',
+    values ($1,$2,$3,$4::timestamptz,$4::timestamptz+interval '1 hour','accepted',$5,'',now()+interval '2 hours',
        'online',1,$6,$5+$6,1000,now())
     returning id
   `, [user, venue, instantResource, start, price, fee])).id;
