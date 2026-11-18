@@ -76,7 +76,8 @@ const results = [
 
 for (const result of results) {
   group(`${result.ok ? 'PASS' : 'FAIL'} ${result.command} (${result.seconds}s)`);
-  console.log(result.lines.join('\n'));
+  // Passing files only need their last lines; failing files print in full.
+  console.log((result.ok ? result.lines.slice(-3) : result.lines).join('\n'));
   endGroup();
 }
 
@@ -100,4 +101,5 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   ].join('\n'));
 }
 
-process.exit(failed.length ? 1 : 0);
+// Let stdout drain before exiting; process.exit() truncates piped CI logs.
+process.exitCode = failed.length ? 1 : 0;
