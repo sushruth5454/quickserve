@@ -9,6 +9,64 @@
 
 ---
 
+## ⚡ PARALLEL EXECUTION — MANDATORY INSTRUCTIONS FOR THE IMPLEMENTING MODEL
+
+> **You MUST run this plan with as many parallel background agents as possible.**
+> 1. Read the **Task board** below. A task is **READY** when every task in its *Blocked by* column is **merged to `main` with green CI**.
+> 2. In **ONE response**, launch **one background agent per READY task** (`task` tool, `agent_type: "general-purpose"`, `timeout: 0`, prompt = §0.3 template with the task ID). **Never** implement a READY task yourself while other READY tasks wait. **Never** launch READY tasks one per response.
+> 3. Do **not** wait for a whole wave to finish. The moment a task merges green, re-read the board and launch every task that just became READY — in one response.
+> 4. While agents run, you (the integrator) only: create worktrees, review finished diffs, merge in the order of the *Merge order* column, do integrator-owned edits (§0.5), watch CI, and send fixes back to the same agent with `write_agent`.
+> 5. Before launching, print the current board as a table (Task · Status · Agent ID) so the owner can see what is running in parallel. Update it after every merge.
+> 6. Target concurrency: **Wave 1 = 10 agents, Wave 2 = 8 agents, Wave 3 = 5 agents.** If fewer are running, you are not following this plan.
+
+### Task board (unit of parallel work = one task = one agent = one worktree/branch)
+
+Legend: **Mig** = migration number the task owns (only one task per number). **Parallel with** = tasks that run at the same time without conflict. **Merge order** = order the integrator merges into `main` (migrations must merge in numeric order; UI/test-only tasks merge any time after their blockers).
+
+| ID | Task (section) | Mig | Blocked by | Parallel with | Merge order |
+|---|---|---|---|---|---|
+| **W0** | Foundations: flags, notification kinds, rules config, overlap helper, cron check (§3) — **integrator does this itself, no agent** | 0054 | Phase 9 green | — | 1 |
+| **A1** | Catalogue migration: new columns, re-parent existing slugs, seed new categories, admin category RPCs + SQL test (§4.2, §4.4) | 0055 | W0 | B1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 2 |
+| **A2** | Admin category editor UI: `admin/services.tsx` + `admin/category/[id].tsx` + reorder (§4.3 first bullet) | — | W0 (codes against §4.2.4 RPC names) | all Wave 1 | after A1 |
+| **A3** | Customer catalogue groups + icons: `catalogue/model.ts`, `CatalogueSections.tsx`, `CategoryIcon.tsx`, Jest (§4.3 bullets 2–3) | — | A1 merged | B2, E2, C1*, F1*, H1, D*, G* | any after A1 |
+| **B1** | Recurring engine migration: schema changes, `recurring_occurrence_changes`, `_recurrence_dates`, all §5.4 RPCs, generator + cron, holiday rules, SQL test (§5) | 0056 | W0 | A1, E1, A2, H1, C1a, C1b, F1a, F1b, T0 | 3 |
+| **E1** | Sports payments migration: schema, `book_sports_slot`, capacity, holds, `prepare/record_sports_payment`, expiry, cancel/refund, `_create_sports_payout`, payout generalisation, SQL test (§6.2–§6.4 SQL parts) | 0057 | W0 | A1, B1, A2, H1, C1a, C1b, F1a, F1b, T0 | 4 |
+| **E2** | Payment edge functions for sports: `create-payment` `kind:'sports'`, verify/webhook routing, `provider-payout-account` venue owners, `release-payouts` payee, `demo_settle_payment` note, Deno tests (§6.2 last bullet, §6.3 edge bullet) | — | E1 merged | A3, B2, C2, F2, G*, D1 (D1 must **not** touch edge functions until E2 merged) | 5 |
+| **H1** | Admin rules screen `admin/rules.tsx` + `adminRulesApi.ts` + Jest conversions (§7) | — | W0 | all Wave 1 | any after W0 |
+| **C1a** | Recurring pure-TS: `features/recurring/types.ts`, `dates.ts`, Jest with §5.7 vectors, typed `api.ts` per §5.4 names (§9 C1) | — | W0 | all Wave 1 | any after W0 |
+| **C1b** | Customer recurring screens: wizard `recurring/new/[providerServiceId].tsx`, plan detail `recurring/[id].tsx`, One-time/Repeat toggle in book screens, "Repeat plans" filter in My Activity (§9 C1) — imports C1a types; if C1a not merged yet, create the same file paths with identical content from §5.6 and let the integrator dedupe | — | W0 | all Wave 1 | after C1a |
+| **F1a** | Sports customer booking UI: venue duration/participants/payment choice, `sports-checkout/[id].tsx`, booking list/detail statuses (§8 F1 items 1–3) | — | W0 (codes against §6.5) | all Wave 1 | any after W0 |
+| **F1b** | Venue settings UI in `sports/manage.tsx` (booking mode, capacity, payment modes, payout status) + `sports/index.tsx` copy (§8 F1 item 4) | — | W0 | all Wave 1 (F1a edits different files) | any after W0 |
+| **T0** | E2E scaffolding: new step functions in `e2e/all-services.mjs` for catalogue groups, recurring wizard, sports checkout (behind `optional` until their features merge); BDD + DDD drafts for 5 features (§12 items 1–2) | — | W0 | all Wave 1 | any |
+| **B2** | Recurring hardening pass: review B1 against §5.8, add missing tests, fix CI failures reported by integrator (only if B1 report lists gaps) | 0056 fixes only | B1 merged | A3, E2, D1, G1, G2, C2, F2 | after B1 |
+| **D1** | Recurring billing migration: `recurring_billing_cycles`, payment parent check, cycle RPCs, credits/refunds, `process_recurring_billing` cron, occurrence payouts, SQL test (§10 items 1–5, 7) | 0058 | B1 merged **and** E1 merged | A3, E2, G1, G2, C2, F2, T1 | 6 |
+| **D2** | Recurring billing edge functions: `create-payment` `kind:'recurring_cycle'`, verify/webhook routing, Deno tests (§10 item 6) | — | D1 merged **and** E2 merged | G*, C2, F2, T1 | 7 |
+| **G1** | Provider recurring UX: `merchant-calendar.tsx`, repeat-requests section in dashboard, `recurring/provider/[id].tsx`, holiday banner (§11 items 1–4, 6) | — | B1 merged | A3, E2, D1, D2, G2, C2, F2, T1 | any after B1 |
+| **G2** | Venue calendar + merchant earnings rows (recurring + sports `payee_id`) in `sports/manage.tsx` tabs and `earnings.tsx` (§11 items 1, 5) | — | E1 merged **and** F1b merged | A3, B2, D*, G1, C2, F2, T1 | any after blockers |
+| **C2** | Wire customer recurring UI to real B1/D1 RPCs, billing-cycle display, fix type drift (§9 C2) | — | B1 merged (billing parts wait for D1) | A3, E2, D*, G*, F2, T1 | any after blockers |
+| **F2** | Wire sports UI to real E1/E2, cancellation preview, fix type drift (§8 F2) | — | E1 and E2 merged | A3, B2, D*, G*, C2, T1 | any after blockers |
+| **T1** | Turn T0 `optional` steps into required E2E steps once their feature is merged; enable new flags/demo categories in E2E DEMO reset (integrator applies workflow edit) (§12 item 1) | — | each feature it covers | everything in Wave 2 | last-but-one |
+| **T2** | Traceability artifacts with real CI run IDs, status tables in this doc and `01-PRD.md`, owner production checklist (§12 items 2–4) | — | all tasks merged green | — | last |
+
+**Max parallel snapshot (what should be running at once):**
+- **After W0 merges → launch 10 agents in one response:** A1, A2, B1, E1, H1, C1a, C1b, F1a, F1b, T0.
+- **As soon as A1 merges → launch A3.** As soon as B1 merges → launch B2 (if needed), G1, C2. As soon as E1 merges → launch E2 (and G2 once F1b is in). As soon as B1 + E1 merge → launch D1. As soon as D1 + E2 merge → launch D2. Keep T1 running alongside Wave 2.
+- **Only these are strictly sequential:** W0 → {A1, B1, E1} (migrations merge in order 0055 → 0056 → 0057) → D1 (0058) → D2; and E1 → E2 (shared payment edge functions). Everything else is parallel.
+
+### File-conflict rules that make this parallelism safe
+| Shared file | Owner (only this task may edit it) |
+|---|---|
+| `supabase/tests/package.json`, `.github/workflows/deploy-backend.yml`, `.github/workflows/e2e-web.yml`, `supabase/tests/review_fixes.test.mjs`, `app/src/lib/unread.ts` | Integrator only |
+| `supabase/functions/create-payment`, `verify-payment`, `razorpay-webhook` | E2 first, then D2 (never concurrently) |
+| `app/src/lib/adminApi.ts` | A2 only (H1 uses new `adminRulesApi.ts`) |
+| `app/app/sports/manage.tsx` | F1b (settings section) → then G2 (calendar/earnings tabs; rebase on F1b) |
+| `app/app/book/[providerServiceId].tsx`, `book-fixed/[providerServiceId].tsx` | C1b only |
+| `app/app/(provider)/dashboard.tsx` | G1 only |
+| `app/src/features/activity/UnifiedActivityScreen.tsx` | C1b only |
+| `e2e/all-services.mjs` | T0 → T1 (feature tasks put their E2E steps in their final report; T0/T1 paste them) |
+
+---
+
 ## 0. How to execute this plan (orchestration — READ FIRST)
 
 ### 0.1 You MUST use parallel background agents
@@ -32,13 +90,17 @@ Give each agent its worktree path in its prompt. Agents commit to `lane/<X>` and
 ### 0.3 Lane agent prompt template (copy, fill the `<…>` parts)
 
 ```
-You are implementing Lane <X> of docs/12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md
-in the QuickServe repo. Work ONLY in the git worktree <path> on branch lane/<X>.
-1. Read docs/12-...md sections 0, 1, 2 and your lane section <§N> completely before editing.
+You are implementing Task <ID> (Task board, top of docs/12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md)
+in the QuickServe repo. Other agents are implementing other tasks IN PARALLEL in their own worktrees.
+Work ONLY in the git worktree <path> on branch lane/<ID>. Edit ONLY the files your task owns; the
+"File-conflict rules" table at the top of the doc lists files you must never touch.
+1. Read the Task board, docs/12-...md sections 0, 1, 2 and your task's section <§N> completely before editing.
 2. Read docs/11-PRD-v2-Implementation-Plan.md §2 (rules, templates, gotchas).
-3. Implement exactly your lane's "Files you own". Do NOT edit any file in the "Integrator-owned files"
+3. Implement exactly your task's owned files. Do NOT edit any file in the "Integrator-owned files"
    table (§0.5). If you need a change there, write it in your final report under "Integrator requests".
-4. Your migration number is <NNNN>. Do not use any other number.
+4. Your migration number is <NNNN or "none">. Do not create any other migration file.
+   If your task is UI-only and its backend is not merged yet, code against the documented contract
+   (§5.6 / §6.5) through a typed API module only; never invent RPC names.
 5. Never run npm/npx install, deno remote imports, pip, local builds or local tests on this machine.
    All validation runs in GitHub Actions after the integrator merges your branch.
 6. Before every commit: git checkout -- app/tsconfig.json (if it changed). Commit with trailers:
@@ -69,6 +131,8 @@ in the QuickServe repo. Work ONLY in the git worktree <path> on branch lane/<X>.
 | `supabase/functions/create-payment/index.ts`, `verify-payment`, `razorpay-webhook` | Shared payment entry points. **Exception:** Lane E owns them in Wave 1, Lane D owns them in Wave 2 (sequential, never at the same time). |
 
 ### 0.6 Wave plan and what runs in parallel
+
+> The **Task board** at the top of this document is the authoritative, finer-grained version of this table. Lanes below are groups of tasks (Lane A = A1–A3, B = B1–B2, C = C1a/C1b/C2, D = D1–D2, E = E1–E2, F = F1a/F1b/F2, G = G1–G2, H = H1, T = T0–T2). Schedule by **task**, not by lane.
 
 | Wave | Lanes (run **in parallel**) | Migration numbers | Depends on |
 |---|---|---|---|
