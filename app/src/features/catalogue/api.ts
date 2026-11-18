@@ -248,13 +248,6 @@ export async function createRecurringSchedule(input: RecurringScheduleInput): Pr
   })) as string;
 }
 
-export async function generateRecurringSessions(scheduleId: string, through: Date): Promise<number> {
-  return unwrap(await supabase.rpc('materialize_recurring_schedule', {
-    p_schedule_id: scheduleId,
-    p_through_date: istDateKey(through),
-  })) as number;
-}
-
 export async function cancelRecurringSchedule(scheduleId: string, cancelFuture = true): Promise<number> {
   return unwrap(await supabase.rpc('cancel_recurring_schedule', {
     p_schedule_id: scheduleId,

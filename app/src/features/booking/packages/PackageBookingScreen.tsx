@@ -12,7 +12,7 @@ import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
 import { asapAvailable } from '../../../lib/onboarding/availability';
 import { useTheme } from '../../../theme';
 import { useAppFeatureFlags } from '../../../lib/featureFlags';
-import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, generateRecurringSessions, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
+import { createFixedPackageBooking, createPackPayment, createRecurringSchedule, createTimeBooking, getCataloguePackage, type CataloguePackage } from '../../catalogue/api';
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
@@ -119,7 +119,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
         router.replace({ pathname: '/booking/[id]', params: { id: bookingId } });
       } else {
         if (useRecurring) {
-          const scheduleId = await createRecurringSchedule({
+          await createRecurringSchedule({
             providerServiceId: item.providerServiceId,
             packageId,
             packId: null,
@@ -136,9 +136,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
             lng: location.lng,
             description: JSON.stringify(intake),
           });
-          await generateRecurringSessions(scheduleId, new Date(Date.now() + 28 * 86_400_000));
           router.replace('/bookings');
-          toast({ message: 'Weekly sessions scheduled', tone: 'success' });
+          toast({ message: 'Weekly schedule created', tone: 'success' });
           return;
         }
         const result = await createTimeBooking({

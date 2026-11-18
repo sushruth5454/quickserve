@@ -23,3 +23,7 @@ describe('package booking modes', () => {
     ]);
   });
 });
+
+describe('legacy weekly schedule creation integration', () => {
+  it.todo('after schedule creation, navigates to bookings without client-side materialization; cron generates visits');
+});
