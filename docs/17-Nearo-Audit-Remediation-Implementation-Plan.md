@@ -72,6 +72,8 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 
 **2026-11-18 · T2:** WS2-T12 explicitly specifies a new `ws2_lifecycle_latest.test.mjs` full-chain suite. T2 owns that suite and its package registration; it does not broaden scope by changing unrelated existing tests whose expectations encode known later-migration behavior (including WS2-31). The original WP table's reference to early-loader suites is superseded by this source-row-aligned scope.
 
+**2026-11-18 · U1:** WS1-T01 explicitly requires a provider-profile E2E step, omitted from the original U1 ownership cell. U1 owns that step in `e2e/web-smoke.mjs`; because T1 also edits that file, T1 merges first and U1 then merges/revalidates against the resulting main.
+
 ---
 
 ## 1. Release gates
@@ -108,7 +110,7 @@ Legend:
 | **H2b** | Recurring UX: payment-due notice + per-visit Pay; web-safe confirmations; plan request shows earnings/area; date-time pickers; calendar opens the visit; recurring deep links | WS2-T06, T07, T09, T15, WS7-T02 | `app/app/recurring/**`, `app/src/features/recurring/**`, `app/app/merchant-calendar.tsx`, push routing for recurring kinds | 0066 (enum split if needed) | H2a | M |
 | **U2** | Truthful home-service cancel: server refund preview RPC + policy-driven copy + every allowed cancel state | WS1-T03, WS2-T03 | new `preview_booking_cancellation` (calls `_cancellation_outcome` read-only); cancel UI in `app/app/booking/[id].tsx` | 0067 | F3 (same file) | M |
 | **B1** | Server-sourced price display: book screens and QuoteView show the server breakdown; fixed Pay includes the platform fee; show every line kind | WS9-T09, WS6-T21, WS2-T04, WS9-T05 | `app/app/book/**`, `app/app/book-fixed/**`, `QuoteView.tsx`, `PriceRow.tsx`; a read-only breakdown RPC if the source rows require one | 0068 | F3, U2 (shared files) | M |
-| **U1** | Booking entry and "Book again" routed by archetype | WS1-T01, WS1-T02, WS2-T14 | `app/app/provider/[id].tsx`, `app/src/features/activity/**` (book-again only) | — | — | S |
+| **U1** | Booking entry and "Book again" routed by archetype | WS1-T01, WS1-T02, WS2-T14 | `app/app/provider/[id].tsx`, `app/src/features/activity/**` (book-again only), `e2e/web-smoke.mjs` (provider-profile E2E step only) | — | T1 (shared E2E file; merge T1 first) | S |
 | **U3** | Account basics: truthful deletion; manage saved addresses; contextual location permission; skip the role screen for returning users; plain OTP errors; public help path; status copy; respect the AI flag on all entry points | WS1-T06…T12, T14 | `components/AccountScreen.tsx`, `components/AddressEditor.tsx`, `app/app/location.tsx`, `app/app/info/[topic].tsx`, `app/app/(customer)/index.tsx` (location prompt only), `app/src/lib/locationContext.tsx`, `app/app/(auth)/**`, `app/app/assistant.tsx` (flag gate only), `app/app/category/[slug].tsx` (AI entry only), `app/src/lib/supabaseApi.ts`, `app/src/lib/apiTypes.ts`, `app/src/lib/demo/demoApi.ts`, `app/src/components/status.tsx`, `app/app/booking/[id].tsx` (status/help copy only), new `0069_u3_account_deletion.sql` and `supabase/tests/account_deletion.test.mjs` | 0069 | — | M |
 | **P1a** | Shops: verified shops stay live on non-identity edits; unit + price date on prices; schema-driven spec fields; better product search; drop the WhatsApp promise; product removal | WS3-T01, T02, T05, T06, T08, T12 | `save_shop`, product save/search RPCs; `app/app/merchant-shop.tsx`, `app/app/shop/**`, `app/app/product/**`, `app/app/products.tsx`, `app/app/rfq/new.tsx` and `app/app/rfq/merchant/[id].tsx` (WS3-T05 schema fields only), `app/src/features/shops/**` | 0070 | — | M |
 | **P1b** | RFQ: honest comparison; GST clarity + earnings preview + "no commission"; cancel RFQ + outcomes; pack rounding; single quote-math source with tests; form basics | WS3-T03, T04, T07, T09, T10, T13 | RFQ RPCs incl. `send_supplier_quote_for_business`; `app/app/rfq/**`, `app/app/merchant-rfqs.tsx`, `app/src/features/rfq/**` | 0071 | P1a | M |
@@ -187,7 +189,7 @@ Legend:
 | `app/app/(provider)/earnings.tsx` | B4 |
 | `app/src/features/sports/**`, `app/app/sports*/**` | S1 → S2 → S3 |
 | `supabase/functions/razorpay-webhook/**`, `verify-payment/**` | F1 → F6 → F8 |
-| `e2e/*.mjs` | X1 → T1 → H3 → F8 → (doc 14 Q-01/Q-02) |
+| `e2e/*.mjs` | X1 → T1 → U1 → H3 → F8 → (doc 14 Q-01/Q-02) |
 
 ---
 
@@ -205,7 +207,7 @@ Legend:
 
 ### 4.2 Graph
 ```
-X1 ─► T1 ─────────────────────────────► H3 ─► F8
+X1 ─► T1 ─► U1 ───────────────────────► H3 ─► F8
 X3 ─► F1 ─┬─► F2 ─┬─► F7          F4 ─► H3
           │       ├─► C2 ─► C3
           │       └─► B4
@@ -216,14 +218,14 @@ F3 ─► U2 ─► B1 ─► C1 ;  F3 ─► F4 ;  F3 ─► B5
 H2a ─► H2b ;  H2a ─► doc12 D1
 S1 ─► S2 ─► S3 ;  S1 ─► B4
 P1a ─► P1b
-H1, O1, O2, U1, U3, P1a, R1, T2 : independent
+H1, O1, O2, U3, P1a, R1, T2 : independent
 Decisions: D1 ─► F2 · D2 ─► C1, C2 · D3 ─► S1 · D4 ─► F7(tax copy), B3 · D5 ─► X2 · D6 ─► U4
 ```
 
 ### 4.3 Merge order (migrations must merge in numeric order; renumber per §0.4 when needed)
 `0059 X1 → 0060a enum → 0060b X3 → 0061 H1 → 0062 F3 → 0063 O1 → 0064 O2 → 0065 H2a → 0066 H2b → 0067 U2 → 0068 B1 → 0069 U3 → 0070 P1a → 0071 P1b → 0072 R1 → 0073 F1 → 0074 F2 → 0075 F4 → 0076 F5 → 0077 F6 → 0078 F7 → 0079 S1 → 0080 S2 → 0081 C1 → 0082 C2 → 0083 H3 → 0084 B2 → 0085 B4 → 0086a/b B6 → 0087 O3`.
 
-WPs without migrations (U1, T1, T2, X2, F8) merge whenever they are green.
+WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges after T1 because both own `e2e/web-smoke.mjs`.
 
 **Doc 12 D1 reservation of `0059` is released** by this plan. D1 takes the next free number when it starts, after H2a has merged.
 
@@ -272,7 +274,7 @@ WPs without migrations (U1, T1, T2, X2, F8) merge whenever they are green.
 
 | WP | Gate | Status | Agent | Lane run | Migration | Merged SHA |
 |---|---|---|---|---|---|---|
-| X1 | G1 | merged | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 92cb959 |
+| X1 | G1 | merged | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
 | X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
 | X3 | G1 | implementing reconciled scope | daa94142-b851-4a4e-8185-b0ddb5ffd01c | — | 0060a/b | — |
 | H1 | G1 | green; lower-model review clear; waiting for X3 migration order | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44392447601 | 0061 | — |
@@ -283,11 +285,11 @@ WPs without migrations (U1, T1, T2, X2, F8) merge whenever they are green.
 | H2b | G1 | not started; blocked by H2a | — | — | 0066 | — |
 | U2 | G1 | not started; blocked by F3 | — | — | 0067 | — |
 | B1 | G1 | not started; blocked by U2 | — | — | 0068 | — |
-| U1 | G1 | implementing | c44e9364-73ac-4c6e-919f-ab14808f8b64 | — | — | — |
+| U1 | G1 | green; wait for T1, then rebase/revalidate shared E2E file | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44390029561 | — | — |
 | U3 | G1 | rework in progress; first lane was partial | bc0c8141-772b-4d97-9181-1286094f2f57 | 44390399814 (partial) | 0069 | — |
 | P1a | G1 | green; waiting for migrations through 0069 | 3f745efa-75d9-4e5b-bee7-be8d2fe6fea0 | 44395068717 | 0070 | — |
 | P1b | G1 | blocked by P1a; rebase and rerun after P1a merges | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (prior base) | 0071 | — |
-| R1 | G1 | green; lower-model review pending | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
+| R1 | G1 | green; lower-model review clear; waiting for migration order | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
 | T1 | G1 | implementing Q-00 baseline E2E repair | 6c5934c4-e869-4e30-b4d4-dd2469724210 | — | — | — |
 | T2 | G1 | rework in progress; source-aligned full-chain suite pending | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44394916162 (failed) | — | — |
 | F1 | G2 | not started; blocked by X3 | — | — | 0073 | — |
