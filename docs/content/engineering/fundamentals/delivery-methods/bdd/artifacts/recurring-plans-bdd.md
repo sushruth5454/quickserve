@@ -488,6 +488,49 @@ Feature: Per-visit recurring payment expiry
     And the expired booking status and released slot remain unchanged
 ```
 
+### RP-29 — Recurring payment windows are valid and expire before service
+
+```gherkin
+Feature: Valid recurring payment windows
+  Scenario: The seeded rules expire unpaid holds one day before service
+    Given the recurring rules use the new default payment_due_hours_before of 48 and billing_grace_hours of 24
+    When a per-visit obligation is created
+    Then due_at is 48 hours before the occurrence
+    And its expiry deadline is 24 hours before the occurrence
+
+  Scenario: Invalid due/grace pairs are rejected by every rules write path
+    Given recurring rules are being changed through admin_set_rules or direct app_config mutation
+    When payment_due_hours_before is less than or equal to billing_grace_hours
+    Then the write is rejected and the previously validated rules remain unchanged
+
+  Scenario: A valid rules change refreshes pending occurrence deadlines
+    Given a recurring occurrence has unpaid obligations
+    When the recurring rules are updated with a valid payment_due_hours_before value
+    Then each pending due_at is recomputed from scheduled_at using the new value
+    And expiry continues to use the matching validated billing_grace_hours
+
+  Scenario: An overdue hold is released before its scheduled service time
+    Given a recurring visit is still pending payment
+    And its due_at plus billing_grace_hours has passed while its scheduled time is still in the future
+    When the expiry job runs
+    Then the booking expires and the provider window is available before service
+```
+
+### RP-30 — An inactive legacy service does not starve generation
+
+```gherkin
+Feature: Legacy recurring service invalidation
+  Scenario: A deactivated legacy service is recorded per date while another plan generates
+    Given an accepted legacy plan references a provider service that has since been deactivated
+    And another accepted plan has a valid occurrence in the same generator batch
+    When the hourly generator runs
+    Then the legacy date is recorded and notified once as provider-unavailable
+    And that legacy plan remains active with its examined progress advanced
+    And the valid plan still generates its occurrence in the same batch
+    And retrying the date does not duplicate its ledger entry or notification
+    And unexpected database errors still propagate
+```
+
 ## Acceptance criteria
 
 1. The six date fixture vectors in the implementation plan produce exactly the listed dates.
@@ -504,6 +547,8 @@ Feature: Per-visit recurring payment expiry
 12. Unclassified database errors propagate rather than being swallowed as availability outcomes.
 13. Provider response, v2 auto-accept, and legacy schedule creation synchronously materialize near-term occurrences; a later cron run is idempotent.
 14. Per-visit `due_at` uses `payment_due_hours_before`; unpaid recurring bookings expire only after `billing_grace_hours`, while paid/late-webhook money-safety paths remain intact.
+15. Every insert/update of recurring rules preserves `payment_due_hours_before > billing_grace_hours`; missing payment-window values default to 48/24 hours, and an overdue hold can release before its service time.
+16. The exact `service not available` error from an inactive legacy provider service is recorded as per-date unavailability, while unrelated errors still abort generation.
 
 ## Automation readiness
 
@@ -528,6 +573,8 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-26 | Occurrence Scheduling | Unclassified database errors propagate instead of being silently dropped. |
 | RP-27 | Occurrence Scheduling | Provider-accepted, auto-accepted, and legacy plans materialize a 30–90-minute first visit synchronously; later generation does not duplicate it. |
 | RP-28 | Existing Booking Lifecycle | Due/grace rules set due_at; unpaid rows expire and release holds; paid and late-webhook paths remain safe. |
+| RP-29 | Existing Booking Lifecycle | The 48/24-hour default, cross-field rejection on admin/direct writes, and pre-service window release are verified. |
+| RP-30 | Occurrence Scheduling | An inactive legacy service records/notifies only its date while a valid plan in the same generator batch succeeds; retry dedupes. |
 
 ## Trace links
 

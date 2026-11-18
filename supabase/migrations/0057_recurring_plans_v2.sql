@@ -1,6 +1,37 @@
 -- Recurring plan v2: preserve legacy weekly schedules while adding explicit recurrence,
 -- provider acceptance, occurrence changes, and idempotent scheduling.
 
+-- Normalize pre-existing invalid/missing payment windows without changing other valid rules.
+update public.app_config
+   set value = case
+     when jsonb_typeof(value) = 'object'
+       and jsonb_typeof(value -> 'payment_due_hours_before') = 'number'
+       and (value ->> 'payment_due_hours_before') ~ '^[0-9]{1,3}$'
+     then case
+       when jsonb_typeof(value -> 'billing_grace_hours') = 'number'
+         and (value ->> 'billing_grace_hours') ~ '^[0-9]{1,3}$'
+       then case
+         when (value ->> 'payment_due_hours_before')::int between 0 and 720
+           and (value ->> 'billing_grace_hours')::int between 0 and 720
+           and (value ->> 'payment_due_hours_before')::int > (value ->> 'billing_grace_hours')::int
+           then value
+         else jsonb_set(
+           jsonb_set(value, '{payment_due_hours_before}', '48'::jsonb, true),
+           '{billing_grace_hours}', '24'::jsonb, true
+         )
+       end
+       else jsonb_set(
+         jsonb_set(value, '{payment_due_hours_before}', '48'::jsonb, true),
+         '{billing_grace_hours}', '24'::jsonb, true
+       )
+     end
+     else jsonb_set(
+       jsonb_set('{}'::jsonb, '{payment_due_hours_before}', '48'::jsonb, true),
+       '{billing_grace_hours}', '24'::jsonb, true
+     )
+   end
+ where key = 'recurring_rules';
+
 alter table public.recurring_schedules
   add column if not exists interval_count int not null default 1,
   add column if not exists month_day int,
@@ -101,6 +132,81 @@ update public.recurring_schedules r
      group by b.recurring_schedule_id
   ) counts
  where r.id = counts.recurring_schedule_id;
+
+create or replace function public._guard_recurring_payment_window_rules()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_due_hours int;
+  v_grace_hours int;
+begin
+  if tg_op = 'DELETE' then
+    perform public._assert(old.key <> 'recurring_rules', 'recurring_rules configuration cannot be deleted');
+    return old;
+  end if;
+
+  if tg_op = 'UPDATE' and old.key = 'recurring_rules' and new.key <> old.key then
+    raise exception 'recurring_rules configuration key cannot be changed';
+  end if;
+  if new.key is distinct from 'recurring_rules' then
+    return new;
+  end if;
+
+  perform public._assert(
+    coalesce(jsonb_typeof(new.value) = 'object', false),
+    'recurring_rules must be a JSON object'
+  );
+  if not (new.value ? 'payment_due_hours_before') then
+    new.value := jsonb_set(new.value, '{payment_due_hours_before}', '48'::jsonb, true);
+  end if;
+  if not (new.value ? 'billing_grace_hours') then
+    new.value := jsonb_set(new.value, '{billing_grace_hours}', '24'::jsonb, true);
+  end if;
+
+  perform public._assert(
+    jsonb_typeof(new.value -> 'payment_due_hours_before') = 'number'
+      and (new.value ->> 'payment_due_hours_before') ~ '^[0-9]{1,3}$',
+    'payment_due_hours_before must be a whole-number JSON number'
+  );
+  perform public._assert(
+    jsonb_typeof(new.value -> 'billing_grace_hours') = 'number'
+      and (new.value ->> 'billing_grace_hours') ~ '^[0-9]{1,3}$',
+    'billing_grace_hours must be a whole-number JSON number'
+  );
+  v_due_hours := (new.value ->> 'payment_due_hours_before')::int;
+  v_grace_hours := (new.value ->> 'billing_grace_hours')::int;
+  perform public._assert(v_due_hours between 0 and 720, 'payment_due_hours_before must be between 0 and 720');
+  perform public._assert(v_grace_hours between 0 and 720, 'billing_grace_hours must be between 0 and 720');
+  perform public._assert(
+    v_due_hours > v_grace_hours,
+    'payment_due_hours_before must be greater than billing_grace_hours'
+  );
+
+  update public.payment_schedule ps
+     set due_at = b.scheduled_at - make_interval(hours => v_due_hours),
+         updated_at = now()
+    from public.bookings b
+    join public.recurring_schedules r on r.id = b.recurring_schedule_id
+   where ps.booking_id = b.id
+     and r.billing_frequency = 'per_visit'
+     and b.status::text = 'pending_payment'
+     and ps.status in ('due', 'upcoming')
+     and b.scheduled_at is not null;
+  return new;
+end;
+$$;
+
+drop trigger if exists app_config_recurring_payment_window_guard on public.app_config;
+create trigger app_config_recurring_payment_window_guard
+  before insert or update of key, value on public.app_config
+  for each row execute function public._guard_recurring_payment_window_rules();
+drop trigger if exists app_config_recurring_rules_delete_guard on public.app_config;
+create trigger app_config_recurring_rules_delete_guard
+  before delete on public.app_config
+  for each row execute function public._guard_recurring_payment_window_rules();
 
 create table public.recurring_occurrence_changes (
   id uuid primary key default gen_random_uuid(),
@@ -207,7 +313,12 @@ begin
     return new;
   end if;
 
-  v_due_hours := coalesce(nullif(public._recurring_rule('payment_due_hours_before'), '')::int, 24);
+  select nullif(c.value ->> 'payment_due_hours_before', '')::int
+    into v_due_hours
+    from public.app_config c
+   where c.key = 'recurring_rules'
+   for share;
+  v_due_hours := coalesce(v_due_hours, 48);
   new.due_at := v_scheduled_at - make_interval(hours => v_due_hours);
   return new;
 end;
@@ -235,7 +346,12 @@ begin
     return new;
   end if;
 
-  v_due_hours := coalesce(nullif(public._recurring_rule('payment_due_hours_before'), '')::int, 24);
+  select nullif(c.value ->> 'payment_due_hours_before', '')::int
+    into v_due_hours
+    from public.app_config c
+   where c.key = 'recurring_rules'
+   for share;
+  v_due_hours := coalesce(v_due_hours, 48);
   update public.payment_schedule
      set due_at = new.scheduled_at - make_interval(hours => v_due_hours),
          updated_at = now()
@@ -253,11 +369,13 @@ create trigger bookings_recurring_payment_due_at
 
 update public.payment_schedule ps
    set due_at = b.scheduled_at - make_interval(
-     hours => coalesce(nullif(public._recurring_rule('payment_due_hours_before'), '')::int, 24)
+     hours => coalesce(nullif(c.value ->> 'payment_due_hours_before', '')::int, 48)
    )
   from public.bookings b
   join public.recurring_schedules r on r.id = b.recurring_schedule_id
+  cross join public.app_config c
  where ps.booking_id = b.id
+   and c.key = 'recurring_rules'
    and r.billing_frequency = 'per_visit'
    and b.status::text = 'pending_payment'
    and ps.status in ('due', 'upcoming')
@@ -1459,6 +1577,7 @@ begin
            or v_reason ilike '%provider is paused%'
            or v_reason ilike '%category_not_bookable%'
            or v_reason ilike '%recurring service/category is no longer eligible%'
+           or (r.plan_version = 'legacy' and v_reason = 'service not available')
            or v_reason ilike '%provider verification is incomplete%'
            or v_reason ilike '%session package is unavailable%'
            or v_reason ilike '%package does not belong to this service%'
@@ -1963,10 +2082,24 @@ as $$
 declare
   b record;
   p record;
-  v_grace_hours int := coalesce(nullif(public._recurring_rule('billing_grace_hours'), '')::int, 24);
+  v_due_hours int;
+  v_grace_hours int;
   v_count int := 0;
   v_reason text := 'recurring occurrence payment grace period expired';
 begin
+  select nullif(c.value ->> 'payment_due_hours_before', '')::int,
+         nullif(c.value ->> 'billing_grace_hours', '')::int
+    into v_due_hours, v_grace_hours
+    from public.app_config c
+   where c.key = 'recurring_rules'
+   for share;
+  v_due_hours := coalesce(v_due_hours, 48);
+  v_grace_hours := coalesce(v_grace_hours, 24);
+  perform public._assert(
+    v_due_hours > v_grace_hours,
+    'payment_due_hours_before must be greater than billing_grace_hours'
+  );
+
   -- Retry link cancellation without booking locks after a concurrent webhook held the link row.
   update public.payments pay
      set status = 'failed', cancel_link_pending = true
@@ -2176,6 +2309,7 @@ revoke all on function public._cancel_recurring_occurrence(uuid, uuid, boolean, 
   public._recurring_plan_payload(uuid),
   public._assert_recurring_provider_window(uuid, tstzrange, uuid),
   public._guard_recurring_pending_window(),
+  public._guard_recurring_payment_window_rules(),
   public._set_recurring_payment_schedule_due_at(),
   public._refresh_recurring_payment_due_at()
 from public, anon, authenticated;

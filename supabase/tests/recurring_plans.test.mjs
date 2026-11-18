@@ -99,6 +99,11 @@ async function as(uid, role, query, params = []) {
 }
 const fails = async (fn) => { try { await fn(); return null; } catch (e) { return e.message; } };
 const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
+const seededRecurringRules = (await one(`
+  select value from app_config where key='recurring_rules'`)).value;
+ok(seededRecurringRules.payment_due_hours_before === 48
+  && seededRecurringRules.billing_grace_hours === 24,
+  '[RP-29] recurring rules seed a 48-hour due lead and 24-hour grace period');
 const dateOffset = (days) => {
   const date = new Date();
   date.setUTCHours(0, 0, 0, 0);
@@ -187,6 +192,24 @@ await db.exec(`
 `);
 const address = (await one(`select id from addresses where user_id = $1`, [customer])).id;
 const otherAddress = (await one(`select id from addresses where user_id = $1`, [otherCustomer])).id;
+const invalidRecurringRules = {
+  ...(await one(`select value from app_config where key='recurring_rules'`)).value,
+  payment_due_hours_before: 24,
+  billing_grace_hours: 24,
+};
+const adminRuleWindowError = await fails(() => as(
+  admin, 'authenticated',
+  `select admin_set_rules('recurring_rules', $1::jsonb)`,
+  [JSON.stringify(invalidRecurringRules)]
+));
+const directRuleWindowError = await fails(() => db.query(`
+  update app_config
+     set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '24'::jsonb),
+                         '{billing_grace_hours}', '24'::jsonb)
+   where key='recurring_rules'`));
+ok(/payment_due_hours_before must be greater than billing_grace_hours/i.test(adminRuleWindowError ?? '')
+  && /payment_due_hours_before must be greater than billing_grace_hours/i.test(directRuleWindowError ?? ''),
+  '[RP-29] admin and direct app_config writes reject due hours less than or equal to grace hours');
 
 const timeCategory = (await one(`
   insert into categories (
@@ -1333,7 +1356,7 @@ ok(respondCountBefore === 0 && respondOccurrencesBeforeCron === 1
 
 // RP-28: per-visit due/grace rules expire only unpaid occurrences and release their windows.
 await db.query(`update app_config
-  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '2'::jsonb),
+  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '4'::jsonb),
                       '{billing_grace_hours}', '3'::jsonb)
   where key='recurring_rules'`);
 await db.query(`
@@ -1355,7 +1378,7 @@ const unexpiredOccurrence = await one(`
   select id, scheduled_at from bookings where recurring_schedule_id=$1`, [unexpiredPlan]);
 const timeDueAt = await one(`
   select count(*)::int n,
-         bool_and(ps.due_at=b.scheduled_at-interval '2 hours') correct
+         bool_and(ps.due_at=b.scheduled_at-interval '4 hours') correct
     from bookings b join payment_schedule ps on ps.booking_id=b.id
    where b.recurring_schedule_id=$1`, [unexpiredPlan]);
 
@@ -1403,7 +1426,7 @@ await db.query(`update payments set razorpay_link_id='rp-expiring-fixed-link' wh
   [overdueFixedPayment.payment_id]);
 const fixedDueAt = await one(`
   select count(*)::int n,
-         bool_and(ps.due_at=b.scheduled_at-interval '2 hours') correct
+         bool_and(ps.due_at=b.scheduled_at-interval '4 hours') correct
     from bookings b join payment_schedule ps on ps.booking_id=b.id
    where b.recurring_schedule_id=$1`, [overdueFixedPlan]);
 ok(timeDueAt.n === 2 && timeDueAt.correct && fixedDueAt.n === 2 && fixedDueAt.correct,
@@ -1505,7 +1528,7 @@ const expiryRetry = await as(null, 'service_role',
   `select materialize_recurring_schedule($1, $2::date) created`,
   [overdueTimePlan, addDays(expiryDay, 1)]);
 await db.query(`update app_config
-  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '24'::jsonb),
+  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '48'::jsonb),
                       '{billing_grace_hours}', '24'::jsonb)
   where key='recurring_rules'`);
 ok(lateWebhookResult?.refund === true
@@ -1518,5 +1541,149 @@ ok(lateWebhookResult?.refund === true
   && Number(expiryRetry[0].created) === 0
   && (await generatedBookings(overdueTimePlan)) === 0,
   '[RP-28] late time-based and fixed webhooks refund rather than resurrecting expired visits, and generation does not recreate them');
+
+// RP-29: the 48/24 default lets the expiry job free a still-future service window.
+const preServiceSlot = indiaSlot(20 * 60, 60);
+const preServicePlan = await createPlan(input({
+  provider_service_id: syncService,
+  frequency: 'custom',
+  custom_dates: [preServiceSlot.date],
+  start_date: preServiceSlot.date,
+  end_date: null,
+  start_time: preServiceSlot.time,
+  duration_min: 60,
+}));
+await as(syncProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [preServicePlan]);
+const preServiceOccurrence = await one(`
+  select id, scheduled_at from bookings where recurring_schedule_id=$1`, [preServicePlan]);
+const defaultDueWindow = await one(`
+  select count(*)::int n,
+         bool_and(ps.due_at=b.scheduled_at-interval '48 hours') due_matches,
+         bool_and(ps.due_at+interval '24 hours' < b.scheduled_at) expires_before_start,
+         bool_and(b.scheduled_at > now()) service_future
+    from bookings b join payment_schedule ps on ps.booking_id=b.id
+   where b.recurring_schedule_id=$1`, [preServicePlan]);
+await db.query(`update app_config
+  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '72'::jsonb),
+                      '{billing_grace_hours}', '24'::jsonb)
+  where key='recurring_rules'`);
+const dueAfterRuleChange = await one(`
+  select count(*)::int n,
+         bool_and(ps.due_at=b.scheduled_at-interval '72 hours') correct
+    from bookings b join payment_schedule ps on ps.booking_id=b.id
+   where b.recurring_schedule_id=$1`, [preServicePlan]);
+await db.query(`update app_config
+  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '48'::jsonb),
+                      '{billing_grace_hours}', '24'::jsonb)
+  where key='recurring_rules'`);
+const dueAfterDefaultRestore = await one(`
+  select count(*)::int n,
+         bool_and(ps.due_at=b.scheduled_at-interval '48 hours') correct
+    from bookings b join payment_schedule ps on ps.booking_id=b.id
+   where b.recurring_schedule_id=$1`, [preServicePlan]);
+const preServiceExpiryRun = await as(null, 'service_role',
+  `select expire_recurring_occurrences(500) n`);
+const preServiceState = await one(`
+  select b.status::text status, b.scheduled_at > now() service_future,
+         count(ps.id) filter (where ps.status='waived')::int waived
+    from bookings b left join payment_schedule ps on ps.booking_id=b.id
+   where b.id=$1 group by b.id`, [preServiceOccurrence.id]);
+let releasedFutureSlot;
+const releasedFutureSlotError = await fails(async () => {
+  releasedFutureSlot = await one(`
+    select _create_session_booking(
+      $1, $2, null, $3::timestamptz, 60,
+      'Gate 3', 'Recurring City', 16.5, 80.61, 'slot released before recurring service'
+    ) id`, [otherCustomer, syncService, preServiceOccurrence.scheduled_at]);
+});
+ok(defaultDueWindow.n === 2 && defaultDueWindow.due_matches
+  && defaultDueWindow.expires_before_start && defaultDueWindow.service_future
+  && dueAfterRuleChange.n === 2 && dueAfterRuleChange.correct
+  && dueAfterDefaultRestore.n === 2 && dueAfterDefaultRestore.correct
+  && preServiceState.status === 'expired' && preServiceState.service_future
+  && preServiceState.waived === 2 && Number(preServiceExpiryRun[0].n) >= 1
+  && !releasedFutureSlotError && !!releasedFutureSlot?.id,
+  '[RP-29] 48/24 rules release an overdue unpaid visit and its provider window before the future service time');
+
+// RP-30: one deactivated legacy service is recorded per date and does not starve a valid plan.
+const inactiveLegacyDate = dateOffset(27);
+const inactiveLegacyPlan = await insertSchedule({
+  provider_id: legacyProvider,
+  provider_service_id: legacyService,
+  frequency: 'custom',
+  weekdays: [],
+  custom_dates: [inactiveLegacyDate],
+  starts_on: inactiveLegacyDate,
+  ends_on: null,
+  start_time: '11:00',
+  status: 'active',
+  provider_acceptance: 'accepted',
+  acceptance_mode: 'occurrence',
+});
+const sameBatchValidPlan = await insertSchedule({
+  customer_id: otherCustomer,
+  provider_id: syncProvider,
+  provider_service_id: syncService,
+  frequency: 'custom',
+  weekdays: [],
+  custom_dates: [inactiveLegacyDate],
+  starts_on: inactiveLegacyDate,
+  ends_on: null,
+  start_time: '13:00',
+  address_line: 'Gate 3',
+  lat: 16.5,
+  lng: 80.61,
+  status: 'active',
+  provider_acceptance: 'accepted',
+  acceptance_mode: 'occurrence',
+});
+await db.query(`update recurring_schedules set generated_through=$2::date where id in ($1,$3)`,
+  [inactiveLegacyPlan, addDays(inactiveLegacyDate, -1), sameBatchValidPlan]);
+await db.query(`update provider_services set active=false where id=$1`, [legacyService]);
+await setFlag('recurring_skip_pause', false);
+let legacyServiceBatch;
+const legacyServiceBatchError = await fails(async () => {
+  legacyServiceBatch = await as(null, 'service_role',
+    `select generate_recurring_occurrences(500) generated`);
+});
+const inactiveLegacyState = await one(`
+  select plan_version, status, generated_through from recurring_schedules where id=$1`,
+  [inactiveLegacyPlan]);
+const inactiveLegacyChanges = await one(`
+  select count(*)::int n, bool_and(reason='service not available') exact_reason
+    from recurring_occurrence_changes
+   where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
+  [inactiveLegacyPlan, inactiveLegacyDate]);
+const inactiveLegacyNotices = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`,
+  [customer, inactiveLegacyPlan]);
+await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
+  [inactiveLegacyPlan, addDays(inactiveLegacyDate, -1)]);
+await as(null, 'service_role',
+  `select materialize_recurring_schedule($1, $2::date)`,
+  [inactiveLegacyPlan, inactiveLegacyDate]);
+const inactiveLegacyChangesAfterRetry = await one(`
+  select count(*)::int n from recurring_occurrence_changes
+   where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
+  [inactiveLegacyPlan, inactiveLegacyDate]);
+const inactiveLegacyNoticesAfterRetry = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`,
+  [customer, inactiveLegacyPlan]);
+await db.query(`update provider_services set active=true where id=$1`, [legacyService]);
+await setFlag('recurring_skip_pause', true);
+ok(inactiveLegacyState.plan_version === 'legacy' && inactiveLegacyState.status === 'active'
+  && inactiveLegacyState.generated_through === dateOffset(28)
+  && inactiveLegacyChanges.n === 1 && inactiveLegacyChanges.exact_reason
+  && inactiveLegacyNotices.n === 1 && inactiveLegacyChangesAfterRetry.n === 1
+  && inactiveLegacyNoticesAfterRetry.n === 1
+  && (await generatedBookings(inactiveLegacyPlan)) === 0
+  && (await generatedBookings(sameBatchValidPlan)) === 1
+  && !legacyServiceBatchError
+  && Number(legacyServiceBatch?.[0]?.generated ?? 0) >= 1,
+  '[RP-30] inactive legacy service errors become deduped per-date unavailability without starving a valid batch plan');
 
 if (failures > 0) process.exitCode = 1;
