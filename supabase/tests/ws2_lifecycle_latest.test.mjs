@@ -185,8 +185,9 @@ async function pay(bookingId, customer) {
     select * from prepare_payment($1::uuid, $2::uuid)
   `, [bookingId, customer]))[0];
   assert(prepared?.payment_id && prepared.amount > 0, 'payment is prepared', prepared);
-  const link = `link_${bookingId.replaceAll('-', '').slice(0, 20)}`;
-  const gatewayPaymentId = `pay_${bookingId.replaceAll('-', '').slice(0, 20)}`;
+  const paymentKey = prepared.payment_id.replaceAll('-', '');
+  const link = `link_${paymentKey}`;
+  const gatewayPaymentId = `pay_${paymentKey}`;
   await as(null, 'service_role', `
     update payments set razorpay_link_id = $1::text, short_url = $2::text
      where id = $3::uuid
