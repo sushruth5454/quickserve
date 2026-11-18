@@ -36,11 +36,13 @@ export function sanitizeProductSearchQuery(value: unknown): string {
   const bounded = value.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, MAX_QUERY_CHARS);
   if (/\b\d{6}\b/.test(bounded)) return "";
   const redacted = redactBrief(bounded);
-  if (/\b(?:\d+[\-/]\d+[\-/]?\d*\s+)?[\p{L}'-]+\s+(?:circle|junction|nagar|residency|colony|sector|phase|layout|cross|ward|road|street|lane)\b/iu.test(redacted)) {
-    return "";
-  }
   const addressStart = redacted.toLowerCase().indexOf("[address]");
-  return withoutPersonalDetails(addressStart >= 0 ? redacted.slice(0, addressStart) : redacted);
+  const query = addressStart >= 0 ? redacted.slice(0, addressStart) : redacted;
+  const locality = /\b(?:\d+[\-/]\d+[\-/]?\d*\s+)?[\p{L}'-]+\s+(?:circle|junction|nagar|residency|colony|sector|phase|layout|cross|ward|road|street|lane)\b/iu.exec(query);
+  const withoutLocality = locality
+    ? query.slice(0, locality.index).replace(/\b(?:for|in|at|near|around|from|opposite|behind|beside|next\s+to)\s*$/i, "")
+    : query;
+  return withoutPersonalDetails(withoutLocality);
 }
 
 function optionalText(value: unknown, key: string, allowedSlugs: Set<string>): string | null {

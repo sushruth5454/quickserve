@@ -17,7 +17,7 @@ Deno.test("product search removes contact and recognizable address details befor
 
 Deno.test("standalone locality phrases fail closed before Gemini", () => {
   assertEquals(sanitizeProductSearchQuery("Benz Circle, Vijayawada"), "");
-  assertEquals(sanitizeProductSearchQuery("Need waterproof tiles in Gandhi Nagar for a bathroom"), "");
+  assertEquals(sanitizeProductSearchQuery("Need waterproof tiles in Gandhi Nagar for a bathroom"), "Need waterproof tiles");
   assertEquals(sanitizeProductSearchQuery("12-3 MG Road, Vijayawada"), "");
   assertEquals(sanitizeProductSearchQuery("Vijayawada 520010"), "");
 });
