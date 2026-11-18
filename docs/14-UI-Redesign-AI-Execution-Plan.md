@@ -775,10 +775,10 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 |---|---|---|---|---|
 | Q-00 / doc 17 T1 | code-owned failures in progress; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44395541860 (main E2E failed) | — |
 | Q-01 | step 1 merged; screenshot pass after Q-00 | integrator | — | 173be83 |
-| T-01 | implementing in parallel per owner direction; merge gated on Q-00 code-owned fixes | pending | — | — |
+| T-01 | implementing in parallel; lane CI/E2E validation running | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44402639230 (lane CI in progress); 44402639152 (E2E pending) | — |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
-| I-01 | implementing in parallel per owner direction; integrator-owned, merge gated on Q-00 | integrator | — | — |
-| C-07 | implementing in parallel per owner direction; merge gated on Q-00 code-owned fixes | pending | — | — |
+| I-01 | implemented; lane typecheck/Jest green; merge gated on Q-00 code-owned fixes | integrator | 44401816876 | — |
+| C-07 | implemented; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918 | — |
 | R-01 | blocked by doc 17 H3 | — | — | — |
 | R-02 | blocked by doc 17 U1 | — | — | — |
 | R-03 | blocked by doc 17 B1 | — | — | — |
