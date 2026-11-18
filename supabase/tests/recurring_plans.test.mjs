@@ -365,6 +365,20 @@ const recurrenceDates = async (id, from, to) => (await one(`
     ) d`, [id, from, to])).dates;
 const generatedBookings = async (id) => (await one(
   `select count(*)::int n from bookings where recurring_schedule_id=$1`, [id])).n;
+const prepareSessionPayment = async (bookingId, linkId) => {
+  const amount = (await one(`
+    select sum(amount)::int amount from payment_schedule
+     where booking_id=$1 and status='due'`, [bookingId])).amount;
+  const paymentId = (await one(`
+    insert into payments (booking_id, purpose, amount, status, razorpay_link_id)
+    values ($1, 'session', $2, 'created', $3) returning id`,
+  [bookingId, amount, linkId])).id;
+  await db.query(`
+    insert into payment_obligations (payment_id, schedule_id, amount)
+    select $1, id, amount from payment_schedule where booking_id=$2 and status='due'`,
+  [paymentId, bookingId]);
+  return { amount, paymentId };
+};
 
 // RP-07/RP-08: common SQL and TS date vectors use the implementation plan's exact examples.
 for (const fixture of [
@@ -1316,5 +1330,193 @@ ok(respondCountBefore === 0 && respondOccurrencesBeforeCron === 1
   && (await generatedBookings(autoPlan)) === autoOccurrencesBeforeCron
   && (await generatedBookings(legacySoonPlan)) === legacyOccurrencesBeforeCron,
   '[RP-27] all acceptance paths materialize 30–90-minute first visits synchronously and cron remains idempotent');
+
+// RP-28: per-visit due/grace rules expire only unpaid occurrences and release their windows.
+await db.query(`update app_config
+  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '2'::jsonb),
+                      '{billing_grace_hours}', '3'::jsonb)
+  where key='recurring_rules'`);
+await db.query(`
+  update payment_schedule ps
+     set due_at=now()+interval '10 days'
+    from bookings b
+   where ps.booking_id=b.id
+     and b.recurring_schedule_id is not null
+     and b.status::text='pending_payment'
+     and ps.status in ('due','upcoming')`);
+
+const expiryDay = dateOffset(27);
+const unexpiredPlan = await createPlan(input({
+  provider_service_id: syncService, frequency: 'custom', custom_dates: [expiryDay],
+  start_date: expiryDay, end_date: null, start_time: '08:00', duration_min: 60,
+}));
+await as(syncProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [unexpiredPlan]);
+const unexpiredOccurrence = await one(`
+  select id, scheduled_at from bookings where recurring_schedule_id=$1`, [unexpiredPlan]);
+const timeDueAt = await one(`
+  select count(*)::int n,
+         bool_and(ps.due_at=b.scheduled_at-interval '2 hours') correct
+    from bookings b join payment_schedule ps on ps.booking_id=b.id
+   where b.recurring_schedule_id=$1`, [unexpiredPlan]);
+
+const overdueTimePlan = await createPlan(input({
+  provider_service_id: autoService, frequency: 'custom', custom_dates: [expiryDay],
+  start_date: expiryDay, end_date: null, start_time: '09:00', duration_min: 60,
+}));
+await as(autoProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [overdueTimePlan]);
+const overdueTimeOccurrence = await one(`
+  select id, scheduled_at from bookings where recurring_schedule_id=$1`, [overdueTimePlan]);
+const overdueTimePayment = await prepareSessionPayment(overdueTimeOccurrence.id, 'rp-expiring-time-link');
+
+const paidTimePlan = await createPlan(input({
+  provider_service_id: legacyService, frequency: 'custom', custom_dates: [expiryDay],
+  start_date: expiryDay, end_date: null, start_time: '10:00', duration_min: 60,
+}));
+await as(legacyProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [paidTimePlan]);
+const paidTimeOccurrence = await one(`
+  select id from bookings where recurring_schedule_id=$1`, [paidTimePlan]);
+const paidTimePayment = await prepareSessionPayment(paidTimeOccurrence.id, 'rp-paid-before-expiry-link');
+await as(null, 'service_role',
+  `select record_session_payment_paid($1, $2, $3)`,
+  ['rp-paid-before-expiry-link', 'rp-paid-before-expiry', paidTimePayment.amount]);
+
+const overdueFixedPlan = await createPlan(input({
+  provider_service_id: fixedService, package_id: fixedPackage, archetype: 'fixed',
+  package_qty: 1, frequency: 'custom', custom_dates: [expiryDay],
+  start_date: expiryDay, end_date: null, start_time: '12:00', duration_min: null,
+}));
+await as(manager, 'authenticated', `select respond_recurring_plan($1, true, null)`, [overdueFixedPlan]);
+const overdueFixedOccurrence = await one(`
+  select id, scheduled_at from bookings where recurring_schedule_id=$1`, [overdueFixedPlan]);
+const partialFixedPayment = (await as(null, 'service_role',
+  `select payment_id, amount from prepare_fixed_payment($1, $2, null)`,
+  [overdueFixedOccurrence.id, customer]))[0];
+await db.query(`update payments set razorpay_link_id='rp-partially-paid-fixed-link' where id=$1`,
+  [partialFixedPayment.payment_id]);
+const partialFixedSettlement = (await as(null, 'service_role',
+  `select record_payment_paid($1, $2, $3) result`,
+  ['rp-partially-paid-fixed-link', 'rp-partially-paid-fixed', partialFixedPayment.amount]))[0].result;
+const overdueFixedPayment = (await as(null, 'service_role',
+  `select payment_id, amount from prepare_fixed_payment($1, $2, null)`,
+  [overdueFixedOccurrence.id, customer]))[0];
+await db.query(`update payments set razorpay_link_id='rp-expiring-fixed-link' where id=$1`,
+  [overdueFixedPayment.payment_id]);
+const fixedDueAt = await one(`
+  select count(*)::int n,
+         bool_and(ps.due_at=b.scheduled_at-interval '2 hours') correct
+    from bookings b join payment_schedule ps on ps.booking_id=b.id
+   where b.recurring_schedule_id=$1`, [overdueFixedPlan]);
+ok(timeDueAt.n === 2 && timeDueAt.correct && fixedDueAt.n === 2 && fixedDueAt.correct,
+  '[RP-28] time-based and fixed occurrences set due_at from payment_due_hours_before');
+
+await db.query(`update bookings set created_at=now()-interval '31 minutes' where id=$1`,
+  [unexpiredOccurrence.id]);
+await db.query(`update payment_schedule set due_at=now()-interval '2 hours' where booking_id=$1 and status in ('due','upcoming')`,
+  [unexpiredOccurrence.id]);
+const graceProtectedOverlap = await fails(() => one(`
+  select _create_session_booking(
+    $1, $2, null, $3::timestamptz, 60,
+    'Gate 3', 'Recurring City', 16.5, 80.61, 'inside recurring payment grace'
+  ) id`, [otherCustomer, syncService, unexpiredOccurrence.scheduled_at]));
+
+await db.query(`update payment_schedule set due_at=now()-interval '4 hours'
+  where booking_id=$1 and status in ('due','upcoming')`, [overdueTimeOccurrence.id]);
+await db.query(`update payment_schedule set due_at=now()-interval '4 hours'
+  where booking_id=$1 and status in ('due','upcoming')`, [overdueFixedOccurrence.id]);
+await db.query(`update payment_schedule set due_at=now()-interval '4 hours'
+  where booking_id=$1`, [paidTimeOccurrence.id]);
+
+const expiryRun = await as(null, 'service_role',
+  `select expire_recurring_occurrences(500) n`);
+const secondExpiryRun = await as(null, 'service_role',
+  `select expire_recurring_occurrences(500) n`);
+const expiryClientAccess = await fails(() =>
+  as(customer, 'authenticated', `select expire_recurring_occurrences(1) n`));
+const unexpiredState = await one(`
+  select b.status::text status, count(ps.id) filter (where ps.status='waived')::int waived
+    from bookings b left join payment_schedule ps on ps.booking_id=b.id
+   where b.id=$1 group by b.id`, [unexpiredOccurrence.id]);
+const overdueTimeState = await one(`
+  select b.status::text status,
+         count(ps.id) filter (where ps.status='waived')::int waived,
+         p.status payment_status, p.cancel_link_pending
+    from bookings b
+    join payments p on p.booking_id=b.id
+    left join payment_schedule ps on ps.booking_id=b.id
+   where b.id=$1 group by b.id, p.status, p.cancel_link_pending`, [overdueTimeOccurrence.id]);
+const overdueFixedState = await one(`
+  select b.status::text status,
+         count(ps.id) filter (where ps.status='waived')::int waived,
+         count(ps.id) filter (where ps.status='paid')::int paid_obligations
+    from bookings b left join payment_schedule ps on ps.booking_id=b.id
+   where b.id=$1 group by b.id`, [overdueFixedOccurrence.id]);
+const paidBeforeExpiryState = await one(`
+  select b.status::text status,
+         count(ps.id) filter (where ps.status='paid')::int paid_obligations
+    from bookings b left join payment_schedule ps on ps.booking_id=b.id
+   where b.id=$1 group by b.id`, [paidTimeOccurrence.id]);
+const expiryNoticeCount = await one(`
+  select count(*)::int n from notifications
+   where kind='recurring_visit_unavailable'
+     and data ->> 'booking_id' in ($1::text, $2::text)`,
+  [overdueTimeOccurrence.id, overdueFixedOccurrence.id]);
+ok(!!graceProtectedOverlap && unexpiredState.status === 'pending_payment'
+  && unexpiredState.waived === 0 && overdueTimeState.status === 'expired'
+  && overdueTimeState.waived === 2 && overdueTimeState.payment_status === 'failed'
+  && overdueTimeState.cancel_link_pending === true
+  && partialFixedSettlement?.ok === true && partialFixedSettlement?.refund !== true
+  && overdueFixedState.status === 'expired' && overdueFixedState.waived === 1
+  && overdueFixedState.paid_obligations === 1
+  && paidBeforeExpiryState.status === 'requested' && paidBeforeExpiryState.paid_obligations === 2
+  && Number(expiryRun[0].n) >= 2 && Number(secondExpiryRun[0].n) === 0
+  && !!expiryClientAccess
+  && expiryNoticeCount.n === 4,
+  '[RP-28] service-role due-plus-grace expiry releases unpaid time/fixed holds, preserves unexpired and paid visits, and notifies once');
+
+const lateWebhookResult = (await as(null, 'service_role',
+  `select record_session_payment_paid($1, $2, $3) result`,
+  ['rp-expiring-time-link', 'rp-expiring-time-paid', overdueTimePayment.amount]))[0].result;
+const lateFixedWebhookResult = (await as(null, 'service_role',
+  `select record_payment_paid($1, $2, $3) result`,
+  ['rp-expiring-fixed-link', 'rp-expiring-fixed-paid', overdueFixedPayment.amount]))[0].result;
+const lateWebhookState = await one(`
+  select b.status::text booking_status,
+         coalesce(sum(r.amount),0)::int refunded
+    from bookings b
+    left join payments p on p.booking_id=b.id
+    left join refunds r on r.payment_id=p.id
+   where b.id=$1 group by b.id`, [overdueTimeOccurrence.id]);
+const lateFixedWebhookState = await one(`
+  select b.status::text booking_status,
+          coalesce(sum(r.amount),0)::int refunded
+     from bookings b
+     left join payments p on p.booking_id=b.id
+     left join refunds r on r.payment_id=p.id
+    where b.id=$1 group by b.id`, [overdueFixedOccurrence.id]);
+const replacementBooking = await one(`
+  select _create_session_booking(
+    $1, $2, null, $3::timestamptz, 15,
+    'Gate 3', 'Recurring City', 16.5, 80.61, 'replacement after recurring expiry'
+  ) id`, [otherCustomer, timeService, overdueFixedOccurrence.scheduled_at]);
+await db.query(`update bookings set recurring_schedule_id=null where id=$1`, [overdueTimeOccurrence.id]);
+await db.query(`update recurring_schedules set generated_through=$2::date, occurrences_created=0 where id=$1`,
+  [overdueTimePlan, addDays(expiryDay, -1)]);
+const expiryRetry = await as(null, 'service_role',
+  `select materialize_recurring_schedule($1, $2::date) created`,
+  [overdueTimePlan, addDays(expiryDay, 1)]);
+await db.query(`update app_config
+  set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '24'::jsonb),
+                      '{billing_grace_hours}', '24'::jsonb)
+  where key='recurring_rules'`);
+ok(lateWebhookResult?.refund === true
+  && lateWebhookState.booking_status === 'expired'
+  && lateWebhookState.refunded === overdueTimePayment.amount
+  && lateFixedWebhookResult?.refund === true
+  && lateFixedWebhookState.booking_status === 'expired'
+  && lateFixedWebhookState.refunded === partialFixedPayment.amount + overdueFixedPayment.amount
+  && replacementBooking.id
+  && Number(expiryRetry[0].created) === 0
+  && (await generatedBookings(overdueTimePlan)) === 0,
+  '[RP-28] late time-based and fixed webhooks refund rather than resurrecting expired visits, and generation does not recreate them');
 
 if (failures > 0) process.exitCode = 1;

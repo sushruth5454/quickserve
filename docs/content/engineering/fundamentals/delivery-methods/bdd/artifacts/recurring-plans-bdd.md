@@ -454,6 +454,40 @@ Feature: Timely recurring occurrence creation
     And a later hourly generator run creates no duplicate
 ```
 
+### RP-28 — Unpaid recurring visits expire and release provider windows safely
+
+```gherkin
+Feature: Per-visit recurring payment expiry
+  Scenario: An unpaid visit remains reserved through its configured grace window
+    Given a recurring per-visit obligation has a due time and grace period from validated rules
+    And the obligation is unpaid and due_at plus grace is still in the future
+    When the expiry job runs
+    Then the visit remains pending payment and continues reserving the provider window
+
+  Scenario: An overdue unpaid visit expires through the existing lifecycle
+    Given all per-visit obligations for an occurrence are unpaid and due_at plus grace has passed
+    When the service-role expiry job runs
+    Then the payment links are failed for cancellation and obligations are waived
+    And the booking transitions to expired and its provider window is released
+    And the customer and provider are notified once
+    And the occurrence is not regenerated
+
+  Scenario: A partially paid fixed visit expires without retaining a charge
+    Given a fixed occurrence is still pending payment with one paid obligation
+    And every remaining obligation is unpaid and due_at plus grace has passed
+    When the service-role expiry job runs
+    Then only the unpaid obligations are waived
+    And the already-paid amount is refunded through the existing refund path
+    And the booking transitions to expired and its provider window is released
+
+  Scenario: Paid visits and late time-based or fixed webhooks are not stranded by expiry
+    Given a visit was paid before the expiry job or a valid time-based or fixed webhook arrives after expiry
+    When the expiry job or payment recorder runs
+    Then a paid visit is not expired
+    And a late payment is refunded through the existing stale-payment path
+    And the expired booking status and released slot remain unchanged
+```
+
 ## Acceptance criteria
 
 1. The six date fixture vectors in the implementation plan produce exactly the listed dates.
@@ -469,6 +503,7 @@ Feature: Timely recurring occurrence creation
 11. A pending recurring payment occurrence continues reserving its provider window after the generic 30-minute pending-payment cutoff, while a status-only payment transition is not subjected to the insert/window-change guard.
 12. Unclassified database errors propagate rather than being swallowed as availability outcomes.
 13. Provider response, v2 auto-accept, and legacy schedule creation synchronously materialize near-term occurrences; a later cron run is idempotent.
+14. Per-visit `due_at` uses `payment_due_hours_before`; unpaid recurring bookings expire only after `billing_grace_hours`, while paid/late-webhook money-safety paths remain intact.
 
 ## Automation readiness
 
@@ -492,6 +527,7 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-25 | Existing Booking Lifecycle | A stale recurring pending row blocks overlapping inserts, but a status-only payment webhook transition succeeds. |
 | RP-26 | Occurrence Scheduling | Unclassified database errors propagate instead of being silently dropped. |
 | RP-27 | Occurrence Scheduling | Provider-accepted, auto-accepted, and legacy plans materialize a 30–90-minute first visit synchronously; later generation does not duplicate it. |
+| RP-28 | Existing Booking Lifecycle | Due/grace rules set due_at; unpaid rows expire and release holds; paid and late-webhook paths remain safe. |
 
 ## Trace links
 

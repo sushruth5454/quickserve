@@ -187,6 +187,82 @@ create trigger bookings_a_recurring_pending_window_guard
   before insert or update of provider_id, service_window on public.bookings
   for each row execute function public._guard_recurring_pending_window();
 
+create or replace function public._set_recurring_payment_schedule_due_at()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_scheduled_at timestamptz;
+  v_billing_frequency text;
+  v_due_hours int;
+begin
+  select b.scheduled_at, r.billing_frequency
+    into v_scheduled_at, v_billing_frequency
+    from public.bookings b
+    join public.recurring_schedules r on r.id = b.recurring_schedule_id
+   where b.id = new.booking_id;
+  if not found or v_billing_frequency is distinct from 'per_visit' then
+    return new;
+  end if;
+
+  v_due_hours := coalesce(nullif(public._recurring_rule('payment_due_hours_before'), '')::int, 24);
+  new.due_at := v_scheduled_at - make_interval(hours => v_due_hours);
+  return new;
+end;
+$$;
+drop trigger if exists payment_schedule_recurring_due_at on public.payment_schedule;
+create trigger payment_schedule_recurring_due_at
+  before insert on public.payment_schedule
+  for each row execute function public._set_recurring_payment_schedule_due_at();
+
+create or replace function public._refresh_recurring_payment_due_at()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_billing_frequency text;
+  v_due_hours int;
+begin
+  select r.billing_frequency
+    into v_billing_frequency
+    from public.recurring_schedules r
+   where r.id = new.recurring_schedule_id;
+  if not found or v_billing_frequency is distinct from 'per_visit' then
+    return new;
+  end if;
+
+  v_due_hours := coalesce(nullif(public._recurring_rule('payment_due_hours_before'), '')::int, 24);
+  update public.payment_schedule
+     set due_at = new.scheduled_at - make_interval(hours => v_due_hours),
+         updated_at = now()
+   where booking_id = new.id
+     and status in ('due', 'upcoming');
+  return new;
+end;
+$$;
+drop trigger if exists bookings_recurring_payment_due_at on public.bookings;
+create trigger bookings_recurring_payment_due_at
+  after update of scheduled_at on public.bookings
+  for each row
+  when (old.scheduled_at is distinct from new.scheduled_at)
+  execute function public._refresh_recurring_payment_due_at();
+
+update public.payment_schedule ps
+   set due_at = b.scheduled_at - make_interval(
+     hours => coalesce(nullif(public._recurring_rule('payment_due_hours_before'), '')::int, 24)
+   )
+  from public.bookings b
+  join public.recurring_schedules r on r.id = b.recurring_schedule_id
+ where ps.booking_id = b.id
+   and r.billing_frequency = 'per_visit'
+   and b.status::text = 'pending_payment'
+   and ps.status in ('due', 'upcoming')
+   and b.scheduled_at is not null;
+
 insert into public.archetype_transitions (archetype, from_status, to_status, actor)
 values
   ('time_based', 'requested', 'accepted', 'system'),
@@ -1275,7 +1351,7 @@ begin
       select 1 from public.recurring_occurrence_changes c
        where c.schedule_id = r.id
          and c.occurrence_date = d
-         and c.kind in ('skipped', 'provider_unavailable')
+         and c.kind in ('skipped', 'provider_unavailable', 'cancelled', 'provider_absent')
     ) then
       d := d + 1;
       continue;
@@ -1878,6 +1954,107 @@ begin
 end;
 $$;
 
+create or replace function public.expire_recurring_occurrences(p_limit int default 100)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  b record;
+  p record;
+  v_grace_hours int := coalesce(nullif(public._recurring_rule('billing_grace_hours'), '')::int, 24);
+  v_count int := 0;
+  v_reason text := 'recurring occurrence payment grace period expired';
+begin
+  -- Retry link cancellation without booking locks after a concurrent webhook held the link row.
+  update public.payments pay
+     set status = 'failed', cancel_link_pending = true
+    from public.bookings bk
+    join public.recurring_schedules r on r.id = bk.recurring_schedule_id
+   where pay.booking_id = bk.id
+     and bk.status::text = 'expired'
+     and r.billing_frequency = 'per_visit'
+     and pay.status = 'created';
+
+  for b in
+    select bk.id, bk.customer_id, bk.provider_id, bk.scheduled_at, r.id schedule_id, r.timezone
+      from public.bookings bk
+      join public.recurring_schedules r on r.id = bk.recurring_schedule_id
+     where bk.status::text = 'pending_payment'
+       and r.billing_frequency = 'per_visit'
+       and exists (
+         select 1 from public.payment_schedule ps
+          where ps.booking_id = bk.id and ps.status in ('due', 'upcoming')
+       )
+       and not exists (
+         select 1 from public.payment_schedule ps
+          where ps.booking_id = bk.id
+            and ps.status in ('due', 'upcoming')
+            and (ps.due_at is null or ps.due_at + make_interval(hours => v_grace_hours) > now())
+       )
+     order by bk.scheduled_at, bk.id
+     limit greatest(least(coalesce(p_limit, 100), 500), 1)
+     for update of bk skip locked
+  loop
+    -- Recheck after acquiring the booking lock; only remaining obligations can expire.
+    if exists (
+      select 1 from public.payment_schedule ps
+       where ps.booking_id = b.id and ps.status in ('due', 'upcoming')
+    ) and not exists (
+      select 1 from public.payment_schedule ps
+       where ps.booking_id = b.id and ps.status in ('due', 'upcoming')
+         and (ps.due_at is null or ps.due_at + make_interval(hours => v_grace_hours) > now())
+    ) then
+      for p in
+        select pay.id
+          from public.payments pay
+         where pay.booking_id = b.id and pay.status = 'created'
+         order by pay.id
+      loop
+        begin
+          -- A webhook may hold this link while waiting for the booking lock. Skip it rather
+          -- than deadlocking; waived obligations make its eventual capture refundable.
+          perform 1 from public.payments pay where pay.id = p.id for update nowait;
+          update public.payments
+             set status = 'failed', cancel_link_pending = true
+           where id = p.id and status = 'created';
+        exception when lock_not_available then
+          null;
+        end;
+      end loop;
+
+      update public.payment_schedule
+         set status = 'waived', updated_at = now()
+       where booking_id = b.id and status in ('due', 'upcoming');
+      perform public._refund_booking_payments(b.id, v_reason);
+      perform public._set_status(b.id, 'expired', null, v_reason);
+      insert into public.recurring_occurrence_changes (
+        schedule_id, booking_id, occurrence_date, original_at, kind, actor_id, reason
+      ) values (
+        b.schedule_id, b.id, (b.scheduled_at at time zone b.timezone)::date,
+        b.scheduled_at, 'cancelled', null, v_reason
+      ) on conflict do nothing;
+
+      perform public._queue_notification(
+        b.customer_id, 'recurring_visit_unavailable', b.id, 'Recurring visit expired',
+        'The payment window for this recurring visit expired, so the visit was released.',
+        jsonb_build_object('booking_id', b.id, 'recurring_schedule_id', b.schedule_id),
+        'recurring-unpaid-expiry:' || b.id::text || ':customer'
+      );
+      perform public._queue_notification(
+        b.provider_id, 'recurring_visit_unavailable', b.id, 'Recurring visit expired',
+        'The unpaid recurring visit expired and the provider window is available again.',
+        jsonb_build_object('booking_id', b.id, 'recurring_schedule_id', b.schedule_id),
+        'recurring-unpaid-expiry:' || b.id::text || ':provider'
+      );
+      v_count := v_count + 1;
+    end if;
+  end loop;
+  return v_count;
+end;
+$$;
+
 create or replace function public.create_recurring_schedule(
   p_provider_service_id uuid,
   p_service_package_id uuid,
@@ -1983,6 +2160,12 @@ begin
       '*/15 * * * *',
       'select public.queue_recurring_reminders()'
     );
+    perform cron.unschedule(jobid) from cron.job where jobname = 'expire-unpaid-recurring-occurrences';
+    perform cron.schedule(
+      'expire-unpaid-recurring-occurrences',
+      '*/5 * * * *',
+      'select public.expire_recurring_occurrences(500)'
+    );
   end if;
 end;
 $$;
@@ -1992,7 +2175,9 @@ revoke all on function public._cancel_recurring_occurrence(uuid, uuid, boolean, 
   public._record_recurring_unavailable(uuid, date, timestamptz, text),
   public._recurring_plan_payload(uuid),
   public._assert_recurring_provider_window(uuid, tstzrange, uuid),
-  public._guard_recurring_pending_window()
+  public._guard_recurring_pending_window(),
+  public._set_recurring_payment_schedule_due_at(),
+  public._refresh_recurring_payment_due_at()
 from public, anon, authenticated;
 
 revoke execute on function public.quote_recurring_plan(jsonb),
@@ -2033,10 +2218,12 @@ to authenticated;
 revoke execute on function public.materialize_recurring_schedule(uuid, date),
   public.generate_recurring_sessions(int),
   public.generate_recurring_occurrences(int),
-  public.queue_recurring_reminders()
+  public.queue_recurring_reminders(),
+  public.expire_recurring_occurrences(int)
 from public, anon, authenticated;
 grant execute on function public.materialize_recurring_schedule(uuid, date),
   public.generate_recurring_sessions(int),
   public.generate_recurring_occurrences(int),
-  public.queue_recurring_reminders()
+  public.queue_recurring_reminders(),
+  public.expire_recurring_occurrences(int)
 to service_role;
