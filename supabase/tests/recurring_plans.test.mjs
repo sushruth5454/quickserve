@@ -1539,6 +1539,13 @@ ok(!oneTimePaymentError && oneTimePaymentState.booking_status === 'requested'
   '[RP-25] a status-only webhook transition succeeds despite an existing recurring overlap and creates no duplicate');
 
 // RP-27: provider acceptance, auto-accept, and legacy creation synchronously materialize near-term visits.
+// This scenario tests acceptance/materialization, not weekly-hours filtering; temporarily leave these providers
+// without configured hours so its 60–90-minute fixture is independent of the CI run's local time.
+const rp27Availability = (await db.query(`
+  delete from provider_availability
+   where provider_id in ($1::uuid, $2::uuid, $3::uuid)
+  returning provider_id, weekday, start_time, end_time
+`, [syncProvider, autoProvider, legacyProvider])).rows;
 const respondSlot = indiaSlotInLeadWindow(65, 15);
 const respondPlan = await createPlan(nearTermPlanInput(syncService, respondSlot));
 const respondCountBefore = await generatedBookings(respondPlan);
@@ -1598,6 +1605,12 @@ ok(respondCountBefore === 0 && respondOccurrencesBeforeCron === 1
   && recurringAcceptanceAfterCron.auto === autoOccurrencesBeforeCron
   && recurringAcceptanceAfterCron.legacy === legacyOccurrencesBeforeCron,
   `[RP-27] all acceptance paths materialize 60–90-minute first visits synchronously and cron remains idempotent (${JSON.stringify(recurringAcceptanceDiagnostic)})`);
+for (const row of rp27Availability) {
+  await db.query(`
+    insert into provider_availability (provider_id, weekday, start_time, end_time)
+    values ($1::uuid, $2::smallint, $3::time, $4::time)
+  `, [row.provider_id, row.weekday, row.start_time, row.end_time]);
+}
 
 const tooSoonSlot = indiaWallSlot(45);
 const tooSoonQuoteError = await fails(() => as(customer, 'authenticated',
