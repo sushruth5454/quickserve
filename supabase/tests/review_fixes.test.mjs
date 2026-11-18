@@ -62,7 +62,20 @@ for (const file of [
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
   '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql', '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql', '0046_managed_geography.sql', '0047_coins_config.sql', '0048_sports.sql', '0049_shops_catalogue.sql', '0050_rfq.sql', '0051_ai_usage_v3.sql',
-]) await db.exec(migration(file));
+]) {
+  if (file === '0051_ai_usage_v3.sql') {
+    await db.exec(`
+      create table public.ai_usage (
+        id bigint generated always as identity primary key,
+        user_id uuid not null references public.profiles (id) on delete cascade,
+        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
+        request_id uuid,
+        created_at timestamptz not null default now()
+      )
+    `);
+  }
+  await db.exec(migration(file));
+}
 
 
 
