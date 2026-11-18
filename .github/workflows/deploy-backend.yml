@@ -400,6 +400,7 @@ jobs:
              ("0060b", "0060b_demo_payout_isolation.sql"),
              ("0061", "0061_h1_provider_cancellation_and_recurring_privacy.sql"),
              ("0062", "0062_coins_hardening.sql"),
+             ("0063", "0063_o1_notifications.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

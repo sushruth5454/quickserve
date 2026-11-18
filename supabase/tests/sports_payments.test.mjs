@@ -82,6 +82,7 @@ for (const file of [
   await db.exec(migration(file));
 }
 await db.exec(migration('0058_sports_payments.sql'));
+await db.exec(migration('0063_o1_notifications.sql'));
 await db.exec("set timezone = 'UTC'");
 
 let failures = 0;
@@ -482,10 +483,30 @@ ok(listedAwaitingBusiness?.business_role === 'staff'
   '[SP-17] staff booking reads expose the authoritative approved-payment deadline and total');
 const approvalAttempt = await prepare(approval.booking_id);
 await attachOrder(approvalAttempt.payment_id, 'order_sp_approval');
-const paidApproval = await recordPaid('order_sp_approval', 'pay_sp_approval', approvalAttempt.amount);
+await db.query(`
+  insert into public.notifications (user_id, kind, title, body, data, collapse_key)
+  values ($1::uuid, 'sports_booking_confirmed', 'Existing confirmation', 'Pending notice',
+          jsonb_build_object('sports_booking_id', $2::uuid),
+          'sports-booking-confirmed:' || $2::uuid::text)
+`, [customer1, approval.booking_id]);
+let paidApproval;
+try {
+  paidApproval = await recordPaid('order_sp_approval', 'pay_sp_approval', approvalAttempt.amount);
+} catch (error) {
+  paidApproval = { ok: false, error: error.message };
+}
 const approvalAfterPay = (await one(`select status, paid_at from public.sports_bookings where id = $1`, [approval.booking_id]));
-ok(paidApproval.ok === true && approvalAfterPay.status === 'accepted' && approvalAfterPay.paid_at,
-  '[SP-06, SP-11] paying before the pay-by deadline accepts the approved booking');
+const pendingConfirmation = await one(`
+  select count(*)::int row_count, coalesce(max(n.count), 0)::int merged_count
+    from public.notifications n
+   where n.user_id = $1::uuid and n.kind = 'sports_booking_confirmed'
+     and n.collapse_key = 'sports-booking-confirmed:' || $2::uuid::text and n.status = 'pending'
+`, [customer1, approval.booking_id]);
+ok(paidApproval.ok === true && approvalAfterPay.status === 'accepted' && approvalAfterPay.paid_at
+  && pendingConfirmation.row_count === 1 && pendingConfirmation.merged_count === 2,
+  `[WS7-T08] duplicate pending confirmation does not block payment recording (${JSON.stringify({
+    payment: paidApproval, booking: approvalAfterPay, notification: pendingConfirmation,
+  })})`);
 
 const approvalExpirySlot = await slotAt('13:00');
 const approvalExpiring = await book(customer2, approvalResource, approvalExpirySlot, 'sp-approval-expiry');
