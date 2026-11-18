@@ -99,7 +99,7 @@ async function createActors() {
     `insert into public.provider_services (provider_id, category_id, skill_level, visit_fee, labour_rate)
      values ($1::uuid, $2::uuid, 'expert', 19900, 50000) returning id`,
     [provider, categoryId],
-  );
+  ).then((result) => result.rows);
   return { customer, provider, admin, serviceId };
 }
 

@@ -3,6 +3,15 @@ import { customerDueNow, formatINR } from '../../lib/money';
 import { QuoteView } from '../QuoteView';
 import { PriceRow } from '../ui';
 
+jest.mock('react-native', () => ({ View: 'View' }));
+jest.mock('../ui', () => ({
+  Badge: () => null,
+  Card: () => null,
+  Divider: () => null,
+  InlineAlert: () => null,
+  PriceRow: () => null,
+  Text: () => null,
+}));
 jest.mock('../../theme', () => ({
   useTheme: () => ({
     spacing: { xs: 4, sm: 8, md: 12, lg: 16 },
