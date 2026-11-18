@@ -1839,26 +1839,92 @@ ok(lateWebhookResult?.refund === true
   '[RP-28] late time-based and fixed webhooks refund rather than resurrecting expired visits, and generation does not recreate them');
 
 // RP-29: the 48/24 default lets the expiry job free a still-future service window.
-const preServiceSlot = indiaSlot(5 * 24 * 60, 60);
+const rp29Customer = '00000000-0000-0000-0000-0000000000c9';
+const rp29Provider = '00000000-0000-0000-0000-0000000000a9';
+await db.query(`
+  insert into auth.users (id, phone, raw_user_meta_data) values
+    ($1::uuid, $2::text, '{}'::jsonb), ($3::uuid, $4::text, '{}'::jsonb)
+`, [rp29Customer, '+919999000019', rp29Provider, '+919999000020']);
+await db.query(`update profiles set full_name='RP-29 isolated' where id in ($1::uuid,$2::uuid)`,
+  [rp29Customer, rp29Provider]);
+await db.query(`
+  insert into providers (
+    id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended, timezone
+  ) values (
+    $1::uuid, 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.67,16.50),4326),
+    'verified', now(), true, false, false, 'Asia/Kolkata'
+  )
+`, [rp29Provider]);
+const rp29Service = (await one(`
+  insert into provider_services (provider_id, category_id, visit_fee, labour_rate, active)
+  values ($1::uuid, $2::uuid, 0, 60000, true) returning id
+`, [rp29Provider, timeCategory])).id;
+await db.query(`
+  insert into provider_availability (provider_id, weekday, start_time, end_time)
+  select $1::uuid, day, time '00:00', time '23:59' from generate_series(0, 6) day
+`, [rp29Provider]);
+const rp29Address = (await one(`
+  insert into addresses (user_id, label, line1, city, lat, lng)
+  values ($1::uuid, 'RP-29 home', 'Gate 9', 'Recurring City', 16.50, 80.67)
+  returning id
+`, [rp29Customer])).id;
+const preServiceSlot = { date: '2026-12-15', time: '10:00' };
 const preServicePlan = await createPlan(input({
-  provider_service_id: syncService,
+  provider_service_id: rp29Service,
+  address_id: rp29Address,
   frequency: 'custom',
   custom_dates: [preServiceSlot.date],
   start_date: preServiceSlot.date,
   end_date: null,
   start_time: preServiceSlot.time,
   duration_min: 60,
-}));
-await as(syncProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [preServicePlan]);
-const preServiceOccurrence = await one(`
-  select id, scheduled_at from bookings where recurring_schedule_id=$1`, [preServicePlan]);
+}), rp29Customer);
+await as(rp29Provider, 'authenticated', `select respond_recurring_plan($1::uuid, true, null)`, [preServicePlan]);
+const preServicePlanState = await one(`
+  select r.id::text id, r.provider_id::text provider_id, r.provider_service_id::text provider_service_id,
+         r.provider_acceptance, r.acceptance_mode, r.status::text status,
+         r.starts_on::text starts_on, r.start_time::text start_time, r.timezone,
+         r.generated_through::text generated_through, r.occurrences_created,
+         (select count(*)::int from bookings b where b.recurring_schedule_id=r.id) occurrence_count,
+         (select coalesce(jsonb_agg(jsonb_build_object(
+                    'date', c.occurrence_date::text, 'kind', c.kind, 'reason', c.reason
+                  )), '[]'::jsonb)
+            from recurring_occurrence_changes c where c.schedule_id=r.id) plan_changes
+    from recurring_schedules r
+   where r.id=$1::uuid
+`, [preServicePlan]);
+const preServiceOccurrences = (await db.query(`
+  select id::text id, scheduled_at::text scheduled_at
+    from bookings where recurring_schedule_id=$1::uuid order by scheduled_at
+`, [preServicePlan])).rows;
+const preServiceOccurrence = preServiceOccurrences[0];
+const rp29ProviderAvailability = (await db.query(`
+  select p.timezone, pa.weekday::int weekday,
+         pa.start_time::text start_time, pa.end_time::text end_time
+    from providers p
+    left join provider_availability pa on pa.provider_id=p.id
+   where p.id=$1::uuid
+   order by pa.weekday
+`, [rp29Provider])).rows;
+ok(!!preServiceOccurrence?.id,
+  `[RP-29] isolated fixed slot materializes an occurrence (${JSON.stringify({
+    slot: preServiceSlot,
+    provider: rp29Provider,
+    service: rp29Service,
+    customer: rp29Customer,
+    providerAvailability: rp29ProviderAvailability,
+    plan: preServicePlanState,
+    occurrences: preServiceOccurrences,
+  })})`);
+if (preServiceOccurrence?.id) {
 const defaultDueWindow = await one(`
   select count(*)::int n,
          bool_and(ps.due_at=greatest(b.scheduled_at-interval '48 hours', ps.created_at)) due_matches,
          bool_and(ps.due_at+interval '24 hours' < b.scheduled_at) expires_before_start,
          bool_and(b.scheduled_at > now()) service_future
     from bookings b join payment_schedule ps on ps.booking_id=b.id
-   where b.recurring_schedule_id=$1`, [preServicePlan]);
+   where b.recurring_schedule_id=$1::uuid
+`, [preServicePlan]);
 await db.query(`update app_config
   set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '72'::jsonb),
                       '{billing_grace_hours}', '24'::jsonb)
@@ -1867,7 +1933,8 @@ const dueAfterRuleChange = await one(`
   select count(*)::int n,
          bool_and(ps.due_at=greatest(b.scheduled_at-interval '72 hours', ps.created_at)) correct
     from bookings b join payment_schedule ps on ps.booking_id=b.id
-   where b.recurring_schedule_id=$1`, [preServicePlan]);
+   where b.recurring_schedule_id=$1::uuid
+`, [preServicePlan]);
 await db.query(`update app_config
   set value=jsonb_set(jsonb_set(value, '{payment_due_hours_before}', '48'::jsonb),
                       '{billing_grace_hours}', '24'::jsonb)
@@ -1876,23 +1943,25 @@ const dueAfterDefaultRestore = await one(`
   select count(*)::int n,
          bool_and(ps.due_at=greatest(b.scheduled_at-interval '48 hours', ps.created_at)) correct
     from bookings b join payment_schedule ps on ps.booking_id=b.id
-   where b.recurring_schedule_id=$1`, [preServicePlan]);
+   where b.recurring_schedule_id=$1::uuid
+`, [preServicePlan]);
 await db.query(`update payment_schedule set due_at=now()-interval '25 hours'
-  where booking_id=$1 and status in ('due','upcoming')`, [preServiceOccurrence.id]);
+  where booking_id=$1::uuid and status in ('due','upcoming')`, [preServiceOccurrence.id]);
 const preServiceExpiryRun = await as(null, 'service_role',
   `select expire_recurring_occurrences(500) n`);
 const preServiceState = await one(`
   select b.status::text status, b.scheduled_at > now() service_future,
          count(ps.id) filter (where ps.status='waived')::int waived
     from bookings b left join payment_schedule ps on ps.booking_id=b.id
-   where b.id=$1 group by b.id`, [preServiceOccurrence.id]);
+   where b.id=$1::uuid group by b.id
+  `, [preServiceOccurrence.id]);
 let releasedFutureSlot;
 const releasedFutureSlotError = await fails(async () => {
   releasedFutureSlot = await one(`
     select _create_session_booking(
-      $1, $2, null, $3::timestamptz, 60,
-      'Gate 3', 'Recurring City', 16.5, 80.61, 'slot released before recurring service'
-    ) id`, [otherCustomer, syncService, preServiceOccurrence.scheduled_at]);
+      $1::uuid, $2::uuid, null, $3::timestamptz, 60,
+      'Gate 9', 'Recurring City', 16.50, 80.67, 'slot released before recurring service'
+    ) id`, [otherCustomer, rp29Service, preServiceOccurrence.scheduled_at]);
 });
 ok(defaultDueWindow.n === 2 && defaultDueWindow.due_matches
   && defaultDueWindow.expires_before_start && defaultDueWindow.service_future
@@ -1901,7 +1970,22 @@ ok(defaultDueWindow.n === 2 && defaultDueWindow.due_matches
   && preServiceState.status === 'expired' && preServiceState.service_future
   && preServiceState.waived === 2 && Number(preServiceExpiryRun[0].n) >= 1
   && !releasedFutureSlotError && !!releasedFutureSlot?.id,
-  '[RP-29] 48/24 rules release an overdue unpaid visit and its provider window before the future service time');
+  `[RP-29] 48/24 rules release an overdue unpaid visit and its provider window before the future service time (${JSON.stringify({
+    slot: preServiceSlot,
+    provider: rp29Provider,
+    service: rp29Service,
+    providerAvailability: rp29ProviderAvailability,
+    plan: preServicePlanState,
+    occurrence: preServiceOccurrence,
+    defaultDueWindow,
+    dueAfterRuleChange,
+    dueAfterDefaultRestore,
+    preServiceExpiryRun,
+    preServiceState,
+    releasedFutureSlotError,
+    releasedFutureSlot,
+  })})`);
+}
 
 // RP-30: one deactivated legacy service is recorded per date and does not starve a valid plan.
 const inactiveLegacyDate = dateOffset(27);
