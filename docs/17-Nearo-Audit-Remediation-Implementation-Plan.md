@@ -279,9 +279,9 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 |---|---|---|---|---|---|---|
 | X1 | G1 | merged; admin E2E step BLOCKED on owner config | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
 | X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
-| X3 | G1 | merged; 0060a/b registered; main deploy stopped before migration apply by the RP-29 test failure; T2 fix now staged | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44408157036 (main SQL failure) | 0060a/b | 9bd12a5 (lane 7562163) |
-| H1 | G1 | revalidation blocked only by T2 RP-29 fixture crash; rerun after T2 fix reaches main | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44392447601 (prior green); 44408886545 (blocked); 44408886351 (E2E cancelled) | 0061 | — |
-| F3 | G1 | lane-green; lower-model review clear; revalidation waits for T2 fix and 0061 H1 order | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44405405460 | 0062 | — |
+| X3 | G1 | merged; 0060a/b applied and recorded by successful main deployment | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44411077684 (main success) | 0060a/b | 9bd12a5 (lane 7562163) |
+| H1 | G1 | merged; 0061 registered; main deployment pending | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44411611254 (revalidation green); 44411611318 (E2E pending) | 0061 | 83ca69f (lane 7fc2ed9) |
+| F3 | G1 | lane-green; lower-model review clear; revalidate after H1 reaches main before 0062 merge | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44405405460 | 0062 | — |
 | O1 | G1 | green; waiting for migration order | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 | 0063 | — |
 | O2 | G1 | green; waiting for migration order | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 | 0064 | — |
 | H2a | G1 | green; lower-model review clear; waiting for migration order | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 | 0065 | — |
@@ -294,7 +294,7 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | P1b | G1 | blocked by P1a; rebase and rerun after P1a merges | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (prior base) | 0071 | — |
 | R1 | G1 | green; lower-model review clear; waiting for migration order | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
 | T1 | G1 | merged; code-owned Q-00 steps pass; admin E2E step BLOCKED on owner config | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | — | fb069de (lane d8cea17) |
-| T2 | G1 | RP-29 fixture fix lane-green; staged for main to unblock X3 deployment | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44401870596 (prior green); 44408157036 (main SQL failure); 44410255193 (fix green); 44410255110 (E2E pending) | — | caed73d; staged c409974 (lane f05803e) |
+| T2 | G1 | RP-29 isolated fixture fix merged; main SQL suite and X3 deployment green | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44410255193 (fix green); 44410255110 (E2E pending); 44411077684 (main success) | — | caed73d; c409974 (lane f05803e) |
 | F1 | G2 | not started; blocked by X3 | — | — | 0073 | — |
 | F2 | G2 | not started; blocked by F1; D1 decided | — | — | 0074 | — |
 | F4 | G2 | not started; blocked by F3 and F1 | — | — | 0075 | — |

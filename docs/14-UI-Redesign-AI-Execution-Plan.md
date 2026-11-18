@@ -774,7 +774,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
 | Q-00 / doc 17 T1 | code-owned E2E fixes merged; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | fb069de |
-| Q-01 | workflow trigger, 14-day retention, and queue:max merged; run 44408156814 cancelled before jobs; queue now retains concurrent pending runs; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351; 44408156814 (cancelled before jobs); 44406412365 (app publish green) | 5152f6c |
+| Q-01 | workflow trigger, 14-day retention, and queue:max merged; the next main E2E is queued; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351; 44408156814 (cancelled before jobs); 44411077594 (pending); 44411077650 (app publish green); 44411077684 (backend green) | 5152f6c |
 | T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
 | B-01 | blocked by Q-00 and R1 | — | — | — |
 | I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
@@ -786,13 +786,13 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | R-05 | blocked by doc 17 O4 | — | — | — |
 | R-06 | blocked by doc 17 S2 | — | — | — |
 | R-07 | staged for main; lane CI green; E2E cancelled before execution | 300c6bc6-044b-4430-84e0-d3a3d0c3ebfc | 44408117021 (green); 44408116941 (E2E cancelled) | 7c83274 (lane e629743) |
-| C-01 | staged for main; lane CI green; E2E running | 1fb8208b-f4e6-4809-94a5-2450f1f4578f | 44408144405 (green); 44408144270 (E2E in progress) | 9468a82 (lane 8ea2df3) |
+| C-01 | staged for main; lane CI green; code-owned E2E steps passed; admin step owner-blocked | 1fb8208b-f4e6-4809-94a5-2450f1f4578f | 44408144405 (green); 44408144270 (`ADMIN_E2E_PHONE` invalid/empty) | 9468a82 (lane 8ea2df3) |
 | C-02 | staged for main; lane CI green; E2E cancelled before execution | 46d09a0a-7fdb-4228-8221-dfcd109d0f01 | 44407464640 (green); 44407464583 (E2E cancelled) | 1057cfa (lane 8a9a729) |
-| C-03 | ready to launch after this integration push | — | — | — |
+| C-03 | implementing | 8fb08e8e-ea54-41ba-8913-7590c007d2de | pending | — |
 | C-04 | staged for main; lane CI green after test fixes; E2E cancelled | 2ad9ec1a-b7ad-47c3-98b5-c09729e3acce | 44408076817 (green); 44408076741 (E2E cancelled) | ff3c46d (lane 7b4a510) |
 | C-05 | staged for main; lane CI green after type fix; E2E cancelled | 07879722-0a44-46a3-b508-a7924f3e168a | 44408097637 (green); 44408097628 (E2E cancelled) | f2ab430 (lane 5759992) |
 | C-06 | staged for main; lane CI green; all code-owned E2E steps passed; admin step remains owner-blocked | 0328e331-9d52-4778-97e5-e6737df3e1a8 | 44407916876 (green); 44407916872 (`ADMIN_E2E_PHONE` invalid/empty) | b75808a (lane 19afe98) |
-| C-08 | ready to launch after this integration push | — | — | — |
+| C-08 | implementing | ff027770-83f4-4c19-88e9-1dd0a4dabfda | pending | — |
 | H-01 | blocked by components and doc 17 U3 | — | — | — |
 | H-02 | blocked by components | — | — | — |
 | G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
@@ -809,7 +809,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | A-01 | blocked by C-07 and doc 17 U3 | — | — | — |
 | M-01 | blocked by R-05 and T-01 | — | — | — |
 | M-02 | blocked by R-06 and T-01 | — | — | — |
-| M-03 | ready to launch after this integration push | — | — | — |
+| M-03 | implementing | 53f643d6-ed52-4e6d-b3f5-f84edbd0a207 | pending | — |
 | Q-02 | blocked by all covered Phase 3 tasks | — | — | — |
 | Q-03 | blocked by all Phase 3 tasks | — | — | — |
 | P2-01 | blocked by Q-03 | — | — | — |
