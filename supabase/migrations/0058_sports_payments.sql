@@ -104,6 +104,146 @@ alter table public.provider_payout_accounts
   add constraint provider_payout_accounts_profile_id_fkey
   foreign key (provider_id) references public.profiles (id) on delete cascade;
 
+alter table public.provider_payout_accounts
+  add column if not exists activation_event_at timestamptz;
+
+update public.provider_payout_accounts pa
+   set activation_event_at = p.kyc_updated_at
+  from public.providers p
+ where p.id = pa.provider_id
+   and pa.activation_event_at is null
+   and p.kyc_updated_at is not null;
+
+create or replace function public.sync_venue_payout_status(
+  p_account_id text,
+  p_status text,
+  p_requirements jsonb default '[]'::jsonb,
+  p_event_at timestamptz default now()
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner_id uuid;
+  v_seen timestamptz;
+  v_status text;
+  v_event_at timestamptz := coalesce(p_event_at, now());
+  v_requirements jsonb;
+begin
+  select pa.provider_id, pa.activation_event_at, pa.activation_status
+    into v_owner_id, v_seen, v_status
+    from public.provider_payout_accounts pa
+   where pa.razorpay_account_id = p_account_id or pa.fund_account_id = p_account_id
+   for update;
+  if v_owner_id is null
+     or exists (select 1 from public.providers p where p.id = v_owner_id)
+     or not exists (select 1 from public.sports_venues v where v.owner_id = v_owner_id) then
+    return jsonb_build_object('ok', false, 'reason', 'unknown_venue_account');
+  end if;
+  if v_seen is not null and v_event_at < v_seen then
+    return jsonb_build_object('ok', true, 'stale', true, 'payee_id', v_owner_id,
+                              'activation_status', v_status);
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'field_reference', left(r ->> 'field_reference', 80),
+           'reason_code', left(r ->> 'reason_code', 40),
+           'description', left(r ->> 'description', 200)
+         )), '[]'::jsonb)
+    into v_requirements
+    from jsonb_array_elements(
+      case when jsonb_typeof(p_requirements) = 'array' then p_requirements else '[]'::jsonb end
+    ) r;
+
+  update public.provider_payout_accounts
+     set activation_status = coalesce(p_status, activation_status),
+         requirements = v_requirements,
+         activation_event_at = v_event_at,
+         updated_at = now(),
+         last_error = case when p_status = 'activated' then null else last_error end
+   where provider_id = v_owner_id;
+
+  return jsonb_build_object(
+    'ok', true, 'payee_id', v_owner_id, 'activation_status', p_status, 'stale', false
+  );
+end;
+$$;
+
+create or replace function public.sync_provider_payout_status(
+  p_account_id text,
+  p_status text,
+  p_requirements jsonb default '[]'::jsonb,
+  p_event_at timestamptz default now()
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_provider uuid;
+  v_old text;
+  v_new public.kyc_status := public._map_gateway_status(p_status);
+  v_seen timestamptz;
+  v_requirements jsonb;
+  v_reason text;
+begin
+  select provider_id into v_provider
+    from public.provider_payout_accounts
+   where razorpay_account_id = p_account_id or fund_account_id = p_account_id;
+  if v_provider is null then
+    select id into v_provider from public.providers where razorpay_account_id = p_account_id;
+  end if;
+  if v_provider is null then
+    return jsonb_build_object('ok', false, 'reason', 'unknown_account');
+  end if;
+  select kyc_status::text, kyc_updated_at into v_old, v_seen
+    from public.providers where id = v_provider for update;
+  if v_seen is not null and p_event_at < v_seen then
+    return jsonb_build_object('ok', true, 'stale', true, 'provider_id', v_provider, 'kyc_status', v_old);
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'field_reference', left(r ->> 'field_reference', 80),
+           'reason_code', left(r ->> 'reason_code', 40),
+           'description', left(r ->> 'description', 200)
+         )), '[]'::jsonb),
+           (array_agg(left(r ->> 'description', 200))
+             filter (where r ->> 'description' is not null))[1]
+    into v_requirements, v_reason
+    from jsonb_array_elements(
+      case when jsonb_typeof(p_requirements) = 'array' then p_requirements else '[]'::jsonb end
+    ) r;
+
+  update public.providers
+     set kyc_status = v_new,
+         razorpay_account_id = case when p_account_id like 'acc\_%' then p_account_id else razorpay_account_id end,
+         kyc_reference = p_account_id,
+         kyc_requirements = v_requirements,
+         kyc_reason = case when v_new = 'verified' then null else v_reason end,
+         kyc_updated_at = p_event_at
+   where id = v_provider;
+  update public.provider_payout_accounts
+     set activation_status = coalesce(p_status, activation_status),
+         requirements = v_requirements,
+         activation_event_at = p_event_at,
+         updated_at = now(),
+         last_error = case when v_new = 'verified' then null else last_error end
+   where provider_id = v_provider;
+  if v_old is distinct from v_new::text then
+    perform public._log_onboarding_event(
+      v_provider, 'payout_status_changed',
+      jsonb_build_object('from', v_old, 'to', v_new, 'gateway_status', p_status)
+    );
+  end if;
+  return jsonb_build_object(
+    'ok', true, 'provider_id', v_provider, 'kyc_status', v_new, 'changed', v_old is distinct from v_new::text
+  );
+end;
+$$;
+
 drop policy if exists payouts_provider on public.payouts;
 create policy payouts_provider on public.payouts for select to authenticated
   using (provider_id = auth.uid() or payee_id = auth.uid());
@@ -1208,6 +1348,48 @@ begin
 end;
 $$;
 
+create or replace function public._refund_unmatched_sports_capture(
+  p_booking_id uuid,
+  p_payment_id text,
+  p_amount int,
+  p_reason text
+)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_capture_payment_id uuid;
+  v_refunded int;
+begin
+  if p_amount is null or p_amount <= 0 then
+    return 0;
+  end if;
+  if exists (select 1 from public.payments where razorpay_payment_id = p_payment_id) then
+    return 0;
+  end if;
+
+  insert into public.payments (
+    sports_booking_id, purpose, amount, status, razorpay_link_id, razorpay_payment_id, paid_at
+  ) values (
+    p_booking_id, 'fixed', p_amount, 'paid', 'sports-capture:' || p_payment_id, p_payment_id, now()
+  ) returning id into v_capture_payment_id;
+
+  v_refunded := public._queue_refund(v_capture_payment_id, p_amount, p_reason);
+  if v_refunded > 0 then
+    insert into public.notifications (user_id, kind, title, body, data, collapse_key)
+    select b.customer_id, 'sports_refund_issued', 'Sports payment refunded',
+           'An extra or mismatched sports payment has been queued for refund.',
+           jsonb_build_object('sports_booking_id', b.id, 'url', '/sports-booking/' || b.id::text),
+           'sports-refund-capture:' || p_payment_id
+      from public.sports_bookings b
+     where b.id = p_booking_id;
+  end if;
+  return v_refunded;
+end;
+$$;
+
 create or replace function public.record_sports_payment_paid(
   p_order_id text, p_payment_id text, p_amount int
 )
@@ -1230,8 +1412,12 @@ begin
      or nullif(btrim(coalesce(p_payment_id, '')), '') is null then
     return jsonb_build_object('ok', false, 'error', 'payment identifiers are required');
   end if;
+  perform pg_advisory_xact_lock(hashtext(p_payment_id));
   if exists (select 1 from public.payments where razorpay_payment_id = p_payment_id) then
     return jsonb_build_object('ok', true, 'duplicate', true);
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    return jsonb_build_object('ok', false, 'error', 'captured amount must be positive');
   end if;
   select p.sports_booking_id into v_booking_id
     from public.payments p where p.razorpay_link_id = p_order_id;
@@ -1257,10 +1443,25 @@ begin
     return jsonb_build_object('ok', true, 'duplicate', true);
   end if;
   if v_payment.razorpay_payment_id is not null then
-    return jsonb_build_object('ok', false, 'error', 'payment attempt already paid');
+    v_refunded := public._refund_unmatched_sports_capture(
+      v_booking_id, p_payment_id, p_amount, 'duplicate sports payment capture'
+    );
+    return jsonb_build_object(
+      'ok', true, 'booking_id', v_booking_id, 'duplicate_capture', true,
+      'refund', v_refunded > 0, 'refund_amount', v_refunded
+    );
   end if;
-  if p_amount is null or v_payment.amount <> p_amount then
-    return jsonb_build_object('ok', false, 'error', 'amount mismatch');
+  if v_payment.amount <> p_amount then
+    update public.payments
+       set status = 'failed', cancel_link_pending = false
+     where id = v_payment.id and status = 'created';
+    v_refunded := public._refund_unmatched_sports_capture(
+      v_booking_id, p_payment_id, p_amount, 'sports payment amount mismatch'
+    );
+    return jsonb_build_object(
+      'ok', true, 'booking_id', v_booking_id, 'amount_mismatch', true,
+      'refund', v_refunded > 0, 'refund_amount', v_refunded
+    );
   end if;
 
   v_payable :=
@@ -1662,6 +1863,7 @@ $$;
 
 revoke execute on function
   public._queue_sports_refund(uuid, int, text),
+  public._refund_unmatched_sports_capture(uuid, text, int, text),
   public._create_sports_payout(uuid)
 from public, anon, authenticated;
 
@@ -1673,6 +1875,7 @@ revoke execute on function
   public.book_sports_slot(uuid, timestamptz, int, int, text, text, text),
   public.prepare_sports_payment(uuid, uuid),
   public.record_sports_payment_paid(text, text, int),
+  public.sync_venue_payout_status(text, text, jsonb, timestamptz),
   public.decide_sports_booking(uuid, boolean, text),
   public.cancel_sports_booking(uuid, text),
   public.expire_sports_requests(),
@@ -1693,6 +1896,7 @@ to authenticated;
 
 grant execute on function public.prepare_sports_payment(uuid, uuid),
   public.record_sports_payment_paid(text, text, int),
+  public.sync_venue_payout_status(text, text, jsonb, timestamptz),
   public.expire_sports_requests(),
   public.claim_due_transfers(int)
 to service_role;

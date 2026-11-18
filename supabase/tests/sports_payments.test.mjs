@@ -193,12 +193,21 @@ await db.query(`
   values ($1::uuid, 'payouts', 'activated', 'acc_sports_owner', 'fa_sports_owner')
 `, [owner]);
 const syncedOwnerAccount = json((await as(null, 'service_role', `
-  select public.sync_provider_payout_status('acc_sports_owner', 'activated', '[]'::jsonb, now()) result
+  select public.sync_venue_payout_status('acc_sports_owner', 'activated', '[]'::jsonb, now()+interval '1 minute') result
+`))[0].result);
+const ownerStatus = await one(`
+  select activation_status, activation_event_at from public.provider_payout_accounts where provider_id=$1`,
+  [owner]);
+const staleOwnerEvent = json((await as(null, 'service_role', `
+  select public.sync_venue_payout_status('acc_sports_owner', 'suspended', '[]'::jsonb, now()) result
 `))[0].result);
 ok(syncedOwnerAccount.ok === true
+  && ownerStatus.activation_status === 'activated'
+  && ownerStatus.activation_event_at
+  && staleOwnerEvent.ok === true && staleOwnerEvent.stale === true
   && (await one(`select activation_status from public.provider_payout_accounts where provider_id=$1`,
     [owner])).activation_status === 'activated',
-  '[SP-05] venue-owner payout status sync succeeds without a providers row');
+  '[SP-05] venue payout status sync accepts current events and ignores stale webhook events');
 
 const book = async (user, resource, start, key, mode = 'online', slots = 1, participants = 1) => {
   const rows = await as(user, 'authenticated', `
@@ -577,15 +586,66 @@ ok(retriedAttempt.payment_id !== failedAttempt.payment_id,
   '[SP-10] a failed payment attempt can be retried while the hold remains valid');
 await attachOrder(retriedAttempt.payment_id, 'order_sp_retry');
 const mismatch = await recordPaid('order_sp_retry', 'pay_sp_wrong_amount', retriedAttempt.amount - 1);
-ok(mismatch.ok === false && /amount mismatch/.test(mismatch.error ?? ''),
-  '[SP-11] a gateway amount mismatch is refused');
-const successfulRetry = await recordPaid('order_sp_retry', 'pay_sp_retry', retriedAttempt.amount);
+const mismatchCapture = await one(`
+  select p.status, p.amount, p.razorpay_payment_id,
+         (select coalesce(sum(r.amount),0)::int from public.refunds r where r.payment_id=p.id) refunded
+    from public.payments p where p.razorpay_payment_id='pay_sp_wrong_amount'`);
+ok(mismatch.ok === true && mismatch.amount_mismatch === true && mismatch.refund === true
+  && mismatchCapture.status === 'refund_pending'
+  && mismatchCapture.amount === retriedAttempt.amount - 1
+  && mismatchCapture.refunded === retriedAttempt.amount - 1,
+  '[SP-11] a captured amount mismatch is recorded and queued for full refund without webhook retry');
+const nextRetryAttempt = await prepare(retryBooking.booking_id);
+await attachOrder(nextRetryAttempt.payment_id, 'order_sp_retry2');
+const successfulRetry = await recordPaid('order_sp_retry2', 'pay_sp_retry', nextRetryAttempt.amount);
 const retryStatus = (await one(`select status from public.sports_bookings where id=$1`, [retryBooking.booking_id])).status;
 ok(successfulRetry.ok === true && retryStatus === 'accepted',
   '[SP-10, SP-11] a valid retry payment accepts the booking');
-const duplicatePaid = await recordPaid('order_sp_retry', 'pay_sp_retry', retriedAttempt.amount);
+const duplicatePaid = await recordPaid('order_sp_retry2', 'pay_sp_retry', nextRetryAttempt.amount);
 ok(duplicatePaid.duplicate === true,
   '[SP-11] recording the same gateway payment twice is idempotent');
+const sportsRulesBeforeMismatchPayout = (await one(
+  `select value from public.app_config where key='sports_rules'`)).value;
+await db.query(`
+  update public.app_config
+     set value=jsonb_set(jsonb_set(value, '{commission_bp}', '2000'::jsonb),
+                         '{release_after_hours}', '24'::jsonb)
+   where key='sports_rules'
+`);
+await db.query(`update public.sports_bookings set status='completed' where id=$1`,
+  [retryBooking.booking_id]);
+await as(null, 'service_role',
+  `select public._create_sports_payout($1::uuid)`, [retryBooking.booking_id]);
+const mismatchPayout = await one(`
+  select po.gross, po.amount, b.price_paise, b.refund_paise
+    from public.payouts po
+    join public.sports_bookings b on b.id=po.sports_booking_id
+   where po.sports_booking_id=$1`, [retryBooking.booking_id]);
+ok(mismatchPayout.price_paise === 20000 && mismatchPayout.refund_paise === 0
+  && mismatchPayout.gross === 20000 && mismatchPayout.amount === 17640,
+  '[SP-11, SP-14] an unmatched-capture refund does not reduce the venue payout for the valid booking');
+await db.query(`update public.app_config set value=$1::jsonb where key='sports_rules'`,
+  [JSON.stringify(sportsRulesBeforeMismatchPayout)]);
+
+const extraCaptureBooking = await book(customer2, instantResource, await slotAt('18:00'), 'sp-extra-capture');
+const extraCaptureAttempt = await prepare(extraCaptureBooking.booking_id, customer2);
+await attachOrder(extraCaptureAttempt.payment_id, 'order_sp_extra_capture');
+const firstExtraCapture = await recordPaid(
+  'order_sp_extra_capture', 'pay_sp_extra_capture_1', extraCaptureAttempt.amount);
+const secondExtraCapture = await recordPaid(
+  'order_sp_extra_capture', 'pay_sp_extra_capture_2', extraCaptureAttempt.amount);
+const secondCaptureRefund = await one(`
+  select p.status, p.amount, p.razorpay_payment_id,
+         (select coalesce(sum(r.amount),0)::int from public.refunds r where r.payment_id=p.id) refunded
+    from public.payments p where p.razorpay_payment_id='pay_sp_extra_capture_2'`);
+ok(firstExtraCapture.ok === true && secondExtraCapture.ok === true
+  && secondExtraCapture.duplicate_capture === true && secondExtraCapture.refund === true
+  && secondCaptureRefund.status === 'refund_pending'
+  && secondCaptureRefund.amount === extraCaptureAttempt.amount
+  && secondCaptureRefund.refunded === extraCaptureAttempt.amount
+  && (await one(`select refund_paise from public.sports_bookings where id=$1`,
+    [extraCaptureBooking.booking_id])).refund_paise === 0,
+  '[SP-11] a second captured payment is refunded without reducing the sports booking payout basis');
 
 const unavailableLegacySlot = await slotAt('17:00');
 await db.query(`update public.sports_venues set payment_modes=array['online'] where id=$1`, [venue]);
