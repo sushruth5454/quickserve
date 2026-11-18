@@ -449,7 +449,7 @@ await scenario('H2a refuses pause and provider response in invalid plan states',
     `select public.respond_recurring_plan($1::uuid, true, null)`, [planId]));
   const actual = await one(`
     select status, provider_acceptance from public.recurring_schedules where id = $1::uuid`, [planId]);
-  ok(/accepted/i.test(pauseError ?? '') && /turned off/i.test(respondError ?? '')
+  ok(/cannot be paused/i.test(pauseError ?? '') && /turned off/i.test(respondError ?? '')
     && actual.status === 'active' && actual.provider_acceptance === 'pending',
   `[H2a RP-44/RP-45] pending plan remains active and cannot pause or be decided with flag off; actual=${JSON.stringify({ pauseError, respondError, ...actual })}`);
 });
