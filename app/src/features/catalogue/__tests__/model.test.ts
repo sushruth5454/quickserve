@@ -45,6 +45,45 @@ test('HSC-03 ON groups serviceable children and preserves server recurrence meta
   ])).toEqual([['Household help', ['house-cleaning']]]);
 });
 
+test('HSC-03 ON shows legacy cleaning-vertical categories exactly once under their parent groups', () => {
+  const household = category('group-household', 'household-help', 30, {
+    slug: 'household-help',
+    name: 'Household help',
+    archetype: null as never,
+  });
+  const repairs = category('group-repairs', 'home-repairs', 40, {
+    slug: 'home-repairs',
+    name: 'Repair & maintenance',
+    archetype: null as never,
+  });
+  const catalogue = normaliseCatalogue([
+    household,
+    repairs,
+    category('house-cleaning', 'cleaning', 1, { parent_id: household.id, archetype: 'fixed' }),
+    category('pest-control', 'cleaning', 2, { parent_id: repairs.id, archetype: 'fixed' }),
+    category('water-tank-cleaning', 'cleaning', 3, { parent_id: repairs.id, archetype: 'fixed' }),
+  ]);
+  const sections = buildCatalogueSections(catalogue.verticals, true);
+  const slugs = sections.flatMap((section) => section.categories.map((item) => item.slug));
+
+  expect(slugs).toEqual(['house-cleaning', 'pest-control', 'water-tank-cleaning']);
+  expect(sections.map((section) => section.label)).toEqual(['Household help', 'Repair & maintenance']);
+});
+
+test.each(['household-help', 'home-repairs', 'home-other'])(
+  'HSC-03 ON keeps parentless %s services in an explicit fallback section',
+  (vertical) => {
+    const verticals = groupVerticals([
+      category('uncategorized-service', vertical, 10, { parent_id: null, archetype: 'inspect_quote' }),
+    ]);
+
+    expect(buildCatalogueSections(verticals, true).map((section) => [
+      section.label,
+      section.categories.map((item) => item.slug),
+    ])).toEqual([['Other home services', ['uncategorized-service']]]);
+  },
+);
+
 test('HSC-03 OFF preserves the legacy family label and flat category list', () => {
   const catalogue = normaliseCatalogue([
     category('electrician', 'home-repairs', 10, { parent_id: 'legacy-group' }),

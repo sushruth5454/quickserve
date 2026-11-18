@@ -159,6 +159,16 @@ export function buildCatalogueSections(
       isCatalogueGroup(category)
       && HOME_GROUP_VERTICALS.includes(category.vertical as typeof HOME_GROUP_VERTICALS[number]))
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  const homeGroupIds = new Set(homeGroups.map((group) => group.id));
+  const groupedCategoryIds = new Set(
+    categories
+      .filter((category) =>
+        !isCatalogueGroup(category)
+        && isVisibleCategory(category)
+        && category.parent_id != null
+        && homeGroupIds.has(category.parent_id))
+      .map((category) => category.id),
+  );
   const groupedSections = homeGroups.flatMap((group) => {
     const children = categories.filter((category) =>
       !isCatalogueGroup(category)
@@ -173,17 +183,30 @@ export function buildCatalogueSections(
       : [];
   });
 
+  const parentlessHomeServices = categories.filter((category) =>
+    !isCatalogueGroup(category)
+    && isVisibleCategory(category)
+    && category.parent_id == null
+    && HOME_GROUP_VERTICALS.includes(category.vertical as typeof HOME_GROUP_VERTICALS[number])
+    && matches(category));
+  const fallbackSections = parentlessHomeServices.length > 0
+    ? [{ slug: 'home-services:other', label: 'Other home services', categories: parentlessHomeServices }]
+    : [];
+
   const otherSections = verticals
     .filter((vertical) => !HOME_GROUP_VERTICALS.includes(vertical.slug as typeof HOME_GROUP_VERTICALS[number]))
     .flatMap((vertical) => {
       const visible = vertical.categories.filter((category) =>
-        !isCatalogueGroup(category) && isVisibleCategory(category) && matches(category));
+        !isCatalogueGroup(category)
+        && isVisibleCategory(category)
+        && !groupedCategoryIds.has(category.id)
+        && matches(category));
       return visible.length > 0
         ? [{ slug: vertical.slug, label: vertical.label, categories: visible }]
         : [];
     });
 
-  return [...groupedSections, ...otherSections];
+  return [...groupedSections, ...fallbackSections, ...otherSections];
 }
 
 export function titleCase(value: string): string {
