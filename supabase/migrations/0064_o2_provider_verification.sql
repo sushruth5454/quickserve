@@ -31,7 +31,8 @@ begin
   select * from (
     select p.id, pr.full_name, u.phone::text, p.city, p.kyc_status::text,
            p.admin_review_status,
-           exists (select 1 from public.provider_payout_accounts pa where pa.provider_id = p.id),
+           p.razorpay_account_id is not null
+             or exists (select 1 from public.provider_payout_accounts pa where pa.provider_id = p.id),
            p.suspended, coalesce(p.paused, false), p.is_online,
            p.rating_avg, p.rating_count, p.jobs_completed,
            exists (select 1 from public.provider_services ps join public.categories c on c.id = ps.category_id
@@ -70,10 +71,6 @@ as $$
      where p.id = p_provider_id
        and p.kyc_status = 'verified'
        and p.admin_review_status = 'approved'
-       and exists (
-         select 1 from public.provider_payout_accounts pa
-          where pa.provider_id = p.id and pa.activation_status = 'activated'
-       )
        and not p.suspended
        and p.deactivated_at is null
        and p.submitted_at is not null
@@ -110,7 +107,11 @@ begin
   perform public._assert(v_submitted_at is not null, 'provider has not been submitted');
   if p_status = 'approved' then
     perform public._assert(
-      exists (select 1 from public.provider_payout_accounts pa where pa.provider_id = p_provider_id),
+      exists (
+        select 1 from public.providers p
+         where p.id = p_provider_id and p.razorpay_account_id is not null
+      )
+      or exists (select 1 from public.provider_payout_accounts pa where pa.provider_id = p_provider_id),
       'payout account is required before approval'
     );
   end if;

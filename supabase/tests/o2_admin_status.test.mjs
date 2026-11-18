@@ -118,12 +118,12 @@ try {
       ('${LEGACY}', '+919999000007'), ('${SHOP_OWNER_A}', '+919999000008'),
       ('${SHOP_OWNER_B}', '+919999000009'), ('${SHOP_OWNER_C}', '+919999000010');
     insert into public.admins (user_id) values ('${ADMIN}');
-    insert into public.providers (id, city, submitted_at, kyc_status) values
-      ('${APPROVABLE}', 'Testcity', now(), 'pending'),
-      ('${REJECTED}', 'Testcity', now(), 'pending'),
-      ('${UNSUBMITTED}', 'Testcity', null, 'pending'),
-      ('${NO_PAYOUT}', 'Testcity', now(), 'pending'),
-      ('${LEGACY}', 'Testcity', now(), 'verified');
+    insert into public.providers (id, city, submitted_at, kyc_status, razorpay_account_id) values
+      ('${APPROVABLE}', 'Testcity', now(), 'pending', null),
+      ('${REJECTED}', 'Testcity', now(), 'pending', null),
+      ('${UNSUBMITTED}', 'Testcity', null, 'pending', null),
+      ('${NO_PAYOUT}', 'Testcity', now(), 'pending', null),
+      ('${LEGACY}', 'Testcity', now(), 'verified', 'acc_o2_legacy');
     insert into public.provider_payout_accounts (provider_id, fund_account_id) values
       ('${APPROVABLE}', 'fa_o2_approvable'),
       ('${REJECTED}', 'fa_o2_rejected'),
@@ -132,7 +132,7 @@ try {
       select p.id, c.id, 1000, 1000
         from public.providers p
         cross join public.categories c
-       where p.id in ('${APPROVABLE}', '${REJECTED}', '${LEGACY}')
+       where p.id in ('${APPROVABLE}', '${REJECTED}', '${NO_PAYOUT}', '${LEGACY}')
          and c.slug = 'plumber';
   `);
   await db.exec(migration('0064_o2_provider_verification.sql'));
@@ -167,6 +167,13 @@ try {
       /payout account/,
       'provider admin-review RPC rejects approval without payout account',
     );
+    const [notApprovedWithoutPayout] = await as(ADMIN, 'authenticated',
+      `select ap.admin_review_status, public._provider_is_live(ap.id) as is_live
+         from public.admin_list_providers($1::text, $2::text) ap
+        where ap.id = $3::uuid`,
+      ['all', null, NO_PAYOUT]);
+    ok(notApprovedWithoutPayout.admin_review_status === 'pending' && !notApprovedWithoutPayout.is_live,
+      `payout-less provider remains unapproved and not live: ${JSON.stringify(notApprovedWithoutPayout)}`);
 
     await as(ADMIN, 'authenticated',
       `select public.admin_set_provider_review($1::uuid, $2::text, $3::text)`,
@@ -220,8 +227,8 @@ try {
               ap
         where ap.id = $3::uuid`,
       ['all', null, LEGACY]);
-    ok(legacy.admin_review_status === 'approved' && !legacy.has_payout_account && !legacy.is_live,
-      `backfilled approval does not make an accountless provider live: ${JSON.stringify(legacy)}`);
+    ok(legacy.admin_review_status === 'approved' && legacy.has_payout_account && legacy.is_live,
+      `legacy payout account remains live after KYC status is backfilled: ${JSON.stringify(legacy)}`);
 
     await expectError(
       () => as(ADMIN, 'authenticated',
