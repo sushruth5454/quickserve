@@ -71,6 +71,7 @@ const migrationFiles = [
   '0052_merchant_staff.sql', '0053_activity_contracts.sql', '0054_addendum_foundations.sql',
   '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql',
   '0057_recurring_plans_v2.sql', '0058_sports_payments.sql', '0059_admin_identity_hardening.sql',
+  '0060a_demo_payout_status.sql', '0060b_demo_payout_isolation.sql',
 ];
 
 const db = new PGlite({ extensions: { pgcrypto } });

@@ -141,6 +141,12 @@ insert into public.app_config (key, value)
 values ('demo_payments', '{"enabled": true, "provider_ids": []}'::jsonb)
 on conflict (key) do update set value = excluded.value;
 
+-- The legacy E2E checkout provider is seeded by seed.sql rather than demo_specs.
+-- Mark only its service-controlled app metadata so demo settlement accepts the E2E flow.
+update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"demo_only":"true"}'::jsonb
+ where id = '11111111-1111-1111-1111-111111111111'::uuid;
+
 insert into public.app_config (key, value)
 values ('deployment', '{"is_demo_project": true}'::jsonb)
 on conflict (key) do update

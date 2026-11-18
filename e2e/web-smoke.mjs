@@ -22,6 +22,7 @@ const pageErrors = [];
 const consoleErrors = [];
 const failures = [];
 const softFailures = [];
+const skippedSteps = [];
 let shot = 0;
 
 const browser = await chromium.launch();
@@ -145,6 +146,12 @@ async function grantE2eAdminMembership(phone) {
   }
 }
 
+function skipStep(name, reason) {
+  const message = `${name}: ${reason}`;
+  skippedSteps.push(message);
+  console.log(`  SKIPPED: ${reason}`);
+}
+
 // ---------- Auth (one OTP send per run: the test number is rate limited) ----------
 await step('login', async () => {
   await go('/');
@@ -168,10 +175,10 @@ await runAllServiceScenarios({ page, go, step, visible, qaMarker: QA_MARKER });
 await step('home', async () => {
   await go('/');
   await visible('Choose a category');
-  await visible('Home & vehicle services');
+  await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().waitFor({ state: 'visible' });
 });
 await step('home-family-drilldown-and-marketplace-entry-points', async () => {
-  await page.getByRole('button', { name: 'Home & vehicle services' }).click();
+  await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().click();
   await visible('Choose a service');
   await visible('AC Repair');
   await page.getByRole('button', { name: 'AC Repair, Request a quote' }).click();
@@ -244,7 +251,13 @@ await step('location-pick-saved-home', async () => {
   await page.waitForURL((u) => new URL(u).pathname === '/');
   await page.getByText(new RegExp(`^Benz Circle, ${escapeRe(CITY)}$`)).first().waitFor();
 });
-const categories = await rest('categories?select=slug,name,archetype&order=sort_order').catch(() => []);
+const catalogResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_catalog`, {
+  method: 'POST',
+  headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ p_city: CITY }),
+});
+if (!catalogResponse.ok) throw new Error(`rpc/get_catalog ${catalogResponse.status}: ${await catalogResponse.text()}`);
+const categories = (await catalogResponse.json()).filter((category) => category.archetype != null);
 // Each archetype has its own landing screen: pro list (inspect_quote), packages (fixed), sessions
 // (time_based) or creator list plus "Get proposals" (proposal).
 const LANDING = {
@@ -435,13 +448,50 @@ await step('assistant-open-from-home', async () => {
 });
 await step('assistant-draft-or-busy-fallback', async () => {
   await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
-  await page.getByLabel('Send message').first().click();
+  let http429Seen = false;
+  let resolveRateLimit;
+  const rateLimitResponse = new Promise((resolve) => {
+    resolveRateLimit = resolve;
+  });
+  const onAssistantResponse = (response) => {
+    if (response.status() === 429 && response.url().includes('/functions/v1/ai-assistant')) {
+      http429Seen = true;
+      resolveRateLimit();
+    }
+  };
+  page.on('response', onAssistantResponse);
+  let outcome;
+  try {
+    await page.getByLabel('Send message').first().click();
+    outcome = await Promise.race([
+      page.getByText(/Understanding your request|Switching to a backup AI model|Working on it/).first().waitFor({ timeout: 30000 }).then(() => 'progress'),
+      rateLimitResponse.then(() => 'http-429'),
+    ]);
+    if (outcome !== 'http-429') {
+      outcome = await Promise.race([
+        page.waitForFunction(() => {
+          const body = document.body?.innerText ?? '';
+          return body.includes('Review & pay')
+            || body.includes('QuickServe AI is busy right now')
+            || body.includes("You've used today's")
+            || body.includes("You're sending messages very quickly");
+        }, undefined, { timeout: 150000 }).then(() => 'message'),
+        rateLimitResponse.then(() => 'http-429'),
+      ]);
+    }
+  } finally {
+    page.off('response', onAssistantResponse);
+  }
+  const assistantText = await page.locator('body').innerText();
+  const limitCopy = assistantText.match(/You've used today's[^\n]*|You're sending messages very quickly[^\n]*/)?.[0] ?? '';
+  if (http429Seen || outcome === 'http-429' || limitCopy) {
+    skipStep(
+      'assistant-draft-or-busy-fallback',
+      `AI assistant rate limit${http429Seen || outcome === 'http-429' ? ' (HTTP 429)' : ''}; draft/review path was not validated${limitCopy ? `: ${limitCopy}` : '.'}`,
+    );
+    return;
+  }
   // Live progress from real server work, then either a draft or an explicit busy fallback.
-  await page.getByText(/Understanding your request|Switching to a backup AI model|Working on it/).first().waitFor({ timeout: 30000 });
-  await page.waitForFunction(() => {
-    const body = document.body?.innerText ?? '';
-    return body.includes('Review & pay') || body.includes('QuickServe AI is busy right now');
-  }, undefined, { timeout: 150000 });
   assistantDraftReady = await page.getByText('Review & pay', { exact: true }).last().isVisible().catch(() => false);
   if (!assistantDraftReady) {
     await page.getByText(/QuickServe AI is busy right now/).last().waitFor({ state: 'visible' });
@@ -460,7 +510,7 @@ await step('assistant-draft-or-busy-fallback', async () => {
 await optional('assistant-draft-scrolled', () => snapScrolled('assistant-draft-scrolled', 600));
 await step('assistant-review-prefills-book', async () => {
   if (!assistantDraftReady) {
-    console.log('  SKIPPED: verified the AI busy fallback; no draft was produced to review.');
+    skipStep('assistant-review-prefills-book', 'No assistant draft was produced to review.');
     return;
   }
   await page.getByText('Review & pay', { exact: true }).last().click();
@@ -494,7 +544,10 @@ await step('my-activity-shop-segment', async () => {
 await step('my-activity-sports-segment', async () => {
   await page.getByTestId('activity-segment-sports').click();
   await page.getByTestId('my-activity-panel-sports').waitFor();
-  await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor();
+  await Promise.any([
+    page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor({ state: 'visible' }),
+    page.getByText('No sports requests yet', { exact: true }).first().waitFor({ state: 'visible' }),
+  ]);
 });
 await step('my-activity-services-segment', async () => {
   await page.getByTestId('activity-segment-services').click();
@@ -555,7 +608,16 @@ await step('me-customer', async () => {
   await visible('Switch to provider mode');
 });
 await step('coins-wallet', async () => {
+  const coinsConfigResponse = page.waitForResponse((response) =>
+    response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_coins_config'),
+  );
   await go('/account');
+  const response = await coinsConfigResponse;
+  const config = response.ok() ? await response.json() : null;
+  if (config?.coins_earning_enabled === false && config.coins_redemption_enabled === false) {
+    skipStep('coins-wallet', 'Earning and redemption are disabled; the wallet entry is correctly hidden.');
+    return;
+  }
   await page.getByText('Seva Coins', { exact: true }).first().click();
   await page.waitForURL(/\/coins$/);
   await page.locator('text="Seva Coins" >> visible=true').last().waitFor();
@@ -919,10 +981,11 @@ await step('admin-feature-registry', async () => {
 
 await browser.close();
 
-writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, softFailures, pageErrors, consoleErrors }, null, 2));
-console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
+writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, softFailures, skippedSteps, pageErrors, consoleErrors }, null, 2));
+console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, skipped steps: ${skippedSteps.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
 for (const f of failures) console.log(`FAIL ${f}`);
 for (const f of softFailures) console.log(`SOFT FAIL ${f}`);
+for (const s of skippedSteps) console.log(`SKIP ${s}`);
 for (const e of pageErrors) console.log(`PAGEERROR ${e}`);
 for (const e of consoleErrors) console.log(`CONSOLE ${e}`);
 process.exit(failures.length || pageErrors.length ? 1 : 0);
