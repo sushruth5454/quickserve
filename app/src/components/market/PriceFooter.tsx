@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, type IconName } from '../ui/Button';
 import { Text } from '../ui/Text';
@@ -27,7 +27,7 @@ export function PriceFooter({
   note,
   above,
   amountVariant = 'amount',
-}: PriceFooterProps): JSX.Element {
+}: PriceFooterProps): ReactElement {
   const t = useTheme();
 
   return (
