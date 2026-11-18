@@ -433,14 +433,24 @@ await step('bookings-past', async () => {
   await page.getByText('Past', { exact: true }).first().click();
   await page.waitForTimeout(500);
 });
-await step('my-activity-segmented-lists', async () => {
+await step('my-activity-requests-segment', async () => {
   await page.getByRole('tab', { name: /^Requests/ }).click();
+  await page.getByRole('tab', { name: /^Requests/, selected: true }).waitFor();
+});
+await step('my-activity-shop-segment', async () => {
   await page.getByRole('tab', { name: /^Shop/ }).click();
+  await page.getByRole('tab', { name: /^Shop/, selected: true }).waitFor();
   await visible('Product enquiries');
   await visible('Product RFQs');
+});
+await step('my-activity-sports-segment', async () => {
   await page.getByRole('tab', { name: /^Sports/ }).click();
+  await page.getByRole('tab', { name: /^Sports/, selected: true }).waitFor();
   await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor();
+});
+await step('my-activity-services-segment', async () => {
   await page.getByRole('tab', { name: /^Services/ }).click();
+  await page.getByRole('tab', { name: /^Services/, selected: true }).waitFor();
   await visible('Active');
 });
 for (const [n, label, scrolled] of [
