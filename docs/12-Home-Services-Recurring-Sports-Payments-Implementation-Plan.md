@@ -635,8 +635,8 @@ Wire to merged B/D RPCs; billing cycle display (paid/due/next charge) from Lane 
 
 | Wave/Lane | Status | CI evidence |
 |---|---|---|
-| W0 (`0054`) | Complete; all flags/config/admin gates, notification kinds, overlap helper and parent-aware client helper are green | Backend `44270432354`; app `44270432248`; E2E `44270434243` (155 screens, 0 failed/soft-failed steps, 0 page/console errors) |
-| W0b (`0055`) | In progress; forward-only private readers + partial-refund cap correction, waiting for CI | — |
-| A, B, E, H, C1, F1 | Blocked until W0b CI is green | — |
+| W0 (`0054`) | Complete; flags/config/admin gates, notification kinds, overlap helper and parent-aware client helper are green | Backend `44270432354`; app `44270432248`; E2E `44270434243` (155 screens, 0 failed/soft-failed steps, 0 page/console errors) |
+| W0b (`0055`) | Complete; forward-only private readers and partial-refund cap correction are green | Backend `44272428735`; app `44272428779`; E2E `44272428754` (155 screens, 0 failed/soft-failed steps, 0 page/console errors) |
+| A1, A2, B1, E1, H1, C1a, C1b, F1a, F1b, T0 | In progress; 10 isolated background agents launched from green W0b baseline | Feature-lane CI pending |
 | D, G, C2, F2 | Not started | — |
 | T | Not started | — |
