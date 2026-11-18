@@ -219,6 +219,12 @@ ok(
 const createBooking = async () => (
   await asCustomer(`select create_booking($1, 'AC not cooling', '2 Core Road', 'Core City', 16.51, 80.64)`, [providerService])
 )[0].create_booking;
+await service(`update categories set active = true where id = $1`, [acCategory]);
+await service(`
+  insert into category_cities (category_id, city, live, launched_at)
+  values ($1, 'Core City', true, now())
+  on conflict (category_id, city) do update set live = true, launched_at = excluded.launched_at
+`, [acCategory]);
 const booking1 = await createBooking();
 const snapshot = (await service(`
   select archetype, category_config_version, location_mode, pricing_snapshot,

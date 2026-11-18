@@ -86,7 +86,9 @@ select '${category}','Flat clean','fixed',12000,12000,12000,'job',90,1,1 where n
 const pkg=(await db.query(`insert into service_packages(provider_service_id,title,price_type,price,price_min,price_max,unit,duration_min,qty_min,qty_max,active)
 values ('${service}','Deep clean','fixed',12000,12000,12000,'job',90,1,1,true) returning id`)).rows[0].id;
 await db.exec(`update app_config set value=value||'{"fixed":true}'::jsonb where key='archetype_flags';
-update categories set archetype='fixed',payment_template='full_upfront' where id='${category}';
+update categories set active=true,archetype='fixed',payment_template='full_upfront' where id='${category}';
+insert into category_cities(category_id,city,live,launched_at) values ('${category}','Core City',true,now())
+on conflict (category_id,city) do update set live=true,launched_at=excluded.launched_at;
 update app_config set value=value||'{"enabled":true}'::jsonb where key='fixed_booking';`);
 
 let failures=0;

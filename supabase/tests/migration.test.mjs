@@ -112,10 +112,19 @@ await db.exec(`update providers set created_at = now() - interval '90 days' wher
 await svc(`select sync_provider_kyc('${P}', 'acc_test123', 'activated')`);
 const [{ id: catId }] = await db.query(`select id from categories where slug = 'ac-repair'`).then(r => r.rows);
 const [{ id: psId }] = await asP(`insert into provider_services (provider_id, category_id, skill_level, visit_fee, labour_rate) values ($1, $2, 'expert', 19900, 50000) returning id`, [P, catId]);
+await db.exec(`
+  update categories set active = true where id = '${catId}';
+  insert into app_config (key, value) values ('launch_city', '"Vijayawada"')
+  on conflict (key) do update set value = excluded.value;
+  update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags';
+  insert into category_cities (category_id, city, live, launched_at)
+  values ('${catId}', 'Vijayawada', true, now())
+  on conflict (category_id, city) do update set live = true, launched_at = excluded.launched_at;
+`);
 
 const search = await as(null, 'anon', `select * from search_providers('ac-repair', 16.51, 80.65)`);
-ok(search.length === 1 && search[0].visit_fee === 19900, 'anon search finds verified provider');
-ok(search[0].score > 0, 'recommended score computed: ' + search[0].score);
+ok(search.length === 1 && search[0]?.visit_fee === 19900, 'anon search finds verified provider: ' + JSON.stringify(search));
+ok((search[0]?.score ?? 0) > 0, 'recommended score computed: ' + JSON.stringify(search[0] ?? null));
 await expectError(() => asC(`select phone from private_user_accounts where user_id = '${P}'`).then(r => { if (r.length) throw new Error('leak'); throw new Error('no rows'); }), /no rows/, 'customer cannot read provider phone');
 await expectError(() => asP(`update providers set kyc_status = 'verified' where id = '${P}'`), /permission denied/, 'provider cannot self-verify');
 
