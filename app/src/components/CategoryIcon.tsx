@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { View } from 'react-native';
 import { useTheme } from '../theme';
+import { CATEGORY_SLUG_TO_ICON } from './categoryIconMap';
 import { lighten } from './ui';
 
 type McIcon = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -58,47 +59,9 @@ export function categoryVisual(icon: string | undefined | null) {
   return CATEGORY_VISUALS[icon ?? ''] ?? { icon: 'tools' as McIcon, tint: '#1E5EFF' };
 }
 
-const SLUG_TO_ICON: Record<string, string> = {
-  'household-help': 'home',
-  'home-repairs': 'hammer',
-  'home-other': 'home',
-  'deep-cleaning': 'sparkles',
-  'bathroom-cleaning': 'droplet',
-  'kitchen-cleaning': 'restaurant',
-  'sofa-carpet-cleaning': 'home',
-  'full-house-cleaning': 'home',
-  dishwashing: 'restaurant',
-  'laundry-ironing': 'tv',
-  'cooking-meal-prep': 'restaurant',
-  'daily-cook': 'restaurant',
-  'part-time-cook': 'restaurant',
-  'full-time-cook': 'restaurant',
-  'maid-household-helper': 'home',
-  'ac-servicing': 'snowflake',
-  'fridge-washing-machine-repair': 'tv',
-  'ro-water-purifier-service': 'droplet',
-  'appliance-installation': 'hammer',
-  gardening: 'home',
-  'packers-movers': 'truck',
-  'home-sanitisation': 'sparkles',
-  babysitting: 'home',
-  'elderly-assistance': 'home',
-  'ac-repair': 'snowflake',
-  electrician: 'zap',
-  plumber: 'droplet',
-  'house-cleaning': 'home',
-  'water-tank-cleaning': 'database',
-  'car-mechanic': 'truck',
-  'bike-mechanic': 'bike',
-  'appliance-repair': 'tv',
-  'pest-control': 'bug',
-  carpenter: 'hammer',
-  painter: 'brush',
-};
-
 export function iconForSlug(slug: string | undefined | null): string {
   const key = slug ?? '';
-  return SLUG_TO_ICON[key] ?? (CATEGORY_VISUALS[key] ? key : '');
+  return CATEGORY_SLUG_TO_ICON[key] ?? (CATEGORY_VISUALS[key] ? key : '');
 }
 
 /** Best icon key for a category row: its own slug visual first, then the database `icon` key. */

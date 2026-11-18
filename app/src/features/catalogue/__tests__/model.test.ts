@@ -1,4 +1,4 @@
-import { iconForSlug } from '../../../components/CategoryIcon';
+import { CATEGORY_SLUG_TO_ICON } from '../../../components/categoryIconMap';
 import {
   buildCatalogueSections,
   groupCatalogueFamilies,
@@ -149,7 +149,7 @@ test('HSC-03 provides icon mappings for every seeded home-service category slug'
     'gardening', 'packers-movers', 'home-sanitisation', 'babysitting', 'elderly-assistance',
   ];
 
-  expect(seededSlugs.filter((slug) => !iconForSlug(slug))).toEqual([]);
+  expect(seededSlugs.filter((slug) => !CATEGORY_SLUG_TO_ICON[slug])).toEqual([]);
 });
 
 test('normalises flat and vertical catalogue payloads without a fixed category count', () => {
