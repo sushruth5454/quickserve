@@ -40,8 +40,9 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 5. TDD: write the failing tests listed in the source rows FIRST (SQL: new file supabase/tests/<wp-id>.test.mjs using
    createHarness()/scenario() from harness.mjs, explicit param casts, isolated fixtures, and the FULL migration chain
    0001..<your migration> — never an early subset). Register the test in supabase/tests/package.json.
-6. Implement. All new/changed SQL goes in your ONE reserved migration file (forward-only; never edit an applied migration).
-   Start the file with a header comment:  -- WP <id>; owns: <function list>; sources: <task ids>
+6. Implement. All new/changed SQL goes in your reserved migration file(s) (forward-only; never edit an applied migration).
+   Follow §0.5 when a new enum value must be used. Start each file with a header comment:
+   -- WP <id>; owns: <function list>; sources: <task ids>
 7. Self-check: run git diff --check, confirm no hex/fontSize literals in new UI code, and confirm every changed money path has a test asserting exact paise.
 8. Commit "<type>(<area>): <WP-ID> <summary>" plus the Co-authored-by trailer. Push lane/<WP-ID>. Watch lane CI; fix all failures per run in one push.
 9. Report: source task IDs done, files and functions changed, tests added (names), lane run ID, deviations or blockers.
@@ -63,6 +64,11 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 4. **Feature flags:** read them with `useAppFeatureFlags().isOn('<key>')`. New flags are seeded `enabled=false` in the WP migration with `on conflict (key) do nothing`. Unknown keys evaluate to false.
 5. **Money:** integer paise only. Assert exact paise in tests (e.g. `assert.equal(row.amount, 193760)`).
 6. **Latest definitions:** older SQL test files load only early migrations (doc 15 §1.3). Never treat their pass as proof of current behavior; WP-T2 fixes this.
+
+### 0.6 Source-row reconciliation decision
+**2026-11-18 · X3:** WS8-T02 and WS6-T04 overlap. X3 owns `demo_settle_payment`, `_allocate_payout`, `_create_payout`, `_create_sports_payout`, `claim_due_transfers`, and the demo-project setting/seed. Demo settlement requires server-owned `raw_app_meta_data.demo_only` and `app_config.deployment.is_demo_project = true` (default false); do not add an `allow_in_production` override or depend on `app.environment`, which has no definition in this repository. Demo payout rows use the new `payout_status` value `demo`, but demo payments must not create `payout_transfers`; the allocators return without transfers for demo payouts, and transfer claims also exclude `pay_demo_` payment ids. Add the enum value in `0060a`; use it only in the function migration `0060b`.
+
+**2026-11-18 · U3 / P1a:** Source rows are authoritative when they name files omitted from the original WP ownership lists. U3 therefore also owns the account-deletion migration/test and the `info`, location, customer-home, shared API/type/demo API, status, and booking-detail files named by WS1-T07/T08/T09/T14. The existing `addresses_own` policy in `0001_init.sql:1912-1913` is owner-scoped, so no address-RLS migration is needed; U3 uses migration `0069` for the deletion-request RPC. The SMS dashboard throttle is unavailable in this repo; use a 60-second client cooldown as the conservative documented “wait a minute” default, without claiming it matches the dashboard. Help uses the existing `support@quickserve.app` default. U3's booking-detail edit is sequenced after F3. P1a keeps WS3-T05 ownership and completes its two RFQ schema-field screens before P1b's WS3-T04/T09 edits to the same RFQ files; P1b must rebase after P1a merges.
 
 ---
 
@@ -91,7 +97,7 @@ Legend:
 |---|---|---|---|---|---|---|
 | **X1** 🔒 | Close the public admin backdoor; require a confirmed phone for the admin allowlist; E2E admin via a secret | WS8-T01 (+WS8-04) | admin allowlist function(s) from `0041`; `e2e/web-smoke.mjs` admin login lines only | 0059 | — | S |
 | **X2** | SMS OTP via **MSG91** (D5) + push readiness (Expo projectId, FCM). Separate prod Supabase project + deploy approval gate is **deferred by the owner** until testing is complete; re-decide before G2. | WS8-T10, WS7-17, WS7-T14 | **Integrator + owner** (secrets, workflows, `app.json`/`eas.json`) | — | D5 | M |
-| **X3** 🔒 | Make demo settlement unforgeable; exclude demo money from payouts | WS8-T02, WS6-T04 | `demo_settle_payment`, payout eligibility in `claim_due_transfers`; demo flag read path | 0060 | — | M |
+| **X3** 🔒 | Make demo settlement unforgeable; exclude demo money from payouts | WS8-T02, WS6-T04 | `demo_settle_payment`, `_allocate_payout`, `_create_payout`, `_create_sports_payout`, `claim_due_transfers`; demo-project setting/seed | 0060a/b | — | M |
 | **H1** 🔒 | Close provider-cancellation abuse; hide the customer address before plan acceptance and after decline | WS2-T01, WS2-T08 | `provider_cancel_booking`; recurring plan provider read RPC/policy | 0061 | — | S |
 | **F3** 🔒 | Coin fixes: approval independent of the redemption switch; no double subtraction in QuoteView; single restore; preview shows "already redeemed"; earning never blocks close | WS9-T01, T02, T03, T04, T16 | `_apply_quote_coins`, `_restore_coins_for_terminal_booking`, `get_coin_redemption_preview`, coin earn on close; `app/app/booking/[id].tsx` (coins default only); `app/src/components/QuoteView.tsx` (coin due only) | 0062 | — | M |
 | **O1** | Notifications: notify the right party on cancellation; harden sports notification inserts | WS7-T01, T08 | cancellation notification inserts; sports notification inserts | 0063 | — | S |
@@ -101,9 +107,9 @@ Legend:
 | **U2** | Truthful home-service cancel: server refund preview RPC + policy-driven copy + every allowed cancel state | WS1-T03, WS2-T03 | new `preview_booking_cancellation` (calls `_cancellation_outcome` read-only); cancel UI in `app/app/booking/[id].tsx` | 0067 | F3 (same file) | M |
 | **B1** | Server-sourced price display: book screens and QuoteView show the server breakdown; fixed Pay includes the platform fee; show every line kind | WS9-T09, WS6-T21, WS2-T04, WS9-T05 | `app/app/book/**`, `app/app/book-fixed/**`, `QuoteView.tsx`, `PriceRow.tsx`; a read-only breakdown RPC if the source rows require one | 0068 | F3, U2 (shared files) | M |
 | **U1** | Booking entry and "Book again" routed by archetype | WS1-T01, WS1-T02, WS2-T14 | `app/app/provider/[id].tsx`, `app/src/features/activity/**` (book-again only) | — | — | S |
-| **U3** | Account basics: truthful deletion; manage saved addresses; contextual location permission; skip the role screen for returning users; plain OTP errors; public help path; status copy; respect the AI flag on all entry points | WS1-T06…T12, T14 | `components/AccountScreen.tsx`, `components/AddressEditor.tsx`, `app/app/location.tsx`, `app/app/(auth)/**`, `app/app/assistant.tsx` (flag gate only), `category/[slug].tsx` (AI entry only) | 0069 if addresses need RLS changes | — | M |
-| **P1a** | Shops: verified shops stay live on non-identity edits; unit + price date on prices; schema-driven spec fields; better product search; drop the WhatsApp promise; product removal | WS3-T01, T02, T05, T06, T08, T12 | `save_shop`, product save/search RPCs; `app/app/merchant-shop.tsx`, `app/app/shop/**`, `app/app/product/**`, `app/app/products.tsx`, `app/src/features/shops/**` | 0070 | — | M |
-| **P1b** | RFQ: honest comparison; GST clarity + earnings preview + "no commission"; cancel RFQ + outcomes; pack rounding; single quote-math source with tests; form basics | WS3-T03, T04, T07, T09, T10, T13 | RFQ RPCs incl. `send_supplier_quote_for_business`; `app/app/rfq/**`, `app/app/merchant-rfqs.tsx`, `app/src/features/rfq/**` | 0071 | — | M |
+| **U3** | Account basics: truthful deletion; manage saved addresses; contextual location permission; skip the role screen for returning users; plain OTP errors; public help path; status copy; respect the AI flag on all entry points | WS1-T06…T12, T14 | `components/AccountScreen.tsx`, `components/AddressEditor.tsx`, `app/app/location.tsx`, `app/app/info/[topic].tsx`, `app/app/(customer)/index.tsx` (location prompt only), `app/src/lib/locationContext.tsx`, `app/app/(auth)/**`, `app/app/assistant.tsx` (flag gate only), `app/app/category/[slug].tsx` (AI entry only), `app/src/lib/supabaseApi.ts`, `app/src/lib/apiTypes.ts`, `app/src/lib/demo/demoApi.ts`, `app/src/components/status.tsx`, `app/app/booking/[id].tsx` (status/help copy only), new `0069_u3_account_deletion.sql` and `supabase/tests/account_deletion.test.mjs` | 0069 | — | M |
+| **P1a** | Shops: verified shops stay live on non-identity edits; unit + price date on prices; schema-driven spec fields; better product search; drop the WhatsApp promise; product removal | WS3-T01, T02, T05, T06, T08, T12 | `save_shop`, product save/search RPCs; `app/app/merchant-shop.tsx`, `app/app/shop/**`, `app/app/product/**`, `app/app/products.tsx`, `app/app/rfq/new.tsx` and `app/app/rfq/merchant/[id].tsx` (WS3-T05 schema fields only), `app/src/features/shops/**` | 0070 | — | M |
+| **P1b** | RFQ: honest comparison; GST clarity + earnings preview + "no commission"; cancel RFQ + outcomes; pack rounding; single quote-math source with tests; form basics | WS3-T03, T04, T07, T09, T10, T13 | RFQ RPCs incl. `send_supplier_quote_for_business`; `app/app/rfq/**`, `app/app/merchant-rfqs.tsx`, `app/src/features/rfq/**` | 0071 | P1a | M |
 | **R1** 🔒 | Reliability: idempotency keys for booking and request creation; EXECUTE privilege hygiene + regression guard; storage bucket limits; global AI budget; minor hardening | WS8-T05, T06, T07, T12, T13 | create-booking/request RPCs (idempotency param only); grants; bucket policies; AI usage config | 0072 | — | M |
 | **T1** | E2E green (same as doc 14 Q-00): discovery, category, sports, assistant-limit steps | WS1-T04, T05, WS4-T04 | `e2e/web-smoke.mjs`, `e2e/all-services.mjs` | — | X1 (same file; merge X1 first) | S |
 | **T2** | Tests on latest definitions: lifecycle suites load the full migration chain | WS2-T12 | `supabase/tests/migration.test.mjs` and the other early-loader suites named in the source row | — | — | M |
@@ -152,11 +158,14 @@ Legend:
 | Function(s) | Owner order |
 |---|---|
 | `provider_cancel_booking` | H1 |
-| `demo_settle_payment`, `claim_due_transfers` | X3 → (F6 reads only) |
+| `demo_settle_payment`, `_allocate_payout` | X3 |
+| `_create_payout` | X3 → F2 |
+| `_create_sports_payout` | X3 → S1 → S2 → S3 |
+| `claim_due_transfers` | X3 → (F6 reads only) |
 | `_apply_quote_coins`, `_restore_coins_for_terminal_booking`, `get_coin_redemption_preview` | F3 |
 | `_cancellation_outcome`, cancel RPCs, `resolve_dispute` | F4 (U2 only *calls* `_cancellation_outcome`) |
 | `record_payment_paid` + home/session/pack recorders | F1 → F5 (insert journal rows) → B6 (notifications) |
-| `send_quote`, `send_fixed_addons`, `create_fixed_booking`, `_create_payout`, completion/settlement | F2 → F7 (`send_quote` validation) |
+| `send_quote`, `send_fixed_addons`, `create_fixed_booking`, completion/settlement | F2 → F7 (`send_quote` validation) |
 | `accept_proposal`, proposal create | F2 → C2 |
 | proposal delivery/acceptance/auto-confirm | C1 |
 | `respond_recurring_plan`, recurring generator/prepare | H2a → doc 12 **D1** (recurring billing) |
@@ -167,9 +176,11 @@ Legend:
 ### 3.2 Hot app files (sequential edits)
 | File | Order |
 |---|---|
-| `app/app/booking/[id].tsx` | F3 → U2 → B1 → C1 → B2 → B6 → H3 |
+| `app/app/booking/[id].tsx` | F3 → U3 (status/help copy only) → U2 → B1 → C1 → B2 → B6 → H3 |
 | `app/src/components/QuoteView.tsx` | F3 → B1 |
 | `app/app/provider/[id].tsx` | U1 → (doc 14 R-02) |
+| `app/app/(customer)/index.tsx` (U3 location prompt only) | U3 → (doc 14 H-01) |
+| `app/app/rfq/new.tsx`, `app/app/rfq/merchant/[id].tsx` (schema fields) | P1a → P1b |
 | `app/src/features/activity/**` | U1 → B2 (Receipt button) → (doc 14 R-04) |
 | `app/app/(provider)/earnings.tsx` | B4 |
 | `app/src/features/sports/**`, `app/app/sports*/**` | S1 → S2 → S3 |
@@ -183,8 +194,8 @@ Legend:
 ### 4.1 Waves (launch every task in a wave in ONE response, as background agents)
 | Wave | Starts | WPs (parallel) | Agents |
 |---|---|---|---|
-| **A** | Owner approval | X1, X3, H1, F3, O1, O2, H2a, U1, U3, P1a, P1b, R1, T2 (+ X2 by integrator/owner) | **13** |
-| **A′** | Its blocker merged | T1 (after X1), H2b (after H2a), U2 (after F3), B1 (after U2) | 4 |
+| **A** | Owner approval | X1, X3, H1, F3, O1, O2, H2a, U1, U3, P1a, R1, T2 (+ X2 by integrator/owner) | **12** |
+| **A′** | Its blocker merged | T1 (after X1), H2b (after H2a), U2 (after F3), B1 (after U2), P1b (after P1a) | 5 |
 | **B** | G1 exit + D1/D3 answered | F1, S1, (F2 after F1 + D1), C1 (after D2 + B1) | 3–4 |
 | **B′** | Blockers merged | F2, F4, F5, S2, C2, B4, H3 | up to 7 |
 | **C** | Blockers merged | F6, F7, F8, B2, O3, then B6 | up to 6 |
@@ -202,12 +213,13 @@ X3 ─► F1 ─┬─► F2 ─┬─► F7          F4 ─► H3
 F3 ─► U2 ─► B1 ─► C1 ;  F3 ─► F4 ;  F3 ─► B5
 H2a ─► H2b ;  H2a ─► doc12 D1
 S1 ─► S2 ─► S3 ;  S1 ─► B4
-H1, O1, O2, U1, U3, P1a, P1b, R1, T2 : independent
+P1a ─► P1b
+H1, O1, O2, U1, U3, P1a, R1, T2 : independent
 Decisions: D1 ─► F2 · D2 ─► C1, C2 · D3 ─► S1 · D4 ─► F7(tax copy), B3 · D5 ─► X2 · D6 ─► U4
 ```
 
 ### 4.3 Merge order (migrations must merge in numeric order; renumber per §0.4 when needed)
-`0059 X1 → 0060 X3 → 0061 H1 → 0062 F3 → 0063 O1 → 0064 O2 → 0065 H2a → 0066 H2b → 0067 U2 → 0068 B1 → 0069 U3 → 0070 P1a → 0071 P1b → 0072 R1 → 0073 F1 → 0074 F2 → 0075 F4 → 0076 F5 → 0077 F6 → 0078 F7 → 0079 S1 → 0080 S2 → 0081 C1 → 0082 C2 → 0083 H3 → 0084 B2 → 0085 B4 → 0086a/b B6 → 0087 O3`.
+`0059 X1 → 0060a enum → 0060b X3 → 0061 H1 → 0062 F3 → 0063 O1 → 0064 O2 → 0065 H2a → 0066 H2b → 0067 U2 → 0068 B1 → 0069 U3 → 0070 P1a → 0071 P1b → 0072 R1 → 0073 F1 → 0074 F2 → 0075 F4 → 0076 F5 → 0077 F6 → 0078 F7 → 0079 S1 → 0080 S2 → 0081 C1 → 0082 C2 → 0083 H3 → 0084 B2 → 0085 B4 → 0086a/b B6 → 0087 O3`.
 
 WPs without migrations (U1, T1, T2, X2, F8) merge whenever they are green.
 
