@@ -53,20 +53,7 @@ await db.exec(prelude);
 const migrationFiles = fs.readdirSync(migrationsDir)
   .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 73)
   .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
-for (const name of migrationFiles) {
-  if (name === '0051_ai_usage_v3.sql') {
-    await db.exec(`
-      create table public.ai_usage (
-        id bigint generated always as identity primary key,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-        request_id uuid,
-        created_at timestamptz not null default now()
-      )
-    `);
-  }
-  await db.exec(migration(name));
-}
+for (const name of migrationFiles) await db.exec(migration(name));
 await db.exec("set timezone = 'UTC'");
 const [{ id: acRepairCategoryId }] = (await db.query(
   `select id from public.categories where slug = 'ac-repair'`,
