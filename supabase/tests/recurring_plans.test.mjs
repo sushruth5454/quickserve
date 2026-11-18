@@ -85,6 +85,7 @@ for (const file of [
   }
   await db.exec(migration(file));
 }
+await db.exec(migration('0061_h1_provider_cancellation_and_recurring_privacy.sql'));
 
 await db.exec("set timezone = 'UTC'");
 let failures = 0;
@@ -674,6 +675,28 @@ const pending = await one(`select provider_acceptance, acceptance_mode, status f
 ok(pending.provider_acceptance === 'pending' && pending.acceptance_mode === 'plan'
   && (await generatedBookings(planId)) === 0,
   '[RP-05] created plan is pending and has no occurrences');
+const pendingProviderView = (await as(staff, 'authenticated',
+  `select get_recurring_plan($1::uuid) plan`, [planId]))[0].plan;
+const pendingProviderList = (await as(staff, 'authenticated',
+  `select list_my_recurring_plans() plans`))[0].plans;
+const pendingListedPlan = pendingProviderList.find((entry) => entry.plan.id === planId)?.plan;
+const pendingCustomerView = (await as(customer, 'authenticated',
+  `select get_recurring_plan($1::uuid) plan`, [planId]))[0].plan;
+ok(pendingProviderView?.plan?.address_line === null
+  && pendingProviderView?.plan?.lat === null
+  && pendingProviderView?.plan?.lng === null
+  && pendingProviderView?.plan?.city === 'Recurring City',
+  `[RP-42] provider staff see only city before acceptance: ${JSON.stringify(pendingProviderView?.plan)}`);
+ok(pendingListedPlan?.address_line === null
+  && pendingListedPlan?.lat === null
+  && pendingListedPlan?.lng === null
+  && pendingListedPlan?.city === 'Recurring City',
+  `[RP-42] provider plan list hides address before acceptance: ${JSON.stringify(pendingListedPlan)}`);
+ok(typeof pendingCustomerView?.plan?.address_line === 'string'
+  && pendingCustomerView.plan.address_line.length > 0
+  && pendingCustomerView.plan.lat !== null
+  && pendingCustomerView.plan.lng !== null,
+  `[RP-42] customer retains full address on pending plan: ${JSON.stringify(pendingCustomerView?.plan)}`);
 const planRequestNotification = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_plan_requested'
@@ -727,6 +750,21 @@ const declined = await one(`select status, provider_acceptance from recurring_sc
 ok(!!declineWithoutReason && !declineWithReason && declined.status === 'cancelled'
   && declined.provider_acceptance === 'declined',
   '[RP-06] decline requires a reason and closes the pending plan');
+const declinedProviderView = (await as(staff, 'authenticated',
+  `select get_recurring_plan($1::uuid) plan`, [declinePlan]))[0].plan;
+const declinedProviderList = (await as(staff, 'authenticated',
+  `select list_my_recurring_plans() plans`))[0].plans;
+const declinedListedPlan = declinedProviderList.find((entry) => entry.plan.id === declinePlan)?.plan;
+ok(declinedProviderView?.plan?.address_line === null
+  && declinedProviderView?.plan?.lat === null
+  && declinedProviderView?.plan?.lng === null
+  && declinedProviderView?.plan?.city === 'Recurring City',
+  `[RP-42] provider staff still see only city after decline: ${JSON.stringify(declinedProviderView?.plan)}`);
+ok(declinedListedPlan?.address_line === null
+  && declinedListedPlan?.lat === null
+  && declinedListedPlan?.lng === null
+  && declinedListedPlan?.city === 'Recurring City',
+  `[RP-42] provider plan list still hides address after decline: ${JSON.stringify(declinedListedPlan)}`);
 const staffDecision = await fails(() => as(staff, 'authenticated',
   `select respond_recurring_plan($1, true, null)`, [planId]));
 const unrelatedDecision = await fails(() => as(otherCustomer, 'authenticated',
@@ -1061,6 +1099,11 @@ const otherSkip = await fails(() => as(otherCustomer, 'authenticated',
 const customerList = await as(customer, 'authenticated', `select list_my_recurring_plans() plans`);
 const visiblePlan = (await as(customer, 'authenticated',
   `select get_recurring_plan($1) plan`, [privatePlan]))[0].plan;
+const acceptedProviderView = (await as(staff, 'authenticated',
+  `select get_recurring_plan($1::uuid) plan`, [privatePlan]))[0].plan;
+const acceptedProviderList = (await as(staff, 'authenticated',
+  `select list_my_recurring_plans() plans`))[0].plans;
+const acceptedListedPlan = acceptedProviderList.find((entry) => entry.plan.id === privatePlan)?.plan;
 const leakedChanges = await as(otherCustomer, 'authenticated',
   `select count(*)::int n from recurring_occurrence_changes`);
 const providerChanges = await as(manager, 'authenticated',
@@ -1074,6 +1117,16 @@ ok(visiblePlan?.plan?.provider_acceptance === 'accepted'
   && visiblePlan.occurrences[0]?.id && visiblePlan.occurrences[0]?.scheduled_at
   && visiblePlan.occurrences[0]?.status,
   '[RP-20] plan JSON exposes provider decision, occurrence id/time/status, and change history');
+ok(typeof acceptedProviderView?.plan?.address_line === 'string'
+  && acceptedProviderView.plan.address_line.length > 0
+  && acceptedProviderView.plan.lat !== null
+  && acceptedProviderView.plan.lng !== null,
+  `[RP-42] accepted active plan exposes address to provider staff: ${JSON.stringify(acceptedProviderView?.plan)}`);
+ok(typeof acceptedListedPlan?.address_line === 'string'
+  && acceptedListedPlan.address_line.length > 0
+  && acceptedListedPlan.lat !== null
+  && acceptedListedPlan.lng !== null,
+  `[RP-42] accepted active plan list exposes address to provider staff: ${JSON.stringify(acceptedListedPlan)}`);
 const providerCalendar = await as(manager, 'authenticated',
   `select list_provider_recurring_schedule($1, $2::date, $3::date) rows`,
   [provider, dateOffset(23), dateOffset(23)]);
