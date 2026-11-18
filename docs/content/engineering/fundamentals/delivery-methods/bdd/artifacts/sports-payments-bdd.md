@@ -256,16 +256,16 @@ Feature: Venue payout-account readiness
     And the venue accepts only pay-at-venue
     And sports_online_payments is off
     When the owner reads the management venue
-    Then venue.payout_account_ready is true
+    Then the response has top-level payout_account_ready=true alongside venue and online_payment_ready
     And online_payment_ready is false
 
   Scenario: An unactivated account is not ready and staff are not represented as owners
     Given the payout account is not activated
     When the owner reads the management venue
-    Then venue.payout_account_ready is false
+    Then the response has top-level payout_account_ready=false
     When assigned staff reads the management venue
     Then venue.business_role remains staff
-    And venue.payout_account_ready is absent
+    And the top-level payout_account_ready field is absent
     And neither result exposes payout-account identifiers, status, or bank details
 ```
 

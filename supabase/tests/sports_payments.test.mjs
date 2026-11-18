@@ -239,6 +239,8 @@ const venueRead = json((await as(owner, 'authenticated',
 const venueReadJson = JSON.stringify(venueRead);
 const payoutAccountDetails = /razorpay_account_id|fund_account_id|stakeholder_id|product_id|contact_id|validation_id|activation_status|beneficiary_name|bank_last4|ifsc|requirements|last_error|email|rail|payout_account_status/;
 ok(venueRead.venue.business_role === 'owner'
+  && venueRead.payout_account_ready === true
+  && !('payout_account_ready' in venueRead.venue)
   && venueRead.venue.payment_modes.includes('online')
   && venueRead.resources.some((item) => item.booking_mode === 'instant' && item.capacity === 1)
   && venueRead.online_payment_ready === true
@@ -251,7 +253,8 @@ const ownerReadyWithoutOnline = json((await as(owner, 'authenticated',
   `select public.get_my_business_sports_venues() result`))[0].result)
   .find((item) => item.venue.id === venue);
 ok(ownerReadyWithoutOnline?.venue.business_role === 'owner'
-  && ownerReadyWithoutOnline.venue.payout_account_ready === true
+  && ownerReadyWithoutOnline.payout_account_ready === true
+  && !('payout_account_ready' in ownerReadyWithoutOnline.venue)
   && ownerReadyWithoutOnline.online_payment_ready === false,
   '[SP-18] owner payout readiness is true with an activated account while online mode and switch are off');
 
@@ -260,8 +263,9 @@ await db.query(`update public.provider_payout_accounts set activation_status='no
 const ownerNotReady = json((await as(owner, 'authenticated',
   `select public.get_my_business_sports_venues() result`))[0].result)
   .find((item) => item.venue.id === venue);
-ok(ownerNotReady?.venue.payout_account_ready === false
+ok(ownerNotReady?.payout_account_ready === false
   && ownerNotReady.venue.business_role === 'owner'
+  && !('payout_account_ready' in ownerNotReady.venue)
   && ownerNotReady.online_payment_ready === false,
   '[SP-18] owner payout readiness is false until the account is activated');
 
@@ -285,7 +289,7 @@ const staffVenueRows = json((await as(staff, 'authenticated',
 const staffVenueRead = staffVenueRows.find((item) => item.venue.id === venue);
 ok(staffVenueRead?.venue.business_role === 'staff'
   && staffVenueRead.venue.payment_modes.includes('online')
-  && !('payout_account_ready' in staffVenueRead.venue)
+  && !('payout_account_ready' in staffVenueRead)
   && staffVenueRead.online_payment_ready === true
   && !payoutAccountDetails.test(JSON.stringify(staffVenueRead))
   && staffVenueRead.resources.some((item) => item.booking_mode === 'instant' && item.capacity === 1),
