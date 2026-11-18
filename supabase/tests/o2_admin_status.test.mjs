@@ -136,6 +136,7 @@ try {
          and c.slug = 'plumber';
   `);
   await db.exec(migration('0064_o2_provider_verification.sql'));
+  await db.query(`update public.feature_flags set enabled = true where key in ('products', 'product_enquiries')`);
 
   await scenario('provider approval is separate from gateway KYC', async () => {
     await expectError(

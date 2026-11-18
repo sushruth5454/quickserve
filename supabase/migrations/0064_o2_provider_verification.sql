@@ -35,9 +35,9 @@ begin
            p.suspended, coalesce(p.paused, false), p.is_online,
            p.rating_avg, p.rating_count, p.jobs_completed,
            exists (select 1 from public.provider_services ps join public.categories c on c.id = ps.category_id
-                    where ps.provider_id = p.id and ps.active and c.archetype = 'proposal'),
+                    where ps.provider_id = p.id and ps.active and c.archetype = 'proposal') as is_creator,
            coalesce((select array_agg(c.name order by c.name) from public.provider_services ps
-                       join public.categories c on c.id = ps.category_id where ps.provider_id = p.id and ps.active), '{}'),
+                       join public.categories c on c.id = ps.category_id where ps.provider_id = p.id and ps.active), '{}') as categories,
            p.submitted_at, p.created_at
       from public.providers p
       join public.profiles pr on pr.id = p.id
