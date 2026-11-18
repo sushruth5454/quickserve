@@ -111,24 +111,59 @@ const addDays = (date, days) => {
   return value.toISOString().slice(0, 10);
 };
 const isoDow = (date) => new Date(`${date}T00:00:00.000Z`).getUTCDay() || 7;
+const indiaSlot = (minutesAhead, durationMin = 15) => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(Date.now() + minutesAhead * 60_000))
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, part.value]));
+  let date = `${parts.year}-${parts.month}-${parts.day}`;
+  let time = `${parts.hour}:${parts.minute}`;
+  let at = new Date(`${date}T${time}:00+05:30`);
+  const [hour, minute] = time.split(':').map(Number);
+  if (hour * 60 + minute + durationMin >= 24 * 60) {
+    date = addDays(date, 1);
+    time = '00:15';
+    at = new Date(`${date}T${time}:00+05:30`);
+  }
+  return { date, time, at };
+};
 
 const customer = '00000000-0000-0000-0000-0000000000c1';
 const otherCustomer = '00000000-0000-0000-0000-0000000000c2';
 const provider = '00000000-0000-0000-0000-0000000000a1';
 const manager = '00000000-0000-0000-0000-0000000000a2';
 const staff = '00000000-0000-0000-0000-0000000000a3';
+const syncProvider = '00000000-0000-0000-0000-0000000000a4';
+const autoProvider = '00000000-0000-0000-0000-0000000000a5';
+const legacyProvider = '00000000-0000-0000-0000-0000000000a6';
 const admin = '00000000-0000-0000-0000-0000000000b1';
 
 await db.exec(`
   insert into auth.users (id, phone, raw_user_meta_data) values
     ('${customer}', '+919999000001', '{}'), ('${otherCustomer}', '+919999000002', '{}'),
     ('${provider}', '+919999000003', '{}'), ('${manager}', '+919999000004', '{}'),
-    ('${staff}', '+919999000005', '{}'), ('${admin}', '+918888888888', '{}');
+    ('${staff}', '+919999000005', '{}'), ('${syncProvider}', '+919999000006', '{}'),
+    ('${autoProvider}', '+919999000007', '{}'), ('${legacyProvider}', '+919999000008', '{}'),
+    ('${admin}', '+918888888888', '{}');
   update profiles set full_name = 'Person';
   insert into admins (user_id) values ('${admin}');
   insert into providers (id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended)
-  values ('${provider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.60,16.50),4326),
-          'verified', now(), true, false, false);
+  values
+    ('${provider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.60,16.50),4326),
+     'verified', now(), true, false, false),
+    ('${syncProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.62,16.50),4326),
+     'verified', now(), true, false, false),
+    ('${autoProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.63,16.50),4326),
+     'verified', now(), true, false, false),
+    ('${legacyProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.64,16.50),4326),
+     'verified', now(), true, false, false);
   update app_config
      set value = value || '{"time_based":true,"fixed":true}'::jsonb
    where key = 'archetype_flags';
@@ -140,6 +175,12 @@ await db.exec(`
     ('${provider}', '${manager}', 'manager', true), ('${provider}', '${staff}', 'staff', true);
   insert into provider_availability (provider_id, weekday, start_time, end_time)
   select '${provider}', d, time '00:00', time '23:59' from generate_series(0, 6) d;
+  insert into provider_availability (provider_id, weekday, start_time, end_time)
+  select '${syncProvider}', d, time '00:00', time '23:59' from generate_series(0, 6) d;
+  insert into provider_availability (provider_id, weekday, start_time, end_time)
+  select '${autoProvider}', d, time '00:00', time '23:59' from generate_series(0, 6) d;
+  insert into provider_availability (provider_id, weekday, start_time, end_time)
+  select '${legacyProvider}', d, time '00:00', time '23:59' from generate_series(0, 6) d;
   insert into addresses (user_id, label, line1, city, lat, lng) values
     ('${customer}', 'Home', 'Gate 2', 'Recurring City', 16.50, 80.60),
     ('${otherCustomer}', 'Home', 'Gate 3', 'Recurring City', 16.50, 80.61);
@@ -171,14 +212,32 @@ await db.query(`
   [timeCategory, fixedCategory]);
 await db.query(`
   insert into provider_services (provider_id, category_id, visit_fee, labour_rate, active)
-  values ($1, $2, 0, 60000, true), ($1, $3, 0, 0, true)`,
-  [provider, timeCategory, fixedCategory]);
+  values
+    ($1, $2, 0, 60000, true), ($1, $3, 0, 0, true),
+    ($4, $2, 0, 60000, true), ($5, $2, 0, 60000, true), ($6, $2, 0, 60000, true)`,
+  [provider, timeCategory, fixedCategory, syncProvider, autoProvider, legacyProvider]);
 const timeService = (await one(
   `select id from provider_services where provider_id=$1 and category_id=$2`,
   [provider, timeCategory])).id;
 const fixedService = (await one(
   `select id from provider_services where provider_id=$1 and category_id=$2`,
   [provider, fixedCategory])).id;
+const syncService = (await one(
+  `select id from provider_services where provider_id=$1 and category_id=$2`,
+  [syncProvider, timeCategory])).id;
+const autoService = (await one(
+  `select id from provider_services where provider_id=$1 and category_id=$2`,
+  [autoProvider, timeCategory])).id;
+const legacyService = (await one(
+  `select id from provider_services where provider_id=$1 and category_id=$2`,
+  [legacyProvider, timeCategory])).id;
+const sessionPackage = (await one(`
+  insert into service_packages (
+    provider_service_id, title, description, price_type, price, price_min, price_max,
+    unit, qty_min, qty_max, duration_min, active
+  ) values ($1, 'Recurring session pack', '', 'fixed', 50000, 50000, 50000,
+            'session', 1, 1, 60, true)
+  returning id`, [timeService])).id;
 const fixedPackage = (await one(`
   insert into service_packages (
     provider_service_id, title, description, price_type, price, price_min, price_max,
@@ -186,6 +245,22 @@ const fixedPackage = (await one(`
   ) values ($1, 'Recurring package', '', 'fixed', 120000, 120000, 120000,
             'visit', 1, 1, 60, true)
   returning id`, [fixedService])).id;
+const createPackFixture = async ({ expired = false, sessionStatus = 'available' } = {}) => {
+  const packId = (await one(`
+    insert into pack_purchases (
+      customer_id, provider_id, provider_service_id, service_package_id,
+      sessions_total, price, platform_fee, status, expires_at
+    ) values (
+      $1, $2, $3, $4, 2, 100000, 4900, 'active',
+      case when $5::boolean then now()-interval '1 day' else now()+interval '30 days' end
+    ) returning id`,
+  [customer, provider, timeService, sessionPackage, expired])).id;
+  await db.query(`
+    insert into pack_sessions (pack_id, seq, allocated_amount, status)
+    values ($1, 1, 50000, $2), ($1, 2, 50000, $2)`,
+  [packId, sessionStatus]);
+  return packId;
+};
 
 const input = (overrides = {}) => ({
   provider_service_id: timeService,
@@ -207,17 +282,26 @@ const input = (overrides = {}) => ({
   description: 'Recurring test',
   ...overrides,
 });
+const nearTermPlanInput = (serviceId, slot) => input({
+  provider_service_id: serviceId,
+  frequency: 'custom',
+  custom_dates: [slot.date],
+  start_date: slot.date,
+  end_date: null,
+  start_time: slot.time,
+  duration_min: 15,
+});
 const createPlan = async (value, uid = customer) => (await as(
   uid, 'authenticated', `select create_recurring_plan($1::jsonb) id`, [JSON.stringify(value)]
 ))[0].id;
-const createLegacySchedule = async (serviceId, start, end = start) => (await as(
+const createLegacySchedule = async (serviceId, start, end = start, startTime = '10:00', duration = 60) => (await as(
   customer,
   'authenticated',
   `select create_recurring_schedule(
-    $1, null, null, 'per_session', array[$2]::smallint[], time '10:00',
-    'Asia/Kolkata', 60, $3::date, $4::date, 'Gate 2', 'Recurring City', 16.5, 80.6, 'legacy test'
+    $1, null, null, 'per_session', array[$2]::smallint[], $5::time,
+    'Asia/Kolkata', $6, $3::date, $4::date, 'Gate 2', 'Recurring City', 16.5, 80.6, 'legacy test'
   ) id`,
-  [serviceId, isoDow(start), start, end]
+  [serviceId, isoDow(start), start, end, startTime, duration]
 ))[0].id;
 const setFlag = (key, enabled) =>
   db.query(`update feature_flags set enabled=$2 where key=$1`, [key, enabled]);
@@ -228,6 +312,7 @@ const insertSchedule = async (overrides = {}) => {
     provider_id: provider,
     provider_service_id: timeService,
     service_package_id: null,
+    pack_purchase_id: null,
     frequency: 'weekly',
     interval_count: 1,
     weekdays: [1],
@@ -255,16 +340,18 @@ const insertSchedule = async (overrides = {}) => {
   };
   return (await one(`
     insert into recurring_schedules (
-      customer_id, provider_id, provider_service_id, service_package_id, frequency, interval_count,
+      customer_id, provider_id, provider_service_id, service_package_id, pack_purchase_id,
+      frequency, interval_count,
       weekdays, month_day, custom_dates, start_time, timezone, session_duration_min, payment_mode,
       billing_frequency, archetype, package_qty, address_line, city, lat, lng, description,
       starts_on, ends_on, status, provider_acceptance, acceptance_mode, max_occurrences
     ) values (
-      $1,$2,$3,$4,$5,$6,$7::smallint[],$8,$9::date[],$10::time,$11,$12,$13,$14,$15,$16,
-      $17,$18,$19,$20,$21,$22::date,$23::date,$24,$25,$26,$27
+      $1,$2,$3,$4,$5,$6,$7,$8::smallint[],$9,$10::date[],$11::time,$12,$13,$14,$15,$16,$17,
+      $18,$19,$20,$21,$22,$23::date,$24::date,$25,$26,$27,$28
     ) returning id`, [
     values.customer_id, values.provider_id, values.provider_service_id, values.service_package_id,
-    values.frequency, values.interval_count, values.weekdays, values.month_day, values.custom_dates,
+    values.pack_purchase_id, values.frequency, values.interval_count, values.weekdays,
+    values.month_day, values.custom_dates,
     values.start_time, values.timezone, values.session_duration_min, values.payment_mode,
     values.billing_frequency, values.archetype, values.package_qty, values.address_line, values.city,
     values.lat, values.lng, values.description, values.starts_on, values.ends_on, values.status,
@@ -872,7 +959,7 @@ ok(Number(reminderOff[0].n) === 0 && (await generatedBookings(remindersOffPlan))
   '[RP-22] reminders-off returns zero without stopping recurring generation');
 await setFlag('recurring_reminders', true);
 
-// RP-24: one invalidated v2 category is paused and recorded without starving a valid plan.
+// RP-24: expected v2 category invalidation is recorded per date while the batch continues.
 const invalidatedPlan = await insertSchedule({
   provider_service_id: fixedService,
   service_package_id: fixedPackage,
@@ -883,7 +970,7 @@ const invalidatedPlan = await insertSchedule({
   frequency: 'daily',
   weekdays: [],
   starts_on: dateOffset(27),
-  ends_on: dateOffset(27),
+  ends_on: dateOffset(60),
   start_time: '20:00',
 });
 const validBatchPlan = await insertSchedule({
@@ -898,27 +985,198 @@ const validBatchPlan = await insertSchedule({
 await db.query(`update recurring_schedules set plan_version='v2' where id in ($1, $2)`,
   [invalidatedPlan, validBatchPlan]);
 await db.query(`update categories set recurrence_allowed=false where id=$1`, [fixedCategory]);
+await setFlag('recurring_skip_pause', false);
 const isolatedGeneration = await as(null, 'service_role',
   `select generate_recurring_occurrences(500) generated`);
 const invalidatedState = await one(`
-  select status, generated_through from recurring_schedules where id=$1`, [invalidatedPlan]);
-const generationFailure = await one(`
-  select error_code, message, attempted_through
-    from recurring_plan_generation_failures
-   where schedule_id=$1 order by created_at desc limit 1`, [invalidatedPlan]);
-const invalidatedPayload = (await as(customer, 'authenticated',
-  `select get_recurring_plan($1) plan`, [invalidatedPlan]))[0].plan;
+  select status, generated_through, paused_at from recurring_schedules where id=$1`, [invalidatedPlan]);
+const invalidatedChanges = await one(`
+  select count(*)::int n,
+         count(*) filter (where reason='recurring service/category is no longer eligible')::int reasons
+    from recurring_occurrence_changes
+   where schedule_id=$1 and kind='provider_unavailable'`, [invalidatedPlan]);
+const invalidatedNotices = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`, [customer, invalidatedPlan]);
+await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
+  [invalidatedPlan, dateOffset(26)]);
+await as(null, 'service_role',
+  `select materialize_recurring_schedule($1, $2::date)`,
+  [invalidatedPlan, dateOffset(28)]);
+const invalidatedRetry = await one(`
+  select count(*)::int changes from recurring_occurrence_changes
+   where schedule_id=$1 and kind='provider_unavailable'`, [invalidatedPlan]);
+const noticesAfterRetry = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`, [customer, invalidatedPlan]);
 await db.query(`update categories set recurrence_allowed=true where id=$1`, [fixedCategory]);
-ok(invalidatedState.status === 'paused' && invalidatedState.generated_through === null
-  && generationFailure.error_code === 'P0001'
-  && /category is no longer eligible/i.test(generationFailure.message)
-  && generationFailure.attempted_through === dateOffset(28)
-  && Array.isArray(invalidatedPayload.generation_failures)
-  && invalidatedPayload.generation_failures[0]?.message === generationFailure.message
+await setFlag('recurring_skip_pause', true);
+ok(invalidatedState.status === 'active' && invalidatedState.paused_at === null
+  && invalidatedState.generated_through === dateOffset(28)
+  && invalidatedChanges.n === 2 && invalidatedChanges.reasons === 2
+  && invalidatedNotices.n === 2 && invalidatedRetry.changes === 2
+  && noticesAfterRetry.n === 2
   && (await generatedBookings(validBatchPlan)) === 1
   && Number(isolatedGeneration[0].generated) >= 1,
-  '[RP-24] a category-invalid plan is paused with visible failure evidence while a valid plan generates');
+  '[RP-24] category invalidation is per-date, notified/deduped, does not system-pause with skip/pause off, and does not starve a valid plan');
 
+const verificationPlan = await insertSchedule({
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(27),
+  ends_on: dateOffset(60),
+  start_time: '17:00',
+});
+const verificationValidPlan = await insertSchedule({
+  provider_service_id: fixedService,
+  service_package_id: fixedPackage,
+  archetype: 'fixed',
+  package_qty: 1,
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(28),
+  ends_on: dateOffset(28),
+  start_time: '20:00',
+});
+await db.query(`update recurring_schedules set plan_version='v2' where id in ($1, $2)`,
+  [verificationPlan, verificationValidPlan]);
+await db.query(`update categories set requires_docs=array['police_verification']::text[] where id=$1`,
+  [timeCategory]);
+await db.query(`
+  insert into provider_documents (provider_id, doc_type, category_id, status, expires_on, file_path)
+  values ($1, 'police_verification', $2, 'approved', $3::date, 'expired-verification.pdf')`,
+  [provider, timeCategory, dateOffset(-1)]);
+await setFlag('recurring_skip_pause', false);
+const verificationGeneration = await as(null, 'service_role',
+  `select generate_recurring_occurrences(500) generated`);
+const verificationState = await one(`
+  select status, generated_through, paused_at from recurring_schedules where id=$1`, [verificationPlan]);
+const verificationChanges = await one(`
+  select count(*)::int n,
+         count(*) filter (where reason='provider verification is incomplete')::int reasons
+    from recurring_occurrence_changes
+   where schedule_id=$1 and kind='provider_unavailable'`, [verificationPlan]);
+const verificationNotices = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`, [customer, verificationPlan]);
+await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
+  [verificationPlan, dateOffset(26)]);
+await as(null, 'service_role',
+  `select materialize_recurring_schedule($1, $2::date)`,
+  [verificationPlan, dateOffset(28)]);
+const verificationRetry = await one(`
+  select count(*)::int n from recurring_occurrence_changes
+   where schedule_id=$1 and kind='provider_unavailable'`, [verificationPlan]);
+const verificationNoticesAfterRetry = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`, [customer, verificationPlan]);
+await db.query(`update categories set requires_docs='{}'::text[] where id=$1`, [timeCategory]);
+await setFlag('recurring_skip_pause', true);
+ok(verificationState.status === 'active' && verificationState.paused_at === null
+  && verificationState.generated_through === dateOffset(28)
+  && verificationChanges.n === 2 && verificationChanges.reasons === 2
+  && verificationNotices.n === 2 && verificationRetry.n === 2
+  && verificationNoticesAfterRetry.n === 2
+  && (await generatedBookings(verificationPlan)) === 0
+  && (await generatedBookings(verificationValidPlan)) === 1
+  && Number(verificationGeneration[0].generated) >= 1,
+  '[RP-24] a verification lapse records/notifies unavailable dates without system pause and does not starve a valid plan');
+
+const expiredPackId = await createPackFixture({ expired: true });
+const depletedPackId = await createPackFixture({ sessionStatus: 'consumed' });
+const expiredPackPlan = await insertSchedule({
+  service_package_id: sessionPackage,
+  pack_purchase_id: expiredPackId,
+  payment_mode: 'pack_prepaid',
+  billing_frequency: 'prepaid_package',
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(27),
+  ends_on: dateOffset(60),
+  start_time: '14:00',
+});
+const depletedPackPlan = await insertSchedule({
+  service_package_id: sessionPackage,
+  pack_purchase_id: depletedPackId,
+  payment_mode: 'pack_prepaid',
+  billing_frequency: 'prepaid_package',
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(27),
+  ends_on: dateOffset(60),
+  start_time: '15:00',
+});
+const packBatchValidPlan = await insertSchedule({
+  provider_service_id: fixedService,
+  service_package_id: fixedPackage,
+  archetype: 'fixed',
+  package_qty: 1,
+  status: 'active',
+  provider_acceptance: 'accepted',
+  frequency: 'daily',
+  weekdays: [],
+  starts_on: dateOffset(28),
+  ends_on: dateOffset(28),
+  start_time: '22:00',
+});
+await setFlag('recurring_skip_pause', false);
+const packGeneration = await as(null, 'service_role',
+  `select generate_recurring_occurrences(500) generated`);
+const packFailures = await db.query(`
+  select schedule_id, occurrence_date::text occurrence_date, reason
+    from recurring_occurrence_changes
+   where schedule_id in ($1, $2) and kind='provider_unavailable'
+   order by schedule_id, occurrence_date`, [expiredPackPlan, depletedPackPlan]);
+const expiredPackState = await one(
+  `select status, generated_through, paused_at from recurring_schedules where id=$1`, [expiredPackPlan]);
+const depletedPackState = await one(
+  `select status, generated_through, paused_at from recurring_schedules where id=$1`, [depletedPackPlan]);
+const packNotices = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id' in ($2::text, $3::text)`,
+  [customer, expiredPackPlan, depletedPackPlan]);
+await db.query(`update recurring_schedules set generated_through=$2::date where id=$1`,
+  [expiredPackPlan, dateOffset(26)]);
+await as(null, 'service_role',
+  `select materialize_recurring_schedule($1, $2::date)`,
+  [expiredPackPlan, dateOffset(28)]);
+const expiredPackRetry = await one(`
+  select count(*)::int n from recurring_occurrence_changes
+   where schedule_id=$1 and kind='provider_unavailable'`, [expiredPackPlan]);
+const expiredPackNoticesAfterRetry = await one(`
+  select count(*)::int n from notifications
+   where user_id=$1 and kind='recurring_visit_unavailable'
+     and data ->> 'recurring_schedule_id'=$2::text`, [customer, expiredPackPlan]);
+await setFlag('recurring_skip_pause', true);
+ok(packFailures.rows.length === 4
+  && packFailures.rows.filter((row) => row.schedule_id === expiredPackPlan && /pack has expired/i.test(row.reason)).length === 2
+  && packFailures.rows.filter((row) => row.schedule_id === depletedPackPlan && /pack has no unused sessions/i.test(row.reason)).length === 2
+  && expiredPackState.status === 'active' && expiredPackState.paused_at === null
+  && expiredPackState.generated_through === dateOffset(28)
+  && depletedPackState.status === 'active' && depletedPackState.paused_at === null
+  && depletedPackState.generated_through === dateOffset(28)
+  && packNotices.n === 4 && expiredPackRetry.n === 2
+  && expiredPackNoticesAfterRetry.n === 2
+  && (await generatedBookings(expiredPackPlan)) === 0
+  && (await generatedBookings(depletedPackPlan)) === 0
+  && (await generatedBookings(packBatchValidPlan)) === 1
+  && Number(packGeneration[0].generated) >= 1,
+  '[RP-24] expired/exhausted packs are per-date unavailable, deduped/notified, and do not starve a valid plan');
+
+// RP-26: unexpected database errors still fail the batch loudly.
 const unexpectedPlan = await insertSchedule({
   status: 'active',
   provider_acceptance: 'accepted',
@@ -932,7 +1190,9 @@ await db.query(`update recurring_schedules set plan_version='v2' where id=$1`, [
 const unexpectedGenerationError = await fails(() => as(null, 'service_role',
   `select generate_recurring_occurrences(1)`));
 ok(!!unexpectedGenerationError && /time zone/i.test(unexpectedGenerationError),
-  '[RP-24] unclassified database errors propagate instead of being silently discarded');
+  '[RP-26] unclassified database errors propagate instead of being silently discarded');
+await as(customer, 'authenticated',
+  `select cancel_recurring_plan($1, 'cleanup after unexpected error assertion')`, [unexpectedPlan]);
 
 // RP-25: recurring pending-payment visits keep their provider reservation beyond 30 minutes.
 const reservationPlan = await createPlan(input({
@@ -975,5 +1235,86 @@ const reservationAfterPayment = await one(
 ok(!!staleWindowOverlap && reservationState.status === 'pending_payment'
   && reservationState.overlapping_rows === 0 && reservationAfterPayment.status === 'requested',
   '[RP-25] a stale pending recurring occurrence blocks overlaps and still follows its payment lifecycle');
+
+const oneTimeSlot = indiaSlot(60, 15);
+const oneTimePending = (await one(`
+  select _create_session_booking(
+    $1, $2, null, $3::timestamptz, 15,
+    'Gate 3', 'Recurring City', 16.5, 80.61, 'one-time pending before recurring'
+  ) id`, [otherCustomer, timeService, oneTimeSlot.at.toISOString()])).id;
+await db.query(`update bookings set created_at=now()-interval '31 minutes' where id=$1`,
+  [oneTimePending]);
+const overlapPlan = await createPlan(nearTermPlanInput(timeService, oneTimeSlot));
+await as(manager, 'authenticated', `select respond_recurring_plan($1, true, null)`, [overlapPlan]);
+const overlapOccurrencesBeforePayment = await generatedBookings(overlapPlan);
+const oneTimeRecurringOverlap = await one(`
+  select count(*)::int n
+    from bookings one_time
+    join bookings recurring on recurring.recurring_schedule_id=$2
+   where one_time.id=$1 and one_time.service_window && recurring.service_window`,
+  [oneTimePending, overlapPlan]);
+const oneTimeAmount = (await one(`
+  select sum(amount)::int amount from payment_schedule where booking_id=$1 and status='due'`,
+  [oneTimePending])).amount;
+const oneTimePayment = (await one(`
+  insert into payments (booking_id, purpose, amount, status, razorpay_link_id)
+  values ($1, 'session', $2, 'created', 'rp-status-only-link') returning id`,
+  [oneTimePending, oneTimeAmount])).id;
+await db.query(`
+  insert into payment_obligations (payment_id, schedule_id, amount)
+  select $1, id, amount from payment_schedule where booking_id=$2 and status='due'`,
+  [oneTimePayment, oneTimePending]);
+const oneTimePaymentError = await fails(() => as(null, 'service_role',
+  `select record_session_payment_paid($1, $2, $3)`,
+  ['rp-status-only-link', 'rp-status-only-paid', oneTimeAmount]));
+const oneTimePaymentState = await one(`
+  select b.status::text booking_status, p.status payment_status
+    from bookings b join payments p on p.booking_id=b.id
+   where b.id=$1`, [oneTimePending]);
+ok(!oneTimePaymentError && oneTimePaymentState.booking_status === 'requested'
+  && oneTimePaymentState.payment_status === 'paid' && overlapOccurrencesBeforePayment === 1
+  && oneTimeRecurringOverlap.n === 1
+  && (await generatedBookings(overlapPlan)) === 1,
+  '[RP-25] a status-only webhook transition succeeds despite an existing recurring overlap and creates no duplicate');
+
+// RP-27: provider acceptance, auto-accept, and legacy creation synchronously materialize near-term visits.
+const respondSlot = indiaSlot(35, 15);
+const respondPlan = await createPlan(nearTermPlanInput(syncService, respondSlot));
+const respondCountBefore = await generatedBookings(respondPlan);
+await as(syncProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [respondPlan]);
+const respondOccurrencesBeforeCron = await generatedBookings(respondPlan);
+const respondFirstAt = (await one(
+  `select min(scheduled_at) at from bookings where recurring_schedule_id=$1`, [respondPlan])).at;
+const respondLeadMinutes = (new Date(respondFirstAt).getTime() - Date.now()) / 60_000;
+
+const autoSlot = indiaSlot(55, 15);
+await setFlag('recurring_plan_acceptance', false);
+const autoPlan = await createPlan(nearTermPlanInput(autoService, autoSlot));
+const autoState = await one(`
+  select provider_acceptance, acceptance_mode from recurring_schedules where id=$1`, [autoPlan]);
+const autoOccurrencesBeforeCron = await generatedBookings(autoPlan);
+const autoFirstAt = (await one(
+  `select min(scheduled_at) at from bookings where recurring_schedule_id=$1`, [autoPlan])).at;
+const autoLeadMinutes = (new Date(autoFirstAt).getTime() - Date.now()) / 60_000;
+await setFlag('recurring_plan_acceptance', true);
+
+const legacySlot = indiaSlot(75, 15);
+const legacySoonPlan = await createLegacySchedule(
+  legacyService, legacySlot.date, addDays(legacySlot.date, 60), legacySlot.time, 15);
+const legacyOccurrencesBeforeCron = await generatedBookings(legacySoonPlan);
+const legacyFirstAt = (await one(
+  `select min(scheduled_at) at from bookings where recurring_schedule_id=$1`, [legacySoonPlan])).at;
+const legacyLeadMinutes = (new Date(legacyFirstAt).getTime() - Date.now()) / 60_000;
+
+await as(null, 'service_role', `select generate_recurring_occurrences(500)`);
+ok(respondCountBefore === 0 && respondOccurrencesBeforeCron === 1
+  && respondLeadMinutes >= 30 && respondLeadMinutes <= 90
+  && autoState.provider_acceptance === 'accepted' && autoState.acceptance_mode === 'occurrence'
+  && autoOccurrencesBeforeCron === 1 && autoLeadMinutes >= 30 && autoLeadMinutes <= 90
+  && legacyOccurrencesBeforeCron > 0 && legacyLeadMinutes >= 30 && legacyLeadMinutes <= 90
+  && (await generatedBookings(respondPlan)) === respondOccurrencesBeforeCron
+  && (await generatedBookings(autoPlan)) === autoOccurrencesBeforeCron
+  && (await generatedBookings(legacySoonPlan)) === legacyOccurrencesBeforeCron,
+  '[RP-27] all acceptance paths materialize 30–90-minute first visits synchronously and cron remains idempotent');
 
 if (failures > 0) process.exitCode = 1;

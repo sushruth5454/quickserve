@@ -89,6 +89,12 @@ Feature: Provider plan acceptance
     Then the plan is pending provider acceptance
     And no occurrence booking exists
     And the provider receives a plan-request notification
+
+  Scenario: Accepting a plan materializes eligible near-term visits before returning
+    Given the first eligible visit is 30 to 90 minutes away
+    When the provider or manager accepts the plan
+    Then the first visit exists before the acceptance RPC returns
+    And the customer does not wait for the next hourly generator run
 ```
 
 ### RP-06 — A provider manager accepts or declines a plan
@@ -169,6 +175,7 @@ Feature: Provider acceptance mode
     When a customer creates a plan and its visits are generated
     Then the plan uses occurrence-level acceptance
     And each visit follows the existing booking acceptance rules
+    And the auto-accepted plan materializes its first eligible visit before creation returns
 ```
 
 ### RP-12 — A customer skips a visit before the cutoff
@@ -317,6 +324,7 @@ Feature: Legacy recurring schedule compatibility
     Given a caller uses the existing recurring-schedule contract
     When the legacy schedule is created
     Then it retains the existing weekly behavior and accepted provider behavior
+    And its first eligible visit is materialized before the RPC returns
     And no existing booking status or transition is removed or renamed
 
   Scenario: New legacy schedule requests obey recurring and category eligibility
@@ -375,18 +383,35 @@ Feature: Recurring child capabilities
     Then the server refuses the unsupported billing frequency
 ```
 
-### RP-24 — One invalidated plan does not starve other plans
+### RP-24 — Expected per-date domain errors are recorded and the batch continues
 
 ```gherkin
-Feature: Recurring generation failure isolation
-  Scenario: A permanently invalidated plan is paused and recorded while the batch continues
-    Given one accepted plan's service, package, or category is no longer eligible
+Feature: Per-date recurring occurrence failures
+  Scenario: A v2 service or category invalidation affects only new dates
+    Given an accepted v2 plan's service or category is no longer recurrence-eligible
     And another accepted plan has a valid occurrence in the same generation batch
     When the generator processes both plans
-    Then the invalid plan is paused without advancing its generated-through date
-    And its SQL error code, message, and attempted-through date are persisted and visible to plan participants
+    Then each affected date is recorded as provider-unavailable and the customer is notified
+    And the invalidated plan remains eligible for future dates
     And the valid plan still generates its occurrence in the same batch
-    And unclassified database errors are not silently discarded
+
+  Scenario: A provider verification lapse marks only affected dates unavailable
+    Given an accepted recurring plan's provider lacks a required, current verification
+    And recurring skip/pause is disabled
+    And another accepted plan has a valid occurrence in the same generation batch
+    When the generator processes both plans
+    Then each affected date is recorded as provider-unavailable and the customer is notified
+    And the plan remains active with its generation progress advanced through the examined dates
+    And the valid plan still generates its occurrence in the same batch
+    And retrying the same dates creates no duplicate change or notification
+
+  Scenario: An expired pack or an exhausted pack affects only its planned dates
+    Given an accepted legacy plan references an expired pack or a pack with no unused sessions
+    And another accepted plan has a valid occurrence in the same generation batch
+    When the generator processes both plans
+    Then the affected date is recorded as provider-unavailable and the customer is notified
+    And the plan is not system-paused or blocked by the skip/pause feature flag
+    And the valid plan still generates its occurrence in the same batch
 ```
 
 ### RP-25 — Recurring pending-payment visits reserve their provider window
@@ -398,6 +423,35 @@ Feature: Recurring visit reservations
     When another booking attempts to reserve an overlapping provider window
     Then the new booking is refused under the provider's serialized overlap lock
     And the recurring occurrence can still follow its existing payment and acceptance lifecycle
+
+  Scenario: A status-only payment transition does not rerun the insert overlap guard
+    Given a one-time pending booking predates a recurring occurrence in the same provider window
+    And the one-time pending hold has aged beyond 30 minutes
+    When its payment webhook transitions it from pending payment to requested
+    Then the payment and status transition complete without the overlap trigger rolling them back
+    And the recurring occurrence remains a single booking row
+```
+
+### RP-26 — Unexpected generator errors remain surfaced
+
+```gherkin
+Feature: Recurring generator error handling
+  Scenario: An unclassified database error is not converted into an unavailable date
+    Given the generator encounters an error outside recognized provider/service/pack availability cases
+    When the generator processes the affected plan
+    Then the database error propagates to the job caller
+    And it is not silently recorded as ordinary provider unavailability
+```
+
+### RP-27 — Near-term first visits are materialized synchronously
+
+```gherkin
+Feature: Timely recurring occurrence creation
+  Scenario: Accepted, auto-accepted, and legacy plans do not wait for the hourly cron
+    Given a plan's first eligible occurrence is between 30 and 90 minutes away
+    When it is accepted through provider response, auto-accepted at v2 creation, or created through the legacy RPC
+    Then an eligible first booking exists before that RPC returns
+    And a later hourly generator run creates no duplicate
 ```
 
 ## Acceptance criteria
@@ -411,8 +465,10 @@ Feature: Recurring visit reservations
 7. The master and child feature switches fail closed, while existing-work cancellation/refund paths remain available.
 8. The legacy `create_recurring_schedule` contract and existing booking statuses remain supported.
 9. B1 v2 quotes and creates only `per_visit` plans; positive category or global discounts remain rejected until both v2 archetype charge paths apply them.
-10. A known invalidated plan records a visible failure and is paused without preventing valid plans from generating; unexpected database errors remain surfaced.
-11. A pending recurring payment occurrence continues reserving its provider window after the generic 30-minute pending-payment cutoff.
+10. Service/category invalidation, verification lapse, and pack expiration/exhaustion are recorded and announced per date, do not system-pause a plan when skip/pause is OFF, and do not block valid plans in the same batch.
+11. A pending recurring payment occurrence continues reserving its provider window after the generic 30-minute pending-payment cutoff, while a status-only payment transition is not subjected to the insert/window-change guard.
+12. Unclassified database errors propagate rather than being swallowed as availability outcomes.
+13. Provider response, v2 auto-accept, and legacy schedule creation synchronously materialize near-term occurrences; a later cron run is idempotent.
 
 ## Automation readiness
 
@@ -432,8 +488,10 @@ Each row names one primary bounded context from the DDD artifact. These are plan
 | RP-21 | Legacy Booking Compatibility | New legacy requests obey master/category gates; existing schedules remain readable/cancellable with legacy behavior. |
 | RP-22 | Recurring Notifications | Reminder feature gating and duplicate suppression; reminder-off does not disable generation. |
 | RP-23 | Recurring Plan Management | Skip/pause, reschedule, and prepaid child-flag rejections; plan cancellation remains available with the master flag off. |
-| RP-24 | Occurrence Scheduling | Invalidated plan failure is persisted/visible and isolated while another plan generates; unclassified errors surface. |
-| RP-25 | Provider Availability | A stale pending recurring occurrence blocks an overlapping booking under the provider lock. |
+| RP-24 | Occurrence Scheduling | Service/category, verification, and expired/exhausted-pack failures record and notify per date while another plan generates; retry dedupes and the plan remains eligible. |
+| RP-25 | Existing Booking Lifecycle | A stale recurring pending row blocks overlapping inserts, but a status-only payment webhook transition succeeds. |
+| RP-26 | Occurrence Scheduling | Unclassified database errors propagate instead of being silently dropped. |
+| RP-27 | Occurrence Scheduling | Provider-accepted, auto-accepted, and legacy plans materialize a 30–90-minute first visit synchronously; later generation does not duplicate it. |
 
 ## Trace links
 
