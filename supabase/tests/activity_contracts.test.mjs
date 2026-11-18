@@ -158,19 +158,19 @@ await db.query(`
     ($1, 'chat_message', $2, jsonb_build_object('booking_id', $2), null),
     ($1, 'booking_accepted', $3, '{}'::jsonb, null),
     ($4, 'booking_accepted', $2, '{}'::jsonb, null),
-    ($1, 'proposal_received', null, jsonb_build_object('request_id', $5), null),
-    ($1, 'proposal_received', null, jsonb_build_object('request_id', $5), null),
-    ($1, 'proposal_received', null, jsonb_build_object('request_id', $6), null),
-    ($1, 'request_message', null, jsonb_build_object('request_id', $5), null),
-    ($1, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $7), null),
-    ($1, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $8), null),
-    ($4, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $7), null),
-    ($1, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $7), now()),
-    ($1, 'sports_booking_accepted', null, jsonb_build_object('sports_booking_id', $9), null),
-    ($1, 'sports_booking_declined', null, jsonb_build_object('sports_booking_id', $9), null),
-    ($1, 'sports_booking_requested', null, jsonb_build_object('sports_booking_id', $9), null),
-    ($1, 'sports_booking_accepted', null, jsonb_build_object('sports_booking_id', $10), null),
-    ($4, 'sports_booking_accepted', null, jsonb_build_object('sports_booking_id', $9), null)
+    ($1, 'proposal_received', null, jsonb_build_object('request_id', $5::text), null),
+    ($1, 'proposal_received', null, jsonb_build_object('request_id', $5::text), null),
+    ($1, 'proposal_received', null, jsonb_build_object('request_id', $6::text), null),
+    ($1, 'request_message', null, jsonb_build_object('request_id', $5::text), null),
+    ($1, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $7::text), null),
+    ($1, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $8::text), null),
+    ($4, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $7::text), null),
+    ($1, 'rfq_quote_received', null, jsonb_build_object('rfq_id', $7::text), now()),
+    ($1, 'sports_booking_accepted', null, jsonb_build_object('sports_booking_id', $9::text), null),
+    ($1, 'sports_booking_declined', null, jsonb_build_object('sports_booking_id', $9::text), null),
+    ($1, 'sports_booking_requested', null, jsonb_build_object('sports_booking_id', $9::text), null),
+    ($1, 'sports_booking_accepted', null, jsonb_build_object('sports_booking_id', $10::text), null),
+    ($4, 'sports_booking_accepted', null, jsonb_build_object('sports_booking_id', $9::text), null)
 `, [customer, booking, otherBooking, otherCustomer, request, otherRequest, rfq, otherRfq, sportsBooking, ownerOnlyBooking]);
 
 const rfqs = await as(customer, `select id, status, recipient_count from public.list_my_customer_rfqs()`);
