@@ -37,7 +37,10 @@ export default function RoleScreen() {
 
   useEffect(() => {
     getMyProfile()
-      .then((p) => p?.full_name && setName((n) => n || p.full_name))
+      .then((p) => {
+        if (p?.full_name) setName((n) => n || p.full_name);
+        if (p?.role_provider) setRole('provider');
+      })
       .catch(() => undefined);
     getCommissionTerms()
       .then((terms) => setCommissionBullet(`0% commission for your first ${terms.founding_days} days`))

@@ -2,10 +2,11 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/ui';
 import { isDemoMode, sendOtp } from '../../src/lib/api';
+import { authErrorMessage } from '../../src/lib/authErrors';
 import { useT } from '../../src/i18n';
 import { useTheme } from '../../src/theme';
 import { normalizeIndianPhone } from '../../src/lib/phone';
@@ -46,7 +47,7 @@ export default function LoginScreen() {
         ? { pathname: '/verify', params: { phone: e164, inviteToken } }
         : { pathname: '/verify', params: { phone: e164 } });
     } catch (e) {
-      setError((e as Error).message);
+      setError(authErrorMessage(e as Error));
     } finally {
       setBusy(false);
     }
@@ -171,6 +172,15 @@ export default function LoginScreen() {
           </Text>
           {legalAfterPrivacy}
         </Text>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push('/help')}
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text variant="callout" color="primaryText" align="center" style={{ textDecorationLine: 'underline' }}>
+            Need help signing in?
+          </Text>
+        </Pressable>
       </View>
     </Screen>
   );

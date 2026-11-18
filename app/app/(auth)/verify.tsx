@@ -2,10 +2,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, Header, InlineAlert, OTPInput, Screen, Text, useToast } from '../../src/components/ui';
-import { isDemoMode, sendOtp, verifyOtp } from '../../src/lib/api';
+import { getMyProfile, getMyProvider, isDemoMode, sendOtp, verifyOtp } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
+import { authErrorMessage } from '../../src/lib/authErrors';
 import { haptics } from '../../src/lib/haptics';
 import { formatPhone } from '../../src/lib/phone';
+import { hasCompletedOnboarding, returningUserRole } from '../../src/lib/returningUser';
 import { useTheme } from '../../src/theme';
 
 const RESEND_SECONDS = 30;
@@ -14,7 +16,7 @@ export default function VerifyScreen() {
   const t = useTheme();
   const toast = useToast();
   const { phone, inviteToken } = useLocalSearchParams<{ phone: string; inviteToken?: string }>();
-  const { setChoosingRole } = useAuth();
+  const { setChoosingRole, setActiveRole } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,11 +39,24 @@ export default function VerifyScreen() {
       setChoosingRole(true);
       await verifyOtp(phone, value);
       haptics.success();
+      const profile = await getMyProfile().catch(() => null);
+      if (hasCompletedOnboarding(profile)) {
+        const provider = profile.role_provider ? await getMyProvider().catch(() => null) : null;
+        const role = returningUserRole(profile, !!provider);
+        setActiveRole(role);
+        setChoosingRole(false);
+        if (inviteToken) {
+          router.replace({ pathname: '/byo/[token]', params: { token: inviteToken } });
+        } else {
+          setTimeout(() => router.replace(role === 'provider' ? '/dashboard' : '/'), 0);
+        }
+        return;
+      }
       router.replace(inviteToken ? { pathname: '/role', params: { inviteToken } } : '/role');
     } catch (e) {
       setChoosingRole(false);
       haptics.error();
-      setError((e as Error).message);
+      setError(authErrorMessage(e as Error));
     } finally {
       setBusy(false);
     }
@@ -55,7 +70,7 @@ export default function VerifyScreen() {
       setCode('');
       toast({ message: 'New code sent', tone: 'success' });
     } catch (e) {
-      setError((e as Error).message);
+      setError(authErrorMessage(e as Error));
     }
   };
 
