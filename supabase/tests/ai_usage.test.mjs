@@ -104,7 +104,7 @@ await as(customer, 'service_role', `
 
 const [second] = await begin(anotherCustomer, '00000000-0000-0000-0000-000000000105');
 assert.equal(second.rejection, 'monthly_budget', 'chat cost remains included in the global monthly budget');
-await db.query(`update public.app_config set value = '{"product_search_per_day":1,"quote_extract_per_day":10,"monthly_budget_usd":0.1}'::jsonb where key = 'ai_limits'`);
+await db.query(`update public.app_config set value = '{"product_search_per_day":1,"quote_extract_per_day":10,"monthly_budget_usd":0.0001}'::jsonb where key = 'ai_limits'`);
 const [secondAfterBudgetIncrease] = await begin(anotherCustomer, '00000000-0000-0000-0000-000000000108');
 assert.equal(secondAfterBudgetIncrease.rejection, null);
 await as(null, 'service_role', `
@@ -112,7 +112,7 @@ await as(null, 'service_role', `
 `, [secondAfterBudgetIncrease.usage_id]);
 assert.equal((await begin(thirdCustomer, '00000000-0000-0000-0000-000000000106'))[0].rejection, 'monthly_budget');
 
-await db.query(`update public.app_config set value = '{"product_search_per_day":1,"quote_extract_per_day":10,"monthly_budget_usd":0.2}'::jsonb where key = 'ai_limits'`);
+await db.query(`update public.app_config set value = '{"product_search_per_day":1,"quote_extract_per_day":10,"monthly_budget_usd":0.0002}'::jsonb where key = 'ai_limits'`);
 const [third] = await begin(thirdCustomer, '00000000-0000-0000-0000-000000000107');
 await as(null, 'service_role', `
   select public.finish_ai_usage($1, 'gemini-3.5-flash-lite', 50, 5, 25, 20, false)
