@@ -108,12 +108,14 @@ async function expectError(fn, re, msg) {
 
 await db.exec(`insert into auth.users (id, phone) values ('${C}', '+919000000001'), ('${P}', '+919000000002'), ('${X}', '+919000000003');`);
 await asP(`select upsert_provider_profile('Ravi', 'AC expert', 'Vijayawada', 15, 16.5062, 80.6480, 6, '{te,hi}')`);
-await db.exec(`update providers set created_at = now() - interval '90 days' where id = '${P}'`);
+await db.exec(`update providers set created_at = now() - interval '90 days', submitted_at = now() where id = '${P}'`);
 await svc(`select sync_provider_kyc('${P}', 'acc_test123', 'activated')`);
 const [{ id: catId }] = await db.query(`select id from categories where slug = 'ac-repair'`).then(r => r.rows);
 const [{ id: psId }] = await asP(`insert into provider_services (provider_id, category_id, skill_level, visit_fee, labour_rate) values ($1, $2, 'expert', 19900, 50000) returning id`, [P, catId]);
 await db.exec(`
-  update categories set active = true where id = '${catId}';
+  update categories
+     set active = true, restricted = false, archetype = 'inspect_quote', requires_docs = '{}'
+   where id = '${catId}';
   insert into app_config (key, value) values ('launch_city', '"Vijayawada"')
   on conflict (key) do update set value = excluded.value;
   update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags';

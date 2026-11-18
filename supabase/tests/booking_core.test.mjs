@@ -219,7 +219,19 @@ ok(
 const createBooking = async () => (
   await asCustomer(`select create_booking($1, 'AC not cooling', '2 Core Road', 'Core City', 16.51, 80.64)`, [providerService])
 )[0].create_booking;
-await service(`update categories set active = true where id = $1`, [acCategory]);
+await service(`
+  update categories
+     set active = true, restricted = false, archetype = 'inspect_quote', requires_docs = '{}'
+   where id = $1
+`, [acCategory]);
+await service(`
+  update providers
+     set kyc_status = 'verified', submitted_at = coalesce(submitted_at, now()),
+         suspended = false, paused = false, deactivated_at = null
+   where id = $1
+`, [PROVIDER]);
+await service(`update provider_services set active = true where id = $1`, [providerService]);
+await service(`update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags'`);
 await service(`
   insert into category_cities (category_id, city, live, launched_at)
   values ($1, 'Core City', true, now())

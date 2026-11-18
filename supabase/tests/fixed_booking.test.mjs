@@ -108,12 +108,16 @@ ok((await stranger(`select * from payment_schedule where booking_id='${booking}'
 const p1=await serviceRole(`select * from prepare_payment($1,$2)`,[booking,C]);
 await serviceRole(`update payments set razorpay_link_id='link-1',short_url='https://x/1' where id='${p1[0].payment_id}'`);
 const p2=await serviceRole(`select * from prepare_payment($1,$2)`,[booking,C]);
-ok(p1[0].payment_id===p2[0].payment_id&&p1[0].amount===12000,'one live attempt is reused for one schedule');
-await serviceRole(`select record_payment_paid('link-1','pay-1',12000)`);
-const pFee=await serviceRole(`select * from prepare_payment($1,$2)`,[booking,C]);
-await serviceRole(`update payments set razorpay_link_id='link-2',short_url='https://x/2' where id='${pFee[0].payment_id}'`);
-await serviceRole(`select record_payment_paid('link-2','pay-2',2900)`);
-ok((await serviceRole(`select status from bookings where id='${booking}'`))[0].status==='requested','fixed quote activates only after every upfront obligation is paid');
+ok(
+  p1[0].payment_id===p2[0].payment_id&&p1[0].amount===14900&&p2[0].amount===14900,
+  'one live attempt covers all due obligations: '+JSON.stringify({p1:p1[0],p2:p2[0]}),
+);
+await serviceRole(`select record_payment_paid('link-1','pay-1',14900)`);
+const activatedStatus=(await serviceRole(`select status from bookings where id='${booking}'`))[0].status;
+ok(
+  activatedStatus==='requested',
+  'fixed quote activates only after every upfront obligation is paid: '+JSON.stringify({activatedStatus}),
+);
 await provider(`select accept_booking('${booking}')`); await provider(`select start_trip('${booking}')`);
 const otp=(await customer(`select * from get_booking_otps('${booking}')`))[0].start_otp;
 const arrival=(await provider(`select arrive($1,$2) r`,[booking,otp]))[0].r;
