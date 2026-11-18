@@ -1,18 +1,26 @@
 import { Redirect, Tabs } from 'expo-router';
 import { useAuth } from '../../src/lib/auth';
 import { badgeLabel } from '../../src/lib/unread';
-import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
+import { ActivityUnreadProvider, useActivityUnread } from '../../src/features/activity/ActivityUnreadProvider';
 
 export const unstable_settings = { initialRouteName: 'index' };
 
 export default function CustomerTabs() {
   const { activeRole } = useAuth();
+  if (activeRole === 'provider') return <Redirect href="/dashboard" />;
+  return (
+    <ActivityUnreadProvider>
+      <CustomerTabsContent />
+    </ActivityUnreadProvider>
+  );
+}
+
+function CustomerTabsContent() {
   const screenOptions = useTabScreenOptions();
   const t = useTheme();
-  const unread = useUnread().total('customer');
-  if (activeRole === 'provider') return <Redirect href="/dashboard" />;
+  const unread = useActivityUnread().total;
   return (
     <Tabs screenOptions={screenOptions}>
       <Tabs.Screen

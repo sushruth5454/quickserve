@@ -427,11 +427,21 @@ await step('assistant-review-prefills-book', async () => {
 });
 await step('bookings-active', async () => {
   await go('/bookings');
-  await visible('My bookings');
+  await visible('My activity');
 });
 await step('bookings-past', async () => {
   await page.getByText('Past', { exact: true }).first().click();
   await page.waitForTimeout(500);
+});
+await step('my-activity-segmented-lists', async () => {
+  await page.getByRole('tab', { name: /^Requests/ }).click();
+  await page.getByRole('tab', { name: /^Shop/ }).click();
+  await visible('Product enquiries');
+  await visible('Product RFQs');
+  await page.getByRole('tab', { name: /^Sports/ }).click();
+  await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor();
+  await page.getByRole('tab', { name: /^Services/ }).click();
+  await visible('Active');
 });
 for (const [n, label, scrolled] of [
   [1, 'pending-payment'],
@@ -506,7 +516,7 @@ for (const [name, path, wait] of [
   ['dark-category', '/category/ac-repair?name=AC%20Repair', null],
   ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
   ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
-  ['dark-bookings', '/bookings', 'My bookings'],
+  ['dark-bookings', '/bookings', 'My activity'],
   ['dark-location-picker', '/location', 'Saved addresses'],
   ['dark-me-customer', '/account', 'Switch to provider mode'],
 ]) {
