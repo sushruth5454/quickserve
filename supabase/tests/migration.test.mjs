@@ -203,11 +203,18 @@ await expectError(
 );
 
 ok((await svc(`select * from claim_due_transfers()`)).length === 0, 'nothing released before 24h window');
-await db.exec(`update payouts set release_after = now() - interval '1 minute' where id = '${po.id}'`);
+await db.exec(`
+  update payouts set release_after = now() - interval '1 minute' where id = '${po.id}';
+  update payout_transfers set release_after = now() - interval '1 minute' where payout_id = '${po.id}';
+`);
 const claimed = await svc(`select * from claim_due_transfers()`);
-ok(claimed.length === 2 && claimed.every(c => c.account_id === 'acc_test123' && c.razorpay_payment_id), 'due transfers claimed with source payment ids');
+ok(
+  claimed.length === 2 && claimed.every(c => c.account_id === 'acc_test123' && c.razorpay_payment_id),
+  'due transfers claimed with source payment ids: ' + JSON.stringify(claimed),
+);
 for (const c of claimed) await svc(`select complete_transfer($1, $2)`, [c.transfer_id, 'trf_' + c.transfer_id.slice(0, 6)]);
-ok(await status(b1) === 'closed', 'all transfers done -> closed');
+const payoutStatus = await status(b1);
+ok(payoutStatus === 'closed', 'all transfers done -> closed: ' + JSON.stringify({ payoutStatus }));
 
 // ---- Change orders ----
 const [{ create_booking: b2 }] = await asC(`select create_booking($1, 'Wiring', '5 Ring Rd', 'Vijayawada', 16.52, 80.63)`, [psId]);
