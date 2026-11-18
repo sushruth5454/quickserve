@@ -51,6 +51,7 @@ const legacyHomeSlugs = [
   'house-cleaning', 'electrician', 'plumber', 'ac-repair', 'appliance-repair',
   'carpenter', 'painter', 'pest-control', 'water-tank-cleaning',
 ];
+const fixedPackageProvider = '00000000-0000-0000-0000-0000000000d1';
 let legacyHomeCategories = [];
 const migrations = [
   '0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql',
@@ -78,9 +79,37 @@ const migrations = [
 for (const file of migrations) {
   if (file === '0056_home_services_catalogue.sql') {
     legacyHomeCategories = (await db.query(
-      'select slug, id, name from public.categories where slug = any($1::text[])',
+      `select slug, id, name, archetype, pricing_units, payment_template,
+              cancellation_policy, config_version
+         from public.categories where slug = any($1::text[])`,
       [legacyHomeSlugs],
     )).rows;
+    await db.exec(`
+      insert into auth.users (id, phone, raw_user_meta_data)
+      values ('${fixedPackageProvider}', '+919999000003', '{}');
+      update public.categories
+         set active = true
+       where slug in ('house-cleaning', 'pest-control', 'water-tank-cleaning');
+      insert into public.providers (
+        id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended
+      ) values (
+        '${fixedPackageProvider}', 'Review City',
+        extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
+        'verified', now(), true, false, false
+      );
+      insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
+      select '${fixedPackageProvider}', c.id, 0, 50000, true
+        from public.categories c
+       where c.slug in ('house-cleaning', 'pest-control');
+      insert into public.service_packages (
+        provider_service_id, title, price_type, price, price_min, price_max, unit, active
+      )
+      select ps.id, 'Pest control package', 'fixed', 1000, 1000, 1000, 'job', true
+        from public.provider_services ps
+        join public.categories c on c.id = ps.category_id
+       where ps.provider_id = '${fixedPackageProvider}'
+         and c.slug = 'pest-control';
+    `);
   }
   if (file === '0051_ai_usage_v3.sql') {
     await db.exec(`
@@ -125,6 +154,51 @@ await db.exec(`
      set value = value || '{"fixed":true,"time_based":true,"inspect_quote":true}'::jsonb
    where key = 'archetype_flags';
 `);
+
+await db.exec(`
+  insert into public.category_cities (category_id, city, live, launched_at)
+  select id, 'Review City', true, now()
+    from public.categories
+   where slug = 'house-cleaning'
+  on conflict (category_id, city) do update set live = true;
+`);
+const legacyServiceId = await one(
+  `select ps.id
+     from public.provider_services ps
+     join public.categories c on c.id = ps.category_id
+    where ps.provider_id = $1 and c.slug = 'house-cleaning'`,
+  [fixedPackageProvider],
+).then((row) => row.id);
+let legacyBookingId;
+const legacyBookingError = await fails(async () => {
+  legacyBookingId = (await as(
+    customer,
+    'authenticated',
+    `select public.create_booking(
+       $1::uuid, 'Legacy cleaning request', '12 Main Road', 'Review City',
+       17.626, 80.60, null, '{}'::text[], null
+     ) as id`,
+    [legacyServiceId],
+  ))[0].id;
+});
+const legacyBooking = legacyBookingId
+  ? await one(
+    `select b.archetype, b.payment_template_snapshot, b.cancellation_snapshot
+       from public.bookings b where b.id = $1`,
+    [legacyBookingId],
+  )
+  : null;
+const catalogueFlag = await one(
+  "select enabled from public.feature_flags where key = 'home_services_catalogue_v2'",
+);
+ok(
+  legacyBookingError === null
+    && catalogueFlag?.enabled === false
+    && legacyBooking?.archetype === 'inspect_quote'
+    && legacyBooking.payment_template_snapshot?.key === 'visit_then_balance'
+    && legacyBooking.cancellation_snapshot?.key === 'standard_visit',
+  'HSC-01 inspect_quote create_booking remains available when catalogue v2 is off and no fixed package exists',
+);
 
 const parentId = async (slug) =>
   (await one('select id from public.categories where slug = $1', [slug])).id;
@@ -194,25 +268,38 @@ const renamedCleaningSlug = await one(
 );
 ok(renamedCleaningSlug.n === 0, 'HSC-01 no replacement home-cleaning slug is created');
 const existingRecurrence = await db.query(
-  `select slug, archetype, recurrence_allowed, allowed_frequencies, pricing_units
+  `select slug, archetype, recurrence_allowed, allowed_frequencies, pricing_units,
+          payment_template, cancellation_policy, config_version
      from public.categories
     where slug in ('house-cleaning', 'pest-control', 'water-tank-cleaning')`,
 );
-const expectedExistingRecurrence = {
-  'house-cleaning': ['fixed', ['daily', 'alternate_days', 'weekly'], 'visit'],
-  'pest-control': ['fixed', ['monthly'], 'visit'],
-  'water-tank-cleaning': ['fixed', ['monthly'], 'visit'],
-};
+const legacyRows = existingRecurrence.rows.filter(
+  (row) => row.slug === 'house-cleaning' || row.slug === 'water-tank-cleaning',
+);
 ok(
-  existingRecurrence.rows.length === 3
-    && existingRecurrence.rows.every((row) => {
-      const [archetype, frequencies, unit] = expectedExistingRecurrence[row.slug];
-      return row.archetype === archetype
-        && row.recurrence_allowed
-        && JSON.stringify(row.allowed_frequencies) === JSON.stringify(frequencies)
-        && row.pricing_units.includes(unit);
+  legacyRows.length === 2
+    && legacyRows.every((row) => {
+      const original = originalBySlug.get(row.slug);
+      return row.archetype === original.archetype
+        && row.payment_template === original.payment_template
+        && row.cancellation_policy === original.cancellation_policy
+        && JSON.stringify(row.pricing_units) === JSON.stringify(original.pricing_units)
+        && row.config_version === original.config_version
+        && !row.recurrence_allowed
+        && row.allowed_frequencies.length === 0;
     }),
-  'HSC-01 existing recurring home services receive the planned recurrence policy',
+  'HSC-01 legacy services without fixed packages preserve their booking configuration',
+);
+const packageBackedConversion = existingRecurrence.rows.find((row) => row.slug === 'pest-control');
+ok(
+  packageBackedConversion?.archetype === 'fixed'
+    && packageBackedConversion.payment_template === 'full_upfront'
+    && packageBackedConversion.cancellation_policy === 'fixed_flexible'
+    && packageBackedConversion.recurrence_allowed
+    && JSON.stringify(packageBackedConversion.allowed_frequencies) === JSON.stringify(['monthly'])
+    && packageBackedConversion.pricing_units.includes('visit')
+    && packageBackedConversion.config_version === originalBySlug.get('pest-control').config_version + 1,
+  'HSC-01 package-backed fixed conversion uses the 0019 guard and fixed booking metadata',
 );
 const expectedParents = {
   'house-cleaning': 'household-help',

@@ -230,19 +230,31 @@ values
 on conflict (slug) do update
 set parent_id = excluded.parent_id;
 
-update public.categories
+update public.categories c
    set archetype = 'fixed',
+       payment_template = 'full_upfront',
+       cancellation_policy = 'fixed_flexible',
        recurrence_allowed = true,
-       allowed_frequencies = case slug
+       allowed_frequencies = case c.slug
          when 'house-cleaning' then array['daily', 'alternate_days', 'weekly']::text[]
          else array['monthly']::text[]
        end,
        pricing_units = case
-         when 'visit' = any(pricing_units) then pricing_units
-         else array_append(pricing_units, 'visit')
+         when 'visit' = any(c.pricing_units) then c.pricing_units
+         else array_append(c.pricing_units, 'visit')
        end,
-       config_version = config_version + 1
- where slug in ('house-cleaning', 'pest-control', 'water-tank-cleaning');
+       config_version = c.config_version + 1
+ where c.slug in ('house-cleaning', 'pest-control', 'water-tank-cleaning')
+   and c.active
+   and exists (
+     select 1
+       from public.provider_services ps
+       join public.service_packages sp on sp.provider_service_id = ps.id
+      where ps.category_id = c.id
+        and ps.active
+        and sp.active
+        and sp.price_type = 'fixed'
+   );
 
 create or replace function public._home_services_catalogue_visible(p_slug text, p_vertical text)
 returns boolean
