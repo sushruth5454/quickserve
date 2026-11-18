@@ -329,25 +329,29 @@ const cancellationNoticeFixtures = [
   {
     customer: '00000000-0000-0000-0000-000000000201',
     provider: '00000000-0000-0000-0000-000000000202',
-    scheduledAt: '2099-01-04T04:30:00Z',
+    scheduledAt: '2027-01-04T04:30:00Z',
     customerName: 'Cancellation Customer One',
     providerName: 'Cancellation Pro One',
   },
   {
     customer: '00000000-0000-0000-0000-000000000203',
     provider: '00000000-0000-0000-0000-000000000204',
-    scheduledAt: '2099-01-05T05:00:00Z',
+    scheduledAt: '2027-01-05T05:00:00Z',
     customerName: 'Cancellation Customer Two',
     providerName: 'Cancellation Pro Two',
   },
   {
     customer: '00000000-0000-0000-0000-000000000205',
     provider: '00000000-0000-0000-0000-000000000206',
-    scheduledAt: '2099-01-06T05:30:00Z',
+    scheduledAt: '2027-01-06T05:30:00Z',
     customerName: 'Cancellation Customer Three',
     providerName: 'Cancellation Pro Three',
   },
 ];
+await service(
+  `update categories set min_lead_hours = 0, max_lead_days = 365, exclusive = false where id = $1::uuid`,
+  [categoryId],
+);
 for (const fixture of cancellationNoticeFixtures) {
   await db.query(`
     insert into auth.users (id, raw_user_meta_data)
@@ -357,7 +361,11 @@ for (const fixture of cancellationNoticeFixtures) {
     fixture.provider, JSON.stringify({ full_name: fixture.providerName }),
   ]);
   await db.query(`update profiles set role_provider = true where id = $1::uuid`, [fixture.provider]);
-  await db.query(`insert into providers (id, city) values ($1::uuid, 'Vijayawada')`, [fixture.provider]);
+  await db.query(`
+    insert into providers (
+      id, city, kyc_status, razorpay_account_id, submitted_at, terms_version, onboarding_step
+    ) values ($1::uuid, 'Vijayawada', 'verified', $2::text, now(), 'legacy', 7)
+  `, [fixture.provider, `acc_${fixture.provider}`]);
   fixture.serviceId = (await db.query(`
     insert into provider_services (provider_id, category_id, visit_fee, labour_rate)
     values ($1::uuid, $2::uuid, 19900, 50000) returning id
