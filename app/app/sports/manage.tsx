@@ -27,6 +27,8 @@ interface Resource {
 interface ManagementVenue {
   venue: {
     id: string;
+    owner_id: string;
+    business_role?: 'owner' | 'manager' | 'staff';
     name: string;
     description: string;
     address_line: string;
@@ -120,9 +122,9 @@ export default function SportsVenueManagementScreen() {
     setError(null);
     try {
       const [venueResult, activityResult, bookingResult] = await Promise.all([
-        supabase.rpc('get_my_sports_venues'),
+        supabase.rpc('get_my_business_sports_venues'),
         supabase.rpc('list_sports_activities'),
-        supabase.rpc('get_my_sports_bookings'),
+        supabase.rpc('get_my_business_sports_bookings'),
       ]);
       if (venueResult.error) throw new Error(venueResult.error.message);
       if (activityResult.error) throw new Error(activityResult.error.message);
@@ -283,7 +285,28 @@ export default function SportsVenueManagementScreen() {
     }
   };
 
-  const myRequests = bookings.filter((booking) => booking.owner_id === userId && booking.venue_id === selectedId && booking.status === 'requested');
+  const venueBookings = bookings.filter((booking) => booking.owner_id === selected?.venue.owner_id && booking.venue_id === selectedId);
+  const myRequests = venueBookings.filter((booking) => booking.status === 'requested');
+
+  if (selected && selected.venue.owner_id !== userId) {
+    return (
+      <Screen header={<Header title="Assigned sports bookings" subtitle={`${selected.venue.name} · read-only`} onBack={() => router.back()} />}>
+        <Text variant="footnote" color="muted">Staff can view sports bookings. Only the venue owner can edit venue details, prices, hours, or respond to requests.</Text>
+        <Button title="All assigned business work" variant="outline" onPress={() => router.push('/merchant-work')} />
+        <Card gap={t.spacing.sm}>
+          <Text variant="title3">Bookings</Text>
+          {venueBookings.length === 0 ? (
+            <EmptyState icon="calendar-outline" title="No bookings" message="Bookings for this venue will appear here." compact />
+          ) : venueBookings.map((booking) => (
+            <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+              <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
+              <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} · {booking.status.toUpperCase()}</Text>
+            </Pressable>
+          ))}
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen header={<Header title="My sports venues" subtitle="Manage courts, hours, prices and requests" onBack={() => router.back()} />}>
@@ -320,6 +343,9 @@ export default function SportsVenueManagementScreen() {
                 setPhotos('');
                 setResourceId('');
               }} />
+              {selected?.venue.owner_id === userId ? (
+                <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
+              ) : null}
             </View>
           ) : null}
 

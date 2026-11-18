@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
@@ -16,8 +16,6 @@ import {
   getBooking,
   getBookingCommissionRate,
   getMyProfile,
-  getMyProvider,
-  getProviderJobs,
   listCategories,
   listMyPayouts,
   setOnline,
@@ -30,7 +28,12 @@ import { pct, providerStats } from '../../src/lib/providerInsights';
 import { bookingRef, scheduleLabel } from '../../src/lib/schedule';
 import { useAuth } from '../../src/lib/auth';
 import { registerForPush } from '../../src/lib/push';
-import type { BookingStatus, Category, Payout, Provider, ProviderJob } from '../../src/lib/types';
+import type { BookingStatus, Category, Payout, ProviderJob } from '../../src/lib/types';
+import {
+  getMyProviderBusinessContext,
+  listMyBusinessProviderJobs,
+  type BusinessProviderContext,
+} from '../../src/features/merchantStaff/api';
 import { useUnread } from '../../src/lib/unreadContext';
 import { useTheme } from '../../src/theme';
 import { GoLiveStatusCard } from '../../src/features/providerOnboarding/GoLiveStatusCard';
@@ -73,9 +76,11 @@ const firstName = (name: string) => (name || 'Customer').split(' ')[0] ?? name;
 
 export default function ProviderDashboard() {
   const t = useTheme();
+  const params = useLocalSearchParams<{ providerId?: string | string[] }>();
+  const providerId = Array.isArray(params.providerId) ? params.providerId[0] : params.providerId;
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const [provider, setProvider] = useState<Provider | null>(null);
+  const [provider, setProvider] = useState<BusinessProviderContext | null>(null);
   const [me, setMe] = useState('');
   const [jobs, setJobs] = useState<ProviderJob[] | null>(null);
   const [earningRates, setEarningRates] = useState<Record<string, number | null>>({});
@@ -101,28 +106,32 @@ export default function ProviderDashboard() {
   const load = useCallback(async () => {
     setEarningRates({});
     try {
-      const p = await getMyProvider();
+      const p = await getMyProviderBusinessContext(providerId);
       if (!p) {
         router.replace('/onboarding');
         return;
       }
       setProvider(p);
-      // Go-live status (docs/08): shown until the provider is live; failures here never block the dashboard.
-      void Promise.all([onboardingApi.getOnboarding(), onboardingApi.getCatalog()])
-        .then(([s, cat]) => setGoLive({ status: s.go_live, docTypes: cat.docTypes }))
-        .catch(() => undefined);
-      const [j, po, profile, cats] = await Promise.all([getProviderJobs(), listMyPayouts(), getMyProfile(), listCategories()]);
+      const isOwner = p.business_role === 'owner';
+      if (isOwner) {
+        void Promise.all([onboardingApi.getOnboarding(), onboardingApi.getCatalog()])
+          .then(([s, cat]) => setGoLive({ status: s.go_live, docTypes: cat.docTypes }))
+          .catch(() => undefined);
+      } else {
+        setGoLive(null);
+      }
+      const [j, profile, cats] = await Promise.all([listMyBusinessProviderJobs(p.id), getMyProfile(), listCategories()]);
       setJobs(j);
-      setPayouts(po);
+      setPayouts(isOwner ? await listMyPayouts() : []);
       setCategories(cats);
       setMe(profile?.full_name?.split(' ')[0] ?? '');
-      const requestRates = await Promise.all(j.filter((job) => job.status === 'requested').map(async (job) => {
+      const requestRates = isOwner ? await Promise.all(j.filter((job) => job.status === 'requested').map(async (job) => {
         try {
           return [job.booking_id, await getBookingCommissionRate(job.booking_id)] as const;
         } catch {
           return [job.booking_id, null] as const;
         }
-      }));
+      })) : [];
       setEarningRates(Object.fromEntries(requestRates));
       setError(null);
       // Problem photos for open requests (RLS lets the assigned pro read the booking and its photos).
@@ -139,7 +148,7 @@ export default function ProviderDashboard() {
       setError((e as Error).message);
     }
     void refreshUnread();
-  }, [refreshUnread]);
+  }, [providerId, refreshUnread]);
 
   useFocusEffect(
     useCallback(() => {
@@ -202,6 +211,52 @@ export default function ProviderDashboard() {
     openBooking(j.booking_id);
   };
 
+  if (provider && provider.business_role !== 'owner') {
+    return (
+      <Screen inTabs gap={t.spacing.md} refreshing={refreshing} onRefresh={async () => {
+        setRefreshing(true);
+        await load();
+        setRefreshing(false);
+      }}>
+        <Card>
+          <Text variant="title3">Business work</Text>
+          <Text variant="footnote" color="muted">
+            Access: {provider.business_role}. Only the business owner can change payouts, prices, verification, or staff access.
+          </Text>
+          <Button title="All assigned business work" variant="outline" onPress={() => router.push('/merchant-work')} />
+        </Card>
+        {error ? <InlineAlert message={error} /> : null}
+        {provider.business_role === 'manager' ? <ProviderProposalInbox providerId={provider.id} /> : null}
+        <Section title="Assigned jobs">
+          {!jobs ? <SkeletonCard lines={3} /> : jobs.length === 0 ? (
+            <Text variant="footnote" color="muted">No jobs are assigned to this business.</Text>
+          ) : jobs.map((job) => (
+            <Card key={job.booking_id} gap={t.spacing.sm}>
+              <Text variant="calloutStrong">{job.customer_name} · {job.category_name}</Text>
+              <Text variant="caption" color="muted">{job.status} · {job.area || 'Location shared after acceptance'}</Text>
+              <Text variant="footnote">{job.description}</Text>
+              <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                <Button
+                  title="Open chat"
+                  variant="outline"
+                  onPress={() => router.push({ pathname: '/merchant-job/[id]', params: { id: job.booking_id } })}
+                  style={{ flex: 1 }}
+                />
+                {provider.business_role === 'manager' && ['inspecting', 'quote_sent', 'in_progress'].includes(job.status) ? (
+                  <Button
+                    title="Send quote"
+                    onPress={() => router.push({ pathname: '/quote/[bookingId]', params: { bookingId: job.booking_id, changeOrder: '0' } })}
+                    style={{ flex: 1 }}
+                  />
+                ) : null}
+              </View>
+            </Card>
+          ))}
+        </Section>
+      </Screen>
+    );
+  }
+
   return (
     <Screen
       inTabs
@@ -234,6 +289,9 @@ export default function ProviderDashboard() {
         </View>
 
         <OnlineCard online={online} radiusKm={provider?.service_radius_km ?? null} onChange={(v) => void toggleOnline(v)} disabled={!provider} />
+        {provider?.business_role === 'owner' ? (
+          <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
+        ) : null}
 
         {goLive && (goLive.status.state !== 'live' || goLive.status.paused) ? (
           <GoLiveStatusCard
@@ -262,9 +320,11 @@ export default function ProviderDashboard() {
       <View style={gutter}>
         <TravelRequestInbox />
       </View>
-      <View style={gutter}>
-        <ProviderProposalInbox />
-      </View>
+      {provider ? (
+        <View style={gutter}>
+          <ProviderProposalInbox providerId={provider.id} />
+        </View>
+      ) : null}
 
       <View style={gutter}>
         <Section title="New requests" subtitle={incoming.length ? 'Accept within 15 minutes or the request expires' : undefined}>

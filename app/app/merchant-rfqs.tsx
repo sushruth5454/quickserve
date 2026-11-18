@@ -41,13 +41,16 @@ export default function MerchantRfqsScreen() {
       <InlineAlert message={error} />
       {loading ? <Skeleton height={84} radius={t.radii.lg} /> : rfqs.length ? rfqs.map((rfq) => (
         <ListItem
-          key={rfq.rfq_id}
+          key={`${rfq.shop_id}:${rfq.rfq_id}`}
           icon="document-text-outline"
           title={rfq.title}
           subtitle={`${rfq.category_name} · ${rfq.item_count} item(s) · ${rfq.area}, ${rfq.city} · Needed by ${new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString()}`}
           right={<Text variant="captionStrong" color={rfq.quote_status ? 'successText' : 'primaryText'}>{rfq.quote_status ? 'Quote sent' : 'Reply'}</Text>}
           chevron
-          onPress={() => router.push(`/rfq/merchant/${rfq.rfq_id}`)}
+          onPress={() => router.push({
+            pathname: '/rfq/merchant/[id]',
+            params: { id: rfq.rfq_id, shopId: rfq.shop_id },
+          })}
         />
       )) : (
         <EmptyState title="No open RFQs" message="Customer product quote requests routed to your shop will appear here." />

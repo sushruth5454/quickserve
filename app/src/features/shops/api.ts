@@ -15,6 +15,8 @@ export interface ProductCategory {
 
 export interface ShopProfile {
   id: string;
+  owner_id: string;
+  business_role: 'owner' | 'manager' | 'staff';
   name: string;
   description: string;
   address_line: string;
@@ -116,6 +118,7 @@ export interface EnquiryThread extends EnquirySummary {
   shop_unread: number;
   customer_unread: number;
   from_shop_user: boolean;
+  business_role: 'owner' | 'manager' | 'staff' | null;
 }
 
 export interface EnquiryMessage {
@@ -143,11 +146,11 @@ export async function listProductCategories(): Promise<ProductCategory[]> {
 }
 
 export async function getMyShop(): Promise<ShopProfile | null> {
-  const { data, error } = await supabase.rpc('get_my_shop');
+  const { data, error } = await supabase.rpc('get_my_business_shop');
   return unwrap(data as ShopProfile | null, error);
 }
 
-export async function saveShop(shop: Omit<ShopProfile, 'id' | 'status' | 'status_reason'>): Promise<string> {
+export async function saveShop(shop: Omit<ShopProfile, 'id' | 'owner_id' | 'business_role' | 'status' | 'status_reason'>): Promise<string> {
   const { data, error } = await supabase.rpc('save_shop', {
     p_name: shop.name,
     p_description: shop.description,

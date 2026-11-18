@@ -25,7 +25,7 @@ import { newPlacesSession } from '../src/lib/places';
 import { parseRupees } from '../src/lib/onboarding/validation';
 import { useTheme } from '../src/theme';
 
-type ShopDraft = Omit<ShopProfile, 'id' | 'status' | 'status_reason'>;
+type ShopDraft = Omit<ShopProfile, 'id' | 'owner_id' | 'business_role' | 'status' | 'status_reason'>;
 type ProductDraft = {
   id: string | null;
   categoryId: string;
@@ -119,7 +119,7 @@ export default function MerchantShopScreen() {
           gstin: nextShop.gstin,
           category_slugs: nextShop.category_slugs,
         });
-        const nextProducts = await listMyProducts();
+        const nextProducts = nextShop.business_role === 'owner' ? await listMyProducts() : [];
         setProducts(nextProducts);
         const nextImages = await Promise.all(nextProducts.map(async (product) => [
           product.id,
@@ -312,6 +312,19 @@ export default function MerchantShopScreen() {
     return <Screen header={<Header title="My shop" />}><FeatureUnavailable /></Screen>;
   }
 
+  if (shop && shop.business_role !== 'owner') {
+    return (
+      <Screen header={<Header title={shop.name} subtitle={`Read-only ${shop.business_role} access`} />} gap={t.spacing.md}>
+        <Text variant="footnote" color="muted">
+          Staff can view shop enquiries and RFQs. Only the owner can change shop details, catalogue prices, or verification.
+        </Text>
+        <Button title="All assigned business work" variant="outline" onPress={() => router.push('/merchant-work')} />
+        {features.enquiries ? <Button title="Open enquiries" onPress={() => router.push('/merchant-enquiries')} /> : null}
+        <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
+      </Screen>
+    );
+  }
+
   return (
     <Screen header={<Header title="My shop" subtitle="Manage your local shop and catalogue" />} gap={t.spacing.md} refreshing={loading} onRefresh={() => void load()}>
       <InlineAlert message={error} />
@@ -324,6 +337,7 @@ export default function MerchantShopScreen() {
           </View>
           {shop.status_reason ? <Text color="dangerText">{shop.status_reason}</Text> : null}
           <Text variant="footnote" color="muted">Shop details and catalogues are public only after verification.</Text>
+          <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
           {shop.status !== 'suspended' ? <Button title="Submit for verification" variant="outline" loading={busy} onPress={() => void submitForReview()} disabled={!shop.id || shop.status === 'submitted' || shop.status === 'under_review' || shop.status === 'verified'} /> : null}
         </Card>
       ) : null}

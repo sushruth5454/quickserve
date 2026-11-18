@@ -33,7 +33,7 @@ export default function MerchantRfqQuoteScreen() {
   const t = useTheme();
   const toast = useToast();
   const { rfq: enabled } = useRfqFeatureFlags();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, shopId } = useLocalSearchParams<{ id: string; shopId?: string }>();
   const [rfq, setRfq] = useState<SupplierRfq | null>(null);
   const [drafts, setDrafts] = useState<QuoteDraft[]>([]);
   const [deliveryCharge, setDeliveryCharge] = useState('0');
@@ -47,7 +47,7 @@ export default function MerchantRfqQuoteScreen() {
     if (!enabled || !id) return;
     setLoading(true);
     try {
-      const next = await getSupplierRfq(id);
+      const next = await getSupplierRfq(id, shopId || undefined);
       setRfq(next);
       setDrafts((current) => current.length ? current : next.items.map((item) => ({
         rfqItemId: item.id,
@@ -64,7 +64,7 @@ export default function MerchantRfqQuoteScreen() {
     } finally {
       setLoading(false);
     }
-  }, [enabled, id]);
+  }, [enabled, id, shopId]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
@@ -73,7 +73,7 @@ export default function MerchantRfqQuoteScreen() {
   };
 
   const submit = async () => {
-    if (!rfq || rfq.status !== 'open') return;
+    if (!rfq || rfq.status !== 'open' || !canQuote) return;
     setSaving(true);
     setError(null);
     try {
@@ -100,6 +100,7 @@ export default function MerchantRfqQuoteScreen() {
       if (days != null && (!Number.isInteger(days) || days < 0 || days > 365)) throw new Error('Delivery days must be between 0 and 365.');
       await sendSupplierQuote({
         rfqId: rfq.id,
+        shopId: rfq.shop_id,
         items: quoteItems,
         deliveryChargePaise: Math.round(chargeRupees * 100),
         deliveryDays: days,
@@ -118,18 +119,25 @@ export default function MerchantRfqQuoteScreen() {
     return <Screen header={<Header title="Prepare supplier quote" />}><RfqFeatureUnavailable /></Screen>;
   }
 
+  const canQuote = rfq?.business_role === 'owner' || rfq?.business_role === 'manager';
+
   return (
     <Screen
       header={<Header title={rfq?.title ?? 'Prepare supplier quote'} subtitle={rfq ? `${rfq.category_name} · ${rfq.area}, ${rfq.city}` : undefined} />}
       gap={t.spacing.md}
-      footer={rfq?.status === 'open' ? (
+      footer={rfq?.status === 'open' && canQuote ? (
         <View style={{ gap: t.spacing.sm }}>
           <InlineAlert message={error} />
           <Button title="Send quote" fullWidth loading={saving} onPress={() => void submit()} />
         </View>
-      ) : <InlineAlert message={error} />}
+      ) : (
+        <InlineAlert message={error ?? (rfq?.business_role === 'staff' ? 'Staff can view RFQs; only owners and managers can send quotes.' : null)} />
+      )}
     >
       {loading && !rfq ? <Skeleton height={180} radius={t.radii.lg} /> : null}
+      {!loading && !rfq && error ? (
+        <Button title="Open Supplier RFQs" variant="outline" onPress={() => router.replace('/merchant-rfqs')} />
+      ) : null}
       {rfq ? (
         <>
           <Card style={{ gap: t.spacing.xs }}>
@@ -141,6 +149,19 @@ export default function MerchantRfqQuoteScreen() {
           </Card>
           {rfq.items.map((item) => {
             const draft = drafts.find((entry) => entry.rfqItemId === item.id);
+            if (!draft && !canQuote) {
+              return (
+                <Card key={item.id}>
+                  <Text variant="subheadStrong">{item.seq}. {item.description}</Text>
+                  <Text variant="caption" color="muted">
+                    Requested: {item.quantity} {item.unit}{item.brand_pref ? ` · Brand: ${item.brand_pref}` : ''}
+                  </Text>
+                  <Text variant="caption" color="muted">
+                    Specifications: {Object.entries(item.specs).map(([key, value]) => `${key}: ${String(value)}`).join(' · ') || 'None'}
+                  </Text>
+                </Card>
+              );
+            }
             if (!draft) return null;
             return (
               <Card key={item.id} style={{ gap: t.spacing.sm }}>
@@ -151,11 +172,11 @@ export default function MerchantRfqQuoteScreen() {
                 <Text variant="caption" color="muted">
                   Specifications: {Object.entries(item.specs).map(([key, value]) => `${key}: ${String(value)}`).join(' · ') || 'None'}
                 </Text>
-                <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
+                {canQuote ? <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
                   <Chip label="Available" selected={draft.available} onPress={() => updateDraft(item.id, { available: true })} />
                   <Chip label="Unavailable" selected={!draft.available} onPress={() => updateDraft(item.id, { available: false })} />
-                </View>
-                {draft.available ? (
+                </View> : null}
+                {!canQuote ? null : draft.available ? (
                   <>
                     <Input label="Unit price" prefix="₹" keyboardType="decimal-pad" value={draft.unitPriceRupees} onChangeText={(value) => updateDraft(item.id, { unitPriceRupees: value })} />
                     <Input label="Brand offered" value={draft.brand} onChangeText={(value) => updateDraft(item.id, { brand: value })} maxLength={80} />
@@ -174,12 +195,16 @@ export default function MerchantRfqQuoteScreen() {
               </Card>
             );
           })}
-          <Input label="Delivery charge" prefix="₹" keyboardType="decimal-pad" value={deliveryCharge} onChangeText={setDeliveryCharge} />
-          <Input label="Delivery days (optional)" keyboardType="number-pad" value={deliveryDays} onChangeText={setDeliveryDays} />
-          <TextArea label="Notes for the customer" value={notes} onChangeText={setNotes} maxLength={2000} />
-          <Text variant="caption" color="muted">
-            The server uses the requested quantities and calculates line totals, GST, and the final total.
-          </Text>
+          {canQuote ? (
+            <>
+              <Input label="Delivery charge" prefix="₹" keyboardType="decimal-pad" value={deliveryCharge} onChangeText={setDeliveryCharge} />
+              <Input label="Delivery days (optional)" keyboardType="number-pad" value={deliveryDays} onChangeText={setDeliveryDays} />
+              <TextArea label="Notes for the customer" value={notes} onChangeText={setNotes} maxLength={2000} />
+              <Text variant="caption" color="muted">
+                The server uses the requested quantities and calculates line totals, GST, and the final total.
+              </Text>
+            </>
+          ) : null}
         </>
       ) : null}
     </Screen>

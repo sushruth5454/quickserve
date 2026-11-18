@@ -40,7 +40,7 @@ export default function MySportsBookingsScreen() {
   const load = useCallback(async () => {
     if (!enabled) return;
     setError(null);
-    const { data, error: rpcError } = await supabase.rpc('get_my_sports_bookings');
+    const { data, error: rpcError } = await supabase.rpc('get_my_business_sports_bookings');
     if (rpcError) {
       setError(rpcError.message);
       return;

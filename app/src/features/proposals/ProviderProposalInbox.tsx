@@ -1,28 +1,39 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Badge, Button, Card, EmptyState, Section, Text, useConfirm, useToast } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, InlineAlert, Section, Text, useConfirm, useToast } from '../../components/ui';
 import * as api from '../../lib/api';
 import { formatINR } from '../../lib/money';
 import { relativeTimeLabel } from '../../lib/schedule';
 import { proposalStatus } from '../../lib/proposalStatus';
 import type { Proposal, ProposalRequest } from '../../lib/types';
+import { listMyBusinessProposals } from '../merchantStaff/api';
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 /** Requests routed to this pro, split into ones still needing a reply and proposals already sent. */
-export function ProviderProposalInbox() {
+export function ProviderProposalInbox({ providerId }: { providerId: string }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [requests, setRequests] = useState<ProposalRequest[]>([]);
   const [mine, setMine] = useState<Proposal[]>([]);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    void api.listProviderServiceRequests().then(setRequests).catch(() => undefined);
-    void api.listMyProposals().then(setMine).catch(() => undefined);
-  }, []);
-  useFocusEffect(load);
+  const load = useCallback(async () => {
+    try {
+      const [allRequests, proposals] = await Promise.all([
+        api.listProviderServiceRequests(),
+        listMyBusinessProposals(providerId),
+      ]);
+      setRequests(allRequests.filter((request) => request.provider_id === providerId));
+      setMine(proposals);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [providerId]);
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const { pending, sent } = useMemo(() => {
     // Latest proposal per request (a re-sent proposal gets a higher version).
@@ -64,6 +75,7 @@ export function ProviderProposalInbox() {
 
   return (
     <>
+      <InlineAlert message={error} />
       <Section title="Proposal requests" subtitle={pending.length ? 'Reply with a fixed scope and payment plan' : undefined}>
         {pending.length === 0 ? (
           <EmptyState compact icon="document-text-outline" title="No new requests" message={sent.length ? 'You have replied to every request. New matched requests appear here privately.' : 'New matched requests appear here privately.'} />

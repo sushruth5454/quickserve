@@ -23,6 +23,7 @@ interface SportsBooking {
   note: string;
   decision_reason: string;
   expires_at: string;
+  business_role?: 'owner' | 'manager' | 'staff';
 }
 
 function slotLabel(value: string) {
@@ -51,7 +52,7 @@ export default function SportsBookingDetailScreen() {
   const load = useCallback(async () => {
     if (!enabled || !id) return;
     setError(null);
-    const { data, error: rpcError } = await supabase.rpc('get_sports_booking', { p_id: id });
+    const { data, error: rpcError } = await supabase.rpc('get_business_sports_booking', { p_id: id });
     if (rpcError) {
       setError(rpcError.message);
       return;
@@ -75,6 +76,8 @@ export default function SportsBookingDetailScreen() {
   };
 
   const isOwner = !!booking && booking.owner_id === userId;
+  const isCustomer = !!booking && booking.customer_id === userId;
+  const canCancel = isOwner || isCustomer;
 
   return (
     <Screen header={<Header title="Sports booking" onBack={() => router.back()} />}>
@@ -129,7 +132,7 @@ export default function SportsBookingDetailScreen() {
               </View>
             </Card>
           ) : null}
-          {booking.status === 'requested' || booking.status === 'accepted' ? (
+          {canCancel && (booking.status === 'requested' || booking.status === 'accepted') ? (
             <Card gap={t.spacing.sm}>
               {isOwner ? <Input label="Cancellation reason" value={reason} onChangeText={setReason} maxLength={500} /> : null}
               <Button

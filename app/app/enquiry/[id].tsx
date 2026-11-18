@@ -70,6 +70,7 @@ export default function ProductEnquiryScreen() {
       setBusy(false);
     }
   };
+  const canChangeStatus = !!thread && (!thread.from_shop_user || thread.business_role === 'owner');
 
   if (!features.enquiries) {
     return <Screen header={<Header title="Product enquiry" />}><FeatureUnavailable feature="Product enquiries are not available right now." /></Screen>;
@@ -81,7 +82,7 @@ export default function ProductEnquiryScreen() {
         <Header
           title={thread?.shop_name ?? 'Product enquiry'}
           subtitle={thread?.product_name ?? 'Shop conversation'}
-          right={thread ? <Button title={thread.status === 'open' ? 'Close' : 'Reopen'} size="sm" variant="outline" loading={busy} onPress={() => void toggleStatus()} /> : undefined}
+          right={canChangeStatus ? <Button title={thread.status === 'open' ? 'Close' : 'Reopen'} size="sm" variant="outline" loading={busy} onPress={() => void toggleStatus()} /> : undefined}
         />
       }
       gap={t.spacing.md}

@@ -200,6 +200,7 @@ export default function BusinessTools() {
           </Card>
         )}
       </Section>
+      <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
     </Screen>
   );
 }

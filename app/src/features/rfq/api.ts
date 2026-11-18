@@ -34,6 +34,19 @@ export interface Rfq {
   items: RfqItem[];
 }
 
+export interface CustomerRfqSummary {
+  id: string;
+  title: string;
+  category_name: string;
+  city: string;
+  area: string;
+  needed_by: string;
+  expires_at: string;
+  created_at: string;
+  status: RfqStatus;
+  recipient_count: number;
+}
+
 export interface RfqQuoteItemComparison {
   rfq_item_id: string;
   seq: number;
@@ -72,6 +85,7 @@ export interface RfqQuoteComparison {
 }
 
 export interface SupplierRfqSummary {
+  shop_id: string;
   rfq_id: string;
   title: string;
   category_name: string;
@@ -83,10 +97,12 @@ export interface SupplierRfqSummary {
   created_at: string;
   item_count: number;
   quote_status: SupplierQuoteStatus | null;
+  business_role: 'owner' | 'manager' | 'staff';
 }
 
 export interface SupplierRfq extends Omit<Rfq, 'customer_id' | 'category_id' | 'lat' | 'lng' | 'recipient_count' | 'created_at'> {
   shop_id: string;
+  business_role: 'owner' | 'manager' | 'staff';
   my_quote: {
     id: string;
     version: number;
@@ -162,6 +178,11 @@ export async function getRfq(rfqId: string): Promise<Rfq> {
   return unwrap(data as Rfq | null, error);
 }
 
+export async function listMyCustomerRfqs(): Promise<CustomerRfqSummary[]> {
+  const { data, error } = await supabase.rpc('list_my_customer_rfqs');
+  return unwrap(data as CustomerRfqSummary[] | null, error);
+}
+
 export async function compareRfqQuotes(rfqId: string): Promise<RfqQuoteComparison[]> {
   const { data, error } = await supabase.rpc('compare_rfq_quotes', { p_rfq_id: rfqId });
   return unwrap(data as RfqQuoteComparison[] | null, error);
@@ -177,20 +198,25 @@ export async function listMySupplierRfqs(): Promise<SupplierRfqSummary[]> {
   return unwrap(data as SupplierRfqSummary[] | null, error);
 }
 
-export async function getSupplierRfq(rfqId: string): Promise<SupplierRfq> {
-  const { data, error } = await supabase.rpc('get_supplier_rfq', { p_rfq_id: rfqId });
+export async function getSupplierRfq(rfqId: string, shopId?: string): Promise<SupplierRfq> {
+  const { data, error } = await supabase.rpc('get_supplier_rfq_for_business', {
+    p_rfq_id: rfqId,
+    p_shop_id: shopId ?? null,
+  });
   return unwrap(data as SupplierRfq | null, error);
 }
 
 export async function sendSupplierQuote(input: {
   rfqId: string;
+  shopId: string;
   items: SupplierQuoteItemInput[];
   deliveryChargePaise: number;
   deliveryDays: number | null;
   notes: string;
 }): Promise<string> {
-  const { data, error } = await supabase.rpc('send_supplier_quote', {
+  const { data, error } = await supabase.rpc('send_supplier_quote_for_business', {
     p_rfq_id: input.rfqId,
+    p_shop_id: input.shopId,
     p_items: input.items,
     p_delivery_charge_paise: input.deliveryChargePaise,
     p_delivery_days: input.deliveryDays,
