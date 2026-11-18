@@ -97,7 +97,7 @@ export default function ProviderDetailScreen() {
 
   const { provider, services, reviews } = detail;
   const name = provider.profiles?.full_name || 'Provider';
-  const first = name.split(' ')[0];
+  const first = name.split(' ')[0]!;
   const rating = Number(provider.rating_avg);
   const service = services.find((s) => s.id === selected) ?? services[0];
   const proposalService = service?.categories?.archetype === 'proposal';
