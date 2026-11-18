@@ -211,6 +211,42 @@ Feature: Safe sports feature disablement
     But pay-at-venue bookings remain available under the sports parent flag
 ```
 
+### SP-16 — Customer read models expose the authoritative checkout amount and deadline
+
+```gherkin
+Feature: Sports booking read contract
+  Scenario: Customer venue and booking reads describe current payment eligibility
+    Given the sports parent is enabled and a verified venue has payment modes and resource rules
+    When the customer reads the venue or one of their bookings
+    Then the venue reports payment_modes and an online_payment_ready boolean
+    And each resource reports booking_mode and capacity
+    And the booking reports server total_paise, customer_fee_paise, payment_mode, refund_paise,
+      participants, hold_expires_at, pay_by, and paid_at
+    And online_payment_ready is true only when the effective online-payment feature is on,
+      the venue allows online payment, and its owner payout account is activated
+    And an online checkout displays total_paise and uses hold_expires_at for pending_payment
+      or pay_by for awaiting_payment, never the request expires_at
+    And the read result contains no payout-account identifiers or account details
+```
+
+### SP-17 — Merchant staff retain scoped sports reads and the parent read guard
+
+```gherkin
+Feature: Sports business read authorization
+  Scenario: An active staff member reads only their assigned sports business
+    Given merchant staff is enabled and an active member is assigned to a verified venue owner
+    When the member reads business venues, booking lists, and a booking detail
+    Then each authorized result preserves business_role
+    And the result includes the same payment and capacity fields as the customer read contract
+    And a nonmember cannot read that venue or booking
+
+  Scenario: Sports reads remain subject to the sports parent switch
+    Given sports is disabled
+    When a member calls a business venue or booking read RPC
+    Then the RPC is rejected
+    And direct sports_bookings participant reads return no rows
+```
+
 ## Automation readiness
 
 | Scenario | Planned observable SQL-test evidence |
@@ -223,6 +259,8 @@ Feature: Safe sports feature disablement
 | SP-13 | Full/partial/zero cancellation refunds; venue cancellation includes fee; customer cancellation excludes fee. |
 | SP-14 | Completion creates a single payout with expected commission, GST, payee, release time, and transfer allocation. |
 | SP-15 | New online request is blocked while existing payment/refund/cancel/expiry/settlement paths and pay-at-venue remain safe. |
+| SP-16 | Customer venue and booking reads expose accurate payment-mode/readiness and resource/booking fields; pending and approved checkout deadlines map to `hold_expires_at` and `pay_by`; payout identifiers are absent. |
+| SP-17 | `get_my_business_sports_venues`, `get_my_business_sports_bookings`, `get_business_sports_booking`, and participant RLS preserve active staff scope, `business_role`, and the parent-flag guard. |
 
 These are acceptance criteria for E1's SQL tests; payment-edge routing tests are owned by E2. Tests and CI evidence are pending.
 

@@ -46,7 +46,8 @@ Sports Booking & Capacity is authoritative for reserving a resource and its book
 | **PaymentAttempt** | A row in shared `payments` has exactly one parent, including `sports_booking_id`. Its server amount equals the booking total. Gateway payment IDs are deduplicated. A valid late payment remains paid and is fully refunded rather than erased or accepted. |
 | **Cancellation/refund policy** | Venue cancellation refunds the full customer payment including fee. Customer cancellation follows venue rules or `sports_rules`; the customer fee is non-refundable, and the partial refund rate is capped at 5000 basis points. The resulting refund amount is stored and queued through shared refund machinery. |
 | **Sports payout policy** | A private `_create_sports_payout(p_sports_booking_id uuid)` creates at most one shared payout. Gross is price less recorded refunds; commission uses the booking-time basis-point snapshot; GST is 18% of commission; payee is `sports_venues.owner_id`; release time follows configured `release_after_hours`; transfers are allocated against the sports payment. |
-| **Feature policy** | New online sports bookings require both the `sports` parent and `sports_online_payments`, venue online mode, and a verified owner payout account. Feature-off does not disable processing of existing payments/refunds, expiry, customer cancellation, or payout settlement. |
+| **Sports read projections** | Public/customer and business RPCs return current venue payment modes, a boolean online-readiness projection, resource booking mode/capacity, and booking-time payment facts. The projection exposes no payout-account identifiers or account details. |
+| **Feature policy** | New online sports bookings require both the `sports` parent and `sports_online_payments`, venue online mode, and an activated owner payout account. `sports_online_payments` defaults OFF. Feature-off does not disable processing of existing payments/refunds, expiry, customer cancellation, or payout settlement. |
 | **Legacy compatibility policy** | `request_sports_slot` and existing pay-at-venue status behavior remain available; the feature does not add a parallel sports or home-services booking state machine. |
 
 ### State and consistency rules
@@ -58,6 +59,8 @@ Sports Booking & Capacity is authoritative for reserving a resource and its book
 5. A paid booking is accepted only when its payment amount matches the server amount and its payment window is still valid. A late payment is recorded as paid and fully refunded.
 6. Expiry retires created attempts and releases capacity. An expired or cancelled booking cannot be revived by payment.
 7. Payout creation is idempotent and only follows completion of an online-paid booking.
+8. For checkout, `total_paise` is authoritative; `hold_expires_at` is the deadline while `pending_payment`, and `pay_by` is the deadline while `awaiting_payment`. The legacy request `expires_at` is not an online-payment deadline.
+9. `online_payment_ready` is true only when the effective `sports_online_payments` child (including its `sports` parent), venue `payment_modes`, and activated owner payout-account prerequisites all allow a new online booking.
 
 ## Application and persistence contracts
 
@@ -67,6 +70,8 @@ Sports Booking & Capacity is authoritative for reserving a resource and its book
 | `prepare_sports_payment` | `prepare_sports_payment(p_booking_id uuid, p_user_id uuid) returns table(payment_id uuid, amount int, purpose text, url text)` — E1; caller must own a live payable booking. |
 | `record_sports_payment_paid` | `record_sports_payment_paid(p_order_id text, p_payment_id text, p_amount int)` — E1; return type is not specified in the plan. |
 | `_create_sports_payout` | `_create_sports_payout(p_sports_booking_id uuid)` — private E1 helper; return type is not specified in the plan. |
+| Customer reads | `get_sports_venue(p_id uuid)`, `get_my_sports_bookings()`, and `get_sports_booking(p_id uuid)` — E1. Venue/resource projections include `payment_modes`, `online_payment_ready`, `booking_mode`, and `capacity`; booking projections include `total_paise`, `customer_fee_paise`, `payment_mode`, `refund_paise`, `participants`, `hold_expires_at`, `pay_by`, and `paid_at`. |
+| Business reads | `get_my_business_sports_venues()`, `get_my_business_sports_bookings()`, and `get_business_sports_booking(p_id uuid)` — E1. Owners and active staff are authorized through `_acts_for(owner_id, 'staff')`; customers retain access only to their own bookings. Business results preserve `business_role` and the same safe payment/capacity fields. The participant RLS policy separately requires the `sports` parent flag and customer or assigned-business access. |
 | Legacy RPCs | `request_sports_slot` remains behavior-compatible; `get_sports_slots` adds remaining capacity; existing decision, cancel, and expiry RPCs are extended for online flows. |
 
 ### File and integration ownership

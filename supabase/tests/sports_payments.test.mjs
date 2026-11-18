@@ -102,18 +102,30 @@ const owner = '00000000-0000-0000-0000-0000000000a1';
 const customer1 = '00000000-0000-0000-0000-0000000000c1';
 const customer2 = '00000000-0000-0000-0000-0000000000c2';
 const admin = '00000000-0000-0000-0000-0000000000b1';
+const staff = '00000000-0000-0000-0000-0000000000c3';
 await db.exec(`
   insert into auth.users (id, phone, raw_user_meta_data) values
     ('${owner}', '+919999000001', '{}'), ('${customer1}', '+919999000002', '{}'),
-    ('${customer2}', '+919999000003', '{}'), ('${admin}', '+918888888888', '{}');
+    ('${customer2}', '+919999000003', '{}'), ('${admin}', '+918888888888', '{}'),
+    ('${staff}', '+919999000004', '{}');
   update public.profiles set full_name = 'Sports test user';
   insert into public.admins (user_id) values ('${admin}');
+`);
+
+const sportsOnlineDefault = await one(`
+  select enabled from public.feature_flags where key = 'sports_online_payments'
+`);
+ok(sportsOnlineDefault.enabled === false,
+  '[SP-05] sports_online_payments remains disabled by default');
+await db.query(`
   update public.feature_flags set enabled = true
    where key in ('sports', 'sports_online_payments', 'sports_instant_booking',
-                 'sports_capacity_slots', 'sports_multi_slot');
+                 'sports_capacity_slots', 'sports_multi_slot', 'merchant_staff')
+`);
+await db.query(`
   update public.app_config
      set value = value || '{"customer_fee_paise":500,"commission_bp":1000}'::jsonb
-   where key = 'sports_rules';
+   where key = 'sports_rules'
 `);
 
 const activity = (await one(`select id from public.sports_activities where slug = 'badminton'`)).id;
@@ -125,6 +137,10 @@ const venue = (await as(owner, 'authenticated', `
     array['online', 'pay_at_venue']::text[]
   ) id
 `))[0].id;
+await db.query(`
+  insert into public.business_members (owner_id, member_id, role, active)
+  values ($1::uuid, $2::uuid, 'staff', true)
+`, [owner, staff]);
 const instantResource = (await as(owner, 'authenticated', `
   select public.save_sports_resource($1::uuid, null::uuid, $2::uuid, 'Instant Court',
     60, true, 'instant', 1) id
@@ -220,11 +236,36 @@ await db.exec(`
 
 const venueRead = json((await as(owner, 'authenticated',
   `select public.get_my_business_sports_venues() result`))[0].result)[0];
-ok(venueRead.venue.payment_modes.includes('online')
+const venueReadJson = JSON.stringify(venueRead);
+ok(venueRead.venue.business_role === 'owner'
+  && venueRead.venue.payment_modes.includes('online')
   && venueRead.resources.some((item) => item.booking_mode === 'instant' && item.capacity === 1)
-  && venueRead.payout_account_status === 'activated'
-  && venueRead.payout_account_ready === true,
-'[SP-01] venue settings read returns payment modes, resource capacity/mode, and payout readiness');
+  && venueRead.online_payment_ready === true
+  && !/payout_account_status|razorpay_account_id|fund_account_id/.test(venueReadJson),
+  '[SP-01] venue settings read returns payment eligibility without payout-account details');
+
+const publicVenueRead = json((await as(customer1, 'authenticated', `
+  select public.get_sports_venue($1::uuid) result
+`, [venue]))[0].result);
+ok(publicVenueRead.payment_modes.includes('online')
+  && publicVenueRead.online_payment_ready === true
+  && publicVenueRead.resources.some((item) => item.id === instantResource
+    && item.booking_mode === 'instant' && item.capacity === 1)
+  && !/payout_account_status|razorpay_account_id|fund_account_id/.test(JSON.stringify(publicVenueRead)),
+  '[SP-01] customer venue read includes payment modes, online readiness, booking mode, and capacity');
+
+const staffVenueRows = json((await as(staff, 'authenticated',
+  `select public.get_my_business_sports_venues() result`))[0].result);
+const staffVenueRead = staffVenueRows.find((item) => item.venue.id === venue);
+ok(staffVenueRead?.venue.business_role === 'staff'
+  && staffVenueRead.venue.payment_modes.includes('online')
+  && staffVenueRead.online_payment_ready === true
+  && staffVenueRead.resources.some((item) => item.booking_mode === 'instant' && item.capacity === 1),
+  '[SP-17] merchant staff can read their venue contract with business_role and resource settings');
+const unrelatedVenueRows = json((await as(customer2, 'authenticated',
+  `select public.get_my_business_sports_venues() result`))[0].result);
+ok(unrelatedVenueRows.length === 0,
+  '[SP-17] business venue reads do not disclose venues to unrelated customers');
 
 const savedVenueStatus = (await one(`select status from public.sports_venues where id = $1`, [venue])).status;
 await as(owner, 'authenticated', `
@@ -251,6 +292,51 @@ const instantSlot = await slotAt('09:00');
 const held = await book(customer1, instantResource, instantSlot, 'sp-hold-1');
 ok(held.status === 'pending_payment' && held.total_paise === 20500 && held.hold_expires_at,
   '[SP-01] instant online booking creates a priced payment hold');
+const heldDetail = json((await as(customer1, 'authenticated', `
+  select public.get_sports_booking($1::uuid) result
+`, [held.booking_id]))[0].result);
+const heldList = json((await as(customer1, 'authenticated',
+  `select public.get_my_sports_bookings() result`))[0].result);
+const listedHeld = heldList.find((item) => item.id === held.booking_id);
+const bookingReadHasTerms = (item) => item
+  && item.price_paise === 20000
+  && item.total_paise === 20500
+  && item.customer_fee_paise === 500
+  && item.payment_mode === 'online'
+  && item.refund_paise === 0
+  && item.participants === 1
+  && item.booking_mode === 'instant'
+  && item.capacity === 1
+  && item.payment_modes.includes('online')
+  && item.online_payment_ready === true
+  && new Date(item.hold_expires_at).getTime() === new Date(held.hold_expires_at).getTime()
+  && item.pay_by === null
+  && item.paid_at === null
+  && !/payout_account_status|razorpay_account_id|fund_account_id/.test(JSON.stringify(item));
+ok(bookingReadHasTerms(heldDetail) && bookingReadHasTerms(listedHeld),
+  '[SP-16] customer booking detail and list expose server totals, payment terms, and resource limits');
+
+const staffBookingList = json((await as(staff, 'authenticated',
+  `select public.get_my_business_sports_bookings() result`))[0].result);
+const staffHeldListRow = staffBookingList.find((item) => item.id === held.booking_id);
+const staffHeldDetail = json((await as(staff, 'authenticated', `
+  select public.get_business_sports_booking($1::uuid) result
+`, [held.booking_id]))[0].result);
+const staffBookingReadHasTerms = (item) => bookingReadHasTerms(item)
+  && item.business_role === 'staff';
+ok(staffBookingReadHasTerms(staffHeldListRow) && staffBookingReadHasTerms(staffHeldDetail),
+  '[SP-17] staff booking list and detail retain business_role and complete payment terms');
+const unrelatedBookingRead = await fails(() => as(customer2, 'authenticated', `
+  select public.get_business_sports_booking($1::uuid)
+`, [held.booking_id]));
+ok(/booking not found/.test(unrelatedBookingRead ?? ''),
+  '[SP-17] business booking detail refuses an unrelated customer');
+const staffDirectBookingRead = await as(staff, 'authenticated', `
+  select id from public.sports_bookings where id = $1::uuid
+`, [held.booking_id]);
+ok(staffDirectBookingRead.length === 1,
+  '[SP-17] the participant-read policy permits assigned staff while sports is enabled');
+
 const heldSlot = await as(customer1, 'authenticated', `
   select state, remaining from public.get_sports_slots($1::uuid, $2::date) where starts_at = $3::timestamptz
 `, [instantResource, tomorrow, instantSlot]);
@@ -322,6 +408,27 @@ ok(awaiting.status === 'awaiting_payment' && awaiting.pay_by
   && (await one(`select count(*)::int n from public.notifications where kind='sports_payment_due' and user_id=$1`,
     [customer1])).n === 1,
   '[SP-06] owner acceptance moves an online request to awaiting payment and notifies the customer');
+const awaitingDetail = json((await as(customer1, 'authenticated', `
+  select public.get_sports_booking($1::uuid) result
+`, [approval.booking_id]))[0].result);
+ok(awaitingDetail.status === 'awaiting_payment'
+  && new Date(awaitingDetail.pay_by).getTime() === new Date(awaiting.pay_by).getTime()
+  && awaitingDetail.total_paise === approval.total_paise
+  && awaitingDetail.customer_fee_paise === 500
+  && awaitingDetail.hold_expires_at === null,
+  '[SP-16] awaiting-payment checkout read returns the server total and exact pay-by deadline');
+const awaitingBusinessList = json((await as(staff, 'authenticated',
+  `select public.get_my_business_sports_bookings() result`))[0].result);
+const listedAwaitingBusiness = awaitingBusinessList.find((item) => item.id === approval.booking_id);
+const awaitingBusinessDetail = json((await as(staff, 'authenticated', `
+  select public.get_business_sports_booking($1::uuid) result
+`, [approval.booking_id]))[0].result);
+ok(listedAwaitingBusiness?.business_role === 'staff'
+  && awaitingBusinessDetail.business_role === 'staff'
+  && new Date(listedAwaitingBusiness.pay_by).getTime() === new Date(awaiting.pay_by).getTime()
+  && new Date(awaitingBusinessDetail.pay_by).getTime() === new Date(awaiting.pay_by).getTime()
+  && awaitingBusinessDetail.total_paise === approval.total_paise,
+  '[SP-17] staff booking reads expose the authoritative approved-payment deadline and total');
 const approvalAttempt = await prepare(approval.booking_id);
 await attachOrder(approvalAttempt.payment_id, 'order_sp_approval');
 const paidApproval = await recordPaid('order_sp_approval', 'pay_sp_approval', approvalAttempt.amount);
@@ -344,6 +451,11 @@ const onlineDisabled = await fails(() =>
   book(customer1, instantResource, onlineOff, 'sp-online-off'));
 ok(/turned off/.test(onlineDisabled ?? ''),
   '[SP-05] the online-payment child switch refuses new online bookings');
+const venueOnlineOffRead = json((await as(customer1, 'authenticated', `
+  select public.get_sports_venue($1::uuid) result
+`, [venue]))[0].result);
+ok(venueOnlineOffRead.online_payment_ready === false,
+  '[SP-16] venue read reports online payment unavailable when the child switch is off');
 const payAtVenue = await book(customer1, instantResource, onlineOff, 'sp-venue-pay', 'pay_at_venue');
 ok(payAtVenue.status === 'accepted'
   && (await one(`select count(*)::int n from public.payments where sports_booking_id=$1`,
@@ -367,8 +479,23 @@ ok(json(visibleWhenOff[0].result).some((item) => item.id === held.booking_id),
   '[SP-15] existing sports bookings remain readable while the parent feature is off');
 const directVisibleWhenOff = await as(customer1, 'authenticated',
   `select id from public.sports_bookings where id=$1`, [held.booking_id]);
-ok(directVisibleWhenOff.length === 1,
-  '[SP-15] participant RLS keeps an existing booking readable while sports is off');
+ok(directVisibleWhenOff.length === 0,
+  '[SP-17] participant RLS enforces the sports parent read guard when sports is off');
+const directStaffVisibleWhenOff = await as(staff, 'authenticated',
+  `select id from public.sports_bookings where id=$1`, [held.booking_id]);
+ok(directStaffVisibleWhenOff.length === 0,
+  '[SP-17] merchant staff cannot bypass the sports parent read guard');
+const staffVenueReadWhenOff = await fails(() => as(staff, 'authenticated',
+  `select public.get_my_business_sports_venues()`));
+const staffBookingsReadWhenOff = await fails(() => as(staff, 'authenticated',
+  `select public.get_my_business_sports_bookings()`));
+const staffBookingDetailWhenOff = await fails(() => as(staff, 'authenticated', `
+  select public.get_business_sports_booking($1::uuid)
+`, [held.booking_id]));
+ok(/turned off/.test(staffVenueReadWhenOff ?? '')
+  && /turned off/.test(staffBookingsReadWhenOff ?? '')
+  && /turned off/.test(staffBookingDetailWhenOff ?? ''),
+  '[SP-17] business venue and booking RPCs retain the sports parent read guard');
 const preparedWhenOff = await prepare(held.booking_id);
 ok(preparedWhenOff.payment_id === firstAttempt.payment_id,
   '[SP-15] an existing booking can reuse its payment attempt while feature switches are off');
@@ -383,12 +510,22 @@ await db.query(`update public.feature_flags set enabled = true where key = 'spor
 
 const onlinePrerequisiteSlot = await slotAt('14:00');
 await db.query(`update public.sports_venues set payment_modes=array['pay_at_venue'] where id=$1`, [venue]);
+const venueModeOffRead = json((await as(customer1, 'authenticated', `
+  select public.get_sports_venue($1::uuid) result
+`, [venue]))[0].result);
+ok(venueModeOffRead.online_payment_ready === false,
+  '[SP-16] venue read reports online payment unavailable when the venue disallows online mode');
 const venueModeOff = await fails(() =>
   book(customer2, instantResource, onlinePrerequisiteSlot, 'sp-venue-mode-off'));
 ok(/does not accept online payment yet/.test(venueModeOff ?? ''),
   '[SP-05] online booking is refused when the venue does not allow online payment');
 await db.query(`update public.sports_venues set payment_modes=array['online','pay_at_venue'] where id=$1`, [venue]);
 await db.query(`delete from public.provider_payout_accounts where provider_id=$1`, [owner]);
+const payoutNotReadyRead = json((await as(customer1, 'authenticated', `
+  select public.get_sports_venue($1::uuid) result
+`, [venue]))[0].result);
+ok(payoutNotReadyRead.online_payment_ready === false,
+  '[SP-16] venue read reports online payment unavailable without an activated payout account');
 const payoutNotReady = await fails(() =>
   book(customer2, instantResource, onlinePrerequisiteSlot, 'sp-payout-not-ready'));
 ok(/does not accept online payment yet/.test(payoutNotReady ?? ''),
@@ -505,13 +642,21 @@ await as(customer1, 'authenticated', `select public.cancel_sports_booking($1::uu
   [fullRefund.bookingId]);
 const fullRefundRow = await one(`select status, refund_paise from public.sports_bookings where id=$1`,
   [fullRefund.bookingId]);
+const fullRefundDetail = json((await as(customer1, 'authenticated', `
+  select public.get_sports_booking($1::uuid) result
+`, [fullRefund.bookingId]))[0].result);
+const fullRefundPaidAt = (await one(`select paid_at from public.sports_bookings where id=$1`,
+  [fullRefund.bookingId])).paid_at;
 const fullRefundAmount = (await one(`
   select coalesce(sum(r.amount),0)::int amount from public.refunds r
     join public.payments p on p.id=r.payment_id where p.sports_booking_id=$1
 `, [fullRefund.bookingId])).amount;
 ok(fullRefundRow.status === 'cancelled' && fullRefundAmount === 20000
-  && fullRefundRow.refund_paise === 20000,
-  '[SP-13, SP-15] customer cancellation refunds 100% of price but not the customer fee with switches off');
+  && fullRefundRow.refund_paise === 20000
+  && fullRefundDetail.total_paise === fullRefund.amount
+  && fullRefundDetail.refund_paise === 20000
+  && new Date(fullRefundDetail.paid_at).getTime() === new Date(fullRefundPaidAt).getTime(),
+  '[SP-13, SP-16] booking read preserves server total, refund, and paid_at after customer cancellation');
 
 const partialRefundStart = (await one(`select now()+interval '10 hours' starts_at`)).starts_at;
 const partialRefund = await makePaidBooking(customer2, partialRefundStart, 'sp-partial');

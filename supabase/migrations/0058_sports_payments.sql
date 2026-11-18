@@ -120,10 +120,13 @@ create policy payout_transfers_provider on public.payout_transfers for select to
 drop policy if exists sports_bookings_participant_read on public.sports_bookings;
 create policy sports_bookings_participant_read on public.sports_bookings for select to authenticated
   using (
-    customer_id = auth.uid()
-    or exists (
-      select 1 from public.sports_venues v
-       where v.id = venue_id and v.owner_id = auth.uid()
+    coalesce((public.get_app_features() ->> 'sports')::boolean, false)
+    and (
+      customer_id = auth.uid()
+      or exists (
+        select 1 from public.sports_venues v
+         where v.id = venue_id and public._acts_for(v.owner_id, 'staff')
+      )
     )
   );
 
@@ -300,13 +303,15 @@ begin
   perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
   select coalesce(jsonb_agg(jsonb_build_object(
     'venue', to_jsonb(v),
-    'payout_account_status', coalesce((
-      select pa.activation_status from public.provider_payout_accounts pa where pa.provider_id = v.owner_id
-    ), 'not_started'),
-    'payout_account_ready', coalesce((
-      select pa.activation_status = 'activated'
-        from public.provider_payout_accounts pa where pa.provider_id = v.owner_id
-    ), false),
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
     'resources', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', r.id, 'venue_id', r.venue_id, 'activity_id', a.id, 'activity_slug', a.slug,
@@ -342,6 +347,47 @@ begin
 end;
 $$;
 
+create or replace function public.get_sports_venue(p_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_result jsonb;
+begin
+  perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
+  select jsonb_build_object(
+    'id', v.id, 'name', v.name, 'description', v.description, 'address_line', v.address_line,
+    'city', v.city, 'area', v.area, 'lat', v.lat, 'lng', v.lng, 'amenities', v.amenities,
+    'photos', v.photos, 'payment_modes', v.payment_modes,
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
+    'resources', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', r.id, 'name', r.name, 'activity_id', a.id, 'activity_slug', a.slug,
+        'activity_name', a.name, 'slot_minutes', r.slot_minutes,
+        'booking_mode', r.booking_mode, 'capacity', r.capacity
+      ) order by r.created_at)
+        from public.sports_resources r
+        join public.sports_activities a on a.id = r.activity_id
+       where r.venue_id = v.id and r.active and a.active
+    ), '[]'::jsonb)
+  ) into v_result
+    from public.sports_venues v
+   where v.id = p_id and v.status = 'verified';
+  return v_result;
+end;
+$$;
+
 create or replace function public.get_my_business_sports_venues()
 returns jsonb
 language plpgsql
@@ -349,8 +395,58 @@ stable
 security definer
 set search_path = public
 as $$
+declare
+  v_result jsonb;
 begin
-  return public.get_my_sports_venues();
+  perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'venue', to_jsonb(v) || jsonb_build_object('business_role', public._business_role(v.owner_id)),
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
+    'resources', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', r.id, 'venue_id', r.venue_id, 'activity_id', a.id, 'activity_slug', a.slug,
+        'activity_name', a.name, 'name', r.name, 'slot_minutes', r.slot_minutes, 'active', r.active,
+        'booking_mode', r.booking_mode, 'capacity', r.capacity
+      ) order by r.created_at)
+        from public.sports_resources r
+        join public.sports_activities a on a.id = r.activity_id
+       where r.venue_id = v.id
+    ), '[]'::jsonb),
+    'hours', coalesce((
+      select jsonb_agg(to_jsonb(h) order by h.weekday)
+        from public.sports_hours h where h.venue_id = v.id
+    ), '[]'::jsonb),
+    'price_rules', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', pr.id, 'resource_id', pr.resource_id, 'weekday', pr.weekday, 'starts', pr.starts,
+        'ends', pr.ends, 'price_paise', pr.price_paise, 'label', pr.label
+      ) order by pr.weekday nulls first, pr.starts)
+        from public.sports_price_rules pr
+        join public.sports_resources r on r.id = pr.resource_id
+       where r.venue_id = v.id
+    ), '[]'::jsonb),
+    'blocks', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', b.id, 'resource_id', b.resource_id, 'starts_at', b.starts_at,
+        'ends_at', b.ends_at, 'reason', b.reason
+      ) order by b.starts_at)
+        from public.sports_blocks b
+        join public.sports_resources r on r.id = b.resource_id
+       where r.venue_id = v.id
+    ), '[]'::jsonb)
+  ) order by v.created_at desc), '[]'::jsonb)
+    into v_result
+    from public.sports_venues v
+   where public._acts_for(v.owner_id, 'staff');
+  return v_result;
 end;
 $$;
 
@@ -368,7 +464,18 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
     'id', b.id, 'customer_id', b.customer_id, 'customer_name', p.full_name,
     'owner_id', v.owner_id, 'venue_id', v.id, 'venue_name', v.name,
+    'payment_modes', v.payment_modes,
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
     'resource_id', r.id, 'resource_name', r.name, 'activity_name', a.name,
+    'booking_mode', r.booking_mode, 'capacity', r.capacity,
     'starts_at', b.starts_at, 'ends_at', b.ends_at, 'status', b.status,
     'price_paise', b.price_paise, 'total_paise', b.total_paise,
     'customer_fee_paise', b.customer_fee_paise, 'refund_paise', b.refund_paise,
@@ -402,7 +509,18 @@ begin
   select jsonb_build_object(
     'id', b.id, 'customer_id', b.customer_id, 'customer_name', p.full_name,
     'owner_id', v.owner_id, 'venue_id', v.id, 'venue_name', v.name,
+    'payment_modes', v.payment_modes,
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
     'resource_id', r.id, 'resource_name', r.name, 'activity_name', a.name,
+    'booking_mode', r.booking_mode, 'capacity', r.capacity,
     'starts_at', b.starts_at, 'ends_at', b.ends_at, 'status', b.status,
     'price_paise', b.price_paise, 'total_paise', b.total_paise,
     'customer_fee_paise', b.customer_fee_paise, 'refund_paise', b.refund_paise,
@@ -417,6 +535,98 @@ begin
     join public.sports_activities a on a.id = r.activity_id
     join public.profiles p on p.id = b.customer_id
    where b.id = p_id and (b.customer_id = v_uid or v.owner_id = v_uid);
+  perform public._assert(v_result is not null, 'booking not found');
+  return v_result;
+end;
+$$;
+
+create or replace function public.get_my_business_sports_bookings()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := public._require_uid();
+  v_result jsonb;
+begin
+  perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', b.id, 'customer_id', b.customer_id, 'customer_name', p.full_name,
+    'owner_id', v.owner_id, 'business_role', public._business_role(v.owner_id),
+    'venue_id', v.id, 'venue_name', v.name, 'payment_modes', v.payment_modes,
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
+    'resource_id', r.id, 'resource_name', r.name, 'activity_name', a.name,
+    'booking_mode', r.booking_mode, 'capacity', r.capacity,
+    'starts_at', b.starts_at, 'ends_at', b.ends_at, 'status', b.status,
+    'price_paise', b.price_paise, 'total_paise', b.total_paise,
+    'customer_fee_paise', b.customer_fee_paise, 'refund_paise', b.refund_paise,
+    'payment_mode', b.payment_mode, 'participants', b.participants,
+    'hold_expires_at', b.hold_expires_at, 'pay_by', b.pay_by, 'paid_at', b.paid_at,
+    'note', b.note, 'decision_reason', b.decision_reason,
+    'expires_at', b.expires_at, 'decided_at', b.decided_at, 'created_at', b.created_at
+  ) order by b.starts_at desc), '[]'::jsonb)
+    into v_result
+    from public.sports_bookings b
+    join public.sports_venues v on v.id = b.venue_id
+    join public.sports_resources r on r.id = b.resource_id
+    join public.sports_activities a on a.id = r.activity_id
+    join public.profiles p on p.id = b.customer_id
+   where b.customer_id = v_uid or public._acts_for(v.owner_id, 'staff');
+  return v_result;
+end;
+$$;
+
+create or replace function public.get_business_sports_booking(p_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := public._require_uid();
+  v_result jsonb;
+begin
+  perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
+  select jsonb_build_object(
+    'id', b.id, 'customer_id', b.customer_id, 'customer_name', p.full_name,
+    'owner_id', v.owner_id, 'business_role', public._business_role(v.owner_id),
+    'venue_id', v.id, 'venue_name', v.name, 'payment_modes', v.payment_modes,
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
+    'resource_id', r.id, 'resource_name', r.name, 'activity_name', a.name,
+    'booking_mode', r.booking_mode, 'capacity', r.capacity,
+    'starts_at', b.starts_at, 'ends_at', b.ends_at, 'status', b.status,
+    'price_paise', b.price_paise, 'total_paise', b.total_paise,
+    'customer_fee_paise', b.customer_fee_paise, 'refund_paise', b.refund_paise,
+    'payment_mode', b.payment_mode, 'participants', b.participants,
+    'hold_expires_at', b.hold_expires_at, 'pay_by', b.pay_by, 'paid_at', b.paid_at,
+    'note', b.note, 'decision_reason', b.decision_reason,
+    'expires_at', b.expires_at, 'decided_at', b.decided_at, 'created_at', b.created_at
+  ) into v_result
+    from public.sports_bookings b
+    join public.sports_venues v on v.id = b.venue_id
+    join public.sports_resources r on r.id = b.resource_id
+    join public.sports_activities a on a.id = r.activity_id
+    join public.profiles p on p.id = b.customer_id
+   where b.id = p_id and (b.customer_id = v_uid or public._acts_for(v.owner_id, 'staff'));
   perform public._assert(v_result is not null, 'booking not found');
   return v_result;
 end;
