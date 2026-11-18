@@ -1232,17 +1232,15 @@ const verificationPlan = await insertSchedule({
   start_time: '17:00',
 });
 const verificationValidPlan = await insertSchedule({
-  provider_service_id: fixedService,
-  service_package_id: fixedPackage,
-  archetype: 'fixed',
-  package_qty: 1,
+  provider_id: expiryProvider,
+  provider_service_id: expiryService,
   status: 'active',
   provider_acceptance: 'accepted',
   frequency: 'daily',
   weekdays: [],
   starts_on: dateOffset(28),
   ends_on: dateOffset(28),
-  start_time: '20:00',
+  start_time: '10:00',
 });
 await db.query(`update recurring_schedules set plan_version='v2' where id in ($1, $2)`,
   [verificationPlan, verificationValidPlan]);
@@ -1252,6 +1250,10 @@ await db.query(`
   insert into provider_documents (provider_id, doc_type, category_id, status, expires_on, file_path)
   values ($1, 'police_verification', $2, 'approved', $3::date, 'expired-verification.pdf')`,
   [provider, timeCategory, dateOffset(-1)]);
+await db.query(`
+  insert into provider_documents (provider_id, doc_type, category_id, status, expires_on, file_path)
+  values ($1, 'police_verification', $2, 'approved', $3::date, 'current-verification.pdf')`,
+  [expiryProvider, timeCategory, dateOffset(60)]);
 await setFlag('recurring_skip_pause', false);
 const verificationGeneration = await as(null, 'service_role',
   `select generate_recurring_occurrences(500) generated`);
@@ -1341,17 +1343,15 @@ const depletedPackPlan = await insertSchedule({
   start_time: '15:00',
 });
 const packBatchValidPlan = await insertSchedule({
-  provider_service_id: fixedService,
-  service_package_id: fixedPackage,
-  archetype: 'fixed',
-  package_qty: 1,
+  provider_id: syncProvider,
+  provider_service_id: syncService,
   status: 'active',
   provider_acceptance: 'accepted',
   frequency: 'daily',
   weekdays: [],
   starts_on: dateOffset(28),
   ends_on: dateOffset(28),
-  start_time: '22:00',
+  start_time: '10:00',
 });
 await setFlag('recurring_skip_pause', false);
 const packGeneration = await as(null, 'service_role',
@@ -1484,7 +1484,12 @@ ok(!!staleWindowOverlap && reservationState.status === 'pending_payment'
   && reservationState.overlapping_rows === 0 && reservationAfterPayment.status === 'requested',
   '[RP-25] a stale pending recurring occurrence blocks overlaps and still follows its payment lifecycle');
 
-const oneTimeSlot = indiaSlot(70, 120);
+const oneTimeSlotDate = dateOffset(1);
+const oneTimeSlot = {
+  date: oneTimeSlotDate,
+  time: '10:00',
+  at: new Date(`${oneTimeSlotDate}T10:00:00+05:30`),
+};
 const oneTimePending = (await one(`
   select _create_session_booking(
     $1, $2, null, $3::timestamptz, 15,
