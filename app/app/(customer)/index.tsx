@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { Pressable, ScrollView, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon, iconForCategory } from '../../src/components/CategoryIcon';
@@ -36,7 +36,7 @@ export default function CustomerHome() {
   const [active, setActive] = useState<Booking | null>(null);
   const [firstName, setFirstName] = useState('');
   const [query, setQuery] = useState('');
-  const [selectedFamilySlug, setSelectedFamilySlug] = useState('all');
+  const [selectedFamilySlug, setSelectedFamilySlug] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +63,11 @@ export default function CustomerHome() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    setSelectedFamilySlug(null);
+    setQuery('');
+  }, [location.city]);
+
   const refresh = async () => {
     setRefreshing(true);
     await load();
@@ -71,7 +76,6 @@ export default function CustomerHome() {
 
   const families = useMemo(() => groupCatalogueFamilies(catalogue?.verticals ?? []), [catalogue?.verticals]);
   const selectedFamily = families.find((family) => family.slug === selectedFamilySlug) ?? null;
-  const activeFamilySlug = selectedFamily?.slug ?? 'all';
   const filtered = useMemo(() => {
     const text = query.trim().toLowerCase();
     return (catalogue?.categories ?? []).filter((category) => {
@@ -79,24 +83,25 @@ export default function CustomerHome() {
       return familyMatches && category.name.toLowerCase().includes(text);
     });
   }, [catalogue?.categories, query, selectedFamily]);
-  // Nothing is live at this location: replace search, AI and listings with the "not here yet" card.
-  const unserved = categories !== null && categories.length === 0;
+  // Keep the marketplace usable if services are not live but Sports or Shops are.
+  const noServiceCategories = categories !== null && categories.length === 0;
+  const unserved = noServiceCategories && !flags.isOn('sports') && !flags.isOn('products');
   const activeCity = active?.providers?.city ?? null;
   const activeCard = active ? (
     <Card
       variant="elevated"
       onPress={() => router.push({ pathname: '/booking/[id]', params: { id: active.id } })}
-      accessibilityLabel={`Active booking ${active.categories?.name ?? ''}${unserved && activeCity ? ` in ${activeCity}` : ''}. ${nextStepCopy[active.status] ?? ''}`}
+      accessibilityLabel={`Active booking ${active.categories?.name ?? ''}${noServiceCategories && activeCity ? ` in ${activeCity}` : ''}. ${nextStepCopy[active.status] ?? ''}`}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
         <CategoryIcon icon={iconForCategory(categories?.find((c) => c.slug === active.categories?.slug) ?? active.categories)} size={44} />
         <View style={{ flex: 1, gap: 2 }}>
           <Text variant="caption" color="muted">
-            {unserved ? 'Your active booking' : 'Active booking'}
+            {noServiceCategories ? 'Your active booking' : 'Active booking'}
           </Text>
           <Text variant="bodyStrong" numberOfLines={1}>
             {active.categories?.name ?? 'Booking'}
-            {unserved && activeCity ? ` in ${activeCity}` : ''}
+            {noServiceCategories && activeCity ? ` in ${activeCity}` : ''}
           </Text>
         </View>
         <StatusPill status={active.status} />
@@ -161,7 +166,7 @@ export default function CustomerHome() {
           </Text>
         </View>
 
-        {unserved ? null : (
+        {noServiceCategories ? null : (
         <View
           style={[
             {
@@ -199,74 +204,104 @@ export default function CustomerHome() {
 
       {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
 
-      {/* Active booking: on top normally; below the "not here yet" card, labelled with its city, when unserved. */}
-      {active && !unserved ? <View style={gutter}>{activeCard}</View> : null}
-
-      {/* Categories */}
-      <View style={[gutter, { gap: t.spacing.lg }]}>
-        {unserved ? (
-          <>
-            <NotServedCard />
-            {active ? activeCard : null}
-          </>
-        ) : (
-        <>
-        <Section title="Browse by need">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -t.spacing.lg }}
-            contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}
-          >
-            <BrowseFamilyChip
-              label="All"
-              selected={activeFamilySlug === 'all'}
-              onPress={() => setSelectedFamilySlug('all')}
-            />
-            {families.map((family) => (
-              <BrowseFamilyChip
-                key={family.slug}
-                label={family.label}
-                selected={activeFamilySlug === family.slug}
-                onPress={() => setSelectedFamilySlug(family.slug)}
+      {unserved ? (
+        <View style={gutter}>
+          <NotServedCard />
+        </View>
+      ) : (
+        <View style={[gutter, { gap: t.spacing.lg }]}>
+          {selectedFamily ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+              <IconButton
+                icon="arrow-back"
+                accessibilityLabel="Back to categories"
+                onPress={() => {
+                  setSelectedFamilySlug(null);
+                  setQuery('');
+                }}
+                variant="neutral"
               />
-            ))}
-            {flags.isOn('sports') ? (
-              <BrowseFamilyChip label="Sports & venues" onPress={() => router.push('/sports')} />
-            ) : null}
-            {flags.isOn('products') ? (
-              <BrowseFamilyChip label="Shop local" onPress={() => router.push('/shop')} />
-            ) : null}
-          </ScrollView>
-        </Section>
-        <Section title={selectedFamily?.label ?? 'Services'}>
-          {!categories ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: t.spacing.lg }}>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <View key={i} style={{ width: '25%', alignItems: 'center', gap: 8 }}>
-                  <Skeleton width={64} height={64} radius={t.radii.lg} />
-                  <Skeleton width={52} height={10} />
-                </View>
-              ))}
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="title3" accessibilityRole="header">{selectedFamily.label}</Text>
+                <Text variant="footnote" color="muted">Choose a service to see available pros</Text>
+              </View>
             </View>
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              compact
-              icon="search"
-              title="No matching service"
-              message={aiEnabled ? `We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.` : `We don't have "${query}" yet. Try another word.`}
-              actionLabel={aiEnabled ? 'Ask QuickServe AI' : undefined}
-              onAction={aiEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
-            />
-          ) : (
-            <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} verticalSlugs={selectedFamily?.verticalSlugs} />
-          )}
-        </Section>
-        </>
-        )}
-      </View>
+          ) : null}
 
-      {aiEnabled && !unserved ? (
+          {selectedFamily || query.trim() ? (
+            <Section title={selectedFamily ? 'Choose a service' : 'Matching services'}>
+              {!categories ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.md }}>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <View key={i} style={{ width: '47%', alignItems: 'center', gap: 8 }}>
+                      <Skeleton width={64} height={64} radius={t.radii.lg} />
+                      <Skeleton width={90} height={12} />
+                    </View>
+                  ))}
+                </View>
+              ) : filtered.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon="search"
+                  title="No matching service"
+                  message={aiEnabled ? `We don't have "${query}" yet. Try another word, or describe the problem to QuickServe AI.` : `We don't have "${query}" yet. Try another word.`}
+                  actionLabel={aiEnabled ? 'Ask QuickServe AI' : undefined}
+                  onAction={aiEnabled ? () => router.push({ pathname: '/assistant', params: { q: query.trim() } }) : undefined}
+                />
+              ) : (
+                <CatalogueSections verticals={catalogue?.verticals ?? []} filter={query} verticalSlugs={selectedFamily?.verticalSlugs} />
+              )}
+            </Section>
+          ) : (
+            <Section title="Choose a category">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.md }}>
+                {!categories
+                  ? Array.from({ length: 4 }).map((_, i) => (
+                      <Card key={i} style={{ width: '47%' }}>
+                        <View style={{ gap: t.spacing.sm }}>
+                          <Skeleton width={36} height={36} radius={18} />
+                          <Skeleton width={120} height={14} />
+                          <Skeleton width={150} height={10} />
+                        </View>
+                      </Card>
+                    ))
+                  : families.map((family) => (
+                      <BrowseFamilyCard
+                        key={family.slug}
+                        label={family.label}
+                        description={descriptionForFamily(family.slug)}
+                        icon={iconForFamily(family.slug)}
+                        onPress={() => {
+                          setQuery('');
+                          setSelectedFamilySlug(family.slug);
+                        }}
+                      />
+                    ))}
+                {flags.isOn('sports') ? (
+                  <BrowseFamilyCard
+                    label="Sports & venues"
+                    description="Find a court or request a slot"
+                    icon="football-outline"
+                    onPress={() => router.push('/sports')}
+                  />
+                ) : null}
+                {flags.isOn('products') ? (
+                  <BrowseFamilyCard
+                    label="Shop local"
+                    description="Browse products from nearby shops"
+                    icon="storefront-outline"
+                    onPress={() => router.push('/shop')}
+                  />
+                ) : null}
+              </View>
+            </Section>
+          )}
+        </View>
+      )}
+
+      {active ? <View style={gutter}>{activeCard}</View> : null}
+
+      {aiEnabled && !noServiceCategories ? (
         <View style={gutter}>
           <Pressable
             accessibilityRole="button"
@@ -328,7 +363,7 @@ export default function CustomerHome() {
       </View>
 
       {/* Top rated */}
-      {unserved || selectedFamily || (categories && topRated.length === 0) ? null : (
+      {unserved || noServiceCategories || selectedFamily || query.trim() || (categories && topRated.length === 0) ? null : (
         <View style={{ gap: t.spacing.md }}>
           <View style={gutter}>
             <Section
@@ -366,36 +401,58 @@ export default function CustomerHome() {
   );
 }
 
-function BrowseFamilyChip({
+function iconForFamily(slug: string): ComponentProps<typeof Ionicons>['name'] {
+  switch (slug) {
+    case 'home': return 'home-outline';
+    case 'creative-events': return 'camera-outline';
+    case 'beauty-wellness': return 'heart-outline';
+    case 'learning': return 'school-outline';
+    default: return 'grid-outline';
+  }
+}
+
+function descriptionForFamily(slug: string): string {
+  switch (slug) {
+    case 'home': return 'Repairs, cleaning, and vehicle care';
+    case 'creative-events': return 'Creators, photos, videos, and events';
+    case 'beauty-wellness': return 'Beauty and personal care';
+    case 'learning': return 'Tutors and learning sessions';
+    default: return 'Explore more local services';
+  }
+}
+
+function BrowseFamilyCard({
   label,
-  selected = false,
+  description,
+  icon,
   onPress,
 }: {
   label: string;
-  selected?: boolean;
+  description: string;
+  icon: ComponentProps<typeof Ionicons>['name'];
   onPress: () => void;
 }) {
   const t = useTheme();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 40,
-        justifyContent: 'center',
-        paddingHorizontal: t.spacing.md,
-        borderRadius: t.radii.pill,
-        backgroundColor: selected ? t.colors.primary : t.colors.surfaceAlt,
-        borderWidth: selected || t.dark ? 1 : 0,
-        borderColor: selected ? t.colors.primary : t.colors.border,
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      <Text variant="caption" color={selected ? 'onPrimary' : 'textSecondary'} style={{ fontWeight: '600' }}>
-        {label}
-      </Text>
-    </Pressable>
+    <Card onPress={onPress} style={{ width: '47%' }} accessibilityLabel={label}>
+      <View style={{ minHeight: 116, gap: t.spacing.sm }}>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: t.colors.primarySoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name={icon} size={22} color={t.colors.primaryText} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="calloutStrong" numberOfLines={2}>{label}</Text>
+          <Text variant="caption" color="muted" numberOfLines={2}>{description}</Text>
+        </View>
+      </View>
+    </Card>
   );
 }

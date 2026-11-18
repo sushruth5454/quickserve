@@ -23,7 +23,8 @@
 
 - Service families are a presentation projection over existing vertical slugs, not a database taxonomy migration.
 - Known verticals map to stable family labels; unknown verticals remain visible under “More services” rather than disappearing.
-- The “All” selection is the default. Search intersects with the selected family; it never broadens or changes the server catalogue.
+- The default home view shows service-family choices, not individual service categories. Selecting a family shows its service categories; the back action returns to family choices and clears the prior query.
+- Search on the default home view returns matching service categories across families; search inside a family is limited to that family. Search never changes the server catalogue.
 - Sports and Shop Local are shown only when their existing app feature flags are enabled and continue to use their separate routes.
 - Family selection itself is read-only and cannot create bookings, quotes, or payments.
 - General home-screen trust copy must not imply identical payment semantics across service, sports, and product workflows.

@@ -20,6 +20,7 @@ mkdirSync(SHOTS, { recursive: true });
 const pageErrors = [];
 const consoleErrors = [];
 const failures = [];
+const softFailures = [];
 let shot = 0;
 
 const browser = await chromium.launch();
@@ -118,16 +119,19 @@ await runAllServiceScenarios({ page, go, step, visible, qaMarker: QA_MARKER });
 // ---------- Customer ----------
 await step('home', async () => {
   await go('/');
-  await visible('AC Repair');
+  await visible('Choose a category');
+  await visible('Home & vehicle services');
 });
-await step('home-family-filter-and-marketplace-entry-points', async () => {
+await step('home-family-drilldown-and-marketplace-entry-points', async () => {
+  await page.getByRole('button', { name: 'Home & vehicle services' }).click();
+  await visible('Choose a service');
+  await visible('AC Repair');
+  await page.getByRole('button', { name: 'AC Repair, Request a quote' }).click();
+  await page.waitForURL(/\/category\/ac-repair(?:\?|$)/);
+  await go('/');
   await page.getByRole('button', { name: 'Learning & sessions' }).click();
   await visible('Demo Home Tutor');
-  if (await page.getByText('AC Repair', { exact: true }).count()) {
-    throw new Error('selecting Learning & sessions left unrelated home-service categories visible');
-  }
-  await page.getByRole('button', { name: 'All', exact: true }).click();
-  await visible('AC Repair');
+  await go('/');
   await page.getByRole('button', { name: 'Sports & venues' }).click();
   await page.waitForURL(/\/sports/);
   await go('/');
@@ -394,6 +398,9 @@ await step('assistant-draft-or-busy-fallback', async () => {
   if (!assistantDraftReady) {
     await page.getByText(/QuickServe AI is busy right now/).last().waitFor({ state: 'visible' });
     await page.getByText('Try again', { exact: true }).last().waitFor({ state: 'visible' });
+    const warning = 'AI assistant returned a generic unavailable response; the draft/review path was not validated and the cause may be transient or permanent.';
+    softFailures.push(warning);
+    console.warn(`::warning::${warning}`);
     return;
   }
   await page.getByText('Review & pay', { exact: true }).last().waitFor({ state: 'visible' });
@@ -495,7 +502,7 @@ await step('info-safety', async () => {
 // ---------- Customer, dark mode ----------
 await page.emulateMedia({ colorScheme: 'dark' });
 for (const [name, path, wait] of [
-  ['dark-home', '/', 'AC Repair'],
+  ['dark-home', '/', 'Choose a category'],
   ['dark-category', '/category/ac-repair?name=AC%20Repair', null],
   ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
   ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
@@ -842,9 +849,10 @@ await step('admin-feature-registry', async () => {
 
 await browser.close();
 
-writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, pageErrors, consoleErrors }, null, 2));
-console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
+writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, softFailures, pageErrors, consoleErrors }, null, 2));
+console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
 for (const f of failures) console.log(`FAIL ${f}`);
+for (const f of softFailures) console.log(`SOFT FAIL ${f}`);
 for (const e of pageErrors) console.log(`PAGEERROR ${e}`);
 for (const e of consoleErrors) console.log(`CONSOLE ${e}`);
 process.exit(failures.length || pageErrors.length ? 1 : 0);

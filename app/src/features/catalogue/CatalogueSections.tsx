@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CategoryIcon, iconForCategory } from '../../components/CategoryIcon';
-import { Badge, Section, Text } from '../../components/ui';
+import { Card, Section, Text } from '../../components/ui';
 import type { Category } from '../../lib/types';
 import { useTheme } from '../../theme';
 import type { CatalogueVertical } from './model';
@@ -28,13 +28,13 @@ export function CatalogueSections({
     <View style={{ gap: t.spacing.xl }}>
       {visible.map((vertical, verticalIndex) => (
         <Section key={vertical.slug} title={vertical.label}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -t.spacing.lg }} contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.md }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.md }}>
             {vertical.categories.map((category, index) => (
-              <Animated.View key={category.id} entering={FadeInDown.delay(Math.min(verticalIndex * 5 + index, 10) * 20).duration(220)} style={{ width: 92 }}>
+              <Animated.View key={category.id} entering={FadeInDown.delay(Math.min(verticalIndex * 5 + index, 10) * 20).duration(220)} style={{ width: '47%' }}>
                 <CategoryTile category={category} />
               </Animated.View>
             ))}
-          </ScrollView>
+          </View>
         </Section>
       ))}
     </View>
@@ -43,17 +43,26 @@ export function CatalogueSections({
 
 function CategoryTile({ category }: { category: Category }) {
   const t = useTheme();
-  const action = category.archetype === 'proposal' ? 'Compare quotes' : category.archetype === 'time_based' ? 'Sessions' : null;
+  const action =
+    category.archetype === 'proposal'
+      ? 'Compare quotes'
+      : category.archetype === 'time_based'
+        ? 'Book a session'
+        : category.archetype === 'fixed'
+          ? 'View packages'
+          : 'Request a quote';
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${category.name}${action ? `, ${action}` : ''}`}
+    <Card
       onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } })}
-      style={({ pressed }) => ({ alignItems: 'center', gap: 8, opacity: pressed ? 0.65 : 1 })}
+      accessibilityLabel={`${category.name}, ${action}`}
     >
-      <CategoryIcon icon={iconForCategory(category)} size={64} />
-      <Text variant="caption" color="textSecondary" align="center" numberOfLines={2} style={{ minHeight: 32 }}>{category.name}</Text>
-      {action ? <Badge label={action} tone="neutral" /> : null}
-    </Pressable>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, minHeight: 56 }}>
+        <CategoryIcon icon={iconForCategory(category)} size={48} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="bodyStrong" numberOfLines={2}>{category.name}</Text>
+          <Text variant="caption" color="muted">{action}</Text>
+        </View>
+      </View>
+    </Card>
   );
 }

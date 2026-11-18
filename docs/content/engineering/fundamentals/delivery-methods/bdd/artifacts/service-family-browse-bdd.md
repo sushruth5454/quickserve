@@ -12,6 +12,12 @@ Customers discover local services, learning sessions, sports venues, and shops f
 
 ```gherkin
 Feature: Service-family discovery
+  Scenario: Home shows families before individual services
+    Given the customer has a catalogue containing multiple service families
+    When the customer opens Home without a search query
+    Then the family choices are shown first
+    And individual service categories are not shown until a family is selected
+
   Scenario: A customer selects a family and sees only its categories
     Given the customer has a catalogue containing multiple verticals
     When the customer selects Home & vehicle services
@@ -23,11 +29,12 @@ Feature: Service-family discovery
 
 ```gherkin
 Feature: Family-scoped search
-  Scenario: Search narrows the selected catalogue family
+  Scenario: Search narrows services in the current browse context
     Given the customer has selected a service family
     When the customer searches for a category
     Then results are limited to matching categories in that family
-    And selecting All restores matches across all service families
+    When the customer returns to the family choices
+    Then the family choices are shown again without the prior query
 ```
 
 ### SF-03 — Marketplace entry points remain feature-gated
@@ -68,10 +75,10 @@ Feature: Accurate marketplace expectations
 
 | Scenario | Test evidence | Validation |
 |---|---|---|
-| SF-01 | `app/src/features/catalogue/__tests__/model.test.ts` family mapping test | Pending CI |
-| SF-02 | Home-screen selector state and filtered catalogue rendering | Pending E2E |
-| SF-03 | Existing feature-flag checks on sports/products entry points | Pending E2E |
-| SF-04 | Existing category route remains unchanged | Pending E2E |
+| SF-01 | `app/src/features/catalogue/__tests__/model.test.ts` family mapping; home E2E verifies drill-down | Pending CI |
+| SF-02 | Home-screen selected-family search and filtered catalogue rendering | Pending E2E |
+| SF-03 | Existing feature-flag checks on Sports/Shop family cards | Pending E2E |
+| SF-04 | Category card opens the existing category route | Pending E2E |
 | SF-05 | Home-screen trust copy review | Pending UI validation |
 
 ## Trace links
