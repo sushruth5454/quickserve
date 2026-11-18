@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | **Do not start until the owner approves [`13-UI-UX-Audit-and-Design-Specification.md`](13-UI-UX-Audit-and-Design-Specification.md) §I.** If any §I decision is rejected, the integrator removes or edits the affected tasks before launching agents. |
-| **Code baseline** | `main` @ `2c59548` (latest migration `0058_sports_payments.sql`). Migration `0059` is reserved for recurring billing (doc 12 task D1). |
+| **Status** | **Approved for implementation by the owner on 2026-11-18; doc 13 §I recommendations adopted where input was needed.** |
+| **Code baseline** | Audit snapshot `main` @ `2c59548` (latest migration `0058_sports_payments.sql`); execution starts from `origin/main` @ `1586a09`. Doc 17 takes migration `0059`; this plan uses the next free migration number at merge time. |
 | **Audience** | The implementing model and the agents it launches. Every step is meant to be followed literally. Do not make product or design decisions. If something is not specified here or in doc 13, **stop and report**; do not guess. |
-| **Sequencing (overrides §5 where they conflict)** | [doc 17](17-Nearo-Audit-Remediation-Implementation-Plan.md) functional fixes take priority. **Q-00 is doc 17 task T1, owned there**: do not run it twice. R-01 waits for doc 17 H3, R-02 for U1, R-04 for B2, R-06 for S2, R-05 for O4 (or immediately if O4 is deferred), R-03 for B1. B-01/G-01 wait for doc 17 X1 and R1. Doc 12's `0059` reservation is released; every migration here takes the next free number at merge time. |
+| **Sequencing (overrides §5 where they conflict)** | [doc 17](17-Nearo-Audit-Remediation-Implementation-Plan.md) functional fixes take priority. **Q-00 is doc 17 task T1, owned there**: do not run it twice. R-01 waits for doc 17 H3, R-02 for U1, R-03 for B1, R-04 for B2, R-05 for O4 (or immediately if O4 is deferred), and R-06 for S2. B-01/G-01 wait for doc 17 X1 and R1; G-01 also waits for U3. H-01 and A-01 wait for U3; SH-01 waits for P1a; BD-01 waits for U3. Doc 12's `0059` reservation is released; every migration here takes the next free number at merge time. |
 | **Rule zero** | Preserve every existing feature, route, API call, status, flag and test. Visual work never changes business logic, RPC arguments or navigation targets unless a task says so explicitly. |
 
 ---
@@ -51,6 +51,9 @@ Worktree: <path>. Branch: lane/<TASK-ID>, created from origin/main @ <sha>.
 - New behavior flags (seeded **off** by task B-01): `home_v2`, `unified_search`, `guest_browse`, `creators_landing`, `booking_steps`, `book_again`.
 - Read them with `useAppFeatureFlags().isOn('<key>')`. An unknown key evaluates to **false** (`app/src/lib/featureFlagModel.ts`), so flagged UI is safe to merge before B-01 is applied.
 - Every flagged task must keep the **flag-off path identical to today** and test both states.
+
+### 0.6 Owner orchestration override (2026-11-18)
+The owner directed the integrator to start T-01 and C-07 while doc 17 T1/Q-00 is in progress; I-01 is integrator-owned and may proceed in parallel. These tasks have no shared-file conflict with Q-00. Their implementation and lane validation may proceed now; do not merge the UI foundation tasks until all code-owned Q-00 failures are green. The admin E2E step is explicitly owner-blocked until `DEMO_PROJECT=1` and `ADMIN_E2E_PHONE` are configured; never report that step as passed or weaken its guard.
 
 ---
 
@@ -454,7 +457,7 @@ R tasks run in parallel with each other and with T-01, I-01 and C-07, **but each
 
 #### H-01 Home v2 (`home_v2`)
 - **Owns:** `app/app/(customer)/index.tsx`, new `app/src/features/home/LegacyHome.tsx`, new `app/src/features/home/HomeV2.tsx`, new `app/src/features/home/homeModel.ts` + tests.
-- **Blocked by:** C-01, C-02, C-03, C-04.
+- **Blocked by:** C-01, C-02, C-03, C-04, and doc 17 U3 (same customer home route).
 - **Steps:**
   1. Move the current `index.tsx` body into `LegacyHome.tsx` **unchanged**. The only exception is the AI card subtitle, which uses `t('ai.cardSubtitle')` in both homes (doc 13 §I-6).
   2. `index.tsx` = `flags.isOn('home_v2') ? <HomeV2/> : <LegacyHome/>`.
@@ -480,7 +483,7 @@ R tasks run in parallel with each other and with T-01, I-01 and C-07, **but each
 
 #### H-02 Search tab + screen (`unified_search`)
 - **Owns:** `app/app/(customer)/_layout.tsx`, new `app/app/(customer)/search.tsx`, new `app/src/features/search/*` (`SearchScreen.tsx`, `searchModel.ts`, `api.ts`, tests).
-- **Blocked by:** C-01, C-03, C-04.
+- **Blocked by:** C-01, C-03, C-04, and doc 17 P1a (same shop/product files).
 - **Steps:**
   1. Tabs: add `Tabs.Screen name="search"` between Home and Bookings with `href: flags.isOn('unified_search') ? undefined : null` (hidden when off) and the `search`/`search-outline` icon. Rename the "Me" title to `t('tabs.account')`. Change no other tab.
   2. `api.ts` → `searchEverything(q, ctx)` runs `Promise.allSettled` over:
@@ -513,7 +516,7 @@ R tasks run in parallel with each other and with T-01, I-01 and C-07, **but each
 
 #### G-01 Guest browsing (`guest_browse`)
 - **Owns:** `app/app/_layout.tsx`, `app/app/(auth)/login.tsx`, `app/app/(auth)/verify.tsx`, `app/app/(auth)/role.tsx`, `app/app/(customer)/_layout.tsx` (guest guards only; coordinate with H-02, which merges first), new `app/src/lib/authGate.ts` + tests, new `app/src/components/GuestGate.tsx`.
-- **Blocked by:** B-01 (applied on `main`), H-02 (same customer layout file), doc 17 X1 and R1. **Commit-action wiring is part of this task** (step 4); `guest_browse` must not be enabled before step 4's list is fully wired.
+- **Blocked by:** B-01 (applied on `main`), H-02 (same customer layout file), doc 17 X1, R1, and U3 (same auth routes).
 - **Steps:**
   1. `authGate.ts` (pure):
      - `BROWSE_SEGMENTS = ['(customer)', 'category', 'provider', 'sports', 'venue', 'shop', 'products', 'product', 'creators', 'top-rated', 'location', 'info', 'byo']`.
@@ -645,7 +648,7 @@ R tasks run in parallel with each other and with T-01, I-01 and C-07, **but each
 
 #### BD-01 Booking detail status header
 - **Owns:** `app/src/features/bookingDetail/*`.
-- **Blocked by:** R-01, C-07.
+- **Blocked by:** R-01, C-07, and doc 17 U3 (status/help copy in the same booking detail).
 - **Steps:**
   1. Error states use `friendlyError` + `t()`.
   2. Show the existing `StatusHero`/`StatusTimeline` at the top, with no logic change.
@@ -654,7 +657,7 @@ R tasks run in parallel with each other and with T-01, I-01 and C-07, **but each
 
 #### A-01 Assistant rate-limit state
 - **Owns:** `app/app/assistant.tsx`.
-- **Blocked by:** C-07.
+- **Blocked by:** C-07 and doc 17 U3 (AI flag gate in the same route).
 - **Steps:** When an AI call fails and `friendlyError(e).key === 'ai.busy'`, show `InlineAlert` `ai.busy` + a Retry `Button`. Never show the raw message.
 
 #### M-01 / M-02 / M-03 Merchant surfaces (token compliance + sections)
@@ -770,9 +773,48 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
-| Q-00 | not started | | | |
-| Q-01 | not started | | | |
-| *(one row per task in §4)* | | | | |
+| Q-00 / doc 17 T1 | code-owned E2E fixes merged; admin step BLOCKED on missing repo variable/secret | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | fb069de |
+| Q-01 | workflow trigger and 14-day artifact retention integrated; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | main E2E pending | pending |
+| T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
+| B-01 | blocked by Q-00 and R1 | — | — | — |
+| I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
+| C-07 | merged; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918; 44402357939 (cancelled) | 5f751fa |
+| R-01 | blocked by doc 17 H3 | — | — | — |
+| R-02 | blocked by doc 17 U1 | — | — | — |
+| R-03 | blocked by doc 17 B1 | — | — | — |
+| R-04 | blocked by doc 17 B2 | — | — | — |
+| R-05 | blocked by doc 17 O4 | — | — | — |
+| R-06 | blocked by doc 17 S2 | — | — | — |
+| R-07 | ready to launch; no doc 17 file conflict | pending | — | — |
+| C-01 | ready to launch | pending | — | — |
+| C-02 | ready to launch | pending | — | — |
+| C-03 | blocked by T-01, I-01, and C-02 | — | — | — |
+| C-04 | ready to launch | pending | — | — |
+| C-05 | ready to launch | pending | — | — |
+| C-06 | ready to launch | pending | — | — |
+| C-08 | blocked by T-01, I-01, and C-05 | — | — | — |
+| H-01 | blocked by components and doc 17 U3 | — | — | — |
+| H-02 | blocked by components | — | — | — |
+| G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
+| HS-01 | blocked by R-02, C-03, C-05 | — | — | — |
+| HS-02 | blocked by R-03 and C-08 | — | — | — |
+| HS-03 | blocked by R-04 | — | — | — |
+| SH-01 | blocked by components and doc 17 P1a | — | — | — |
+| SH-02 | blocked by C-06 and doc 17 P1b | — | — | — |
+| SP-01 | blocked by components and doc 17 S2 | — | — | — |
+| SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
+| CR-01 | blocked by C-02/C-03 | — | — | — |
+| CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
+| BD-01 | blocked by R-01, C-07, and doc 17 U3 | — | — | — |
+| A-01 | blocked by C-07 and doc 17 U3 | — | — | — |
+| M-01 | blocked by R-05 and T-01 | — | — | — |
+| M-02 | blocked by R-06 and T-01 | — | — | — |
+| M-03 | blocked by R-07 and T-01 | — | — | — |
+| Q-02 | blocked by all covered Phase 3 tasks | — | — | — |
+| Q-03 | blocked by all Phase 3 tasks | — | — | — |
+| P2-01 | blocked by Q-03 | — | — | — |
+| Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
+| T-99 | blocked by all | integrator | — | — |
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 

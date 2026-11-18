@@ -62,6 +62,7 @@ for (const file of [
   '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
   '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql', '0030_review_fixes.sql',
   '0031_holiday_mode_enforcement.sql', '0032_notification_centre.sql', '0033_city_waitlist.sql', '0034_targeted_request_radius.sql', '0035_request_coordinates.sql', '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql', '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql', '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql', '0043_commission_config.sql', '0044_creator_revisions.sql', '0045_preferred_language.sql', '0046_managed_geography.sql', '0047_coins_config.sql', '0048_sports.sql', '0049_shops_catalogue.sql', '0050_rfq.sql', '0051_ai_usage_v3.sql', '0052_merchant_staff.sql', '0053_activity_contracts.sql', '0054_addendum_foundations.sql', '0055_addendum_foundation_hardening.sql', '0056_home_services_catalogue.sql', '0057_recurring_plans_v2.sql', '0058_sports_payments.sql',
+  '0059_admin_identity_hardening.sql',
 ]) {
   if (file === '0051_ai_usage_v3.sql') {
     await db.exec(`
@@ -104,6 +105,7 @@ await db.exec(`
     ('${demoPro}', '+919999000003', '{"demo_only":"true"}'),
     ('${commissionCustomer}', '+919999000004', '{}'),
     ('${admin}', '+918888888888', '{}');
+  insert into admins (user_id) values ('${admin}');
   update profiles set full_name = 'Person';
   insert into providers (id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended)
   values
@@ -471,7 +473,8 @@ ok((await one(`select city from providers where id = $1`, [demoPro])).city === '
 // ---------- 20: admin access, controls and support are end to end (0041) ----------
 {
   ok((await as(customer, 'authenticated', `select am_i_admin() v`))[0].v === false, 'a normal user is not an admin');
-  ok((await as(admin, 'authenticated', `select am_i_admin() v`))[0].v === true, 'the configured 8888888888 phone is an admin');
+  const adminIdentity = (await as(admin, 'authenticated', `select am_i_admin() v`))[0].v;
+  ok(adminIdentity === true, `admins-table membership grants admin access: ${JSON.stringify({ adminIdentity })}`);
   const denied = await fails(() => as(customer, 'authenticated', `select admin_dashboard(30)`));
   ok(/admin only/.test(denied ?? ''), 'admin data is denied to a normal user');
 
