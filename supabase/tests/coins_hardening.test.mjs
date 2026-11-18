@@ -179,6 +179,22 @@ async function approve(actors, bookingId, quoteId, useCoins = true) {
   return approval;
 }
 
+async function payBalance(actors, bookingId) {
+  const [payment] = await service(
+    `select * from public.prepare_payment($1::uuid, $2::uuid)`,
+    [bookingId, actors.customer],
+  );
+  const link = `f3-balance-${payment.payment_id}`;
+  await service(
+    `update public.payments set razorpay_link_id = $1::text, short_url = $2::text where id = $3::uuid`,
+    [link, 'https://pay.test/f3-balance', payment.payment_id],
+  );
+  await service(
+    `select public.record_payment_paid($1::text, $2::text, $3::int)`,
+    [link, `gateway-${payment.payment_id}`, payment.amount],
+  );
+}
+
 const baseConfig = {
   coin_paise: 10,
   earn_rate_bp: 100,
@@ -238,6 +254,7 @@ await scenario('WS9-T03 change-order restore plus cancellation restores the orig
   const bookingId = await createVisit(actors);
   const firstQuote = await sendQuote(actors, bookingId);
   const firstApproval = await approve(actors, bookingId, firstQuote, true);
+  await payBalance(actors, bookingId);
   const changeQuote = await sendQuote(actors, bookingId);
   await setConfig(actors, { redeem_cap_bp: 0 });
   const changeApproval = await approve(actors, bookingId, changeQuote, false);
@@ -257,7 +274,7 @@ await scenario('WS9-T03 change-order restore plus cancellation restores the orig
   check(
     firstApproval.coins_redeemed_paise === 5000
       && changeApproval.coins_redeemed_paise === 0
-      && changeApproval.amount_due === 198000
+    && changeApproval.amount_due === 5000
       && restores.length === 1
       && restores[0].delta === 5000
       && restores[0].ref === `restore:${bookingId}:${changeQuote}`
@@ -275,6 +292,7 @@ await scenario('WS9-T03 a later redemption spends restored paise under a new quo
   const bookingId = await createVisit(actors);
   const firstQuote = await sendQuote(actors, bookingId);
   const firstApproval = await approve(actors, bookingId, firstQuote, true);
+  await payBalance(actors, bookingId);
   const zeroCapQuote = await sendQuote(actors, bookingId);
   await setConfig(actors, { redeem_cap_bp: 0 });
   const zeroCapApproval = await approve(actors, bookingId, zeroCapQuote, false);
@@ -297,9 +315,9 @@ await scenario('WS9-T03 a later redemption spends restored paise under a new quo
   const nextCycle = redemptions.filter((row) => row.ref.startsWith(`redeem:${bookingId}:${nextQuote}:`));
   check(
     firstApproval.coins_redeemed_paise === 5000
-      && zeroCapApproval.amount_due === 198000
+    && zeroCapApproval.amount_due === 5000
       && nextApproval.coins_redeemed_paise === 5000
-      && nextApproval.amount_due === 193000
+    && nextApproval.amount_due === 0
       && firstCycle.length === 1
       && firstCycle[0].delta === -5000
       && nextCycle.length === 1
@@ -354,6 +372,7 @@ await scenario('WS9-T04 already-redeemed preview disables redemption and caps at
   const bookingId = await createVisit(actors);
   const firstQuote = await sendQuote(actors, bookingId);
   const approval = await approve(actors, bookingId, firstQuote, true);
+  await payBalance(actors, bookingId);
   const changeQuote = await sendQuote(actors, bookingId);
   const [{ preview }] = await as(
     actors.customer,
@@ -367,7 +386,7 @@ await scenario('WS9-T04 already-redeemed preview disables redemption and caps at
       && preview.can_redeem === false
       && preview.maximum_paise === 5000
       && preview.applied_paise === 5000
-      && changeApproval.amount_due === 193000
+      && changeApproval.amount_due === 0
       && changeApproval.coins_redeemed_paise === 5000,
     'change-order preview is non-redeemable, reports 5,000 applied paise, and approval due matches the server',
     { approval, preview, changeApproval },
