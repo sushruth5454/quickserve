@@ -30,13 +30,13 @@ await h.scenario('R1 internal and user RPC privilege allow-list', async () => {
   ];
   const actual = [];
   for (const spec of protectedFunctions) {
-    const [row] = await db.query(`
+    const row = (await db.query(`
       select
         $1::text as signature,
         has_function_privilege('authenticated', $1::regprocedure, 'execute') as authenticated,
         has_function_privilege('anon', $1::regprocedure, 'execute') as anon,
         has_function_privilege('service_role', $1::regprocedure, 'execute') as service
-    `, [spec.signature]);
+    `, [spec.signature])).rows[0];
     actual.push({
       signature: row.signature,
       authenticated: row.authenticated,

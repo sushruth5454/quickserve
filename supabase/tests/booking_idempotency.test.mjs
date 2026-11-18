@@ -33,6 +33,7 @@ async function addBookingService(customer, provider, label) {
     values ($1::uuid, 'R1 City', true, now())
     on conflict (category_id, city) do update set live = true
   `, [category]);
+  await db.query('update public.categories set max_lead_days = 365 where id = $1::uuid', [category]);
   await db.query(`
     insert into public.provider_availability (provider_id, weekday, start_time, end_time)
     select $1::uuid, day::smallint, '08:00'::time, '18:00'::time
