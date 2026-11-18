@@ -80,6 +80,16 @@ for (const file of [
 
 const seed = fs.readFileSync(path.join(here, '..', 'seed-all-services.sql'), 'utf8')
   .replace("begin;\n\n", "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n", 1);
+await db.query(`
+  insert into auth.users (id, phone, raw_app_meta_data, raw_user_meta_data)
+  values (
+    '11111111-1111-1111-1111-111111111111'::uuid,
+    '919000000101',
+    '{"provider":"phone","providers":["phone"]}'::jsonb,
+    '{"full_name":"Ravi Kumar"}'::jsonb
+  )
+  on conflict (id) do nothing
+`);
 await db.exec(seed);
 const countQuery = `
   select
@@ -122,6 +132,14 @@ const demoMetadata = (await db.query(`
 `)).rows[0];
 ok(demoConfig.is_demo === 'true' && demoMetadata.missing_app_flag === 0,
   `guarded seed enables demo project and sets service-controlled provider metadata: ${JSON.stringify({ demoConfig, demoMetadata })}`);
+const e2eDemoProvider = (await db.query(`
+  select raw_app_meta_data->>'demo_only' app_demo,
+         raw_user_meta_data->>'demo_only' user_demo
+    from auth.users
+   where id='11111111-1111-1111-1111-111111111111'::uuid
+`)).rows[0];
+ok(e2eDemoProvider.app_demo === 'true' && e2eDemoProvider.user_demo == null,
+  `guarded seed marks only the fixed E2E provider in app_metadata: ${JSON.stringify(e2eDemoProvider)}`);
 ok(JSON.stringify(initial) === JSON.stringify(repeated), 'seed reset is idempotent');
 
 const [gates] = (await db.query(`
