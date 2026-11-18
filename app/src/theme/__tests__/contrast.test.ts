@@ -1,3 +1,7 @@
+jest.mock('react-native-reanimated', () => ({
+  Easing: { bezier: jest.fn(() => jest.fn()) },
+}));
+
 import { darkPalette, lightPalette } from '../tokens';
 import { contrastRatio } from '../contrast';
 

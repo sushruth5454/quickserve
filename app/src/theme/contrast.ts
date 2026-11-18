@@ -6,12 +6,11 @@ function linearizeChannel(hexChannel: string): number {
 }
 
 function relativeLuminance(color: string): number {
-  const match = /^#?([0-9a-f]{6})$/i.exec(color);
-  if (!match) {
+  const hex = color.startsWith('#') ? color.slice(1) : color;
+  if (!/^[0-9a-f]{6}$/i.test(hex)) {
     throw new RangeError('Color must be a 6-digit hexadecimal value');
   }
 
-  const hex = match[1];
   return (
     0.2126 * linearizeChannel(hex.slice(0, 2)) +
     0.7152 * linearizeChannel(hex.slice(2, 4)) +
