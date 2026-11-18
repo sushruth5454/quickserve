@@ -89,7 +89,7 @@ for (const file of [
 await db.exec(migration('0061_h1_provider_cancellation_and_recurring_privacy.sql'));
 await db.exec(migration('0062_coins_hardening.sql'));
 await db.exec(migration('0063_o1_notifications.sql'));
-await db.exec(migration('0069_u3_account_deletion.sql'));
+await db.exec(migration('0067_u3_account_deletion.sql'));
 
 const { ok, scenario, finish } = createHarness();
 const CUSTOMER = '00000000-0000-0000-0000-0000000000c1';
