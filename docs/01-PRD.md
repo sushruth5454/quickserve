@@ -262,3 +262,18 @@ See `09-Smart-Matching-Creators-OnPlatform-Strategy.md` for:
 - creator, photographer and event profiles with social links and per-deliverable pricing;
 - the leakage strategy: Seva Coins, repeat-client commission discount, bring-your-own-client and Pro tools;
 - revenue streams for when transactions go offline.
+
+---
+
+## Addendum (2026-11-18): Expanded Home Services, Recurring Bookings, Sports Online Payments
+
+These are **additions** to the existing four-family marketplace (Home services, Creators & events, Sports, Shops). Nothing existing is removed or renamed.
+
+1. **Expanded Home Services**: household help (home/deep/bathroom/kitchen/sofa-carpet/full-house cleaning, dishwashing, laundry & ironing, cooking & meal prep, daily/part-time/full-time cook, maid/helper), repair & maintenance (electrician, plumber, AC servicing & repair, fridge/washing-machine repair, RO servicing, carpenter, painting, pest control, water-tank cleaning, appliance installation) and other services (gardening, packers & movers, sanitisation, babysitting and elderly assistance with verification safeguards). Admins add, edit, disable and reorder categories and sub-categories without an app update.
+2. **One-time and recurring bookings**: daily, alternate days, weekly (one or more weekdays), monthly (every N months) and custom dates; start/end date or number of visits; preferred time, duration and provider; pause, resume, skip a visit or cancel. Every visit is its own booking record with its own status.
+3. **Provider recurring management**: accept/decline a plan (or individual visits), full schedule, mark visits complete, report absence, request rescheduling; customer notifications for acceptance, upcoming visits, provider changes, payment reminders and completed visits. No duplicate or overlapping bookings; holidays, unavailability and skipped visits handled.
+4. **Pricing & payments**: fixed per visit, hourly, per day, per unit, quotation and monthly package; transparent recurring breakdown; pay per visit, weekly, monthly or prepaid package; never charge for skipped, cancelled or undelivered visits (subject to policy); refunds, reconciliation, settlements and idempotency; amounts always computed on the server.
+5. **Sports in-app payments**: instant booking (pay to confirm), manual approval (venue approves, then customer pays) and pay-at-venue where the venue allows; real-time availability, database-level double-booking protection, payment holds that expire, failure/retry, cancellation and partial refunds, venue commission and settlement, notifications. Activities include badminton, cricket grounds and nets, football turfs, swimming, tennis, table tennis, coaching and fitness classes.
+6. **Admin controls**: categories/sub-categories, recurrence frequencies, cancellation windows, recurring payment frequency, commission, sports booking and refund rules, verification requirements, geographic availability.
+
+Implementation plan, lanes and parallelisation: [12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md](12-Home-Services-Recurring-Sports-Payments-Implementation-Plan.md).
