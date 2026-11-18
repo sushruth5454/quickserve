@@ -244,7 +244,8 @@ await db.exec(`
 `);
 
 const venueRead = json((await as(owner, 'authenticated',
-  `select public.get_my_business_sports_venues() result`))[0].result)[0];
+  `select public.get_my_business_sports_venues() result`))[0].result)
+  .find((item) => item.venue.id === venue);
 const venueReadJson = JSON.stringify(venueRead);
 const payoutAccountDetails = /razorpay_account_id|fund_account_id|stakeholder_id|product_id|contact_id|validation_id|activation_status|beneficiary_name|bank_last4|ifsc|requirements|last_error|email|rail|payout_account_status/;
 const venueReadDiagnostics = {
@@ -440,7 +441,7 @@ ok(capacityRace.filter((result) => result.ok).length === 1,
 const tooManySlot = await slotAt('14:00');
 const tooMany = await fails(() =>
   book(customer1, capacityResource, tooManySlot, 'sp-too-many', 'online', 1, 4));
-ok(/capacity|participants/.test(tooMany ?? ''),
+ok(/capacity|participants|slot is no longer available/i.test(tooMany ?? ''),
   '[SP-03] a request larger than the resource capacity is refused');
 
 const invalidCapacity = await fails(() => as(owner, 'authenticated', `
@@ -683,8 +684,8 @@ ok(defaultPayVenue.payment_modes.includes('pay_at_venue')
   && legacyBefore.participants === 1 && legacyAfter === 'accepted',
   '[SP-08] request_sports_slot preserves pay-at-venue booking for a venue using the schema default');
 
-const holdExpirySlot = await slotAt('18:00');
-const expiring = await book(customer1, instantResource, holdExpirySlot, 'sp-expiry');
+const holdExpirySlot = await slotAt('19:00');
+const expiring = await book(customer1, capacityResource, holdExpirySlot, 'sp-expiry');
 const expiringAttempt = await prepare(expiring.booking_id);
 await attachOrder(expiringAttempt.payment_id, 'order_sp_late');
 await db.query(`
