@@ -84,6 +84,20 @@ test.each(['household-help', 'home-repairs', 'home-other'])(
   },
 );
 
+test('HSC-03 ON keeps visible services whose parent group is missing in the fallback section', () => {
+  const catalogue = normaliseCatalogue([
+    category('service-with-missing-parent', 'home-repairs', 10, {
+      parent_id: 'unreturned-group',
+      archetype: 'inspect_quote',
+    }),
+  ]);
+
+  expect(buildCatalogueSections(catalogue.verticals, true).map((section) => [
+    section.label,
+    section.categories.map((item) => item.slug),
+  ])).toEqual([['Other home services', ['service-with-missing-parent']]]);
+});
+
 test('HSC-03 OFF preserves the legacy family label and flat category list', () => {
   const catalogue = normaliseCatalogue([
     category('electrician', 'home-repairs', 10, { parent_id: 'legacy-group' }),

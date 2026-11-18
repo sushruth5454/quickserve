@@ -183,14 +183,14 @@ export function buildCatalogueSections(
       : [];
   });
 
-  const parentlessHomeServices = categories.filter((category) =>
+  const fallbackHomeServices = categories.filter((category) =>
     !isCatalogueGroup(category)
     && isVisibleCategory(category)
-    && category.parent_id == null
     && HOME_GROUP_VERTICALS.includes(category.vertical as typeof HOME_GROUP_VERTICALS[number])
+    && (category.parent_id == null || !homeGroupIds.has(category.parent_id))
     && matches(category));
-  const fallbackSections = parentlessHomeServices.length > 0
-    ? [{ slug: 'home-services:other', label: 'Other home services', categories: parentlessHomeServices }]
+  const fallbackSections = fallbackHomeServices.length > 0
+    ? [{ slug: 'home-services:other', label: 'Other home services', categories: fallbackHomeServices }]
     : [];
 
   const otherSections = verticals
