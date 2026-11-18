@@ -34,10 +34,20 @@ function withoutPersonalDetails(text: string): string {
 export function sanitizeProductSearchQuery(value: unknown): string {
   if (typeof value !== "string") return "";
   const bounded = value.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, MAX_QUERY_CHARS);
-  if (/\b\d{6}\b/.test(bounded)) return "";
   const redacted = redactBrief(bounded);
   const addressStart = redacted.toLowerCase().indexOf("[address]");
-  const query = addressStart >= 0 ? redacted.slice(0, addressStart) : redacted;
+  let query = addressStart >= 0 ? redacted.slice(0, addressStart) : redacted;
+  if (addressStart < 0) {
+    const pinStart = query.toLowerCase().indexOf("[pin]");
+    if (pinStart >= 0) {
+      const beforePin = query.slice(0, pinStart);
+      const locationStart = /\b(?:in|at|near|around|from|opposite|behind|beside|next\s+to)\s+[^,.;]*$/i.exec(beforePin);
+      const lastComma = beforePin.lastIndexOf(",");
+      if (locationStart) query = beforePin.slice(0, locationStart.index);
+      else if (lastComma >= 0) query = beforePin.slice(0, lastComma);
+      else return "";
+    }
+  }
   const locality = /\b(?:\d+[\-/]\d+[\-/]?\d*\s+)?[\p{L}'-]+\s+(?:circle|junction|nagar|residency|colony|sector|phase|layout|cross|ward|road|street|lane)\b/iu.exec(query);
   const withoutLocality = locality
     ? query.slice(0, locality.index).replace(/\b(?:for|in|at|near|around|from|opposite|behind|beside|next\s+to)\s*$/i, "")
