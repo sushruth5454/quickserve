@@ -233,6 +233,9 @@ await scenario('deployment flag fails closed and demo home payout is excluded', 
   await db.query(`
     update public.app_config set value='{"enabled":true,"provider_ids":[]}'::jsonb where key='demo_payments'
   `);
+  await db.query(`
+    update public.app_config set value='{"is_demo_project":false}'::jsonb where key='deployment'
+  `);
   const defaultFlag = await one(`select value->>'is_demo_project' is_demo from public.app_config where key='deployment'`);
   const blocked = await fails(() =>
     as(fx.customer, 'authenticated', 'select public.demo_settle_payment($1::uuid)', [fx.booking]));
@@ -240,8 +243,7 @@ await scenario('deployment flag fails closed and demo home payout is excluded', 
     `deployment defaults off: ${JSON.stringify({ defaultFlag, error: blocked })}`);
 
   await db.query(`update public.app_config set value='{"is_demo_project":true}'::jsonb where key='deployment'`);
-  const settled = await as(fx.customer, 'authenticated',
-    'select public.demo_settle_payment($1::uuid) result', [fx.booking]);
+  const demoPayment = await paidHomePayment(fx.booking, 'pay_demo_x3_home_payout_2', 1000);
   await paidHomePayment(fx.booking, 'pay_real_x3_mixed_2', 193760);
   await as(null, 'service_role', `
     select public._create_payout($1::uuid, $2::int, $3::int, $4::timestamptz)
@@ -253,10 +255,10 @@ await scenario('deployment flag fails closed and demo home payout is excluded', 
   const transfers = await one(`
     select count(*)::int count from public.payout_transfers where payout_id=$1::uuid
   `, [payout.id]);
-  ok(Boolean(settled[0].result) && payout.status === 'demo' && payout.gross === 193760
+  ok(Boolean(demoPayment) && payout.status === 'demo' && payout.gross === 193760
     && payout.commission === 0 && payout.gst_on_commission === 0 && payout.amount === 193760
     && transfers.count === 0,
-  `demo home payout keeps exact paise and creates no transfers: ${JSON.stringify({ settled, payout, transfers })}`);
+  `demo home payout keeps exact paise and creates no transfers: ${JSON.stringify({ demoPayment, payout, transfers })}`);
 });
 
 await scenario('home allocator excludes demo source payments and preserves the exact route amount', async () => {

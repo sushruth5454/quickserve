@@ -139,7 +139,8 @@ const proposalCat = await category('review-proposal', 'proposal');
 await db.query(`update categories set cancellation_policy = 'event_moderate' where id = $1`, [proposalCat]);
 await db.query(`
   insert into provider_services (provider_id, category_id, visit_fee, labour_rate, active)
-  values ($1, $3, 0, 60000, true), ($1, $4, 0, 0, true), ($2, $4, 0, 0, true)`, [provider, demoPro, sessionCat, proposalCat]);
+  values ($1, $3, 0, 60000, true), ($1, $4, 0, 0, true), ($2, $4, 0, 0, true), ($5, $4, 0, 0, true)`,
+  [provider, demoPro, sessionCat, proposalCat, spoofPro]);
 const sessionService = (await one(`select id from provider_services where provider_id = $1 and category_id = $2`, [provider, sessionCat])).id;
 
 const payLink = async (paymentId, amount, rpc = 'record_payment_paid') => {
