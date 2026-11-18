@@ -58,6 +58,8 @@ export interface Category {
   vertical?: string;
   parent_id?: string | null;
   archetype?: BookingArchetype;
+  recurrence_allowed?: boolean;
+  allowed_frequencies?: string[];
   location_modes?: LocationMode[];
   pricing_units?: PackageUnit[];
   intake_schema?: Record<string, unknown>;
@@ -147,7 +149,17 @@ export interface ProviderService {
   travel_fee_mode?: TravelFeeMode;
   travel_fee_flat?: number;
   travel_fee_per_km?: number;
-  categories?: Pick<Category, 'name' | 'slug' | 'review_tags' | 'archetype' | 'intake_schema' | 'location_modes'> | null;
+  categories?: Pick<
+    Category,
+    | 'name'
+    | 'slug'
+    | 'review_tags'
+    | 'archetype'
+    | 'recurrence_allowed'
+    | 'allowed_frequencies'
+    | 'intake_schema'
+    | 'location_modes'
+  > | null;
   rate_card_items?: RateCardItem[];
   service_packages?: ServicePackage[];
 }

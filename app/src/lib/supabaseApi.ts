@@ -356,7 +356,9 @@ export async function getProviderService(id: string): Promise<ProviderServiceWit
   return unwrap(
     await supabase
       .from('provider_services')
-      .select('*, categories(name, slug), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)), service_packages(*)')
+      .select(
+        '*, categories(name, slug, archetype, recurrence_allowed, allowed_frequencies), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)), service_packages(*)',
+      )
       .eq('id', id)
       .single(),
   );

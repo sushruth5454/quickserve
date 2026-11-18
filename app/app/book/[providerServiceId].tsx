@@ -259,10 +259,7 @@ export default function BookScreen() {
   }
   const firstName = providerName.split(' ')[0] ?? providerName;
   const slug = service.categories?.slug;
-  const recurrenceCategory = service.categories as (typeof service.categories & {
-    recurrence_allowed?: boolean;
-    allowed_frequencies?: string[];
-  });
+  const recurrenceCategory = service.categories;
   const serviceArchetype = recurrenceCategory?.archetype;
   const bookingModeOptions = getBookingModeOptions(
     recurringEnabled && !!serviceArchetype && featureFlags.archetypes?.[serviceArchetype] === true,

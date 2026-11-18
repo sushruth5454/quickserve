@@ -23,11 +23,6 @@ import type {
 
 type Archetype = 'time_based' | 'fixed';
 type EndMode = 'none' | 'date' | 'count';
-type CategoryRecurrence = {
-  archetype?: string;
-  recurrence_allowed?: boolean;
-  allowed_frequencies?: string[];
-};
 
 const FREQUENCIES: readonly Frequency[] = ['daily', 'alternate_days', 'weekly', 'monthly', 'custom'];
 const FREQUENCY_LABELS: Record<Frequency, string> = {
@@ -177,7 +172,7 @@ export default function NewRecurringPlanScreen() {
     if (!startDate && days.length) setStartDate(istDateKey(days[1]?.date ?? days[0]!.date));
   }, [days, startDate]);
 
-  const category = service?.categories as CategoryRecurrence | null | undefined;
+  const category = service?.categories;
   const archetype: Archetype | null =
     archetypeParam === 'fixed' || category?.archetype === 'fixed'
       ? 'fixed'

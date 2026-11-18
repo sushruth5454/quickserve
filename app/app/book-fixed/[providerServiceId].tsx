@@ -66,10 +66,7 @@ export default function FixedPackageBookScreen() {
     : start;
   const serviceTotal = selected ? Math.round((selected.price ?? 0) * quantity) : 0;
   const platformFee = 2900;
-  const recurrenceCategory = providerService?.categories as ({
-    recurrence_allowed?: boolean;
-    allowed_frequencies?: string[];
-  }) | null | undefined;
+  const recurrenceCategory = providerService?.categories;
   const bookingModeOptions = getFixedBookingModeOptions(
     recurringEnabled && featureFlags.archetypes?.fixed === true,
     !!recurrenceCategory?.recurrence_allowed && !!recurrenceCategory.allowed_frequencies?.length,
