@@ -2,7 +2,7 @@ name: E2E web smoke test
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'lane/**']
     paths:
       - 'app/**'
       - 'supabase/migrations/**'
@@ -11,7 +11,9 @@ on:
       - '.github/workflows/e2e-web.yml'
   workflow_dispatch:
 
-concurrency: e2e-web
+concurrency:
+  group: e2e-shared-backend
+  cancel-in-progress: false
 
 jobs:
   e2e:
