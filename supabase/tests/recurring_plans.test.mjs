@@ -200,6 +200,7 @@ const syncProvider = '00000000-0000-0000-0000-0000000000a4';
 const autoProvider = '00000000-0000-0000-0000-0000000000a5';
 const legacyProvider = '00000000-0000-0000-0000-0000000000a6';
 const expiryProvider = '00000000-0000-0000-0000-0000000000a7';
+const lateProvider = '00000000-0000-0000-0000-0000000000a8';
 const admin = '00000000-0000-0000-0000-0000000000b1';
 
 await db.exec(`
@@ -209,6 +210,7 @@ await db.exec(`
     ('${staff}', '+919999000005', '{}'), ('${syncProvider}', '+919999000006', '{}'),
     ('${autoProvider}', '+919999000007', '{}'), ('${legacyProvider}', '+919999000008', '{}'),
     ('${expiryProvider}', '+919999000009', '{}'),
+    ('${lateProvider}', '+919999000010', '{}'),
     ('${admin}', '+918888888888', '{}');
   update profiles set full_name = 'Person';
   insert into admins (user_id) values ('${admin}');
@@ -223,6 +225,8 @@ await db.exec(`
     ('${legacyProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.64,16.50),4326),
      'verified', now(), true, false, false),
     ('${expiryProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.65,16.50),4326),
+     'verified', now(), true, false, false),
+    ('${lateProvider}', 'Recurring City', extensions.st_setsrid(extensions.st_makepoint(80.66,16.50),4326),
      'verified', now(), true, false, false);
   update providers set timezone='UTC'
    where id in ('${syncProvider}', '${autoProvider}', '${legacyProvider}');
@@ -295,8 +299,9 @@ await db.query(`
   values
     ($1, $2, 0, 60000, true), ($1, $3, 0, 0, true),
     ($4, $2, 0, 60000, true), ($5, $2, 0, 60000, true),
-    ($6, $2, 0, 60000, true), ($7, $2, 0, 60000, true)`,
-  [provider, timeCategory, fixedCategory, syncProvider, autoProvider, legacyProvider, expiryProvider]);
+    ($6, $2, 0, 60000, true), ($7, $2, 0, 60000, true),
+    ($8, $2, 0, 60000, true)`,
+  [provider, timeCategory, fixedCategory, syncProvider, autoProvider, legacyProvider, expiryProvider, lateProvider]);
 const timeService = (await one(
   `select id from provider_services where provider_id=$1 and category_id=$2`,
   [provider, timeCategory])).id;
@@ -315,6 +320,9 @@ const legacyService = (await one(
 const expiryService = (await one(
   `select id from provider_services where provider_id=$1 and category_id=$2`,
   [expiryProvider, timeCategory])).id;
+const lateService = (await one(
+  `select id from provider_services where provider_id=$1 and category_id=$2`,
+  [lateProvider, timeCategory])).id;
 const sessionPackage = (await one(`
   insert into service_packages (
     provider_service_id, title, description, price_type, price, price_min, price_max,
@@ -824,12 +832,12 @@ ok(!!skipOff && !skipError && skipState.status === 'cancelled' && skipState.chan
   && (await generatedBookings(skipPlan)) === 2,
   '[RP-12] skip is idempotently recorded and remains excluded from occurrence generation');
 const latePlan = await createPlan(input({
-  provider_service_id: autoService,
+  provider_service_id: lateService,
   start_date: dateOffset(3),
   end_date: addDays(dateOffset(3), 1),
   start_time: '16:00',
 }));
-await as(autoProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [latePlan]);
+await as(lateProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [latePlan]);
 const lateBooking = (await one(`select id from bookings where recurring_schedule_id=$1 order by scheduled_at limit 1`, [latePlan])).id;
 await db.query(`update bookings set scheduled_at=now()+interval '2 hours',
   service_window=tstzrange(now()+interval '2 hours', now()+interval '3 hours','[)') where id=$1`, [lateBooking]);
@@ -1932,6 +1940,10 @@ const inactiveLegacyChanges = await one(`
     from recurring_occurrence_changes
    where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
   [inactiveLegacyPlan, inactiveLegacyDate]);
+const inactiveLegacyReasonRows = await db.query(`
+  select reason from recurring_occurrence_changes
+   where schedule_id=$1 and occurrence_date=$2::date and kind='provider_unavailable'`,
+  [inactiveLegacyPlan, inactiveLegacyDate]);
 const inactiveLegacyNotices = await one(`
   select count(*)::int n from notifications
    where user_id=$1 and kind='recurring_visit_unavailable'
@@ -1961,6 +1973,7 @@ const sameBatchValidChanges = await db.query(`
 const inactiveLegacyDiagnostic = {
   state: inactiveLegacyState,
   changes: inactiveLegacyChanges,
+  reasons: inactiveLegacyReasonRows.rows,
   notices: inactiveLegacyNotices.n,
   retry: inactiveLegacyChangesAfterRetry.n,
   noticesAfterRetry: inactiveLegacyNoticesAfterRetry.n,
