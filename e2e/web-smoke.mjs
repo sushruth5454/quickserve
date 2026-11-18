@@ -437,7 +437,7 @@ await step('provider-detail-fixed-service-routes-to-packages', async () => {
   await page.getByText(/^From ₹/).first().waitFor();
   await page.getByRole('button', { name: /^Book / }).last().click();
   await page.waitForURL(new RegExp(`/category/${fixedService.categories.slug}(?:\\?|$)`));
-  await page.getByText('Demo 2 BHK deep clean', { exact: true }).first().waitFor();
+  await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
 });
 const raviServices = await rest(`provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`).catch(() => []);
 await step('book-screen', async () => {
