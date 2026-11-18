@@ -289,9 +289,10 @@ await scenario('P1b GSTIN enforcement and pack quantity bounds', async () => {
   const [gstItem] = (await db.query(`
     select id from public.rfq_items where rfq_id = $1::uuid
   `, [gstRfqId])).rows;
-  const supplierRfq = (await as(owner, 'authenticated', `
+  const [supplierRfqRow] = await as(owner, 'authenticated', `
     select public.get_supplier_rfq_for_business($1::uuid, $2::uuid) as value
-  `, [gstRfqId, shop])).rows[0].value;
+  `, [gstRfqId, shop]);
+  const supplierRfq = supplierRfqRow.value;
   check(supplierRfq.shop_has_gstin === false, 'supplier RFQ payload reports no GSTIN', supplierRfq);
   await expectError(
     () => sendBusinessQuote(owner, shop, gstRfqId, [quoteLine(gstItem.id, { gst_rate_bp: 1800 })]),
