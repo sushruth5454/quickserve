@@ -1893,8 +1893,8 @@ ok(defaultDueWindow.n === 2 && defaultDueWindow.due_matches
 // RP-30: one deactivated legacy service is recorded per date and does not starve a valid plan.
 const inactiveLegacyDate = dateOffset(27);
 const inactiveLegacyPlan = await insertSchedule({
-  provider_id: legacyProvider,
-  provider_service_id: legacyService,
+  provider_id: lateProvider,
+  provider_service_id: lateService,
   frequency: 'custom',
   weekdays: [],
   custom_dates: [inactiveLegacyDate],
@@ -1924,7 +1924,7 @@ const sameBatchValidPlan = await insertSchedule({
 });
 await db.query(`update recurring_schedules set generated_through=$2::date where id in ($1,$3)`,
   [inactiveLegacyPlan, addDays(inactiveLegacyDate, -1), sameBatchValidPlan]);
-await db.query(`update provider_services set active=false where id=$1`, [legacyService]);
+await db.query(`update provider_services set active=false where id=$1`, [lateService]);
 await setFlag('recurring_skip_pause', false);
 let legacyServiceBatch;
 const legacyServiceBatchError = await fails(async () => {
@@ -1984,7 +1984,7 @@ const inactiveLegacyDiagnostic = {
   batchError: legacyServiceBatchError,
   generated: legacyServiceBatch?.[0]?.generated,
 };
-await db.query(`update provider_services set active=true where id=$1`, [legacyService]);
+await db.query(`update provider_services set active=true where id=$1`, [lateService]);
 await setFlag('recurring_skip_pause', true);
 ok(inactiveLegacyState.plan_version === 'legacy' && inactiveLegacyState.status === 'active'
   && inactiveLegacyState.generated_through === dateOffset(28)
@@ -2354,7 +2354,7 @@ await db.query(`update app_config
   where key='recurring_rules'`);
 const customerSkipSlot = indiaSlot(6 * 60, 60);
 const customerSkipPlan = await createPlan(input({
-  provider_service_id: syncService,
+  provider_service_id: expiryService,
   frequency: 'custom',
   custom_dates: [customerSkipSlot.date],
   start_date: customerSkipSlot.date,
@@ -2362,7 +2362,7 @@ const customerSkipPlan = await createPlan(input({
   start_time: customerSkipSlot.time,
   duration_min: 60,
 }));
-await as(syncProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [customerSkipPlan]);
+await as(expiryProvider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [customerSkipPlan]);
 const customerSkipOccurrence = await one(`
   select id from bookings where recurring_schedule_id=$1`, [customerSkipPlan]);
 const customerSkipPayment = (await as(null, 'service_role',
