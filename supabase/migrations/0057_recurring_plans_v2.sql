@@ -32,6 +32,30 @@ update public.app_config
    end
  where key = 'recurring_rules';
 
+alter table public.bookings
+  drop constraint if exists bookings_time_session_fields;
+alter table public.bookings
+  add constraint bookings_time_session_fields check (
+    (
+      archetype = 'time_based'
+      and session_duration_min between 15 and 480
+    )
+    or (
+      archetype = 'fixed'
+      and session_duration_min is null
+      and pack_purchase_id is null
+      and pack_session_id is null
+    )
+    or (
+      archetype not in ('time_based', 'fixed')
+      and session_duration_min is null
+      and service_package_id is null
+      and pack_purchase_id is null
+      and pack_session_id is null
+      and recurring_schedule_id is null
+    )
+  );
+
 alter table public.recurring_schedules
   add column if not exists interval_count int not null default 1,
   add column if not exists month_day int,

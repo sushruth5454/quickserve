@@ -762,11 +762,12 @@ await db.query(`update recurring_schedules set generated_through=$2::date, occur
 const weeklyRetry = await as(null, 'service_role',
   `select materialize_recurring_schedule($1, $2::date) created`,
   [weeklyPlan, dateOffset(28)]);
+const weeklyFinalCount = await generatedBookings(weeklyPlan);
 ok(JSON.stringify(weeklyOccurrences.rows.map((row) => row.date)) === JSON.stringify([
   weeklyStart, addDays(weeklyStart, 7), addDays(weeklyStart, 14), addDays(weeklyStart, 21),
 ]) && weeklyFirstRun === 4 && Number(weeklyRetry[0].created) === 0
-  && (await generatedBookings(weeklyPlan)) === 4,
-  '[RP-07/RP-09] weekly generation follows recurrence dates and remains idempotent on retry');
+  && weeklyFinalCount === 4,
+  `[RP-07/RP-09] weekly generation follows recurrence dates and remains idempotent on retry (dates=${JSON.stringify(weeklyOccurrences.rows.map((row) => row.date))}; first=${weeklyFirstRun}; retry=${JSON.stringify(weeklyRetry)}; final=${weeklyFinalCount})`);
 
 // RP-09/RP-10: fixed occurrences use their own package creator and stop at max_occurrences.
 const fixedPlan = await createPlan(input({
@@ -776,10 +777,14 @@ const fixedPlan = await createPlan(input({
 }));
 await as(provider, 'authenticated', `select respond_recurring_plan($1, true, null)`, [fixedPlan]);
 const fixedRows = await db.query(
-  `select archetype::text archetype, status::text status from bookings where recurring_schedule_id=$1 order by scheduled_at`,
+  `select archetype::text archetype, status::text status, session_duration_min,
+          service_package_id, recurring_schedule_id
+     from bookings where recurring_schedule_id=$1 order by scheduled_at`,
   [fixedPlan]);
 const fixedState = await one(`select status, occurrences_created from recurring_schedules where id=$1`, [fixedPlan]);
 ok(fixedRows.rows.length === 2 && fixedRows.rows.every((row) => row.archetype === 'fixed')
+  && fixedRows.rows.every((row) => row.session_duration_min == null
+    && row.service_package_id != null && row.recurring_schedule_id === fixedPlan)
   && fixedRows.rows.every((row) => row.status === 'pending_payment')
   && fixedState.status === 'active' && fixedState.occurrences_created === 2,
   '[RP-09/RP-10] fixed generation stops at max_occurrences but stays active while future visits remain open');
