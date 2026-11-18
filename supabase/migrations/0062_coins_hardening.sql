@@ -41,7 +41,7 @@ begin
     'service_cap_paise', v_service_cap,
     'platform_cap_paise', v_platform_cap,
     'maximum_paise', v_cap,
-    'applied_paise', case when v_enabled then least(v_existing, v_service_cap, v_platform_cap) else 0 end,
+    'applied_paise', case when v_existing > 0 then v_cap else 0 end,
     'can_redeem', (v_enabled and v_existing = 0)
   );
 end;

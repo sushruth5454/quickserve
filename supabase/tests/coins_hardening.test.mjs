@@ -393,6 +393,48 @@ await scenario('WS9-T04 already-redeemed preview disables redemption and caps at
   );
 });
 
+await scenario('WS9-T04 preview reports the rounded applied paise when redemption is off', async () => {
+  const actors = await createActors();
+  await setConfig(actors);
+  await addCoins(actors);
+  const bookingId = await createVisit(actors);
+  const firstQuote = await sendQuote(actors, bookingId);
+  const firstApproval = await approve(actors, bookingId, firstQuote, true);
+  await payBalance(actors, bookingId);
+  await setConfig(actors, { redeem_cap_bp: 9 });
+  await as(actors.admin, 'authenticated', `select public.admin_set_feature($1::text, $2::boolean)`, ['coins_redemption', false]);
+  const changeQuote = await sendQuote(actors, bookingId);
+  const [{ preview }] = await as(
+    actors.customer,
+    'authenticated',
+    `select public.get_coin_redemption_preview($1::uuid, $2::uuid) as preview`,
+    [bookingId, changeQuote],
+  );
+  const changeApproval = await approve(actors, bookingId, changeQuote, true);
+  const coinPayment = (await db.query(
+    `select amount, status, quote_id from public.payments
+      where booking_id = $1::uuid and funding_source = 'coins'`,
+    [bookingId],
+  )).rows;
+  const [{ balance }] = await as(actors.customer, 'authenticated', `select public.get_my_coin_balance() as balance`);
+  check(
+    firstApproval.coins_redeemed_paise === 5000
+      && preview.can_redeem === false
+      && preview.service_cap_paise === 193
+      && preview.maximum_paise === 190
+      && preview.applied_paise === 190
+      && changeApproval.coins_redeemed_paise === 190
+      && changeApproval.amount_due === 4810
+      && coinPayment.length === 1
+      && coinPayment[0].amount === 190
+      && coinPayment[0].status === 'paid'
+      && coinPayment[0].quote_id === changeQuote
+      && balance === 4810,
+    'switch-off preview matches the 190-paise rounded application and approval restores only the 4,810-paise difference',
+    { firstApproval, preview, changeApproval, coinPayment, balance },
+  );
+});
+
 await scenario('WS9-T16 closing without an approved quote does not block payout close', async () => {
   const actors = await createActors();
   await setConfig(actors);
