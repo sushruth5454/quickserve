@@ -216,9 +216,34 @@ ok(
   'pre-0018 bookings are backfilled without changing money fields',
 );
 
-const createBooking = async () => (
-  await asCustomer(`select create_booking($1, 'AC not cooling', '2 Core Road', 'Core City', 16.51, 80.64)`, [providerService])
-)[0].create_booking;
+const bookingEligibility = async () => (
+  await service(`
+    select public._is_bookable(c.id, p.id, 'Core City', 'inspect_quote', null) eligible,
+           c.active, c.restricted, c.archetype, c.requires_docs,
+           cfg.value->>'inspect_quote' inspect_quote_enabled,
+           public._provider_is_live(p.id) provider_live,
+           public._category_docs_ok(p.id, c.id) docs_ok,
+           exists (
+             select 1 from category_cities cc
+              where cc.category_id = c.id and cc.live and lower(trim(cc.city)) = 'core city'
+           ) city_live,
+           exists (select 1 from provider_services ps where ps.id = $2 and ps.active) service_active
+      from categories c
+      join providers p on p.id = $3
+      left join app_config cfg on cfg.key = 'archetype_flags'
+     where c.id = $1
+  `, [acCategory, providerService, PROVIDER])
+)[0];
+const createBooking = async () => {
+  try {
+    return (await asCustomer(
+      `select create_booking($1, 'AC not cooling', '2 Core Road', 'Core City', 16.51, 80.64)`,
+      [providerService],
+    ))[0].create_booking;
+  } catch (error) {
+    throw new Error(`${error.message}; eligibility=${JSON.stringify(await bookingEligibility())}`);
+  }
+};
 await service(`
   update categories
      set active = true, restricted = false, archetype = 'inspect_quote', requires_docs = '{}'
@@ -292,6 +317,17 @@ await expectError(
   'legacy create_booking rejects non-inspect_quote categories with upgrade_required',
 );
 await service(`update categories set archetype = 'inspect_quote' where id = '${acCategory}'`);
+await service(`
+  update categories
+     set active = true, restricted = false, requires_docs = '{}'
+   where id = $1
+`, [acCategory]);
+await service(`update app_config set value = value || '{"inspect_quote":true}'::jsonb where key = 'archetype_flags'`);
+await service(`
+  insert into category_cities (category_id, city, live, launched_at)
+  values ($1, 'Core City', true, now())
+  on conflict (category_id, city) do update set live = true, launched_at = excluded.launched_at
+`, [acCategory]);
 
 const expectedTransitions = [
   'pending_payment:requested:system', 'pending_payment:accepted:system', 'pending_payment:cancelled:customer',

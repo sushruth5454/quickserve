@@ -192,10 +192,14 @@ ok(po.gross === 215000 && po.commission === 18000 && po.gst_on_commission === 32
 const tr = await db.query(`select t.amount, p.purpose from payout_transfers t join payments p on p.id = t.source_payment_id where t.payout_id = $1 order by t.created_at`, [po.id]).then(r => r.rows);
 ok(tr.length === 2 && tr[0].purpose === 'visit_fee' && tr[0].amount === 19900 && tr[1].amount === 173860, 'transfers allocated visit fee first then balance');
 
-await asC(`select submit_review($1, 5, 5, 5, 4, 5, 'Great')`, [b1]);
+await asC(`select submit_review($1::uuid, 5::int, 5::int, 5::int, 4::int, 5::int, 'Great'::text, '{}'::text[])`, [b1]);
 const [prov] = await db.query(`select rating_avg, rating_count, jobs_completed from providers where id = $1`, [P]).then(r => r.rows);
 ok(Number(prov.rating_avg) === 5 && prov.rating_count === 1 && prov.jobs_completed === 1, 'rating aggregate + jobs_completed updated');
-await expectError(() => asC(`select submit_review($1, 4)`, [b1]), /already reviewed/, 'one review per booking');
+await expectError(
+  () => asC(`select submit_review($1::uuid, 4::int, null::int, null::int, null::int, null::int, null::text, '{}'::text[])`, [b1]),
+  /already reviewed/,
+  'one review per booking',
+);
 
 ok((await svc(`select * from claim_due_transfers()`)).length === 0, 'nothing released before 24h window');
 await db.exec(`update payouts set release_after = now() - interval '1 minute' where id = '${po.id}'`);
