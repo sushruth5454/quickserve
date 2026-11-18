@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, Card, EmptyState, Header, ListItem, Screen, Skeleton, Text } from '../../src/components/ui';
 import { getDashboard, type AdminDashboard } from '../../src/lib/adminApi';
+import { isAdminRulesEditorEnabled } from '../../src/lib/adminFeaturePresentation';
+import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { formatINR } from '../../src/lib/money';
 import { useTheme } from '../../src/theme';
 
@@ -10,6 +12,7 @@ const compact = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(
 
 export default function AdminDashboardScreen() {
   const t = useTheme();
+  const features = useAppFeatureFlags();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [data, setData] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export default function AdminDashboardScreen() {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             <Action label="Features" icon="toggle-outline" onPress={() => router.push('/admin/features')} />
+            {isAdminRulesEditorEnabled(features.isOn) ? <Action label="Rules" icon="options-outline" onPress={() => router.push('/admin/rules')} /> : null}
             <Action label="AI usage" icon="sparkles-outline" onPress={() => router.push('/admin/ai')} />
             <Action label="Commission" icon="cash-outline" onPress={() => router.push('/admin/commission')} />
             <Action label="Coins" icon="sparkles-outline" onPress={() => router.push('/admin/coins')} />
