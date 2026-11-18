@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**', 'supabase/functions/**', 'supabase/tests/**', '.github/workflows/deploy-backend.yml']
+    paths: ['supabase/migrations/**', 'supabase/functions/**', 'supabase/tests/**', 'scripts/ci/**', '.github/workflows/deploy-backend.yml']
 
 concurrency: deploy-backend
 
@@ -38,38 +38,16 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      # AI assistant: policy/guardrail/config unit tests + type check gate every backend deploy.
+      # AI assistant, notifications, payout rails, payments, provider service and review insights:
+      # every *_test.ts directory plus a type check of every Edge Function entry point (shared with lane-ci.yml).
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Test and type-check ai-assistant
-        run: |
-          deno test supabase/functions/ai-assistant
-          deno check supabase/functions/ai-assistant/index.ts
+      - name: Deno tests and type checks
+        run: bash scripts/ci/deno-checks.sh
 
-      - name: Test and type-check send-notifications
-        run: |
-          deno test supabase/functions/send-notifications
-          deno check supabase/functions/send-notifications/index.ts
-
-      # Payout rails (Route + RazorpayX), webhook mapping and payout form validation; mocked gateway.
-      - name: Test and type-check payout rails
-        run: |
-          deno test supabase/functions/provider-payout-account
-          deno check supabase/functions/provider-payout-account/index.ts supabase/functions/release-payouts/index.ts supabase/functions/razorpay-webhook/index.ts supabase/functions/verify-payment/index.ts supabase/functions/places/index.ts supabase/functions/create-payment/index.ts
-
-      - name: Test and type-check provider service editor API
-        run: |
-          deno test supabase/functions/provider-service
-          deno check supabase/functions/provider-service/index.ts
-
-      - name: Test and type-check review insights
-        run: |
-          deno test supabase/functions/review-insights
-          deno check supabase/functions/review-insights/index.ts
-
-      # SQL: parses the migrations and runs isolated plus full-chain PGlite tests.
+      # SQL: parses the migrations and runs isolated plus full-chain PGlite tests in parallel, reporting every failure.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -79,7 +57,7 @@ jobs:
         run: |
           rm -f package-lock.json
           npm install --no-audit --no-fund --registry https://registry.npmjs.org/
-          npm test
+          node run-all.mjs
 
       - uses: supabase/setup-cli@v1
         with:

@@ -1,0 +1,100 @@
+name: Lane CI (tests only)
+
+# Validates feature lanes in parallel without deploying anything.
+# Push a lane with: git push origin HEAD:lane/<task>   (or open a pull request to main)
+on:
+  push:
+    branches: ['lane/**', 'integrate/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      all:
+        description: 'Run every job regardless of changed paths'
+        type: boolean
+        default: true
+
+concurrency:
+  group: lane-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      app: ${{ steps.diff.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.all }}" = "true" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"; echo "app=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git fetch --quiet origin main
+          base=$(git merge-base origin/main HEAD)
+          files=$(git diff --name-only "$base" HEAD)
+          echo "Changed files since $base:"; echo "$files"
+          all=false
+          echo "$files" | grep -qE '^(\.github/workflows/lane-ci\.yml|scripts/ci/)' && all=true
+          backend=$all; app=$all
+          echo "$files" | grep -qE '^supabase/' && backend=true
+          echo "$files" | grep -qE '^app/' && app=true
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+
+  deno:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno tests and type checks
+        run: bash scripts/ci/deno-checks.sh
+
+  sql:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: SQL tests (PGlite, parallel, report all failures)
+        working-directory: supabase/tests
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund --registry https://registry.npmjs.org/
+          node run-all.mjs
+
+  app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install app dependencies
+        id: install
+        run: bash scripts/ci/install-app.sh
+      - name: Typecheck
+        working-directory: app
+        run: npx tsc --noEmit
+      - name: Unit tests
+        if: always() && steps.install.outcome == 'success'
+        working-directory: app
+        run: npx jest --watchAll=false
