@@ -20,6 +20,7 @@ export interface AiConfig {
   dailyMessageLimit: number;
   dailyVoiceLimit: number;
   dailyPhotoLimit: number;
+  monthlyBudgetUsd: number;
   perMinuteLimit: number;
   maxTextChars: number;
   maxAudioBase64Chars: number;
@@ -43,6 +44,12 @@ const int = (get: Get, name: string, def: number, min: number, max: number): num
   const raw = get(name);
   const n = raw == null || raw.trim() === "" ? NaN : Number(raw);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : def;
+};
+
+const usd = (get: Get, name: string, def: number, max: number): number => {
+  const raw = get(name);
+  const n = raw == null || raw.trim() === "" ? NaN : Number(raw);
+  return Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : def;
 };
 
 const bool = (get: Get, name: string, def: boolean): boolean => {
@@ -81,6 +88,7 @@ export function loadConfig(get: Get): AiConfig {
     dailyMessageLimit: int(get, "AI_DAILY_MESSAGE_LIMIT", 30, 0, 10_000),
     dailyVoiceLimit: int(get, "AI_DAILY_VOICE_LIMIT", 10, 0, 10_000),
     dailyPhotoLimit: int(get, "AI_DAILY_PHOTO_LIMIT", 10, 0, 10_000),
+    monthlyBudgetUsd: usd(get, "AI_MONTHLY_BUDGET_USD", 50, 1_000_000),
     perMinuteLimit: int(get, "AI_PER_MINUTE_LIMIT", 6, 1, 600),
     maxTextChars: int(get, "AI_MAX_TEXT_CHARS", 1000, 50, 4000),
     // ~1.5 MB of audio: 60 s of AAC at the app's HIGH_QUALITY preset is ~1 MB.

@@ -11,6 +11,7 @@ import { allRejected, type AttemptRecord, runAgent, withFallback } from "./agent
 import { buildJobBrief, renderBrief } from "./brief.ts";
 import { chatUsageRows, recordChatModelCall, type ChatModelUsage } from "./chat_usage.ts";
 import { type AiConfig, attemptPlan, corsFor, loadConfig } from "./config.ts";
+import { monthlyBudgetReached } from "./monthly_budget.ts";
 import { AbortedError, type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
 import { type ImageMime, ImageFormatError, sniffImage, stripImageMetadata, visualPiiRedactionReady } from "./image.ts";
 import {
@@ -88,6 +89,25 @@ function log(level: "info" | "warn" | "error", event: Record<string, unknown>) {
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
+}
+
+async function assertMonthlyAiBudget(admin: SupabaseClient, cfg: AiConfig, now: Date): Promise<void> {
+  const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
+  const local = clock.parts(now);
+  const monthStart = clock.instant(`${local.y}-${String(local.m).padStart(2, "0")}-01`, 0).toISOString();
+  const { data, error } = await admin.rpc("ai_monthly_usage_cost", { p_month_start: monthStart });
+  if (error) {
+    log("error", { event: "monthly_budget_read_failed" });
+    throw new HttpError(503, "usage_unavailable", "AI usage is unavailable right now.");
+  }
+  const monthlyCostMicros = typeof data === "number" ? data : typeof data === "string" ? Number(data) : Number.NaN;
+  if (!Number.isSafeInteger(monthlyCostMicros) || monthlyCostMicros < 0) {
+    log("error", { event: "monthly_budget_read_invalid" });
+    throw new HttpError(503, "usage_unavailable", "AI usage is unavailable right now.");
+  }
+  if (monthlyBudgetReached(monthlyCostMicros, cfg.monthlyBudgetUsd)) {
+    throw new HttpError(429, "monthly_budget", "The monthly AI budget has been reached.");
+  }
 }
 
 interface Ctx {
@@ -471,6 +491,7 @@ async function productSearch(
       },
       async (attemptModel, callTimeoutMs) => {
         model = attemptModel;
+        await assertMonthlyAiBudget(auth.admin, cfg, now);
         const response = await generateContent(
           cfg.apiBase,
           attemptModel,
@@ -622,6 +643,7 @@ async function transcribe(cfg: AiConfig, auth: Auth, body: Json, apiKey: string,
       signal,
     },
     async (model, callTimeoutMs) => {
+      await assertMonthlyAiBudget(auth.admin, cfg, now);
       const res = await generateContent(
         cfg.apiBase,
         model,
@@ -934,12 +956,15 @@ async function runChatCore(p: Prepared, stages: StageTracker, signal: AbortSigna
           p.contents,
           state,
           {
-            generate: (m, body, timeoutMs, sig) => recordChatModelCall(
-              modelCalls,
-              m,
-              new Date(),
-              () => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
-            ),
+            generate: async (m, body, timeoutMs, sig) => {
+              await assertMonthlyAiBudget(admin, cfg, new Date());
+              return recordChatModelCall(
+                modelCalls,
+                m,
+                new Date(),
+                () => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
+              );
+            },
             execTool: (name, args) => execTool(ctx, state, name, args),
             stages,
             signal,
