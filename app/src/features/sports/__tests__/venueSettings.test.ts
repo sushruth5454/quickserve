@@ -4,8 +4,8 @@ import {
   resolveSportsResourceSettings,
   resolveSportsVenuePaymentModes,
   resolveSportsVenuePaymentModesForSave,
-} from '../../../../app/sports/manage';
-import { getSportsHomePaymentNotice } from '../../../../app/sports/index';
+  getSportsHomePaymentNotice,
+} from '../model';
 import { isFeatureOn } from '../../../lib/featureFlagModel';
 
 const sportsOnFeatureOffFlags = {

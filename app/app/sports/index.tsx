@@ -3,10 +3,13 @@ import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../src/components/ui';
+import { getSportsHomePaymentNotice } from '../../src/features/sports/model';
 import { useAuth } from '../../src/lib/auth';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { supabase } from '../../src/lib/supabase';
 import { useTheme } from '../../src/theme';
+
+export { getSportsHomePaymentNotice } from '../../src/features/sports/model';
 
 interface Activity {
   id: string;
@@ -14,12 +17,6 @@ interface Activity {
   name: string;
   icon: string;
   sort_order: number;
-}
-
-export function getSportsHomePaymentNotice(onlinePaymentsEnabled: boolean): string {
-  return onlinePaymentsEnabled
-    ? 'Pay at the venue or online where available.'
-    : 'Pay at the venue. QuickServe does not collect sports booking payments.';
 }
 
 export default function SportsHomeScreen() {

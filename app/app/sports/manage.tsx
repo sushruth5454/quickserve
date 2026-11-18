@@ -2,6 +2,15 @@ import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
+import {
+  getSportsVenueSettingsVisibility,
+  isSportsCapacityValid,
+  resolveSportsResourceSettings,
+  resolveSportsVenuePaymentModes,
+  resolveSportsVenuePaymentModesForSave,
+  type SportsBookingMode,
+  type SportsPaymentMode,
+} from '../../src/features/sports/model';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { useAuth } from '../../src/lib/auth';
@@ -9,13 +18,19 @@ import { rupeesToPaise } from '../../src/lib/money';
 import { supabase } from '../../src/lib/supabase';
 import { useTheme } from '../../src/theme';
 
+export {
+  getSportsVenueSettingsVisibility,
+  isSportsCapacityValid,
+  resolveSportsResourceSettings,
+  resolveSportsVenuePaymentModes,
+  resolveSportsVenuePaymentModesForSave,
+} from '../../src/features/sports/model';
+
 interface Activity {
   id: string;
   name: string;
   slug: string;
 }
-
-type SportsBookingMode = 'instant' | 'approval';
 
 interface Resource {
   id: string;
@@ -54,75 +69,6 @@ interface ManagementVenue {
   blocks: { id: string; resource_id: string; starts_at: string; ends_at: string; reason: string }[];
 }
 
-interface SportsVenueSettingsVisibilityInput {
-  isVenueOwner: boolean;
-  instantBookingEnabled: boolean;
-  capacitySlotsEnabled: boolean;
-  onlinePaymentsEnabled: boolean;
-  payoutAccountReady: boolean;
-}
-
-type SportsPaymentMode = 'online' | 'pay_at_venue';
-
-export function getSportsVenueSettingsVisibility({
-  isVenueOwner,
-  instantBookingEnabled,
-  capacitySlotsEnabled,
-  onlinePaymentsEnabled,
-  payoutAccountReady,
-}: SportsVenueSettingsVisibilityInput) {
-  const showOnlinePaymentOption = isVenueOwner && onlinePaymentsEnabled;
-  return {
-    canEdit: isVenueOwner,
-    canEditBookingMode: isVenueOwner && instantBookingEnabled,
-    canEditCapacity: isVenueOwner && capacitySlotsEnabled,
-    showPaymentModes: isVenueOwner,
-    showOnlinePaymentOption,
-    canSelectOnlinePayment: showOnlinePaymentOption && payoutAccountReady,
-    showPayoutStatus: showOnlinePaymentOption,
-    showPayoutSetup: showOnlinePaymentOption && !payoutAccountReady,
-    payAtVenueAvailable: isVenueOwner,
-  };
-}
-
-export function resolveSportsVenuePaymentModes(
-  configuredModes: readonly SportsPaymentMode[] | null | undefined,
-): SportsPaymentMode[] {
-  const savedModes = (configuredModes ?? []).filter((mode) => mode === 'pay_at_venue' || mode === 'online');
-  return savedModes.length > 0 ? savedModes : ['pay_at_venue'];
-}
-
-export function resolveSportsVenuePaymentModesForSave(
-  configuredModes: readonly SportsPaymentMode[] | null | undefined,
-  selectedModes: readonly SportsPaymentMode[],
-  canSelectOnlinePayment: boolean,
-): SportsPaymentMode[] {
-  const modesToSave = canSelectOnlinePayment
-    ? [...selectedModes]
-    : [
-        ...((configuredModes ?? []).includes('online') ? ['online' as const] : []),
-        ...(selectedModes.includes('pay_at_venue') ? ['pay_at_venue' as const] : []),
-      ];
-  return modesToSave.length > 0 ? modesToSave : ['pay_at_venue'];
-}
-
-export function isSportsCapacityValid(value: string | number): boolean {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100;
-}
-
-export function resolveSportsResourceSettings(
-  bookingMode: SportsBookingMode,
-  capacity: string | number,
-  instantBookingEnabled: boolean,
-  capacitySlotsEnabled: boolean,
-  storedSettings?: { bookingMode?: SportsBookingMode; capacity?: number },
-): { bookingMode: SportsBookingMode; capacity: number } {
-  return {
-    bookingMode: instantBookingEnabled ? bookingMode : (storedSettings?.bookingMode ?? 'approval'),
-    capacity: capacitySlotsEnabled ? Number(capacity) : (storedSettings?.capacity ?? 1),
-  };
-}
 
 interface SportsBookingRow {
   id: string;
