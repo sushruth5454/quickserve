@@ -126,6 +126,24 @@ Deno.test("route: release retries look up an earlier transfer by notes.transfer_
   assertEquals(calls.length, 1);
 });
 
+Deno.test("route: a failed prior transfer is not reused for a retry", async () => {
+  const { http, calls } = mockHttp((c) => {
+    if (c.method === "GET") {
+      return { items: [{ id: "trf_failed", notes: { transfer_id: "t1" }, status: "failed" }] };
+    }
+    return { items: [{ id: "trf_retry", status: "created" }] };
+  });
+  const r = await routeRail(http).release({
+    transferId: "t1", payoutId: "p1", bookingId: "b1", amount: 19900, attempts: 1, idempotencyKey: "t1:1",
+    razorpayPaymentId: "pay_1", accountId: "acc_1", fundAccountId: null,
+  });
+  assertEquals(
+    { externalId: r.externalId, methods: calls.map((call) => call.method) },
+    { externalId: "trf_retry", methods: ["GET", "POST"] },
+    `failed prior transfer must not be completed again; actual=${JSON.stringify({ result: r, calls })}`,
+  );
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // RazorpayX Payouts
 // ---------------------------------------------------------------------------------------------------------------

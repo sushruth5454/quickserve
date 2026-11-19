@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { hmacSha256Hex, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import { recordGatewayPayment } from "../_shared/record-payment.ts";
 import { handleRailWebhook, isRailEvent, type RailWebhookEvent, type RpcClient } from "../_shared/payout-rail.ts";
+import { routeChargebackEvent } from "./chargeback.ts";
 import { appendGatewayWebhookLog } from "./webhook-log.ts";
 
 interface RazorpayEvent {
@@ -10,6 +11,8 @@ interface RazorpayEvent {
     payment_link?: { entity: { id: string; status: string } };
     order?: { entity: { id: string; status: string } };
     payment?: { entity: { id: string; amount: number; status: string } };
+    dispute?: { entity: { id?: string; payment_id?: string; amount?: number; status?: string } };
+    refund?: { entity: { id?: string; payment_id?: string; amount?: number; status?: string } };
   };
 }
 
@@ -78,9 +81,15 @@ Deno.serve(async (req) => {
       }
       return json({ received: true });
     }
-    // TODO(chargebacks): handle payment.dispute.created / payment.dispute.lost by freezing the payout
-    // and, if already transferred, reversing it via POST /v1/transfers/{id}/reversals
-    // (payouts.status -> reversed / partially_reversed).
+    case "payment.dispute.created":
+    case "payment.dispute.lost":
+    case "payment.dispute.won":
+    case "refund.processed":
+    case "refund.failed": {
+      const r = await routeChargebackEvent(admin as unknown as Parameters<typeof routeChargebackEvent>[0], event);
+      if (r.status >= 500) console.error("payment lifecycle webhook failed", event.event, r.body);
+      return json(r.body, r.status);
+    }
     // Linked-account status events are handled above via handleRailWebhook (sync_provider_payout_status).
     default:
       return json({ received: true, ignored: event.event });
