@@ -98,10 +98,10 @@ async function createActors() {
   await db.query(
     `insert into public.providers (
        id, bio, city, years_experience, kyc_status, razorpay_account_id, created_at,
-       submitted_at, is_online, suspended, paused
+       submitted_at, admin_review_status, is_online, suspended, paused
      ) values (
        $1::uuid, 'F1 payment test provider', 'Vijayawada', 5, 'verified', $2::text,
-       now() - interval '90 days', now(), true, false, false
+       now() - interval '90 days', now(), 'approved', true, false, false
      )`,
     [provider, `acc_${provider.slice(0, 8)}`],
   );
@@ -208,7 +208,7 @@ async function createSessionPayment({ recurringPlan = false } = {}) {
        $1::uuid, $2::uuid, null::uuid,
        make_timestamptz(2027, 1, 11, 10, 0, 0, 'Asia/Kolkata'),
        60::int, $3::text, $4::text, 16.51::double precision, 80.64::double precision,
-       $5::text, null::uuid, $6::uuid
+       $5::text, null::uuid, $6::uuid, null::int
      ) as booking_id`,
     [fixture.customer, fixture.timeServiceId, '1 F1 Road', 'Vijayawada', 'F1 session payment', recurringScheduleId],
   );
@@ -372,11 +372,20 @@ await scenario('H2a plan-mode payment remains pre-accepted after F1 recorder ove
       where b.id = $1::uuid`,
     [fixture.bookingId],
   );
+  const [{ fixed_prosrc: fixedProsrc }] = await db.query(
+    `select p.prosrc as fixed_prosrc from pg_proc p
+      where p.oid = $1::regprocedure`,
+    ['public.record_payment_paid(text,text,int)'],
+  ).then((query) => query.rows);
+  const fixedPlanBranchPreserved = fixedProsrc.includes('recurring plan pre-accepted')
+    && fixedProsrc.includes("r.acceptance_mode = 'plan'")
+    && fixedProsrc.includes("r.provider_acceptance = 'accepted'");
   check(
     result.ok === true && actual.status === 'accepted' && actual.accepted_at_set
-      && actual.acceptance_mode === 'plan' && actual.provider_acceptance === 'accepted',
-    'paid plan-mode session is automatically accepted after payment',
-    { result, actual },
+      && actual.acceptance_mode === 'plan' && actual.provider_acceptance === 'accepted'
+      && fixedPlanBranchPreserved,
+    'paid plan-mode session is automatically accepted and fixed-recorder plan logic remains present',
+    { result, actual, fixedPlanBranchPreserved },
   );
 });
 
