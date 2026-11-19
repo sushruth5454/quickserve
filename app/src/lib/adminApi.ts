@@ -9,6 +9,13 @@ export interface AdminCommissionConfig {
   time_based: TimeBasedCommissionRates;
 }
 
+export interface AdminPlatformFees {
+  inspect_quote: number;
+  time_based_session: number;
+  pack: number;
+  proposal: { bp: number; min: number; max: number };
+}
+
 export interface AdminCommissionCategory {
   id: string;
   name: string;
@@ -208,6 +215,9 @@ export const getDashboard = (days = 30) => rpc<AdminDashboard>('admin_dashboard'
 export const getCommissionConfig = () => rpc<AdminCommissionConfig>('admin_get_commission_config');
 export const setCommissionConfig = (config: AdminCommissionConfig) =>
   rpc<AdminCommissionConfig>('admin_set_commission', { p_config: config });
+export const getPlatformFees = () => rpc<AdminPlatformFees>('admin_get_platform_fees');
+export const setPlatformFees = (config: AdminPlatformFees) =>
+  rpc<AdminPlatformFees>('admin_set_platform_fees', { p_config: config });
 export const listCommissionCategories = () => rpc<AdminCommissionCategory[]>('admin_list_commission_categories');
 export const setCategoryCommission = (categoryId: string, bp: number | null) =>
   rpc<void>('admin_set_category_commission', { p_category_id: categoryId, p_bp: bp });

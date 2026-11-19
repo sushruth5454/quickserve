@@ -79,6 +79,9 @@ export interface PayoutAccount {
   rail: 'route' | 'payouts';
   activation_status: string;
   beneficiary_name: string | null;
+  account_type: 'individual' | 'business';
+  gstin: string | null;
+  registered_address: { street: string; city: string; state: string; postal_code: string } | null;
   bank_last4: string | null;
   ifsc: string | null;
   last_error: string | null;
@@ -199,8 +202,10 @@ export interface PriceGuidance {
 }
 
 export interface PayoutForm {
+  account_type: 'individual' | 'business';
   legal_name: string;
   pan: string;
+  gstin: string;
   email: string;
   account_number: string;
   confirm_account_number: string;
