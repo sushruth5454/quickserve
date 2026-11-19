@@ -51,7 +51,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
 const migrationFiles = fs.readdirSync(migrationsDir)
-  .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 78)
+  .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 80)
   .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
 for (const name of migrationFiles) await db.exec(migration(name));
 await db.exec("set timezone = 'UTC'");
@@ -1542,4 +1542,6 @@ await scenario('WS8-T11 F6 alert query lists old processing transfers and repeat
 assert.ok(migrationFiles.includes('0071_f1_payment_recorder_safety.sql'), 'the full migration chain includes the reserved F1 migration');
 assert.ok(migrationFiles.includes('0077_f5_webhook_log_financial_journal.sql'), 'the full migration chain includes the reserved F5 migration');
 assert.ok(migrationFiles.includes('0078_f6_reconciliation_chargebacks.sql'), 'the full migration chain includes the reserved F6 migration');
+assert.ok(migrationFiles.includes('0079_f7_platform_fees_and_identity.sql'), 'the full migration chain includes the reserved F7 migration');
+assert.ok(migrationFiles.includes('0080_s2_sports_ops_ux.sql'), 'the full migration chain includes the reserved S2 migration');
 finish();
