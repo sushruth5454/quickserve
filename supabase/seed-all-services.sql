@@ -95,7 +95,7 @@ insert into public.categories (
   slug, name, icon, pricing_mode, sort_order, active,
   vertical, archetype, location_modes, pricing_units, intake_schema,
   payment_template, cancellation_policy, min_lead_hours, max_lead_days,
-  profile_schema, review_tags, restricted, config_version
+  profile_schema, review_tags, recurrence_allowed, allowed_frequencies, restricted, config_version
 )
 values (
   'demo-home-tutor', 'Demo Home Tutor', 'school', 'fixed', 160, true,
@@ -103,7 +103,7 @@ values (
   '{"type":"object","properties":{"subject":{"type":"string","enum":["Mathematics","Science","English","Telugu"]},"student_grade":{"type":"integer","minimum":1,"maximum":12}},"required":["subject","student_grade"]}'::jsonb,
   'session_prepaid', 'session_standard', 24, 90,
   '{"type":"object","properties":{"subjects":{"type":"array","items":{"type":"string"},"maxItems":6},"teaching_language":{"type":"string"}}}'::jsonb,
-  array['clear_explanation','patient','on_time','improved_confidence'], false, 1
+  array['clear_explanation','patient','on_time','improved_confidence'], true, array['weekly']::text[], false, 1
 )
 on conflict (slug) do update
 set name = excluded.name,
@@ -115,6 +115,8 @@ set name = excluded.name,
     intake_schema = excluded.intake_schema,
     payment_template = excluded.payment_template,
     cancellation_policy = excluded.cancellation_policy,
+    recurrence_allowed = excluded.recurrence_allowed,
+    allowed_frequencies = excluded.allowed_frequencies,
     pricing_mode = 'fixed',
     config_version = public.categories.config_version + 1;
 
