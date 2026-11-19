@@ -1438,6 +1438,21 @@ export const demoApi: Api = {
     setStatus(b, 'cancelled', reason ?? null);
   },
 
+  async providerCancelBooking(id, reason = 'provider_cancellation') {
+    await wait();
+    const b = findBooking(id);
+    assert(b.provider_id === uid(), 'only the provider can cancel');
+    assert(['provider_cancellation', 'provider_no_show'].includes(reason), 'invalid provider cancellation reason');
+    assert(
+      ['requested', 'accepted', 'confirmed', 'en_route', 'inspecting', 'quote_sent', 'awaiting_payment'].includes(b.status),
+      'booking can no longer be cancelled',
+    );
+    b.cancelled_reason = reason;
+    closeOpenQuotes(b);
+    refundAll(b);
+    setStatus(b, 'cancelled', reason);
+  },
+
   async disputeBooking(id, reason) {
     await wait();
     const b = findBooking(id);
@@ -1448,6 +1463,11 @@ export const demoApi: Api = {
       if (p.booking_id === b.id && p.status === 'pending') p.status = 'frozen';
     });
     setStatus(b, 'disputed', reason);
+  },
+
+  async reportNoShow() {
+    await wait();
+    throw new Error('No-show reporting is unavailable in the local demo.');
   },
 
   async submitReview(bookingId, r: ReviewInput) {

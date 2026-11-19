@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Fragment } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { Fragment, useState } from 'react';
 import { View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { Button, Card, InlineAlert, OTPInput, Text } from '../../components/ui';
+import { Button, Card, InlineAlert, OTPInput, Text, useConfirm, useToast } from '../../components/ui';
+import * as api from '../../lib/api';
 import type { Booking } from '../../lib/types';
 import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../lib/demo/seed';
 import { isDemoMode } from '../../lib/config';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useTheme } from '../../theme';
 
 type Theme = ReturnType<typeof useTheme>;
@@ -37,8 +40,73 @@ export function ActionsRow({
   onSubmitOtp: (value?: string) => Promise<void>;
   onOpenEditor: (changeOrder: boolean) => void;
 }) {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const flags = useAppFeatureFlags();
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const isHomeBooking = archetype === 'inspect_quote' || archetype === 'fixed' || archetype === 'time_based';
+  const providerCanCancel = !isCustomer
+    && isHomeBooking
+    && ['requested', 'accepted', 'confirmed', 'en_route', 'inspecting', 'quote_sent', 'awaiting_payment'].includes(status);
+  const canReportNoShow = !isDemoMode
+    && flags.isOn('home_no_show_reporting')
+    && isHomeBooking
+    && (status === 'accepted' || status === 'en_route');
+  const runSafetyAction = async (action: () => Promise<void>, successMessage: string) => {
+    if (!id || actionBusy) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      await action();
+      toast({ message: successMessage, tone: 'success' });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+  const cancelBooking = async () => {
+    const confirmed = await confirm({
+      title: "Can't attend this visit?",
+      message: 'The booking will be cancelled and the customer will be refunded under the cancellation policy.',
+      confirmLabel: 'Cancel booking',
+      cancelLabel: 'Keep booking',
+      destructive: true,
+    });
+    if (confirmed) {
+      await runSafetyAction(
+        () => api.providerCancelBooking(id, 'provider_cancellation'),
+        'Booking cancelled',
+      );
+    }
+  };
+  const reportNoShow = async () => {
+    const confirmed = await confirm({
+      title: 'Report a no-show?',
+      message: 'A support case will be opened and any pending provider payout will be frozen while it is reviewed.',
+      confirmLabel: 'Report no-show',
+      cancelLabel: 'Not now',
+      destructive: true,
+    });
+    if (confirmed) {
+      await runSafetyAction(
+        () => api.reportNoShow(id, isCustomer ? 'provider' : 'customer'),
+        'No-show report sent to support',
+      );
+    }
+  };
+
   return (
     <Fragment>
+      {isCustomer && archetype === 'inspect_quote' && status === 'requested' ? (
+        <InlineAlert
+          tone="success"
+          title="Request sent"
+          message="Your provider has been notified and will respond shortly."
+        />
+      ) : null}
       {!isCustomer && (status === 'en_route' || status === 'completion_requested' || (isTimeBased && status === 'accepted') || (status === 'confirmed' && archetype === 'proposal')) ? (
         <ProviderOtpCard
           status={status}
@@ -59,6 +127,25 @@ export function ActionsRow({
       {!isCustomer && status === 'in_progress' ? (
         <Button title="Send change order" variant="outline" leftIcon="add-circle-outline" onPress={() => onOpenEditor(true)} />
       ) : null}
+      {providerCanCancel ? (
+        <Button
+          title="Can't attend"
+          variant="outline"
+          leftIcon="close-circle-outline"
+          loading={actionBusy}
+          onPress={() => void cancelBooking()}
+        />
+      ) : null}
+      {canReportNoShow ? (
+        <Button
+          title="Report no-show"
+          variant="outline"
+          leftIcon="flag-outline"
+          loading={actionBusy}
+          onPress={() => void reportNoShow()}
+        />
+      ) : null}
+      {actionError ? <InlineAlert tone="danger" message={actionError} /> : null}
     </Fragment>
   );
 }

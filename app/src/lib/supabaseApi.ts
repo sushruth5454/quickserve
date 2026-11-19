@@ -634,8 +634,12 @@ export async function cancelBooking(id: string, reason?: string): Promise<void> 
     p_reason: reason ?? null,
   });
 }
+export const providerCancelBooking = (id: string, reason: 'provider_cancellation' | 'provider_no_show' = 'provider_cancellation') =>
+  rpcVoid('provider_cancel_booking', { p_booking_id: id, p_reason: reason, p_note: null });
 export const disputeBooking = (id: string, reason: string) =>
   rpcVoid('dispute_booking', { p_booking_id: id, p_reason: reason });
+export const reportNoShow = (id: string, absentParty: 'customer' | 'provider') =>
+  rpcVoid('report_no_show', { p_booking_id: id, p_party: absentParty });
 export const regenerateOtp = (id: string, kind: 'start' | 'end') =>
   rpcVoid('regenerate_otp', { p_booking_id: id, p_kind: kind });
 export const rejectQuote = (bookingId: string, quoteId: string) =>
