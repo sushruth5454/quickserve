@@ -17,7 +17,6 @@ import type {
   QuoteItemDraft,
   RateUnit,
   NewAddressInput,
-  Review,
   ReviewInput,
   SavedAddress,
   SearchFilters,
@@ -81,10 +80,22 @@ export interface TopRatedService {
   categories: { name: string; slug: string } | null;
 }
 
+export interface PublicReview {
+  id: string;
+  rating: number;
+  punctuality: number | null;
+  quality: number | null;
+  behaviour: number | null;
+  pricing: number | null;
+  comment: string | null;
+  provider_reply: string | null;
+  created_at: string;
+}
+
 export interface ProviderDetail {
   provider: Provider & { profiles: { full_name: string; avatar_url: string | null } | null };
   services: ProviderService[];
-  reviews: Review[];
+  reviews: PublicReview[];
 }
 
 export type ProviderServiceWithProvider = ProviderService & {
