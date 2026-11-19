@@ -157,7 +157,7 @@ async function grantE2eAdminMembership(phone) {
     select id from auth.users where phone = '${phone}'
     on conflict (user_id) do nothing`;
   const response = await fetch(
-    `https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
+    `${process.env.SUPABASE_MGMT_URL ?? 'https://api.supabase.com'}/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
     {
       method: 'POST',
       headers: {
