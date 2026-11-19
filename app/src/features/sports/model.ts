@@ -4,6 +4,31 @@ import { formatINR } from '../../lib/money';
 export type { SportsPaymentMode, SportsSlotAvailability } from './api';
 export type SportsBookingMode = 'instant' | 'approval';
 
+export interface SportsSlotCellState {
+  visible: boolean;
+  selected: boolean;
+  selectable: boolean;
+  unavailable: boolean;
+}
+
+export function slotCellState(
+  slot: Pick<SportsSlotAvailability, 'starts_at' | 'state'>,
+  selectedIds: readonly string[],
+): SportsSlotCellState {
+  if (slot.state === 'past') {
+    return { visible: false, selected: false, selectable: false, unavailable: false };
+  }
+  if (slot.state !== 'free') {
+    return { visible: true, selected: false, selectable: false, unavailable: true };
+  }
+  return {
+    visible: true,
+    selected: selectedIds.includes(slot.starts_at),
+    selectable: true,
+    unavailable: false,
+  };
+}
+
 export function getAvailableSportsDurations(
   slots: readonly SportsSlotAvailability[],
   selectedStart: string,

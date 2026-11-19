@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { PriceFooter } from '../../components/market/PriceFooter';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { formatINR } from '../../lib/money';
@@ -23,6 +24,7 @@ import {
   getSportsEstimatedTotal,
   formatSportsDuration,
   isSportsSlotTakenError,
+  slotCellState,
 } from './model';
 
 function indiaDate(offsetDays = 0) {
@@ -86,6 +88,12 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const effectiveBookingMode = resource?.booking_mode === 'instant' && instantBookingEnabled ? 'instant' : 'approval';
   const estimatedTotal = getSportsEstimatedTotal(slots ?? [], selectedStart, duration);
   const cancellationPolicyLabel = getSportsCancellationPolicyLabel(venue?.cancellation_policy);
+  const slotCells = (slots ?? [])
+    .map((slot) => ({
+      slot,
+      cell: slotCellState(slot, selectedStart ? [selectedStart] : []),
+    }))
+    .filter(({ cell }) => cell.visible);
   const dateOptions = Array.from({ length: 14 }, (_, offset) => ({
     value: indiaDate(offset),
     label: offset === 0
@@ -207,15 +215,30 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
     }
   };
 
-  const selectableSlot = (slot: SportsSlotAvailability) =>
-    slot.state === 'free' && (slot.remaining == null || slot.remaining >= effectiveParticipants);
-
   return (
-    <Screen header={<Header
-      title={venue?.name ?? 'Sports venue'}
-      subtitle={venue ? `${venue.area}, ${venue.city}` : undefined}
-      onBack={() => router.canGoBack() ? router.back() : router.replace('/sports' as Href)}
-    />}>
+    <Screen
+      header={<Header
+        title={venue?.name ?? 'Sports venue'}
+        subtitle={venue ? `${venue.area}, ${venue.city}` : undefined}
+        onBack={() => router.canGoBack() ? router.back() : router.replace('/sports' as Href)}
+      />}
+      footer={sportsEnabled && venue ? (
+        <PriceFooter
+          caption="Estimated total"
+          amountLabel={estimatedTotal === null ? '—' : formatINR(estimatedTotal)}
+          cta={{
+            title: getSportsBookingActionLabel(effectiveBookingMode, instantBookingEnabled),
+            onPress: () => void book(),
+            loading,
+            disabled: !resource || !selectedStart || durationOptions.length === 0 || availablePaymentModes.length === 0 || loading,
+            leftIcon: 'calendar-outline',
+          }}
+          above={selectedPaymentMode === 'online' && cancellationPolicyLabel ? (
+            <Text variant="caption" color="muted">{cancellationPolicyLabel}</Text>
+          ) : undefined}
+        />
+      ) : undefined}
+    >
       {!sportsEnabled ? (
         <InlineAlert message="Sports & venues are turned off right now." />
       ) : error && !venue ? (
@@ -236,9 +259,6 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
             <Text variant="footnote" color="muted">{venue.address_line} · {venue.area}, {venue.city}</Text>
             {venue.description ? <Text variant="callout" color="textSecondary">{venue.description}</Text> : null}
             {venue.amenities?.length ? <Text variant="footnote">Amenities · {venue.amenities.join(' · ')}</Text> : null}
-            {selectedPaymentMode === 'online' && cancellationPolicyLabel ? (
-              <Text variant="caption" color="muted">{cancellationPolicyLabel}</Text>
-            ) : null}
           </Card>
 
           <Card gap={t.spacing.md}>
@@ -251,6 +271,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                     <Pressable
                       key={item.id}
                       accessibilityRole="radio"
+                      accessibilityLabel={`${item.activity_name} · ${item.name}, ${item.slot_minutes}-minute slots`}
                       accessibilityState={{ checked: selected }}
                       onPress={() => chooseResource(item.id)}
                       style={{
@@ -288,17 +309,22 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                 </View>
                 {!slots ? (
                   <Skeleton height={88} radius={t.radii.md} />
-                ) : slots.filter(selectableSlot).length === 0 ? (
+                ) : slotCells.length === 0 ? (
                   <EmptyState icon="time-outline" title="No free slots" message="Choose another date or court." compact />
                 ) : (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                    {slots.filter(selectableSlot).map((slot) => {
-                      const selected = slot.starts_at === selectedStart;
+                    {slotCells.map(({ slot, cell }) => {
+                      const hasCapacity = slot.remaining == null || slot.remaining >= effectiveParticipants;
+                      const selectable = cell.selectable && hasCapacity;
+                      const selected = cell.selected && hasCapacity;
+                      const unavailable = cell.unavailable || !hasCapacity;
                       return (
                         <Pressable
                           key={slot.starts_at}
                           accessibilityRole="radio"
-                          accessibilityState={{ checked: selected }}
+                          accessibilityLabel={`${formatSlot(slot.starts_at)}${unavailable ? ', Unavailable' : ''}`}
+                          accessibilityState={{ checked: selected, disabled: !selectable }}
+                          disabled={!selectable}
                           onPress={() => {
                             idempotencyKey.current = null;
                             setSelectedStart(slot.starts_at);
@@ -309,12 +335,16 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                             padding: t.spacing.sm,
                             borderRadius: t.radii.md,
                             borderWidth: selected ? 2 : 1,
-                            borderColor: selected ? t.colors.primary : t.colors.border,
-                            backgroundColor: selected ? t.colors.primarySoft : t.colors.surface,
+                            borderColor: selected || selectable ? t.colors.primary : t.colors.border,
+                            backgroundColor: selected ? t.colors.primary : unavailable ? t.colors.surfaceAlt : t.colors.surface,
                           }}
                         >
-                          <Text variant="footnoteStrong">{formatSlot(slot.starts_at)}</Text>
-                          {slot.price_paise != null ? <Text variant="caption" color="muted">{formatINR(slot.price_paise)} / slot</Text> : null}
+                          <Text variant="footnoteStrong" color={selected ? 'onPrimary' : 'text'}>{formatSlot(slot.starts_at)}</Text>
+                          {unavailable ? (
+                            <Text variant="caption" color="muted">Unavailable</Text>
+                          ) : slot.price_paise != null ? (
+                            <Text variant="caption" color={selected ? 'onPrimary' : 'muted'}>{formatINR(slot.price_paise)} / slot</Text>
+                          ) : null}
                         </Pressable>
                       );
                     })}
@@ -388,17 +418,6 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
               setNote(value);
             }} maxLength={500} placeholder="Anything the venue should know?" />
             <InlineAlert message={error && venue ? error : null} />
-            {selectedStart && estimatedTotal !== null ? (
-              <Text variant="bodyStrong">Estimated total {formatINR(estimatedTotal)}</Text>
-            ) : null}
-            <Button
-              title={getSportsBookingActionLabel(effectiveBookingMode, instantBookingEnabled)}
-              onPress={() => void book()}
-              loading={loading}
-              disabled={!resource || !selectedStart || durationOptions.length === 0 || availablePaymentModes.length === 0 || loading}
-              fullWidth
-              leftIcon="calendar-outline"
-            />
           </Card>
         </>
       )}
