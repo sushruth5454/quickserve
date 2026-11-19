@@ -1,28 +1,9 @@
 -- Mirrors the hosted DEMO project's admin-managed settings that the web smoke test relies on.
 -- CI E2E against a local Supabase stack only (scripts/ci/local-supabase.sh); never run in production.
 -- Snapshot of the hosted demo project taken with scripts/ci/state-dump.sql. When an admin changes these
--- there, re-run that dump against both stacks and update this file.
+-- there, re-run that dump against both stacks and update this file. Feature switches are not set here:
+-- e2e/e2e-flags.json is their single source, applied by scripts/ci/e2e-flags.py in both E2E workflows.
 begin;
-
-update public.feature_flags set enabled = true where key in (
-  'ai_product_search',
-  'ai_quote_extract',
-  'business_payout_identity',
-  'home_services_catalogue_v2',
-  'merchant_calendar',
-  'merchant_staff',
-  'recurring_billing',
-  'recurring_bookings',
-  'recurring_plan_acceptance',
-  'recurring_prepaid_packages',
-  'recurring_reminders',
-  'recurring_reschedule',
-  'recurring_skip_pause',
-  'sports_capacity_slots',
-  'sports_instant_booking',
-  'sports_multi_slot',
-  'sports_online_payments'
-);
 
 -- Category configuration as edited by admins on the hosted demo project (brief/intake schemas, location
 -- mode, recurrence, lead times, pricing rules). Copied wholesale by slug.

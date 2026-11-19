@@ -40,6 +40,25 @@ language sql immutable as $$
 $$;
 
 -- Reset rows owned by this script. Order matters because 0022 pack/session rows have restrictive FKs.
+-- B2 (0084) receipts reference bookings without cascade; remove demo-booking receipts first.
+do $$
+begin
+  if to_regclass('public.payment_receipts') is not null then
+    execute $sql$
+      delete from public.payment_receipts r
+       using public.bookings b
+       where b.id = r.booking_id
+         and (b.description like '[DEMO ONLY]%'
+              or exists (
+                select 1 from auth.users u
+                 where u.id = b.provider_id
+                   and coalesce(u.raw_user_meta_data ->> 'demo_only', '') = 'true'
+              ))
+    $sql$;
+  end if;
+end;
+$$;
+
 delete from public.bookings
  where description like '[DEMO ONLY]%'
     or exists (
