@@ -1,6 +1,8 @@
 import { View } from 'react-native';
-import { BottomSheet, Button, Card, Text, TextArea } from '../../components/ui';
+import { BottomSheet, Button, Card, ListItem, Section, Text, TextArea } from '../../components/ui';
+import type { DeliveryLink } from '../../lib/types';
 import type { useTheme } from '../../theme';
+import { fmt } from './model';
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -26,6 +28,12 @@ type DeliverySectionPlacement =
       onClose: () => void;
       onChangeNote: (value: string) => void;
       onSubmit: () => void;
+    }
+  | {
+      placement: 'delivered';
+      links: DeliveryLink[];
+      submittedAt: string | null;
+      onOpenLink: (url: string) => void;
     };
 
 type DeliverySectionProps = DeliverySectionPlacement & { theme: Theme };
@@ -51,6 +59,37 @@ export function DeliverySection(props: DeliverySectionProps) {
         <Text variant="footnote" color="muted">{`Revision ${props.revisionsUsed} of ${props.revisionsAllowed}`}</Text>
         <Text variant="callout">{props.note || 'Revision note unavailable. Refresh the booking to try again.'}</Text>
       </Card>
+    );
+  }
+
+  if (props.placement === 'delivered') {
+    return (
+      <Section title="Delivered work">
+        <Card padding={0} gap={0}>
+          {props.links.map((link, index) => {
+            let host = link.url;
+            try {
+              host = new URL(link.url).host;
+            } catch {
+              // Older rows may not contain a valid URL.
+            }
+            return (
+              <ListItem
+                key={`${link.url}-${index}`}
+                title={link.title || host}
+                subtitle={host}
+                chevron
+                onPress={() => props.onOpenLink(link.url)}
+              />
+            );
+          })}
+          {props.submittedAt ? (
+            <Text variant="footnote" color="muted">
+              Submitted {fmt(props.submittedAt)}
+            </Text>
+          ) : null}
+        </Card>
+      </Section>
     );
   }
 

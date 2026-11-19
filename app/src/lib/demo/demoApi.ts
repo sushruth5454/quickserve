@@ -684,9 +684,40 @@ export const demoApi: Api = {
     return { short_url: `demo://milestone/${scheduleId}`, amount: row.amount, purpose: row.purpose, schedule_id: scheduleId };
   },
   async startProposalBooking() { return { ok: true }; },
-  async beginDelivery() {},
-  async submitDelivery(_bookingId, _links: DeliveryLink[]) {},
-  async acceptDelivery() {},
+  async beginDelivery(bookingId) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.provider_id === uid(), 'only the provider can begin delivery');
+    assert(booking.archetype === 'proposal' && booking.status === 'in_progress'
+      && booking.delivery_status === 'pending', 'delivery is not ready to begin');
+    booking.status = 'delivery_pending';
+  },
+  async submitDelivery(bookingId, links: DeliveryLink[]) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.provider_id === uid(), 'only the provider can submit delivery');
+    assert(booking.archetype === 'proposal' && booking.status === 'delivery_pending',
+      'delivery is not ready to submit');
+    assert(links.length >= 1 && links.length <= 20, 'submit 1 to 20 delivery links');
+    assert(links.every((link) => /^https:\/\/\S+$/.test(link.url)), 'every delivery item needs a full https URL');
+    booking.delivery_links = clone(links);
+    booking.delivery_status = 'submitted';
+    booking.delivery_submitted_at = nowIso();
+    booking.completion_requested_at = booking.delivery_submitted_at;
+    booking.status = 'completion_requested';
+  },
+  async acceptDelivery(bookingId) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.customer_id === uid(), 'only the customer can accept delivery');
+    assert(booking.archetype === 'proposal' && booking.status === 'completion_requested'
+      && booking.delivery_status === 'submitted', 'delivery is not awaiting acceptance');
+    assert(paymentSchedules.filter((row) => row.booking_id === bookingId).every((row) => row.status === 'paid'),
+      'all milestones must be paid before accepting delivery');
+    booking.delivery_status = 'accepted';
+    booking.completed_at = nowIso();
+    booking.status = 'completed';
+  },
 
   async searchProviders(categorySlug: string, coords: Coords | null, f: SearchFilters): Promise<ProviderSearchResult[]> {
     await wait();
