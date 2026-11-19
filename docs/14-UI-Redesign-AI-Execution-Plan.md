@@ -808,8 +808,8 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | HS-03 | blocked by R-04 | — | — | — |
 | SH-01 | code merged to main with DB batch `0a0b0af`; B1 fixed-package assertions and SH-01 RFQ selector are included; retry deploy `44512029762` succeeded and post-fix main E2E `44516641754` passed | 703bb5a0-ac2f-4b45-8a73-94b5ce016007 | 44480873936 (lane CI); 44490343057 (stacked lane CI green); 44507015621 (prior deploy failure); 44512029762 (main deploy success); 44516641754 (main E2E green) | `0a0b0af` |
 | SH-02 | implementation green on `lane/SH-02` @ `ae75765`, stacked on green P1b/db batch; UI-batch E2E after DB base lands | 3af3596a-f0db-44ae-aaa6-0c801a85b8f5 | 44494682556 (lane CI green) | `ae75765` |
-| SP-01 | blocked by components and doc 17 S2 | — | — | — |
-| SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
+| SP-01 | implementation in progress on `lane/SP-01`, stacked on green S2 `f248ca2`; C-02/C-03/C-04 are merged; combined UI-batch E2E pending | 15116a34-6c5b-43f1-9fcc-559491ee8fdd | — | — |
+| SP-02 | implementation in progress on `lane/SP-02`, stacked on green S2 `f248ca2`; C-05/Q-00/S1 are merged; payment payload must remain unchanged; combined UI-batch E2E pending | 4cbb47b3-46f1-42af-8b24-8b4c05274994 | — | — |
 | CR-01 | merged; lane CI green; existing Card/CategoryIcon retained per spec | 6878626f-8b83-4ae5-9c10-10eb19c470dd | 44414854482 (green) | 0a12c33 (lane 52f3ba6) |
 | CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
 | BD-01 | blocked by R-01 and C-07 | — | — | — |
