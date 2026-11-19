@@ -148,7 +148,7 @@ for (const [index, call] of offCalls.entries()) {
 }
 ok(allOffCallsRefused, 'all customer, owner, admin and expiry RPCs are refused while the flag is off');
 const directOffRows = await as(customer1, 'authenticated', `select id from public.sports_activities`);
-ok(directOffRows.length === 0, 'RLS also hides sports tables while the feature flag is off');
+ok(directOffRows.length === 0, 'RLS also hides sports catalogue tables while the feature flag is off');
 
 await db.query(`update public.feature_flags set enabled = true where key = 'sports'`);
 const activity = (await one(`select id from public.sports_activities where slug = 'badminton'`)).id;

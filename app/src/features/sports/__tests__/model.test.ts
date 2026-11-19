@@ -3,9 +3,17 @@ import {
   canContinueSportsCheckout,
   getAvailableSportsDurations,
   getAvailableSportsPaymentModes,
+  getSportsCancellationConfirmationMessage,
+  getSportsCancellationPolicyLabel,
   getSportsBookingActionLabel,
   getSportsBookingStatusLabel,
+  getSportsEstimatedTotal,
+  getUpcomingVenueBookings,
+  formatSportsDuration,
   getSportsPaymentSummary,
+  isSportsTimeRangeValid,
+  isSportsTimeValid,
+  isSportsDateValid,
   isSportsSlotTakenError,
   type SportsSlotAvailability,
 } from '../model';
@@ -92,5 +100,45 @@ describe('sports customer booking presentation', () => {
     expect(canContinueSportsCheckout('pending_payment')).toBe(true);
     expect(canContinueSportsCheckout('awaiting_payment')).toBe(true);
     expect(canContinueSportsCheckout('accepted')).toBe(false);
+  });
+
+  it('WS4-T07: formats the server refund in the cancellation confirmation', () => {
+    expect(getSportsCancellationConfirmationMessage(123456)).toBe('You will get ₹1,234.56 back.');
+    expect(getSportsCancellationPolicyLabel({
+      full_refund_hours: 24,
+      partial_refund_hours: 6,
+      partial_refund_bp: 5000,
+    })).toBe('Online cancellations: full service refund at least 24h ahead; 50% service refund from 6h to 24h; no service refund under 6h.');
+  });
+
+  it('WS4-T08: lists only future active venue bookings in start-time order', () => {
+    const now = new Date('2026-11-19T10:00:00.000Z');
+    const rows = [
+      { id: 'later', starts_at: '2026-11-20T12:00:00.000Z', status: 'accepted' },
+      { id: 'past', starts_at: '2026-11-19T09:00:00.000Z', status: 'accepted' },
+      { id: 'earlier', starts_at: '2026-11-19T11:00:00.000Z', status: 'pending_payment' },
+      { id: 'declined', starts_at: '2026-11-19T12:00:00.000Z', status: 'declined' },
+      { id: 'awaiting', starts_at: '2026-11-19T12:00:00.000Z', status: 'awaiting_payment' },
+    ];
+
+    expect(getUpcomingVenueBookings(rows, now).map((row) => row.id)).toEqual(['earlier', 'awaiting', 'later']);
+  });
+
+  it('WS4-T19: labels durations and totals selected slots using integer paise', () => {
+    expect(formatSportsDuration(1, 30)).toBe('30 min');
+    expect(formatSportsDuration(2, 60)).toBe('2 hr');
+    expect(formatSportsDuration(3, 90)).toBe('4.5 hr');
+    expect(getSportsEstimatedTotal(slots, firstSlot.starts_at, 2)).toBe(100000);
+    expect(getSportsEstimatedTotal(slots, firstSlot.starts_at, 3)).toBeNull();
+  });
+
+  it('WS4-T19: validates 24-hour time ranges numerically', () => {
+    expect(isSportsTimeValid('09:00')).toBe(true);
+    expect(isSportsTimeValid('9:00')).toBe(false);
+    expect(isSportsTimeValid('24:00')).toBe(false);
+    expect(isSportsTimeRangeValid('09:00', '10:00')).toBe(true);
+    expect(isSportsTimeRangeValid('10:00', '09:00')).toBe(false);
+    expect(isSportsDateValid('2026-12-15')).toBe(true);
+    expect(isSportsDateValid('2026-02-31')).toBe(false);
   });
 });

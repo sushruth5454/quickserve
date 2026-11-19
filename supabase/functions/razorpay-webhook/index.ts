@@ -4,13 +4,14 @@ import { recordGatewayPayment } from "../_shared/record-payment.ts";
 import { handleRailWebhook, isRailEvent, type RailWebhookEvent, type RpcClient } from "../_shared/payout-rail.ts";
 import { routeChargebackEvent } from "./chargeback.ts";
 import { appendGatewayWebhookLog } from "./webhook-log.ts";
+import { routeSportsPaymentFailed } from "./sports-payment-failed.ts";
 
 interface RazorpayEvent {
   event: string;
   payload: {
     payment_link?: { entity: { id: string; status: string } };
     order?: { entity: { id: string; status: string } };
-    payment?: { entity: { id: string; amount: number; status: string } };
+    payment?: { entity: { id: string; amount: number; status: string; order_id?: string | null } };
     dispute?: { entity: { id?: string; payment_id?: string; amount?: number; status?: string } };
     refund?: { entity: { id?: string; payment_id?: string; amount?: number; status?: string } };
   };
@@ -80,6 +81,14 @@ Deno.serve(async (req) => {
         return json({ error: "processing failed" }, 500);
       }
       return json({ received: true });
+    }
+    case "payment.failed": {
+      const r = await routeSportsPaymentFailed(
+        admin as unknown as Parameters<typeof routeSportsPaymentFailed>[0],
+        event,
+      );
+      if (r.status >= 500) console.error("sports payment failure webhook failed", r.body);
+      return json(r.body, r.status);
     }
     case "payment.dispute.created":
     case "payment.dispute.lost":
