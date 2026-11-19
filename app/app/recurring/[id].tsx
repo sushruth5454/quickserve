@@ -1,8 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, View } from 'react-native';
-import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
+import { View } from 'react-native';
+import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../src/components/ui';
 import { useAppFeatureFlags, useFeature } from '../../src/lib/featureFlags';
+import { formatINR } from '../../src/lib/money';
+import { usePayment } from '../../src/lib/payments';
 import {
   cancelRecurringPlan,
   getRecurringPlan,
@@ -11,7 +13,7 @@ import {
   resumeRecurringPlan,
   skipRecurringVisit,
 } from '../../src/features/recurring/api';
-import { getRecurringPlanActions } from '../../src/features/recurring/customerPresentation';
+import { getRecurringPlanActions, visitPaymentLabel } from '../../src/features/recurring/customerPresentation';
 import type { ChangeKind, Frequency, PlanStatus } from '../../src/features/recurring/types';
 import { useTheme } from '../../src/theme';
 
@@ -25,6 +27,7 @@ type PlanFields = Record<string, unknown> & {
   weekdays?: number[];
   month_day?: number | null;
   start_time?: string;
+  timezone?: string;
   billing_frequency?: string;
 };
 
@@ -32,6 +35,7 @@ type Occurrence = {
   id: string;
   scheduled_at: string;
   status: string;
+  total_amount?: number | null;
   service_window?: string | null;
   archetype?: string;
 };
@@ -121,6 +125,8 @@ function statusLabel(value: string) {
 export default function RecurringPlanDetailScreen() {
   const t = useTheme();
   const toast = useToast();
+  const confirmDialog = useConfirm();
+  const startPayment = usePayment();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recurringEnabled = useFeature('recurring_bookings');
   const featureFlags = useAppFeatureFlags();
@@ -190,11 +196,34 @@ export default function RecurringPlanDetailScreen() {
     }
   };
 
-  const confirm = (title: string, message: string, action: () => void) => {
-    Alert.alert(title, message, [
-      { text: 'Not now', style: 'cancel' },
-      { text: 'Continue', style: 'destructive', onPress: action },
-    ]);
+  const payVisit = async (bookingId: string) => {
+    if (busy) return;
+    setBusy(bookingId);
+    setError(null);
+    try {
+      const result = await startPayment(bookingId);
+      if (result === 'paid') {
+        toast({ message: 'Visit payment complete.', tone: 'success' });
+        await load();
+      } else if (result === 'opened') {
+        toast({ message: 'Payment opened securely.', tone: 'success' });
+      }
+    } catch (reason) {
+      setError((reason as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const confirm = async (title: string, message: string, action: () => void) => {
+    const accepted = await confirmDialog({
+      title,
+      message,
+      confirmLabel: 'Continue',
+      cancelLabel: 'Not now',
+      destructive: true,
+    });
+    if (accepted) action();
   };
 
   if (loading && !detail) {
@@ -217,7 +246,7 @@ export default function RecurringPlanDetailScreen() {
   return (
     <Screen header={<Header title="Repeat plan" onBack={backToPlans} />} gap={t.spacing.md}>
       {!recurringEnabled ? (
-        <InlineAlert tone="warning" title="Paused by QuickServe" message="New repeat visits are paused while this feature is off. Your plan and existing visits remain available." />
+        <InlineAlert tone="warning" title="Paused by Nearo" message="New repeat visits are paused while this feature is off. Your plan and existing visits remain available." />
       ) : null}
       <Card gap={t.spacing.sm}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
@@ -238,12 +267,33 @@ export default function RecurringPlanDetailScreen() {
         <View style={{ gap: t.spacing.sm }}>
           <Text variant="title3">Upcoming visits</Text>
           {upcoming.map((visit) => (
-            <Card key={visit.id} onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })} gap={t.spacing.xs}>
+            <Card key={visit.id} gap={t.spacing.xs}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
                 <Text variant="calloutStrong">{formatMoment(visit.scheduled_at)}</Text>
                 <Chip label={statusLabel(visit.status)} />
               </View>
-              <Text variant="caption" color="muted">View visit details</Text>
+              {visit.total_amount != null ? (
+                <Text variant="footnote" color="textSecondary">Visit total: {formatINR(visit.total_amount)}</Text>
+              ) : null}
+              {visit.status === 'pending_payment' ? (
+                <View style={{ gap: t.spacing.xs }}>
+                  <Text variant="footnoteStrong" color="warningText">
+                    {visitPaymentLabel(visit, plan.timezone ?? 'Asia/Kolkata') ?? 'Payment is due before this visit.'}
+                  </Text>
+                  <Button
+                    title="Pay now"
+                    leftIcon="lock-closed"
+                    loading={busy === visit.id}
+                    disabled={!!busy && busy !== visit.id}
+                    onPress={() => void payVisit(visit.id)}
+                  />
+                </View>
+              ) : null}
+              <Button
+                title="View visit details"
+                variant="outline"
+                onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })}
+              />
             </Card>
           ))}
         </View>

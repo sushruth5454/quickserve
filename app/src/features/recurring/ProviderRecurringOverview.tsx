@@ -13,6 +13,7 @@ import {
   firstRecurringDates,
   canShowProviderCalendar,
   canUsePlanAcceptance,
+  recurringPlanEarningsLabel,
   pendingProviderPlans,
 } from './providerPresentation';
 import {
@@ -181,6 +182,7 @@ export function ProviderRecurringOverview({ providerId, role }: ProviderRecurrin
           ) : (
             requests.map(({ plan }) => {
               const firstDates = firstRecurringDates(plan);
+              const earningsLabel = recurringPlanEarningsLabel(plan);
               return (
                 <Card key={plan.id} gap={t.spacing.sm}>
                   <Text variant="calloutStrong">{serviceLabels[plan.id] ?? 'Recurring service'}</Text>
@@ -188,9 +190,13 @@ export function ProviderRecurringOverview({ providerId, role }: ProviderRecurrin
                   <Text variant="footnote" color="muted">
                     First dates: {firstDates.length ? firstDates.join(' · ') : 'Not available'} · {plan.start_time} ({plan.timezone})
                   </Text>
-                  <Text variant="footnote" color="muted">
-                    The pending-plan response does not include per-visit earnings, so no amount is available to display yet.
-                  </Text>
+                  {earningsLabel ? (
+                    <Text variant="footnote" color="textSecondary">
+                      {earningsLabel}
+                    </Text>
+                  ) : null}
+                  {plan.city ? <Text variant="footnote" color="muted">Area: {plan.city}</Text> : null}
+                  {plan.description ? <Text variant="footnote" color="muted">Instructions: {plan.description}</Text> : null}
                   <Button title="View plan details" variant="outline" onPress={() => openPlan(plan.id)} />
                   {!acceptanceEnabled ? (
                     <InlineAlert message="Plan-level acceptance is off. Per-visit requests remain in your existing jobs list." />

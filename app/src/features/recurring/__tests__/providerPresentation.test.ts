@@ -6,7 +6,10 @@ import {
   firstRecurringDates,
   formatRecurrence,
   pendingProviderPlans,
+  providerCalendarVisitRoute,
   providerCalendarRange,
+  providerDateTimeIso,
+  recurringPlanEarningsLabel,
 } from '../providerPresentation';
 import type { ProviderSchedule } from '../../../lib/onboarding';
 import type { RecurringPlanPayload } from '../providerTypes';
@@ -31,6 +34,8 @@ const makePlan = (overrides: Partial<RecurringPlanPayload['plan']> = {}): Recurr
     billing_frequency: 'per_visit',
     archetype: 'time_based',
     package_qty: null,
+    per_visit_paise: null,
+    net_estimate_paise: null,
     provider_acceptance: 'pending',
     acceptance_mode: 'plan',
     decided_at: null,
@@ -93,6 +98,24 @@ test('weekly plan copy and first dates follow the shared recurrence rule', () =>
 
   expect(formatRecurrence(plan)).toBe('Every week on Monday and Wednesday');
   expect(firstRecurringDates(plan)).toEqual(['2026-11-23', '2026-11-25', '2026-11-30']);
+});
+
+test('pending plan earnings show per-visit price and estimated provider net', () => {
+  const { plan } = makePlan({ per_visit_paise: 60000, net_estimate_paise: 54336 });
+
+  expect(recurringPlanEarningsLabel(plan)).toBe('₹600 per visit · you receive ≈₹543.36');
+});
+
+test('reschedule picker builds an ISO timestamp in the provider timezone', () => {
+  expect(providerDateTimeIso('2026-11-25', 10, 'Asia/Kolkata')).toBe('2026-11-25T04:30:00.000Z');
+  expect(providerDateTimeIso('2026-02-30', 10, 'Asia/Kolkata')).toBeNull();
+});
+
+test('calendar visit routing opens the actionable booking screen', () => {
+  expect(providerCalendarVisitRoute('visit-1')).toEqual({
+    pathname: '/booking/[id]',
+    params: { id: 'visit-1' },
+  });
 });
 
 test('holiday conflicts include only future open visits overlapping provider time off', () => {

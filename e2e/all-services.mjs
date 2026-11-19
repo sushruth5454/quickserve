@@ -15,6 +15,7 @@ export const DEMO_IDS = Object.freeze({
   timePackage: sid('package:demo-home-tutor'),
   timeService: sid('service:demo-home-tutor'),
   timeBooking: sid('booking:time-session'),
+  recurringPlan: sid('recurring:demo-home-tutor'),
   sportsVenue: sid('sports-venue:benz-circle-badminton'),
   tileShop: sid('shop:benz-circle-tile-house'),
   tileProduct: sid('product:demo-anti-skid-floor-tile'),
@@ -94,6 +95,28 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByText('Demo 60-minute session', { exact: true }).first().waitFor();
     await page.getByText('Session pack', { exact: true }).first().click();
     await page.getByText('Buy a session pack', { exact: true }).first().waitFor();
+  });
+
+  await step('recurring-plan-skip-pause-resume-web', async () => {
+    await go(`/recurring/${DEMO_IDS.recurringPlan}`);
+    await page.getByText('Plan status', { exact: true }).waitFor();
+    await page.getByText('Cancel plan', { exact: true }).first().waitFor();
+
+    const confirmations = [
+      ['Skip next visit', 'Skip the next visit?'],
+      ['Pause plan', 'Pause this plan?'],
+      ['Resume plan', 'Resume this plan?'],
+      ['Cancel plan', 'Cancel this plan?'],
+    ];
+    for (const [action, prompt] of confirmations) {
+      const button = page.getByText(action, { exact: true }).first();
+      if (!await button.isVisible().catch(() => false)) continue;
+      await button.click();
+      await page.getByText(prompt, { exact: true }).waitFor();
+      await page.getByText('Not now', { exact: true }).last().click();
+      await page.getByText(prompt, { exact: true }).waitFor({ state: 'hidden' });
+    }
+    await page.getByText('Plan status', { exact: true }).waitFor();
   });
 
   await step('phase-7a-shop-and-product-browse', async () => {
