@@ -286,12 +286,13 @@ async function setAdminSportsRules(adminId, patch) {
     insert into public.admins (user_id) values ($1::uuid)
     on conflict (user_id) do nothing
   `, [adminId]);
+  const currentRules = json((await as(null, 'service_role', `
+    select value from public.app_config where key = 'sports_rules'
+  `))[0].value);
+  const updatedRules = { ...currentRules, ...patch };
   const rows = await as(adminId, 'authenticated', `
-    select public.admin_set_rules(
-      'sports_rules'::text,
-      (select value || $1::jsonb from public.app_config where key = 'sports_rules')
-    ) value
-  `, [JSON.stringify(patch)]);
+    select public.admin_set_rules('sports_rules'::text, $1::jsonb) value
+  `, [JSON.stringify(updatedRules)]);
   return json(rows[0].value);
 }
 
