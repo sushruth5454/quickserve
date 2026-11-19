@@ -529,7 +529,6 @@ export default function BookingDetailScreen() {
       {booking.archetype === 'proposal' && (booking.delivery_links?.length ?? 0) > 0 ? (
         <DeliverySection
           placement="delivered"
-          theme={t}
           links={booking.delivery_links ?? []}
           submittedAt={booking.delivery_submitted_at ?? null}
           onOpenLink={(url) => {
@@ -658,7 +657,6 @@ export default function BookingDetailScreen() {
       {canReportPaymentDefault ? (
         <DeliverySection
           placement="payment-default"
-          theme={t}
           busy={busy}
           onPress={() => {
             void run(

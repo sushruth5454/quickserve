@@ -9,18 +9,21 @@ type Theme = ReturnType<typeof useTheme>;
 type DeliverySectionPlacement =
   | {
       placement: 'request';
+      theme: Theme;
       revisionsLeft: number;
       busy: boolean;
       onOpen: () => void;
     }
   | {
       placement: 'revision';
+      theme: Theme;
       revisionsUsed: number;
       revisionsAllowed: number;
       note: string;
     }
   | {
       placement: 'sheet';
+      theme: Theme;
       visible: boolean;
       revisionsLeft: number;
       revisionNote: string;
@@ -41,10 +44,9 @@ type DeliverySectionPlacement =
       onPress: () => void;
     };
 
-type DeliverySectionProps = DeliverySectionPlacement & { theme: Theme };
+type DeliverySectionProps = DeliverySectionPlacement;
 
 export function DeliverySection(props: DeliverySectionProps) {
-  const t = props.theme;
   if (props.placement === 'request') {
     return (
       <Button
@@ -58,6 +60,7 @@ export function DeliverySection(props: DeliverySectionProps) {
   }
 
   if (props.placement === 'revision') {
+    const t = props.theme;
     return (
       <Card gap={t.spacing.sm}>
         <Text variant="subheadStrong">Revision requested</Text>
@@ -110,6 +113,7 @@ export function DeliverySection(props: DeliverySectionProps) {
     );
   }
 
+  const t = props.theme;
   const { visible, revisionsLeft, revisionNote, busy, onClose, onChangeNote, onSubmit } = props;
   return (
     <BottomSheet

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button, Card, ListItem, Section, Text } from '../../../components/ui';
 import { DeliverySection } from '../DeliverySection';
-import type { useTheme } from '../../../theme';
 
 jest.mock('../../../components/ui', () => ({
   BottomSheet: 'BottomSheet',
@@ -14,16 +13,10 @@ jest.mock('../../../components/ui', () => ({
 }));
 jest.mock('react-native', () => ({ View: 'View' }));
 
-const theme = {
-  spacing: { sm: 8, md: 12, lg: 16 },
-  radii: { sm: 4, md: 8, lg: 12 },
-} as unknown as ReturnType<typeof useTheme>;
-
 describe('booking delivery section', () => {
   it('renders each delivered link and the submission time', () => {
     const section = DeliverySection({
       placement: 'delivered',
-      theme,
       links: [
         { title: 'Final edit', url: 'https://files.example.test/final-edit' },
         { title: 'Raw footage', url: 'https://files.example.test/raw-footage' },
@@ -32,42 +25,58 @@ describe('booking delivery section', () => {
       onOpenLink: jest.fn(),
     });
 
-    const sectionElement = section as React.ReactElement<{ title: string; children: React.ReactNode }>;
+    if (!React.isValidElement<{ title: string; children: React.ReactNode }>(section)) {
+      throw new Error(`expected a delivered section element; actual=${JSON.stringify(section)}`);
+    }
+    const sectionElement = section;
     expect(sectionElement.type).toBe(Section);
     expect(sectionElement.props.title).toBe('Delivered work');
-    const card = React.Children.only(sectionElement.props.children) as React.ReactElement<{ children: React.ReactNode }>;
+    const cardChild = React.Children.only(sectionElement.props.children);
+    if (!React.isValidElement<{ children: React.ReactNode }>(cardChild)) {
+      throw new Error(`expected a delivery card element; actual=${JSON.stringify(cardChild)}`);
+    }
+    const card = cardChild;
     expect(card.type).toBe(Card);
-    const rows = React.Children.toArray(card.props.children) as React.ReactElement<{
-      title?: string;
-      subtitle?: string;
-      children?: React.ReactNode;
-    }>[];
-    expect([rows[0]?.props.title, rows[1]?.props.title]).toEqual(['Final edit', 'Raw footage']);
-    expect([rows[0]?.props.subtitle, rows[1]?.props.subtitle]).toEqual([
+    const rows = React.Children.toArray(card.props.children);
+    const [first, second, submitted] = rows;
+    if (!React.isValidElement<{ title: string; subtitle: string }>(first)
+      || !React.isValidElement<{ title: string; subtitle: string }>(second)) {
+      throw new Error(`expected two delivered-link rows; actual=${JSON.stringify(rows)}`);
+    }
+    if (!React.isValidElement<{ children: React.ReactNode }>(submitted)) {
+      throw new Error(`expected a submission-time label; actual=${JSON.stringify(rows)}`);
+    }
+    expect([first.props.title, second.props.title]).toEqual(['Final edit', 'Raw footage']);
+    expect([first.props.subtitle, second.props.subtitle]).toEqual([
       'files.example.test',
       'files.example.test',
     ]);
-    const submittedRow = rows[2];
-    expect(submittedRow?.type).toBe(Text);
-    const submittedCopy = React.Children.toArray(submittedRow?.props.children);
-    expect(submittedCopy[0]?.toString()).toBe('Submitted ');
-    expect(typeof submittedCopy[1]).toBe('string');
+    expect(submitted.type).toBe(Text);
+    const submittedCopy = React.Children.toArray(submitted.props.children);
+    const [submittedPrefix, submittedTimestamp] = submittedCopy;
+    expect(submittedPrefix).toBe('Submitted ');
+    expect(typeof submittedTimestamp).toBe('string');
   });
 
   it('opens the selected delivered link', () => {
     const onOpenLink = jest.fn();
     const section = DeliverySection({
       placement: 'delivered',
-      theme,
       links: [{ title: 'Final edit', url: 'https://files.example.test/final-edit' }],
       submittedAt: null,
       onOpenLink,
     });
-    const sectionElement = section as React.ReactElement<{ children: React.ReactNode }>;
-    const card = React.Children.only(sectionElement.props.children) as React.ReactElement<{ children: React.ReactNode }>;
-    const row = React.Children.toArray(card.props.children)[0] as React.ReactElement<{
-      onPress?: () => void;
-    }>;
+    if (!React.isValidElement<{ children: React.ReactNode }>(section)) {
+      throw new Error(`expected a delivered section element; actual=${JSON.stringify(section)}`);
+    }
+    const cardChild = React.Children.only(section.props.children);
+    if (!React.isValidElement<{ children: React.ReactNode }>(cardChild)) {
+      throw new Error(`expected a delivery card element; actual=${JSON.stringify(cardChild)}`);
+    }
+    const row = React.Children.toArray(cardChild.props.children)[0];
+    if (!React.isValidElement<{ onPress?: () => void }>(row)) {
+      throw new Error(`expected a link row; actual=${JSON.stringify(row)}`);
+    }
 
     expect(row.type).toBe(ListItem);
     row.props.onPress?.();
@@ -78,14 +87,13 @@ describe('booking delivery section', () => {
     const onPress = jest.fn();
     const action = DeliverySection({
       placement: 'payment-default',
-      theme,
       busy: false,
       onPress,
     });
-    const button = action as React.ReactElement<{
-      title?: string;
-      onPress?: () => void;
-    }>;
+    if (!React.isValidElement<{ title: string; onPress: () => void }>(action)) {
+      throw new Error(`expected a payment-default button; actual=${JSON.stringify(action)}`);
+    }
+    const button = action;
 
     expect(button.type).toBe(Button);
     expect(button.props.title).toBe('Customer has not paid — close and get paid');

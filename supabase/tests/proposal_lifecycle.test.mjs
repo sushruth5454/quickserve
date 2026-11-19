@@ -103,21 +103,6 @@ const service = (sql, params = []) => as(null, 'service_role', sql, params);
 let fixtureIndex = 0;
 let phoneIndex = 0;
 
-function requiredProfileAttributes(profileSchema) {
-  const schema = typeof profileSchema === 'string' ? JSON.parse(profileSchema) : profileSchema;
-  return Object.fromEntries((schema.required ?? []).map((key) => {
-    const property = schema.properties?.[key] ?? {};
-    if (property.type === 'array') {
-      const item = property.items ?? {};
-      return [key, [item.enum?.[0] ?? 'fixture']];
-    }
-    if (property.type === 'string') return [key, property.enum?.[0] ?? 'fixture'];
-    if (property.type === 'integer' || property.type === 'number') return [key, property.minimum ?? 1];
-    if (property.type === 'boolean') return [key, false];
-    return [key, {}];
-  }));
-}
-
 async function createDeliveredBooking({
   acceptanceHours = 72,
   elapsedHours = 48,
@@ -138,25 +123,28 @@ async function createDeliveredBooking({
   );
   await db.query(
     `insert into public.providers (
-       id, bio, city, years_experience, kyc_status, admin_review_status, razorpay_account_id,
+       id, bio, city, base_location, years_experience, kyc_status, admin_review_status, razorpay_account_id,
        created_at, submitted_at, is_online, suspended, paused
      ) values (
-       $1::uuid, 'Creator delivery test', 'C1 Test City', 5, 'verified', 'approved', $2::text,
+       $1::uuid, 'Creator delivery test', 'C1 Test City',
+       extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
+       5, 'verified', 'approved', $2::text,
        now() - interval '90 days', now(), true, false, false
      )`,
     [provider, `c1_acc_${fixtureIndex}`],
   );
-  const category = await one(
-    `select id, profile_schema from public.categories
-      where archetype = 'proposal' and active and not restricted
-      order by slug limit 1`,
-  );
-  if (!category) throw new Error('no active proposal category is available');
-  const categoryId = category.id;
-  const attributes = {
-    ...requiredProfileAttributes(category.profile_schema),
-    techniques: ['hd'],
-  };
+  const { id: categoryId } = await one(`
+    insert into public.categories (
+      slug, name, pricing_mode, active, archetype, profile_schema, intake_schema,
+      cancellation_policy, location_modes, min_lead_hours, max_lead_days,
+      restricted, requires_docs, deliverable_acceptance_hours
+    ) values (
+      $1::text, 'C1 test creator', 'quote', true, 'proposal',
+      '{"type":"object","properties":{"techniques":{"type":"array","items":{"type":"string","enum":["hd"]}}},"required":["techniques"]}'::jsonb,
+      '{"type":"object","properties":{}}'::jsonb, 'event_moderate', array['remote']::text[],
+      24, 365, false, '{}'::text[], $2::int
+    ) returning id
+  `, [`c1-delivery-${fixtureIndex}`, acceptanceHours]);
   await db.query(`
     insert into public.app_config (key, value)
     values ('archetype_flags', '{"proposal":true}'::jsonb)
@@ -166,19 +154,17 @@ async function createDeliveredBooking({
   await db.query(`
     insert into public.category_cities (category_id, city, live, launched_at)
     values ($1::uuid, 'C1 Test City', true, now())
-    on conflict (category_id, city) do update
-      set live = true, launched_at = coalesce(public.category_cities.launched_at, excluded.launched_at)
   `, [categoryId]);
-  await db.query(
-    `update public.categories set deliverable_acceptance_hours = $1::int where id = $2::uuid`,
-    [acceptanceHours, categoryId],
-  );
   const { id: serviceId } = await one(
     `insert into public.provider_services (
        provider_id, category_id, skill_level, visit_fee, labour_rate, active, attributes
-     ) values ($1::uuid, $2::uuid, 'expert', 0, 1, true, $3::jsonb) returning id`,
-    [provider, categoryId, JSON.stringify(attributes)],
+     ) values ($1::uuid, $2::uuid, 'expert', 0, 1, true, '{"techniques":["hd"]}'::jsonb) returning id`,
+    [provider, categoryId],
   );
+  await db.query(`
+    insert into public.provider_availability (provider_id, weekday, start_time, end_time)
+    select $1::uuid, day, time '00:00', time '23:59' from generate_series(0, 6) day
+  `, [provider]);
   const { id: addressId } = await one(
     `insert into public.addresses (user_id, label, line1, city, lat, lng)
      values ($1::uuid, 'C1 test', '1 C1 Test Street', 'C1 Test City', 16.51, 80.61)
@@ -228,9 +214,9 @@ async function createDeliveredBooking({
   );
   const { id: scheduleId } = await one(
     `insert into public.payment_schedule (
-       booking_id, seq, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
+       booking_id, seq, obligation_type, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
      ) values (
-       $1::uuid, 0, 'Delivery balance', $5::int, $4::text,
+       $1::uuid, 0, 'service', 'Delivery balance', $5::int, $4::text,
        now() - ($2::int * interval '1 hour'), $3::text, 'milestone',
        case when $3::text = 'paid' then now() else null end,
        case when $3::text = 'paid' then now() else null end
@@ -269,9 +255,9 @@ async function addPaidAdvanceAndPolicy(
   `, [fixture.scheduleId, overdueHours, dueAmount]);
   const { id: advanceScheduleId } = await one(`
     insert into public.payment_schedule (
-      booking_id, seq, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
+      booking_id, seq, obligation_type, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
     ) values (
-      $1::uuid, 1, 'Booking advance', $2::int, 'at_booking', now() - interval '30 days',
+      $1::uuid, 1, 'service', 'Booking advance', $2::int, 'at_booking', now() - interval '30 days',
       'paid', 'advance', now() - interval '30 days', now() - interval '30 days'
     ) returning id
   `, [fixture.bookingId, paidPrincipal]);
