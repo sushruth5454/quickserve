@@ -34,6 +34,9 @@ export interface RecurringRules {
 export interface SportsRules {
   payment_hold_minutes: number;
   approval_pay_window_minutes: number;
+  max_active_holds_per_customer: number;
+  request_response_minutes: number;
+  min_lead_minutes: number;
   commission_bp: number;
   customer_fee_paise: number;
   full_refund_hours: number;
@@ -63,6 +66,9 @@ export interface RecurringRulesDraft {
 export interface SportsRulesDraft {
   paymentHoldMinutes: string;
   approvalPayWindowMinutes: string;
+  maxActiveHoldsPerCustomer: string;
+  requestResponseMinutes: string;
+  minLeadMinutes: string;
   commissionPercent: string;
   customerFeeRupees: string;
   fullRefundHours: string;
@@ -171,6 +177,9 @@ export function toSportsRulesDraft(rules: SportsRules): SportsRulesDraft {
   return {
     paymentHoldMinutes: String(rules.payment_hold_minutes),
     approvalPayWindowMinutes: String(rules.approval_pay_window_minutes),
+    maxActiveHoldsPerCustomer: String(rules.max_active_holds_per_customer),
+    requestResponseMinutes: String(rules.request_response_minutes),
+    minLeadMinutes: String(rules.min_lead_minutes),
     commissionPercent: formatBasisPointsForInput(rules.commission_bp),
     customerFeeRupees: formatPaiseForInput(rules.customer_fee_paise),
     fullRefundHours: String(rules.full_refund_hours),
@@ -199,6 +208,9 @@ export function parseSportsRulesDraft(draft: SportsRulesDraft): SportsRules {
   const rules: SportsRules = {
     payment_hold_minutes: wholeNumber(draft.paymentHoldMinutes, 'Payment hold minutes', 5, 1440),
     approval_pay_window_minutes: wholeNumber(draft.approvalPayWindowMinutes, 'Approval pay window minutes', 5, 1440),
+    max_active_holds_per_customer: wholeNumber(draft.maxActiveHoldsPerCustomer, 'Maximum active sports bookings per customer', 1, 100),
+    request_response_minutes: wholeNumber(draft.requestResponseMinutes, 'Request response window minutes', 5, 1440),
+    min_lead_minutes: wholeNumber(draft.minLeadMinutes, 'Minimum booking lead time minutes', 0, 43200),
     commission_bp: parsePercentToBasisPoints(draft.commissionPercent, 'Commission', 5000),
     customer_fee_paise: parseRupeesToPaise(draft.customerFeeRupees, 'Customer fee', 2147483647),
     full_refund_hours: wholeNumber(draft.fullRefundHours, 'Full refund hours', 0, 720),

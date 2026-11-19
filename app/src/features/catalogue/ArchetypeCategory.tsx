@@ -16,11 +16,13 @@ export function ArchetypeCategory({ category }: { category: Category }) {
   const t = useTheme();
   const [packages, setPackages] = useState<CataloguePackage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const load = () => {
+  const load = useCallback(() => {
     setError(null);
     listCataloguePackages(category.slug).then(setPackages).catch((caught: Error) => setError(caught.message));
-  };
-  useEffect(load, [category.slug]);
+  }, [category.slug]);
+  useEffect(() => {
+    if (category.archetype !== 'proposal') load();
+  }, [category.archetype, load]);
 
   if (category.archetype === 'proposal') return <ProposalCategory category={category} />;
 
@@ -69,12 +71,16 @@ function ProposalCategory({ category }: { category: Category }) {
   const t = useTheme();
   const { coords } = useSelectedLocation();
   const [pros, setPros] = useState<ProviderSearchResult[] | null>(null);
+  const [packages, setPackages] = useState<CataloguePackage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
     setError(null);
     searchProviders(category.slug, coords, CREATOR_FILTERS).then(setPros).catch((caught: Error) => setError(caught.message));
   }, [category.slug, coords]);
   useEffect(load, [load]);
+  useEffect(() => {
+    listCataloguePackages(category.slug).then(setPackages).catch((caught: Error) => setError(caught.message));
+  }, [category.slug]);
 
   const requestFrom = (pro?: ProviderSearchResult) =>
     router.push({
@@ -99,6 +105,33 @@ function ProposalCategory({ category }: { category: Category }) {
         <Button title="Get proposals from several pros" variant="outline" leftIcon="people-outline" onPress={() => requestFrom()} fullWidth />
       </Card>
 
+      {packages?.length ? (
+        <Section title="Creator packages" subtitle="Choose a package to include its terms in your request.">
+          {packages.map((item) => (
+            <PackageCard
+              key={item.package.id}
+              servicePackage={item.package}
+              providerName={item.providerName}
+              rating={item.rating}
+              ratingCount={item.ratingCount}
+              providerOnline={item.providerOnline}
+              providerPaused={item.providerPaused}
+              actionLabel={item.providerPaused ? 'On holiday' : 'Get proposal'}
+              onPress={item.providerPaused ? undefined : () => router.push({
+                pathname: '/request/new',
+                params: {
+                  categoryId: category.id,
+                  name: category.name,
+                  providerId: item.providerId,
+                  providerName: item.providerName,
+                  package: item.package.id,
+                },
+              })}
+            />
+          ))}
+        </Section>
+      ) : null}
+
       <Section title={`${category.name} pros near you`} subtitle="Prices depend on your brief. Request a proposal to get a fixed quote.">
         {error ? (
           <ErrorState message={error} onRetry={load} />
@@ -108,7 +141,7 @@ function ProposalCategory({ category }: { category: Category }) {
           <EmptyState
             icon="people-outline"
             title="No pros listed nearby yet"
-            message="Post your brief anyway. New pros joining your city will see it."
+            message="No matching pros were found for this category yet."
             actionLabel="Get proposals"
             onAction={() => requestFrom()}
           />

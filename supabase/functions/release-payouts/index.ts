@@ -2,7 +2,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { cancelRetiredLinks, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import { type RailName } from "../_shared/payout-rail.ts";
 import { PAYOUT_ACCOUNT_COLUMNS, railsFromEnv, refreshBeneficiary, type PayoutAccountRow } from "../_shared/payout-beneficiary.ts";
-import { toReleaseRequest, type DueTransfer } from "./logic.ts";
+import {
+  alertOnStuckMoneyOps,
+  reconcileStaleTransfer,
+  toReleaseRequest,
+  type DueTransfer,
+  type StaleProcessingTransfer,
+  type StuckMoneyOperation,
+} from "./logic.ts";
 
 interface DueReversal {
   reversal_id: string;
@@ -28,9 +35,41 @@ Deno.serve(async (req) => {
 
   const expired = await admin.rpc("expire_stale_requests");
   if (expired.error) console.error("expire_stale_requests", expired.error);
+  const stalled = await admin.rpc("expire_stalled_bookings");
+  if (stalled.error) console.error("expire_stalled_bookings", stalled.error);
   const confirmed = await admin.rpc("auto_confirm_completions");
   if (confirmed.error) console.error("auto_confirm_completions", confirmed.error);
   const linksCancelled = await cancelRetiredLinks(admin);
+
+  const { data: staleTransfers, error: staleError } = await admin.rpc("claim_stale_processing_transfers");
+  if (staleError) console.error("claim_stale_processing_transfers", staleError);
+  let staleReconciled = 0;
+  let staleReset = 0;
+  let staleFailed = 0;
+  let staleErrors = 0;
+  const keyId = requireEnv("RAZORPAY_KEY_ID");
+  const keySecret = requireEnv("RAZORPAY_KEY_SECRET");
+  for (const transfer of (staleTransfers ?? []) as StaleProcessingTransfer[]) {
+    try {
+      const action = await reconcileStaleTransfer(admin, transfer, keyId, keySecret);
+      if (action === "completed") staleReconciled++;
+      else if (action === "reset") staleReset++;
+      else staleFailed++;
+    } catch (e) {
+      staleErrors++;
+      console.error(
+        "stale transfer reconciliation failed",
+        transfer.transfer_id,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+  }
+
+  const queueLostDisputeReversals = async () => {
+    const { error } = await admin.rpc("queue_lost_dispute_reversals");
+    if (error) console.error("queue_lost_dispute_reversals", error);
+  };
+  await queueLostDisputeReversals();
 
   // Resume beneficiary verifications that were blocked while the gateway product was unavailable.
   let resumed = 0;
@@ -103,13 +142,30 @@ Deno.serve(async (req) => {
     results.push({ transfer_id: t.transfer_id, rail: t.rail, ok: !done.error });
   }
 
+  await queueLostDisputeReversals();
+
+  const { data: stuckMoneyOps, error: stuckMoneyError } = await admin.rpc("list_stuck_money_ops");
+  let reconciliationCount: number | null = null;
+  if (stuckMoneyError) {
+    console.error("RECONCILE", stuckMoneyError);
+  } else {
+    const alert = alertOnStuckMoneyOps((stuckMoneyOps ?? []) as StuckMoneyOperation[]);
+    reconciliationCount = alert.reconciliation_count;
+  }
+
   return json({
     expired: expired.data ?? 0,
+    stalled_expired: stalled.data ?? 0,
     auto_confirmed: confirmed.data ?? 0,
     links_cancelled: linksCancelled,
+    stale_transfers_reconciled: staleReconciled,
+    stale_transfers_reset: staleReset,
+    stale_transfers_failed: staleFailed,
+    stale_transfer_errors: staleErrors,
     beneficiaries_resumed: resumed,
     reversals_processed: reversalsProcessed,
     processed: results.length,
     results,
+    reconciliation_count: reconciliationCount,
   });
 });

@@ -30,7 +30,7 @@ export default function AdminSportsScreen() {
   const enabled = flags.isOn('sports');
   const [venues, setVenues] = useState<VenueReview[] | null>(null);
   const [activities, setActivities] = useState<Activity[] | null>(null);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,14 +57,18 @@ export default function AdminSportsScreen() {
     const { error: rpcError } = await supabase.rpc('admin_set_venue_status', {
       p_id: venue.id,
       p_status: status,
-      p_reason: status === 'verified' ? '' : reason.trim(),
+      p_reason: status === 'verified' ? '' : (reason[venue.id] ?? '').trim(),
     });
     setBusyId(null);
     if (rpcError) {
       setError(rpcError.message);
       return;
     }
-    setReason('');
+    setReason((current) => {
+      const next = { ...current };
+      delete next[venue.id];
+      return next;
+    });
     toast({ message: `Venue ${status}`, tone: 'success' });
     await load();
   };
@@ -98,7 +102,9 @@ export default function AdminSportsScreen() {
           <Text variant="title3">Venue review</Text>
           {venues.length === 0 ? (
             <EmptyState icon="business-outline" title="No venues submitted" message="Submitted venues will appear here for review." compact />
-          ) : venues.map((venue) => (
+          ) : venues.map((venue) => {
+            const venueReason = reason[venue.id] ?? '';
+            return (
             <Card key={venue.id} gap={t.spacing.sm}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.sm }}>
                 <View style={{ flex: 1, gap: 3 }}>
@@ -120,8 +126,8 @@ export default function AdminSportsScreen() {
                 <>
                   <Input
                     label="Reason required to reject or suspend"
-                    value={reason}
-                    onChangeText={setReason}
+                    value={venueReason}
+                    onChangeText={(value) => setReason((current) => ({ ...current, [venue.id]: value }))}
                     maxLength={500}
                   />
                   <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
@@ -129,21 +135,22 @@ export default function AdminSportsScreen() {
                       title="Reject"
                       variant="outline"
                       onPress={() => void setVenueStatus(venue, 'rejected')}
-                      disabled={busyId === venue.id || reason.trim().length < 3}
+                      disabled={busyId === venue.id || venueReason.trim().length < 3}
                       style={{ flex: 1 }}
                     />
                     <Button
                       title="Suspend"
                       variant="destructiveGhost"
                       onPress={() => void setVenueStatus(venue, 'suspended')}
-                      disabled={busyId === venue.id || reason.trim().length < 3}
+                      disabled={busyId === venue.id || venueReason.trim().length < 3}
                       style={{ flex: 1 }}
                     />
                   </View>
                 </>
               ) : null}
             </Card>
-          ))}
+          );
+          })}
           <Text variant="title3">Sports activities</Text>
           {activities.map((activity) => (
             <Card key={activity.id} gap={0}>

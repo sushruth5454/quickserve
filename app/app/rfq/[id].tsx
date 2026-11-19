@@ -2,7 +2,9 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
 import { Badge, Button, Card, Header, InlineAlert, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
+import { QuoteCompareTable } from '../../src/components/market/QuoteCompareTable';
 import { cancelRfq, compareRfqQuotes, getRfq, selectSupplierQuote, type Rfq, type RfqQuoteComparison } from '../../src/features/rfq/api';
+import { buildComparePresentation } from '../../src/features/rfq/comparePresentation';
 import { RfqFeatureUnavailable, RfqStatusLabel, useRfqFeatureFlags } from '../../src/features/rfq/components';
 import { formatINR } from '../../src/lib/money';
 import { useTheme } from '../../src/theme';
@@ -48,6 +50,10 @@ export default function RfqDetailScreen() {
       null,
     )?.quote_id;
   }, [quotes]);
+  const comparePresentation = useMemo(
+    () => buildComparePresentation(quotes, { rfqStatus: rfq?.status ?? 'open', enquiriesEnabled }),
+    [quotes, rfq?.status, enquiriesEnabled],
+  );
 
   const chooseQuote = async (quoteId: string) => {
     setBusyQuoteId(quoteId);
@@ -128,6 +134,19 @@ export default function RfqDetailScreen() {
           ))}
           <Text variant="title3">Supplier comparison</Text>
           <Text variant="caption" color="muted">Quotes describe each supplier's offer. A similar-looking item is never treated as equivalent.</Text>
+          {quotes.length ? (
+            <QuoteCompareTable
+              rows={comparePresentation.rows}
+              detailHeaders={['Delivery', 'Valid until']}
+              selectLabel="Select supplier"
+              onSelect={(quoteId) => void chooseQuote(quoteId)}
+              warnings={comparePresentation.warnings}
+              selectable={(quoteId) => (
+                !busyQuoteId && !cancelling && comparePresentation.selectableQuoteIds.includes(quoteId)
+              )}
+              excludeFromLowest={(quoteId) => comparePresentation.excludedFromLowestQuoteIds.includes(quoteId)}
+            />
+          ) : null}
           {!quotes.length ? (
             <Card><Text color="muted">No quotes yet. Shops you contacted can reply until {new Date(rfq.expires_at).toLocaleDateString()}.</Text></Card>
           ) : (

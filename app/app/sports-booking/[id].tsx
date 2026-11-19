@@ -1,9 +1,14 @@
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { Alert, Platform, View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
-import { cancelSportsBooking, decideSportsBooking, getCustomerSportsBooking, type CustomerSportsBookingDetail } from '../../src/features/sports/api';
-import { canContinueSportsCheckout, getSportsBookingStatusLabel, getSportsPaymentSummary } from '../../src/features/sports/model';
+import { cancelSportsBooking, decideSportsBooking, getCustomerSportsBooking, previewSportsCancellation, type CustomerSportsBookingDetail } from '../../src/features/sports/api';
+import {
+  canContinueSportsCheckout,
+  getSportsBookingStatusLabel,
+  getSportsCancellationConfirmationMessage,
+  getSportsPaymentSummary,
+} from '../../src/features/sports/model';
 import { useAuth } from '../../src/lib/auth';
 import { formatINR } from '../../src/lib/money';
 import { useTheme } from '../../src/theme';
@@ -44,6 +49,11 @@ export default function SportsBookingDetailScreen() {
     void load();
   }, [load]));
 
+  const isOwner = !!booking && booking.owner_id === userId;
+  const isCustomer = !!booking && booking.customer_id === userId;
+  const cancellableStatus = !!booking && ['requested', 'pending_payment', 'awaiting_payment', 'accepted'].includes(booking.status);
+  const canCancel = cancellableStatus && (isOwner || isCustomer);
+
   const act = async (action: () => Promise<void>, message: string) => {
     setBusy(true);
     setError(null);
@@ -58,10 +68,43 @@ export default function SportsBookingDetailScreen() {
     }
   };
 
-  const isOwner = !!booking && booking.owner_id === userId;
-  const isCustomer = !!booking && booking.customer_id === userId;
-  const cancellableStatus = !!booking && ['requested', 'pending_payment', 'awaiting_payment', 'accepted'].includes(booking.status);
-  const canCancel = cancellableStatus && (isOwner || isCustomer);
+  const requestCancel = async () => {
+    if (!booking || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const preview = await previewSportsCancellation(booking.id);
+      if (!preview.can_cancel) {
+        setError('This booking can no longer be cancelled.');
+        await load();
+        return;
+      }
+      const message = getSportsCancellationConfirmationMessage(preview.refund_paise);
+      if (Platform.OS === 'web') {
+        if (!window.confirm(`Cancel this booking? ${message}`)) return;
+        await cancelSportsBooking(booking.id, isOwner ? reason.trim() : '');
+        toast({ message: 'Booking cancelled', tone: 'success' });
+        await load();
+      } else {
+        Alert.alert('Cancel booking?', message, [
+          { text: 'Keep booking', style: 'cancel' },
+          {
+            text: 'Cancel booking',
+            style: 'destructive',
+            onPress: () => void act(
+              () => cancelSportsBooking(booking.id, isOwner ? reason.trim() : ''),
+              'Booking cancelled',
+            ),
+          },
+        ]);
+      }
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deadline = booking?.status === 'pending_payment'
     ? booking.hold_expires_at ?? booking.expires_at
     : booking?.status === 'awaiting_payment'
@@ -149,10 +192,7 @@ export default function SportsBookingDetailScreen() {
               <Button
                 title="Cancel booking"
                 variant="ghost"
-                onPress={() => void act(
-                  () => cancelSportsBooking(booking.id, isOwner ? reason.trim() : ''),
-                  'Booking cancelled',
-                )}
+                onPress={() => void requestCancel()}
                 disabled={busy || (isOwner && reason.trim().length < 3)}
               />
             </Card>

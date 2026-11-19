@@ -169,7 +169,7 @@ describe('validation', () => {
   });
 
   it('payout form mirrors the Edge Function rules', () => {
-    const good = { legal_name: 'Ravi Kumar', pan: 'abcpk1234f', email: 'ravi@example.com', account_number: '1234 5678 9012', confirm_account_number: '123456789012', ifsc: 'hdfc0001234' };
+    const good = { account_type: 'individual' as const, legal_name: 'Ravi Kumar', pan: 'abcpk1234f', gstin: '', email: 'ravi@example.com', account_number: '1234 5678 9012', confirm_account_number: '123456789012', ifsc: 'hdfc0001234' };
     expect(validatePayoutForm(good, 'payouts')).toEqual({});
     expect(validatePayoutForm(good, 'route')).toEqual({ address: expect.any(String) });
     expect(validatePayoutForm({ ...good, pan: 'ABCDE1234F' }, 'payouts').pan).toBeDefined();
