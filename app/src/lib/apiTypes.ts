@@ -17,6 +17,7 @@ import type {
   QuoteItemDraft,
   RateUnit,
   NewAddressInput,
+  Review,
   ReviewInput,
   SavedAddress,
   SearchFilters,

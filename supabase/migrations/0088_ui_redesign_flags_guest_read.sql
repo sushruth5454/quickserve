@@ -787,8 +787,9 @@ begin
 end;
 $$;
 
-create or replace function public.get_sports_slots(p_resource_id uuid, p_date date)
-returns table (starts_at timestamptz, ends_at timestamptz, state text, price_paise int)
+drop function if exists public.get_sports_slots(uuid, date);
+create function public.get_sports_slots(p_resource_id uuid, p_date date)
+returns table (starts_at timestamptz, ends_at timestamptz, state text, price_paise int, remaining int)
 language plpgsql
 stable
 security definer
@@ -804,7 +805,7 @@ begin
   );
   return query
     with scope as (
-      select r.id as resource_id, r.slot_minutes, h.opens, h.closes,
+      select r.id as resource_id, r.slot_minutes, r.capacity, h.opens, h.closes,
              extract(dow from p_date)::smallint as weekday
         from public.sports_resources as r
         join public.sports_venues as v on v.id = r.venue_id
@@ -814,7 +815,7 @@ begin
        where r.id = p_resource_id and r.active and a.active and v.status = 'verified'
     ),
     slots as (
-      select s.resource_id, s.slot_minutes, s.weekday, gs as slot_start,
+      select s.resource_id, s.capacity, s.slot_minutes, s.weekday, gs as slot_start,
              gs + make_interval(mins => s.slot_minutes) as slot_end,
              (gs at time zone 'Asia/Kolkata')::time as local_start,
              ((gs + make_interval(mins => s.slot_minutes)) at time zone 'Asia/Kolkata')::time as local_end
@@ -832,32 +833,40 @@ begin
                select 1 from public.sports_blocks as b
                 where b.resource_id = s.resource_id and b.starts_at < s.slot_end and b.ends_at > s.slot_start
              ) then 'blocked'
-             when exists (
-               select 1 from public.sports_bookings as b
-                where b.resource_id = s.resource_id
-                  and b.starts_at < s.slot_end and b.ends_at > s.slot_start
-                  and (b.status = 'accepted' or (b.status = 'requested' and b.expires_at > now()))
-             ) then 'taken'
-             when (select pr.price_paise
-                     from public.sports_price_rules as pr
-                    where pr.resource_id = s.resource_id
-                      and (pr.weekday = s.weekday or pr.weekday is null)
-                      and pr.starts <= s.local_start and pr.ends >= s.local_end
-                    order by (pr.weekday is null), pr.starts
-                    limit 1) is null then 'blocked'
+             when used.participants >= s.capacity then 'taken'
+             when price.price_paise is null then 'blocked'
              else 'free'
            end,
-           (select pr.price_paise
-              from public.sports_price_rules as pr
-             where pr.resource_id = s.resource_id
-               and (pr.weekday = s.weekday or pr.weekday is null)
-               and pr.starts <= s.local_start and pr.ends >= s.local_end
-             order by (pr.weekday is null), pr.starts
-             limit 1)::int
+           price.price_paise,
+           greatest(s.capacity - used.participants, 0)::int
       from slots as s
+      left join lateral (
+        select coalesce(sum(b.participants), 0)::int as participants
+          from public.sports_bookings as b
+         where b.resource_id = s.resource_id
+           and b.starts_at < s.slot_end and b.ends_at > s.slot_start
+           and (
+             b.status = 'accepted'
+             or (b.status = 'requested' and b.expires_at > now())
+             or (b.status = 'awaiting_payment' and b.pay_by > now())
+             or (b.status = 'pending_payment' and b.hold_expires_at > now())
+           )
+      ) as used on true
+      left join lateral (
+        select pr.price_paise::int as price_paise
+          from public.sports_price_rules as pr
+         where pr.resource_id = s.resource_id
+           and (pr.weekday = s.weekday or pr.weekday is null)
+           and pr.starts <= s.local_start and pr.ends >= s.local_end
+         order by (pr.weekday is null), pr.starts
+         limit 1
+      ) as price on true
      order by s.slot_start;
 end;
 $$;
+
+revoke execute on function public.get_sports_slots(uuid, date) from public, anon, authenticated;
+grant execute on function public.get_sports_slots(uuid, date) to anon, authenticated;
 
 create or replace function public.get_shop(p_id uuid)
 returns table (

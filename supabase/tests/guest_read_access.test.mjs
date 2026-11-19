@@ -891,7 +891,7 @@ await scenario('enabled public reads and private-field boundaries', async () => 
   const sportsSlots = await as(
     null,
     'anon',
-    `select s.starts_at, s.ends_at, s.state, s.price_paise
+    `select s.starts_at, s.ends_at, s.state, s.price_paise, s.remaining
        from public.get_sports_slots($1::uuid, $2::date) as s`,
     [sports.resourceId, sportsDate],
   );
@@ -901,7 +901,7 @@ await scenario('enabled public reads and private-field boundaries', async () => 
       && sportsVenue?.id === sports.venueId
       && hiddenSportsVenue === null
       && sportsSlots.length === 2
-      && sportsSlots.every((row) => row.state === 'free' && row.price_paise === 2500),
+      && sportsSlots.every((row) => row.state === 'free' && row.price_paise === 2500 && row.remaining === 1),
     `sports reads return active activity, verified venue and fixed-date slots: ${JSON.stringify({
       sportsActivities,
       sportsSearch,
