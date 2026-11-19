@@ -15,7 +15,9 @@ import {
   quoteRecurringPlan,
 } from '../../../src/features/recurring/api';
 import {
+  getRecurringEndDateOptions,
   getRecurringQuoteSummary,
+  recurringFourWeekEstimate,
   visibleBillingFrequencies,
 } from '../../../src/features/recurring/customerPresentation';
 import type {
@@ -47,7 +49,8 @@ const WEEKDAYS = [
 ] as const;
 
 function dateLabel(date: string) {
-  return new Date(`${date}T12:00:00`).toLocaleDateString('en-IN', {
+  return new Date(`${date}T12:00:00.000Z`).toLocaleDateString('en-IN', {
+    timeZone: 'UTC',
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -96,7 +99,7 @@ export default function NewRecurringPlanScreen() {
   const [description, setDescription] = useState(descriptionParam ?? '');
   const [frequency, setFrequency] = useState<Frequency>('weekly');
   const [intervalCount, setIntervalCount] = useState('1');
-  const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
+  const [weekdays, setWeekdays] = useState<number[]>([]);
   const [monthDay, setMonthDay] = useState('1');
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
@@ -104,6 +107,7 @@ export default function NewRecurringPlanScreen() {
   const [durationMin, setDurationMin] = useState(durationMinParam ?? (packageId ? '60' : ''));
   const [endMode, setEndMode] = useState<EndMode>('none');
   const [endDate, setEndDate] = useState('');
+  const [endDateMonthOffset, setEndDateMonthOffset] = useState(0);
   const [maxOccurrences, setMaxOccurrences] = useState('');
   const [quote, setQuote] = useState<RecurringQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -146,6 +150,11 @@ export default function NewRecurringPlanScreen() {
   useEffect(() => {
     if (!startDate && days.length) setStartDate(istDateKey(days[1]?.date ?? days[0]!.date));
   }, [days, startDate]);
+
+  useEffect(() => {
+    setEndDateMonthOffset(0);
+    setEndDate('');
+  }, [startDate]);
 
   const category = service?.categories;
   const archetype: Archetype | null =
@@ -236,6 +245,13 @@ export default function NewRecurringPlanScreen() {
       })
     : '';
   const quoteSummary = quote ? getRecurringQuoteSummary(quote) : null;
+  const fourWeekEstimate = quoteSummary && planInput
+    ? recurringFourWeekEstimate(quoteSummary, planInput)
+    : null;
+  const endDateOptions = useMemo(
+    () => getRecurringEndDateOptions(startDate, endDateMonthOffset),
+    [startDate, endDateMonthOffset],
+  );
 
   useEffect(() => {
     if (!canQuote || !planInput) {
@@ -334,17 +350,19 @@ export default function NewRecurringPlanScreen() {
         <View style={{ gap: t.spacing.sm }}>
           {quoteSummary ? (
             <Card gap={t.spacing.xs}>
-              <Text variant="subheadStrong">Server quote</Text>
+              <Text variant="subheadStrong">Price</Text>
               <Text variant="footnote" color="textSecondary">
-                {formatINR(quoteSummary.perVisitPaise)} per visit · {quoteSummary.visitsInFirstCycle}{' '}
-                {quoteSummary.visitsInFirstCycle === 1 ? 'visit' : 'visits'} this cycle
+                {formatINR(quoteSummary.perVisitPaise)} per visit
               </Text>
+              {fourWeekEstimate ? (
+                <Text variant="footnote" color="textSecondary">{fourWeekEstimate.label}</Text>
+              ) : null}
               {quoteSummary.visitsTotal != null ? <Text variant="footnote" color="textSecondary">{quoteSummary.visitsTotal} visits in total</Text> : null}
               {quoteSummary.discountPaise > 0 ? <Text variant="footnote" color="textSecondary">Discount: −{formatINR(quoteSummary.discountPaise)}</Text> : null}
               <Text variant="footnote" color="textSecondary">Platform fee: {formatINR(quoteSummary.platformFeePaise)}</Text>
               {quoteSummary.gstPaise > 0 ? <Text variant="footnote" color="textSecondary">Taxes: {formatINR(quoteSummary.gstPaise)}</Text> : null}
               <Text variant="title3">
-                Total {quoteSummary.billingFrequency === 'per_visit' ? 'per visit' : 'per cycle'}:{' '}
+                Total per visit:{' '}
                 {formatINR(quoteSummary.totalPaisePerCycle)}
               </Text>
               <Text variant="caption" color="muted">{frequencyLabel(quoteSummary.billingFrequency)}</Text>
@@ -551,13 +569,39 @@ export default function NewRecurringPlanScreen() {
           ))}
         </View>
         {endMode === 'date' ? (
-          <TextInput
-            value={endDate}
-            onChangeText={setEndDate}
-            placeholder="YYYY-MM-DD"
-            accessibilityLabel="Plan end date"
-            style={{ borderWidth: 1, borderColor: t.colors.border, color: t.colors.text, borderRadius: t.radii.md, padding: t.spacing.md }}
-          />
+          <View style={{ gap: t.spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
+              <Button
+                title="Previous month"
+                size="sm"
+                variant="outline"
+                accessibilityLabel="Show previous month"
+                disabled={endDateMonthOffset === 0}
+                onPress={() => setEndDateMonthOffset((value) => Math.max(0, value - 1))}
+              />
+              <Text variant="footnoteStrong" accessibilityRole="header">{endDateOptions.monthLabel}</Text>
+              <Button
+                title="Next month"
+                size="sm"
+                variant="outline"
+                accessibilityLabel="Show next month"
+                disabled={getRecurringEndDateOptions(startDate, endDateMonthOffset + 1).dates.length === 0}
+                onPress={() => setEndDateMonthOffset((value) => value + 1)}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+              {endDateOptions.dates.map((date) => (
+                <Button
+                  key={date}
+                  title={dateLabel(date)}
+                  size="sm"
+                  variant={endDate === date ? 'primary' : 'outline'}
+                  accessibilityLabel={`Choose plan end date ${dateLabel(date)}`}
+                  onPress={() => setEndDate(date)}
+                />
+              ))}
+            </View>
+          </View>
         ) : null}
         {endMode === 'count' ? (
           <TextInput
@@ -581,6 +625,7 @@ export default function NewRecurringPlanScreen() {
           <Button title="Change address" variant="outline" onPress={() => router.push('/location')} />
         </Card>
         <TextArea
+          label="Instructions (required)"
           placeholder="Add instructions for the provider"
           value={description}
           onChangeText={setDescription}
@@ -595,7 +640,7 @@ export default function NewRecurringPlanScreen() {
           {allowedBillingFrequencies.map((value) => (
             <Text key={value} variant="calloutStrong">{frequencyLabel(value)}</Text>
           ))}
-          <Text variant="caption" color="muted">Weekly, monthly, and prepaid billing will be available after recurring cycle billing is integrated.</Text>
+          <Text variant="caption" color="muted">You pay each visit separately, up to 2 days before it. Unpaid visits are released.</Text>
         </Card>
       </View>
 

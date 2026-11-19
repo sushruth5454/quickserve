@@ -24,6 +24,7 @@ import { getCatalogueCategory } from '../../src/features/catalogue/api';
 import { ArchetypeCategory } from '../../src/features/catalogue/ArchetypeCategory';
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
+import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { rupeesToPaise } from '../../src/lib/money';
 import type { Category, ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
@@ -59,6 +60,8 @@ export default function CategoryRoute() {
 
 function InspectQuoteCategory() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const aiOn = aiAssistantEnabled && flags.isOn('ai_assistant');
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
   const { location: place, coords } = useSelectedLocation();
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
@@ -134,7 +137,7 @@ function InspectQuoteCategory() {
             title={name ?? 'Providers'}
             subtitle={subtitle}
             right={
-              aiAssistantEnabled ? (
+              aiOn ? (
               <IconButton
                 icon="sparkles"
                 variant="tonal"

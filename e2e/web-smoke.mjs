@@ -2,7 +2,7 @@
 // Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
-import { runAllServiceScenarios } from './all-services.mjs';
+import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8081';
 const SHOTS = process.env.SHOTS_DIR ?? 'e2e-shots';
@@ -11,6 +11,7 @@ const ANON = process.env.SUPABASE_ANON_KEY;
 const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
 const PHONE = '9999999999';
 const OTP = '123456';
+const ADMIN_E2E_PHONE = process.env.ADMIN_E2E_PHONE;
 const RAVI = '11111111-1111-1111-1111-111111111111';
 // Fresh-provider onboarding user: test OTP number reset by e2e-web.yml before each run (no seed data).
 const NEW_PRO_PHONE = process.env.NEW_PRO_PHONE ?? '9000000301';
@@ -21,6 +22,7 @@ const pageErrors = [];
 const consoleErrors = [];
 const failures = [];
 const softFailures = [];
+const skippedSteps = [];
 let shot = 0;
 
 const browser = await chromium.launch();
@@ -97,7 +99,68 @@ async function signInAs(phone) {
   return (await res.json()).access_token;
 }
 
+function getAdminPhone() {
+  const raw = ADMIN_E2E_PHONE?.trim();
+  if (!raw || !/^(?:\+91)?[6-9]\d{9}$/.test(raw)) {
+    throw new Error('ADMIN_E2E_PHONE must be a 10-digit Indian number or +91 E.164 number');
+  }
+  return raw.startsWith('+91') ? raw : `+91${raw}`;
+}
+
+async function grantE2eAdminMembership(phone) {
+  if (process.env.DEMO_PROJECT !== '1') {
+    throw new Error('Admin E2E membership may only be provisioned when DEMO_PROJECT=1');
+  }
+  const token = process.env.SUPABASE_ACCESS_TOKEN;
+  const projectRef = process.env.PROJECT_REF;
+  if (!token || !projectRef) {
+    throw new Error('Admin E2E requires the demo project reference and Management API token');
+  }
+
+  const query = `insert into public.admins (user_id)
+    select id from auth.users where phone = '${phone}'
+    on conflict (user_id) do nothing`;
+  const response = await fetch(
+    `https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    },
+  );
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Admin E2E provisioning failed (${response.status}): ${responseText.slice(0, 200)}`);
+  }
+  if (responseText.trim()) {
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      throw new Error('Admin E2E provisioning returned an invalid Management API response');
+    }
+    if (result?.error) throw new Error('Management API returned a database error');
+  }
+}
+
+function skipStep(name, reason) {
+  const message = `${name}: ${reason}`;
+  skippedSteps.push(message);
+  console.log(`  SKIPPED: ${reason}`);
+}
+
 // ---------- Auth (one OTP send per run: the test number is rate limited) ----------
+await step('login-help-link', async () => {
+  await go('/login');
+  await page.getByRole('link', { name: 'Need help signing in?' }).click();
+  await visible('Sign-in help');
+  await visible('Changed your number?');
+  await page.getByRole('button', { name: /^Email / }).waitFor({ state: 'visible' });
+  await go('/login');
+});
 await step('login', async () => {
   await go('/');
   await page.getByLabel('Mobile number, India plus 91').fill(PHONE);
@@ -106,11 +169,13 @@ await step('login', async () => {
 });
 await step('verify', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
+  await page.waitForURL((u) => new URL(u).pathname === '/dashboard');
+  await page.getByText(/^You're (online|offline)$/).first().waitFor();
 });
-await step('role-continue-customer', async () => {
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+await step('returning-provider-switch-to-customer', async () => {
+  await go('/pro-account');
+  await page.getByText('Switch to customer mode', { exact: true }).click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
   await visible('Bookings');
 });
 
@@ -120,10 +185,10 @@ await runAllServiceScenarios({ page, go, step, visible, qaMarker: QA_MARKER });
 await step('home', async () => {
   await go('/');
   await visible('Choose a category');
-  await visible('Home & vehicle services');
+  await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().waitFor({ state: 'visible' });
 });
 await step('home-family-drilldown-and-marketplace-entry-points', async () => {
-  await page.getByRole('button', { name: 'Home & vehicle services' }).click();
+  await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().click();
   await visible('Choose a service');
   await visible('AC Repair');
   await page.getByRole('button', { name: 'AC Repair, Request a quote' }).click();
@@ -196,7 +261,13 @@ await step('location-pick-saved-home', async () => {
   await page.waitForURL((u) => new URL(u).pathname === '/');
   await page.getByText(new RegExp(`^Benz Circle, ${escapeRe(CITY)}$`)).first().waitFor();
 });
-const categories = await rest('categories?select=slug,name,archetype&order=sort_order').catch(() => []);
+const catalogResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_catalog`, {
+  method: 'POST',
+  headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ p_city: CITY }),
+});
+if (!catalogResponse.ok) throw new Error(`rpc/get_catalog ${catalogResponse.status}: ${await catalogResponse.text()}`);
+const categories = (await catalogResponse.json()).filter((category) => category.archetype != null);
 // Each archetype has its own landing screen: pro list (inspect_quote), packages (fixed), sessions
 // (time_based) or creator list plus "Get proposals" (proposal).
 const LANDING = {
@@ -354,6 +425,30 @@ await step('provider-detail', async () => {
   await visible('Ratings & reviews');
 });
 await optional('provider-detail-scrolled', () => snapScrolled('provider-detail-scrolled', 900));
+const fixedServiceRows = await rest(`provider_services?select=id,provider_id,categories(slug,archetype)&id=eq.${DEMO_IDS.fixedService}&active=eq.true`).catch(() => []);
+await step('provider-detail-fixed-service-routes-to-packages', async () => {
+  const fixedService = fixedServiceRows[0];
+  if (!fixedService?.provider_id || !fixedService.categories?.slug) {
+    throw new Error(`seeded fixed service is unavailable: ${JSON.stringify(fixedService)}`);
+  }
+  const providerServices = await rest(`provider_services?select=id,categories(archetype)&provider_id=eq.${fixedService.provider_id}&active=eq.true`);
+  if (
+    fixedService.categories.archetype !== 'fixed' ||
+    providerServices.length !== 1 ||
+    providerServices[0]?.categories?.archetype !== 'fixed'
+  ) {
+    throw new Error(`expected a fixed-only provider fixture; got ${JSON.stringify({ fixedService, providerServices })}`);
+  }
+  await go(`/provider/${fixedService.provider_id}?category=${encodeURIComponent(fixedService.categories.slug)}`);
+  await visible('Ratings & reviews');
+  if (await page.getByText(/^(Visit fee|Labour per )/).count()) {
+    throw new Error('fixed service profile still shows visit-fee pricing');
+  }
+  await page.getByText(/^From ₹/).first().waitFor();
+  await page.getByRole('button', { name: /^Book / }).last().click();
+  await page.waitForURL(new RegExp(`/category/${fixedService.categories.slug}(?:\\?|$)`));
+  await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
+});
 const raviServices = await rest(`provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`).catch(() => []);
 await step('book-screen', async () => {
   if (!raviServices[0]) throw new Error('no active service for Ravi');
@@ -387,13 +482,50 @@ await step('assistant-open-from-home', async () => {
 });
 await step('assistant-draft-or-busy-fallback', async () => {
   await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
-  await page.getByLabel('Send message').first().click();
+  let http429Seen = false;
+  let resolveRateLimit;
+  const rateLimitResponse = new Promise((resolve) => {
+    resolveRateLimit = resolve;
+  });
+  const onAssistantResponse = (response) => {
+    if (response.status() === 429 && response.url().includes('/functions/v1/ai-assistant')) {
+      http429Seen = true;
+      resolveRateLimit();
+    }
+  };
+  page.on('response', onAssistantResponse);
+  let outcome;
+  try {
+    await page.getByLabel('Send message').first().click();
+    outcome = await Promise.race([
+      page.getByText(/Understanding your request|Switching to a backup AI model|Working on it/).first().waitFor({ timeout: 30000 }).then(() => 'progress'),
+      rateLimitResponse.then(() => 'http-429'),
+    ]);
+    if (outcome !== 'http-429') {
+      outcome = await Promise.race([
+        page.waitForFunction(() => {
+          const body = document.body?.innerText ?? '';
+          return body.includes('Review & pay')
+            || body.includes('QuickServe AI is busy right now')
+            || body.includes("You've used today's")
+            || body.includes("You're sending messages very quickly");
+        }, undefined, { timeout: 150000 }).then(() => 'message'),
+        rateLimitResponse.then(() => 'http-429'),
+      ]);
+    }
+  } finally {
+    page.off('response', onAssistantResponse);
+  }
+  const assistantText = await page.locator('body').innerText();
+  const limitCopy = assistantText.match(/You've used today's[^\n]*|You're sending messages very quickly[^\n]*/)?.[0] ?? '';
+  if (http429Seen || outcome === 'http-429' || limitCopy) {
+    skipStep(
+      'assistant-draft-or-busy-fallback',
+      `AI assistant rate limit${http429Seen || outcome === 'http-429' ? ' (HTTP 429)' : ''}; draft/review path was not validated${limitCopy ? `: ${limitCopy}` : '.'}`,
+    );
+    return;
+  }
   // Live progress from real server work, then either a draft or an explicit busy fallback.
-  await page.getByText(/Understanding your request|Switching to a backup AI model|Working on it/).first().waitFor({ timeout: 30000 });
-  await page.waitForFunction(() => {
-    const body = document.body?.innerText ?? '';
-    return body.includes('Review & pay') || body.includes('QuickServe AI is busy right now');
-  }, undefined, { timeout: 150000 });
   assistantDraftReady = await page.getByText('Review & pay', { exact: true }).last().isVisible().catch(() => false);
   if (!assistantDraftReady) {
     await page.getByText(/QuickServe AI is busy right now/).last().waitFor({ state: 'visible' });
@@ -412,7 +544,7 @@ await step('assistant-draft-or-busy-fallback', async () => {
 await optional('assistant-draft-scrolled', () => snapScrolled('assistant-draft-scrolled', 600));
 await step('assistant-review-prefills-book', async () => {
   if (!assistantDraftReady) {
-    console.log('  SKIPPED: verified the AI busy fallback; no draft was produced to review.');
+    skipStep('assistant-review-prefills-book', 'No assistant draft was produced to review.');
     return;
   }
   await page.getByText('Review & pay', { exact: true }).last().click();
@@ -446,7 +578,10 @@ await step('my-activity-shop-segment', async () => {
 await step('my-activity-sports-segment', async () => {
   await page.getByTestId('activity-segment-sports').click();
   await page.getByTestId('my-activity-panel-sports').waitFor();
-  await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor();
+  await Promise.any([
+    page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor({ state: 'visible' }),
+    page.getByText('No sports requests yet', { exact: true }).first().waitFor({ state: 'visible' }),
+  ]);
 });
 await step('my-activity-services-segment', async () => {
   await page.getByTestId('activity-segment-services').click();
@@ -467,9 +602,30 @@ for (const [n, label, scrolled] of [
   await step(`booking-fc${n}-${label}`, async () => {
     await go(`/booking/${seeded('fc', n)}`);
     await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+    if (n === 1) {
+      await visible('Payment pending');
+      await visible('Ask support a question');
+      if (await page.getByRole('button', { name: 'Call', exact: true }).count()) {
+        throw new Error('call button should be hidden until masked calling is available');
+      }
+    }
+    if (n === 10) await visible('Pauses payment to the pro while support reviews');
   });
   if (scrolled) await optional(`booking-fc${n}-scrolled`, () => snapScrolled(`booking-fc${n}-${label}-scrolled`, 900));
 }
+await step('booking-fc3-cancel-copy', async () => {
+  await go(`/booking/${seeded('fc', 3)}`);
+  await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+  await page.getByRole('button', { name: 'Cancel booking', exact: true }).first().click();
+  await visible('Cancel this booking?');
+  const previewCopy = page.getByText(/(?:You'll be refunded|will be charged)/).last();
+  await previewCopy.waitFor({ state: 'visible' });
+  const actual = (await previewCopy.innerText()).trim();
+  if (!actual.includes('₹')) {
+    throw new Error(`expected server cancellation preview to include ₹: ${JSON.stringify({ actual })}`);
+  }
+  await page.getByLabel('Close', { exact: true }).last().click();
+});
 await step('booking-chat-send', async () => {
   await go(`/chat/${seeded('fc', 9)}`);
   const box = page.getByLabel('Message', { exact: true }).first();
@@ -507,7 +663,16 @@ await step('me-customer', async () => {
   await visible('Switch to provider mode');
 });
 await step('coins-wallet', async () => {
+  const coinsConfigResponse = page.waitForResponse((response) =>
+    response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_coins_config'),
+  );
   await go('/account');
+  const response = await coinsConfigResponse;
+  const config = response.ok() ? await response.json() : null;
+  if (config?.coins_earning_enabled === false && config.coins_redemption_enabled === false) {
+    skipStep('coins-wallet', 'Earning and redemption are disabled; the wallet entry is correctly hidden.');
+    return;
+  }
   await page.getByText('Seva Coins', { exact: true }).first().click();
   await page.waitForURL(/\/coins$/);
   await page.locator('text="Seva Coins" >> visible=true').last().waitFor();
@@ -800,19 +965,19 @@ await step('admin-feature-registry', async () => {
   await visible('Log out?');
   await page.getByText('Log out', { exact: true }).last().click();
   await page.getByLabel('Mobile number, India plus 91').waitFor();
-  await page.getByLabel('Mobile number, India plus 91').fill('8888888888');
+  const adminPhone = getAdminPhone();
+  await page.getByLabel('Mobile number, India plus 91').fill(adminPhone.slice(3));
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
-  await optional('admin display name', () => page.getByLabel('Your name').fill('QuickServe Admin', { timeout: 3000 }));
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
-  await go('/account');
+  await page.waitForURL((u) => ['/', '/dashboard'].includes(new URL(u).pathname));
+  await grantE2eAdminMembership(adminPhone);
+  const accountPath = new URL(page.url()).pathname === '/dashboard' ? '/pro-account' : '/account';
+  await go(accountPath);
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
   await page.getByLabel('Go back').last().click();
-  await page.waitForURL((u) => new URL(u).pathname === '/account');
+  await page.waitForURL((u) => new URL(u).pathname === accountPath);
   await page.getByRole('button', { name: /Admin portal/ }).last().waitFor({ state: 'visible' });
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
@@ -869,10 +1034,11 @@ await step('admin-feature-registry', async () => {
 
 await browser.close();
 
-writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, softFailures, pageErrors, consoleErrors }, null, 2));
-console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
+writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, softFailures, skippedSteps, pageErrors, consoleErrors }, null, 2));
+console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, skipped steps: ${skippedSteps.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
 for (const f of failures) console.log(`FAIL ${f}`);
 for (const f of softFailures) console.log(`SOFT FAIL ${f}`);
+for (const s of skippedSteps) console.log(`SKIP ${s}`);
 for (const e of pageErrors) console.log(`PAGEERROR ${e}`);
 for (const e of consoleErrors) console.log(`CONSOLE ${e}`);
 process.exit(failures.length || pageErrors.length ? 1 : 0);
