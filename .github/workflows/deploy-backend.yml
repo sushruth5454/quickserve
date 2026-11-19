@@ -403,6 +403,7 @@ jobs:
              ("0063", "0063_o1_notifications.sql"),
              ("0064", "0064_o2_provider_verification.sql"),
              ("0065", "0065_h2a_recurring_correctness.sql"),
+             ("0066", "0066_h2b_recurring_ux.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
