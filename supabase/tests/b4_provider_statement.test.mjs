@@ -100,7 +100,7 @@ async function as(uid, role, sql, params = []) {
 }
 
 async function createUsers(index, entries) {
-  const date = '2030-11-01T00:00:00Z';
+  const date = '2026-10-01T00:00:00Z';
   await db.query(
     `insert into auth.users (id, phone, raw_user_meta_data, created_at, updated_at)
      values ${entries.map((_, i) => `($${i * 2 + 1}::uuid, $${i * 2 + 2}::text, '{}'::jsonb, $${entries.length * 2 + 1}::timestamptz, $${entries.length * 2 + 1}::timestamptz)`).join(', ')}`,
@@ -114,7 +114,7 @@ async function createUsers(index, entries) {
   );
 }
 
-async function createProviderPayout(index, { status = 'pending', createdAt = '2030-11-05T12:00:00Z', transferStatus = 'pending', reversedAmount = 0 } = {}) {
+async function createProviderPayout(index, { status = 'pending', createdAt = '2026-12-25T12:00:00Z', transferStatus = 'pending', reversedAmount = 0 } = {}) {
   const customer = uuid(index * 10 + 1);
   const provider = uuid(index * 10 + 2);
   const category = uuid(index * 10 + 3);
@@ -124,14 +124,25 @@ async function createProviderPayout(index, { status = 'pending', createdAt = '20
   const payment = uuid(index * 10 + 7);
   const payout = uuid(index * 10 + 8);
   const transfer = uuid(index * 10 + 9);
+  const city = `B4 City ${index}`;
   await createUsers(index, [
     { id: customer, offset: 1, name: `B4 customer ${index}` },
     { id: provider, offset: 2, name: `B4 provider ${index}` },
   ]);
-  await db.query('insert into public.providers (id, city) values ($1::uuid, $2::text)', [provider, `B4 City ${index}`]);
   await db.query(
-    `insert into public.categories (id, slug, name) values ($1::uuid, $2::text, $3::text)`,
-    [category, `b4-category-${index}`, `B4 category ${index}`],
+    `insert into public.providers (id, city, kyc_status, submitted_at, admin_review_status)
+     values ($1::uuid, $2::text, $3::public.kyc_status, $4::timestamptz, $5::text)`,
+    [provider, city, 'verified', '2026-10-01T00:00:00Z', 'approved'],
+  );
+  await db.query(
+    `insert into public.categories (id, slug, name, max_lead_days)
+     values ($1::uuid, $2::text, $3::text, $4::int)`,
+    [category, `b4-category-${index}`, `B4 category ${index}`, 60],
+  );
+  await db.query(
+    `insert into public.category_cities (category_id, city, live, launched_at)
+     values ($1::uuid, $2::text, $3::boolean, $4::timestamptz)`,
+    [category, city, true, '2026-10-01T00:00:00Z'],
   );
   await db.query(
     `insert into public.addresses (id, user_id, label, line1, city, lat, lng)
@@ -146,7 +157,7 @@ async function createProviderPayout(index, { status = 'pending', createdAt = '20
   await db.query(
     `insert into public.bookings (id, customer_id, provider_id, category_id, provider_service_id, address_id, visit_fee, platform_fee, scheduled_at, created_at)
      values ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid, $7::int, $8::int, $9::timestamptz, $10::timestamptz)`,
-    [booking, customer, provider, category, service, address, 19900, 2900, `2030-11-${String(20 + index).padStart(2, '0')}T04:30:00Z`, createdAt],
+    [booking, customer, provider, category, service, address, 19900, 2900, `2026-12-${String(10 + index).padStart(2, '0')}T04:30:00Z`, createdAt],
   );
   await db.query(
     `insert into public.payments (id, booking_id, amount, purpose, status, paid_at)
@@ -156,7 +167,7 @@ async function createProviderPayout(index, { status = 'pending', createdAt = '20
   await db.query(
     `insert into public.payouts (id, booking_id, provider_id, gross, commission, gst_on_commission, amount, status, release_after, created_at, transferred_at)
      values ($1::uuid, $2::uuid, $3::uuid, $4::int, $5::int, $6::int, $7::int, $8::public.payout_status, $9::timestamptz, $10::timestamptz, $11::timestamptz)`,
-    [payout, booking, provider, 215000, 18000, 3240, 193760, status, '2030-11-06T12:00:00Z', createdAt, status === 'transferred' || status === 'partially_reversed' ? createdAt : null],
+    [payout, booking, provider, 215000, 18000, 3240, 193760, status, '2026-12-26T12:00:00Z', createdAt, status === 'transferred' || status === 'partially_reversed' ? createdAt : null],
   );
   await db.query(
     `insert into public.payout_transfers (id, payout_id, source_payment_id, amount, status, razorpay_transfer_id, utr, reversed_amount, transferred_at)
@@ -166,7 +177,7 @@ async function createProviderPayout(index, { status = 'pending', createdAt = '20
   return { customer, provider, booking, payout, transfer };
 }
 
-async function createVenuePayout(index, { status = 'partially_reversed', createdAt = '2030-11-08T12:00:00Z' } = {}) {
+async function createVenuePayout(index, { status = 'partially_reversed', createdAt = '2026-12-27T12:00:00Z' } = {}) {
   const owner = uuid(index * 10 + 1);
   const customer = uuid(index * 10 + 2);
   const venue = uuid(index * 10 + 3);
@@ -176,6 +187,9 @@ async function createVenuePayout(index, { status = 'partially_reversed', created
   const payment = uuid(index * 10 + 7);
   const payout = uuid(index * 10 + 8);
   const transfer = uuid(index * 10 + 9);
+  const slotDay = String(10 + index).padStart(2, '0');
+  const createdDay = String(8 + index).padStart(2, '0');
+  const expiryDay = String(9 + index).padStart(2, '0');
   await createUsers(index, [
     { id: owner, offset: 1, name: `B4 venue owner ${index}` },
     { id: customer, offset: 2, name: `B4 sports customer ${index}` },
@@ -197,17 +211,17 @@ async function createVenuePayout(index, { status = 'partially_reversed', created
   await db.query(
     `insert into public.sports_bookings (id, customer_id, venue_id, resource_id, starts_at, ends_at, status, price_paise, expires_at, created_at)
      values ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::timestamptz, $6::timestamptz, $7::text, $8::int, $9::timestamptz, $10::timestamptz)`,
-    [booking, customer, venue, resource, `2030-11-${String(20 + index).padStart(2, '0')}T04:30:00Z`, `2030-11-${String(20 + index).padStart(2, '0')}T05:30:00Z`, 'completed', 20000, `2030-11-${String(19 + index).padStart(2, '0')}T04:30:00Z`, createdAt],
+    [booking, customer, venue, resource, `2026-12-${slotDay}T04:30:00Z`, `2026-12-${slotDay}T05:30:00Z`, 'completed', 20000, `2026-12-${expiryDay}T04:30:00Z`, `2026-12-${createdDay}T04:30:00Z`],
   );
   await db.query(
     `insert into public.payments (id, sports_booking_id, amount, purpose, status, razorpay_payment_id, paid_at)
      values ($1::uuid, $2::uuid, $3::int, $4::public.payment_purpose, $5::public.payment_status, $6::text, $7::timestamptz)`,
-    [payment, booking, 20000, 'fixed', 'paid', `pay_b4_${index}`, createdAt],
+    [payment, booking, 20000, 'fixed', 'paid', `pay_b4_${index}`, `2026-12-${slotDay}T03:30:00Z`],
   );
   await db.query(
     `insert into public.payouts (id, sports_booking_id, payee_id, gross, commission, gst_on_commission, amount, status, release_after, created_at, transferred_at)
      values ($1::uuid, $2::uuid, $3::uuid, $4::int, $5::int, $6::int, $7::int, $8::public.payout_status, $9::timestamptz, $10::timestamptz, $11::timestamptz)`,
-    [payout, booking, owner, 20000, 2000, 360, 17640, status, '2030-11-09T12:00:00Z', createdAt, status === 'transferred' || status === 'partially_reversed' ? createdAt : null],
+    [payout, booking, owner, 20000, 2000, 360, 17640, status, '2026-12-28T12:00:00Z', createdAt, status === 'transferred' || status === 'partially_reversed' ? createdAt : null],
   );
   await db.query(
     `insert into public.payout_transfers (id, payout_id, source_payment_id, amount, status, razorpay_transfer_id, utr, reversed_amount, transferred_at)
@@ -217,7 +231,7 @@ async function createVenuePayout(index, { status = 'partially_reversed', created
   return { owner, customer, booking, payout, transfer };
 }
 
-const statement = (from = '2030-11-01', to = '2030-11-30') =>
+const statement = (from = '2026-12-01', to = '2026-12-31') =>
   `select * from public.get_provider_statement($1::date, $2::date) order by payout_id`;
 
 await scenario('statement is disabled by default and venue payout rows stay hidden', async () => {
@@ -226,7 +240,7 @@ await scenario('statement is disabled by default and venue payout rows stay hidd
   const flag = await one(`select enabled from public.feature_flags where key = $1::text`, ['provider_earnings_statement']);
   const providerRows = await as(provider.provider, 'authenticated', 'select id from public.payouts where id = $1::uuid', [provider.payout]);
   const venueRows = await as(venue.owner, 'authenticated', 'select id from public.payouts where id = $1::uuid', [venue.payout]);
-  const disabled = await fails(() => as(provider.provider, 'authenticated', statement(), ['2030-11-01', '2030-11-30']));
+  const disabled = await fails(() => as(provider.provider, 'authenticated', statement(), ['2026-12-01', '2026-12-31']));
   check(flag.enabled === false, 'provider earnings statement defaults OFF', flag);
   check(providerRows.length === 1, 'existing provider payout rows remain readable while the statement is OFF', providerRows);
   check(venueRows.length === 0, 'venue owner cannot read payout row while flag is OFF', venueRows);
@@ -240,15 +254,15 @@ await scenario('provider and venue owners see their own rows but a stranger sees
   await createUsers(10, [{ id: stranger, offset: 1, name: 'B4 stranger' }]);
   await db.query(`update public.feature_flags set enabled = $1::boolean where key = $2::text`, [true, 'provider_earnings_statement']);
 
-  const providerRows = await as(provider.provider, 'authenticated', statement(), ['2030-11-01', '2030-11-30']);
-  const venueRows = await as(venue.owner, 'authenticated', statement(), ['2030-11-01', '2030-11-30']);
-  const strangerRows = await as(stranger, 'authenticated', statement(), ['2030-11-01', '2030-11-30']);
+  const providerRows = await as(provider.provider, 'authenticated', statement(), ['2026-12-01', '2026-12-31']);
+  const venueRows = await as(venue.owner, 'authenticated', statement(), ['2026-12-01', '2026-12-31']);
+  const strangerRows = await as(stranger, 'authenticated', statement(), ['2026-12-01', '2026-12-31']);
   const providerRls = await as(provider.provider, 'authenticated', 'select id from public.payouts where id = $1::uuid', [provider.payout]);
   const venueRls = await as(venue.owner, 'authenticated', 'select id from public.payouts where id = $1::uuid', [venue.payout]);
   const providerOnVenueRls = await as(provider.provider, 'authenticated', 'select id from public.payouts where id = $1::uuid', [venue.payout]);
   const venueOnProviderRls = await as(venue.owner, 'authenticated', 'select id from public.payouts where id = $1::uuid', [provider.payout]);
   const strangerRls = await as(stranger, 'authenticated', 'select id from public.payouts where id in ($1::uuid, $2::uuid)', [provider.payout, venue.payout]);
-  const unauthenticated = await fails(() => as(null, 'anon', statement(), ['2030-11-01', '2030-11-30']));
+  const unauthenticated = await fails(() => as(null, 'anon', statement(), ['2026-12-01', '2026-12-31']));
 
   check(providerRows.length === 1 && providerRows[0].payout_id === provider.payout, 'provider statement includes only owned provider payout', providerRows);
   check(venueRows.length === 1 && venueRows[0].sports_booking_id === venue.booking, 'venue owner statement includes sports payout', venueRows);
@@ -261,8 +275,8 @@ await scenario('provider and venue owners see their own rows but a stranger sees
 
 await scenario('statement uses stored paise, reversals, transfer references, and the inclusive period', async () => {
   const owner = await createProviderPayout(5, { status: 'partially_reversed', transferStatus: 'transferred', reversedAmount: 125 });
-  const outsidePeriod = await createProviderPayout(6, { createdAt: '2030-12-01T00:00:00Z' });
-  const rows = await as(owner.provider, 'authenticated', statement(), ['2030-11-01', '2030-11-30']);
+  const outsidePeriod = await createProviderPayout(6, { createdAt: '2027-01-01T00:00:00Z' });
+  const rows = await as(owner.provider, 'authenticated', statement(), ['2026-12-01', '2026-12-31']);
   const row = rows.find((item) => item.payout_id === owner.payout);
   const stored = await one(
     `select po.gross, po.commission, po.gst_on_commission, po.amount,
@@ -287,7 +301,7 @@ await scenario('statement preserves pending, frozen, and failed payout states', 
   const failed = await createProviderPayout(9, { status: 'failed', transferStatus: 'failed' });
   const results = [];
   for (const payout of [pending, frozen, failed]) {
-    results.push(await as(payout.provider, 'authenticated', statement(), ['2030-11-01', '2030-11-30']));
+    results.push(await as(payout.provider, 'authenticated', statement(), ['2026-12-01', '2026-12-31']));
   }
   const statuses = results.map((rows) => rows[0]?.status);
   check(statuses.join(',') === 'pending,frozen,failed', 'statement preserves payout states without marking failed transfers paid', statuses);
