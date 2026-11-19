@@ -97,10 +97,10 @@ async function homeFixture(n, { appMeta = {}, userMeta = {} } = {}) {
   await db.query(`update public.profiles set full_name='X3 test user' where id in ($1::uuid, $2::uuid)`,
     [customer, provider]);
   await db.query(`
-    insert into public.providers (id, city, base_location, kyc_status, submitted_at,
+    insert into public.providers (id, city, base_location, kyc_status, admin_review_status, submitted_at,
       is_online, paused, suspended, razorpay_account_id)
     values ($1::uuid, 'X3 City', extensions.st_setsrid(extensions.st_makepoint(80.6,16.5),4326),
-      'verified', now(), true, false, false, $2::text)
+      'verified', 'approved', now(), true, false, false, $2::text)
   `, [provider, `acc_x3_${n}`]);
   await db.query(`
     insert into public.categories

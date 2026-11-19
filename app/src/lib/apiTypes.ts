@@ -56,6 +56,11 @@ export interface AuthSession {
   phone: string | null;
 }
 
+export interface CancellationPreview {
+  refund_amount: number;
+  charged_amount: number;
+}
+
 export interface TopRatedProvider {
   id: string;
   city: string;
@@ -182,7 +187,7 @@ export interface Api {
   sendOtp(phone: string): Promise<void>;
   verifyOtp(phone: string, token: string): Promise<void>;
   signOut(): Promise<void>;
-  requestAccountDeletion(): Promise<void>;
+  requestAccountDeletion(): Promise<AccountDeletionOutcome>;
   getMyProfile(): Promise<Profile | null>;
   updateMyProfile(patch: Partial<Pick<Profile, 'full_name' | 'role_customer' | 'role_provider'>>): Promise<void>;
   // discovery
@@ -205,6 +210,7 @@ export interface Api {
   // saved addresses
   listMyAddresses(): Promise<SavedAddress[]>;
   addAddress(input: NewAddressInput): Promise<SavedAddress>;
+  deleteAddress(id: string): Promise<void>;
   // booking
   createBooking(input: CreateBookingInput): Promise<string>;
   createFixedBooking(input: CreateFixedBookingInput): Promise<string>;
@@ -234,6 +240,7 @@ export interface Api {
   startTrip(id: string): Promise<void>;
   requestCompletion(id: string): Promise<void>;
   confirmCompletion(id: string): Promise<void>;
+  previewCancellation(id: string): Promise<CancellationPreview | null>;
   cancelBooking(id: string, reason?: string): Promise<void>;
   disputeBooking(id: string, reason: string): Promise<void>;
   regenerateOtp(id: string, kind: 'start' | 'end'): Promise<void>;
@@ -304,3 +311,5 @@ export interface Api {
   submitDelivery(bookingId: string, links: DeliveryLink[]): Promise<void>;
   acceptDelivery(bookingId: string): Promise<void>;
 }
+
+export type AccountDeletionOutcome = 'recorded' | 'email';
