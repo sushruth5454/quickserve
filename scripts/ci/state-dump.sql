@@ -11,5 +11,7 @@ select json_build_object(
                    select category_id, json_agg(city order by city) as cities
                      from public.category_cities where live group by category_id) cc
                    join public.categories c on c.id = cc.category_id),
+  'category_rows', (select json_object_agg(slug, to_jsonb(c) - 'id' - 'created_at' - 'updated_at' order by slug)
+                     from public.categories c),
   'admins', (select json_agg(u.phone order by u.phone) from public.admins a join auth.users u on u.id = a.user_id)
 ) as state;

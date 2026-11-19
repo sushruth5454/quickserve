@@ -96,12 +96,14 @@ update public.app_config
 -- Admin test numbers exist as returning customers on the hosted project (automation admin 9000000901 and
 -- the owner's manual admin 9000000902), so their login skips the role screen there. Mirror that here.
 insert into auth.users (instance_id, id, aud, role, phone, phone_confirmed_at, raw_app_meta_data,
-                        raw_user_meta_data, created_at, updated_at)
+                        raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token,
+                        email_change, email_change_token_new, email_change_token_current, phone_change,
+                        phone_change_token, reauthentication_token)
 values
   ('00000000-0000-0000-0000-000000000000', 'e2e00000-0000-4000-8000-000000000901', 'authenticated', 'authenticated',
-   '919000000901', now(), '{"provider":"phone","providers":["phone"]}', '{"full_name":"E2E Admin"}', now(), now()),
+   '919000000901', now(), '{"provider":"phone","providers":["phone"]}', '{"full_name":"E2E Admin"}', now(), now(), '', '', '', '', '', '', '', ''),
   ('00000000-0000-0000-0000-000000000000', 'e2e00000-0000-4000-8000-000000000902', 'authenticated', 'authenticated',
-   '919000000902', now(), '{"provider":"phone","providers":["phone"]}', '{"full_name":"Owner Admin"}', now(), now())
+   '919000000902', now(), '{"provider":"phone","providers":["phone"]}', '{"full_name":"Owner Admin"}', now(), now(), '', '', '', '', '', '', '', '')
 on conflict (id) do nothing;
 insert into public.profiles (id, full_name, role_customer, role_provider)
 values ('e2e00000-0000-4000-8000-000000000901', 'E2E Admin', true, false),
