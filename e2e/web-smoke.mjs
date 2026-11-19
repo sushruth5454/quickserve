@@ -887,18 +887,36 @@ await step('new-pro-role', async () => {
   }
   await optional('name', () => page.getByLabel('Your name').first().fill('Kiran Test Pro', { timeout: 3000 }));
   await page.getByLabel(/^I provide services\./).first().click();
+  const profileUpdateResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/rest/v1/profiles',
+  );
   const providerResponsePromise = page.waitForResponse((response) =>
     response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_my_provider'),
-  );
-  await page.getByText('Continue', { exact: true }).click();
-  const providerResponse = await providerResponsePromise;
+  ).then((response) => ({ response }), (error) => ({ error: String(error?.message ?? error) }));
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  const profileUpdateResponse = await profileUpdateResponsePromise;
+  console.log(`  Role profile update: PATCH /rest/v1/profiles -> ${profileUpdateResponse.status()}`);
+  if (!profileUpdateResponse.ok()) {
+    throw new Error(`role profile update failed (${profileUpdateResponse.status()}): ${await profileUpdateResponse.text()}`);
+  }
+  const providerResponseResult = await providerResponsePromise;
+  if (!providerResponseResult.response) {
+    const roleScreenVisible = await page.getByText('Welcome to QuickServe', { exact: true }).isVisible().catch(() => false);
+    const continueVisible = await page.getByRole('button', { name: 'Continue', exact: true }).isVisible().catch(() => false);
+    throw new Error(
+      `POST /rest/v1/rpc/get_my_provider had no response after profile PATCH ${profileUpdateResponse.status()}; route=${new URL(page.url()).pathname}, roleScreen=${roleScreenVisible}, continue=${continueVisible}, wait=${providerResponseResult.error}`,
+    );
+  }
+  const providerResponse = providerResponseResult.response;
   if (!providerResponse.ok()) {
     throw new Error(`get_my_provider failed (${providerResponse.status()}): ${await providerResponse.text()}`);
   }
   const provider = await providerResponse.json();
   newProReturningProvider = provider !== null;
+  console.log(
+    `  ${providerResponse.request().method()} ${new URL(providerResponse.url()).pathname} -> ${providerResponse.status()}; providerExists=${newProReturningProvider}`,
+  );
   if (newProReturningProvider) {
-    console.log('  Returning provider confirmed by get_my_provider; onboarding form steps will be skipped.');
     return;
   }
   await visible('Tell customers about you');
