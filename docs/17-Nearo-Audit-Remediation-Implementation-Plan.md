@@ -362,7 +362,7 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | F7 | G2 | not started; blocked by F2; tax wording remains placeholder-only until review | — | — | 0079 | — |
 | F8 | G2 | not started; TEST mode only; awaits H3 and shared-file sequence F6 → S2 → F8; X2 no longer blocks it; use existing Razorpay TEST keys only, never live keys | — | — | — | — |
 | S1 | G2 | migration 0072 merged to main at `0a0b0af`; batch CI `44489521830` green; main deploy `44507015621` stopped at H2a SQL test before migration apply; retry pending H2a fix | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | 44474185719 (lane CI green); 44489521830 (batch lane CI green); 44507015621 (deploy failure) | 0072 | 0a0b0af |
-| S2 | G2 | non-webhook scope committed locally at `6df115c`; remote still `17b89af`; holding push until shared H2a CI fix; webhook payment.failed route remains locked behind green F6 | da77e068-440b-4057-9eb9-1e596efd6dfb | 44496578028 (old partial lane CI only); new lane CI pending | 0080 | — |
+| S2 | G2 | non-webhook scope pushed at `6df115c`; lane CI `44509604563` failed only at shared H2a fixture crash; revalidate after H2a fix; webhook payment.failed route remains locked behind green F6 | da77e068-440b-4057-9eb9-1e596efd6dfb | 44496578028 (old partial lane CI); 44509604563 (H2a-only failure) | 0080 | — |
 | C1 | G2 | not started; depends on C2, F2, F4, B1 and D2; C1 redefines shared completion/payment-default functions only after F2/F4 | — | — | 0082 | — |
 | C2 | G2 | not started; owns WS5-T02/T07 deadline path; blocked by F2, F4 and D2; lower-model review required | — | — | 0081 | — |
 | H3 | G2 | not started; blocked by F4, T1/H2b E2E sequence, and booking-detail order after C1/B2/B6 | — | — | 0083 | — |
