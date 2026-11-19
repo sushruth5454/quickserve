@@ -127,6 +127,11 @@ async function createFixture(index, archetype = 'inspect_quote') {
       array['at_customer']::text[], 0, 365, false, '{}'::text[]
     ) returning id`, [`f7-fees-${index}`, `F7 fee category ${index}`, archetype])).id;
   await db.query(`
+    update public.app_config
+       set value = coalesce(value, '{}'::jsonb) || jsonb_build_object($1::text, true::boolean)
+     where key = 'archetype_flags'
+  `, [archetype]);
+  await db.query(`
     insert into public.category_cities (category_id, city, live, launched_at)
     values ($1::uuid, $2::text, true, now())`, [categoryId, city]);
   const serviceId = (await one(`
@@ -141,6 +146,11 @@ async function createFixture(index, archetype = 'inspect_quote') {
     insert into public.addresses (user_id, label, line1, city, lat, lng)
     values ($1::uuid, 'Home', 'F7 test address', $2::text, 16.50, 80.60) returning id`,
   [customer, city])).id;
+  const bookable = await one(`
+    select public._is_bookable($1::uuid, $2::uuid, $3::text, $4::text, null::tstzrange) as is_bookable
+  `, [categoryId, provider, city, archetype]);
+  ok(bookable.is_bookable === true,
+    `F7 fixture category/city is bookable: ${JSON.stringify({ index, archetype, city, is_bookable: bookable.is_bookable })}`);
   return { customer, provider, admin, city, categoryId, serviceId, addressId };
 }
 
