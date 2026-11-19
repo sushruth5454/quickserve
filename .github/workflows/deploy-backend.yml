@@ -422,6 +422,7 @@ jobs:
              ("0082", "0082_c1_creator_delivery_safety.sql"),
              ("0083", "0083_h3_home_booking_safety.sql"),
              ("0084", "0084_b2_receipts.sql"),
+             ("0085", "0085_b4_provider_statement.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

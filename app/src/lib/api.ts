@@ -92,6 +92,7 @@ export const {
   addRateCardItem,
   getProviderJobs,
   listMyPayouts,
+  getProviderStatement,
   listMessages,
   sendMessage,
   subscribeToMessages,
