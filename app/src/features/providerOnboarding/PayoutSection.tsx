@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { Badge, Button, Card, InlineAlert, Input, Screen, Text, useToast } from '../../components/ui';
 import { supportContact } from '../../lib/config';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { onboardingApi, type PayoutAccount, type PayoutFieldErrors, type PayoutForm } from '../../lib/onboarding';
 import { requirementField } from '../../lib/onboarding/copy';
 import { validatePayoutForm } from '../../lib/onboarding/validation';
+import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../theme';
 import { Intro, SectionFooter, type SectionProps } from './parts';
 
@@ -21,24 +23,72 @@ export function payoutView(p: PayoutAccount | null, kyc: string | undefined): Vi
   return 'pending';
 }
 
-const EMPTY: PayoutForm = { legal_name: '', pan: '', email: '', account_number: '', confirm_account_number: '', ifsc: '' };
+const EMPTY: PayoutForm = {
+  account_type: 'individual',
+  legal_name: '',
+  pan: '',
+  gstin: '',
+  email: '',
+  account_number: '',
+  confirm_account_number: '',
+  ifsc: '',
+};
 
 export function PayoutSection({ data, reload, header, mode, onDone, onBack }: SectionProps) {
   const t = useTheme();
   const toast = useToast();
+  const featureFlags = useAppFeatureFlags();
+  const businessIdentityEnabled = featureFlags.isOn('business_payout_identity');
   const payout = data.state.payout;
   const view = payoutView(payout, data.state.provider?.kyc_status);
   const [rail, setRail] = useState<'route' | 'payouts'>(payout?.rail ?? 'payouts');
-  const [form, setForm] = useState<PayoutForm>({ ...EMPTY, legal_name: payout?.beneficiary_name ?? data.state.profile?.full_name ?? '' });
+  const [form, setForm] = useState<PayoutForm>({
+    ...EMPTY,
+    account_type: payout?.account_type ?? 'individual',
+    legal_name: payout?.beneficiary_name ?? data.state.profile?.full_name ?? '',
+    gstin: payout?.gstin ?? '',
+    address: payout?.registered_address ?? undefined,
+  });
   const [errors, setErrors] = useState<PayoutFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<'submit' | 'refresh' | null>(null);
   const [editing, setEditing] = useState(view === 'none' || view === 'attention');
+  const existingBusinessReadOnly = payout?.account_type === 'business' && !businessIdentityEnabled;
+  const showEditing = editing && !existingBusinessReadOnly;
 
   useEffect(() => {
     onboardingApi.payoutRail().then(setRail).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!alive) return;
+      let address = payout?.registered_address ?? undefined;
+      if (!address) {
+        const { data: defaultAddress } = await supabase.from('addresses')
+          .select('line1, city')
+          .eq('is_default', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (defaultAddress) {
+          address = { street: defaultAddress.line1, city: defaultAddress.city, state: '', postal_code: '' };
+        }
+      }
+      if (!alive) return;
+      setForm((current) => ({
+        ...current,
+        email: current.email || authData.user?.email || '',
+        address: current.address ?? address,
+      }));
+    })().catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [payout?.registered_address]);
 
   useEffect(() => {
     // Gateway requirements (needs_clarification) → highlight the matching fields.
@@ -57,8 +107,10 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
   const submit = async () => {
     const clean: PayoutForm = {
       ...form,
+      account_type: businessIdentityEnabled ? form.account_type : 'individual',
       legal_name: form.legal_name.trim(),
       pan: form.pan.trim().toUpperCase(),
+      gstin: form.gstin.trim().toUpperCase(),
       ifsc: form.ifsc.trim().toUpperCase(),
       email: form.email.trim(),
       account_number: form.account_number.replace(/\s/g, ''),
@@ -78,7 +130,14 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
         return;
       }
       // Never keep bank details in memory longer than needed.
-      setForm({ ...EMPTY, legal_name: clean.legal_name });
+      setForm({
+        ...EMPTY,
+        account_type: clean.account_type,
+        legal_name: clean.legal_name,
+        gstin: clean.gstin,
+        email: clean.email,
+        address: clean.address,
+      });
       setEditing(false);
       if (res.state === 'unavailable') setNotice(res.message ?? "Payouts setup temporarily unavailable — we'll notify you.");
       else toast({ message: 'Details submitted for verification', tone: 'success' });
@@ -124,20 +183,69 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
       <InlineAlert message={error} />
       {notice ? <InlineAlert tone="info" title="Payouts setup temporarily unavailable" message={notice} /> : null}
 
-      <StatusCard view={view} payout={payout} reason={data.state.provider?.kyc_reason ?? null} onRefresh={() => void refresh()} refreshing={busy === 'refresh'} onEdit={() => setEditing(true)} editing={editing} />
+      <StatusCard
+        view={view}
+        payout={payout}
+        reason={data.state.provider?.kyc_reason ?? null}
+        onRefresh={() => void refresh()}
+        refreshing={busy === 'refresh'}
+        onEdit={() => setEditing(true)}
+        editing={showEditing}
+        allowEdit={!existingBusinessReadOnly}
+      />
 
-      {editing ? (
+      {showEditing ? (
         <Card gap={t.spacing.lg}>
+          {businessIdentityEnabled ? (
+            <View style={{ gap: t.spacing.sm }}>
+              <Text variant="calloutStrong">Account type</Text>
+              <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                <Button
+                  title="Individual"
+                  size="sm"
+                  variant={form.account_type === 'individual' ? 'primary' : 'outline'}
+                  onPress={() => setForm((current) => ({ ...current, account_type: 'individual', gstin: '' }))}
+                />
+                <Button
+                  title="Business"
+                  size="sm"
+                  variant={form.account_type === 'business' ? 'primary' : 'outline'}
+                  onPress={() => set('account_type', 'business')}
+                />
+              </View>
+            </View>
+          ) : null}
           <Input
-            label="Name as on PAN / bank account"
+            label={form.account_type === 'business' ? 'Registered business name' : 'Name as on PAN / bank account'}
             value={form.legal_name}
             onChangeText={(v) => set('legal_name', v)}
             error={errors.legal_name}
-            autoCapitalize="characters"
+            autoCapitalize={form.account_type === 'business' ? 'words' : 'characters'}
             maxLength={100}
-            helper="Must match your bank account name"
+            helper={form.account_type === 'business' ? 'Use the legal name registered for this account.' : 'Must match your bank account name'}
           />
-          <Input label="PAN" value={form.pan} onChangeText={(v) => set('pan', v.toUpperCase())} error={errors.pan} autoCapitalize="characters" maxLength={10} placeholder="ABCDE1234F" autoComplete="off" />
+          <Input
+            label={form.account_type === 'business' ? 'Business PAN' : 'PAN'}
+            value={form.pan}
+            onChangeText={(v) => set('pan', v.toUpperCase())}
+            error={errors.pan}
+            autoCapitalize="characters"
+            maxLength={10}
+            placeholder="ABCDE1234F"
+            autoComplete="off"
+          />
+          {businessIdentityEnabled && form.account_type === 'business' ? (
+            <Input
+              label="GSTIN (optional)"
+              value={form.gstin}
+              onChangeText={(v) => set('gstin', v.toUpperCase())}
+              error={errors.gstin}
+              autoCapitalize="characters"
+              maxLength={15}
+              placeholder="29ABCDE1234F1Z5"
+              autoComplete="off"
+            />
+          ) : null}
           <Input label="Email" value={form.email} onChangeText={(v) => set('email', v)} error={errors.email} keyboardType="email-address" autoCapitalize="none" autoComplete="email" maxLength={120} />
           <Input
             label="Bank account number"
@@ -155,6 +263,7 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
             onChangeText={(v) => set('confirm_account_number', v.replace(/[^\d]/g, ''))}
             error={errors.confirm_account_number}
             keyboardType="number-pad"
+            secureTextEntry
             maxLength={18}
             autoComplete="off"
           />
@@ -172,7 +281,7 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
           <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start' }}>
             <Ionicons name="lock-closed-outline" size={16} color={t.colors.muted} style={{ marginTop: 2 }} />
             <Text variant="footnote" color="muted" style={{ flex: 1 }}>
-              Your PAN and full account number go straight to Razorpay and are not stored by QuickServe. We keep only the last 4 digits and IFSC to show you where payouts go.
+              Your PAN and full account number are sent to Razorpay and not stored here. This payout profile stores your name, email, optional GSTIN and submitted address; it keeps only the last 4 account digits and IFSC.
             </Text>
           </View>
           <Button title={view === 'none' ? 'Verify & save' : 'Resubmit details'} size="lg" onPress={() => void submit()} loading={busy === 'submit'} />
@@ -202,6 +311,7 @@ function StatusCard(props: {
   reason: string | null;
   refreshing: boolean;
   editing: boolean;
+  allowEdit: boolean;
   onRefresh: () => void;
   onEdit: () => void;
 }) {
@@ -234,13 +344,18 @@ function StatusCard(props: {
           {payout.beneficiary_name}
         </Text>
       ) : null}
+      {payout?.account_type === 'business' ? (
+        <Text variant="footnote" color="muted">
+          Business account{payout.gstin ? ` · GSTIN ${payout.gstin}` : ''}
+        </Text>
+      ) : null}
       <Text variant="footnote" color="textSecondary">
         {m.body}
       </Text>
       <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
         {view === 'pending' ? <Button title="Check status" size="sm" variant="outline" onPress={props.onRefresh} loading={props.refreshing} /> : null}
-        {!props.editing && view === 'unavailable' ? <Button title="Try again" size="sm" variant="outline" onPress={props.onEdit} /> : null}
-        {!props.editing && view !== 'unavailable' && view !== 'suspended' ? <Button title="Change account" size="sm" variant="ghost" onPress={props.onEdit} /> : null}
+        {!props.editing && props.allowEdit && view === 'unavailable' ? <Button title="Try again" size="sm" variant="outline" onPress={props.onEdit} /> : null}
+        {!props.editing && props.allowEdit && view !== 'unavailable' && view !== 'suspended' ? <Button title="Change account" size="sm" variant="ghost" onPress={props.onEdit} /> : null}
       </View>
     </Card>
   );

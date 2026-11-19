@@ -395,7 +395,19 @@ export const demoOnboardingApi: OnboardingApi = {
     if (Object.keys(fields).length) return { rail: 'payouts', state: 'not_started', error: 'Please fix the highlighted fields.', fields };
     const { p, e } = requireProvider();
     const acc = form.account_number.replace(/\s+/g, '');
-    e.payout = { rail: 'payouts', activation_status: 'under_review', beneficiary_name: form.legal_name.trim(), bank_last4: acc.slice(-4), ifsc: form.ifsc.toUpperCase(), last_error: null, requirements: [], fund_account_id: 'fa_demo' };
+    e.payout = {
+      rail: 'payouts',
+      activation_status: 'under_review',
+      beneficiary_name: form.legal_name.trim(),
+      account_type: form.account_type,
+      gstin: form.gstin || null,
+      registered_address: form.address ?? null,
+      bank_last4: acc.slice(-4),
+      ifsc: form.ifsc.toUpperCase(),
+      last_error: null,
+      requirements: [],
+      fund_account_id: 'fa_demo',
+    };
     p.kyc_status = 'under_review';
     setTimeout(() => {
       if (e.payout) e.payout.activation_status = 'activated';

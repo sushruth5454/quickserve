@@ -16,6 +16,7 @@ import {
 } from "../_shared/payout-rail.ts";
 import {
   canManagePayoutAccount,
+  canSubmitBusinessPayoutAccount,
   canSubmitPayoutAccount,
   friendlyGatewayError,
   maskAccount,
@@ -426,6 +427,26 @@ Deno.test("venue-owner payout submit requires both sports flags while provider e
   assert(!canSubmitPayoutAccount(false, false, { sports: true, sports_online_payments: true }));
 });
 
+Deno.test("business payout identity fails closed and respects venue parent switches", () => {
+  assert(canSubmitBusinessPayoutAccount(true, false, { business_payout_identity: true }));
+  assert(!canSubmitBusinessPayoutAccount(true, false, { business_payout_identity: false }));
+  assert(canSubmitBusinessPayoutAccount(false, true, {
+    business_payout_identity: true,
+    sports: true,
+    sports_online_payments: true,
+  }));
+  assert(!canSubmitBusinessPayoutAccount(false, true, {
+    business_payout_identity: true,
+    sports: false,
+    sports_online_payments: true,
+  }));
+  assert(!canSubmitBusinessPayoutAccount(false, false, {
+    business_payout_identity: true,
+    sports: true,
+    sports_online_payments: true,
+  }));
+});
+
 Deno.test("parseSubmit: validates PAN (individual), IFSC, account confirmation, email; address only on route", () => {
   const ok = parseSubmit(
     { legal_name: " Ravi  Kumar ", pan: "abcpk1234f", email: "Ravi@Example.com", account_number: "1234 5678 9012", confirm_account_number: "123456789012", ifsc: "hdfc0001234" },
@@ -454,4 +475,55 @@ Deno.test("parseSubmit: validates PAN (individual), IFSC, account confirmation, 
   assertEquals(maskAccount("123456789012"), "9012");
   assert(friendlyGatewayError("settlements.ifsc_code", "Invalid IFSC Code").includes("IFSC"));
   assert(!friendlyGatewayError(null, "Invalid PAN ABCPK1234F").includes("ABCPK1234F"));
+});
+
+Deno.test("parseSubmit: business PAN requires business type and matching optional GSTIN", () => {
+  const business = parseSubmit(
+    {
+      account_type: "business",
+      legal_name: "Acme Services Pvt Ltd",
+      pan: "aaacc1234c",
+      gstin: "29aaacc1234c1z5",
+      email: "billing@example.in",
+      account_number: "123456789012",
+      confirm_account_number: "123456789012",
+      ifsc: "hdfc0001234",
+    },
+    { providerId: "p", phone: "+919000000101", rail: "payouts" },
+  );
+  assert(business.ok);
+  if (business.ok) {
+    assertEquals(business.input.accountType, "business");
+    assertEquals(business.input.pan, "AAACC1234C");
+    assertEquals(business.input.gstin, "29AAACC1234C1Z5");
+  }
+
+  const individual = parseSubmit(
+    {
+      account_type: "individual",
+      legal_name: "Acme Services Pvt Ltd",
+      pan: "AAACC1234C",
+      email: "billing@example.in",
+      account_number: "123456789012",
+      confirm_account_number: "123456789012",
+      ifsc: "HDFC0001234",
+    },
+    { providerId: "p", phone: "+919000000101", rail: "payouts" },
+  );
+  assert(!individual.ok && individual.errors.pan !== undefined);
+
+  const mismatchedGstin = parseSubmit(
+    {
+      account_type: "business",
+      legal_name: "Acme Services Pvt Ltd",
+      pan: "AAACC1234C",
+      gstin: "29ABBCD1234E1Z5",
+      email: "billing@example.in",
+      account_number: "123456789012",
+      confirm_account_number: "123456789012",
+      ifsc: "HDFC0001234",
+    },
+    { providerId: "p", phone: "+919000000101", rail: "payouts" },
+  );
+  assert(!mismatchedGstin.ok && mismatchedGstin.errors.gstin !== undefined);
 });

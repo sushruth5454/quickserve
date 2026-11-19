@@ -21,6 +21,7 @@ import {
 } from "../_shared/payout-beneficiary.ts";
 import {
   canManagePayoutAccount,
+  canSubmitBusinessPayoutAccount,
   canSubmitPayoutAccount,
   friendlyGatewayError,
   maskAccount,
@@ -31,6 +32,13 @@ import {
 const UNAVAILABLE = {
   state: "unavailable",
   message: "Payouts setup is temporarily unavailable. Your profile is saved and we'll notify you when you can finish this step.",
+};
+
+const F7_PAYOUT_ACCOUNT_COLUMNS = `${PAYOUT_ACCOUNT_COLUMNS}, account_type, gstin, registered_address`;
+type PayoutAccountWithBusinessIdentity = PayoutAccountRow & {
+  account_type: "individual" | "business";
+  gstin: string | null;
+  registered_address: { street: string; city: string; state: string; postal_code: string } | null;
 };
 
 Deno.serve(async (req) => {
@@ -56,8 +64,8 @@ Deno.serve(async (req) => {
       return json({ error: "Create a provider profile or verify a sports venue first." }, 400);
     }
 
-    const { data: existingRaw } = await admin.from("provider_payout_accounts").select(PAYOUT_ACCOUNT_COLUMNS).eq("provider_id", uid).maybeSingle();
-    const existing = existingRaw as PayoutAccountRow | null;
+    const { data: existingRaw } = await admin.from("provider_payout_accounts").select(F7_PAYOUT_ACCOUNT_COLUMNS).eq("provider_id", uid).maybeSingle();
+    const existing = existingRaw as PayoutAccountWithBusinessIdentity | null;
     const hasGatewayIds = !!(existing?.razorpay_account_id || existing?.contact_id || existing?.fund_account_id);
     // In-flight beneficiaries stay on the rail they started on; new ones use the configured rail.
     const rail: RailName = hasGatewayIds && existing ? existing.rail : await activeRail(admin);
@@ -80,11 +88,15 @@ Deno.serve(async (req) => {
     }
 
     if (action !== "submit") return json({ error: "unknown action" }, 400);
-    if (!isProvider) {
+    const accountType = body.account_type === "business" ? "business" : "individual";
+    if (!isProvider || accountType === "business") {
       const { data: features, error: featureError } = await admin.rpc("get_app_features");
-      if (featureError) return json({ error: "sports payout setup availability could not be checked" }, 503);
-      if (!canSubmitPayoutAccount(isProvider, !!venue, features)) {
+      if (featureError) return json({ error: "payout setup availability could not be checked" }, 503);
+      if (!isProvider && !canSubmitPayoutAccount(false, !!venue, features)) {
         return json({ error: "Sports online payments are turned off right now." }, 403);
+      }
+      if (accountType === "business" && !canSubmitBusinessPayoutAccount(isProvider, !!venue, features)) {
+        return json({ error: "Business payout details are turned off right now." }, 403);
       }
     }
 
@@ -100,6 +112,16 @@ Deno.serve(async (req) => {
         provider_id: uid,
         rail,
         beneficiary_name: input.legalName,
+        account_type: input.accountType,
+        gstin: input.gstin,
+        registered_address: input.address
+          ? {
+            street: input.address.street,
+            city: input.address.city,
+            state: input.address.state,
+            postal_code: input.address.postalCode,
+          }
+          : existing?.registered_address ?? null,
         bank_last4: maskAccount(input.accountNumber),
         ifsc: input.ifsc,
         email: input.email,

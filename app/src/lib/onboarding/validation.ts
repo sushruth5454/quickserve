@@ -3,8 +3,10 @@ import { BIO_MAX, BIO_MIN } from './copy';
 import type { PayoutFieldErrors, PayoutForm, ProfileSchema } from './types';
 
 export const PAN_RE = /^[A-Z]{3}P[A-Z][0-9]{4}[A-Z]$/;
+export const BUSINESS_PAN_RE = /^[A-Z]{3}[CFHATBLJG][A-Z][0-9]{4}[A-Z]$/;
 export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 export const ACCOUNT_RE = /^[0-9]{9,18}$/;
+const GSTIN_RE = /^(0[1-9]|[12][0-9]|3[0-8]|97)([A-Z]{5}[0-9]{4}[A-Z])[1-9A-Z]Z[0-9A-Z]$/;
 
 export interface BasicsErrors {
   fullName?: string;
@@ -73,8 +75,23 @@ export function validateProfileAttributes(schema: ProfileSchema, attributes: Rec
 export function validatePayoutForm(f: PayoutForm, rail: 'route' | 'payouts'): PayoutFieldErrors {
   const e: PayoutFieldErrors = {};
   const name = f.legal_name.trim().replace(/\s+/g, ' ');
-  if (!/^[A-Za-z][A-Za-z .'-]{3,79}$/.test(name)) e.legal_name = 'Enter your full name exactly as on your PAN card.';
-  if (!PAN_RE.test(f.pan.trim().toUpperCase())) e.pan = 'Enter a valid individual PAN, e.g. ABCPE1234F (4th letter is P).';
+  const pan = f.pan.trim().toUpperCase();
+  const gstin = f.gstin.trim().toUpperCase();
+  if (f.account_type === 'business') {
+    if (!/^[A-Za-z0-9][A-Za-z0-9 &.,'()/-]{2,99}$/.test(name)) {
+      e.legal_name = 'Enter the registered business name.';
+    }
+    if (!BUSINESS_PAN_RE.test(pan)) e.pan = 'Enter a valid business PAN.';
+    if (gstin && (!GSTIN_RE.test(gstin) || gstin.slice(2, 12) !== pan)) {
+      e.gstin = 'Check this GSTIN and PAN combination.';
+    }
+  } else if (f.account_type === 'individual') {
+    if (!/^[A-Za-z][A-Za-z .'-]{3,79}$/.test(name)) e.legal_name = 'Enter your full name exactly as on your PAN card.';
+    if (!PAN_RE.test(pan)) e.pan = 'Enter a valid individual PAN, e.g. ABCPE1234F (4th letter is P).';
+    if (gstin) e.gstin = 'GSTIN is available for business accounts only.';
+  } else {
+    e.account_type = 'Choose an account type.';
+  }
   if (!/^[^\s@]{1,64}@[^\s@]{1,68}\.[^\s@]{2,}$/.test(f.email.trim())) e.email = 'Enter a valid email address.';
   const acc = f.account_number.replace(/\s+/g, '');
   if (!ACCOUNT_RE.test(acc)) e.account_number = 'Enter your bank account number (9 to 18 digits).';
