@@ -203,7 +203,13 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
   await step('home-recurring-plan-request', async () => {
     await go(`/recurring/new/${DEMO_IDS.timeService}?archetype=time_based&description=${encodeURIComponent(`${qaMarker} weekly home visit`)}`);
     await page.getByLabel('Instructions for the provider').fill(`${qaMarker} weekly home visit`);
+    await page.getByLabel('Visit duration in minutes').fill('60');
     await page.getByText('Mon–Sat', { exact: true }).click();
+    try {
+      await page.getByText(/Total per visit:/).waitFor();
+    } catch {
+      throw new Error(`home recurring quote did not load after selecting weekly duration: ${JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() })}`);
+    }
     const send = page.getByText(/^Send request to /).last();
     await send.waitFor({ state: 'visible' });
     await send.click();
