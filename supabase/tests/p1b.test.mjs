@@ -52,7 +52,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
 const migrationFiles = fs.readdirSync(migrationsDir)
-  .filter((file) => /^\d{4}[a-z]?_.*\.sql$/i.test(file) && Number(file.slice(0, 4)) <= 71)
+  .filter((file) => /^\d{4}[a-z]?_.*\.sql$/i.test(file) && Number(file.slice(0, 4)) <= 74)
   .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 for (const file of migrationFiles) {
   await db.exec(migration(file));
