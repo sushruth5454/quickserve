@@ -103,6 +103,21 @@ const service = (sql, params = []) => as(null, 'service_role', sql, params);
 let fixtureIndex = 0;
 let phoneIndex = 0;
 
+function requiredProfileAttributes(profileSchema) {
+  const schema = typeof profileSchema === 'string' ? JSON.parse(profileSchema) : profileSchema;
+  return Object.fromEntries((schema.required ?? []).map((key) => {
+    const property = schema.properties?.[key] ?? {};
+    if (property.type === 'array') {
+      const item = property.items ?? {};
+      return [key, [item.enum?.[0] ?? 'fixture']];
+    }
+    if (property.type === 'string') return [key, property.enum?.[0] ?? 'fixture'];
+    if (property.type === 'integer' || property.type === 'number') return [key, property.minimum ?? 1];
+    if (property.type === 'boolean') return [key, false];
+    return [key, {}];
+  }));
+}
+
 async function createDeliveredBooking({
   acceptanceHours = 72,
   elapsedHours = 48,
@@ -131,21 +146,26 @@ async function createDeliveredBooking({
      )`,
     [provider, `c1_acc_${fixtureIndex}`],
   );
-  const { id: categoryId } = await one(
-    `select id from public.categories
+  const category = await one(
+    `select id, profile_schema from public.categories
       where archetype = 'proposal' and active and not restricted
       order by slug limit 1`,
   );
-  if (!categoryId) throw new Error('no active proposal category is available');
+  if (!category) throw new Error('no active proposal category is available');
+  const categoryId = category.id;
+  const attributes = {
+    ...requiredProfileAttributes(category.profile_schema),
+    techniques: ['hd'],
+  };
   await db.query(
     `update public.categories set deliverable_acceptance_hours = $1::int where id = $2::uuid`,
     [acceptanceHours, categoryId],
   );
   const { id: serviceId } = await one(
     `insert into public.provider_services (
-       provider_id, category_id, skill_level, visit_fee, labour_rate, active
-     ) values ($1::uuid, $2::uuid, 'expert', 0, 1, true) returning id`,
-    [provider, categoryId],
+       provider_id, category_id, skill_level, visit_fee, labour_rate, active, attributes
+     ) values ($1::uuid, $2::uuid, 'expert', 0, 1, true, $3::jsonb) returning id`,
+    [provider, categoryId, JSON.stringify(attributes)],
   );
   const { id: addressId } = await one(
     `insert into public.addresses (user_id, label, line1, city, lat, lng)
@@ -294,7 +314,7 @@ await scenario('request_completion marks the remaining milestone due and notifie
     'completion request notifies the customer once', notification);
 });
 
-await scenario('request_completion payment default is available after its reminded milestone ages 48 hours', async () => {
+await scenario('request_completion without submitted delivery cannot use the creator delivery-default path', async () => {
   const fixture = await createDeliveredBooking({
     elapsedHours: 0,
     scheduleStatus: 'upcoming',
@@ -305,21 +325,20 @@ await scenario('request_completion payment default is available after its remind
   await as(fixture.provider, 'authenticated',
     `select public.request_completion($1::uuid)`, [fixture.bookingId]);
   await addPaidAdvanceAndPolicy(fixture, 49);
-  await as(fixture.provider, 'authenticated', `
+  const error = await fails(() => as(fixture.provider, 'authenticated', `
     select public.cancel_proposal_payment_default($1::uuid)
-  `, [fixture.bookingId]);
+  `, [fixture.bookingId]));
   const result = await one(`
-    select b.status::text as status, b.cancellation_outcome ->> 'reason' as reason,
-           p.gross, p.commission, p.gst_on_commission, p.amount
+    select b.status::text as status, count(p.id)::int as payout_count
       from public.bookings b
       left join public.payouts p on p.booking_id = b.id
      where b.id = $1::uuid
+     group by b.id
   `, [fixture.bookingId]);
-  check(result.status === 'cancelled'
-    && result.reason === 'customer_payment_default'
-    && result.gross === 6000 && result.commission === 480
-    && result.gst_on_commission === 86 && result.amount === 5434,
-  'request_completion balance default closes with exact paid-principal paise', result);
+  check(/proposal is not active/i.test(error ?? '')
+    && result.status === 'completion_requested'
+    && result.payout_count === 0,
+  'a non-delivery completion cannot use the post-delivery default action', { error, result });
 });
 
 await scenario('submit_delivery marks the final milestone reminded and queues its due notification', async () => {
@@ -380,7 +399,10 @@ await scenario('provider can settle an overdue delivery default for exact paid-p
     select b.status::text as status,
            b.cancellation_outcome ->> 'reason' as reason,
            (b.cancellation_outcome ->> 'provider_compensation')::int as provider_compensation,
-           p.gross, p.commission, p.gst_on_commission, p.amount, p.status::text as payout_status
+           p.gross, p.commission, p.gst_on_commission, p.amount, p.status::text as payout_status,
+           extract(epoch from (
+             p.release_after - (b.cancellation_outcome ->> 'evaluated_at')::timestamptz
+           ))::int as release_seconds
       from public.bookings b
       left join public.payouts p on p.booking_id = b.id
      where b.id = $1::uuid
@@ -395,7 +417,8 @@ await scenario('provider can settle an overdue delivery default for exact paid-p
     && result.commission === 480
     && result.gst_on_commission === 86
     && result.amount === 5434
-    && result.payout_status === 'demo',
+    && result.payout_status === 'demo'
+    && result.release_seconds === 604800,
   'provider default closes delivery review and pays the exact net paid principal', actual);
 });
 

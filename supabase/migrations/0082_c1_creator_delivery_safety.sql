@@ -309,6 +309,7 @@ declare
   v_platform int := 0;
   v_prior_refunds int;
   v_principal int;
+  v_dispute_hours int;
   v_creator_payment_default boolean := false;
 begin
   b := public._lock_booking(p_booking_id);
@@ -378,6 +379,10 @@ begin
       join public.payments pay on pay.id = r.payment_id
      where pay.booking_id = b.id;
     v_principal := greatest(v_principal - least(v_prior_refunds, v_principal), 0);
+    select coalesce(nullif(value ->> 'dispute_hours', '')::int, 168)
+      into v_dispute_hours
+      from public.app_config
+     where key = 'proposal';
     v_outcome := jsonb_build_object(
       'policy_key', b.cancellation_snapshot ->> 'key',
       'policy_version', coalesce((b.cancellation_snapshot ->> 'version')::int, 1),
@@ -393,7 +398,7 @@ begin
       'refund_amount', 0,
       'provider_compensation', v_principal,
       'customer_credit', 0,
-      'release_after', p_at + interval '24 hours'
+      'release_after', p_at + make_interval(hours => coalesce(v_dispute_hours, 168))
     );
   else
     v_outcome := public._cancellation_outcome(b.id, p_actor, p_reason, p_at);
@@ -507,256 +512,7 @@ begin
 end;
 $$;
 
-create or replace function public.cancel_proposal_payment_default(p_booking_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_uid uuid := public._require_uid();
-  b public.bookings := public._lock_booking(p_booking_id);
-begin
-  perform public._assert(b.provider_id = v_uid, 'only the provider can report payment default');
-  perform public._assert(
-    b.archetype = 'proposal'
-    and b.status in ('confirmed', 'in_progress', 'completion_requested'),
-    'proposal is not active'
-  );
-  perform public._assert(exists (
-    select 1
-      from public.payment_schedule ps
-     where ps.booking_id = b.id
-       and ps.status = 'due'
-       and ps.due_at <= now() - interval '48 hours'
-       and ps.reminded_at is not null
-  ), 'the milestone is not overdue past the grace period');
-  perform public._cancel_booking_by_policy(
-    b.id, 'provider', 'customer_payment_default', 'customer payment default', now()
-  );
-end;
-$$;
 
-create or replace function public._cancel_booking_by_policy(
-  p_booking_id uuid,
-  p_actor text,
-  p_reason text,
-  p_note text,
-  p_at timestamptz
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  b public.bookings;
-  v_outcome jsonb;
-  v_refunded int;
-  v_provider int;
-  v_commissionable int;
-  v_commission_bp int;
-  v_cap_paise int;
-  v_config jsonb;
-  v_paid int;
-  v_explicit_platform int;
-  v_platform int := 0;
-  v_prior_refunds int;
-  v_principal int;
-  v_creator_payment_default boolean := false;
-begin
-  b := public._lock_booking(p_booking_id);
-  perform public._assert(
-    b.status::text in (
-      'pending_payment', 'requested', 'accepted', 'confirmed', 'en_route',
-      'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress',
-      'completion_requested'
-    ) or (
-      b.archetype = 'proposal'
-      and b.status = 'delivery_pending'
-      and p_actor = 'customer'
-      and p_reason = 'provider_fault'
-      and b.delivery_due_at is not null
-      and p_at > b.delivery_due_at + interval '48 hours'
-    ),
-    'booking can no longer be cancelled'
-  );
-
-  if p_actor = 'customer'
-     and b.archetype = 'proposal'
-     and b.delivery_status in ('submitted', 'accepted') then
-    perform public._assert(false, 'delivery already submitted; raise a dispute instead');
-  end if;
-
-  if b.archetype = 'proposal'
-     and b.status = 'completion_requested'
-     and b.delivery_status = 'submitted'
-     and p_actor = 'provider'
-     and p_reason = 'customer_payment_default' then
-    perform public._assert(exists (
-      select 1
-        from public.payment_schedule ps
-       where ps.booking_id = b.id
-         and ps.status = 'due'
-         and ps.due_at <= p_at - interval '48 hours'
-         and ps.reminded_at is not null
-    ), 'the milestone is not overdue past the grace period');
-    v_creator_payment_default := true;
-  end if;
-
-  if v_creator_payment_default then
-    select coalesce(sum(pay.amount) filter (where pay.status = 'paid'), 0)::int,
-           coalesce(sum(pay.amount) filter (
-             where pay.status = 'paid' and pay.purpose::text = 'platform_fee'
-           ), 0)::int
-      into v_paid, v_explicit_platform
-      from public.payments pay
-     where pay.booking_id = b.id;
-
-    if v_explicit_platform > 0 then
-      v_platform := least(b.platform_fee, v_explicit_platform);
-    elsif b.platform_fee > 0 and b.total_amount is not null then
-      v_platform := least(
-        b.platform_fee,
-        greatest(v_paid - greatest(b.total_amount - b.platform_fee, b.visit_fee, 0), 0)
-      );
-    end if;
-    v_principal := greatest(v_paid - v_platform, 0);
-
-    select coalesce(sum(r.amount) filter (where r.status <> 'failed'), 0)::int
-      into v_prior_refunds
-      from public.refunds r
-      join public.payments pay on pay.id = r.payment_id
-     where pay.booking_id = b.id;
-    v_principal := greatest(v_principal - least(v_prior_refunds, v_principal), 0);
-    v_outcome := jsonb_build_object(
-      'policy_key', b.cancellation_snapshot ->> 'key',
-      'policy_version', coalesce((b.cancellation_snapshot ->> 'version')::int, 1),
-      'rule', 'creator_customer_payment_default',
-      'actor', p_actor,
-      'reason', p_reason,
-      'evaluated_at', p_at,
-      'service_principal_paid', v_principal,
-      'platform_fee_paid', v_platform,
-      'prior_refunds', v_prior_refunds,
-      'service_refund', 0,
-      'platform_refund', 0,
-      'refund_amount', 0,
-      'provider_compensation', v_principal,
-      'customer_credit', 0,
-      'release_after', p_at + interval '24 hours'
-    );
-  else
-    v_outcome := public._cancellation_outcome(b.id, p_actor, p_reason, p_at);
-  end if;
-
-  update public.payments
-     set status = 'failed', cancel_link_pending = true
-   where booking_id = b.id and status = 'created';
-  perform public._close_open_quotes(b.id);
-
-  v_refunded := public._refund_partial(
-    b.id, (v_outcome ->> 'refund_amount')::int, 'cancellation: ' || p_reason
-  );
-  perform public._assert(
-    v_refunded = (v_outcome ->> 'refund_amount')::int,
-    'refund exceeds refundable payments'
-  );
-
-  v_provider := (v_outcome ->> 'provider_compensation')::int;
-  if v_provider > 0 then
-    v_commissionable := v_provider;
-    if v_creator_payment_default then
-      v_commission_bp := coalesce(
-        b.commission_bp_snapshot,
-        public._booking_commission_bp(b.id, p_at)
-      );
-      select value into v_config from public.app_config where key = 'commission';
-      v_cap_paise := coalesce((v_config -> 'proposal' ->> 'cap_paise')::int, 500000);
-      if v_commission_bp > 0 then
-        v_commissionable := least(
-          v_commissionable,
-          floor(v_cap_paise::numeric * 10000 / v_commission_bp)::int
-        );
-      end if;
-    end if;
-    perform public._create_payout(
-      b.id, v_provider, v_commissionable, (v_outcome ->> 'release_after')::timestamptz
-    );
-  end if;
-
-  update public.bookings
-     set cancelled_reason = p_note,
-         refund_amount = refund_amount + v_refunded,
-         cancellation_outcome = v_outcome
-   where id = b.id;
-  perform public._set_status(b.id, 'cancelled', case when p_actor = 'customer' then b.customer_id
-                                                     when p_actor = 'provider' then b.provider_id end, p_note);
-  return v_outcome;
-end;
-$$;
-
-create or replace function public.submit_delivery(p_booking_id uuid, p_links jsonb)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_uid uuid := public._require_uid();
-  b public.bookings := public._lock_booking(p_booking_id);
-  v_link jsonb;
-  v_milestone record;
-begin
-  perform public._assert(b.provider_id = v_uid, 'only the provider can submit delivery');
-  perform public._assert(b.archetype = 'proposal' and b.status = 'delivery_pending', 'delivery is not ready to submit');
-  perform public._assert(b.delivery_status in ('pending', 'revision_requested'), 'delivery was already submitted');
-  perform public._assert(jsonb_typeof(p_links) = 'array' and jsonb_array_length(p_links) between 1 and 20,
-                         'submit 1 to 20 delivery links');
-  for v_link in select value from jsonb_array_elements(p_links)
-  loop
-    perform public._assert(
-      jsonb_typeof(v_link) = 'object'
-      and coalesce(v_link ->> 'url', '') ~ '^https://[^[:space:]]+$',
-      'every delivery item needs a full https URL'
-    );
-    perform public._assert(
-      not public._creator_contact_hint(coalesce(v_link ->> 'title', '')),
-      'Remove phone numbers, emails or payment handles from delivery titles'
-    );
-  end loop;
-  update public.bookings
-     set delivery_links = p_links, delivery_status = 'submitted', delivery_submitted_at = now(),
-         completion_requested_at = now()
-   where id = b.id;
-  for v_milestone in
-    update public.payment_schedule
-       set status = case when status = 'paid' then status else 'due' end,
-           due_at = coalesce(due_at, now()),
-           reminded_at = case when status = 'paid' then reminded_at else now() end
-     where booking_id = b.id and due_rule = 'on_delivery'
-     returning id, label, status
-  loop
-    if v_milestone.status <> 'paid' then
-      perform public._queue_notification(
-        b.customer_id,
-        'milestone_due',
-        b.id,
-        'Payment milestone due',
-        v_milestone.label || ' is ready to pay in QuickServe.',
-        jsonb_build_object('booking_id', b.id, 'schedule_id', v_milestone.id),
-        'milestone:' || v_milestone.id::text
-      );
-    end if;
-  end loop;
-  perform public._set_status(b.id, 'completion_requested', v_uid, 'deliverables submitted');
-  perform public._queue_notification(
-    b.customer_id, 'delivery_submitted', b.id, 'Your deliverables are ready',
-    'Review the delivery and pay any final milestone to complete the booking.',
-    jsonb_build_object('booking_id', b.id), 'delivery:' || b.id::text
-  );
-end;
-$$;
 
 create or replace function public.cancel_proposal_payment_default(p_booking_id uuid)
 returns void

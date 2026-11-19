@@ -219,7 +219,7 @@ export default function BookingDetailScreen() {
     !isCustomer
     && booking.archetype === 'proposal'
     && (s === 'confirmed' || s === 'in_progress' || s === 'completion_requested')
-    && canReportProposalPaymentDefault(data.paymentSchedule);
+    && canReportProposalPaymentDefault(data.paymentSchedule, s, booking.delivery_status);
   const revisionRequestEvent = data.events.slice().reverse().find(
     (event) => event.to_status === 'delivery_pending' && event.note?.startsWith('revision requested: '),
   );

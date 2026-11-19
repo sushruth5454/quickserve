@@ -3,10 +3,21 @@ import { Button, Card, ListItem, Section, Text } from '../../../components/ui';
 import { DeliverySection } from '../DeliverySection';
 import type { useTheme } from '../../../theme';
 
+jest.mock('../../../components/ui', () => ({
+  BottomSheet: 'BottomSheet',
+  Button: 'Button',
+  Card: 'Card',
+  ListItem: 'ListItem',
+  Section: 'Section',
+  Text: 'Text',
+  TextArea: 'TextArea',
+}));
+jest.mock('react-native', () => ({ View: 'View' }));
+
 const theme = {
   spacing: { sm: 8, md: 12, lg: 16 },
   radii: { sm: 4, md: 8, lg: 12 },
-} as ReturnType<typeof useTheme>;
+} as unknown as ReturnType<typeof useTheme>;
 
 describe('booking delivery section', () => {
   it('renders each delivered link and the submission time', () => {
@@ -31,8 +42,8 @@ describe('booking delivery section', () => {
       subtitle?: string;
       children?: React.ReactNode;
     }>[];
-    expect(rows.slice(0, 2).map((row) => row.props.title)).toEqual(['Final edit', 'Raw footage']);
-    expect(rows.slice(0, 2).map((row) => row.props.subtitle)).toEqual([
+    expect([rows[0]?.props.title, rows[1]?.props.title]).toEqual(['Final edit', 'Raw footage']);
+    expect([rows[0]?.props.subtitle, rows[1]?.props.subtitle]).toEqual([
       'files.example.test',
       'files.example.test',
     ]);

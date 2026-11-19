@@ -54,6 +54,8 @@ import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBoo
 import { maskPreview, type AppNotification } from '../unread';
 
 const SESSION_KEY = 'quickserve.demo.session';
+// DemoDb has no mutable app_config; mirror app_config.proposal.dispute_hours.
+const DEMO_APP_CONFIG = { proposal: { dispute_hours: 168 } };
 
 let db: DemoDb = buildSeed();
 let session: AuthSession | null = null;
@@ -274,6 +276,8 @@ function createPayout(
 }
 
 const in24h = () => new Date(Date.now() + 24 * 60 * 60 * 1000);
+const afterProposalDisputeWindow = () =>
+  new Date(Date.now() + DEMO_APP_CONFIG.proposal.dispute_hours * 60 * 60 * 1000);
 
 function finalizeCompletion(b: DemoBooking, note: string) {
   const q = db.quotes.find((x) => x.id === b.approved_quote_id);
@@ -768,7 +772,7 @@ export const demoApi: Api = {
             .reduce((refunds, refund) => refunds + refund.amount, 0), 0),
       0,
     );
-    if (paidPrincipal > 0) createPayout(booking, paidPrincipal, paidPrincipal, in24h(), 500000);
+    if (paidPrincipal > 0) createPayout(booking, paidPrincipal, paidPrincipal, afterProposalDisputeWindow(), 500000);
     booking.cancelled_reason = 'customer payment default';
     booking.status = 'cancelled';
   },

@@ -148,10 +148,12 @@ describe('booking detail hero copy', () => {
         reminded_at: new Date(now - 47 * 60 * 60 * 1000).toISOString(),
       };
 
-      expect(canReportProposalPaymentDefault([due], now)).toBe(true);
-      expect(canReportProposalPaymentDefault([early], now)).toBe(false);
-      expect(canReportProposalPaymentDefault([{ ...due, reminded_at: null }], now)).toBe(false);
-      expect(canReportProposalPaymentDefault([{ ...due, status: 'paid' }], now)).toBe(false);
+      expect(canReportProposalPaymentDefault([due], 'completion_requested', 'submitted', now)).toBe(true);
+      expect(canReportProposalPaymentDefault([early], 'completion_requested', 'submitted', now)).toBe(false);
+      expect(canReportProposalPaymentDefault([due], 'completion_requested', 'not_applicable', now)).toBe(false);
+      expect(canReportProposalPaymentDefault([{ ...due, reminded_at: null }], 'completion_requested', 'submitted', now)).toBe(false);
+      expect(canReportProposalPaymentDefault([{ ...due, status: 'paid' }], 'completion_requested', 'submitted', now)).toBe(false);
+      expect(canReportProposalPaymentDefault([due], 'in_progress', 'pending', now)).toBe(true);
     });
   });
 });

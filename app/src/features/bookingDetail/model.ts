@@ -129,8 +129,12 @@ export function heroCopy(p: {
 
 export function canReportProposalPaymentDefault(
   schedules: Pick<PaymentSchedule, 'status' | 'due_at' | 'reminded_at'>[],
+  bookingStatus: BookingStatus,
+  deliveryStatus: string | null | undefined,
   nowMs = Date.now(),
 ): boolean {
+  if (!['confirmed', 'in_progress', 'completion_requested'].includes(bookingStatus)) return false;
+  if (bookingStatus === 'completion_requested' && deliveryStatus !== 'submitted') return false;
   const graceCutoff = nowMs - 48 * 60 * 60 * 1000;
   return schedules.some((schedule) => {
     if (schedule.status !== 'due' || !schedule.reminded_at || !schedule.due_at) return false;
