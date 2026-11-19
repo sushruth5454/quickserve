@@ -30,6 +30,7 @@ import type {
   OtpResult,
   Payment,
   Payout,
+  ProviderStatementRow,
   Profile,
   Provider,
   ProviderJob,
@@ -784,8 +785,13 @@ export async function getProviderJobs(): Promise<ProviderJob[]> {
 export async function listMyPayouts(): Promise<Payout[]> {
   const uid = await requireUserId();
   return unwrap(
-    await supabase.from('payouts').select('*').eq('provider_id', uid).order('created_at', { ascending: false }),
+    await supabase.from('payouts').select('*').or(`provider_id.eq.${uid},payee_id.eq.${uid}`).order('created_at', { ascending: false }),
   );
+}
+
+export async function getProviderStatement(from: string, to: string): Promise<ProviderStatementRow[]> {
+  await requireUserId();
+  return unwrap(await supabase.rpc('get_provider_statement', { p_from: from, p_to: to }));
 }
 
 // ---------- Chat & realtime ----------

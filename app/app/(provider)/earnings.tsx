@@ -15,24 +15,15 @@ import {
   Skeleton,
   SkeletonCard,
   Text,
-  type Tone,
 } from '../../src/components/ui';
 import { getCommissionTerms, getMyProvider, listMyPayouts, type CommissionTerms } from '../../src/lib/api';
+import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { haptics } from '../../src/lib/haptics';
 import { formatINR } from '../../src/lib/money';
-import { tierProgress } from '../../src/lib/providerInsights';
-import type { Payout, PayoutStatus, Provider } from '../../src/lib/types';
+import { payoutStatusCopy, tierProgress } from '../../src/lib/providerInsights';
+import type { Payout, Provider } from '../../src/lib/types';
 import { bookingRef } from '../../src/lib/schedule';
 import { useTheme } from '../../src/theme';
-
-const statusText: Record<PayoutStatus, [string, Tone]> = {
-  pending: ['On hold', 'warning'],
-  frozen: ['Frozen · dispute', 'danger'],
-  transferred: ['Paid', 'success'],
-  failed: ['Retrying', 'danger'],
-  reversed: ['Reversed', 'neutral'],
-  partially_reversed: ['Partly reversed', 'neutral'],
-};
 
 const DAY = 24 * 60 * 60 * 1000;
 const fmtDay = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -56,8 +47,11 @@ type Period = 'week' | 'month';
 
 export default function Earnings() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const statementEnabled = flags.isOn('provider_earnings_statement');
   const [payouts, setPayouts] = useState<Payout[] | null>(null);
   const [provider, setProvider] = useState<Provider | null>(null);
+  const [providerLoaded, setProviderLoaded] = useState(false);
   const [commissionTerms, setCommissionTerms] = useState<CommissionTerms | null>(null);
   const [commissionError, setCommissionError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,6 +66,7 @@ export default function Earnings() {
       const [po, pr] = await Promise.all([listMyPayouts(), getMyProvider()]);
       setPayouts(po);
       setProvider(pr);
+      setProviderLoaded(true);
       setError(null);
       try {
         setCommissionTerms(await getCommissionTerms());
@@ -96,7 +91,8 @@ export default function Earnings() {
     const sod = startOfDay(new Date());
     const startOfWeek = new Date(sod);
     startOfWeek.setDate(startOfWeek.getDate() - ((startOfWeek.getDay() + 6) % 7));
-    const earned = list.filter((p) => p.status !== 'reversed');
+    const financial = list.filter((p) => p.status !== 'demo');
+    const earned = financial.filter((p) => p.status !== 'reversed' && p.status !== 'frozen');
     const sum = (xs: Payout[]) => xs.reduce((acc, p) => acc + p.amount, 0);
     const between = (from: Date, to: Date) => sum(earned.filter((p) => new Date(p.created_at) >= from && new Date(p.created_at) < to));
 
@@ -122,11 +118,14 @@ export default function Earnings() {
       todayIndex,
       weekTotal: sum(earned.filter((p) => new Date(p.created_at) >= startOfWeek)),
       monthTotal: month.reduce((a, b) => a + b.value, 0),
-      pending: sum(list.filter((p) => p.status === 'pending' || p.status === 'frozen' || p.status === 'failed')),
-      paid: sum(list.filter((p) => p.status === 'transferred')),
-      commission: list.reduce((acc, p) => acc + p.commission + p.gst_on_commission, 0),
-      gross: list.reduce((acc, p) => acc + p.gross, 0),
-      nextRelease: list
+      pending: sum(financial.filter((p) => p.status === 'pending')),
+      frozen: sum(financial.filter((p) => p.status === 'frozen')),
+      failed: sum(financial.filter((p) => p.status === 'failed')),
+      paid: sum(financial.filter((p) => p.status === 'transferred')),
+      commission: financial.reduce((acc, p) => acc + p.commission, 0),
+      gstOnCommission: financial.reduce((acc, p) => acc + p.gst_on_commission, 0),
+      gross: financial.reduce((acc, p) => acc + p.gross, 0),
+      nextRelease: financial
         .filter((p) => p.status === 'pending')
         .sort((a, b) => a.release_after.localeCompare(b.release_after))[0] ?? null,
     };
@@ -236,37 +235,60 @@ export default function Earnings() {
         <MiniStat label="Pending payout" value={summary.pending} loading={!payouts} />
         <MiniStat label="Paid to bank" value={summary.paid} loading={!payouts} />
       </View>
+      <View style={{ flexDirection: 'row', gap: t.spacing.md, marginTop: -t.spacing.sm }}>
+        <MiniStat label="On hold · dispute" value={summary.frozen} loading={!payouts} />
+        <MiniStat label="Payment problem" value={summary.failed} loading={!payouts} />
+      </View>
 
-      {provider ? <TierCard provider={provider} terms={commissionTerms} error={commissionError} /> : <SkeletonCard avatar={false} lines={2} />}
+      {provider ? <TierCard provider={provider} terms={commissionTerms} error={commissionError} /> : providerLoaded ? null : <SkeletonCard avatar={false} lines={2} />}
 
       <Card padding={0} gap={0}>
-        <InfoLine
-          icon="business-outline"
-          title="Payout account"
-          value={
-            provider?.razorpay_account_id && provider.kyc_status === 'verified'
-              ? 'Linked · verified'
-              : provider?.kyc_status === 'rejected'
-                ? 'Verification failed'
-                : 'Verification pending'
-          }
-          tone={provider?.razorpay_account_id && provider.kyc_status === 'verified' ? 'success' : 'warning'}
-          onPress={() => router.push('/onboarding')}
-        />
-        <Divider inset={t.spacing.lg + 32 + t.spacing.md} />
+        {provider ? (
+          <>
+            <InfoLine
+              icon="business-outline"
+              title="Payout account"
+              value={
+                provider.razorpay_account_id && provider.kyc_status === 'verified'
+                  ? 'Linked · verified'
+                  : provider.kyc_status === 'rejected'
+                    ? 'Verification failed'
+                    : 'Verification pending'
+              }
+              tone={provider.razorpay_account_id && provider.kyc_status === 'verified' ? 'success' : 'warning'}
+              onPress={() => router.push('/onboarding')}
+            />
+            <Divider inset={t.spacing.lg + 32 + t.spacing.md} />
+          </>
+        ) : null}
         <InfoLine
           icon="calendar-outline"
           title="Next payout"
           value={
             summary.nextRelease
-              ? `${formatINR(summary.nextRelease.amount)} on ${fmtWhen(summary.nextRelease.release_after)}`
+              ? `${formatINR(summary.nextRelease.amount)} · ${
+                  new Date(summary.nextRelease.release_after).getTime() > Date.now()
+                    ? `scheduled ${fmtWhen(summary.nextRelease.release_after)}`
+                    : `awaiting transfer since ${fmtWhen(summary.nextRelease.release_after)}`
+                }`
               : 'Nothing pending'
           }
         />
+        {statementEnabled ? (
+          <>
+            <Divider inset={t.spacing.lg + 32 + t.spacing.md} />
+            <InfoLine
+              icon="document-text-outline"
+              title="Monthly statement"
+              value="View payout rows"
+              onPress={() => router.push('/earnings-statement')}
+            />
+          </>
+        ) : null}
       </Card>
       <Text variant="footnote" color="muted" style={{ marginTop: -t.spacing.sm, paddingHorizontal: t.spacing.xs }}>
-        Payouts are released 24 hours after the customer confirms completion. Commission applies to labour only — parts pass
-        through at 0%. Fees so far: {formatINR(summary.commission)} on {formatINR(summary.gross)} billed.
+        Commission: {formatINR(summary.commission)} · GST on commission: {formatINR(summary.gstOnCommission)} on {formatINR(summary.gross)} billed.
+        {' '}Statutory deductions, if any, will be shown here.
       </Text>
 
       <View style={{ gap: t.spacing.md }}>
@@ -285,14 +307,20 @@ export default function Earnings() {
               </Text>
               <Card padding={0} gap={0} style={{ overflow: 'hidden' }}>
                 {g.items.map((p, i) => {
-                  const [label, tone] = statusText[p.status];
+                  const status = payoutStatusCopy(p.status);
                   return (
                     <Fragment key={p.id}>
                       {i > 0 ? <Divider inset={t.spacing.lg} /> : null}
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`Payout ${formatINR(p.amount)}, ${label}`}
-                        onPress={() => router.push({ pathname: '/booking/[id]', params: { id: p.booking_id } })}
+                        accessibilityLabel={`Payout ${formatINR(p.amount)}, ${status.label}`}
+                        onPress={() => {
+                          if (p.sports_booking_id) {
+                            router.push({ pathname: '/sports-booking/[id]', params: { id: p.sports_booking_id } });
+                          } else if (p.booking_id) {
+                            router.push({ pathname: '/booking/[id]', params: { id: p.booking_id } });
+                          }
+                        }}
                         style={({ pressed }) => ({
                           paddingHorizontal: t.spacing.lg,
                           paddingVertical: t.spacing.md,
@@ -304,17 +332,25 @@ export default function Earnings() {
                           <Text variant="bodyStrong" tabular>
                             {formatINR(p.amount)}
                           </Text>
-                          <Badge label={label} tone={tone} dot />
+                          <Badge label={status.label} tone={status.tone} dot />
                         </View>
+                        <Text variant="caption" color={p.status === 'failed' ? 'dangerText' : 'muted'}>
+                          {status.detail}
+                        </Text>
                         <Text variant="footnote" color="muted" tabular numberOfLines={1}>
-                          {`Billed ${formatINR(p.gross)} · Fees −\u00A0${formatINR(p.commission + p.gst_on_commission)} · Net ${formatINR(p.amount)}`}
+                          {`Billed ${formatINR(p.gross)} · Commission −${formatINR(p.commission)} · GST −${formatINR(p.gst_on_commission)}`}
+                        </Text>
+                        <Text variant="footnote" color="muted" tabular numberOfLines={1}>
+                          {`Net payout ${formatINR(p.amount)}`}
                         </Text>
                         <Text variant="footnote" color="muted" numberOfLines={1}>
-                          {`${bookingRef(p.booking_id)} · `}
+                          {`${bookingRef(p.sports_booking_id ?? p.booking_id ?? p.id)} · `}
                           {p.transferred_at
                             ? `Paid ${fmtWhen(p.transferred_at)}`
                             : p.status === 'pending'
-                              ? `Releases ${fmtWhen(p.release_after)}`
+                                ? new Date(p.release_after).getTime() > Date.now()
+                                  ? `Scheduled ${fmtWhen(p.release_after)}`
+                                  : 'Awaiting transfer; scheduled release time passed'
                               : `Created ${fmtWhen(p.created_at)}`}
                         </Text>
                       </Pressable>

@@ -1,6 +1,80 @@
 /** Pure provider-side derivations (commission tier progress, acceptance/completion rates). */
 import type { CommissionTerms } from './apiTypes';
-import type { BookingStatus } from './types';
+import type { BookingStatus, PayoutStatus, ProviderStatementRow } from './types';
+
+export interface ProviderStatementTotals {
+  gross: number;
+  commission: number;
+  gstOnCommission: number;
+  reversedAmount: number;
+  net: number;
+  pending: number;
+  frozen: number;
+  failed: number;
+  transferred: number;
+  reversed: number;
+  partiallyReversed: number;
+  demo: number;
+}
+
+export function summarizeProviderStatement(rows: ProviderStatementRow[]): ProviderStatementTotals {
+  return rows.reduce<ProviderStatementTotals>((totals, row) => {
+    if (row.status === 'demo') {
+      totals.demo += row.net;
+      return totals;
+    }
+    totals.gross += row.gross;
+    totals.commission += row.commission;
+    totals.gstOnCommission += row.gst_on_commission;
+    totals.reversedAmount += row.reversed_amount;
+    totals.net += row.net;
+    if (row.status === 'pending') totals.pending += row.net;
+    else if (row.status === 'frozen') totals.frozen += row.net;
+    else if (row.status === 'failed') totals.failed += row.net;
+    else if (row.status === 'transferred') totals.transferred += row.net;
+    else if (row.status === 'reversed') totals.reversed += row.net;
+    else if (row.status === 'partially_reversed') totals.partiallyReversed += row.net;
+    return totals;
+  }, {
+    gross: 0,
+    commission: 0,
+    gstOnCommission: 0,
+    reversedAmount: 0,
+    net: 0,
+    pending: 0,
+    frozen: 0,
+    failed: 0,
+    transferred: 0,
+    reversed: 0,
+    partiallyReversed: 0,
+    demo: 0,
+  });
+}
+
+export interface PayoutStatusCopy {
+  label: string;
+  detail: string;
+  tone: 'warning' | 'danger' | 'success' | 'neutral';
+}
+
+export function payoutStatusCopy(status: PayoutStatus): PayoutStatusCopy {
+  switch (status) {
+    case 'pending':
+      return { label: 'Pending', detail: 'This payout is not marked as transferred yet; its transfer may still be processing.', tone: 'warning' };
+    case 'frozen':
+      return { label: 'On hold · dispute', detail: 'This payout is on hold while the dispute is reviewed.', tone: 'danger' };
+    case 'failed':
+      return { label: 'Payment problem', detail: 'A payout transfer failed; the full payout is not confirmed as paid.', tone: 'danger' };
+    case 'transferred':
+      return { label: 'Paid', detail: 'The payout was transferred.', tone: 'success' };
+    case 'reversed':
+      return { label: 'Reversed', detail: 'This payout was reversed.', tone: 'neutral' };
+    case 'partially_reversed':
+      return { label: 'Partly reversed', detail: 'Part of this payout was reversed; see the adjustment amount.', tone: 'neutral' };
+    case 'demo':
+      return { label: 'Demo only', detail: 'This simulated payout will not be transferred to a bank.', tone: 'neutral' };
+  }
+}
 
 export interface TierProgress {
   rateBp: number | null;

@@ -31,6 +31,7 @@ import type {
   Payment,
   Provider,
   ProviderJob,
+  ProviderStatementRow,
   ProviderSearchResult,
   ProviderService,
   Quote,
@@ -52,6 +53,7 @@ import type {
 } from '../types';
 import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBooking, type DemoDb } from './seed';
 import { maskPreview, type AppNotification } from '../unread';
+import { bookingRef } from '../schedule';
 
 const SESSION_KEY = 'quickserve.demo.session';
 
@@ -253,6 +255,9 @@ function createPayout(b: DemoBooking, gross: number, commissionable: number, rel
   db.payouts.push({
     id: newId('po'),
     booking_id: b.id,
+    provider_id: b.provider_id,
+    payee_id: null,
+    sports_booking_id: null,
     gross: p.gross,
     commission: p.commission,
     gst_on_commission: p.gst,
@@ -1540,7 +1545,52 @@ export const demoApi: Api = {
   async listMyPayouts() {
     await wait();
     const me = uid();
-    return clone(db.payouts.filter((p) => db.bookings.some((b) => b.id === p.booking_id && b.provider_id === me)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    return clone(db.payouts.filter((p) =>
+      p.provider_id === me
+      || p.payee_id === me
+      || db.bookings.some((b) => b.id === p.booking_id && b.provider_id === me),
+    ).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+  },
+
+  async getProviderStatement(from: string, to: string): Promise<ProviderStatementRow[]> {
+    await wait();
+    const me = uid();
+    const fromTime = Date.parse(`${from}T00:00:00.000Z`);
+    const toTime = Date.parse(`${to}T00:00:00.000Z`);
+    assert(Number.isFinite(fromTime) && Number.isFinite(toTime) && fromTime <= toTime, 'invalid statement period');
+    const endExclusive = Date.parse(`${new Date(toTime + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}T00:00:00.000Z`);
+    return clone(db.payouts
+      .filter((p) => (
+        p.provider_id === me
+        || p.payee_id === me
+        || db.bookings.some((b) => b.id === p.booking_id && b.provider_id === me)
+      ))
+      .filter((p) => {
+        const createdAt = new Date(p.created_at).getTime();
+        return createdAt >= fromTime && createdAt < endExclusive;
+      })
+      .map((p) => {
+        const bookingId = p.booking_id ?? null;
+        const sportsBookingId = p.sports_booking_id ?? null;
+        return {
+          payout_id: p.id,
+          booking_id: bookingId,
+          sports_booking_id: sportsBookingId,
+          booking_ref: bookingRef(sportsBookingId ?? bookingId ?? p.id),
+          date: p.created_at.slice(0, 10),
+          gross: p.gross,
+          commission: p.commission,
+          gst_on_commission: p.gst_on_commission,
+          reversed_amount: p.reversed_amount ?? 0,
+          net: p.amount,
+          status: p.status,
+          release_after: p.release_after,
+          transferred_at: p.transferred_at,
+          razorpay_transfer_id: p.razorpay_transfer_id ?? null,
+          utr: p.utr ?? null,
+        };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date) || b.payout_id.localeCompare(a.payout_id)));
   },
 
   async listMessages(bookingId) {

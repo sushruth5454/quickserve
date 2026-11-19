@@ -35,7 +35,7 @@ export type PaymentPurpose =
   | 'visit_fee' | 'balance' | 'fixed' | 'advance' | 'milestone' | 'final'
   | 'platform_fee' | 'package' | 'addon' | 'session';
 export type PaymentStatus = 'created' | 'paid' | 'failed' | 'refund_pending' | 'refund_processing' | 'refunded';
-export type PayoutStatus = 'pending' | 'frozen' | 'transferred' | 'failed' | 'reversed' | 'partially_reversed';
+export type PayoutStatus = 'pending' | 'frozen' | 'transferred' | 'failed' | 'reversed' | 'partially_reversed' | 'demo';
 export type SortOption = 'recommended' | 'rating' | 'price' | 'distance' | 'experience';
 
 export interface Profile {
@@ -296,7 +296,10 @@ export interface Payment {
 
 export interface Payout {
   id: string;
-  booking_id: string;
+  booking_id: string | null;
+  provider_id?: string | null;
+  payee_id?: string | null;
+  sports_booking_id?: string | null;
   gross: number;
   commission: number;
   gst_on_commission: number;
@@ -305,6 +308,27 @@ export interface Payout {
   release_after: string;
   created_at: string;
   transferred_at: string | null;
+  reversed_amount?: number;
+  razorpay_transfer_id?: string | null;
+  utr?: string | null;
+}
+
+export interface ProviderStatementRow {
+  payout_id: string;
+  booking_id: string | null;
+  sports_booking_id: string | null;
+  booking_ref: string;
+  date: string;
+  gross: number;
+  commission: number;
+  gst_on_commission: number;
+  reversed_amount: number;
+  net: number;
+  status: PayoutStatus;
+  release_after: string;
+  transferred_at: string | null;
+  razorpay_transfer_id: string | null;
+  utr: string | null;
 }
 
 export interface Review {

@@ -8,6 +8,7 @@ import type {
   OtpResult,
   Payment,
   Payout,
+  ProviderStatementRow,
   Profile,
   Provider,
   ProviderJob,
@@ -266,6 +267,7 @@ export interface Api {
   addRateCardItem(providerServiceId: string, title: string, price: number): Promise<void>;
   getProviderJobs(): Promise<ProviderJob[]>;
   listMyPayouts(): Promise<Payout[]>;
+  getProviderStatement(from: string, to: string): Promise<ProviderStatementRow[]>;
   // chat & realtime
   listMessages(bookingId: string): Promise<Message[]>;
   sendMessage(bookingId: string, body: string): Promise<void>;
