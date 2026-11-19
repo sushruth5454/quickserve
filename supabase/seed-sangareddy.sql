@@ -81,6 +81,18 @@ insert into sg_specs values
 create temp table sg_ids on commit drop as
 select id from auth.users where coalesce(raw_user_meta_data ->> 'demo_city', '') = 'Sangareddy';
 
+do $$
+begin
+  -- B2 (0084) receipts reference bookings without cascade; remove these demo providers' receipts first.
+  if to_regclass('public.payment_receipts') is not null then
+    execute $sql$
+      delete from public.payment_receipts r
+       using public.bookings b
+       where b.id = r.booking_id and b.provider_id in (select id from sg_ids)
+    $sql$;
+  end if;
+end;
+$$;
 delete from public.bookings where provider_id in (select id from sg_ids);
 delete from auth.users where id in (select id from sg_ids);
 
