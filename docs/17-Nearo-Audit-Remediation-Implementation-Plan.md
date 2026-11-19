@@ -369,7 +369,7 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | B2 | G2 | not started; F1/F5 are green, but booking-detail order requires C1 before B2 | — | — | 0084 | — |
 | B4 | G2 | not started; blocked by F2 and S1 | — | — | 0085 | — |
 | B6 | G2 | not started; blocked by F1, O1, and B2 | — | — | 0086a/b | — |
-| O3 | G2 | code pushed at `a06a829`; reuses F4's audited refund retry; lane CI `44507525151` failed only at shared H2a SQL test; H2a fix `71951da` is on main; O3 SQL test registration, rebase/revalidation, and lower-model review pending | d417d1f2-59e3-44bb-81b3-3016af817af3 | 44507525151 (failed at H2a; O3 test unregistered); F4 lane CI `44502957340` green | 0087 | — |
+| O3 | G2 | code pushed at `a06a829`; reuses F4's audited refund retry; lower-model review clear; lane CI `44507525151` failed only at shared H2a SQL test; H2a fix `71951da` is on main; O3 SQL test registration, rebase, and fresh validation pending | d417d1f2-59e3-44bb-81b3-3016af817af3 | 44507525151 (failed at H2a; O3 test unregistered); F4 lane CI `44502957340` green; lower-model review clear | 0087 | — |
 | B3 | G2 | DEFERRED — owner will engage CA later; no tax invoices before review and no live payments before D4 review | — | — | later | — |
 | S3 | G3 | deferred until G2/S2 | — | — | — | — |
 | C3 | G3 | deferred until C2 | — | — | — | — |
