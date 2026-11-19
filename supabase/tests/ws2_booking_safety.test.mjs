@@ -167,6 +167,19 @@ async function insertBooking(fixture, status, date) {
     fixture.addressId, scheduledAt, status])).id;
 }
 
+async function setBookingScheduledAtInPast(bookingId, minutesAgo) {
+  await db.query(`
+    update public.bookings b
+       set scheduled_at = now() - make_interval(mins => $1::int),
+           service_window = tstzrange(
+             now() - make_interval(mins => $1::int),
+             now() - make_interval(mins => $1::int) + interval '2 hours',
+             '[)'
+           )
+     where b.id = $2::uuid
+  `, [minutesAgo, bookingId]);
+}
+
 for (const file of migrationFiles) {
   if (file === targetMigration) {
     fixtures = await prepareFixtures();
@@ -371,8 +384,8 @@ await scenario('quote_sent and awaiting_payment expire after 48 hours with exact
 
 await scenario('no-show reporting freezes provider payout and opens support for the other party', async () => {
   await db.query(`update feature_flags set enabled=true where key=$1::text`, ['home_no_show_reporting']);
-  const scheduledAt = new Date(Date.now() - 45 * 60 * 1000).toISOString();
-  const bookingId = await insertBooking(fixtures[6], 'en_route', scheduledAt);
+  const bookingId = await insertBooking(fixtures[6], 'en_route', '2027-02-14');
+  await setBookingScheduledAtInPast(bookingId, 45);
   await db.query(`
     insert into payments (booking_id, purpose, amount, status, razorpay_payment_id, paid_at)
     values ($1::uuid, 'visit_fee', $2::int, 'paid', $3::text, now())
@@ -415,11 +428,8 @@ await scenario('no-show reporting freezes provider payout and opens support for 
 });
 
 await scenario('provider can report a customer no-show and unrelated users cannot report', async () => {
-  const providerBookingId = await insertBooking(
-    fixtures[7],
-    'accepted',
-    new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  );
+  const providerBookingId = await insertBooking(fixtures[7], 'accepted', '2027-02-15');
+  await setBookingScheduledAtInPast(providerBookingId, 180);
   await as(fixtures[7].provider, 'authenticated', `
     select report_no_show($1::uuid, $2::text)
   `, [providerBookingId, 'customer']);
@@ -449,8 +459,8 @@ await scenario('no-show is refused before the configured scheduled grace period'
   await as(ADMIN, 'authenticated', `
     select admin_set_home_booking_safety_rules($1::int, $2::int)
   `, [48, 60]);
-  const scheduledAt = new Date(Date.now() - 45 * 60 * 1000).toISOString();
-  const bookingId = await insertBooking(fixtures[8], 'accepted', scheduledAt);
+  const bookingId = await insertBooking(fixtures[8], 'accepted', '2027-02-16');
+  await setBookingScheduledAtInPast(bookingId, 45);
   const error = await failMessage(() => as(fixtures[8].customer, 'authenticated', `
     select report_no_show($1::uuid, $2::text)
   `, [bookingId, 'provider']));
