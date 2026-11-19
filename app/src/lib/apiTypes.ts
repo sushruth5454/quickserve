@@ -56,6 +56,11 @@ export interface AuthSession {
   phone: string | null;
 }
 
+export interface CancellationPreview {
+  refund_amount: number;
+  charged_amount: number;
+}
+
 export interface TopRatedProvider {
   id: string;
   city: string;
@@ -235,6 +240,7 @@ export interface Api {
   startTrip(id: string): Promise<void>;
   requestCompletion(id: string): Promise<void>;
   confirmCompletion(id: string): Promise<void>;
+  previewCancellation(id: string): Promise<CancellationPreview | null>;
   cancelBooking(id: string, reason?: string): Promise<void>;
   disputeBooking(id: string, reason: string): Promise<void>;
   regenerateOtp(id: string, kind: 'start' | 'end'): Promise<void>;
