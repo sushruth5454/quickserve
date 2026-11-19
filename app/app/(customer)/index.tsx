@@ -9,11 +9,12 @@ import { NotServedCard } from '../../src/components/NotServedCard';
 import { TopRatedCard, TopRatedCardSkeleton } from '../../src/components/TopRatedCard';
 import { StatusPill, activeStatuses, nextStepCopy } from '../../src/components/status';
 import { ProgressBar } from '../../src/components/StatusTimeline';
-import { Card, EmptyState, ErrorState, IconButton, Screen, Section, Skeleton, Text } from '../../src/components/ui';
+import { Card, EmptyState, ErrorState, IconButton, InlineAlert, Screen, Section, Skeleton, Text } from '../../src/components/ui';
 import { getMyProfile, listMyBookings, listTopRated, type TopRatedProvider } from '../../src/lib/api';
 import { aiAssistantEnabled } from '../../src/lib/config';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { useSelectedLocation } from '../../src/lib/locationContext';
+import { needsLocationPrompt } from '../../src/lib/locationModel';
 import { useUnread } from '../../src/lib/unreadContext';
 import type { Booking, Category } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
@@ -156,6 +157,14 @@ export default function CustomerHome() {
             badge={bellCount}
           />
         </View>
+
+        {needsLocationPrompt(location) ? (
+          <InlineAlert
+            message="Set your location to see pros near you"
+            actionLabel="Set location"
+            onAction={() => router.push('/location')}
+          />
+        ) : null}
 
         <View style={{ gap: 4 }}>
           <Text variant="title1" accessibilityRole="header">

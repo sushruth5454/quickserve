@@ -1,6 +1,7 @@
 import { Linking } from 'react-native';
 import type {
   AuthSession,
+  AccountDeletionOutcome,
   ChatReadState,
   PushPlatform,
   Coords,
@@ -15,6 +16,7 @@ import type {
   LiveCity,
 } from './apiTypes';
 import { supabase } from './supabase';
+import { supportContact } from './config';
 import { invokeFunction } from './invokeFunction';
 import type {
   Booking,
@@ -85,15 +87,17 @@ export function onAuthChange(cb: (s: AuthSession | null) => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 
-/**
- * There is no self-serve deletion RPC yet (it needs refund/payout checks first), so this opens a pre-filled
- * deletion request email to support. Store policies accept an in-app path that initiates deletion.
- */
-export async function requestAccountDeletion(): Promise<void> {
+export async function requestAccountDeletion(): Promise<AccountDeletionOutcome> {
   const uid = await requireUserId();
-  const subject = encodeURIComponent('Delete my QuickServe account');
-  const body = encodeURIComponent(`Please delete my account and personal data.\n\nUser ID: ${uid}`);
-  await Linking.openURL(`mailto:support@quickserve.app?subject=${subject}&body=${body}`);
+  try {
+    unwrap(await supabase.rpc('request_account_deletion'));
+    return 'recorded';
+  } catch {
+    const subject = encodeURIComponent('Delete my QuickServe account');
+    const body = encodeURIComponent(`Please delete my account and personal data.\n\nUser ID: ${uid}`);
+    await Linking.openURL(`mailto:${supportContact.email}?subject=${subject}&body=${body}`);
+    return 'email';
+  }
 }
 
 export async function sendOtp(phone: string): Promise<void> {
@@ -440,6 +444,18 @@ export async function addAddress(input: NewAddressInput): Promise<SavedAddress> 
       .select(ADDRESS_COLUMNS)
       .single(),
   ) as SavedAddress;
+}
+
+export async function deleteAddress(id: string): Promise<void> {
+  const uid = await requireUserId();
+  unwrap(
+    await supabase
+      .from('addresses')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', uid)
+      .neq('label', 'Booking'),
+  );
 }
 
 // ---------- Booking ----------

@@ -23,6 +23,7 @@ import { speak, stopSpeaking } from '../src/lib/assistant/speech';
 import { starterPrompts, type StarterPrompt } from '../src/lib/assistant/suggestions';
 import type { AssistantCard, AssistantLanguage, DraftCard, HandoffReason, ProviderPick, Transcription, VoiceMeta } from '../src/lib/assistant/types';
 import { aiAssistantEnabled, isDemoMode } from '../src/lib/config';
+import { useAppFeatureFlags } from '../src/lib/featureFlags';
 import { useSelectedLocation } from '../src/lib/locationContext';
 import { locationTitle } from '../src/lib/locationModel';
 import { useTheme } from '../src/theme';
@@ -90,6 +91,8 @@ function turnsToMessages(turns: StoredTurn[]): Msg[] {
 
 export default function AssistantScreen() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const aiOn = aiAssistantEnabled && flags.isOn('ai_assistant');
   const toast = useToast();
   const reduced = useReducedMotion();
   const { location } = useSelectedLocation();
@@ -372,7 +375,7 @@ export default function AssistantScreen() {
     return hasDraft ? [...lastAssistant.quickReplies.slice(0, 3), CHANGE_ADDRESS] : lastAssistant.quickReplies;
   }, [busy, voice, lastAssistant, messages]);
 
-  if (!aiAssistantEnabled) {
+  if (!aiOn) {
     return (
       <Screen header={<Header title="QuickServe AI" />}>
         <EmptyState icon="sparkles-outline" title="QuickServe AI is not available" message="You can still find a pro and book from the service list." actionLabel="Browse services" onAction={() => router.replace('/')} />

@@ -49,7 +49,7 @@ export function geocodeQuery(query: string, city?: string | null): string {
   return parts.join(', ');
 }
 
-/** Initial location before the user picks one (and the EXPO_PUBLIC_FORCE_TEST_LOCATION default). */
+/** Initial location before the user picks one. */
 export const DEFAULT_LOCATION: SelectedLocation = {
   source: 'default',
   area: 'Benz Circle',
@@ -60,6 +60,10 @@ export const DEFAULT_LOCATION: SelectedLocation = {
   addressId: null,
   label: null,
 };
+
+export function needsLocationPrompt(location: SelectedLocation): boolean {
+  return location.source === 'default';
+}
 
 export function fromManagedArea(a: ManagedArea): SelectedLocation {
   return {
