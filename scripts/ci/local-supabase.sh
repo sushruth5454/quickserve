@@ -39,7 +39,11 @@ psql_db() { psql "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 
 echo "== seeding"
 psql_db -f supabase/seed.sql
-psql_db -f supabase/seed-full.sql
+# seed-full.sql predates the booking core contract (0018/0021). The hosted demo project received these
+# rows before that trigger existed, so reproduce that by loading them with only this trigger disabled.
+psql_db -c 'alter table public.bookings disable trigger bookings_apply_core_contract' \
+  -f supabase/seed-full.sql \
+  -c 'alter table public.bookings enable trigger bookings_apply_core_contract'
 # seed-all-services.sql requires the demo-seed marker inside its own transaction.
 sed '0,/^begin;$/s//begin;\nselect set_config('"'"'quickserve.demo_seed'"'"', '"'"'1'"'"', true);/' \
   supabase/seed-all-services.sql | psql_db
