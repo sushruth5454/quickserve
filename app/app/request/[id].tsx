@@ -5,6 +5,8 @@ import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Sect
 import * as api from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
 import type { Proposal, ServiceRequest } from '../../src/lib/types';
+import { QuoteCompareTable } from '../../src/components/market/QuoteCompareTable';
+import { proposalCompareRows } from '../../src/features/proposals/comparePresentation';
 
 export default function ServiceRequestDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,6 +51,11 @@ export default function ServiceRequestDetail() {
     }
   };
 
+  const openProposal = (proposalId: string) => {
+    if (!request) return;
+    router.push({ pathname: '/proposal/[id]', params: { id: proposalId, requestId: request.id } });
+  };
+
   return (
     <Screen header={<Header title={request?.categories?.name ?? 'Your request'} subtitle={request ? new Date(request.event_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : undefined} />}>
       {error ? (
@@ -72,20 +79,30 @@ export default function ServiceRequestDetail() {
           <Section title="Proposals" subtitle="Compare fixed totals, milestones and delivery terms.">
             {proposals.length === 0 ? (
               <EmptyState icon="document-text-outline" title="Waiting for proposals" message="Verified providers will reply here. You can ask each provider questions in their proposal thread." />
-            ) : proposals.map((proposal) => (
-              <Pressable
-                key={proposal.id}
-                accessibilityRole="button"
-                onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: proposal.id, requestId: request.id } })}
-              >
-                <Card>
-                  <Text variant="bodyStrong">{proposal.providers?.profiles?.full_name ?? 'Verified provider'}</Text>
-                  <Text variant="title3">{formatINR(proposal.total)}</Text>
-                  <Text color="muted">{proposal.proposal_schedule.length} payments · valid until {new Date(proposal.valid_until).toLocaleDateString('en-IN')}</Text>
-                  <Button title="Compare proposal" variant="outline" onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: proposal.id, requestId: request.id } })} />
-                </Card>
-              </Pressable>
-            ))}
+            ) : (
+              <>
+                <QuoteCompareTable
+                  rows={proposalCompareRows(proposals)}
+                  detailHeaders={['Payment milestones', 'Valid until']}
+                  selectLabel="Compare proposal"
+                  onSelect={openProposal}
+                />
+                {proposals.map((proposal) => (
+                  <Pressable
+                    key={proposal.id}
+                    accessibilityRole="button"
+                    onPress={() => openProposal(proposal.id)}
+                  >
+                    <Card>
+                      <Text variant="bodyStrong">{proposal.providers?.profiles?.full_name ?? 'Verified provider'}</Text>
+                      <Text variant="title3">{formatINR(proposal.total)}</Text>
+                      <Text color="muted">{proposal.proposal_schedule.length} payments · valid until {new Date(proposal.valid_until).toLocaleDateString('en-IN')}</Text>
+                      <Button title="Compare proposal" variant="outline" onPress={() => openProposal(proposal.id)} />
+                    </Card>
+                  </Pressable>
+                ))}
+              </>
+            )}
           </Section>
           {['open', 'closed'].includes(request.status) ? (
             <Button title="Cancel request" variant="destructive" onPress={() => void cancelRequest()} />
