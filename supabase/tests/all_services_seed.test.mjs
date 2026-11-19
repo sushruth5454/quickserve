@@ -74,6 +74,14 @@ for (const file of migrationFiles) {
   }
 }
 
+const categoryActivationBeforeSeed = (await db.query(`
+  select
+    count(*) filter (where active and vertical = 'weddings-events')::int as active_events,
+    count(*) filter (where active and vertical = 'photo-video')::int as active_photo,
+    count(*) filter (where active and vertical = 'creators')::int as active_creators
+  from public.categories
+`)).rows[0];
+
 const seed = fs.readFileSync(path.join(here, '..', 'seed-all-services.sql'), 'utf8')
   .replace("begin;\n\n", "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n", 1);
 await db.query(`
@@ -172,8 +180,13 @@ const [gates] = (await db.query(`
     max((slug = 'demo-home-tutor' and active and archetype = 'time_based')::int)::int as time_category
   from categories
 `)).rows;
-ok(gates.active_events === 0 && gates.active_photo === 0 && gates.active_creators === 0,
-  'creator and event categories remain inactive globally');
+const categoryActivationAfterSeed = {
+  active_events: gates.active_events,
+  active_photo: gates.active_photo,
+  active_creators: gates.active_creators,
+};
+ok(JSON.stringify(categoryActivationAfterSeed) === JSON.stringify(categoryActivationBeforeSeed),
+  `guarded seed preserves global creator/event category activation: ${JSON.stringify({ before: categoryActivationBeforeSeed, after: categoryActivationAfterSeed })}`);
 ok(gates.time_category === 1, 'the explicitly demo-only time category is active only in the demo seed');
 
 const [seedFixes] = (await db.query(`
