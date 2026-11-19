@@ -19,7 +19,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function lifecycleEvent(value: unknown): RazorpayLifecycleEvent | null {
   if (!isRecord(value) || typeof value.event !== "string") return null;
-  return value as RazorpayLifecycleEvent;
+  return value as unknown as RazorpayLifecycleEvent;
 }
 
 function invalidPayload() {

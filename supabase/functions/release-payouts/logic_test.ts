@@ -218,7 +218,15 @@ Deno.test("stale reconciliation never marks a failed gateway payout as transferr
 
 Deno.test("payout runner logs and returns the number of stuck money operations", () => {
   const calls: unknown[][] = [];
-  const stuck = [{ operation_type: "transfer", operation_id: "transfer_stuck" }];
+  const stuck = [{
+    operation_type: "transfer",
+    operation_id: "transfer_stuck",
+    booking_id: "booking_stuck",
+    amount: 10000,
+    status: "processing",
+    age_minutes: 45,
+    last_error: "needs reconciliation",
+  }];
   const result = alertOnStuckMoneyOps(stuck, (...args: unknown[]) => calls.push(args));
   assertEquals(
     { result, calls },
