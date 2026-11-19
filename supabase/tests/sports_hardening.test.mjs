@@ -723,6 +723,7 @@ await scenario('WS4-T13: active booking holds enforce the configurable customer 
 await scenario('WS4-T13: accepted pay-at-venue bookings count against the customer limit', async () => {
   await setSportsFlags();
   const fixture = await createFixture('hoarding-pay-at-venue');
+  const rules = await setAdminSportsRules(fixture.ownerId, { max_active_holds_per_customer: 3 });
   for (const time of ['10:00', '12:00', '14:00']) {
     const starts = await startsAt(time);
     await db.query(`
@@ -735,8 +736,8 @@ await scenario('WS4-T13: accepted pay-at-venue bookings count against the custom
     `, [fixture.customerIds[0], fixture.venueId, fixture.resourceId, starts]);
   }
   const refused = await failureOf(() => book(fixture, fixture.customerIds[0], fixture.resourceId, '16:00'));
-  ok(/too many pending sports bookings/.test(refused ?? ''),
-    `[WS4-T13] pay-at-venue limit state: ${JSON.stringify({ refused, customerId: fixture.customerIds[0] })}`);
+  ok(rules.max_active_holds_per_customer === 3 && /too many pending sports bookings/.test(refused ?? ''),
+    `[WS4-T13] pay-at-venue limit state: ${JSON.stringify({ rules, refused, customerId: fixture.customerIds[0] })}`);
 });
 
 await scenario('WS4-T16: failed sports payment marks only the payment failed and notifies the customer', async () => {
