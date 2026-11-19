@@ -60,7 +60,7 @@ export default function MerchantRfqQuoteScreen() {
           rfqItemId: item.id,
           brand: '',
           model: '',
-          specs: '{}',
+          specs: {},
           offeredQuantity: '',
           unitPriceRupees: '',
           gstRate: next.shop_has_gstin ? '1800' : '0',
