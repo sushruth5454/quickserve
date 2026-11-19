@@ -172,7 +172,7 @@ async function createProviderPayout(index, { status = 'pending', createdAt = '20
   await db.query(
     `insert into public.payout_transfers (id, payout_id, source_payment_id, amount, status, razorpay_transfer_id, utr, reversed_amount, transferred_at)
      values ($1::uuid, $2::uuid, $3::uuid, $4::int, $5::public.transfer_status, $6::text, $7::text, $8::int, $9::timestamptz)`,
-    [transfer, payout, payment, 193760, transferStatus, `trf_b4_${index}`, status === 'transferred' ? `utr_b4_${index}` : null, reversedAmount, status === 'transferred' ? createdAt : null],
+    [transfer, payout, payment, 193760, transferStatus, `trf_b4_${index}`, transferStatus === 'transferred' ? `utr_b4_${index}` : null, reversedAmount, transferStatus === 'transferred' ? createdAt : null],
   );
   return { customer, provider, booking, payout, transfer };
 }
