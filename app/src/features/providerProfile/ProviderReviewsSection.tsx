@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Fragment } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, Divider, RatingStars, Section, Text } from '../../components/ui';
+import type { PublicReview } from '../../lib/apiTypes';
 import type { ProviderDetail } from '../../lib/api';
 import type { PublicProfile } from '../../lib/onboarding';
-import type { Review } from '../../lib/types';
 import { type useTheme } from '../../theme';
 import { Bar } from './ProfileParts';
 
@@ -26,8 +26,8 @@ export function ProviderReviewsSection({
   provider: ProviderDetail['provider'];
   first: string;
   rating: number;
-  reviews: Review[];
-  visibleReviews: Review[];
+  reviews: PublicReview[];
+  visibleReviews: PublicReview[];
   breakdown: { counts: number[]; total: number };
   subs: readonly (readonly [string, number | null])[];
   showAll: boolean;

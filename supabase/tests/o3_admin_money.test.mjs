@@ -9,7 +9,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(here, '..', 'migrations');
 const targetMigration = '0086_o3_admin_money_visibility.sql';
 const migrationFiles = fs.readdirSync(migrationsDir)
-  .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 87)
+  .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 86)
   .sort();
 if (!migrationFiles.includes(targetMigration)) {
   throw new Error(`missing reserved O3 migration: ${targetMigration}`);

@@ -4,7 +4,8 @@ import { Fragment, useCallback, useState, type ReactNode } from 'react';
 import { Pressable, Switch, View } from 'react-native';
 import { deleteService, getProviderDetail, listMyServices, upsertService } from '../lib/api';
 import { formatINR, rupeesToPaise } from '../lib/money';
-import type { Provider, ProviderService, RateUnit, Review, SkillLevel } from '../lib/types';
+import type { PublicReview } from '../lib/apiTypes';
+import type { Provider, ProviderService, RateUnit, SkillLevel } from '../lib/types';
 import { useTheme } from '../theme';
 import { CategoryIcon, iconForSlug } from './CategoryIcon';
 import { skillLabel } from './ProviderCard';
@@ -19,7 +20,7 @@ export function ProviderMeSections({ provider }: { provider: Provider }) {
   const t = useTheme();
   const toast = useToast();
   const [services, setServices] = useState<ProviderService[] | null>(null);
-  const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [reviews, setReviews] = useState<PublicReview[] | null>(null);
   const [editing, setEditing] = useState<ProviderService | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 

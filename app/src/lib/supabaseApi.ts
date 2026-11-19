@@ -13,6 +13,7 @@ import type {
   ProviderDetail,
   ProviderProfileInput,
   ProviderServiceWithProvider,
+  PublicReview,
   ServiceInput,
   TopRatedProvider,
   LiveCity,
@@ -351,7 +352,7 @@ export async function getProviderDetail(providerId: string): Promise<ProviderDet
       .eq('active', true),
     supabase
       .from('reviews')
-      .select('*')
+      .select('id, rating, punctuality, quality, behaviour, pricing, comment, provider_reply, created_at')
       .eq('provider_id', providerId)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -359,7 +360,7 @@ export async function getProviderDetail(providerId: string): Promise<ProviderDet
   return {
     provider: { razorpay_account_id: null, ...(unwrap(provider) as object) } as ProviderDetail['provider'],
     services: unwrap(services) as ProviderService[],
-    reviews: unwrap(reviews) as Review[],
+    reviews: unwrap(reviews) as PublicReview[],
   };
 }
 
