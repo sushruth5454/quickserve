@@ -130,6 +130,52 @@ revoke all on function public._commissionable(public.quote_item_kind),
   public._booking_commission_bp(uuid, timestamptz)
   from public, anon, authenticated;
 
+create or replace function public._legacy_fixed_commissionable(p_quote_id uuid)
+returns int
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  q public.quotes;
+  v_line_total int;
+  v_noncommissionable int;
+  v_has_package_line boolean;
+  v_package_base int;
+begin
+  select * into q from public.quotes where id = p_quote_id;
+  if not found then return 0; end if;
+  if q.is_change_order then
+    select coalesce(sum(round(qi.qty * qi.unit_price)::int), 0)::int
+      into v_noncommissionable
+      from public.quote_items qi
+     where qi.quote_id = q.id
+       and qi.kind <> 'other'
+       and not public._commissionable(qi.kind);
+    return greatest(q.total - coalesce(v_noncommissionable, 0), 0);
+  end if;
+  select coalesce(sum(round(qi.qty * qi.unit_price)::int), 0)::int,
+         coalesce(bool_or(qi.kind = 'package'), false)
+    into v_line_total, v_has_package_line
+    from public.quote_items qi
+   where qi.quote_id = q.id
+     and public._commissionable(qi.kind);
+  if v_has_package_line then
+    return v_line_total;
+  end if;
+  v_package_base := coalesce(
+    round((q.package_snapshot ->> 'unit_price')::numeric
+      * (q.package_snapshot ->> 'quantity')::numeric)::int,
+    coalesce(q.subtotal_labour, 0) + coalesce(q.subtotal_travel, 0)
+  );
+  return coalesce(v_package_base, 0) + coalesce(v_line_total, 0);
+end;
+$$;
+
+revoke all on function public._legacy_fixed_commissionable(uuid)
+  from public, anon, authenticated;
+
 create or replace function public.admin_set_commission(p_config jsonb)
 returns jsonb
 language plpgsql
@@ -266,7 +312,7 @@ $$;
 
 update public.quotes q
    set subtotal_commissionable = case
-     when b.archetype = 'fixed' then q.total
+     when b.archetype = 'fixed' then public._legacy_fixed_commissionable(q.id)
      when b.archetype = 'proposal' then coalesce((
        select sum(round(pi.qty * pi.unit_price)::int)::int
          from public.proposal_items pi
@@ -726,10 +772,10 @@ begin
       + round((v_item ->> 'qty')::numeric * (v_item ->> 'unit_price')::int)::int;
   end loop;
 
-  v_commissionable := coalesce(
-    nullif(q.subtotal_commissionable, 0),
-    coalesce(q.subtotal_labour, 0) + coalesce(q.subtotal_travel, 0) + coalesce(q.subtotal_other, 0)
-  ) + v_addon_total;
+  v_commissionable := case
+    when q.subtotal_commissionable > 0 then q.subtotal_commissionable
+    else public._legacy_fixed_commissionable(q.id)
+  end + v_addon_total;
   update public.bookings
      set commission_bp_snapshot = coalesce(
        commission_bp_snapshot, public._booking_commission_bp(b.id, now())
@@ -750,7 +796,13 @@ begin
     insert into public.quote_items (quote_id, kind, title, qty, unit, unit_price, bill_photo_url)
     values (
       v_quote,
-      case when qi.kind = 'other' and q.quote_type = 'package'
+      case
+        when qi.kind = 'other'
+         and q.quote_type = 'package'
+         and qi.title = q.package_snapshot ->> 'title'
+         and round(qi.qty * qi.unit_price)::int =
+           round((q.package_snapshot ->> 'unit_price')::numeric
+             * (q.package_snapshot ->> 'quantity')::numeric)::int
         then 'package'::public.quote_item_kind else qi.kind end,
       qi.title, qi.qty, qi.unit, qi.unit_price, qi.bill_photo_url
     );

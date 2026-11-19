@@ -562,6 +562,66 @@ await scenario('WS6-T03 create_fixed_booking snapshots and commissions the packa
   'fixed booking package commission, GST, payout, and snapshot use exact paise', actual);
 });
 
+await scenario('WS6-T03 legacy fixed quote fallback excludes noncommissionable material in subtotal_other', async () => {
+  const fixture = await createFixture(8, 'fixed', 99900);
+  const bookingId = (await one(`
+    insert into public.bookings (
+      customer_id, provider_id, category_id, provider_service_id, address_id,
+      description, scheduled_at, service_window, status, visit_fee, platform_fee,
+      total_amount, archetype, location_mode, booking_origin, service_package_id
+    ) values (
+      $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
+      'F2 legacy fixed quote fixture', '2027-04-20T10:00:00Z'::timestamptz,
+      tstzrange('2027-04-20T10:00:00Z'::timestamptz, '2027-04-20T12:00:00Z'::timestamptz, '[)'),
+      'in_progress', 0, 2900, 112800, 'fixed', 'at_customer', 'marketplace', $6::uuid
+    ) returning id`,
+  [fixture.customer, fixture.provider, fixture.categoryId, fixture.serviceId, fixture.addressId, fixture.packageId])).id;
+  await db.query(`
+    update public.bookings
+       set commission_bp_snapshot = public._booking_commission_bp($1::uuid, now())
+     where id = $1::uuid`, [bookingId]);
+  const quoteId = (await one(`
+    insert into public.quotes (
+      booking_id, version, status, is_change_order, subtotal_labour, subtotal_parts,
+      subtotal_other, total, note, quote_type, source_package_id, package_snapshot
+    ) values (
+      $1::uuid, 2, 'approved', true, 0, 0, 109900, 109900, 'Legacy package plus add-on and pass-through',
+      'package', $2::uuid,
+      jsonb_build_object(
+        'id', $2::uuid, 'title', 'F2 package 8',
+        'price_type', 'fixed', 'quantity', 1, 'unit_price', 99900
+      )
+    ) returning id`, [bookingId, fixture.packageId])).id;
+  await db.query(`
+    update public.bookings set approved_quote_id = $1::uuid where id = $2::uuid`,
+  [quoteId, bookingId]);
+  await db.query(`
+    insert into public.quote_items (quote_id, kind, title, qty, unit_price)
+    values
+      ($1::uuid, 'other', 'F2 package 8', 1, 99900),
+      ($1::uuid, 'other', 'Legacy add-on line', 1, 5000),
+      ($1::uuid, 'material', 'Pass-through material', 1, 5000)`,
+  [quoteId]);
+  const changeQuoteId = (await as(fixture.manager, 'authenticated', `
+    select public.send_fixed_addons(
+      $1::uuid, $2::jsonb, $3::text
+    ) id`,
+  [bookingId, JSON.stringify([{ title: 'New add-on', qty: 1, unit_price: 5000 }]), 'Legacy fallback regression']))[0].id;
+  const actual = await one(`
+    select subtotal_commissionable, subtotal_other, total,
+           (select array_agg(qi.kind::text order by qi.kind::text)
+              from public.quote_items qi where qi.quote_id = q.id) item_kinds
+      from public.quotes q where q.id = $1::uuid`, [changeQuoteId]);
+  check(actual.subtotal_commissionable === 109900
+    && actual.subtotal_other === 114900
+    && actual.total === 114900
+    && actual.item_kinds.includes('package')
+    && actual.item_kinds.includes('material')
+    && actual.item_kinds.includes('other')
+    && actual.item_kinds.includes('addon'),
+  'legacy fallback commissions package and legacy/new add-ons but excludes material, exact paise', actual);
+});
+
 await scenario('WS5-T03 proposal commission uses commissionable items, the 500000 paise cap, and owner D1 rates', async () => {
   const fixture = await createFixture(4, 'proposal', 10000000);
   await db.query(`
@@ -570,13 +630,24 @@ await scenario('WS5-T03 proposal commission uses commissionable items, the 50000
      where id = $1::uuid`, [fixture.categoryId]);
   const eventStart = '2027-03-25T10:00:00.000Z';
   const eventEnd = '2027-03-25T14:00:00.000Z';
-  const requestId = (await as(fixture.customer, 'authenticated', `
-    select public.create_service_request(
-      $1::uuid, $2::text, $3::text, $4::timestamptz, $5::timestamptz,
-      $6::jsonb, $7::int, $8::int, $9::uuid, null::text
-    ) id`,
-  [fixture.categoryId, fixture.city, 'F2 event area', eventStart, eventEnd,
-    JSON.stringify({ brief: 'F2 commission project' }), 10000000, 20000000, fixture.addressId]))[0].id;
+  const requestId = (await one(`
+    insert into public.service_requests (
+      customer_id, category_id, city, area, event_start, event_end, intake,
+      budget_min, budget_max, status, expires_at
+    ) values (
+      $1::uuid, $2::uuid, $3::text, 'F2 event area', $4::timestamptz, $5::timestamptz,
+      $6::jsonb, $7::int, $8::int, 'open', '2027-03-20T10:00:00Z'::timestamptz
+    ) returning id`,
+  [fixture.customer, fixture.categoryId, fixture.city, eventStart, eventEnd,
+    JSON.stringify({ brief: 'F2 commission project' }), 10000000, 20000000])).id;
+  await db.query(`
+    insert into public.request_private (request_id, address_id, lat, lng)
+    values ($1::uuid, $2::uuid, 16.50, 80.60)`,
+  [requestId, fixture.addressId]);
+  await db.query(`
+    insert into public.request_recipients (request_id, provider_id, provider_service_id)
+    values ($1::uuid, $2::uuid, $3::uuid)`,
+  [requestId, fixture.provider, fixture.serviceId]);
   const badProposalError = await fails(() => as(fixture.provider, 'authenticated', `
     select public.send_proposal(
       $1::uuid, $2::jsonb, $3::jsonb, now() + interval '2 days', null::text, '[]'::jsonb
@@ -643,9 +714,9 @@ await scenario('WS5-T03 proposal commission uses commissionable items, the 50000
       total_amount, archetype, location_mode, booking_origin, completed_at
     ) values (
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
-      'F2 repeat booking fixture', now() - interval '31 days',
-      tstzrange(now() - interval '31 days', now() - interval '30 days', '[)'),
-      'completed', 0, 0, 1, 'proposal', 'remote', 'marketplace', now() - interval '30 days'
+      'F2 repeat booking fixture', '2027-06-01T10:00:00Z'::timestamptz,
+      tstzrange('2027-06-01T10:00:00Z'::timestamptz, '2027-06-01T11:00:00Z'::timestamptz, '[)'),
+      'completed', 0, 0, 1, 'proposal', 'at_customer', 'marketplace', now() - interval '30 days'
     )`,
   [priorBookingId, fixture.customer, fixture.provider, fixture.categoryId, fixture.serviceId, fixture.addressId]);
   const repeatRate = (await as(null, 'service_role', `
