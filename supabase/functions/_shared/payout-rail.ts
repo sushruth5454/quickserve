@@ -265,11 +265,15 @@ export function routeRail(http: Http): PayoutRail {
       if (!t.accountId || !t.razorpayPaymentId) throw new GatewayError("route transfer needs account and source payment", 400, "missing destination");
       // A previous attempt may have succeeded even though we saw an error (e.g. timeout): find it by notes.transfer_id.
       if (t.attempts > 0) {
-        const res = await http<{ items: { id: string; notes?: Record<string, string> | unknown[] }[] }>(
+        const res = await http<{ items: { id: string; status?: string; notes?: Record<string, string> | unknown[] }[] }>(
           "GET",
           `/v1/payments/${t.razorpayPaymentId}/transfers`,
         );
-        const match = (res.items ?? []).find((i) => !Array.isArray(i.notes) && i.notes?.transfer_id === t.transferId);
+        const match = (res.items ?? []).find((i) =>
+          !Array.isArray(i.notes)
+          && i.notes?.transfer_id === t.transferId
+          && !["failed", "reversed", "rejected", "cancelled"].includes(i.status ?? "")
+        );
         if (match) return { externalId: match.id, gatewayStatus: "existing" };
       }
       const res = await http<{ items: { id: string; status?: string }[] }>("POST", `/v1/payments/${t.razorpayPaymentId}/transfers`, {
