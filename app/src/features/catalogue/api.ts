@@ -85,6 +85,11 @@ export async function getCatalogueCategory(slug: string, city: string): Promise<
   return catalogue.categories.find((category) => category.slug === slug) ?? null;
 }
 
+export async function getCatalogueCategoryById(id: string, city: string): Promise<Category | null> {
+  const catalogue = await getCatalogue(city);
+  return catalogue.categories.find((category) => category.id === id) ?? null;
+}
+
 export async function listCataloguePackages(categorySlug: string): Promise<CataloguePackage[]> {
   if (isDemoMode) return [];
   const rows = unwrap(await supabase

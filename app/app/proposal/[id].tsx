@@ -8,11 +8,22 @@ import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useAuth } from '../../src/lib/auth';
 import { usePayment } from '../../src/lib/payments';
 import type { Proposal } from '../../src/lib/types';
-import { proposalStatus } from '../../src/lib/proposalStatus';
+import { deliverableLabel, dueRuleLabel, proposalStatus } from '../../src/lib/proposalStatus';
+import {
+  getCreatorProposalConfig,
+  getProposalFeePreview,
+  proposalWithDeliveryDate,
+  type ProposalFeePreview,
+} from '../../src/features/proposals/api';
+import { RequestQuestionThread } from '../../src/features/proposals/RequestQuestionThread';
+import { proposalFeeLabel } from '../../src/features/proposals/model';
 
 export default function ProposalDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [feePreview, setFeePreview] = useState<ProposalFeePreview | null>(null);
+  const [feePreviewError, setFeePreviewError] = useState<string | null>(null);
+  const [defaultRevisions, setDefaultRevisions] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState<string | null>(null);
@@ -23,11 +34,36 @@ export default function ProposalDetail() {
   const mine = !!proposal && proposal.provider_id === userId;
 
   useEffect(() => {
-    if (id) void api.getProposal(id).then(setProposal).catch((e: unknown) => setError((e as Error).message));
+    if (!id) return;
+    let active = true;
+    void api.getProposal(id).then((next) => {
+      if (active) setProposal(next);
+    }).catch((e: unknown) => {
+      if (active) setError((e as Error).message);
+    });
+    void getProposalFeePreview(id).then((next) => {
+      if (active) {
+        setFeePreview(next);
+        setFeePreviewError(null);
+      }
+    }).catch((caught: Error) => {
+      if (active) {
+        setFeePreview(null);
+        setFeePreviewError(caught.message);
+      }
+    });
+    void getCreatorProposalConfig().then((config) => {
+      if (active) setDefaultRevisions(config.defaultRevisions);
+    }).catch(() => undefined);
+    return () => { active = false; };
   }, [id]);
 
   const accept = async () => {
     if (!proposal) return;
+    if (!feePreview) {
+      setFeePreviewError('Refresh the proposal to load its platform fee before accepting.');
+      return;
+    }
     setBusy(true);
     setAcceptError(null);
     try {
@@ -44,10 +80,15 @@ export default function ProposalDetail() {
     finally { setBusy(false); }
   };
 
+  const proposalTerms = proposal ? proposalWithDeliveryDate(proposal) : null;
+  const deliverables = (proposal?.deliverables ?? []) as Array<{ type?: string; spec?: string; qty?: number }>;
+  const revisionsTerm = deliverables.find((item) => item.type === 'revisions');
+  const visibleDeliverables = deliverables.filter((item) => item.type !== 'revisions');
+
   return (
     <Screen
       header={<Header title={mine ? 'Your proposal' : 'Proposal'} subtitle={mine && proposal ? `Status: ${proposalStatus(proposal).label}` : proposal?.providers?.profiles?.full_name ?? undefined} />}
-      footer={proposal?.status === 'sent' && !mine ? <Button title={`Accept & reserve · ${formatINR(proposal.total)}`} fullWidth size="lg" loading={busy} onPress={() => void accept()} /> : undefined}
+      footer={proposal?.status === 'sent' && !mine ? <Button title={`Accept & reserve · ${formatINR(proposal.total)}`} fullWidth size="lg" loading={busy} disabled={!feePreview} onPress={() => void accept()} /> : undefined}
     >
       {error ? <ErrorState message={error} onRetry={() => id && void api.getProposal(id).then(setProposal)} /> : !proposal ? <Skeleton height={260} /> : (
         <>
@@ -60,10 +101,24 @@ export default function ProposalDetail() {
                 : undefined}
             />
           ) : mine ? null : <InlineAlert title="30-minute payment hold" message="Accepting reserves the provider for 30 minutes. Pay the advance and platform fee in that window to confirm." />}
+          {feePreviewError && proposal.status === 'sent'
+            ? <InlineAlert title="Fee preview unavailable" message={feePreviewError} />
+            : null}
           <Card>
             <Text variant="title2">{formatINR(proposal.total)}</Text>
             {proposal.note ? <Text color="textSecondary">{proposal.note}</Text> : null}
+            {proposalTerms?.delivery_due_at ? (
+              <Text variant="footnoteStrong">Delivery by {new Date(proposalTerms.delivery_due_at).toLocaleDateString('en-IN')}</Text>
+            ) : null}
+            {feePreview && proposal.status === 'sent' ? (
+              <Text variant="footnoteStrong">{proposalFeeLabel(feePreview)}</Text>
+            ) : null}
           </Card>
+          {revisionsTerm || proposal.status === 'sent' ? (
+            <Card>
+              <Text variant="bodyStrong">Revisions included: {revisionsTerm?.qty ?? defaultRevisions}</Text>
+            </Card>
+          ) : null}
           <Section title="Included work">
             {proposal.proposal_items.map((item) => (
               <Card key={`${proposal.id}-${item.seq}`}>
@@ -79,13 +134,21 @@ export default function ProposalDetail() {
               <Card key={row.id}>
                 <Text variant="bodyStrong">{row.label}</Text>
                 <Text>{formatINR(row.amount)}</Text>
-                <Text variant="caption" color="muted">{row.due_rule.replaceAll('_', ' ')}</Text>
+                <Text variant="caption" color="muted">{dueRuleLabel(row.due_rule)}</Text>
               </Card>
             ))}
           </Section>
           <Section title="Deliverables">
-            {(proposal.deliverables as { type?: string; spec?: string }[]).length ? (proposal.deliverables as { type?: string; spec?: string }[]).map((d, i) =>
-              <Text key={i}>• {d.type ?? 'Delivery'}{d.spec ? ` — ${d.spec}` : ''}</Text>) : <Text color="muted">No separate post-service deliverables.</Text>}
+            {visibleDeliverables.length ? visibleDeliverables.map((d, i) =>
+              <Text key={i}>• {deliverableLabel(d.type ?? 'delivery')}{d.spec ? ` — ${d.spec}` : ''}</Text>)
+              : <Text color="muted">No separate post-service deliverables.</Text>}
+          </Section>
+          <Section title="Questions">
+            <RequestQuestionThread
+              requestId={proposal.request_id}
+              providerId={proposal.provider_id}
+              otherPartyLabel={mine ? 'Customer' : 'Creator'}
+            />
           </Section>
         </>
       )}
