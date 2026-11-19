@@ -78,6 +78,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: local
           PROJECT_REF: local
           SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          E2E_AI_UNAVAILABLE: '1'
           NEW_PRO_PHONE: '9000000301'
           QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
         run: SUPABASE_URL="$LOCAL_API_URL" SUPABASE_ANON_KEY="$LOCAL_ANON_KEY" node web-smoke.mjs

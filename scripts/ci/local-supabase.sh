@@ -51,10 +51,16 @@ mv /tmp/qs-later-migrations/*.sql supabase/migrations/
 echo "== applying later migrations"
 supabase migration up --local
 
-echo "== all-services seed"
-# seed-all-services.sql requires the demo-seed marker inside its own transaction.
-sed '0,/^begin;$/s//begin;\nselect set_config('"'"'quickserve.demo_seed'"'"', '"'"'1'"'"', true);/' \
-  supabase/seed-all-services.sql | psql_db
+echo "== all-services and Sangareddy demo seeds"
+# Both demo seeds require the demo-seed marker inside their own transaction; Sangareddy copies the
+# all-services providers, so it runs second.
+demo_seed() {
+  sed '0,/^begin;$/s//begin;\nselect set_config('"'"'quickserve.demo_seed'"'"', '"'"'1'"'"', true);/' "$1" | psql_db
+}
+demo_seed supabase/seed-all-services.sql
+demo_seed supabase/seed-sangareddy.sql
+echo "== hosted demo admin settings"
+psql_db -f supabase/seed-e2e-settings.sql
 
 if [ -n "${GITHUB_ENV:-}" ]; then
   { echo "LOCAL_API_URL=$API_URL"; echo "LOCAL_ANON_KEY=$ANON_KEY"; echo "LOCAL_DB_URL=$DB_URL"; } >> "$GITHUB_ENV"

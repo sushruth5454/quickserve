@@ -517,6 +517,10 @@ await step('assistant-open-from-home', async () => {
   }
 });
 await step('assistant-draft-or-busy-fallback', async () => {
+  if (process.env.E2E_AI_UNAVAILABLE === '1') {
+    skipStep('assistant-draft-or-busy-fallback', 'No AI provider key in this backend (local E2E stack); hosted E2E covers the assistant.');
+    return;
+  }
   await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
   let http429Seen = false;
   let resolveRateLimit;
