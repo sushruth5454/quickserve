@@ -833,6 +833,8 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2's first main E2E `44465627435` exposed cancellation-dismissal and nested admin-shop issues; fix-forward `eeee6b3` corrected them. P1a main backend `44470999495` applied 0069, app publish `44470999525` succeeded, and main E2E `44470999417` passed.
 
+**Current E2E fix-forward (2026-11-19):** Main run `44617037714` on `8716e27` passed demo reset and feature-flag pinning, then failed the same six smoke steps; private baseline `44615367308` reproduced them. T1 fix `8054cbe` fills required `count=2` and `aspect_ratio=9:16` (Codespace PASS; lane CI `44617775250`). H3 fix `272cf49` enables weekly recurrence for `demo-home-tutor` in both demo seed paths and retains the rendered “Demo deliverable” label (Codespace PASS; lane CI `44620895218`). The combined `integrate/e2e-fix-forward` branch now includes both lanes; private `e2e-local` validation is pending. Do not push/promote DB batch 5 until this gate is green.
+
 Baseline screenshot artifact: *(Q-01 fills this)*
 
 ## 8. Definition of done (whole redesign)
