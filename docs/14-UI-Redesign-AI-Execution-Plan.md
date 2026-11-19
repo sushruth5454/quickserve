@@ -837,6 +837,8 @@ Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
+**Latest fix-forward validation (2026-11-19):** Integration commit `93f7cf0` passed lane CI `44639312164` and private `e2e-local` `44639312152`. The smoke report recorded 162 screens, zero failed steps, and two expected AI-dependent skips. The local stack applied `0060a/b` as `006000/006001`; no production migration filenames were changed.
+
 ## 8. Definition of done (whole redesign)
 1. Every §4 task is merged with a green lane run, and the `main` E2E is green.
 2. All six flags were tested on and off, and the owner has enabled them in admin.
