@@ -9,9 +9,9 @@
   scripts/cs/run.sh from origin/main inside the Codespace. Runs are serialized there by a lock.
 
 .EXAMPLE
-  pwsh -File <main checkout>\scripts\cs-test.ps1 -Suite sql -Filter b2_
-  pwsh -File <main checkout>\scripts\cs-test.ps1 -Suite app -Filter DeliverySection
-  pwsh -File <main checkout>\scripts\cs-test.ps1 -Suite all
+  pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite sql -Filter b2_
+  pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite app -Filter DeliverySection
+  pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite all
 #>
 param(
   [ValidateSet('sql', 'tsc', 'jest', 'app', 'deno', 'all')][string]$Suite = 'all',
@@ -37,7 +37,7 @@ try {
   Remove-Item $tmpIndex -ErrorAction SilentlyContinue
 }
 $commit = (git -C $root commit-tree $tree -p HEAD -m "cs-test snapshot").Trim()
-git -C $root push -q -f origin "${commit}:refs/heads/$ref"
+git -C $root push -q -f origin "${commit}:refs/heads/$ref" 2>$null
 if ($LASTEXITCODE) { throw "push to $ref failed" }
 
 if (-not $Codespace) { $Codespace = $env:QS_CODESPACE }
