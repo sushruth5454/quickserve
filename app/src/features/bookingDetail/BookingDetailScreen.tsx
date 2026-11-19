@@ -756,7 +756,7 @@ export default function BookingDetailScreen() {
       ) : null}
 
 
-      <PaymentsSection payments={payments} theme={t} />
+      <PaymentsSection payments={payments} schedules={data.paymentSchedule} theme={t} />
 
       {canReport && disputeOpen ? (
         <Animated.View entering={FadeInDown.duration(200)}>
