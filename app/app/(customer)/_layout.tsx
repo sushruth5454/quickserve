@@ -4,6 +4,8 @@ import { badgeLabel } from '../../src/lib/unread';
 import { useTheme } from '../../src/theme';
 import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
 import { ActivityUnreadProvider, useActivityUnread } from '../../src/features/activity/ActivityUnreadProvider';
+import { useAppFeatureFlags } from '../../src/lib/featureFlags';
+import { useT } from '../../src/i18n';
 
 export const unstable_settings = { initialRouteName: 'index' };
 
@@ -20,6 +22,8 @@ export default function CustomerTabs() {
 function CustomerTabsContent() {
   const screenOptions = useTabScreenOptions();
   const t = useTheme();
+  const translate = useT();
+  const flags = useAppFeatureFlags();
   const unread = useActivityUnread().total;
   return (
     <Tabs screenOptions={screenOptions}>
@@ -28,6 +32,14 @@ function CustomerTabsContent() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => <TabIcon name="home-outline" activeName="home" focused={focused} color={color as string} />,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          href: flags.isOn('unified_search') ? undefined : null,
+          title: translate('tabs.search'),
+          tabBarIcon: ({ color, focused }) => <TabIcon name="search-outline" activeName="search" focused={focused} color={color as string} />,
         }}
       />
       <Tabs.Screen
@@ -42,7 +54,7 @@ function CustomerTabsContent() {
       <Tabs.Screen
         name="account"
         options={{
-          title: 'Me',
+          title: translate('tabs.account'),
           tabBarIcon: ({ color, focused }) => <TabIcon name="person-circle-outline" activeName="person-circle" focused={focused} color={color as string} />,
         }}
       />
