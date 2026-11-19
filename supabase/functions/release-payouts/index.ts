@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
 
   const expired = await admin.rpc("expire_stale_requests");
   if (expired.error) console.error("expire_stale_requests", expired.error);
+  const stalled = await admin.rpc("expire_stalled_bookings");
+  if (stalled.error) console.error("expire_stalled_bookings", stalled.error);
   const confirmed = await admin.rpc("auto_confirm_completions");
   if (confirmed.error) console.error("auto_confirm_completions", confirmed.error);
   const linksCancelled = await cancelRetiredLinks(admin);
@@ -153,6 +155,7 @@ Deno.serve(async (req) => {
 
   return json({
     expired: expired.data ?? 0,
+    stalled_expired: stalled.data ?? 0,
     auto_confirmed: confirmed.data ?? 0,
     links_cancelled: linksCancelled,
     stale_transfers_reconciled: staleReconciled,

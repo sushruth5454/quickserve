@@ -309,7 +309,7 @@ jobs:
           print("0019 live fixed-booking verification succeeded (rolled back fixture).")
           PY
 
-      - name: Apply migrations 0020-0082 through the Management API
+      - name: Apply migrations 0020-0083 through the Management API
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.PROJECT_REF != ''
         env:
           MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -332,7 +332,7 @@ jobs:
                   headers={
                       "Authorization": f"Bearer {token}",
                       "Content-Type": "application/json",
-                      "User-Agent": "quickserve-0020-0082-ci",
+                      "User-Agent": "quickserve-0020-0083-ci",
                   },
                   method="POST",
               )
@@ -352,7 +352,7 @@ jobs:
               return bool(rows and rows[0].get("applied"))
 
           if not applied("0019"):
-              raise SystemExit("0019 is not live; refusing to apply 0020-0082.")
+              raise SystemExit("0019 is not live; refusing to apply 0020-0083.")
 
           # Each migration commits on its own: 0023 uses enum labels that 0020 must commit first.
           for version, name in [
@@ -420,6 +420,7 @@ jobs:
              ("0080", "0080_s2_sports_ops_ux.sql"),
              ("0081", "0081_c2_creator_delivery.sql"),
              ("0082", "0082_c1_creator_delivery_safety.sql"),
+             ("0083", "0083_h3_home_booking_safety.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

@@ -242,7 +242,9 @@ export interface Api {
   confirmCompletion(id: string): Promise<void>;
   previewCancellation(id: string): Promise<CancellationPreview | null>;
   cancelBooking(id: string, reason?: string): Promise<void>;
+  providerCancelBooking(id: string, reason?: 'provider_cancellation' | 'provider_no_show'): Promise<void>;
   disputeBooking(id: string, reason: string): Promise<void>;
+  reportNoShow(id: string, absentParty: 'customer' | 'provider'): Promise<void>;
   regenerateOtp(id: string, kind: 'start' | 'end'): Promise<void>;
   rejectQuote(bookingId: string, quoteId: string): Promise<void>;
   arrive(id: string, otp: string): Promise<OtpResult>;
