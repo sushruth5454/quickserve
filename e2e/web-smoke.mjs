@@ -169,11 +169,13 @@ await step('login', async () => {
 });
 await step('verify', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
+  await page.waitForURL((u) => new URL(u).pathname === '/dashboard');
+  await page.getByText(/^You're (online|offline)$/).first().waitFor();
 });
-await step('role-continue-customer', async () => {
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+await step('returning-provider-switch-to-customer', async () => {
+  await go('/pro-account');
+  await page.getByText('Switch to customer mode', { exact: true }).click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
   await visible('Bookings');
 });
 
