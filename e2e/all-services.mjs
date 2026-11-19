@@ -84,7 +84,11 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
       const platformFeePaise = await priceRowPaise('Platform fee');
       const totalPaise = await priceRowPaise('Total');
       const footerPaise = amountInPaise(footerText);
-      const breakdown = { packagePaise, platformFeePaise, totalPaise, footerPaise };
+      const breakdown = { packagePaise, platformFeePaise, totalPaise, footerText, footerPaise };
+      if (packagePaise !== 99900 || platformFeePaise !== 2900 || totalPaise !== 102800
+        || footerText !== 'Pay ₹1,028.00' || footerPaise !== 102800) {
+        throw new Error(`fixed package Pay label does not match the ₹999 + ₹29 sample: ${JSON.stringify(breakdown)}`);
+      }
       if (packagePaise + platformFeePaise !== totalPaise || totalPaise !== footerPaise) {
         throw new Error(`fixed package footer does not match the displayed price breakdown: ${JSON.stringify(breakdown)}`);
       }

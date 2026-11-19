@@ -162,6 +162,81 @@ await scenario('inspect booking preview returns exact server paise', async () =>
   }), `inspect preview uses server visit and platform fees: ${JSON.stringify(actual)}`);
 });
 
+await scenario('default fixed fee produces the exact ₹1,028 checkout schedule', async () => {
+  const fixture = await createServiceFixture({
+    customer: '00000000-0000-0000-0000-000000000751',
+    provider: '00000000-0000-0000-0000-000000000752',
+    slug: 'b1-fixed-default-fee',
+    archetype: 'fixed',
+    visitFee: 0,
+  });
+  const packageId = (await one(`
+    insert into public.service_packages (
+      provider_service_id, title, price_type, price, price_min, price_max,
+      unit, qty_min, qty_max, duration_min, active
+    ) values (
+      $1::uuid, 'B1 default-fee package', 'fixed', 99900, 99900, 99900,
+      'job', 1, 1, 60, true
+    ) returning id
+  `, [fixture.serviceId])).id;
+  const fee = (await as(fixture.customer, 'authenticated', `
+    select public.get_fixed_booking_fee() as fee
+  `))[0].fee;
+  const start = '2026-12-16T10:00:00+05:30';
+  const end = '2026-12-16T12:00:00+05:30';
+  const bookingId = (await as(fixture.customer, 'authenticated', `
+    select public.create_fixed_booking(
+      $1::uuid,
+      $2::numeric,
+      tstzrange($3::timestamptz, $4::timestamptz, '[)'),
+      $5::jsonb,
+      '{}'::jsonb
+    ) as booking_id
+  `, [
+    packageId,
+    1,
+    start,
+    end,
+    JSON.stringify({
+      mode: 'at_customer',
+      address_line: 'B1 default-fee address',
+      city: 'B1 Fixture City',
+      lat: 16.5,
+      lng: 80.6,
+    }),
+  ]))[0].booking_id;
+  const charged = await one(`
+    select b.platform_fee, b.total_amount, q.total as package_total,
+           array_agg(ps.amount order by ps.seq) as scheduled_amounts
+      from public.bookings b
+      join public.quotes q on q.booking_id = b.id
+      join public.payment_schedule ps on ps.booking_id = b.id
+     where b.id = $1::uuid
+     group by b.id, q.total
+  `, [bookingId]);
+  const amounts = {
+    fee: Number(fee),
+    platform_fee: Number(charged.platform_fee),
+    package_total: Number(charged.package_total),
+    total_amount: Number(charged.total_amount),
+    scheduled_amounts: charged.scheduled_amounts.map(Number),
+  };
+  ok(JSON.stringify(amounts) === JSON.stringify({
+    fee: 2900,
+    platform_fee: 2900,
+    package_total: 99900,
+    total_amount: 102800,
+    scheduled_amounts: [99900, 2900],
+  }), `default fixed checkout matches the ₹999 + ₹29 sample: ${JSON.stringify({
+    bookingId,
+    customerId: fixture.customer,
+    providerId: fixture.provider,
+    serviceId: fixture.serviceId,
+    packageId,
+    amounts,
+  })}`);
+});
+
 await scenario('fixed fee follows app_config and matches the booking charge', async () => {
   const fixture = await createServiceFixture({
     customer: '00000000-0000-0000-0000-000000000741',
