@@ -45,6 +45,16 @@ as $$
   select public._feature_enabled('products') and public._guest_browse_enabled();
 $$;
 
+create or replace function public._shops_enquiries_enabled()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public._shops_products_enabled() and public._feature_enabled('product_enquiries');
+$$;
+
 create or replace function public._sports_feature(p_key text)
 returns boolean
 language sql
@@ -69,6 +79,7 @@ public.categories, public.category_cities, public.provider_links, public.reviews
   public.sports_activities, public.sports_venues, public.sports_resources, public.sports_hours,
   public.sports_price_rules, public.geo_states, public.geo_districts, public.geo_cities, public.geo_areas
 from anon;
+revoke all on public.addresses from anon;
 
 grant select (id, full_name, avatar_url) on public.profiles to anon;
 grant select (
@@ -543,7 +554,13 @@ begin
     return null;
   end if;
   select * into p from public.providers where id = p_provider_id;
-  if not found or not (public._provider_is_live(p_provider_id) or p_provider_id = auth.uid()) then
+  if not found or not (
+    public._provider_is_live(p_provider_id)
+    or (
+      p_provider_id = auth.uid()
+      and coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), 'anon') = 'authenticated'
+    )
+  ) then
     return null;
   end if;
   v_today := public._provider_local_date(p_provider_id, now());

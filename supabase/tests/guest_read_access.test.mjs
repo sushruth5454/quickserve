@@ -749,6 +749,12 @@ await scenario('enabled public reads and private-field boundaries', async () => 
     `select public.get_provider_public_profile($1::uuid) as profile`,
     [nonLiveProvider.providerId],
   ))[0].profile;
+  const nonLiveOwnerProfile = (await as(
+    nonLiveProvider.providerId,
+    'authenticated',
+    `select public.get_provider_public_profile($1::uuid) as profile`,
+    [nonLiveProvider.providerId],
+  ))[0].profile;
   ok(
     hiddenProviderRow.length === 0 && hiddenProviderReviews.length === 0 && hiddenProviderProfile === null,
     `unapproved provider rows and reviews stay hidden: ${JSON.stringify({
@@ -756,6 +762,10 @@ await scenario('enabled public reads and private-field boundaries', async () => 
       hiddenProviderReviews,
       hiddenProviderProfile,
     })}`,
+  );
+  ok(
+    nonLiveOwnerProfile?.id === nonLiveProvider.providerId && nonLiveOwnerProfile.live === false,
+    `authenticated provider can still read their own non-live profile: ${JSON.stringify({ nonLiveOwnerProfile })}`,
   );
 
   const productCategories = await as(null, 'anon', `select c.id, c.slug from public.list_product_categories() as c`);
@@ -1089,6 +1099,7 @@ await scenario('enabled public reads and private-field boundaries', async () => 
   const anonTablewideGrants = await db.query(`
     select has_table_privilege('anon', 'public.profiles', 'select') as profiles,
            has_table_privilege('anon', 'public.providers', 'select') as providers,
+           has_table_privilege('anon', 'public.addresses', 'select') as addresses,
            has_table_privilege('anon', 'public.provider_services', 'select') as provider_services,
            has_table_privilege('anon', 'public.rate_card_items', 'select') as rate_card_items,
            has_table_privilege('anon', 'public.categories', 'select') as categories,
