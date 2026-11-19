@@ -664,11 +664,12 @@ await scenario('WS4-T09: owner edits a price rule by id and only the owner can d
   const existing = await one(`
     select id from public.sports_price_rules where resource_id = $1::uuid limit 1
   `, [fixture.resourceId]);
-  const editedId = (await as(fixture.ownerId, 'authenticated', `
+  const editedRows = await as(fixture.ownerId, 'authenticated', `
     select public.save_sports_price_rule(
       $1::uuid, $2::uuid, null::smallint, time '08:00', time '20:00', $3::int, $4::text
     ) id
-  `, [fixture.resourceId, existing.id, 25000, 'Edited standard']])[0].id;
+  `, [fixture.resourceId, existing.id, 25000, 'Edited standard']);
+  const editedId = editedRows[0].id;
   const edited = await one(`
     select price_paise, label from public.sports_price_rules where id = $1::uuid
   `, [existing.id]);
