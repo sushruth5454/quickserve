@@ -807,7 +807,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | CR-01 | merged; lane CI green; existing Card/CategoryIcon retained per spec | 6878626f-8b83-4ae5-9c10-10eb19c470dd | 44414854482 (green) | 0a12c33 (lane 52f3ba6) |
 | CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
 | BD-01 | blocked by R-01 and C-07 | — | — | — |
-| A-01 | merged; lane CI and post-admin-fix lane E2E green; main app publish passed, main E2E queued | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green); 44464706450 (main app publish success); 44464706447 (main E2E queued) | 557bcb9 |
+| A-01 | merged; lane CI, post-admin-fix lane E2E, main app publish, and main E2E passed | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green); 44464706450 (main app publish success); 44464706447 (main E2E success) | 557bcb9 |
 | M-01 | blocked by R-05 and T-01 | — | — | — |
 | M-02 | blocked by R-06 and T-01 | — | — | — |
 | M-03 | merged; lane CI green; E2E queued | 53f643d6-ed52-4e6d-b3f5-f84edbd0a207 | 44411999739 (green); 44411999701 (E2E pending) | 061d55b (lane 53c5bd9) |
@@ -817,7 +817,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
 
-Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main app publish `44464706450` passed; main E2E `44464706447` is queued. U2 lane run `44458119027` reached the cancellation modal but showed the safe fallback because `preview_cancellation` migration `0068` was not deployed then; main deploy `44465627380` applied 0068 and succeeded, app publish `44465627372` succeeded, and main E2E `44465627435` is queued.
+Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2 lane run `44458119027` reached the cancellation modal but showed the safe fallback because `preview_cancellation` migration `0068` was not deployed then; main deploy `44465627380` applied 0068 and succeeded, app publish `44465627372` succeeded, and main E2E `44465627435` is queued.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
