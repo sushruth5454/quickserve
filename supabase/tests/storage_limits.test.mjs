@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const sql = fs.readFileSync(path.join(here, '..', 'migrations', '0072_nearo_r1.sql'), 'utf8');
+const sql = fs.readFileSync(path.join(here, '..', 'migrations', '0070_nearo_r1.sql'), 'utf8');
 const required = [
   ['job-photos bucket', /job-photos/i],
   ['dispute-photos bucket', /dispute-photos/i],

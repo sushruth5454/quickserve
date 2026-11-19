@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, Chip, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, TextArea, useToast } from '../src/components/ui';
+import { Button, Card, Chip, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, TextArea, useConfirm, useToast } from '../src/components/ui';
 import { pickPhoto } from '../src/features/providerOnboarding/media';
 import {
   deleteProduct,
@@ -20,6 +20,9 @@ import {
   type ShopProduct,
 } from '../src/features/shops/api';
 import { FeatureUnavailable, IndicativePrice, ShopStatusLabel, useShopFeatureFlags } from '../src/features/shops/components';
+import { SpecFields } from '../src/features/shops/SpecFields';
+import { UNIT_LABELS } from '../src/features/shops/format';
+import { cleanSpecs } from '../src/features/shops/specs';
 import { useSelectedLocation, resolvePlace, searchPlaces, type PlaceResult } from '../src/lib/locationContext';
 import { newPlacesSession } from '../src/lib/places';
 import { parseRupees } from '../src/lib/onboarding/validation';
@@ -33,7 +36,7 @@ type ProductDraft = {
   brand: string;
   model: string;
   description: string;
-  specsText: string;
+  specs: Record<string, string>;
   unit: ProductUnit;
   priceText: string;
   inStock: boolean;
@@ -66,7 +69,7 @@ const emptyProduct = (categoryId = ''): ProductDraft => ({
   brand: '',
   model: '',
   description: '',
-  specsText: '{}',
+  specs: {},
   unit: 'piece',
   priceText: '',
   inStock: true,
@@ -81,6 +84,7 @@ const UNITS: ProductUnit[] = ['piece', 'sqft', 'box', 'kg', 'litre', 'bag', 'met
 export default function MerchantShopScreen() {
   const t = useTheme();
   const toast = useToast();
+  const confirm = useConfirm();
   const features = useShopFeatureFlags();
   const { location } = useSelectedLocation();
   const sessionRef = useRef(newPlacesSession());
@@ -96,8 +100,8 @@ export default function MerchantShopScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!features.products) return;
+  const load = useCallback(async (): Promise<ShopProfile | null> => {
+    if (!features.products) return null;
     setLoading(true);
     try {
       const [nextCategories, nextShop] = await Promise.all([listProductCategories(), getMyShop()]);
@@ -132,8 +136,10 @@ export default function MerchantShopScreen() {
         setProductImages({});
       }
       setError(null);
+      return nextShop;
     } catch (e) {
       setError((e as Error).message);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -184,12 +190,31 @@ export default function MerchantShopScreen() {
   };
 
   const saveShopDetails = async () => {
+    const identityChanged = shop?.status === 'verified' && (
+      draft.name !== shop.name
+      || draft.address_line !== shop.address_line
+      || draft.city !== shop.city
+      || draft.area !== shop.area
+      || draft.lat !== shop.lat
+      || draft.lng !== shop.lng
+      || draft.gstin !== shop.gstin
+    );
+    if (identityChanged && !await confirm({
+      title: 'Send your shop for re-verification?',
+      message: 'Changing name, address or GSTIN sends your shop for re-verification. Your shop stays hidden until approved. Continue?',
+      confirmLabel: 'Continue',
+      cancelLabel: 'Cancel',
+    })) return;
+
     setBusy(true);
     setError(null);
     try {
       await saveShop(draft);
-      await load();
-      toast({ message: 'Shop details saved', tone: 'success' });
+      const savedShop = await load();
+      toast({
+        message: savedShop?.status === 'submitted' ? 'Shop details saved. Sent for re-verification.' : 'Shop details saved',
+        tone: 'success',
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -224,7 +249,7 @@ export default function MerchantShopScreen() {
       brand: product.brand,
       model: product.model,
       description: product.description,
-      specsText: JSON.stringify(product.specs ?? {}, null, 2),
+      specs: Object.fromEntries(Object.entries(product.specs ?? {}).map(([key, value]) => [key, String(value)])),
       unit: product.unit,
       priceText: product.indicative_price_paise == null ? '' : (product.indicative_price_paise / 100).toFixed(2),
       inStock: product.in_stock,
@@ -250,24 +275,15 @@ export default function MerchantShopScreen() {
 
   const saveProductDraft = async () => {
     if (!shop || !productDraft) return;
+    const shopDraft = draft;
     const price = productDraft.priceText.trim() ? parseRupees(productDraft.priceText) : null;
     if (productDraft.priceText.trim() && (price == null || price < 0)) {
       setError('Enter a valid indicative price in rupees.');
       return;
     }
-    let specs: Record<string, unknown>;
-    try {
-      const parsed: unknown = JSON.parse(productDraft.specsText || '{}');
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
-      specs = parsed as Record<string, unknown>;
-    } catch {
-      setError('Enter product specifications as a JSON object.');
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
-      await saveShop(draft);
       await saveProduct({
         shopId: shop.id,
         productId: productDraft.id,
@@ -276,7 +292,7 @@ export default function MerchantShopScreen() {
         brand: productDraft.brand,
         model: productDraft.model,
         description: productDraft.description,
-        specs,
+        specs: cleanSpecs(productDraft.specs),
         unit: productDraft.unit,
         pricePaise: price,
         inStock: productDraft.inStock,
@@ -287,6 +303,7 @@ export default function MerchantShopScreen() {
       });
       setProductDraft(null);
       await load();
+      setDraft(shopDraft);
       toast({ message: 'Product saved', tone: 'success' });
     } catch (e) {
       setError((e as Error).message);
@@ -296,11 +313,18 @@ export default function MerchantShopScreen() {
   };
 
   const removeProduct = async (product: ShopProduct) => {
+    if (!await confirm({
+      title: `Delete ${product.name}?`,
+      message: "Customers' past enquiries are kept.",
+      confirmLabel: 'Delete',
+      destructive: true,
+    })) return;
+
     setBusy(true);
     try {
       await deleteProduct(product.id);
       await load();
-      toast({ message: 'Product removed from your catalogue', tone: 'success' });
+      toast({ message: 'Product deleted from your catalogue', tone: 'success' });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -372,7 +396,6 @@ export default function MerchantShopScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
           <Chip label="Offers delivery" selected={draft.offers_delivery} onPress={() => updateShop('offers_delivery', !draft.offers_delivery)} />
           <Chip label="Pickup available" selected={draft.offers_pickup} onPress={() => updateShop('offers_pickup', !draft.offers_pickup)} />
-          <Chip label="WhatsApp contact available" selected={draft.whatsapp_contact} onPress={() => updateShop('whatsapp_contact', !draft.whatsapp_contact)} />
         </View>
         <Button title="Save shop details" loading={busy} onPress={() => void saveShopDetails()} />
       </Card>
@@ -389,7 +412,7 @@ export default function MerchantShopScreen() {
             <Card gap={t.spacing.md}>
               <Text variant="title3">{productDraft.id ? 'Edit product' : 'New product'}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                {categories.filter((category) => draft.category_slugs.includes(category.slug)).map((category) => <Chip key={category.id} label={category.name} selected={productDraft.categoryId === category.id} onPress={() => updateProduct('categoryId', category.id)} />)}
+                {categories.filter((category) => draft.category_slugs.includes(category.slug)).map((category) => <Chip key={category.id} label={category.name} selected={productDraft.categoryId === category.id} onPress={() => setProductDraft((current) => current ? { ...current, categoryId: category.id, specs: {} } : current)} />)}
               </View>
               <Input label="Product name" value={productDraft.name} onChangeText={(value) => updateProduct('name', value)} maxLength={120} />
               <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
@@ -397,13 +420,16 @@ export default function MerchantShopScreen() {
                 <View style={{ flex: 1 }}><Input label="Model" value={productDraft.model} onChangeText={(value) => updateProduct('model', value)} maxLength={80} /></View>
               </View>
               <TextArea label="Description" value={productDraft.description} onChangeText={(value) => updateProduct('description', value)} maxLength={2000} />
-              <TextArea label="Specifications (JSON)" value={productDraft.specsText} onChangeText={(value) => updateProduct('specsText', value)} />
+              <SpecFields
+                schema={categories.find((category) => category.id === productDraft.categoryId)?.attribute_schema ?? { properties: {} }}
+                value={productDraft.specs}
+                onChange={(value) => updateProduct('specs', value)}
+              />
               <Text variant="calloutStrong">Unit</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
                 {UNITS.map((unit) => <Chip key={unit} label={unit} selected={productDraft.unit === unit} onPress={() => updateProduct('unit', unit)} />)}
               </View>
-              <Input label="Indicative price (₹, optional)" value={productDraft.priceText} onChangeText={(value) => updateProduct('priceText', value)} keyboardType="decimal-pad" placeholder="Leave blank if not set" />
-              <Text variant="footnote" color="muted">Indicative price — confirm with shop.</Text>
+              <Input label={`Indicative price per ${UNIT_LABELS[productDraft.unit]} (₹, optional)`} value={productDraft.priceText} onChangeText={(value) => updateProduct('priceText', value)} keyboardType="decimal-pad" placeholder="Leave blank if not set" />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
                 <Chip label="In stock" selected={productDraft.inStock} onPress={() => updateProduct('inStock', !productDraft.inStock)} />
                 <Chip label="Visible in catalogue" selected={productDraft.active} onPress={() => updateProduct('active', !productDraft.active)} />
@@ -425,7 +451,7 @@ export default function MerchantShopScreen() {
               <View style={{ flex: 1, gap: 4 }}>
                 <Text variant="calloutStrong">{product.name}</Text>
                 <Text variant="caption" color="muted">{product.category_name} · {product.active ? 'Listed' : 'Paused'} · {product.in_stock ? 'In stock' : 'Out of stock'}</Text>
-                <IndicativePrice pricePaise={product.indicative_price_paise} />
+                <IndicativePrice pricePaise={product.indicative_price_paise} unit={product.unit} updatedAt={product.price_updated_at} />
               </View>
               <View style={{ gap: t.spacing.xs }}>
                 <Button title="Edit" size="sm" variant="outline" onPress={() => editProduct(product)} />
