@@ -99,8 +99,7 @@ export function quoteSubtotals(items: LineInput[]): Subtotals {
     if (item.kind === 'labour' || item.kind === 'package' || item.kind === 'per_unit' || item.kind === 'addon' || item.kind === 'travel') {
       s.labour += t;
       s.commissionable += t;
-    }
-    else if (item.kind === 'part') s.parts += t;
+    } else if (item.kind === 'part') s.parts += t;
     else s.other += t;
   }
   return { ...s, total: s.labour + s.parts + s.other };

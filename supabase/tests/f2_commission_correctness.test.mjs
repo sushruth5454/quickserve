@@ -437,8 +437,8 @@ await scenario('WS6-T03 inspect quote keeps the documented 193760 paise payout a
       total_amount, archetype, location_mode, booking_origin
     ) values (
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-      'F2 inspect commission fixture', now() + interval '10 days',
-      tstzrange(now() + interval '10 days', now() + interval '10 days 4 hours', '[)'),
+      'F2 inspect commission fixture', '2027-03-20T10:00:00Z'::timestamptz,
+      tstzrange('2027-03-20T10:00:00Z'::timestamptz, '2027-03-20T14:00:00Z'::timestamptz, '[)'),
       'inspecting', 19900, 2900, 19900, 'inspect_quote', 'at_customer', 'marketplace'
     ) returning id`,
   [fixture.customer, fixture.provider, fixture.categoryId, fixture.serviceId, fixture.addressId])).id;

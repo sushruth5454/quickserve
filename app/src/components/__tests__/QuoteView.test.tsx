@@ -4,6 +4,8 @@ import { QuoteView } from '../QuoteView';
 import { PriceRow } from '../ui';
 
 jest.mock('react-native', () => ({ View: 'View' }));
+jest.mock('../../lib/config', () => ({ isDemoMode: true }));
+jest.mock('../../lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 jest.mock('../ui', () => ({
   Badge: () => null,
   Card: () => null,

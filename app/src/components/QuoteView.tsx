@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { customerDueNow, formatINR, requiredTotal } from '../lib/money';
 import { isDemoMode } from '../lib/config';
-import { supabase } from '../lib/supabase';
 import type { Quote, QuoteItemKind, QuoteStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { Badge, Card, Divider, InlineAlert, PriceRow, Text, type Tone } from './ui';
@@ -221,6 +220,7 @@ function ServerSettlementPreview({ quoteId }: { quoteId: string }) {
     let active = true;
     void (async () => {
       try {
+        const { supabase } = await import('../lib/supabase');
         const { data, error } = await supabase.rpc('get_quote_settlement_preview', { p_quote_id: quoteId });
         if (active && !error) setPreview(parseSettlementPreview(data));
       } catch {
