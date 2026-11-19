@@ -3,7 +3,7 @@ import { Badge } from './ui';
 import type { BookingStatus } from '../lib/types';
 
 export const statusLabel: Record<BookingStatus, string> = {
-  pending_payment: 'Awaiting visit-fee payment',
+  pending_payment: 'Payment pending',
   confirmed: 'Confirmed',
   requested: 'Waiting for provider',
   accepted: 'Accepted',
@@ -75,7 +75,7 @@ export const statusTone: Record<BookingStatus, Tone> = {
 
 /** One-line "what happens next" copy for booking cards. */
 export const nextStepCopy: Partial<Record<BookingStatus, string>> = {
-  pending_payment: 'Pay the visit fee to send your request',
+  pending_payment: 'Complete payment to send your booking',
   confirmed: 'Pay remaining milestones and prepare the start code',
   requested: 'Waiting for the pro to accept · usually ~15 min',
   accepted: 'Pro confirmed · share the start code on arrival',

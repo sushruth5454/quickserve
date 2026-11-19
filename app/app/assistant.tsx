@@ -10,11 +10,12 @@ import { AssistantBubble, FeedbackBar, HandoffCard, QuickReplies, StarterList, U
 import { Composer } from '../src/components/assistant/Composer';
 import { ProgressSteps } from '../src/components/assistant/ProgressSteps';
 import { VoicePreview } from '../src/components/assistant/VoicePreview';
-import { Button, EmptyState, Header, IconButton, Screen, Text, useToast } from '../src/components/ui';
+import { Button, EmptyState, Header, IconButton, InlineAlert, Screen, Text, useToast } from '../src/components/ui';
 import { track } from '../src/lib/analytics';
 import { getMyProfile, listMyBookings } from '../src/lib/api';
 import { AssistantError, sendToAssistant, transcribeVoice } from '../src/lib/assistant/client';
 import { listConversations, loadConversation, photoUrl, setFeedback, type FeedbackReason, type StoredTurn } from '../src/lib/assistant/history';
+import { friendlyError } from '../src/lib/errors';
 import { visualPiiRedactionReady } from '../src/features/ai/imagePrivacy';
 import type { AssistantErrorKind } from '../src/lib/assistant/parse';
 import { draftToBookParams } from '../src/lib/assistant/prefill';
@@ -23,8 +24,10 @@ import { speak, stopSpeaking } from '../src/lib/assistant/speech';
 import { starterPrompts, type StarterPrompt } from '../src/lib/assistant/suggestions';
 import type { AssistantCard, AssistantLanguage, DraftCard, HandoffReason, ProviderPick, Transcription, VoiceMeta } from '../src/lib/assistant/types';
 import { aiAssistantEnabled, isDemoMode } from '../src/lib/config';
+import { useAppFeatureFlags } from '../src/lib/featureFlags';
 import { useSelectedLocation } from '../src/lib/locationContext';
 import { locationTitle } from '../src/lib/locationModel';
+import { useT } from '../src/i18n';
 import { useTheme } from '../src/theme';
 
 type Msg =
@@ -53,9 +56,10 @@ type Msg =
       progress: ProgressRow[];
       elapsedMs: number | null;
     }
-  | { id: string; role: 'error'; text: string; retry: Retry | null; kind: AssistantErrorKind; requestId: string | null };
+  | { id: string; role: 'error'; text: string; retry: Retry | VoiceRetry | null; kind: AssistantErrorKind; requestId: string | null; aiBusy?: boolean };
 
 type Retry = { message?: string; voice?: VoiceMeta; image?: { data: string; mimeType: string }; photoUri?: string | null };
+type VoiceRetry = { audio: { data: string; mimeType: string; durationMs: number } };
 type VoiceState = { phase: 'transcribing' } | { phase: 'review'; t: Transcription };
 
 /** Photos above ~3 MB are rejected by the server; check before uploading (base64 is 4/3 of the bytes). */
@@ -90,6 +94,9 @@ function turnsToMessages(turns: StoredTurn[]): Msg[] {
 
 export default function AssistantScreen() {
   const t = useTheme();
+  const translate = useT();
+  const flags = useAppFeatureFlags();
+  const aiOn = aiAssistantEnabled && flags.isOn('ai_assistant');
   const toast = useToast();
   const reduced = useReducedMotion();
   const { location } = useSelectedLocation();
@@ -245,8 +252,20 @@ export default function AssistantScreen() {
           track('assistant_stopped', { stage: rows.find((r) => r.status === 'active')?.key ?? null, after_ms: Date.now() - started });
           setMessages((m) => m.map((x) => (x.id === userId && x.role === 'user' ? { ...x, stopped: true } : x)));
         } else {
-          const retryable = err.kind === 'retry' || err.kind === 'offline';
-          setMessages((m) => [...m, { id: nextId(), role: 'error', text: err.message, retry: retryable ? input : null, kind: err.kind, requestId: err.requestId }]);
+          const aiBusy = friendlyError(e).key === 'ai.busy' || err.kind === 'limited';
+          const retryable = err.kind === 'retry' || err.kind === 'offline' || aiBusy;
+          setMessages((m) => [
+            ...m,
+            {
+              id: nextId(),
+              role: 'error',
+              text: aiBusy ? '' : err.message,
+              retry: retryable ? input : null,
+              kind: err.kind,
+              requestId: err.requestId,
+              aiBusy,
+            },
+          ]);
         }
       } finally {
         chatAbort.current = null;
@@ -278,7 +297,25 @@ export default function AssistantScreen() {
     } catch (e) {
       setVoice(null);
       const err = e instanceof AssistantError ? e : null;
-      if (err?.kind !== 'stopped') toast({ message: err?.message ?? 'Could not process the recording. Please type instead.', tone: 'error' });
+      if (err?.kind !== 'stopped') {
+        const aiBusy = friendlyError(e).key === 'ai.busy' || err?.kind === 'limited';
+        if (aiBusy) {
+          setMessages((m) => [
+            ...m,
+            {
+              id: nextId(),
+              role: 'error',
+              text: '',
+              retry: { audio },
+              kind: err?.kind ?? 'retry',
+              requestId: err?.requestId ?? null,
+              aiBusy: true,
+            },
+          ]);
+        } else {
+          toast({ message: err?.message ?? 'Could not process the recording. Please type instead.', tone: 'error' });
+        }
+      }
     } finally {
       voiceAbort.current = null;
     }
@@ -289,6 +326,15 @@ export default function AssistantScreen() {
     const tr = voice.t;
     setVoice(null);
     void send({ message: text, voice: { transcript_original: text, transcript_en: edited ? null : tr.transcript_en, language: tr.language, edited } });
+  };
+
+  const retryFailedCall = (retry: Retry | VoiceRetry) => {
+    if ('audio' in retry) {
+      setMessages((m) => m.filter((x) => x.role !== 'error'));
+      void onVoice(retry.audio);
+    } else {
+      void send(retry);
+    }
   };
 
   const pickPhoto = async (source: 'camera' | 'library') => {
@@ -372,7 +418,7 @@ export default function AssistantScreen() {
     return hasDraft ? [...lastAssistant.quickReplies.slice(0, 3), CHANGE_ADDRESS] : lastAssistant.quickReplies;
   }, [busy, voice, lastAssistant, messages]);
 
-  if (!aiAssistantEnabled) {
+  if (!aiOn) {
     return (
       <Screen header={<Header title="QuickServe AI" />}>
         <EmptyState icon="sparkles-outline" title="QuickServe AI is not available" message="You can still find a pro and book from the service list." actionLabel="Browse services" onAction={() => router.replace('/')} />
@@ -532,13 +578,20 @@ export default function AssistantScreen() {
               ) : null}
             </View>
           ) : m.role === 'error' ? (
-            <AssistantBubble
-              text={m.requestId ? `${m.text} (Ref ${m.requestId.slice(0, 8)})` : m.text}
-              error
-              onRetry={m.retry ? () => void send(m.retry!) : undefined}
-              actionLabel={m.kind === 'limited' || m.kind === 'disabled' ? 'Browse services' : m.kind === 'auth' ? 'Sign in again' : undefined}
-              onAction={m.kind === 'limited' || m.kind === 'disabled' ? () => router.replace('/') : m.kind === 'auth' ? () => router.replace('/login') : undefined}
-            />
+            m.aiBusy ? (
+              <View style={{ gap: t.spacing.sm }}>
+                <InlineAlert message={translate('ai.busy')} tone="warning" />
+                {m.retry ? <Button title={translate('location.retry')} variant="outline" onPress={() => retryFailedCall(m.retry!)} /> : null}
+              </View>
+            ) : (
+              <AssistantBubble
+                text={m.requestId ? `${m.text} (Ref ${m.requestId.slice(0, 8)})` : m.text}
+                error
+                onRetry={m.retry ? () => retryFailedCall(m.retry!) : undefined}
+                actionLabel={m.kind === 'limited' || m.kind === 'disabled' ? 'Browse services' : m.kind === 'auth' ? 'Sign in again' : undefined}
+                onAction={m.kind === 'limited' || m.kind === 'disabled' ? () => router.replace('/') : m.kind === 'auth' ? () => router.replace('/login') : undefined}
+              />
+            )
           ) : (
             <>
               <ProgressSteps rows={m.progress} live={false} lang={uiLanguage(m.language)} elapsedMs={m.elapsedMs} />

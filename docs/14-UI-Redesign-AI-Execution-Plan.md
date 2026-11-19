@@ -52,6 +52,9 @@ Worktree: <path>. Branch: lane/<TASK-ID>, created from origin/main @ <sha>.
 - Read them with `useAppFeatureFlags().isOn('<key>')`. An unknown key evaluates to **false** (`app/src/lib/featureFlagModel.ts`), so flagged UI is safe to merge before B-01 is applied.
 - Every flagged task must keep the **flag-off path identical to today** and test both states.
 
+### 0.6 Owner orchestration override (2026-11-18)
+The owner directed the integrator to start T-01 and C-07 while doc 17 T1/Q-00 is in progress; I-01 is integrator-owned and may proceed in parallel. These tasks have no shared-file conflict with Q-00. Their implementation and lane validation may proceed now; do not merge the UI foundation tasks until all code-owned Q-00 failures are green. The admin E2E step is explicitly owner-blocked until `DEMO_PROJECT=1` and `ADMIN_E2E_PHONE` are configured; never report that step as passed or weaken its guard.
+
 ---
 
 ## 1. Approved design inputs (source of truth)
@@ -337,7 +340,7 @@ Format: **Owns** = files the task may edit or create. **Blocked by** = tasks tha
 #### Q-01 E2E on lanes + 3-viewport screenshot baseline (integrator)
 - **Owns:** `.github/workflows/e2e-web.yml`, `e2e/web-smoke.mjs` (screenshot helper only; edit **after** Q-00 merges).
 - **Steps:**
-  1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add a concurrency group `concurrency: { group: e2e-shared-backend, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time.
+  1. Workflow triggers: `push` to `main` and to `lane/**`, plus `workflow_dispatch`. Add `concurrency: { group: e2e-shared-backend, queue: max, cancel-in-progress: false }`, because all runs share one Supabase demo backend and must not run at the same time; retain queued runs instead of replacing an existing pending run.
   2. Keep the existing screenshot directory: the workflow sets `SHOTS_DIR=${{ github.workspace }}/e2e-shots` (`e2e-web.yml:105`) and already uploads `e2e-shots` (`e2e-web.yml:228`). Only confirm `if: always()` and set retention to 14 days.
   3. Today `web-smoke.mjs` builds one context from `devices['iPhone 15']` (`web-smoke.mjs:26-34`), so an env var alone does nothing. Add a separate **screenshot-only pass**: read `E2E_VIEWPORTS` (default empty = skip). For each `WxH`, create a **new** `browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, isMobile: W < 768, hasTouch: W < 768 })`, log in, and visit a fixed list of read-only routes (`/`, `/category/<first slug>`, `/sports`, `/shop`, `/bookings`, `/account`). Save each screenshot as `${SHOTS}/vp-${W}x${H}-<route>.png`. The functional steps keep the iPhone 15 context unchanged.
 - **Acceptance:**
@@ -717,8 +720,11 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | `app/app/(customer)/index.tsx` | H-01 | — |
 | `app/src/features/activity/*` | R-04 → HS-03 (sequential) | — |
 | `app/app/provider/[id].tsx` + `features/providerProfile/*` | R-02 → HS-01 (sequential) | — |
-| `app/app/book/[providerServiceId].tsx` + `features/booking/book/*` | R-03 → HS-02 (sequential) | — |
-| `e2e/*.mjs` | Q-00 → Q-01 → Q-02 (sequential) | — |
+| `app/app/book/[providerServiceId].tsx` | doc 17 B1 → R-03 | — |
+| `app/src/features/booking/book/*` | R-03 → HS-02 (sequential) | — |
+| `app/app/book-fixed/[providerServiceId].tsx` | doc 17 B1 → HS-02 | — |
+| `e2e/web-smoke.mjs` | doc 17 X1 → Q-00/T1 → Q-01 screenshot helper → doc 17 U1 → doc 17 U3 → Q-02 | — |
+| `e2e/all-services.mjs` | Q-00/T1 → doc 17 H2b → doc 17 H3 → Q-02 | — |
 | `.github/workflows/*`, `supabase/tests/package.json` | integrator | — |
 | `components/market/*` | the C task that creates each file | screen tasks only import them |
 
@@ -770,9 +776,50 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
-| Q-00 | not started | | | |
-| Q-01 | not started | | | |
-| *(one row per task in §4)* | | | | |
+| Q-00 / doc 17 T1 | code-owned E2E fixes merged; owner test env/OTP/admin setup completed; returning-role admin route fixed in 17461fd; main E2E 44457835276 passed with admin step green | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (pre-setup E2E admin-only failure); 44452693916/44453087353 (owner setup); 44457835276 (post-fix E2E green) | fb069de |
+| Q-01 | workflow trigger, 14-day retention, and queue:max merged; O2 seed fix is on main; post-fix main E2E `44457835276` passed with 0 failed steps and admin pass; two AI-limit steps were skipped; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351; 44408156814; 44412263196; 44413775287 (cancelled before jobs); 44411077594 (proposal + admin failed); 44418061376 (X3 seed fix green); 44418061318 (E2E pending); 44419845866 (main E2E pending); 44419846387 (backend success); 44419845889 (app publish success); 44422452457 (app publish success); 44422452507 (main E2E pending); 44423228645 (backend success; 0063 applied); 44423228486 (demo reset failed; smoke not run); 44427389305 (backend success; 0064 applied); 44427389306 (app publish success); 44427389151 (demo reset failed; smoke not run); 44429275573 (backend success; 0065 applied); 44429275638 (demo reset failed; smoke not run); 44436860234 (lane seed reset/code smoke pass; admin config blocked); 44439583542 (backend success); 44439583544 (pre-setup code-owned pass; admin blocked); 44444203933 (backend success; 0066 applied); 44444204058 (app publish success); 44444203959 (pre-setup code-owned pass; admin blocked); 44449228932 (U3 lane smoke code-owned pass; admin blocked); 44451219523 (app publish success); 44451219515 (backend success; 0067 applied); 44451219597 (pre-setup code-owned pass; admin blocked); 44452693916/44453087353 (owner setup); 44452023387 (A-01 lane CI green); 44452023356 (pre-setup admin-only failure); 44454062046 (H-01 lane CI green); 44454062014 (pre-fix admin flow failure); 44454043918 (A-01 lane CI green); 44454043903 (pre-fix admin flow failure); 44457835276 (post-fix main E2E green; admin pass; AI-limit steps skipped); 44458045441 (A-01 lane CI green); 44458045387 (post-fix E2E pending); 44458119039 (U2 lane CI green); 44458119027 (E2E pending); 44458765488 (H-01 lane CI green); 44458765479 (E2E pending) | 5152f6c |
+| T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
+| B-01 | blocked by Q-00 and R1 | — | — | — |
+| I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
+| C-07 | merged; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918; 44402357939 (cancelled) | 5f751fa |
+| R-01 | blocked by doc 17 H3 | — | — | — |
+| R-02 | merged; lane CI green; U1 provider routing preserved | 38eb46d9-9945-45a0-8c63-3de7872492ea | 44421702081 | 8aa83ce |
+| R-03 | blocked by doc 17 B1 | — | — | — |
+| R-04 | blocked by doc 17 B2 | — | — | — |
+| R-05 | blocked by doc 17 O4 | — | — | — |
+| R-06 | blocked by doc 17 S2 | — | — | — |
+| R-07 | merged; lane CI green; E2E cancelled before execution | 300c6bc6-044b-4430-84e0-d3a3d0c3ebfc | 44408117021 (green); 44408116941 (E2E cancelled) | 7c83274 (lane e629743) |
+| C-01 | merged; lane CI green; code-owned E2E steps passed; admin step owner-blocked | 1fb8208b-f4e6-4809-94a5-2450f1f4578f | 44408144405 (green); 44408144270 (`ADMIN_E2E_PHONE` invalid/empty) | 9468a82 (lane 8ea2df3) |
+| C-02 | merged; lane CI green; E2E cancelled before execution | 46d09a0a-7fdb-4228-8221-dfcd109d0f01 | 44407464640 (green); 44407464583 (E2E cancelled) | 1057cfa (lane 8a9a729) |
+| C-03 | merged; lane CI green; E2E queued | 8fb08e8e-ea54-41ba-8913-7590c007d2de | 44412495451 (green); 44412495121 (E2E pending) | 72bb545 (lane c14fb0f) |
+| C-04 | merged; lane CI green after test fixes; E2E cancelled | 2ad9ec1a-b7ad-47c3-98b5-c09729e3acce | 44408076817 (green); 44408076741 (E2E cancelled) | ff3c46d (lane 7b4a510) |
+| C-05 | merged; lane CI green after type fix; E2E cancelled | 07879722-0a44-46a3-b508-a7924f3e168a | 44408097637 (green); 44408097628 (E2E cancelled) | f2ab430 (lane 5759992) |
+| C-06 | merged; lane CI green; all code-owned E2E steps passed; admin step remains owner-blocked | 0328e331-9d52-4778-97e5-e6737df3e1a8 | 44407916876 (green); 44407916872 (`ADMIN_E2E_PHONE` invalid/empty) | b75808a (lane 19afe98) |
+| C-08 | merged; lane CI green; E2E queued | ff027770-83f4-4c19-88e9-1dd0a4dabfda | 44412326937 (green); 44412370229 (E2E pending) | 674c6de (lane 49fb432) |
+| H-01 | merged; lane CI and post-admin-fix lane E2E green; main app publish and E2E passed | 861e2a89-2c68-445a-b38e-9b0dc736ad51 | 44454062046 (pre-fix green); 44454062014 (H-01 steps passed; admin locator timeout); 44458765488 (post-fix lane CI green); 44458765479 (post-fix lane E2E green); 44464543378 (main app publish success); 44464543331 (main E2E success) | 76db124 |
+| H-02 | lane CI green; main E2E pending; commit `dc97f03` | a9c54d32-3b09-4e80-9749-41a3bc589778 | 44474246349 (lane CI green); 44474246256 (lane E2E queued) | — |
+| G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
+| HS-01 | blocked by R-02, C-03, C-05 | — | — | — |
+| HS-02 | blocked by R-03 and C-08 | — | — | — |
+| HS-03 | blocked by R-04 | — | — | — |
+| SH-01 | lane CI green; main E2E pending; lane commit `59d06e2` | 703bb5a0-ac2f-4b45-8a73-94b5ce016007 | 44473985162 | — |
+| SH-02 | blocked by C-06 and doc 17 P1b | — | — | — |
+| SP-01 | blocked by components and doc 17 S2 | — | — | — |
+| SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
+| CR-01 | merged; lane CI green; existing Card/CategoryIcon retained per spec | 6878626f-8b83-4ae5-9c10-10eb19c470dd | 44414854482 (green) | 0a12c33 (lane 52f3ba6) |
+| CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
+| BD-01 | blocked by R-01 and C-07 | — | — | — |
+| A-01 | merged; lane CI, post-admin-fix lane E2E, main app publish, and main E2E passed | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green); 44464706450 (main app publish success); 44464706447 (main E2E success) | 557bcb9 |
+| M-01 | blocked by R-05 and T-01 | — | — | — |
+| M-02 | blocked by R-06 and T-01 | — | — | — |
+| M-03 | merged; lane CI green; E2E queued | 53f643d6-ed52-4e6d-b3f5-f84edbd0a207 | 44411999739 (green); 44411999701 (E2E pending) | 061d55b (lane 53c5bd9) |
+| Q-02 | blocked by all covered Phase 3 tasks | — | — | — |
+| Q-03 | blocked by all Phase 3 tasks | — | — | — |
+| P2-01 | blocked by Q-03 | — | — | — |
+| Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
+| T-99 | blocked by all | integrator | — | — |
+
+Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2's first main E2E `44465627435` exposed cancellation-dismissal and nested admin-shop issues; fix-forward `eeee6b3` corrected them. P1a main backend `44470999495` applied 0069, app publish `44470999525` succeeded, and main E2E `44470999417` passed.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 

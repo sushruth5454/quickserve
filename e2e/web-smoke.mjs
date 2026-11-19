@@ -2,7 +2,7 @@
 // Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
-import { runAllServiceScenarios } from './all-services.mjs';
+import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:8081';
 const SHOTS = process.env.SHOTS_DIR ?? 'e2e-shots';
@@ -153,6 +153,14 @@ function skipStep(name, reason) {
 }
 
 // ---------- Auth (one OTP send per run: the test number is rate limited) ----------
+await step('login-help-link', async () => {
+  await go('/login');
+  await page.getByRole('link', { name: 'Need help signing in?' }).click();
+  await visible('Sign-in help');
+  await visible('Changed your number?');
+  await page.getByRole('button', { name: /^Email / }).waitFor({ state: 'visible' });
+  await go('/login');
+});
 await step('login', async () => {
   await go('/');
   await page.getByLabel('Mobile number, India plus 91').fill(PHONE);
@@ -161,11 +169,13 @@ await step('login', async () => {
 });
 await step('verify', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
+  await page.waitForURL((u) => new URL(u).pathname === '/dashboard');
+  await page.getByText(/^You're (online|offline)$/).first().waitFor();
 });
-await step('role-continue-customer', async () => {
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+await step('returning-provider-switch-to-customer', async () => {
+  await go('/pro-account');
+  await page.getByText('Switch to customer mode', { exact: true }).click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
   await visible('Bookings');
 });
 
@@ -415,6 +425,30 @@ await step('provider-detail', async () => {
   await visible('Ratings & reviews');
 });
 await optional('provider-detail-scrolled', () => snapScrolled('provider-detail-scrolled', 900));
+const fixedServiceRows = await rest(`provider_services?select=id,provider_id,categories(slug,archetype)&id=eq.${DEMO_IDS.fixedService}&active=eq.true`).catch(() => []);
+await step('provider-detail-fixed-service-routes-to-packages', async () => {
+  const fixedService = fixedServiceRows[0];
+  if (!fixedService?.provider_id || !fixedService.categories?.slug) {
+    throw new Error(`seeded fixed service is unavailable: ${JSON.stringify(fixedService)}`);
+  }
+  const providerServices = await rest(`provider_services?select=id,categories(archetype)&provider_id=eq.${fixedService.provider_id}&active=eq.true`);
+  if (
+    fixedService.categories.archetype !== 'fixed' ||
+    providerServices.length !== 1 ||
+    providerServices[0]?.categories?.archetype !== 'fixed'
+  ) {
+    throw new Error(`expected a fixed-only provider fixture; got ${JSON.stringify({ fixedService, providerServices })}`);
+  }
+  await go(`/provider/${fixedService.provider_id}?category=${encodeURIComponent(fixedService.categories.slug)}`);
+  await visible('Ratings & reviews');
+  if (await page.getByText(/^(Visit fee|Labour per )/).count()) {
+    throw new Error('fixed service profile still shows visit-fee pricing');
+  }
+  await page.getByText(/^From ₹/).first().waitFor();
+  await page.getByRole('button', { name: /^Book / }).last().click();
+  await page.waitForURL(new RegExp(`/category/${fixedService.categories.slug}(?:\\?|$)`));
+  await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
+});
 const raviServices = await rest(`provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`).catch(() => []);
 await step('book-screen', async () => {
   if (!raviServices[0]) throw new Error('no active service for Ravi');
@@ -568,9 +602,30 @@ for (const [n, label, scrolled] of [
   await step(`booking-fc${n}-${label}`, async () => {
     await go(`/booking/${seeded('fc', n)}`);
     await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+    if (n === 1) {
+      await visible('Payment pending');
+      await visible('Ask support a question');
+      if (await page.getByRole('button', { name: 'Call', exact: true }).count()) {
+        throw new Error('call button should be hidden until masked calling is available');
+      }
+    }
+    if (n === 10) await visible('Pauses payment to the pro while support reviews');
   });
   if (scrolled) await optional(`booking-fc${n}-scrolled`, () => snapScrolled(`booking-fc${n}-${label}-scrolled`, 900));
 }
+await step('booking-fc3-cancel-copy', async () => {
+  await go(`/booking/${seeded('fc', 3)}`);
+  await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+  await page.getByRole('button', { name: 'Cancel booking', exact: true }).first().click();
+  await visible('Cancel this booking?');
+  const previewCopy = page.getByText(/(?:You'll be refunded|will be charged)/).last();
+  await previewCopy.waitFor({ state: 'visible' });
+  const actual = (await previewCopy.innerText()).trim();
+  if (!actual.includes('₹')) {
+    throw new Error(`expected server cancellation preview to include ₹: ${JSON.stringify({ actual })}`);
+  }
+  await page.getByRole('button', { name: 'Keep booking', exact: true }).click();
+});
 await step('booking-chat-send', async () => {
   await go(`/chat/${seeded('fc', 9)}`);
   const box = page.getByLabel('Message', { exact: true }).first();
@@ -915,16 +970,14 @@ await step('admin-feature-registry', async () => {
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
-  await optional('admin display name', () => page.getByLabel('Your name').fill('QuickServe Admin', { timeout: 3000 }));
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+  await page.waitForURL((u) => ['/', '/dashboard'].includes(new URL(u).pathname));
   await grantE2eAdminMembership(adminPhone);
-  await go('/account');
+  const accountPath = new URL(page.url()).pathname === '/dashboard' ? '/pro-account' : '/account';
+  await go(accountPath);
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
   await page.getByLabel('Go back').last().click();
-  await page.waitForURL((u) => new URL(u).pathname === '/account');
+  await page.waitForURL((u) => new URL(u).pathname === accountPath);
   await page.getByRole('button', { name: /Admin portal/ }).last().waitFor({ state: 'visible' });
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
@@ -936,14 +989,23 @@ await step('admin-feature-registry', async () => {
     }
     await go('/admin/shops');
     await page.locator('text="Shop management" >> visible=true').last().waitFor();
+    await page.getByText('all', { exact: true }).first().click();
     await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
     const shopCard = page.getByText(qaApprovalShopName, { exact: true })
       .locator('xpath=ancestor::*[.//*[@role="button"]][1]');
     await shopCard.getByRole('button', { name: 'Verify', exact: true }).click();
-    await page.locator('text="verified" >> visible=true').first().click();
-    await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
-    await go('/admin');
+    try {
+      await shopCard.getByText('Verified', { exact: true }).waitFor({ state: 'visible' });
+    } catch {
+      const bodyText = await page.locator('body').innerText();
+      throw new Error(`admin shop verification did not update the submitted row: ${JSON.stringify({
+        shopId: qaApprovalShopId,
+        shopName: qaApprovalShopName,
+        bodyText: bodyText.slice(-1200),
+      })}`);
+    }
   });
+  await go('/admin');
 
   const rows = [
     { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },

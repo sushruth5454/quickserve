@@ -106,6 +106,11 @@ export function amountDue(params: {
   return Math.max(0, requiredTotal(params.quoteTotal, params.visitFee, params.platformFee) - params.alreadyPaid);
 }
 
+/** Customer due now in integer paise, including an optional coin-redemption preview. */
+export function customerDueNow(totalPaise: number, paidPaise: number, coinPreviewPaise = 0): number {
+  return Math.max(0, totalPaise - paidPaise - coinPreviewPaise);
+}
+
 export function commissionFor(commissionable: number, rateBp: number): number {
   return Math.round((commissionable * rateBp) / 10000);
 }

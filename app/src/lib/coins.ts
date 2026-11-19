@@ -52,6 +52,20 @@ export interface CoinRedemptionPreview {
   platform_cap_paise: number;
   maximum_paise: number;
   applied_paise: number;
+  can_redeem?: boolean;
+}
+
+/** Adapts older demo previews while using the server's explicit eligibility when present. */
+export function coinRedemptionPreviewState(preview: CoinRedemptionPreview): {
+  canRedeem: boolean;
+  appliedPaise: number;
+} {
+  const canRedeem = preview.can_redeem
+    ?? (preview.applied_paise === 0 && preview.maximum_paise > 0);
+  const appliedPaise = preview.can_redeem === undefined
+    ? Math.floor(Math.max(0, preview.applied_paise) / Math.max(1, preview.coin_paise)) * Math.max(1, preview.coin_paise)
+    : preview.maximum_paise;
+  return { canRedeem, appliedPaise };
 }
 
 export function coinPaiseToCoins(paise: number, config: Pick<CoinsConfig, 'coin_paise'> = DEFAULT_COINS_CONFIG): number {

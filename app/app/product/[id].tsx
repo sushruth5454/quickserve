@@ -67,7 +67,7 @@ export default function ProductDetailScreen() {
           <Card>
             <Text variant="title2">{product.name}</Text>
             <Text variant="footnote" color="muted">{[product.brand, product.model, product.category_name].filter(Boolean).join(' · ')}</Text>
-            <IndicativePrice pricePaise={product.indicative_price_paise} />
+            <IndicativePrice pricePaise={product.indicative_price_paise} unit={product.unit} updatedAt={product.price_updated_at} />
             <Badge label={product.in_stock ? 'In stock' : 'Currently unavailable'} tone={product.in_stock ? 'success' : 'warning'} />
             {product.description ? <Text>{product.description}</Text> : null}
             {Object.entries(product.specs ?? {}).map(([key, value]) => (

@@ -36,10 +36,16 @@ import {
 import * as api from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { isDemoMode } from '../../src/lib/config';
+import { cancellationPreviewCopy } from '../../src/lib/cancellationCopy';
 import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../src/lib/demo/seed';
 import { haptics } from '../../src/lib/haptics';
-import { amountDue, formatINR } from '../../src/lib/money';
-import { coinPaiseToCoins, earnedCoinPaise, type CoinRedemptionPreview } from '../../src/lib/coins';
+import { amountDue, customerDueNow, formatINR, requiredTotal } from '../../src/lib/money';
+import {
+  coinPaiseToCoins,
+  coinRedemptionPreviewState,
+  earnedCoinPaise,
+  type CoinRedemptionPreview,
+} from '../../src/lib/coins';
 import { creatorRevisionsEnabled, requestCreatorRevision } from '../../src/lib/creatorRevisions';
 import { usePayment } from '../../src/lib/payments';
 import { typicalRange } from '../../src/lib/pricing';
@@ -79,6 +85,13 @@ const PAYMENT_STATUS: Record<PaymentStatus, [string, Tone]> = {
   refund_processing: ['Refund processing', 'neutral'],
   refunded: ['Refunded', 'neutral'],
 };
+
+const POLICY_CANCEL_STATUSES = new Set([
+  'pending_payment', 'requested', 'accepted', 'confirmed', 'en_route',
+  'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress', 'completion_requested',
+]);
+const SESSION_CANCEL_STATUSES = new Set(['pending_payment', 'requested', 'accepted']);
+const DEMO_CANCEL_STATUSES = new Set(['pending_payment', 'requested', 'accepted', 'en_route', 'awaiting_payment']);
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -236,6 +249,11 @@ export default function BookingDetail() {
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;
+  const coinPreviewState = data.coinPreview ? coinRedemptionPreviewState(data.coinPreview) : null;
+  const coinCanRedeem = coinPreviewState?.canRedeem ?? false;
+  const coinDiscountPreview = coinCanRedeem
+    ? (useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0)
+    : coinPreviewState?.appliedPaise ?? 0;
   const shownQuoteIds = new Set([openQuote?.id, pendingPaymentQuote?.id].filter(Boolean));
   const typical = typicalRange(booking.categories?.slug);
   const customerRespondsToQuote = isCustomer && !!openQuote && (s === 'quote_sent' || s === 'in_progress');
@@ -254,10 +272,16 @@ export default function BookingDetail() {
     }, 'Changes requested');
   };
 
-  const cancel = async (warning: string) => {
+  const cancel = async () => {
+    let message = cancellationPreviewCopy(null);
+    try {
+      message = cancellationPreviewCopy(await api.previewCancellation(booking.id));
+    } catch {
+      message = cancellationPreviewCopy(null);
+    }
     const ok = await confirm({
       title: 'Cancel this booking?',
-      message: warning,
+      message,
       confirmLabel: 'Cancel booking',
       cancelLabel: 'Keep booking',
       destructive: true,
@@ -267,7 +291,11 @@ export default function BookingDetail() {
 
   const approve = (quote: Quote) =>
     run(async () => {
-      const res = await api.approveQuote(booking.id, quote.id, useCoins);
+      const res = await api.approveQuote(
+        booking.id,
+        quote.id,
+        useCoins && (data.coinPreview?.maximum_paise ?? 0) > 0,
+      );
       if (res.amount_due > 0) await startPayment(booking.id);
     }, 'Quote approved');
 
@@ -315,7 +343,6 @@ export default function BookingDetail() {
 
   const openEditor = (changeOrder: boolean) =>
     router.push({ pathname: '/quote/[bookingId]', params: { bookingId: booking.id, changeOrder: changeOrder ? '1' : '0' } });
-  const call = () => toast({ message: 'Masked calling is coming soon. Use chat for now — numbers stay private.' });
   const navigate =
     !isCustomer && data.address?.lat != null && data.address?.lng != null
       ? () =>
@@ -328,11 +355,16 @@ export default function BookingDetail() {
   let footer: ReactNode;
   if (isCustomer) {
     if (customerRespondsToQuote && openQuote) {
-      const previewDiscount = useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0;
-      const due = Math.max(
-        0,
-        amountDue({ quoteTotal: openQuote.total, visitFee: booking.visit_fee, platformFee: booking.platform_fee, alreadyPaid: paid })
-          - previewDiscount,
+      const previewDiscount = useCoins && coinCanRedeem
+        ? data.coinPreview?.maximum_paise ?? 0
+        : 0;
+      const appliedCoinDiscount = !coinCanRedeem
+        ? coinPreviewState?.appliedPaise ?? 0
+        : 0;
+      const due = customerDueNow(
+        requiredTotal(openQuote.total, booking.visit_fee, booking.platform_fee),
+        Math.max(0, paid - coinPaid),
+        previewDiscount + appliedCoinDiscount,
       );
       footer = (
         <AmountFooter label={openQuote.is_change_order ? 'Extra to pay' : 'To pay now'} amount={due}>
@@ -436,17 +468,14 @@ export default function BookingDetail() {
   }
 
   // ---------- secondary actions at the bottom (cancel / report) ----------
-  const cancelAction: [string, string] | null = !isCustomer
-    ? null
-    : s === 'pending_payment'
-      ? ['Cancel booking', 'No charge — you have not paid yet.']
-      : s === 'requested' || s === 'accepted'
-        ? ['Cancel booking', 'Your visit fee will be refunded in full.']
-        : s === 'en_route'
-          ? ['Cancel booking', `${first} is already on the way, so the visit fee will not be refunded.`]
-          : s === 'awaiting_payment'
-            ? ['Cancel job', `The inspection is done, so the visit fee will be paid to ${first}.`]
-            : null;
+  const cancellableStatuses = isDemoMode
+    ? DEMO_CANCEL_STATUSES
+    : isTimeBased
+      ? SESSION_CANCEL_STATUSES
+      : POLICY_CANCEL_STATUSES;
+  const cancelAction = isCustomer && cancellableStatuses.has(s)
+    ? s === 'awaiting_payment' ? 'Cancel job' : 'Cancel booking'
+    : null;
   const canReport = isCustomer && (s === 'in_progress' || s === 'completion_requested' || s === 'completed');
 
   const startCode = otps?.start_otp ?? null;
@@ -463,17 +492,26 @@ export default function BookingDetail() {
     cancelledReason: booking.cancelled_reason,
   });
   const pro = booking.providers;
-  const helpItems: { key: string; title: string; icon: keyof typeof Ionicons.glyphMap; destructive?: boolean; onPress: () => void }[] = [
+  const helpItems: { key: string; title: string; icon: keyof typeof Ionicons.glyphMap; destructive?: boolean; subtitle?: string; onPress: () => void }[] = [
     {
       key: 'help',
       title: 'Get help with this booking',
+      subtitle: 'Ask support a question',
       icon: 'help-buoy-outline',
       onPress: () => router.push({ pathname: '/support/new', params: { bookingId: booking.id } }),
     },
     { key: 'safety', title: 'Safety & guarantee', icon: 'shield-checkmark-outline', onPress: () => router.push({ pathname: '/info/[topic]', params: { topic: 'safety' } }) },
   ];
-  if (canReport && !disputeOpen) helpItems.push({ key: 'report', title: 'Report a problem', icon: 'flag-outline', onPress: () => setDisputeOpen(true) });
-  if (cancelAction) helpItems.push({ key: 'cancel', title: cancelAction[0], icon: 'close-circle-outline', destructive: true, onPress: () => void cancel(cancelAction[1]) });
+  if (canReport && !disputeOpen) {
+    helpItems.push({
+      key: 'report',
+      title: 'Report a problem',
+      subtitle: 'Pauses payment to the pro while support reviews',
+      icon: 'flag-outline',
+      onPress: () => setDisputeOpen(true),
+    });
+  }
+  if (cancelAction) helpItems.push({ key: 'cancel', title: cancelAction, icon: 'close-circle-outline', destructive: true, onPress: () => void cancel() });
 
   return (
     <Screen
@@ -528,7 +566,7 @@ export default function BookingDetail() {
       ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
-          {data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
+          {coinCanRedeem && data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
             <Card
               gap={t.spacing.sm}
               style={{ flexDirection: 'row', alignItems: 'center' }}
@@ -557,7 +595,7 @@ export default function BookingDetail() {
             platformFee={booking.platform_fee}
             alreadyPaid={paid}
             counterpartName={data.counterpart}
-            coinDiscountPreview={useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0}
+            coinDiscountPreview={coinDiscountPreview}
             coinPaid={coinPaid}
             typical={openQuote.is_change_order ? null : typical}
           />
@@ -662,7 +700,6 @@ export default function BookingDetail() {
               )}
             </View>
             <ChatButton bookingId={booking.id} count={unread.countFor(booking.id)} accessibilityLabel={`Chat with ${first}`} />
-            <IconButton icon="call-outline" variant="neutral" accessibilityLabel="Call" accessibilityHint="Masked calling is coming soon" onPress={call} />
             {navigate ? <IconButton icon="navigate-outline" variant="neutral" accessibilityLabel="Open in Maps" onPress={() => void navigate()} /> : null}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -793,7 +830,7 @@ export default function BookingDetail() {
           {helpItems.map((h, i) => (
             <Fragment key={h.key}>
               {i > 0 ? <Divider inset={LIST_INSET} /> : null}
-              <ListItem title={h.title} icon={h.icon} destructive={h.destructive} chevron={!h.destructive} onPress={busy ? undefined : h.onPress} />
+              <ListItem title={h.title} subtitle={h.subtitle} icon={h.icon} destructive={h.destructive} chevron={!h.destructive} onPress={busy ? undefined : h.onPress} />
             </Fragment>
           ))}
         </Card>

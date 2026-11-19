@@ -27,6 +27,22 @@ describe('demo api — commission terms', () => {
 });
 
 describe('demo api — customer flows', () => {
+  it('records an account deletion request without deleting or signing out the demo account', async () => {
+    const before = await api.getSession();
+    const outcome = await api.requestAccountDeletion();
+
+    expect(outcome).toBe('recorded');
+    expect(await api.getSession()).toEqual(before);
+    expect(await api.getMyProfile()).not.toBeNull();
+    expect(await api.listMyAddresses()).not.toHaveLength(0);
+  });
+
+  it('deletes saved addresses through the demo API', async () => {
+    const saved = await api.addAddress({ label: 'Other', line1: 'Test Street', city: 'Vijayawada', lat: 16.5, lng: 80.65 });
+    await api.deleteAddress(saved.id);
+    expect((await api.listMyAddresses()).some((address) => address.id === saved.id)).toBe(false);
+  });
+
   it('rejects a wrong OTP and signs in with 123456', async () => {
     await api.signOut();
     await expect(api.verifyOtp('+919876543210', '000000')).rejects.toThrow(/123456/);

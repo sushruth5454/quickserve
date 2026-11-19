@@ -21,6 +21,8 @@ export interface RecurringPlanRecord {
   billing_frequency: ProviderBillingFrequency;
   archetype: 'time_based' | 'fixed';
   package_qty: number | null;
+  per_visit_paise: number | null;
+  net_estimate_paise: number | null;
   provider_acceptance: 'pending' | 'accepted' | 'declined';
   acceptance_mode: 'plan' | 'occurrence';
   decided_at: string | null;
