@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { customerDueNow, formatINR, requiredTotal } from '../lib/money';
+import { isDemoMode } from '../lib/config';
 import type { Quote, QuoteItemKind, QuoteStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { Badge, Card, Divider, InlineAlert, PriceRow, Text, type Tone } from './ui';
@@ -48,6 +50,15 @@ interface Props {
   /** [min, max] typical total in rupees for this category. */
   typical?: [number, number] | null;
   title?: string;
+  settlementPreview?: QuoteSettlementPreview | null;
+}
+
+export interface QuoteSettlementPreview {
+  commissionable: number;
+  commission_bp: number;
+  commission: number;
+  gst_on_commission: number;
+  payout: number;
 }
 
 /** Itemised quote. Approve/decline actions live in the screen's sticky footer, not inside the card. */
@@ -61,6 +72,7 @@ export function QuoteView({
   coinPaid = 0,
   typical,
   title,
+  settlementPreview,
 }: Props) {
   const t = useTheme();
   const coinDiscount = (quote.coin_discount ?? 0) > 0 ? quote.coin_discount! : coinDiscountPreview;
@@ -149,6 +161,12 @@ export function QuoteView({
         </View>
       ) : null}
 
+      {settlementPreview === undefined ? (
+        <ServerSettlementPreview quoteId={quote.id} />
+      ) : settlementPreview ? (
+        renderSettlementRows(settlementPreview)
+      ) : null}
+
       {typical && quote.status === 'sent' ? (
         aboveTypical ? (
           <InlineAlert
@@ -161,4 +179,58 @@ export function QuoteView({
       ) : null}
     </Card>
   );
+}
+
+function renderSettlementRows(preview: QuoteSettlementPreview) {
+  return (
+    <View style={{ gap: 8 }}>
+      <Divider />
+      <PriceRow label="Commissionable amount" amount={preview.commissionable} />
+      <PriceRow label={`Commission (${preview.commission_bp / 100}%)`} amount={-preview.commission} emphasis="muted" />
+      <PriceRow label="GST on commission" amount={-preview.gst_on_commission} emphasis="muted" />
+      <PriceRow label="You receive" amount={preview.payout} emphasis="total" />
+    </View>
+  );
+}
+
+function SettlementRows({ preview }: { preview: QuoteSettlementPreview }) {
+  return renderSettlementRows(preview);
+}
+
+function parseSettlementPreview(data: unknown): QuoteSettlementPreview | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== 'object') return null;
+  const value = row as Record<string, unknown>;
+  const fields = ['commissionable', 'commission_bp', 'commission', 'gst_on_commission', 'payout'] as const;
+  if (!fields.every((field) => Number.isInteger(value[field]) && Number(value[field]) >= 0)) return null;
+  return {
+    commissionable: Number(value.commissionable),
+    commission_bp: Number(value.commission_bp),
+    commission: Number(value.commission),
+    gst_on_commission: Number(value.gst_on_commission),
+    payout: Number(value.payout),
+  };
+}
+
+function ServerSettlementPreview({ quoteId }: { quoteId: string }) {
+  const [preview, setPreview] = useState<QuoteSettlementPreview | null>(null);
+
+  useEffect(() => {
+    if (isDemoMode) return undefined;
+    let active = true;
+    void (async () => {
+      try {
+        const { supabase } = await import('../lib/supabase');
+        const { data, error } = await supabase.rpc('get_quote_settlement_preview', { p_quote_id: quoteId });
+        if (active && !error) setPreview(parseSettlementPreview(data));
+      } catch {
+        if (active) setPreview(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [quoteId]);
+
+  return preview ? <SettlementRows preview={preview} /> : null;
 }

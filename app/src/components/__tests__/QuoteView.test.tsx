@@ -4,6 +4,8 @@ import { QuoteView } from '../QuoteView';
 import { PriceRow } from '../ui';
 
 jest.mock('react-native', () => ({ View: 'View' }));
+jest.mock('../../lib/config', () => ({ isDemoMode: true }));
+jest.mock('../../lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 jest.mock('../ui', () => ({
   Badge: () => null,
   Card: () => null,
@@ -127,6 +129,35 @@ describe('QuoteView coin due', () => {
       });
       const text = renderedText(tree);
       expect(text).toEqual(expect.arrayContaining(['Packages', 'Discounts', 'Cleaning package', 'Promotion', '-₹25']));
+    });
+  });
+
+  it('renders the server settlement preview in exact paise', () => {
+    const preview = {
+      commissionable: 99900,
+      commission_bp: 1500,
+      commission: 14985,
+      gst_on_commission: 2697,
+      payout: 82218,
+    };
+    const tree = QuoteView({
+      quote,
+      visitFee: 0,
+      platformFee: 2900,
+      alreadyPaid: 0,
+      settlementPreview: preview,
+    });
+    const actual = {
+      commissionable: findPriceRow(tree, 'Commissionable amount')?.props.amount,
+      commission: findPriceRow(tree, 'Commission (15%)')?.props.amount,
+      gst: findPriceRow(tree, 'GST on commission')?.props.amount,
+      payout: findPriceRow(tree, 'You receive')?.props.amount,
+    };
+    expectExact(actual, {
+      commissionable: 99900,
+      commission: -14985,
+      gst: -2697,
+      payout: 82218,
     });
   });
 });
