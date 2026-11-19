@@ -538,7 +538,7 @@ export async function getPayments(bookingId: string): Promise<Payment[]> {
   return unwrap(
     await supabase
       .from('payments')
-      .select('*, refunds(amount, status)')
+      .select('*, refunds(amount, status, created_at, processed_at)')
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: true }),
   );
