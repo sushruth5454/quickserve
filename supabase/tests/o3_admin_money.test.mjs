@@ -197,7 +197,10 @@ async function sendQuote(actors, bookingId) {
     `select public.send_quote($1::uuid, $2::jsonb) as quote_id`,
     [bookingId, JSON.stringify([
       { kind: 'labour', title: 'Gas refill', qty: 1, unit_price: 150000 },
-      { kind: 'part', title: 'Capacitor', qty: 1, unit_price: 65000 },
+      {
+        kind: 'part', title: 'Capacitor', qty: 1, unit_price: 65000,
+        bill_photo_url: 'https://example.test/o3-capacitor.jpg',
+      },
     ])],
   ))[0].quote_id;
 }
