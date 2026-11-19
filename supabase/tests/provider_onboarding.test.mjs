@@ -5,6 +5,8 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHarness } from './harness.mjs';
+import { as as chainAs, db as chainDb } from './r1-test-harness.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const mig = (f) =>
@@ -48,6 +50,30 @@ alter default privileges in schema public grant execute on functions to anon, au
 `;
 
 const db = new PGlite({ extensions: { pgcrypto } });
+const b6Harness = createHarness();
+const { ok: b6Ok, scenario: b6Scenario, finish: b6Finish } = b6Harness;
+const b6Uuid = (value) => `00000000-0000-4000-8000-${String(value).padStart(12, '0')}`;
+const b6One = async (sql, params = []) => (await chainDb.query(sql, params)).rows[0];
+
+async function b6CreateProvider(seed) {
+  const provider = b6Uuid(seed * 10 + 1);
+  const admin = b6Uuid(seed * 10 + 2);
+  await chainDb.query(`
+    insert into auth.users (id) values ($1::uuid), ($2::uuid)
+  `, [provider, admin]);
+  await chainDb.query(`
+    update public.profiles
+       set full_name = $1::text, role_provider = true
+     where id = $2::uuid
+  `, [`B6 Provider ${seed}`, provider]);
+  await chainDb.query(`insert into public.admins (user_id) values ($1::uuid)`, [admin]);
+  await chainDb.query(`
+    insert into public.providers (
+      id, city, kyc_status, admin_review_status, submitted_at, is_online, paused, suspended
+    ) values ($1::uuid, $2::text, 'pending', 'pending', now(), false, false, false)
+  `, [provider, `B6 Provider City ${seed}`]);
+  return { provider, admin };
+}
 await db.exec(prelude);
 for (const f of ['0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql', '0007_chat_unread_notifications.sql']) {
   await db.exec(mig(f));
@@ -277,5 +303,103 @@ const again = await svc(`select * from claim_due_transfers(10)`);
 const retried = again.find((r) => r.transfer_id === claimed[0].transfer_id);
 ok(retried && retried.idempotency_key.endsWith(':1') && retried.amount === claimed[0].amount, 'admin retry uses a new idempotency key and the same net amount');
 
-console.log(failures ? `${failures} FAILED` : 'all provider onboarding tests passed');
-process.exit(failures ? 1 : 0);
+await b6Scenario('B6 queues document, provider-review, and suspension notices to the provider with safe deep links', async () => {
+  const fixture = await b6CreateProvider(8701);
+  const documentId = (await b6One(`
+    insert into public.provider_documents (provider_id, doc_type, file_path)
+    values ($1::uuid, 'trade_certificate'::text, $2::text)
+    returning id
+  `, [fixture.provider, `${fixture.provider}/trade-certificate.pdf`])).id;
+  await chainAs(fixture.admin, 'authenticated', `
+    select public.admin_review_document($1::uuid, $2::boolean, $3::text, $4::date)
+  `, [documentId, true, null, null]);
+  await chainAs(fixture.admin, 'authenticated', `
+    select public.admin_set_provider_review($1::uuid, $2::text, $3::text)
+  `, [fixture.provider, 'needs_clarification', 'Please update your documents']);
+  await chainAs(fixture.admin, 'authenticated', `
+    select public.admin_set_provider_review($1::uuid, $2::text, $3::text)
+  `, [fixture.provider, 'needs_clarification', 'Please update your documents']);
+  await chainAs(fixture.admin, 'authenticated', `
+    select public.set_provider_suspended($1::uuid, $2::boolean, $3::text)
+  `, [fixture.provider, true, 'Repeated policy violations']);
+  await chainAs(fixture.admin, 'authenticated', `
+    select public.set_provider_suspended($1::uuid, $2::boolean, $3::text)
+  `, [fixture.provider, true, 'Repeated policy violations']);
+
+  const notices = await chainDb.query(`
+    select user_id, kind, booking_id, title, body, data, collapse_key, count
+      from public.notifications
+     where user_id = $1::uuid
+       and kind in ('verification_update', 'account_suspended')
+     order by kind, collapse_key
+  `, [fixture.provider]);
+  const documentNotice = notices.rows.find((row) => row.collapse_key === `verification-document:${documentId}`);
+  const reviewNotice = notices.rows.find((row) => row.collapse_key === `provider-review:${fixture.provider}:needs_clarification`);
+  const suspensionNotice = notices.rows.find((row) => row.collapse_key === `provider-suspended:${fixture.provider}`);
+  b6Ok(notices.rows.length === 3
+    && [documentNotice, reviewNotice, suspensionNotice].every((row) =>
+      row?.user_id === fixture.provider && row.booking_id === null
+        && row.data.url === '/provider/dashboard' && row.count === 1)
+    && documentNotice.kind === 'verification_update'
+    && documentNotice.data.document_id === documentId
+    && reviewNotice.kind === 'verification_update'
+    && reviewNotice.data.review_status === 'needs_clarification'
+    && reviewNotice.data.reason === 'Please update your documents'
+    && suspensionNotice.kind === 'account_suspended'
+    && suspensionNotice.data.reason === 'Repeated policy violations',
+  `provider verification and suspension notices have exact recipients, kinds, links, and deduplication; actual=${JSON.stringify(notices.rows)}`);
+});
+
+await b6Scenario('B6 admin notification failures do not block document, review, or suspension updates', async () => {
+  const fixture = await b6CreateProvider(8702);
+  const documentId = (await b6One(`
+    insert into public.provider_documents (provider_id, doc_type, file_path)
+    values ($1::uuid, 'trade_certificate'::text, $2::text)
+    returning id
+  `, [fixture.provider, `${fixture.provider}/trade-certificate.pdf`])).id;
+  await chainDb.exec(`
+    create or replace function public.b6_reject_admin_notifications()
+    returns trigger language plpgsql as $$
+    begin
+      if new.kind in ('verification_update', 'account_suspended') then
+        raise exception 'B6 notification insert rejected';
+      end if;
+      return new;
+    end;
+    $$;
+    create trigger b6_reject_admin_notifications
+      before insert on public.notifications
+      for each row execute function public.b6_reject_admin_notifications();
+  `);
+  try {
+    await chainAs(fixture.admin, 'authenticated', `
+      select public.admin_review_document($1::uuid, $2::boolean, $3::text, $4::date)
+    `, [documentId, false, 'Please resubmit', null]);
+    await chainAs(fixture.admin, 'authenticated', `
+      select public.admin_set_provider_review($1::uuid, $2::text, $3::text)
+    `, [fixture.provider, 'rejected', 'Documents do not match']);
+    await chainAs(fixture.admin, 'authenticated', `
+      select public.set_provider_suspended($1::uuid, $2::boolean, $3::text)
+    `, [fixture.provider, true, 'Repeated policy violations']);
+  } finally {
+    await chainDb.exec(`
+      drop trigger if exists b6_reject_admin_notifications on public.notifications;
+      drop function if exists public.b6_reject_admin_notifications();
+    `);
+  }
+  const providerState = await b6One(`
+    select p.admin_review_status, p.suspended, d.status as document_status
+      from public.providers p
+      join public.provider_documents d on d.provider_id = p.id
+     where p.id = $1::uuid and d.id = $2::uuid
+  `, [fixture.provider, documentId]);
+  b6Ok(providerState?.admin_review_status === 'rejected'
+    && providerState.suspended === true
+    && providerState.document_status === 'rejected',
+  `admin state transitions commit when notification inserts fail; actual=${JSON.stringify(providerState)}`);
+});
+
+b6Finish();
+const totalFailures = failures + b6Harness.failures;
+console.log(totalFailures ? `${totalFailures} FAILED` : 'all provider onboarding tests passed');
+process.exit(totalFailures ? 1 : 0);

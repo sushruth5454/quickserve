@@ -1,4 +1,53 @@
-import { canReportProposalPaymentDefault, fmt, heroCopy } from '../model';
+import { canReportProposalPaymentDefault, fmt, heroCopy, paymentRefundPresentation, paymentRowLabel, shouldShowPaymentRow } from '../model';
+import type { Payment, PaymentSchedule } from '../../../lib/types';
+
+describe('payment row presentation', () => {
+  const payment = (overrides: Partial<Payment> = {}): Payment => ({
+    id: 'payment-1',
+    booking_id: 'booking-1',
+    quote_id: null,
+    purpose: 'milestone',
+    amount: 12500,
+    status: 'paid',
+    funding_source: 'customer',
+    cancel_link_pending: false,
+    schedule_id: 'schedule-1',
+    created_at: '2026-11-18T10:00:00.000Z',
+    paid_at: '2026-11-18T10:01:00.000Z',
+    ...overrides,
+  });
+
+  it('labels payment purposes and uses the matching schedule label for milestones', () => {
+    const schedules = [{
+      id: 'schedule-1',
+      payment_id: 'payment-1',
+      label: 'Final milestone',
+    }] as PaymentSchedule[];
+
+    expect(paymentRowLabel(payment({ purpose: 'platform_fee' }), [])).toBe('Platform fee');
+    expect(paymentRowLabel(payment({ purpose: 'advance' }), [])).toBe('Advance');
+    expect(paymentRowLabel(payment(), schedules)).toBe('Final milestone');
+  });
+
+  it('hides only abandoned-link and coins-funded failed payments', () => {
+    expect(shouldShowPaymentRow(payment({ status: 'failed', cancel_link_pending: true }))).toBe(false);
+    expect(shouldShowPaymentRow(payment({ status: 'failed', funding_source: 'coins' }))).toBe(false);
+    expect(shouldShowPaymentRow(payment({ status: 'failed', cancel_link_pending: false }))).toBe(true);
+    expect(shouldShowPaymentRow(payment({ status: 'paid', funding_source: 'coins' }))).toBe(true);
+  });
+
+  it('presents each refund amount in exact paise with its status and effective date', () => {
+    expect(paymentRefundPresentation(payment({
+      refunds: [
+        { amount: 12345, status: 'processing', created_at: '2026-11-18T12:00:00.000Z', processed_at: null },
+        { amount: 6700, status: 'refunded', created_at: '2026-11-18T12:01:00.000Z', processed_at: '2026-11-19T13:14:00.000Z' },
+      ],
+    }))).toEqual([
+      { amountPaise: 12345, status: 'processing', at: '2026-11-18T12:00:00.000Z' },
+      { amountPaise: 6700, status: 'refunded', at: '2026-11-19T13:14:00.000Z' },
+    ]);
+  });
+});
 
 const baseInput = {
   archetype: 'inspect_quote' as const,
