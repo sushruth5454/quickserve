@@ -1,11 +1,30 @@
 import { isFeatureOn } from '../../lib/featureFlagModel';
 import type { ProviderSchedule } from '../../lib/onboarding';
+import { formatINR } from '../../lib/money';
 import { calculateRecurringDates } from './dates';
 import type { RecurringPlanPayload } from './providerTypes';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const OPEN_VISIT_STATUSES = new Set(['pending_payment', 'requested', 'accepted', 'confirmed']);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function providerCalendarVisitRoute(bookingId: string) {
+  return { pathname: '/booking/[id]' as const, params: { id: bookingId } };
+}
+
+export function recurringPlanEarningsLabel(
+  plan: Pick<RecurringPlanPayload['plan'], 'per_visit_paise' | 'net_estimate_paise'>,
+): string | null {
+  if (
+    typeof plan.per_visit_paise !== 'number' ||
+    typeof plan.net_estimate_paise !== 'number' ||
+    !Number.isFinite(plan.per_visit_paise) ||
+    !Number.isFinite(plan.net_estimate_paise)
+  ) {
+    return null;
+  }
+  return `${formatINR(plan.per_visit_paise)} per visit · you receive ≈${formatINR(plan.net_estimate_paise)}`;
+}
 
 export function canShowProviderCalendar(features: Record<string, unknown>): boolean {
   return isFeatureOn(features, 'merchant_calendar') && isFeatureOn(features, 'recurring_bookings');
@@ -94,6 +113,70 @@ export function providerDateKey(date: Date, timezone: string): string {
   }).formatToParts(date);
   const value = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
   return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+export function nextProviderDateKeys(timezone: string, from = new Date(), count = 14): string[] {
+  if (!Number.isInteger(count) || count < 1) return [];
+  try {
+    const first = providerDateKey(from, timezone);
+    const firstMs = Date.parse(`${first}T00:00:00.000Z`);
+    if (!Number.isFinite(firstMs)) return [];
+    return Array.from({ length: count }, (_, index) =>
+      new Date(firstMs + index * DAY_MS).toISOString().slice(0, 10),
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function providerDateTimeIso(dateKey: string, hour: number, timezone: string): string | null {
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(dateKey) ||
+    !Number.isInteger(hour) ||
+    hour < 0 ||
+    hour > 23
+  ) {
+    return null;
+  }
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const target = Date.UTC(year!, month! - 1, day!, hour);
+  if (new Date(target).toISOString().slice(0, 10) !== dateKey) return null;
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    let candidate = target;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const parts = Object.fromEntries(
+        formatter.formatToParts(new Date(candidate))
+          .filter((part) => part.type !== 'literal')
+          .map((part) => [part.type, Number(part.value)]),
+      );
+      const local = Date.UTC(parts.year!, parts.month! - 1, parts.day!, parts.hour!, parts.minute!);
+      candidate += target - local;
+    }
+    const finalParts = Object.fromEntries(
+      formatter.formatToParts(new Date(candidate))
+        .filter((part) => part.type !== 'literal')
+        .map((part) => [part.type, part.value]),
+    );
+    if (
+      `${finalParts.year}-${finalParts.month}-${finalParts.day}` !== dateKey ||
+      Number(finalParts.hour) !== hour ||
+      Number(finalParts.minute) !== 0
+    ) {
+      return null;
+    }
+    return new Date(candidate).toISOString();
+  } catch {
+    return null;
+  }
 }
 
 function shiftDateKey(dateKey: string, days: number): string {

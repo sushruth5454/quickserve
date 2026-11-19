@@ -7,10 +7,12 @@ import { getMyProviderBusinessContext } from '../src/features/merchantStaff/api'
 import { listProviderRecurringSchedule } from '../src/features/recurring/providerApi';
 import {
   canShowProviderCalendar,
+  providerCalendarVisitRoute,
   providerCalendarRange,
   providerDateKey,
 } from '../src/features/recurring/providerPresentation';
 import { useAppFeatureFlags } from '../src/lib/featureFlags';
+import { formatINR } from '../src/lib/money';
 import { onboardingApi } from '../src/lib/onboarding';
 import type { BookingStatus } from '../src/lib/types';
 import { useTheme } from '../src/theme';
@@ -96,10 +98,7 @@ export default function MerchantCalendarScreen() {
     return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [items, timezone]);
 
-  const openVisit = (item: ProviderRecurringScheduleItem) => router.push({
-    pathname: '/merchant-job/[id]',
-    params: { id: item.id },
-  });
+  const openVisit = (item: ProviderRecurringScheduleItem) => router.push(providerCalendarVisitRoute(item.id));
   const openPlan = (item: ProviderRecurringScheduleItem) => router.push({
     pathname: '/recurring/provider/[id]',
     params: { id: item.recurring_schedule_id, providerId: providerId ?? undefined },
@@ -174,10 +173,13 @@ export default function MerchantCalendarScreen() {
                     minute: '2-digit',
                   })} · {item.frequency.replace(/_/g, ' ')}
                 </Text>
+                {item.total_amount != null ? (
+                  <Text variant="footnoteStrong">{formatINR(item.total_amount)}</Text>
+                ) : null}
                 <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
                   <Button
                     title="Open visit"
-                    accessibilityHint="Opens the existing merchant job screen"
+                    accessibilityHint="Opens the booking workflow with visit actions"
                     onPress={() => openVisit(item)}
                   />
                   <Button

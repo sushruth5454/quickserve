@@ -14,6 +14,8 @@ import {
   canUseRecurringReschedule,
   findTimeOffVisits,
   formatRecurrence,
+  nextProviderDateKeys,
+  providerDateTimeIso,
 } from '../../../src/features/recurring/providerPresentation';
 import type { RecurringOccurrence, RecurringOccurrenceChange, RecurringPlanPayload } from '../../../src/features/recurring/providerTypes';
 import { useAppFeatureFlags } from '../../../src/lib/featureFlags';
@@ -21,6 +23,7 @@ import { onboardingApi } from '../../../src/lib/onboarding';
 import type { BookingStatus } from '../../../src/lib/types';
 import { useTheme } from '../../../src/theme';
 import type { BusinessProviderContext } from '../../../src/features/merchantStaff/api';
+import { WINDOW_START_HOURS } from '../../../src/lib/schedule';
 
 const REPORTABLE_STATUSES = new Set(['pending_payment', 'requested', 'accepted', 'confirmed']);
 const COMPLETED_STATUSES = new Set(['completed', 'closed']);
@@ -54,6 +57,15 @@ function visitTime(occurrence: RecurringOccurrence, timezone: string): string {
   });
 }
 
+function dateChipLabel(dateKey: string): string {
+  return new Date(`${dateKey}T12:00:00.000Z`).toLocaleDateString('en-IN', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 export default function ProviderRecurringPlanScreen() {
   const t = useTheme();
   const params = useLocalSearchParams<{ id?: string | string[]; providerId?: string | string[] }>();
@@ -75,7 +87,8 @@ export default function ProviderRecurringPlanScreen() {
   const [absenceFor, setAbsenceFor] = useState<string | null>(null);
   const [absenceReason, setAbsenceReason] = useState('');
   const [rescheduleFor, setRescheduleFor] = useState<string | null>(null);
-  const [newTime, setNewTime] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const [newHour, setNewHour] = useState<number | null>(null);
   const [rescheduleReason, setRescheduleReason] = useState('');
 
   const load = useCallback(async () => {
@@ -123,6 +136,7 @@ export default function ProviderRecurringPlanScreen() {
   const plan = payload?.plan;
   const canManage = provider?.business_role === 'owner' || provider?.business_role === 'manager';
   const timezone = schedule?.timezone ?? plan?.timezone ?? 'Asia/Kolkata';
+  const rescheduleDates = useMemo(() => nextProviderDateKeys(timezone, new Date(), 14), [timezone]);
   const upcoming = useMemo(
     () => (payload?.occurrences ?? []).filter((visit) =>
       Date.parse(visit.scheduled_at) > Date.now() &&
@@ -159,7 +173,8 @@ export default function ProviderRecurringPlanScreen() {
       setAbsenceFor(null);
       setAbsenceReason('');
       setRescheduleFor(null);
-      setNewTime('');
+      setNewDate('');
+      setNewHour(null);
       setRescheduleReason('');
       await load();
     } catch (actionFailure) {
@@ -170,13 +185,17 @@ export default function ProviderRecurringPlanScreen() {
   };
 
   const submitReschedule = (bookingId: string) => {
-    const value = newTime.trim();
-    const parsed = Date.parse(value);
-    if (!/(Z|[+-]\d{2}:\d{2})$/i.test(value) || !Number.isFinite(parsed) || parsed <= Date.now() + 60 * 60 * 1000) {
-      setError('Enter an ISO 8601 date and time with a timezone, more than 60 minutes from now.');
+    if (!newDate || newHour == null) {
+      setError('Choose a new date and time.');
       return;
     }
-    void runAction(bookingId, () => requestVisitReschedule(bookingId, new Date(parsed).toISOString(), rescheduleReason.trim()));
+    const newAt = providerDateTimeIso(newDate, newHour, timezone);
+    const parsed = newAt ? Date.parse(newAt) : Number.NaN;
+    if (!newAt || !Number.isFinite(parsed) || parsed <= Date.now() + 60 * 60 * 1000) {
+      setError('Choose a provider-local time more than 60 minutes from now.');
+      return;
+    }
+    void runAction(bookingId, () => requestVisitReschedule(bookingId, newAt, rescheduleReason.trim()));
   };
 
   const openVisit = (bookingId: string) => router.push({
@@ -243,15 +262,35 @@ export default function ProviderRecurringPlanScreen() {
         {rescheduleEnabled && canManage && REPORTABLE_STATUSES.has(visit.status) && Date.parse(visit.scheduled_at) > Date.now() ? (
           rescheduleFor === visit.id ? (
             <>
-              <TextArea
-                label="New time (ISO 8601 with timezone)"
-                accessibilityLabel="Requested visit time in ISO 8601 format"
-                helper="The server rechecks provider hours, conflicts, and the 60-minute lead."
-                value={newTime}
-                onChangeText={setNewTime}
-                maxLength={40}
-                placeholder="2026-11-25T10:00:00+05:30"
-              />
+              <Text variant="footnoteStrong">New date · {timezone}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+                {rescheduleDates.map((date) => (
+                  <Button
+                    key={date}
+                    title={dateChipLabel(date)}
+                    size="sm"
+                    variant={newDate === date ? 'primary' : 'outline'}
+                    accessibilityLabel={`Choose ${dateChipLabel(date)}`}
+                    onPress={() => setNewDate(date)}
+                  />
+                ))}
+              </View>
+              <Text variant="footnoteStrong">New time · provider local time</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+                {WINDOW_START_HOURS.map((hour) => (
+                  <Button
+                    key={hour}
+                    title={`${String(hour).padStart(2, '0')}:00`}
+                    size="sm"
+                    variant={newHour === hour ? 'primary' : 'outline'}
+                    accessibilityLabel={`Choose ${String(hour).padStart(2, '0')}:00 in ${timezone}`}
+                    onPress={() => setNewHour(hour)}
+                  />
+                ))}
+              </View>
+              <Text variant="caption" color="muted">
+                The server rechecks provider hours, conflicts, and the 60-minute lead.
+              </Text>
               <TextArea
                 label="Reason for rescheduling"
                 accessibilityLabel="Reason for rescheduling"
@@ -267,14 +306,15 @@ export default function ProviderRecurringPlanScreen() {
                   disabled={busyId === visit.id}
                   onPress={() => {
                     setRescheduleFor(null);
-                    setNewTime('');
+                    setNewDate('');
+                    setNewHour(null);
                     setRescheduleReason('');
                   }}
                 />
                 <Button
                   title="Request reschedule"
                   loading={busyId === visit.id}
-                  disabled={!newTime.trim() || !rescheduleReason.trim()}
+                  disabled={!newDate || newHour == null || !rescheduleReason.trim()}
                   onPress={() => submitReschedule(visit.id)}
                 />
               </View>
