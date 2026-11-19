@@ -85,13 +85,19 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 
 **2026-11-19 · O2 demo-seed compatibility:** O2's `admin_review_status` defaults to `pending`, and `_provider_is_live` requires `approved`; the DEMO-only seed explicitly approves only its synthetic providers so seed bookings remain bookable. Production defaults and admin authorization remain unchanged. The full-chain seed test covers migrations through 0065. Creator/event activation is migration-managed (0024); the seed preserves pre-seed category state.
 
-**2026-11-19 · Integrator migration reordering:** To merge the currently ready lanes without waiting for unrelated, unstarted work, the sequence after U3 is U2 `0068` → P1a `0069` → R1 `0070` → F1 `0071` → S1 `0072` → B1 `0073` → P1b `0074` → F2 `0075` → F4 `0076` → F5 `0077` → F6 `0078` → F7 `0079` → S2 `0080`; later migrations retain their listed order. The integrator owns the filename and test/deploy-registry renumbering.
+**2026-11-19 · Integrator migration reordering:** To merge the currently ready lanes without waiting for unrelated, unstarted work, the sequence after U3 is U2 `0068` → P1a `0069` → R1 `0070` → F1 `0071` → S1 `0072` → B1 `0073` → P1b `0074` → F2 `0075` → F4 `0076` → F5 `0077` → F6 `0078` → F7 `0079` → S2 `0080` → C2 `0081` → C1 `0082`; later migrations retain their listed order. The integrator owns the filename and test/deploy-registry renumbering.
 
 **2026-11-19 · B1/WS6-T21 dependency reconciliation:** WS6-T21 explicitly depends on WS6-T03 and WS6-T11, both owned by F2. Assign WS6-T21 to F2 so its quote preview uses the finalized commissionable subtotal and snapshot rate. B1 remains ready after U2 for WS9-T09, WS2-T04, and WS9-T05; F2's QuoteView/client preview follows B1.
 
 **2026-11-19 · B1 E2E ownership:** WS2-T04 and WS9-T09 require assertions in the existing `archetype-fixed-package-book-mocked-payment` step in `e2e/all-services.mjs`. B1 owns only those fixed-package/price assertions; sequence this file T1 → H2b → B1 → H3 → doc 14 Q-02 so B1 can proceed before H3 without concurrent edits.
 
 **2026-11-19 · B1 sample fixture reconciliation:** Doc 16 §3.2 and this plan's §8 require the exact ₹999 + ₹29 = ₹1,028 sample. The CI DEMO house-cleaning package, preseeded booking/quote/item/payment schedule, SQL assertion, and E2E Pay assertion now use 99900 + 2900 = 102800 paise; other archetype prices are unchanged. This is demo/test data only and does not change production prices.
+
+**2026-11-19 · F2/H2a recurring function lock:** WS6-T03 explicitly requires `_create_fixed_occurrence` to set the commissionable subtotal. H2a owns its latest definition in `0065_h2a_recurring_correctness.sql`; F2 owns the follow-up commission change after H2a, and doc 12 D1 must follow F2. WS6-T11 also assigns `_finalize_session_completion` to F2; latest definition is `0043_commission_config.sql:148`. These are separate from owner decision D1 (commission rates) in doc 15 §7.
+
+**2026-11-19 · WS5 creator delivery ownership:** C2 owns the complete WS5-T02 deadline path and WS5-T07 producer (`proposals.delivery_due_at`, copy in `accept_proposal`, and overdue cancellation/dispute UI/RPCs), after F2/F4; C2 migration is 0081. C1 owns WS5-T01/T14/T04/T05 delivery behavior and client controls after F2/F4/C2; C1 migration is 0082. C2 may redefine `accept_proposal` only after F2 and `cancel_booking` only after F4; C1 may redefine completion/payment-default functions only after F2/F4. Their shared `app/app/booking/[id].tsx` edits are sequential C2 → C1.
+
+**2026-11-19 · F5 / WS6-T14 G2 boundary:** G2 F5 delivers the append-only webhook event log and `payment_captured` journal events from the home/session/pack recorders. Refund, transfer and reversal journal writers are explicitly deferred to G3 under the F5 catalogue note; they remain residual work and WS6-T14's full “every money movement” acceptance must not be reported complete until that G3 work lands.
 
 **2026-11-19 · Owner-directed migration sequencing:** The owner requested integrating P1a, R1, F1, and S1 ahead of the original WP order. This authorizes code/migration integration only; G1 exit criteria remain open and G2/live payments stay prohibited until the documented release gates pass. No live Razorpay keys, payouts, or production payment/data operations are authorized.
 
@@ -157,16 +163,16 @@ Legend:
 | WP | Title | Sources | Owns | Mig | Depends | Cx |
 |---|---|---|---|---|---|---|
 | **F1** 🔒 | Payment recorders: race-safe home-service recorders; never overwrite a captured payment id; refund extra/unrecordable captures on a new row; stop acknowledging rejected captures | WS6-T01, T02, T05, WS8-T03, T04 | `record_payment_paid` and the home/session/pack recorders; `supabase/functions/razorpay-webhook/**`, `verify-payment/**` | 0071 | X3 | L |
-| **F2** 🔒 | Commission correctness: `subtotal_commissionable`; commission on fixed, add-ons and proposals per D1; rate snapshot; restrict quote item kinds; server quote preview matches payout | WS6-T00 (decision), T03, T11, T12, T21, WS5-T03 | `send_quote`, `send_fixed_addons`, `create_fixed_booking`, `accept_proposal`, completion/settlement functions calling `_create_payout`; `get_quote_settlement_preview`; `app/src/lib/money.ts`, `app/app/quote/[bookingId].tsx`, `app/src/components/QuoteView.tsx` | 0075 | **D1**, F1, B1 (QuoteView sequence) | L |
+| **F2** 🔒 | Commission correctness: `subtotal_commissionable`; commission on fixed, add-ons and proposals per owner D1; rate snapshot; restrict quote item kinds; server quote preview matches payout | WS6-T00 (decision), T03, T11, T12, T21, WS5-T03 | `send_quote`, `send_fixed_addons`, `create_fixed_booking`, `_create_fixed_occurrence` (after H2a), `accept_proposal`, `_finalize_session_completion`, completion/settlement functions calling `_create_payout`; `get_quote_settlement_preview`; `app/src/lib/money.ts`, `app/app/quote/[bookingId].tsx`, `app/src/components/QuoteView.tsx` | 0075 | **owner D1**, F1, B1 (QuoteView), H2a | L |
 | **F4** 🔒 | Refund & dispute engine: coins in cancellation/dispute refunds; refund stuck states; dispute edge cases; dispute window | WS6-T06, T08, T10, T17 | `_cancellation_outcome`, cancel RPCs, `resolve_dispute`, refund retry/terminal handling | 0076 | F3, F1 | M |
 | **F6** 🔒 | Reconciliation & chargebacks: transfer `processing` reconciliation; chargeback + refund webhooks; daily reconciliation; payout/refund alert | WS6-T07, T15, T16, WS8-T09, T11 | new reconciliation function + scheduled job; webhook dispute handlers (new code paths in `razorpay-webhook`) | 0078 | F1, F5 | L |
-| **F5** 🔒 | Append-only webhook log (G2) and financial journal (journal may finish in G3) | WS6-T14 | new tables `gateway_webhook_log`, `financial_events`; insert calls in recorders | 0077 | F1 | L |
+| **F5** 🔒 | Append-only webhook log and capture journal (G2); refund/transfer/reversal journal writers may finish in G3 | WS6-T14 | append-only webhook log; `payment_captured` journal events from home/session/pack recorders; remaining journal writers deferred explicitly to G3 | 0077 | F1 | L |
 | **F7** | Fees & tax config: admin-configurable platform fees; tax placeholders (0 until review); server-side billing rules incl. bill photo; business/GST identity on the payout form | WS6-T13, T18, WS9-T12, WS9-T11, WS7-T10 | `app_config` keys + readers; `send_quote` validation **(after F2)**; `features/providerOnboarding/PayoutSection.tsx` | 0079 | F2, **D4** for tax wording | M |
-| **F8** 🔒 | Payment test lane: Deno signature/refund tests; Razorpay **test-mode** E2E lane (Orders API); company-controlled checkout host; checkout trust copy | WS6-T19, T20, T22, WS9-T15 | `supabase/functions/**/*_test.ts`, new workflow (integrator), checkout host config | — | F1, X2 | L |
+| **F8** 🔒 | Payment test lane: Deno signature/refund tests; Razorpay **test-mode** E2E lane (Orders API); company-controlled checkout host; checkout trust copy | WS6-T19, T20, T22, WS9-T15 | `supabase/functions/**/*_test.ts`, new workflow (integrator), checkout host config | — | F1, F6, S2, H3; X2 does not block TEST mode | L |
 | **S1** 🔒 | Sports money: app calls `create-payment` with `booking_id`; correct status, amount and deadline in lists; venue retained-share payout; blocks respect holds; close the legacy/overload bypass; per-slot capacity; late capture never reduces the venue payout | WS4-T01, T02, T03, T06, T10, T11, WS6-T09 | `app/src/features/sports/api.ts`, `docs/12` §6.5 only; `list_my_customer_sports_bookings`, `_create_sports_payout`, `request_sports_slot`, `book_sports_slot`, `cancel_sports_booking`, `record_sports_payment_paid`, block/hold functions | 0072 | **D3** | M |
-| **S2** | Sports ops & UX: readable/cancellable bookings with `sports` off; refund preview + safe cancel; operator booking list; edit/delete price rules; hoarding limit; payment-failure notice; configurable windows; form fixes | WS4-T05, WS8-T08, WS4-T07, T08, T09, T13, T16, T17, T19 | `app/app/sports/**`, `app/app/sports-*/**`, `app/src/features/sports/**`, sports read/config RPCs | 0080 | S1 | M |
-| **C1** 🔒 | Creator money safety: unpaid balance after delivery; dispute/cancel while awaiting delivery + delivery deadline; acceptance window from config + reminders; show delivered work; correct post-delivery copy | WS5-T01, T02, T14, T04, T05 | proposal delivery/acceptance functions (not `accept_proposal`); `app/app/proposal-delivery/**`, `app/app/proposal/[id].tsx`, `app/app/booking/[id].tsx` (delivery section only) | 0081 | **D2**, B1 (same booking file) | M |
-| **C2** | Creator scope clarity: agreed revisions; deliver-by; structured brief; package carried into request; compose shows the brief; contact screening; Q&A + cancel request; fee shown before accept; labels | WS5-T06…T12, T15, T16 | `create_service_request`, `send_proposal`/proposal create (and `accept_proposal` **after F2**); `app/app/request/**`, `app/app/proposal/compose/**`, `features/proposals/**` | 0082 | F2, D2 | L |
+| **S2** 🔒 | Sports ops & UX: readable/cancellable bookings with `sports` off; refund preview + safe cancel; operator booking list; edit/delete price rules; hoarding limit; payment-failure notice; configurable windows; form fixes | WS4-T05, WS8-T08, WS4-T07, T08, T09, T13, T16, T17, T19 | `app/app/sports/**`, `app/app/sports-*/**`, `app/src/features/sports/**`, sports read/config RPCs; `UnifiedActivityScreen.tsx` sports segment (before B2/R04); sports rules in `app/app/admin/rules.tsx`/`adminRulesApi.ts` after doc 12 H1; `app/app/admin/sports.tsx` reason form; sports demo payment handling in `app/src/lib/payments.tsx`; `razorpay-webhook/index.ts` sports payment-failed case after F6 | 0080 | S1, doc 12 H1, F6 | M |
+| **C2** 🔒 | Creator scope clarity and delivery deadline: overdue delivery dispute/cancel; deliver-by; agreed revisions; structured brief; package carried into request; compose shows the brief; contact screening; Q&A + cancel request; fee shown before accept; labels | WS5-T02, T06…T12, T15, T16 | `bookings.delivery_due_at`, `proposals.delivery_due_at`, `send_proposal`/proposal create, `accept_proposal` (after F2), `cancel_booking` (after F4), `dispute_booking`; `app/app/request/**`, `app/app/proposal/compose/**`, `app/app/proposal/[id].tsx`, `app/app/booking/[id].tsx` (deadline cancel UI), `features/proposals/**`; seed `creator_delivery_deadline=false` and enforce it server-side | 0081 | F2, F4, D2 | L |
+| **C1** 🔒 | Creator money safety: unpaid balance after delivery; acceptance window from config + reminders; show delivered work; correct post-delivery copy | WS5-T01, T14, T04, T05 | `submit_delivery`, `request_completion`, `accept_delivery`, `request_revision`, `auto_confirm_completions`, `_finalize_completion` (after F2); `cancel_proposal_payment_default` and `_cancel_booking_by_policy` (after F4); `app/src/lib/supabaseApi.ts`, `app/src/lib/apiTypes.ts`, `app/src/lib/types.ts`, `app/src/lib/demo/demoApi.ts`, `supabase/functions/schedule-reminders/index.ts`, `app/app/proposal-delivery/**`, `app/app/proposal/[id].tsx`, `app/app/booking/[id].tsx` (delivery section only) | 0082 | **D2**, B1, F2, F4, C2 | M |
 | **H3** | Home stuck states + no-show actions; E2E for home-service money paths | WS2-T11, T13 | timeout/no-show functions + scheduled job; provider job actions UI (`merchant-job/[id].tsx`, booking detail action row); `e2e/all-services.mjs` (WS2-T13 steps only) | 0083 | F4, T1, H2b (shared E2E file) | L |
 | **B2** | Customer payment receipt (non-tax) | WS9-T06 | new receipt table/RPC/screen; "Receipt" button in activity + booking detail | 0084 | F1, F5 | L |
 | **B4** | Provider earnings statement + venue payouts visible + honest failed-payout copy | WS9-T08, WS7-T05 | `app/app/(provider)/earnings.tsx`, statement RPC | 0085 | F2, S1 | M |
@@ -198,16 +204,23 @@ Legend:
 | `provider_cancel_booking` | H1 |
 | `demo_settle_payment`, `_allocate_payout` | X3 |
 | `_create_payout` | X3 → F2 |
+| `_finalize_session_completion` | F2 (WS6-T11 rate snapshot) |
 | `_create_sports_payout` | X3 → S1 → S2 → S3 |
 | `claim_due_transfers` | X3 → (F6 reads only) |
 | `request_sports_slot`, `book_sports_slot`, `record_sports_payment_paid`, `cancel_sports_booking` | O1 → S1 (preserve O1 notification inserts) |
 | `_apply_quote_coins`, `_restore_coins_for_terminal_booking`, `get_coin_redemption_preview` | F3 |
-| `_cancellation_outcome`, home-service cancel RPCs, `resolve_dispute` | F4 (U2 only *calls* `_cancellation_outcome`) |
+| `_cancellation_outcome`, home-service cancel RPCs, `resolve_dispute` | F4; later creator-specific changes by C1/C2 follow F4 (U2 only *calls* `_cancellation_outcome`) |
 | `record_payment_paid` + home/session/pack recorders | F1 → F5 (insert journal rows) → B6 (notifications) |
-| `send_quote`, `send_fixed_addons`, `create_fixed_booking`, completion/settlement | F2 → F7 (`send_quote` validation) |
-| `accept_proposal`, proposal create | F2 → C2 |
-| proposal delivery/acceptance/auto-confirm | C1 |
-| `respond_recurring_plan`, recurring generator/prepare | H2a → doc 12 **D1** (recurring billing) |
+| `send_quote`, `send_fixed_addons`, `create_fixed_booking` | F2 → F7 (`send_quote` validation only) |
+| `_finalize_completion`, `auto_confirm_completions` | F2 → C1 (proposal commission then delivery acceptance/release window) |
+| `accept_proposal`, proposal create | F2 → C2 (delivery-date copy after F2 commission changes) |
+| `cancel_proposal_payment_default`, `_cancel_booking_by_policy` | F4 → C1 (proposal payment-default policy) |
+| `cancel_booking` | F4 → C2 (delivery deadline) |
+| `dispute_booking` | C2 (delivery deadline) |
+| `submit_delivery`, `request_completion`, `accept_delivery`, `request_revision` | C1; C1 also owns delivery API/UI and reminders |
+| `_sports_rule`, `admin_set_rules` sports allow-list | doc 12 H1 → S2 (sports keys only) |
+| `respond_recurring_plan`, recurring generator/prepare except `_create_fixed_occurrence` | H2a → doc 12 **D1** (recurring billing) |
+| `_create_fixed_occurrence` | H2a → F2 → doc 12 **D1** (recurring billing) |
 | `_queue_notification`, `queue_recurring_reminders`, `_recurring_plan_payload` | H2b |
 | sports `list_my_customer_sports_bookings`, `_create_sports_payout`, `record_sports_payment`, holds/blocks | S1 → S2 → S3 |
 | `save_shop`, product RPCs | P1a |
@@ -216,7 +229,9 @@ Legend:
 ### 3.2 Hot app files (sequential edits)
 | File | Order |
 |---|---|
-| `app/app/booking/[id].tsx` | F3 → U3 (status/help copy only) → U2 → B1 → C1 → B2 → B6 → H3 |
+| `app/app/booking/[id].tsx` | F3 → U3 (status/help copy only) → U2 → B1 → C2 (overdue cancel UI) → C1 (delivery section/copy) → B2 → B6 → H3 |
+| `app/app/proposal/[id].tsx` | C2 (delivery date) → C1 (delivery status/copy) |
+| `app/src/lib/supabaseApi.ts`, `app/src/lib/apiTypes.ts`, `app/src/lib/demo/demoApi.ts` | C1 → B-01 |
 | `app/app/book/[providerServiceId].tsx` | B1 → doc 14 R-03 |
 | `app/app/book-fixed/[providerServiceId].tsx` | B1 → doc 14 HS-02 |
 | `app/src/components/QuoteView.tsx` | F3 → B1 (line kinds) → F2 (server settlement preview) |
@@ -225,10 +240,14 @@ Legend:
 | `app/app/provider/[id].tsx` | U1 → (doc 14 R-02) |
 | `app/app/(customer)/index.tsx` (U3 location prompt only) | U3 → (doc 14 H-01) |
 | `app/app/rfq/new.tsx`, `app/app/rfq/merchant/[id].tsx` (schema fields) | P1a → P1b |
-| `app/src/features/activity/**` | U1 → B2 (Receipt button) → (doc 14 R-04) |
+| `app/src/features/activity/**` | U1 → S2 (sports segment) → B2 (Receipt button) → (doc 14 R-04) |
+| `app/app/admin/rules.tsx`, `app/src/lib/adminRulesApi.ts` | doc 12 H1 → S2 (sports rule fields only) |
+| `app/app/admin/sports.tsx` | S2 (WS4-T19 reason map) → S3 (WS4-T15 admin tooling) |
+| `app/src/lib/payments.tsx` | S2 (sports demo payment route) → F8 (checkout trust/host) |
 | `app/app/(provider)/earnings.tsx` | B4 |
 | `app/src/features/sports/**`, `app/app/sports*/**` | S1 → S2 → S3 |
-| `supabase/functions/razorpay-webhook/**`, `verify-payment/**` | F1 → F6 → F8 |
+| `supabase/functions/razorpay-webhook/**` | F1 → F5 → F6 → S2 (sports payment-failed route) → F8 |
+| `supabase/functions/verify-payment/**` | F1 → F6 → F8 |
 | `e2e/web-smoke.mjs` | X1 → T1 → doc 14 Q-01 screenshot helper → U1 → U3 → U2 → doc 14 Q-02 |
 | `e2e/all-services.mjs` | T1 → H2b → B1 → H3 → doc 14 Q-02 |
 
@@ -241,8 +260,8 @@ Legend:
 |---|---|---|---|
 | **A** | Owner approval | X1, X3, H1, F3, O1, O2, H2a, U1, U3, P1a, R1, T2 (+ X2 by integrator/owner) | **12** |
 | **A′** | Its blocker merged | T1 (after X1), H2b (after H2a), U2 (after F3), B1 (after U2), P1b (after P1a) | 5 |
-| **B** | Owner-directed early integration of F1/S1 (D1/D3 answered); G2 remains closed until G1 exit | F1, S1, (F2 after F1 + D1 + B1), C1 (after D2 + B1) | 3–4 |
-| **B′** | Blockers merged | F4, F5, S2, C2, B4, H3 | up to 6 |
+| **B** | Owner-directed early integration of F1/S1 (owner D1/D3 answered); G2 remains closed until G1 exit | F1, S1, F2, F4, F5, S2; C2 after F2+F4; C1 after C2+F2+F4+B1+D2 | up to 6 |
+| **B′** | Blockers merged | F6, F7, B2, B4, H3 | up to 5 |
 | **C** | Blockers merged | F6, F7, F8, B2, O3, then B6 | up to 6 |
 | **D** | G2 exit | S3, C3, O4, O5, B5, U4, U5, B3 (after D4) | up to 8 |
 
@@ -255,9 +274,10 @@ X3 ─► F1 ─┬─► F2 ─┬─► F7          F4 ─► H3
           ├─► F4 ─► O3
           ├─► F5 ─► F6 ; F5 ─► B2 ─► B6 (+O1)
           └─► F8 (+X2)
-F3 ─► U2 ─► B1 ─► C1 ;  B1 ─► F2 (WS6-T21 after T03/T11) ;  F3 ─► F4 ;  F3 ─► B5 ;  F3 ─► U3 (booking detail)
+F3 ─► U2 ─► B1 ─► F2 (WS6-T21 after T03/T11) ;  H2a ─► F2 ;  F3 ─► F4 ;  F3 ─► B5 ;  F3 ─► U3 (booking detail)
+F2 + F4 ─► C2 (WS5-T02/T07; 0081) ─► C1 (WS5-T01/T14/T04/T05; 0082)
 T1 ─► U1 ─► U3 (E2E file sequence)
-H2a ─► H2b ;  H2a ─► doc12 D1
+H2a ─► H2b ;  H2a ─► F2 ─► doc12 D1
 S1 ─► S2 ─► S3 ;  S1 ─► B4
 P1a ─► P1b
 H1, O1, O2, P1a, R1, T2 : independent
@@ -265,7 +285,7 @@ Decisions: D1 ─► F2 · D2 ─► C1, C2 · D3 ─► S1 · D4 ─► F7(tax 
 ```
 
 ### 4.3 Merge order (migrations must merge in numeric order; renumber per §0.4 when needed)
-`0059 X1 → 0060a enum → 0060b X3 → 0061 H1 → 0062 F3 → 0063 O1 → 0064 O2 → 0065 H2a → 0066 H2b → 0067 U3 → 0068 U2 → 0069 P1a → 0070 R1 → 0071 F1 → 0072 S1 → 0073 B1 → 0074 P1b → 0075 F2 → 0076 F4 → 0077 F5 → 0078 F6 → 0079 F7 → 0080 S2 → 0081 C1 → 0082 C2 → 0083 H3 → 0084 B2 → 0085 B4 → 0086a/b B6 → 0087 O3`.
+`0059 X1 → 0060a enum → 0060b X3 → 0061 H1 → 0062 F3 → 0063 O1 → 0064 O2 → 0065 H2a → 0066 H2b → 0067 U3 → 0068 U2 → 0069 P1a → 0070 R1 → 0071 F1 → 0072 S1 → 0073 B1 → 0074 P1b → 0075 F2 → 0076 F4 → 0077 F5 → 0078 F6 → 0079 F7 → 0080 S2 → 0081 C2 → 0082 C1 → 0083 H3 → 0084 B2 → 0085 B4 → 0086a/b B6 → 0087 O3`.
 
 WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges after T1 because both own `e2e/web-smoke.mjs`.
 
@@ -303,7 +323,7 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 |---|---|
 | doc 12 **F2** (wire sports UI to real payments) | **Superseded** by S1 + S2 |
 | doc 12 **G2** (venue calendar/earnings) | Earnings → B4; calendar stays in doc 12, after S2 |
-| doc 12 **D1/D2** (recurring billing) | After H2a and F1. Re-check its spec against H2a's price snapshot. |
+| doc 12 **D1/D2** (recurring billing) | After H2a, F1, and F2. Re-check its spec against H2a's price snapshot. |
 | doc 12 **T1/T2** | Merge into T1/T2 here |
 | doc 14 **Q-00** | **= T1 here** (one owner) |
 | doc 14 **Phase 1** (T-01 tokens, C-07, I-01) | May run in parallel with Wave A: no shared files |
@@ -317,43 +337,43 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | WP | Gate | Status | Agent | Lane run | Migration | Merged SHA |
 |---|---|---|---|---|---|---|
 | X1 | G1 | merged; owner test env/OTP/admin setup completed; returning-role admin route fixed in 17461fd; main E2E 44457835276 passed with admin step green | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759; 44452693916 (OTP setup succeeded); 44453087353 (admin setup succeeded); 44451219597 (pre-setup; code-owned pass, admin blocked); 44457835276 (post-fix main E2E green; admin passed) | 0059 | 173be83 (lane 92cb959) |
-| X2 | G1 | unblocked for TEST-only configuration per owner; use Supabase test OTPs and inert MSG91/Expo placeholders; real SMS/push device delivery unverified; re-decide separate production project before G2 | integrator + owner | 44452693916 (test OTP setup succeeded) | — | — |
+| X2 | G1 | owner-approved TEST-only: Supabase `sms_test_otp`; MSG91/DLT and Expo projectId/FCM remain unset and inert; real SMS/push delivery remains blocked pending owner credentials/template and device validation; separate production project decision before G2 | integrator + owner | 44452693916 (test OTP setup succeeded) | — | — |
 | X3 | G1 | 0060a/b deployed; legacy E2E seed fix and O2 approval-compatible demo seed verified; post-fix main E2E passed all required steps including admin | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal + admin failure); 44419846387 (backend success); 44419845866 (main E2E pending); 44422452507 (main E2E pending); 44423228486 (demo reset failed; smoke not run); 44427389151 (demo reset failed; smoke not run); 44429275638 (demo reset failed; smoke not run); 44439583544 (pre-setup code pass; admin blocked); 44444203959 (pre-setup reset/code pass; admin blocked); 44451219597 (pre-setup reset/code pass; admin blocked); 44452693916/44453087353 (owner setup); 44457835276 (post-fix main E2E green) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
 | H1 | G1 | merged; 0061 applied and recorded by successful main deployment | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44411611254 (revalidation green); 44411611318 (E2E pending); 44412263137 (main success) | 0061 | 83ca69f (lane 7fc2ed9) |
 | F3 | G1 | scope-corrected lane green; lower-model review clear; 0062 applied and recorded on main | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44414018378 (green); 44412649463 (prior green); 44419846387 (main success) | 0062 | 6e89494 (lane 68c1c4d) |
 | O1 | G1 | merged; lower-model review clear; 0063 applied and recorded on main | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 (prior green); 44420825698 (revalidated green); 44423228645 (main success) | 0063 | 66931b8 |
 | O2 | G1 | merged; 0064 applied; demo-seed fix on main; post-fix main E2E reset, code-owned steps, and admin step passed | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 (prior green); 44425010957 (revalidated green); 44427389305 (main success); 44435464586 (seed test green); 44436860237 (comment follow-up green); 44436860234 (pre-setup admin failure); 44439583542 (main backend success); 44439583544 (pre-setup code pass; admin blocked); 44444203959 (pre-setup code pass; admin blocked); 44451219597 (pre-setup code pass; admin blocked); 44452693916/44453087353 (owner setup); 44457835276 (post-fix main E2E green) | 0064 | 5c962d9; follow-up a501fc3 |
-| H2a | G1 | merged; lower-model review clear; 0065 applied and recorded on main | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 (prior green); 44428059570 (9 O2 approval-fixture failures; fixed); 44428516193 (revalidated green); 44429275573 (main success) | 0065 | 4856883 |
+| H2a | G1 | merged; 0065 applied; shared `h2a.test.mjs` fixture repair `92ca401` merged to main as `71951da`; lane CI `44511017570` green; backend deploy retry `44512029762` in progress | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222; 44428059570 (earlier fixture failures fixed); 44428516193 (prior green); 44429275573 (prior main success); 44507015621 (blocked); 44511017570 (fix lane CI); 44512029762 (main retry) | 0065 | 4856883 |
 | H2b | G1 | merged; 0066 applied; lane CI and lower-model review green; recurring E2E step passed; lane-only assistant timeout not reproduced on main; post-fix main E2E 44457835276 passed with admin; AI limit paths skipped | e5fb46bc-9408-4df7-9ff8-5bdf75f0a538 | 44433698320 (ai_usage failure; fixed); 44434278137 (prior green); 44433698314 (prior E2E pending); 44440036124 (revalidated green); 44440036120 (recurring step passed; assistant/admin failures); 44439583544 (pre-setup assistant pass; admin blocked); 44444203933 (0066 applied); 44444204058 (app publish success); 44444203959 (pre-setup code pass; admin blocked); 44451219597 (pre-setup assistant/code pass; admin blocked); 44452693916/44453087353 (owner setup); 44457835276 (post-fix main E2E green) | 0066 | 4136362 (lane afc109b) |
 | U2 | G1 | merged as `19149de`; lane CI/review green; 0068 applied and app publish passed; fix-forward `eeee6b3` resolved the cancellation dismissal and nested admin-shop steps; main E2E `44470999417` passed | 5eb40283-1c18-4d5f-8a4c-9e0673180b86 | 44458119039 (lane CI green); 44458119027 (pre-merge fallback; 0068 absent); 44465627380 (0068 applied); 44465627372 (app publish); 44465627435 (3 failed steps); `eeee6b3`; 44470999417 (main E2E green) | 0068 | 19149de |
-| B1 | G1 | lane CI green; lower-model review clear; exact Doc 16 ₹999 + ₹29 SQL/E2E assertions and DEMO fixture consistency complete; migration 0073 batched on `integrate/db-batch-1` (merge f1c9f70); combined lane CI pending; main deploy/E2E follows fast-forward | d634ce91-6b9e-44ef-8979-7bff3f823834 | 44472477826 (pre-sample lane green); 44476343386 (final lane CI green); lower-model review (no findings) | 0073 | — |
+| B1 | G1 | lane CI/review green; exact Doc 16 ₹999 + ₹29 fixture; migration 0073 merged to main at `0a0b0af`; combined lane CI `44489521830` green; prior deploy `44507015621` stopped at H2a test; shared fix `71951da` is on main and retry `44512029762` is in progress | d634ce91-6b9e-44ef-8979-7bff3f823834 | 44472477826; 44476343386; 44489521830 (batch lane CI green); 44507015621 (deploy failed); 44512029762 (retry running) | 0073 | 0a0b0af |
 | U1 | G1 | merged; lane CI green; E2E remains queued | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44413025536 (lane CI); 44413025293 (E2E pending) | — | 7c7f3b7 (lane 290a0c7) |
 | U3 | G1 | merged; 0067 applied and recorded; lower-model review and lane CI green; U3 web-smoke and post-fix main E2E passed | bc0c8141-772b-4d97-9181-1286094f2f57 | 44399638736 (partial); 44423704672 (prior green); 44425332784 (post-rename green); 44423704687 (prior E2E pending); 44449228926 (lane CI green); 44449228932 (pre-fix admin failure); 44451219515 (0067 applied); 44451219523 (app publish success); 44451219597 (pre-setup code pass; admin blocked); 44452693916/44453087353 (owner setup); 44457835276 (post-fix main E2E green) | 0067 | 5731418 (lane de23c6c) |
 | P1a | G1 | merged as `eeee6b3`; current-main lane CI green; migration 0069 applied; main app publish and E2E passed | 3f745efa-75d9-4e5b-bee7-be8d2fe6fea0 | 44395068717 (prior base); 44467553727 (current-main lane CI green); 44467123824 (pre-fix lane E2E failed only at U2 modal dismissal; admin steps passed); 44470999495 (0069 applied); 44470999525 (app publish success); 44470999417 (main E2E success) | 0069 | eeee6b3 |
-| P1b | G1 | migration 0074 batched on `integrate/db-batch-1` (merge e442567); lane CI green; combined lane CI pending; previous per-lane E2E failures were stale-schema/T1-flow and are superseded by post-deploy main E2E | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (green before rebase); 44476284421 (fresh lane CI green); 44476284146 (pre-batch E2E failures); commits `daa26bd`/`f84c835` | 0074 | — |
-| R1 | G1 | merged as `91b5fcd`; 0070 applied by main backend run `44476452837`; E2E `44476452706` failed in returning-provider onboarding; T1 fix-forward `4f33f44`; E2E `44487041930` also failed at `new-pro-role` URL detection then downstream photo chooser; T1 follow-up delegated; no next main batch until fixed | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 (prior base); 44467715020 (prior lane CI); 44473793697 (current-main lane CI green); 44476452837 (main backend success); 44476452706 and 44487041930 (main E2E failures) | 0070 | 91b5fcd |
-| T1 | G1 | original T1 merged; fix-forward `4f33f44` did not pass main E2E `44487041930`; `new-pro-role` URL detection timed out and `new-pro-basics` hit downstream filechooser timeout; follow-up delegated to T1 agent; lane CI run pending | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44457835276 (prior main E2E green); 44474185680/44474246256 (earlier failures); 44481109581 (prior follow-up lane CI); 44487041930 (main E2E failure) | — | fb069de; fix-forward `4f33f44` |
+| P1b | G1 | migration 0074 merged to main at `0a0b0af`; combined lane CI `44489521830` green; prior deploy `44507015621` stopped at H2a test; shared fix `71951da` is on main and retry `44512029762` is in progress | a1da8d43-6977-44a8-9e45-25e435995465 | 44476284421; 44489521830 (batch lane CI green); 44507015621 (deploy failed); 44512029762 (retry running); commits `daa26bd`/`f84c835` | 0074 | 0a0b0af |
+| R1 | G1 | merged as `91b5fcd`; 0070 previously applied; UI-batch E2E `44502606943` failed at T1 role setup; main E2E `44507015463` timed out in several flows including `new-pro-role`; backend deploy retry `44512029762` is running after H2a fix; T1 fix `8148854` is lane-green and will be applied to main after deploy succeeds | d2882009-c908-4082-a75e-94d2bf52d65a | 44476452837 (prior backend success); 44487041930 (prior E2E failure); 44502606943 (UI-batch failure); 44507015621 (deploy failure); 44507015463 (main E2E failure); 44512029762 (retry running); T1 `8148854` / 44508274961 (lane green) | 0070 | 91b5fcd |
+| T1 | G1 | fix `8148854` pushed to `lane/T1`; uses authenticated `get_my_provider` and `save_provider_basics` instead of direct profile PATCH; preserves returning-provider switch path; main fix-forward awaits successful backend deploy `44512029762`, then main E2E rerun | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44508274961 (lane CI green; E2E-only file change); 44507015463 (pre-fix main E2E failure); 44512029762 (backend retry running) | — | `8148854` |
 | T2 | G1 | RP-29 isolated-provider, future-safe date-offset fix merged; main SQL validation green | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44410255193; 44411901585 (lane green); 44410255110 (E2E pending); 44413775484 (main success) | — | caed73d; c409974 (lane f05803e); 61a5f78 (lane 4052664) |
-| F1 | G2 | lane CI green; lower-model review clear; migration 0071 batched on `integrate/db-batch-1` (merge c35c7c3); combined lane CI pending; main deploy/E2E follows fast-forward | f585de6d-23a0-4b78-a795-0153ebe81f77 | 44425343894 (prior base); 44467862179 (prior lane CI); 44474617328 (final lane CI green); 44474617505 (pre-batch E2E; returning-provider flow) | 0071 | — |
-| F2 | G2 | not started; blocked by F1 and B1 (WS6-T21 dependency); D1 decided | — | — | 0075 | — |
-| F4 | G2 | not started; blocked by F3 and F1 | — | — | 0076 | — |
-| F6 | G2 | not started; blocked by F1 and F5 | — | — | 0078 | — |
-| F5 | G2 | not started; blocked by F1 | — | — | 0077 | — |
+| F1 | G2 | migration 0071 merged to main at `0a0b0af`; batch CI `44489521830` green; prior deploy `44507015621` stopped at H2a test; H2a fix `71951da` is on main and deploy retry `44512029762` is running | f585de6d-23a0-4b78-a795-0153ebe81f77 | 44474617328; 44489521830 (batch lane CI green); 44507015621 (deploy failed); 44512029762 (retry running) | 0071 | 0a0b0af |
+| F2 | G2 | implementation and SQL-test registration pushed (`d8e1107`); lane CI `44507638476` failed: four F2 SQL scenarios plus shared H2a crash; lower-model review flags `send_fixed_addons` fallback to `subtotal_other`; owner is fixing F2 after H2a fix `71951da` landed on main | 235c290c-22ae-418f-aaba-a70aa2a92293 | 44505823055 (green but missing F2 test registration); 44507638476 (registered test run failed); H2a fix `71951da` (main) | 0075 | — |
+| F4 | G2 | original WS6 refund/dispute scope only; lane green at `fe93f5d`; focused lower-model review clear; full-chain revalidation after 0075 lands | 8afe921c-cf83-4cff-976d-4ab72265f39c | 44502076649; 44502957340 (lane CI green); lower-model review clear | 0076 | — |
+| F6 | G2 | implementation committed locally (`9b7a880`); F5's latest fix/re-review is green and included via `2c05f84`; merge latest main containing H2a fix `71951da`, then push and validate F6 | 025d435c-6475-432a-8151-b41e9fce8646 | F5 lane CI `44497183227` green; F6 prior CI `44509615177` failed at shared H2a/Deno type errors; fresh CI pending | 0078 | — |
+| F5 | G2 | duplicate-payload conflict detection and G2/G3 boundary complete; lane green at `88c4cc1`; focused lower-model re-review clear; refund/transfer/reversal journal writers remain deferred to G3 | 1b2fc5b9-fcc4-485c-88c1-594a40f58ec5 | 44493181568 (prior CI); 44497183227 (final lane CI green); lower-model re-review clear | 0077 | — |
 | F7 | G2 | not started; blocked by F2; tax wording remains placeholder-only until review | — | — | 0079 | — |
-| F8 | G2 | not started; TEST mode only; X2 no longer blocks it per owner; blocked by F1; use existing Razorpay TEST keys only, never live keys | — | — | — | — |
-| S1 | G2 | D3 scope reconciled (late customer cancellation only); lane CI green; migration 0072 batched on `integrate/db-batch-1` (merge b08f6a4); combined lane CI pending; main deploy/E2E follows fast-forward | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | 44426415098 (syntax error; fixed); 44426947299 (prior-base green); 44468356530 (prior lane CI); 44474185719 (final lane CI green); 44474185680 (pre-batch E2E; returning-provider flow) | 0072 | — |
-| S2 | G2 | not started; blocked by S1 | — | — | 0080 | — |
-| C1 | G2 | not started; blocked by B1; D2 decided | — | — | 0081 | — |
-| C2 | G2 | not started; blocked by F2; D2 decided | — | — | 0082 | — |
-| H3 | G2 | not started; blocked by F4, T1, and H2b (shared E2E file) | — | — | 0083 | — |
-| B2 | G2 | not started; blocked by F1 and F5 | — | — | 0084 | — |
+| F8 | G2 | not started; TEST mode only; awaits H3 and shared-file sequence F6 → S2 → F8; X2 no longer blocks it; use existing Razorpay TEST keys only, never live keys | — | — | — | — |
+| S1 | G2 | migration 0072 merged to main at `0a0b0af`; batch CI `44489521830` green; prior deploy `44507015621` stopped at H2a test; H2a fix `71951da` is on main and deploy retry `44512029762` is running | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | 44474185719; 44489521830 (batch lane CI green); 44507015621 (deploy failed); 44512029762 (retry running) | 0072 | 0a0b0af |
+| S2 | G2 | non-webhook scope pushed at `6df115c`; lane CI `44509604563` failed only at shared H2a fixture crash; H2a fix `71951da` is on main and revalidation is pending; webhook payment.failed route remains locked behind green F6 | da77e068-440b-4057-9eb9-1e596efd6dfb | 44496578028 (old partial lane CI); 44509604563 (H2a-only failure); fresh CI pending | 0080 | — |
+| C1 | G2 | not started; depends on C2, F2, F4, B1 and D2; C1 redefines shared completion/payment-default functions only after F2/F4 | — | — | 0082 | — |
+| C2 | G2 | not started; owns WS5-T02/T07 deadline path; blocked by F2, F4 and D2; lower-model review required | — | — | 0081 | — |
+| H3 | G2 | not started; blocked by F4, T1/H2b E2E sequence, and booking-detail order after C1/B2/B6 | — | — | 0083 | — |
+| B2 | G2 | not started; F1/F5 are green, but booking-detail order requires C1 before B2 | — | — | 0084 | — |
 | B4 | G2 | not started; blocked by F2 and S1 | — | — | 0085 | — |
 | B6 | G2 | not started; blocked by F1, O1, and B2 | — | — | 0086a/b | — |
-| O3 | G2 | not started; blocked by F1 and F4 | — | — | 0087 | — |
+| O3 | G2 | code pushed at `a06a829`; reuses F4's audited refund retry; lower-model review clear; lane CI `44507525151` failed only at shared H2a SQL test; H2a fix `71951da` is on main; O3 SQL test registration, rebase, and fresh validation pending | d417d1f2-59e3-44bb-81b3-3016af817af3 | 44507525151 (failed at H2a; O3 test unregistered); F4 lane CI `44502957340` green; lower-model review clear | 0087 | — |
 | B3 | G2 | DEFERRED — owner will engage CA later; no tax invoices before review and no live payments before D4 review | — | — | later | — |
 | S3 | G3 | deferred until G2/S2 | — | — | — | — |
 | C3 | G3 | deferred until C2 | — | — | — | — |
-| O4 | G3 | not started; later wave | — | — | — | — |
+| O4 | G3 | deferred outside the current G1/G2 + doc14 completion gate; R-05 may proceed per doc14 sequencing | — | — | — | — |
 | O5 | G3 | deferred until O4 and B6 | — | — | — | — |
 | B5 | Later | deferred until F3 | — | — | — | — |
 | U4 | Later | DEFERRED until rebrand; keep "Seva Coins" for now and choose replacement name then | — | — | — | — |
