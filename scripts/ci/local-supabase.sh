@@ -32,22 +32,26 @@ TOML
 # The sms section already exists in config.toml; relax the resend interval for fast test logins.
 sed -i 's/^\[auth\.sms\]$/[auth.sms]\nmax_frequency = "1s"/' supabase/config.toml
 
+# Start on 0001 only; later migrations are applied after the legacy seeds (see below).
+mkdir -p /tmp/qs-later-migrations
+find supabase/migrations -name '*.sql' ! -name '0001_*' -exec mv {} /tmp/qs-later-migrations/ \;
+
 supabase start -x studio,imgproxy,logflare,vector
 
 eval "$(supabase status -o env)"
 psql_db() { psql "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 
-echo "== seeding"
+# seed.sql and seed-full.sql were written for 0001_init.sql and loaded into the hosted demo project
+# before later migrations existed. Reproduce that history: 0001, legacy seeds, then every later migration
+# (so data backfills run over seeded rows exactly as they did there), then the current all-services seed.
+echo "== legacy seeds on 0001"
 psql_db -f supabase/seed.sql
-# seed-full.sql predates the booking core contract (0018/0021): its historical bookings fall outside
-# today's booking windows. The hosted demo project received them before that check existed, so load them
-# with only the _is_bookable check relaxed; the trigger still fills archetype and snapshots. Then restore it.
-bookable='public._is_bookable(uuid,uuid,text,text,tstzrange)'
-psql "$DB_URL" -tA -c "select pg_get_functiondef('$bookable'::regprocedure)" > /tmp/is_bookable.sql
-psql_db -c "create or replace function public._is_bookable(p_category_id uuid, p_provider_id uuid, p_city text,
-    p_archetype text, p_window tstzrange default null) returns boolean language sql stable as \$\$ select true \$\$" \
-  -f supabase/seed-full.sql
-psql_db -f /tmp/is_bookable.sql
+psql_db -f supabase/seed-full.sql
+mv /tmp/qs-later-migrations/*.sql supabase/migrations/
+echo "== applying later migrations"
+supabase migration up --local
+
+echo "== all-services seed"
 # seed-all-services.sql requires the demo-seed marker inside its own transaction.
 sed '0,/^begin;$/s//begin;\nselect set_config('"'"'quickserve.demo_seed'"'"', '"'"'1'"'"', true);/' \
   supabase/seed-all-services.sql | psql_db
