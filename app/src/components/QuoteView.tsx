@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { formatINR, requiredTotal } from '../lib/money';
+import { customerDueNow, formatINR, requiredTotal } from '../lib/money';
 import type { Quote, QuoteItemKind, QuoteStatus } from '../lib/types';
 import { useTheme } from '../theme';
 import { Badge, Card, Divider, InlineAlert, PriceRow, Text, type Tone } from './ui';
@@ -67,7 +67,7 @@ export function QuoteView({
   const grossTotal = requiredTotal(quote.total, visitFee, platformFee);
   const total = Math.max(0, grossTotal - coinDiscount);
   const cashPaid = Math.max(0, alreadyPaid - coinPaid);
-  const due = Math.max(0, total - alreadyPaid);
+  const due = customerDueNow(total, cashPaid);
   const open = quote.status === 'sent' || quote.status === 'approved_pending_payment';
   const [label, tone] = statusText[quote.status];
   const aboveTypical = typical ? grossTotal > typical[1] * 100 : false;

@@ -17,7 +17,7 @@ import { useTheme } from '../../src/theme';
 type CategoryRow = { id: string; slug: string; name: string; active: boolean; sort_order: number };
 type Dashboard = { shops: number; verified_shops: number; products: number; open_enquiries: number };
 
-const FILTERS = ['all', 'submitted', 'under_review', 'verified', 'rejected', 'suspended'] as const;
+const FILTERS = ['all', 'draft', 'submitted', 'under_review', 'verified', 'rejected', 'suspended'] as const;
 
 export default function AdminShopsScreen() {
   const t = useTheme();
@@ -26,7 +26,7 @@ export default function AdminShopsScreen() {
   const [shops, setShops] = useState<AdminShop[]>([]);
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
-  const [reason, setReason] = useState('');
+  const [reasons, setReasons] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -53,9 +53,15 @@ export default function AdminShopsScreen() {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const setStatus = async (shop: AdminShop, status: ShopStatus) => {
+    const reason = reasons[shop.id] ?? '';
+    if ((status === 'rejected' || status === 'suspended') && !reason.trim()) {
+      toast({ message: 'A reason is required to reject or suspend a shop.', tone: 'error' });
+      return;
+    }
     setBusy(shop.id);
     try {
-      await adminSetShopStatus(shop.id, status, reason);
+      await adminSetShopStatus(shop.id, status, reasons[shop.id] ?? '');
+      setReasons((current) => ({ ...current, [shop.id]: '' }));
       await load();
       toast({ message: `${shop.name}: ${status.replaceAll('_', ' ')}`, tone: 'success' });
     } catch (e) {
@@ -94,7 +100,6 @@ export default function AdminShopsScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
           {FILTERS.map((status) => <Chip key={status} label={status.replaceAll('_', ' ')} selected={filter === status} onPress={() => setFilter(status)} />)}
         </View>
-        <Input label="Reason for rejection or suspension (optional)" value={reason} onChangeText={setReason} maxLength={500} />
       </Card>
       {loading ? <Skeleton height={150} radius={t.radii.lg} /> : shops.length ? shops.map((shop) => (
         <Card key={shop.id}>
@@ -108,6 +113,12 @@ export default function AdminShopsScreen() {
           {shop.lat != null && shop.lng != null ? <Text variant="caption" color="muted">{shop.lat.toFixed(5)}, {shop.lng.toFixed(5)}</Text> : null}
           <Text variant="caption" color="muted">Categories: {shop.category_slugs.join(' · ') || 'None'}</Text>
           {shop.status_reason ? <Text color="dangerText">Reason: {shop.status_reason}</Text> : null}
+          <Input
+            label="Reason (required to reject or suspend)"
+            value={reasons[shop.id] ?? ''}
+            onChangeText={(value) => setReasons((current) => ({ ...current, [shop.id]: value }))}
+            maxLength={500}
+          />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
             <Button title="Under review" size="sm" variant="outline" loading={busy === shop.id} onPress={() => void setStatus(shop, 'under_review')} />
             <Button title="Verify" size="sm" loading={busy === shop.id} onPress={() => void setStatus(shop, 'verified')} />

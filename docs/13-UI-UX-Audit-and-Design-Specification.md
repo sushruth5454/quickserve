@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | **PROPOSAL — awaiting owner approval. No app code has been changed.** |
+| **Status** | **Approved for implementation by the owner on 2026-11-18; recommended options adopted where input was needed.** |
 | **Code baseline** | `sushruth5454/quickserve` `main` @ `2c59548` (latest migration `0058_sports_payments.sql`) |
 | **Companion** | [`14-UI-Redesign-AI-Execution-Plan.md`](14-UI-Redesign-AI-Execution-Plan.md): task breakdown, agent assignments, file ownership and dependency graph for the implementing model |
-| **Supersedes** | Visual sections of [`02-UX-UI-Design.md`](02-UX-UI-Design.md) §2 (tokens) and §3 (navigation) once approved. Everything else in 02 stays valid. |
+| **Supersedes** | Visual sections of [`02-UX-UI-Design.md`](02-UX-UI-Design.md) §2 (tokens) and §3 (navigation); everything else in 02 stays valid. |
 
 ## 0. How this audit was done (and its limits)
 
@@ -425,7 +425,9 @@ See **Document 2**: [`14-UI-Redesign-AI-Execution-Plan.md`](14-UI-Redesign-AI-Ex
 | Booking & payment | Existing E2E booking/sports/proposal steps stay required; Razorpay test mode unchanged. |
 | Regression | Every lane: typecheck + Jest (lane CI); `main`: full web E2E. Every feature flag is tested in **both** on and off states. |
 
-## I. Decisions requiring owner approval
+## I. Owner decisions
+
+The owner approved execution on 2026-11-18 and directed that the recommended option be used for any remaining input. All eight recommendations below are adopted.
 
 | # | Decision | Recommended |
 |---|---|---|

@@ -135,11 +135,22 @@ update public.app_config
    set value = jsonb_set(value, '{time_based}', 'true'::jsonb, true)
  where key = 'archetype_flags';
 
--- Demo checkout settles server-side (demo_settle_payment, 0030) only for demo providers (auth metadata
--- demo_only) and the CI test pro listed here. Real providers always need a real Razorpay payment.
+-- Demo checkout settles server-side only for providers with service-controlled app_metadata.demo_only,
+-- and only after this guarded seed marks the project as a demo deployment.
 insert into public.app_config (key, value)
-values ('demo_payments', '{"enabled": true, "provider_ids": ["11111111-1111-1111-1111-111111111111"]}'::jsonb)
+values ('demo_payments', '{"enabled": true, "provider_ids": []}'::jsonb)
 on conflict (key) do update set value = excluded.value;
+
+-- The legacy E2E checkout provider is seeded by seed.sql rather than demo_specs.
+-- Mark only its service-controlled app metadata so demo settlement accepts the E2E flow.
+update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"demo_only":"true"}'::jsonb
+ where id = '11111111-1111-1111-1111-111111111111'::uuid;
+
+insert into public.app_config (key, value)
+values ('deployment', '{"is_demo_project": true}'::jsonb)
+on conflict (key) do update
+  set value = jsonb_set(public.app_config.value, '{is_demo_project}', 'true'::jsonb, true);
 
 -- Phase 6/7a marketplace capabilities are enabled only by this guarded demo seed.
 do $$
