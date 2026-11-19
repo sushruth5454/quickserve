@@ -1,0 +1,55 @@
+name: Ops - owner admin login (one-time)
+
+# One-time owner-approved maintenance (2026-11-18): owner's manual admin login 919000000902 (OTP 123456), separate
+# from the automation-only E2E admin 919000000901. Delete after use.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add OTP, create user, grant admin
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          PHONE: '919000000902'
+          OTP: '123456'
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error
+          ref, tok, phone = os.environ["PROJECT_REF"], os.environ["SUPABASE_ACCESS_TOKEN"], os.environ["PHONE"]
+          mh = {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"}
+          def call(url, data=None, method=None, headers=mh):
+              req = urllib.request.Request(url, data=json.dumps(data).encode() if data is not None else None, headers=headers, method=method)
+              try:
+                  return json.loads(urllib.request.urlopen(req).read() or b"null")
+              except urllib.error.HTTPError as e:
+                  print("HTTP", e.code, url.split("/v1/")[-1][:60], e.read().decode()[:300]); raise
+          sql = lambda q: call(f"https://api.supabase.com/v1/projects/{ref}/database/query", {"query": q}, "POST")
+          # 1) sms_test_otp
+          base = f"https://api.supabase.com/v1/projects/{ref}/config/auth"
+          cfg = call(base)
+          pairs = dict(e.strip().split("=", 1) for e in (cfg.get("sms_test_otp") or "").split(",") if "=" in e)
+          pairs[phone] = os.environ["OTP"]
+          body = {"sms_test_otp": ",".join(f"{k}={v}" for k, v in pairs.items())}
+          if cfg.get("sms_test_otp_valid_until"): body["sms_test_otp_valid_until"] = cfg["sms_test_otp_valid_until"]
+          call(base, body, "PATCH")
+          print("otp phones:", sorted(dict(e.split("=",1) for e in call(base)["sms_test_otp"].split(",")).keys()))
+          # 2) create user if missing (service key fetched at runtime, never printed)
+          if sql(f"select count(*)::int as n from auth.users where phone = '{phone}'")[0]["n"] == 0:
+              keys = call(f"https://api.supabase.com/v1/projects/{ref}/api-keys")
+              svc = next(k["api_key"] for k in keys if k.get("name") == "service_role")
+              ah = {"Authorization": f"Bearer {svc}", "apikey": svc, "Content-Type": "application/json"}
+              call(f"https://{ref}.supabase.co/auth/v1/admin/users", {"phone": phone, "phone_confirm": True}, "POST", ah)
+              print("user created")
+          else:
+              print("user already exists")
+          # 3) grant admin
+          sql(f"insert into public.admins (user_id) select id from auth.users where phone = '{phone}' on conflict (user_id) do nothing")
+          n = sql(f"select count(*)::int as n from public.admins a join auth.users u on u.id = a.user_id where u.phone = '{phone}'")[0]["n"]
+          print("is admin:", n == 1); assert n == 1
+          PY
