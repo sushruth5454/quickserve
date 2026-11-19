@@ -720,7 +720,9 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | `app/app/(customer)/index.tsx` | H-01 | — |
 | `app/src/features/activity/*` | R-04 → HS-03 (sequential) | — |
 | `app/app/provider/[id].tsx` + `features/providerProfile/*` | R-02 → HS-01 (sequential) | — |
-| `app/app/book/[providerServiceId].tsx` + `features/booking/book/*` | R-03 → HS-02 (sequential) | — |
+| `app/app/book/[providerServiceId].tsx` | doc 17 B1 → R-03 | — |
+| `app/src/features/booking/book/*` | R-03 → HS-02 (sequential) | — |
+| `app/app/book-fixed/[providerServiceId].tsx` | doc 17 B1 → HS-02 | — |
 | `e2e/web-smoke.mjs` | doc 17 X1 → Q-00/T1 → Q-01 screenshot helper → doc 17 U1 → doc 17 U3 → Q-02 | — |
 | `e2e/all-services.mjs` | Q-00/T1 → doc 17 H2b → doc 17 H3 → Q-02 | — |
 | `.github/workflows/*`, `supabase/tests/package.json` | integrator | — |
