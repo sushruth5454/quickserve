@@ -1,4 +1,4 @@
-import { proposalStatus } from '../proposalStatus';
+import { deliverableLabel, dueRuleLabel, proposalStatus } from '../proposalStatus';
 import type { Booking, Proposal } from '../types';
 
 const proposal = (status: Proposal['status'], booking?: { status: Booking['status']; payment_hold_expires_at: string | null }) =>
@@ -28,5 +28,18 @@ describe('proposalStatus', () => {
       status: 'pending_payment',
       payment_hold_expires_at: new Date(Date.now() - 60_000).toISOString(),
     }))).toMatchObject({ label: 'Payment hold expired' });
+  });
+
+  it('maps supported payment due rules to customer language', () => {
+    expect(dueRuleLabel('at_booking')).toBe('At booking');
+    expect(dueRuleLabel('on_delivery')).toBe('When work is delivered');
+    expect(dueRuleLabel('on_completion')).toBe('When the job is complete');
+    expect(dueRuleLabel('days_before_start:7')).toBe('7 days before');
+    expect(dueRuleLabel('days_before_start:1')).toBe('1 day before');
+  });
+
+  it('maps deliverable types without exposing raw snake-case keys', () => {
+    expect(deliverableLabel('final_delivery')).toBe('Final delivery');
+    expect(deliverableLabel('usage_rights')).toBe('Usage rights');
   });
 });
