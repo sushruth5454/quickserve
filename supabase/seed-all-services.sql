@@ -39,22 +39,21 @@ language sql immutable as $$
     from (select md5('quickserve-demo-all-services:' || p_key) as h) x
 $$;
 
--- Reset rows owned by this script. Order matters because receipts and 0022 pack/session rows have restrictive FKs.
+-- Reset rows owned by this script. Order matters because 0022 pack/session rows have restrictive FKs.
+-- B2 (0084) receipts reference bookings without cascade; remove demo-booking receipts first.
 do $$
 begin
   if to_regclass('public.payment_receipts') is not null then
     execute $sql$
       delete from public.payment_receipts r
-       using public.bookings b
-       where r.booking_id = b.id
-         and (
-           b.description like '[DEMO ONLY]%'
-           or exists (
-             select 1 from auth.users u
-              where u.id = b.provider_id
-                and coalesce(u.raw_user_meta_data ->> 'demo_only', '') = 'true'
-           )
-         )
+      using public.bookings b
+       where b.id = r.booking_id
+         and (b.description like '[DEMO ONLY]%'
+              or exists (
+                select 1 from auth.users u
+                 where u.id = b.provider_id
+                   and coalesce(u.raw_user_meta_data ->> 'demo_only', '') = 'true'
+              ))
     $sql$;
   end if;
 end;

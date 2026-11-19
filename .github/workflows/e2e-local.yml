@@ -68,6 +68,13 @@ jobs:
           npm install --no-audit --no-fund playwright@1
           npx playwright install --with-deps chromium
 
+      - name: Pin the feature switches the smoke test expects
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+        run: python3 scripts/ci/e2e-flags.py pin
+
       - name: Run smoke test
         working-directory: e2e
         env:
