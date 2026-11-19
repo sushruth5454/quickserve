@@ -39,11 +39,15 @@ psql_db() { psql "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 
 echo "== seeding"
 psql_db -f supabase/seed.sql
-# seed-full.sql predates the booking core contract (0018/0021). The hosted demo project received these
-# rows before that trigger existed, so reproduce that by loading them with only this trigger disabled.
-psql_db -c 'alter table public.bookings disable trigger bookings_apply_core_contract' \
-  -f supabase/seed-full.sql \
-  -c 'alter table public.bookings enable trigger bookings_apply_core_contract'
+# seed-full.sql predates the booking core contract (0018/0021): its historical bookings fall outside
+# today's booking windows. The hosted demo project received them before that check existed, so load them
+# with only the _is_bookable check relaxed; the trigger still fills archetype and snapshots. Then restore it.
+bookable='public._is_bookable(uuid,uuid,text,text,tstzrange)'
+psql "$DB_URL" -tA -c "select pg_get_functiondef('$bookable'::regprocedure)" > /tmp/is_bookable.sql
+psql_db -c "create or replace function public._is_bookable(p_category_id uuid, p_provider_id uuid, p_city text,
+    p_archetype text, p_window tstzrange default null) returns boolean language sql stable as \$\$ select true \$\$" \
+  -f supabase/seed-full.sql
+psql_db -f /tmp/is_bookable.sql
 # seed-all-services.sql requires the demo-seed marker inside its own transaction.
 sed '0,/^begin;$/s//begin;\nselect set_config('"'"'quickserve.demo_seed'"'"', '"'"'1'"'"', true);/' \
   supabase/seed-all-services.sql | psql_db
