@@ -15,6 +15,7 @@ import {
   isSportsTimeValid,
   isSportsDateValid,
   isSportsSlotTakenError,
+  slotCellState,
   type SportsSlotAvailability,
 } from '../model';
 
@@ -86,6 +87,35 @@ describe('sports customer booking presentation', () => {
     expect(isSportsSlotTakenError('slot is not available')).toBe(true);
     expect(isSportsSlotTakenError('capacity is full')).toBe(true);
     expect(isSportsSlotTakenError('invalid note')).toBe(false);
+  });
+
+  it('SP-02: makes taken and blocked slot cells visible but not selectable', () => {
+    const results = (['taken', 'blocked'] as const).map((state) => {
+      const cell = slotCellState({ ...firstSlot, state }, []);
+      return { state, ...cell };
+    });
+
+    expect(JSON.stringify(results)).toBe(JSON.stringify([
+      { state: 'taken', visible: true, selected: false, selectable: false, unavailable: true },
+      { state: 'blocked', visible: true, selected: false, selectable: false, unavailable: true },
+    ]));
+  });
+
+  it('SP-02: hides past slots and marks selected free slot cells', () => {
+    const pastCell = slotCellState({ ...firstSlot, state: 'past' }, []);
+    expect(JSON.stringify(pastCell)).toBe(JSON.stringify({
+      visible: false,
+      selected: false,
+      selectable: false,
+      unavailable: false,
+    }));
+    const selectedCell = slotCellState(firstSlot, [firstSlot.starts_at]);
+    expect(JSON.stringify(selectedCell)).toBe(JSON.stringify({
+      visible: true,
+      selected: true,
+      selectable: true,
+      unavailable: false,
+    }));
   });
 
   it('SP-06, SP-07, and SP-12: presents payment and terminal booking statuses in customer language', () => {

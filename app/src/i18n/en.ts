@@ -105,6 +105,7 @@ export const en = {
   'pillar.home.sub': 'Repairs, cleaning, cooks & more',
   'pillar.shops.sub': 'Products and bulk quotes from nearby shops',
   'pillar.sports.sub': 'Book courts, turfs and coaching',
+  'sports.slotUnavailable': 'Unavailable',
   'pillar.creators.sub': 'Video, photos, design and more',
   'home.searchPlaceholder': 'Search services, shops, venues…',
   'home.popularIn': 'Popular in {city}',
