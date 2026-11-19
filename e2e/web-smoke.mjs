@@ -613,11 +613,26 @@ await step('my-activity-shop-segment', async () => {
 });
 await step('my-activity-sports-segment', async () => {
   await page.getByTestId('activity-segment-sports').click();
-  await page.getByTestId('my-activity-panel-sports').waitFor();
-  await Promise.any([
-    page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor({ state: 'visible' }),
-    page.getByText('No sports requests yet', { exact: true }).first().waitFor({ state: 'visible' }),
-  ]);
+  const sportsPanel = page.getByTestId('my-activity-panel-sports');
+  await sportsPanel.waitFor();
+  const firstBooking = sportsPanel.getByRole('button').first();
+  const emptyState = sportsPanel.getByText('No sports requests yet', { exact: true }).first();
+  const panelState = await Promise.any([
+    firstBooking.waitFor({ state: 'visible' }).then(() => 'booking'),
+    emptyState.waitFor({ state: 'visible' }).then(() => 'empty'),
+  ]).catch(async () => {
+    const actual = await sportsPanel.innerText().catch(() => '<no panel text>');
+    throw new Error(`sports segment rendered neither bookings nor empty state: ${JSON.stringify(actual)}`);
+  });
+  if (panelState === 'booking') {
+    const actual = await firstBooking.innerText();
+    if (!/\b(?:REQUESTED|PENDING[_ ]PAYMENT|AWAITING[_ ]PAYMENT|ACCEPTED|DECLINED|CANCELLED|COMPLETED|EXPIRED|Waiting for venue|Confirmed)\b/i.test(actual)) {
+      throw new Error(`sports booking card has no status label: ${JSON.stringify(actual)}`);
+    }
+    if (!/\b(?:Paid online|Pay at venue|No online payment)\b/i.test(actual)) {
+      throw new Error(`sports booking card has no payment summary: ${JSON.stringify(actual)}`);
+    }
+  }
 });
 await step('my-activity-services-segment', async () => {
   await page.getByTestId('activity-segment-services').click();
