@@ -56,7 +56,6 @@ import type {
 } from '../types';
 import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBooking, type DemoDb } from './seed';
 import { maskPreview, type AppNotification } from '../unread';
-import { bookingRef } from '../schedule';
 
 const SESSION_KEY = 'quickserve.demo.session';
 // DemoDb has no mutable app_config; mirror app_config.proposal.dispute_hours.
