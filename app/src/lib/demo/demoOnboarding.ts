@@ -67,7 +67,18 @@ function extraFor(providerId: string): Extra {
       portfolio: [],
       documents: [],
       links: [],
-      payout: legacy ? { rail: 'payouts', activation_status: 'activated', beneficiary_name: null, bank_last4: '0000', ifsc: null, last_error: null, requirements: [] } : null,
+      payout: legacy ? {
+        rail: 'payouts',
+        activation_status: 'activated',
+        beneficiary_name: null,
+        account_type: 'individual',
+        gstin: null,
+        registered_address: null,
+        bank_last4: '0000',
+        ifsc: null,
+        last_error: null,
+        requirements: [],
+      } : null,
     };
     extras.set(providerId, e);
   }
