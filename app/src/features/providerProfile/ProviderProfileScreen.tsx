@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Linking from 'expo-linking';
 import { Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Card, ErrorState, IconButton, Screen, Skeleton, Text } from '../../components/ui';
+import { Card, ErrorState, IconButton, Screen, Skeleton, Text } from '../../components/ui';
+import { PriceFooter } from '../../components/market/PriceFooter';
 import { getProviderDetail, listLiveCities, type ProviderDetail } from '../../lib/api';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { haptics } from '../../lib/haptics';
@@ -164,41 +165,34 @@ export default function ProviderDetailScreen() {
       }}
       footer={
         service && !isPreview ? (
-          <View style={{ gap: t.spacing.sm }}>
-          {otherCity && !unavailable ? (
-            <Text variant="footnote" color="textSecondary" accessibilityLiveRegion="polite">
-              {first} works in {provider.city}. Your location is {location.city}, so switch to {provider.city} to{' '}
-              {proposalService ? 'request a proposal' : 'book'}.
-            </Text>
-          ) : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
-            <View style={{ flexShrink: 1 }}>
-              <Text variant="caption" color="muted" numberOfLines={1}>
-                {service.categories?.name} · {proposalService ? 'price' : pkgArchetype ? 'packages' : 'visit fee'}
-              </Text>
-              {proposalService ? (
-                <Text variant="calloutStrong">Fixed quote per brief</Text>
-              ) : pkgArchetype ? (
-                <Text variant="title2" tabular>
-                  {minPackagePrice == null ? 'Packages available' : `From ${formatINR(minPackagePrice)}`}
+          <PriceFooter
+            caption={`${service.categories?.name} · ${proposalService ? 'price' : pkgArchetype ? 'packages' : 'visit fee'}`}
+            amountLabel={
+              proposalService
+                ? 'Fixed quote per brief'
+                : pkgArchetype
+                  ? minPackagePrice == null
+                    ? 'Packages available'
+                    : `From ${formatINR(minPackagePrice)}`
+                  : formatINR(service.visit_fee)
+            }
+            amountVariant={proposalService ? 'text' : 'amount'}
+            cta={{
+              title: otherCity && !unavailable ? `Switch to ${provider.city}` : proposalService ? 'Request proposal' : `Book ${first}`,
+              leftIcon: otherCity && !unavailable ? 'location-outline' : undefined,
+              disabled: unavailable,
+              loading: switching,
+              onPress: bookSelectedService,
+            }}
+            above={
+              otherCity && !unavailable ? (
+                <Text variant="footnote" color="textSecondary" accessibilityLiveRegion="polite">
+                  {first} works in {provider.city}. Your location is {location.city}, so switch to {provider.city} to{' '}
+                  {proposalService ? 'request a proposal' : 'book'}.
                 </Text>
-              ) : (
-                <Text variant="title2" tabular>
-                  {formatINR(service.visit_fee)}
-                </Text>
-              )}
-            </View>
-            <Button
-              title={otherCity && !unavailable ? `Switch to ${provider.city}` : proposalService ? 'Request proposal' : `Book ${first}`}
-              leftIcon={otherCity && !unavailable ? 'location-outline' : undefined}
-              size="lg"
-              style={{ flex: 1 }}
-              disabled={unavailable}
-              loading={switching}
-              onPress={bookSelectedService}
-            />
-          </View>
-          </View>
+              ) : undefined
+            }
+          />
         ) : undefined
       }
     >

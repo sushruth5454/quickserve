@@ -3,7 +3,9 @@ import { View } from 'react-native';
 import { formatINR } from '../lib/money';
 import type { ProviderSearchResult, SkillLevel } from '../lib/types';
 import { useTheme } from '../theme';
-import { Avatar, Badge, Button, Card, Text, type Tone } from './ui';
+import { Badge, Button, Text, type Tone } from './ui';
+import { ListingCard } from './market/ListingCard';
+import { providerCardModel } from './providerCardModel';
 
 export const skillLabel: Record<SkillLevel, string> = {
   beginner: 'Beginner',
@@ -77,78 +79,51 @@ interface Props {
 export function ProviderCard({ provider: p, onPress, onBook, mode = 'visit' }: Props) {
   const t = useTheme();
   const rating = Number(p.rating_avg);
-  const proposal = mode === 'proposal';
+  const name = p.full_name || 'Provider';
+  const model = providerCardModel({
+    visitFeeLabel: formatINR(p.visit_fee),
+    isOnline: p.is_online,
+    mode,
+  });
+  const ctaAccessibilityLabel =
+    mode === 'proposal'
+      ? `Request a proposal from ${name}`
+      : p.is_online
+        ? `Book ${name}`
+        : `Schedule with ${name}`;
+  const subtitle = [
+    p.distance_km != null && `${p.distance_km.toFixed(1)} km`,
+    `${p.jobs_completed} jobs`,
+    `${p.years_experience} yrs exp.`,
+  ]
+    .filter(Boolean)
+    .join('  ·  ');
+
   return (
-    <Card
-      onPress={onPress}
-      gap={t.spacing.md}
-      accessibilityLabel={`${p.full_name}, verified, ${skillLabel[p.skill_level]}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews${proposal ? ', price on proposal' : `, visit fee ${formatINR(p.visit_fee)}`}`}
-      accessibilityHint="Opens provider details"
-    >
-      <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
-        <Avatar name={p.full_name} uri={p.avatar_url} size={52} online={p.is_online} />
-        <View style={{ flex: 1, gap: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text variant="title3" numberOfLines={1} style={{ flexShrink: 1 }}>
-              {p.full_name || 'Provider'}
-            </Text>
-            <VerifiedMark />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Badge label={p.is_online ? 'Online' : 'Offline'} tone={p.is_online ? 'success' : 'neutral'} dot />
-            <RatingInline value={rating} count={p.rating_count} />
-            <SkillBadge level={p.skill_level} />
-          </View>
-          <MetaLine
-            items={[
-              p.distance_km != null && `${p.distance_km.toFixed(1)} km`,
-              `${p.jobs_completed} jobs`,
-              `${p.years_experience} yrs exp.`,
-            ]}
-          />
-        </View>
-      </View>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: t.spacing.md,
-          paddingTop: t.spacing.md,
-          borderTopWidth: 1,
-          borderTopColor: t.colors.border,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          {proposal ? (
-            <>
-              <Text variant="caption" color="muted">Price</Text>
-              <Text variant="calloutStrong" numberOfLines={1}>Fixed quote for your brief</Text>
-            </>
-          ) : (
-            <>
-              <Text variant="caption" color="muted">
-                Visit fee
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
-                <Text variant="title3" tabular>
-                  {formatINR(p.visit_fee)}
-                </Text>
-                <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
-                  adjusted in bill
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
+    <View style={{ gap: t.spacing.sm }}>
+      <ListingCard
+        variant="provider"
+        title={name}
+        avatarName={name}
+        imageUrl={p.avatar_url}
+        subtitle={subtitle}
+        rating={rating}
+        ratingCount={p.rating_count}
+        verified
+        tags={[p.is_online ? 'Online' : 'Offline', skillLabel[p.skill_level]]}
+        priceLabel={model.priceLabel}
+        onPress={onPress}
+        testID={`provider-${p.provider_service_id}`}
+      />
+      <View style={{ alignItems: 'flex-end' }}>
         <Button
-          title={proposal ? 'Request proposal' : p.is_online ? 'Book' : 'Schedule'}
+          title={model.ctaLabel}
           size="sm"
           onPress={onBook}
-          accessibilityLabel={`${proposal ? 'Request a proposal from' : p.is_online ? 'Book' : 'Schedule with'} ${p.full_name}`}
+          accessibilityLabel={ctaAccessibilityLabel}
           style={{ minWidth: 88 }}
         />
       </View>
-    </Card>
+    </View>
   );
 }
