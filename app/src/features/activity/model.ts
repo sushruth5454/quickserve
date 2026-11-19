@@ -1,3 +1,5 @@
+import type { Frequency, PlanStatus } from '../recurring/types';
+
 export interface ActivityUnreadCounts {
   services: number;
   requests: number;
@@ -13,7 +15,75 @@ export interface ActivityFeatureVisibility {
   hasSportsBookings?: boolean;
 }
 
+export type ActivityPlanSummary = {
+  plan: {
+    id: string;
+    status: PlanStatus;
+    provider_acceptance: string;
+    frequency?: Frequency;
+    weekdays?: number[];
+  };
+  occurrences: { id: string; scheduled_at: string; status: string }[];
+};
+
 export { bookAgainRoute as bookAgainTarget } from './bookAgain';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function parseActivityPlans(value: unknown): ActivityPlanSummary[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || !isRecord(item.plan) || !Array.isArray(item.occurrences)) return [];
+    const plan = item.plan;
+    if (
+      typeof plan.id !== 'string' ||
+      !['active', 'paused', 'cancelled', 'completed'].includes(String(plan.status)) ||
+      typeof plan.provider_acceptance !== 'string'
+    ) return [];
+    const occurrences = item.occurrences.filter(
+      (row): row is ActivityPlanSummary['occurrences'][number] =>
+        isRecord(row) && typeof row.id === 'string' && typeof row.scheduled_at === 'string' && typeof row.status === 'string',
+    );
+    return [{
+      plan: plan as ActivityPlanSummary['plan'],
+      occurrences,
+    }];
+  });
+}
+
+export function planFrequencyLabel(plan: ActivityPlanSummary['plan']) {
+  const labels: Record<Frequency, string> = {
+    daily: 'Every day',
+    alternate_days: 'Every other day',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+    custom: 'Custom dates',
+  };
+  const frequency = plan.frequency ? labels[plan.frequency] ?? 'Repeat plan' : 'Repeat plan';
+  if (plan.frequency !== 'weekly' || !Array.isArray(plan.weekdays)) return frequency;
+  const days = plan.weekdays
+    .map((day) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][day - 1])
+    .filter(Boolean)
+    .join(', ');
+  return days ? `${frequency} · ${days}` : frequency;
+}
+
+export function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+export function slotLabel(value: string) {
+  return new Date(value).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 export function parseActivityUnreadCounts(value: unknown): ActivityUnreadCounts {
   const row = Array.isArray(value) ? value[0] : value;
