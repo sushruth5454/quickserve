@@ -49,7 +49,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 
 export const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
-for (const file of fs.readdirSync(migrationsDir).filter((name) => /^\d{4}_.+\.sql$/.test(name)).sort()) {
+for (const file of fs.readdirSync(migrationsDir).filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name)).sort()) {
   await db.exec(migration(file));
 }
 await db.exec("set timezone = 'UTC'");
