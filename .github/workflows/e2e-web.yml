@@ -4,7 +4,7 @@ on:
   push:
     # E2E never applies migrations. The job waits for the latest migration in this revision to be deployed.
     # Lanes do not trigger E2E automatically (shared backend, ~30 min per run). App-only batches on integrate/ui-** do,
-    # and main does after every deploy. A lane changing app/app/** or e2e/** without migrations may request one run:
+    # and main runs after pushes once the schema preflight confirms deployment. A lane changing app/app/** or e2e/** without migrations may request one run:
     #   gh workflow run e2e-web.yml --ref lane/<ID>
     branches: [main, 'integrate/ui-**']
     paths:
