@@ -330,6 +330,10 @@ export async function acceptDelivery(bookingId: string): Promise<void> {
   await rpcVoid('accept_delivery', { p_booking_id: bookingId });
 }
 
+export async function cancelProposalPaymentDefault(bookingId: string): Promise<void> {
+  await rpcVoid('cancel_proposal_payment_default', { p_booking_id: bookingId });
+}
+
 /** Columns granted to anon/authenticated on public.providers (migration 0009). */
 const PUBLIC_PROVIDER_COLUMNS =
   'id, bio, city, service_radius_km, years_experience, languages, kyc_status, suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, created_at, paused, base_area, timezone';

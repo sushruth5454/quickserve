@@ -51,7 +51,7 @@ import { CancelSection, type HelpItem } from './CancelSection';
 import { DeliverySection } from './DeliverySection';
 import { PaymentsSection } from './PaymentsSection';
 import { StatusHeader } from './StatusHeader';
-import { fmt, heroCopy } from './model';
+import { canReportProposalPaymentDefault, fmt, heroCopy } from './model';
 
 interface Data {
   booking: CreatorRevisionBooking;
@@ -207,6 +207,7 @@ export default function BookingDetailScreen() {
   const revisionsAllowed = booking.revisions_allowed ?? 2;
   const revisionsUsed = booking.revisions_used ?? 0;
   const revisionsLeft = Math.max(0, revisionsAllowed - revisionsUsed);
+  const deliveryReview = booking.archetype === 'proposal' && booking.delivery_status === 'submitted';
   const canRequestRevision =
     isCustomer
     && data.creatorRevisionsEnabled
@@ -214,6 +215,11 @@ export default function BookingDetailScreen() {
     && booking.archetype === 'proposal'
     && booking.delivery_status === 'submitted'
     && revisionsLeft > 0;
+  const canReportPaymentDefault =
+    !isCustomer
+    && booking.archetype === 'proposal'
+    && (s === 'confirmed' || s === 'in_progress' || s === 'completion_requested')
+    && canReportProposalPaymentDefault(data.paymentSchedule, s, booking.delivery_status);
   const revisionRequestEvent = data.events.slice().reverse().find(
     (event) => event.to_status === 'delivery_pending' && event.note?.startsWith('revision requested: '),
   );
@@ -424,7 +430,7 @@ export default function BookingDetailScreen() {
     );
   } else if (s === 'delivery_pending' && booking.archetype === 'proposal') {
     footer = <Button title="Submit delivery" size="lg" fullWidth onPress={() => router.push({ pathname: '/proposal-delivery/[id]', params: { id: booking.id } })} />;
-  } else if (s === 'en_route' || s === 'completion_requested') {
+  } else if (s === 'en_route' || (s === 'completion_requested' && !deliveryReview)) {
     footer = (
       <Button
         title={s === 'en_route' ? 'Verify start code' : 'Verify completion code'}
@@ -475,6 +481,7 @@ export default function BookingDetailScreen() {
     changeOrderOpen: s === 'in_progress' && !!openQuote,
     cancelledReason: booking.cancelled_reason,
     defaultStatusLabel: statusLabel[s],
+    deliveryReview,
   });
   const pro = booking.providers;
   const helpItems: HelpItem[] = [
@@ -519,6 +526,18 @@ export default function BookingDetailScreen() {
         isCustomer={isCustomer}
         onPaid={() => void load()}
       />
+      {booking.archetype === 'proposal' && (booking.delivery_links?.length ?? 0) > 0 ? (
+        <DeliverySection
+          placement="delivered"
+          links={booking.delivery_links ?? []}
+          submittedAt={booking.delivery_submitted_at ?? null}
+          onOpenLink={(url) => {
+            void Linking.openURL(url).catch(() =>
+              toast({ message: 'Could not open delivered work.', tone: 'error' }),
+            );
+          }}
+        />
+      ) : null}
 
       {/* ---------- customer actions ---------- */}
       {isCustomer && (s === 'accepted' || s === 'en_route' || (s === 'confirmed' && booking.archetype === 'proposal')) ? (
@@ -534,7 +553,7 @@ export default function BookingDetailScreen() {
           onRegenerate={() => void run(() => api.regenerateOtp(booking.id, 'start'), 'New code generated')}
         />
       ) : null}
-      {isCustomer && s === 'completion_requested' ? (
+      {isCustomer && s === 'completion_requested' && !deliveryReview ? (
         <OtpCard
           title="Completion code"
           hint={`Share only if you're happy with the work. Auto-confirms 24 hours after ${first} marked it done.`}
@@ -619,20 +638,34 @@ export default function BookingDetailScreen() {
       ) : null}
 
       {/* ---------- provider actions ---------- */}
-      <ActionsRow
-        status={s}
-        archetype={booking.archetype}
-        isCustomer={isCustomer}
-        isTimeBased={isTimeBased}
-        theme={t}
-        otp={otp}
-        otpMsg={otpMsg}
-        first={first}
-        onSetOtp={setOtp}
-        onSetOtpMsg={setOtpMsg}
-        onSubmitOtp={submitOtp}
-        onOpenEditor={openEditor}
-      />
+      {!deliveryReview ? (
+        <ActionsRow
+          status={s}
+          archetype={booking.archetype}
+          isCustomer={isCustomer}
+          isTimeBased={isTimeBased}
+          theme={t}
+          otp={otp}
+          otpMsg={otpMsg}
+          first={first}
+          onSetOtp={setOtp}
+          onSetOtpMsg={setOtpMsg}
+          onSubmitOtp={submitOtp}
+          onOpenEditor={openEditor}
+        />
+      ) : null}
+      {canReportPaymentDefault ? (
+        <DeliverySection
+          placement="payment-default"
+          busy={busy}
+          onPress={() => {
+            void run(
+              () => api.cancelProposalPaymentDefault(booking.id),
+              'Customer payment default recorded',
+            );
+          }}
+        />
+      ) : null}
       {!isCustomer && s === 'delivery_pending' && booking.archetype === 'proposal' && booking.delivery_status === 'revision_requested' ? (
         <DeliverySection placement="revision" theme={t} revisionsUsed={revisionsUsed} revisionsAllowed={revisionsAllowed} note={providerRevisionNote} />
       ) : null}

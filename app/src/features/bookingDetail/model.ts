@@ -1,5 +1,5 @@
 import { formatINR } from '../../lib/money';
-import type { BookingArchetype, BookingStatus } from '../../lib/types';
+import type { BookingArchetype, BookingStatus, PaymentSchedule } from '../../lib/types';
 
 export interface BookingHeroCopy {
   title: string;
@@ -21,6 +21,7 @@ export function heroCopy(p: {
   changeOrderOpen: boolean;
   cancelledReason: string | null;
   defaultStatusLabel: string;
+  deliveryReview?: boolean;
 }): BookingHeroCopy {
   const { first } = p;
   const refundLine = 'Any payment you made is refunded — see Payments below.';
@@ -58,6 +59,12 @@ export function heroCopy(p: {
           ? { title: `${first} sent a change order`, subtitle: 'Review the extra work below. Declining keeps the approved scope.' }
           : { title: 'Work in progress', subtitle: 'Your payment is held safely until you confirm the job is done.' };
       case 'completion_requested':
+        if (p.archetype === 'proposal' && p.deliveryReview) {
+          return {
+            title: 'Review the delivery',
+            subtitle: 'Open the delivered work below, pay any final milestone, then accept. It is accepted automatically 72 hours after delivery once fully paid.',
+          };
+        }
         return { title: `${first} marked the job done`, subtitle: p.endCode ? `Check the work, then share code ${p.endCode}.` : 'Check the work, then share your completion code.' };
       case 'completed':
       case 'closed':
@@ -76,6 +83,7 @@ export function heroCopy(p: {
         return { title: 'Refunded', subtitle: 'Your payment has been refunded.' };
     }
   }
+
   switch (p.status) {
     case 'confirmed':
       return p.archetype === 'proposal'
@@ -100,6 +108,12 @@ export function heroCopy(p: {
         ? { title: 'Work in progress', subtitle: `A change order is waiting for ${first}'s approval.` }
         : { title: 'Work in progress', subtitle: 'Mark the job done when you finish.' };
     case 'completion_requested':
+      if (p.archetype === 'proposal' && p.deliveryReview) {
+        return {
+          title: 'Delivery sent',
+          subtitle: 'Waiting for the customer to review and pay the final milestone.',
+        };
+      }
       return { title: 'Enter the completion code', subtitle: `Ask ${first} for the 4-digit completion code.` };
     case 'completed':
     case 'closed':
@@ -111,4 +125,20 @@ export function heroCopy(p: {
     default:
       return { title: p.defaultStatusLabel };
   }
+}
+
+export function canReportProposalPaymentDefault(
+  schedules: Pick<PaymentSchedule, 'status' | 'due_at' | 'reminded_at'>[],
+  bookingStatus: BookingStatus,
+  deliveryStatus: string | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!['confirmed', 'in_progress', 'completion_requested'].includes(bookingStatus)) return false;
+  if (bookingStatus === 'completion_requested' && deliveryStatus !== 'submitted') return false;
+  const graceCutoff = nowMs - 48 * 60 * 60 * 1000;
+  return schedules.some((schedule) => {
+    if (schedule.status !== 'due' || !schedule.reminded_at || !schedule.due_at) return false;
+    const dueAt = Date.parse(schedule.due_at);
+    return Number.isFinite(dueAt) && dueAt <= graceCutoff;
+  });
 }
