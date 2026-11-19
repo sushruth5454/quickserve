@@ -49,7 +49,59 @@ psql_db -f supabase/seed.sql
 psql_db -f supabase/seed-full.sql
 mv /tmp/qs-later-migrations/*.sql supabase/migrations/
 echo "== applying later migrations"
+declare -a original_cli_migrations=()
+declare -a normalized_cli_migrations=()
+restore_cli_migrations() {
+  local i
+  for i in "${!normalized_cli_migrations[@]}"; do
+    if [[ -f "${normalized_cli_migrations[$i]}" ]]; then
+      mv "${normalized_cli_migrations[$i]}" "${original_cli_migrations[$i]}"
+    fi
+  done
+}
+
+# Supabase CLI only accepts numeric migration versions. Map suffix versions (0060a/b, 0088a/b)
+# to sortable numeric versions in this throwaway stack, then restore the repository filenames.
+normalize_cli_migrations() {
+  local migration base version prefix suffix suffix_ascii suffix_order mapped_version normalized
+  shopt -s nullglob
+  for migration in supabase/migrations/[0-9][0-9][0-9][0-9][a-z]_*.sql; do
+    base=${migration##*/}
+    version=${base%%_*}
+    if [[ ! "$version" =~ ^([0-9]{4})([a-z])$ ]]; then
+      echo "Unsupported suffixed migration filename: $base" >&2
+      return 1
+    fi
+    prefix=${BASH_REMATCH[1]}
+    suffix=${BASH_REMATCH[2]}
+    suffix_ascii=$(LC_ALL=C printf '%d' "'$suffix")
+    suffix_order=$((suffix_ascii - 97))
+    printf -v mapped_version '%s%02d' "$prefix" "$suffix_order"
+    normalized="supabase/migrations/${mapped_version}_${base#*_}"
+    if [[ -e "$normalized" ]]; then
+      echo "Migration normalization collision: $base -> ${normalized##*/}" >&2
+      return 1
+    fi
+    echo "== normalizing $base as ${normalized##*/} for local Supabase"
+    mv "$migration" "$normalized"
+    original_cli_migrations+=("$migration")
+    normalized_cli_migrations+=("$normalized")
+  done
+  shopt -u nullglob
+
+  for migration in supabase/migrations/*.sql; do
+    base=${migration##*/}
+    if [[ ! "$base" =~ ^[0-9]+_.+\.sql$ ]]; then
+      echo "Unsupported local E2E migration filename: $base" >&2
+      return 1
+    fi
+  done
+}
+trap restore_cli_migrations EXIT
+normalize_cli_migrations
 supabase migration up --local
+restore_cli_migrations
+trap - EXIT
 
 echo "== all-services and Sangareddy demo seeds"
 # Both demo seeds require the demo-seed marker inside their own transaction; Sangareddy copies the
