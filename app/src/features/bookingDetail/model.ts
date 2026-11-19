@@ -1,5 +1,5 @@
 import { formatINR } from '../../lib/money';
-import type { BookingArchetype, BookingStatus, PaymentSchedule } from '../../lib/types';
+import type { BookingArchetype, BookingStatus, Payment, PaymentSchedule } from '../../lib/types';
 
 export interface BookingHeroCopy {
   title: string;
@@ -8,6 +8,47 @@ export interface BookingHeroCopy {
 
 export function fmt(iso: string) {
   return new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+export function shouldShowPaymentRow(payment: Payment): boolean {
+  return payment.status !== 'failed'
+    || (!payment.cancel_link_pending && payment.funding_source !== 'coins');
+}
+
+export function paymentRowLabel(
+  payment: Payment,
+  schedules: Pick<PaymentSchedule, 'payment_id' | 'label'>[],
+): string {
+  const scheduleLabel = schedules.find((schedule) => schedule.payment_id === payment.id)?.label;
+  const label = payment.purpose === 'visit_fee' ? 'Visit fee'
+    : payment.purpose === 'platform_fee' ? 'Platform fee'
+      : payment.purpose === 'advance' ? 'Advance'
+        : payment.purpose === 'milestone' ? scheduleLabel ?? 'Milestone payment'
+          : payment.purpose === 'final' ? scheduleLabel ?? 'Final payment'
+            : payment.purpose === 'balance' ? 'Balance payment'
+              : payment.purpose === 'fixed' || payment.purpose === 'package' ? 'Package payment'
+                : payment.purpose === 'addon' ? 'Add-on payment'
+                  : payment.purpose === 'session' ? 'Session payment'
+                    : 'Job payment';
+  return payment.funding_source === 'coins' ? `${label} · Seva Coins` : label;
+}
+
+export function paymentRefundPresentation(payment: Payment): {
+  amountPaise: number;
+  status: string;
+  at: string | null;
+}[] {
+  const statusLabels = {
+    pending: 'pending',
+    processing: 'processing',
+    refunded: 'refunded',
+    failed: 'failed',
+  } as const;
+  return (payment.refunds ?? []).map((refund) => ({
+    amountPaise: refund.amount,
+    status: statusLabels[refund.status],
+    at: refund.processed_at ?? refund.created_at ?? null,
+  }));
 }
 
 export function heroCopy(p: {
