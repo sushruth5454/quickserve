@@ -12,9 +12,16 @@ exec 9>/tmp/qs-test.lock
 flock 9
 
 if [ "$ref" != "-" ]; then
-  git fetch -q origin "$ref" || { echo "cs-test: cannot fetch $ref"; exit 2; }
-  git checkout -q -f FETCH_HEAD
+  # Fetch into a private ref (FETCH_HEAD is shared with any other git process) and verify the
+  # exact snapshot commit when cs-test.ps1 supplies it.
+  target="refs/cs/run-$$"
+  git fetch -q origin "+$ref:$target" || { echo "cs-test: cannot fetch $ref"; exit 2; }
+  git checkout -q -f "$target"
+  git update-ref -d "$target"
   git clean -q -fd   # drops stray untracked files; ignored node_modules stay
+  if [ -n "${CS_EXPECT:-}" ] && [ "$(git rev-parse HEAD)" != "$CS_EXPECT" ]; then
+    echo "cs-test: checked out $(git rev-parse HEAD), expected $CS_EXPECT"; exit 2
+  fi
 fi
 echo "== testing $ref @ $(git rev-parse --short HEAD)"
 

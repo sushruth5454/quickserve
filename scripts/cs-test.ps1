@@ -48,5 +48,5 @@ git -C $root fetch -q origin main
 $runner = (git -C $root show origin/main:scripts/cs/run.sh | Out-String) -replace "`r", ''
 $remoteArgs = @($ref, $Suite) + $Filter
 Write-Host "cs-test: $ref @ $($commit.Substring(0, 8)) suite=$Suite on $Codespace"
-$runner | gh codespace ssh -c $Codespace -- bash -s -- @remoteArgs
+$runner | gh codespace ssh -c $Codespace -- env "CS_EXPECT=$commit" bash -s -- @remoteArgs
 exit $LASTEXITCODE
