@@ -36,14 +36,16 @@ export async function recordGatewayPayment(
     : { p_link_id: reference, p_payment_id: razorpayPaymentId, p_amount: amount };
   const { data, error } = await admin.rpc(recordRpc, args);
   if (error) return { ok: false, error: error.message };
-  if (data && (data as { ok?: boolean }).ok === false) {
-    console.warn("payment not applied", reference, data);
-    if (sportsPayment) {
-      return {
-        ok: false,
-        error: String((data as { error?: unknown }).error ?? "sports payment was not applied"),
-      };
-    }
+  const result = data as { ok?: boolean; exception?: boolean; error?: unknown } | null;
+  if (result?.exception === true) {
+    console.error("payment exception recorded", reference, data);
+    return { ok: true, result: data };
+  }
+  if (result?.ok === false) {
+    return {
+      ok: false,
+      error: String(result.error ?? `${sportsPayment ? "sports " : ""}payment was not applied`),
+    };
   }
   return { ok: true, result: data };
 }

@@ -1,3 +1,5 @@
+import type { ServicePackage } from './types';
+
 /**
  * Money math for QuickServe. All amounts are integer paise.
  * Mirrors docs/03-Pricing-Payments-Commission.md and the SQL in supabase/migrations/0001_init.sql
@@ -36,6 +38,7 @@ export interface Subtotals {
   parts: number;
   other: number;
   total: number;
+  commissionable: number;
 }
 
 export function rupeesToPaise(rupees: number): number {
@@ -80,12 +83,23 @@ export function lineTotal(qty: number, unitPrice: number): number {
   return Math.round(qty * unitPrice);
 }
 
+export function packageCheckoutTotal(
+  pkg: Pick<ServicePackage, 'price' | 'price_min'>,
+  quantity: number,
+  platformFeePaise: number,
+): number {
+  const unitPricePaise = pkg.price ?? pkg.price_min ?? 0;
+  return Math.max(0, Math.round(unitPricePaise * quantity)) + platformFeePaise;
+}
+
 export function quoteSubtotals(items: LineInput[]): Subtotals {
-  const s = { labour: 0, parts: 0, other: 0 };
+  const s = { labour: 0, parts: 0, other: 0, commissionable: 0 };
   for (const item of items) {
     const t = lineTotal(item.qty, item.unitPrice);
-    if (item.kind === 'labour' || item.kind === 'package' || item.kind === 'per_unit' || item.kind === 'addon' || item.kind === 'travel') s.labour += t;
-    else if (item.kind === 'part') s.parts += t;
+    if (item.kind === 'labour' || item.kind === 'package' || item.kind === 'per_unit' || item.kind === 'addon' || item.kind === 'travel') {
+      s.labour += t;
+      s.commissionable += t;
+    } else if (item.kind === 'part') s.parts += t;
     else s.other += t;
   }
   return { ...s, total: s.labour + s.parts + s.other };

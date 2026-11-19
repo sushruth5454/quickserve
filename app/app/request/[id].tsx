@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, Card, EmptyState, ErrorState, Header, Screen, Section, Skeleton, Text } from '../../src/components/ui';
+import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Section, Skeleton, Text, useConfirm, useToast } from '../../src/components/ui';
 import * as api from '../../src/lib/api';
 import { formatINR } from '../../src/lib/money';
 import type { Proposal, ServiceRequest } from '../../src/lib/types';
@@ -11,6 +11,9 @@ export default function ServiceRequestDetail() {
   const [request, setRequest] = useState<ServiceRequest | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -26,6 +29,26 @@ export default function ServiceRequestDetail() {
 
   useEffect(() => void load(), [load]);
 
+  const cancelRequest = async () => {
+    if (!request || !['open', 'closed'].includes(request.status)) return;
+    const confirmed = await confirm({
+      title: 'Cancel this request?',
+      message: 'Providers will no longer be able to send proposals for this brief.',
+      confirmLabel: 'Cancel request',
+      cancelLabel: 'Keep request',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await api.cancelServiceRequest(request.id);
+      toast({ message: 'Request cancelled', tone: 'success' });
+      await load();
+    } catch (caught) {
+      setActionError((caught as Error).message);
+    }
+  };
+
   return (
     <Screen header={<Header title={request?.categories?.name ?? 'Your request'} subtitle={request ? new Date(request.event_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : undefined} />}>
       {error ? (
@@ -34,17 +57,21 @@ export default function ServiceRequestDetail() {
         <Skeleton height={180} />
       ) : (
         <>
+          {actionError ? <InlineAlert message={actionError} /> : null}
           <Card>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text variant="calloutStrong">{request.status === 'open' ? 'Proposals arriving' : request.status}</Text>
               <Text variant="caption" color="muted">Expires {new Date(request.expires_at).toLocaleDateString('en-IN')}</Text>
             </View>
             <Text color="textSecondary">{request.area || request.city}</Text>
+            {typeof request.intake?.deliver_by === 'string'
+              ? <Text variant="footnoteStrong">Deliver by {new Date(request.intake.deliver_by).toLocaleDateString('en-IN')}</Text>
+              : null}
             <Text variant="footnote" color="muted">Your address and contact details stay hidden until the advance is paid.</Text>
           </Card>
           <Section title="Proposals" subtitle="Compare fixed totals, milestones and delivery terms.">
             {proposals.length === 0 ? (
-              <EmptyState icon="document-text-outline" title="Waiting for proposals" message="Verified providers will reply here. In-app questions appear in each proposal thread." />
+              <EmptyState icon="document-text-outline" title="Waiting for proposals" message="Verified providers will reply here. You can ask each provider questions in their proposal thread." />
             ) : proposals.map((proposal) => (
               <Pressable
                 key={proposal.id}
@@ -60,6 +87,9 @@ export default function ServiceRequestDetail() {
               </Pressable>
             ))}
           </Section>
+          {['open', 'closed'].includes(request.status) ? (
+            <Button title="Cancel request" variant="destructive" onPress={() => void cancelRequest()} />
+          ) : null}
         </>
       )}
     </Screen>

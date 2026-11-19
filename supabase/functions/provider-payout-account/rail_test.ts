@@ -16,7 +16,9 @@ import {
 } from "../_shared/payout-rail.ts";
 import {
   canManagePayoutAccount,
+  canSubmitBusinessPayoutAccount,
   canSubmitPayoutAccount,
+  businessPayoutFeatureEnabled,
   friendlyGatewayError,
   maskAccount,
   parseSubmit,
@@ -124,6 +126,24 @@ Deno.test("route: release retries look up an earlier transfer by notes.transfer_
   });
   assertEquals(r.externalId, "trf_old");
   assertEquals(calls.length, 1);
+});
+
+Deno.test("route: a failed prior transfer is not reused for a retry", async () => {
+  const { http, calls } = mockHttp((c) => {
+    if (c.method === "GET") {
+      return { items: [{ id: "trf_failed", notes: { transfer_id: "t1" }, status: "failed" }] };
+    }
+    return { items: [{ id: "trf_retry", status: "created" }] };
+  });
+  const r = await routeRail(http).release({
+    transferId: "t1", payoutId: "p1", bookingId: "b1", amount: 19900, attempts: 1, idempotencyKey: "t1:1",
+    razorpayPaymentId: "pay_1", accountId: "acc_1", fundAccountId: null,
+  });
+  assertEquals(
+    { externalId: r.externalId, methods: calls.map((call) => call.method) },
+    { externalId: "trf_retry", methods: ["GET", "POST"] },
+    `failed prior transfer must not be completed again; actual=${JSON.stringify({ result: r, calls })}`,
+  );
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -408,6 +428,33 @@ Deno.test("venue-owner payout submit requires both sports flags while provider e
   assert(!canSubmitPayoutAccount(false, false, { sports: true, sports_online_payments: true }));
 });
 
+Deno.test("business payout identity stays unavailable until mapping approval and respects venue parent switches", () => {
+  const providerFlags = { business_payout_identity: true };
+  assert(businessPayoutFeatureEnabled(true, false, providerFlags));
+  assert(!canSubmitBusinessPayoutAccount(true, false, providerFlags));
+  assert(canSubmitBusinessPayoutAccount(true, false, providerFlags, true));
+  assert(!businessPayoutFeatureEnabled(true, false, { business_payout_identity: false }));
+  assert(!canSubmitBusinessPayoutAccount(true, false, { business_payout_identity: false }, true));
+  const venueFlags = {
+    business_payout_identity: true,
+    sports: true,
+    sports_online_payments: true,
+  };
+  assert(businessPayoutFeatureEnabled(false, true, venueFlags));
+  assert(!canSubmitBusinessPayoutAccount(false, true, venueFlags));
+  assert(canSubmitBusinessPayoutAccount(false, true, venueFlags, true));
+  assert(!canSubmitBusinessPayoutAccount(false, true, {
+    business_payout_identity: true,
+    sports: false,
+    sports_online_payments: true,
+  }, true));
+  assert(!canSubmitBusinessPayoutAccount(false, false, {
+    business_payout_identity: true,
+    sports: true,
+    sports_online_payments: true,
+  }, true));
+});
+
 Deno.test("parseSubmit: validates PAN (individual), IFSC, account confirmation, email; address only on route", () => {
   const ok = parseSubmit(
     { legal_name: " Ravi  Kumar ", pan: "abcpk1234f", email: "Ravi@Example.com", account_number: "1234 5678 9012", confirm_account_number: "123456789012", ifsc: "hdfc0001234" },
@@ -436,4 +483,55 @@ Deno.test("parseSubmit: validates PAN (individual), IFSC, account confirmation, 
   assertEquals(maskAccount("123456789012"), "9012");
   assert(friendlyGatewayError("settlements.ifsc_code", "Invalid IFSC Code").includes("IFSC"));
   assert(!friendlyGatewayError(null, "Invalid PAN ABCPK1234F").includes("ABCPK1234F"));
+});
+
+Deno.test("parseSubmit: business PAN requires business type and matching optional GSTIN", () => {
+  const business = parseSubmit(
+    {
+      account_type: "business",
+      legal_name: "Acme Services Pvt Ltd",
+      pan: "aaacc1234c",
+      gstin: "29aaacc1234c1z5",
+      email: "billing@example.in",
+      account_number: "123456789012",
+      confirm_account_number: "123456789012",
+      ifsc: "hdfc0001234",
+    },
+    { providerId: "p", phone: "+919000000101", rail: "payouts" },
+  );
+  assert(business.ok);
+  if (business.ok) {
+    assertEquals(business.input.accountType, "business");
+    assertEquals(business.input.pan, "AAACC1234C");
+    assertEquals(business.input.gstin, "29AAACC1234C1Z5");
+  }
+
+  const individual = parseSubmit(
+    {
+      account_type: "individual",
+      legal_name: "Acme Services Pvt Ltd",
+      pan: "AAACC1234C",
+      email: "billing@example.in",
+      account_number: "123456789012",
+      confirm_account_number: "123456789012",
+      ifsc: "HDFC0001234",
+    },
+    { providerId: "p", phone: "+919000000101", rail: "payouts" },
+  );
+  assert(!individual.ok && individual.errors.pan !== undefined);
+
+  const mismatchedGstin = parseSubmit(
+    {
+      account_type: "business",
+      legal_name: "Acme Services Pvt Ltd",
+      pan: "AAACC1234C",
+      gstin: "29ABBCD1234E1Z5",
+      email: "billing@example.in",
+      account_number: "123456789012",
+      confirm_account_number: "123456789012",
+      ifsc: "HDFC0001234",
+    },
+    { providerId: "p", phone: "+919000000101", rail: "payouts" },
+  );
+  assert(!mismatchedGstin.ok && mismatchedGstin.errors.gstin !== undefined);
 });

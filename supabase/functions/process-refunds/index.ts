@@ -1,14 +1,22 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { cancelRetiredLinks, json, razorpay, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
+import {
+  cancelRetiredLinks,
+  json,
+  razorpay,
+  razorpayRequest,
+  requireEnv,
+  timingSafeEqual,
+} from "../_shared/razorpay.ts";
+import {
+  reconcileStaleRefund,
+  type StaleRefund,
+  type StaleRefundResult,
+} from "./logic.ts";
 
-interface DueRefund {
-  refund_id: string;
-  payment_id: string;
-  booking_id: string;
-  razorpay_payment_id: string;
-  amount: number;
-  is_full: boolean;
-  attempts: number;
+type DueRefund = StaleRefund;
+
+interface RazorpayRefundList {
+  items?: { id: string; notes?: Record<string, string> }[];
 }
 
 // Cron entry point: see README "Scheduled jobs".
@@ -22,6 +30,34 @@ Deno.serve(async (req) => {
   });
 
   const linksCancelled = await cancelRetiredLinks(admin);
+
+  const { data: stale, error: staleError } = await admin.rpc(
+    "claim_stale_processing_refunds",
+    { p_older_than: "30 minutes" },
+  );
+  if (staleError) return json({ error: staleError.message }, 500);
+  const staleResults: StaleRefundResult[] = [];
+  for (const r of (stale ?? []) as DueRefund[]) {
+    const result = await reconcileStaleRefund(
+      r,
+      async (paymentId) => {
+        const page = await razorpayRequest<RazorpayRefundList>(
+          "GET",
+          `/payments/${paymentId}/refunds`,
+        );
+        return page.items ?? [];
+      },
+      async (refundId, gatewayRefundId) =>
+        await admin.rpc("complete_refund", {
+          p_refund_id: refundId,
+          p_razorpay_refund_id: gatewayRefundId,
+        }),
+      async (refundId) =>
+        await admin.rpc("requeue_stale_processing_refund", { p_refund_id: refundId }),
+    );
+    if (!result.ok) console.error("stale refund reconciliation deferred", result.refund_id, result.error);
+    staleResults.push(result);
+  }
 
   const { data: due, error } = await admin.rpc("claim_due_refunds", { p_limit: 50 });
   if (error) return json({ error: error.message }, 500);
@@ -66,5 +102,11 @@ Deno.serve(async (req) => {
     results.push({ refund_id: r.refund_id, ok: !done.error });
   }
 
-  return json({ links_cancelled: linksCancelled, processed: results.length, results });
+  return json({
+    links_cancelled: linksCancelled,
+    stale_checked: staleResults.length,
+    stale_results: staleResults,
+    processed: results.length,
+    results,
+  });
 });

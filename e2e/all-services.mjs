@@ -4,11 +4,21 @@ const sid = (key) => {
   const h = createHash('md5').update(`quickserve-demo-all-services:${key}`).digest('hex');
   return `${h.slice(0, 8)}-5eed-de00-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 };
+const formatINR = (paise) => {
+  const abs = Math.abs(Math.round(paise));
+  const rupees = String(Math.floor(abs / 100));
+  const amount = rupees.length <= 3
+    ? rupees
+    : `${rupees.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${rupees.slice(-3)}`;
+  const fraction = abs % 100;
+  return `${paise < 0 ? '-' : ''}₹${amount}${fraction ? `.${String(fraction).padStart(2, '0')}` : ''}`;
+};
 
 export const DEMO_IDS = Object.freeze({
   fixedPackage: sid('package:house-cleaning'),
   fixedService: sid('service:house-cleaning'),
   inspectBooking: sid('booking:inspect-quote'),
+  inspectService: sid('service:ac-repair'),
   fixedBooking: sid('booking:fixed-package'),
   proposal: sid('proposal:candid-photographer'),
   proposalBooking: sid('booking:proposal-milestones'),
@@ -57,6 +67,17 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
   });
 
   await step('archetype-fixed-package-book-mocked-payment', async () => {
+    const amountInPaise = (value) => {
+      const match = value.match(/₹([\d,]+)(?:\.(\d{2}))?/);
+      if (!match) throw new Error(`missing INR amount in ${JSON.stringify(value)}`);
+      return Number(match[1].replaceAll(',', '')) * 100 + Number(match[2] ?? '0');
+    };
+    const priceRowPaise = async (label) => {
+      const row = page.locator(`[aria-label^="${label}: "] >> visible=true`).last();
+      const accessibilityLabel = await row.getAttribute('aria-label');
+      if (!accessibilityLabel) throw new Error(`missing ${label} price row`);
+      return amountInPaise(accessibilityLabel);
+    };
     // A random later day and window; if an earlier booking already holds it, try another one.
     const days = page.locator('button >> visible=true').filter({ hasText: /(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2}$/ });
     const slots = page.locator('text=/^\\d{1,2}( am| pm)?–\\d{1,2} (am|pm)$/ >> visible=true');
@@ -67,9 +88,36 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
       if (dayCount > 2) await days.nth(2 + Math.floor(Math.random() * (dayCount - 2))).click();
       const slotCount = await slots.count();
       if (slotCount) await slots.nth(Math.floor(Math.random() * slotCount)).click();
-      await page.locator('text=/^Pay ₹/ >> visible=true').last().click();
+      const footerButton = page.locator('text=/^Pay ₹/ >> visible=true').last();
+      const footerText = await footerButton.innerText();
+      const packagePaise = await priceRowPaise('Package');
+      const platformFeePaise = await priceRowPaise('Platform fee');
+      const totalPaise = await priceRowPaise('Total');
+      const footerPaise = amountInPaise(footerText);
+      const breakdown = { packagePaise, platformFeePaise, totalPaise, footerText, footerPaise };
+      if (packagePaise !== 99900 || platformFeePaise !== 2900 || totalPaise !== 102800
+        || footerText !== 'Pay ₹1,028.00' || footerPaise !== 102800) {
+        throw new Error(`fixed package Pay label does not match the ₹999 + ₹29 sample: ${JSON.stringify(breakdown)}`);
+      }
+      if (packagePaise + platformFeePaise !== totalPaise || totalPaise !== footerPaise) {
+        throw new Error(`fixed package footer does not match the displayed price breakdown: ${JSON.stringify(breakdown)}`);
+      }
+      await footerButton.click();
       await checkout.or(taken).waitFor();
-      if (await checkout.isVisible()) break;
+      if (await checkout.isVisible()) {
+        const checkoutAmount = await page
+          .locator('text=/^₹[\\d,]+(?:\\.\\d{2})?$/ >> visible=true')
+          .last()
+          .innerText();
+        const checkoutPayButton = await page.locator('text=/^Pay ₹/ >> visible=true').last().innerText();
+        const checkoutPaise = amountInPaise(checkoutAmount);
+        const checkoutButtonPaise = amountInPaise(checkoutPayButton);
+        const actual = { ...breakdown, checkoutPaise, checkoutButtonPaise };
+        if (checkoutPaise !== footerPaise || checkoutButtonPaise !== footerPaise) {
+          throw new Error(`fixed package checkout amount differs from the footer: ${JSON.stringify(actual)}`);
+        }
+        break;
+      }
       if (attempt >= 4) throw new Error('every tried slot was already taken');
     }
     await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
@@ -119,6 +167,79 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByText('Plan status', { exact: true }).waitFor();
   });
 
+  await step('home-inspect-book-pay-visit-fee', async () => {
+    await go(`/book/${DEMO_IDS.inspectService}?description=${encodeURIComponent(`${qaMarker} split AC is not cooling`)}`);
+    await page.getByLabel('Describe the problem').fill(`${qaMarker} split AC is not cooling`);
+    const asap = page.getByRole('radio', { name: /As soon as possible/ });
+    if (!await asap.isEnabled().catch(() => false)) {
+      await page.getByRole('radio', { name: /Schedule/ }).click();
+      const slots = page.getByRole('button', { name: /\d{1,2}.*[–-].*(am|pm)/ });
+      let selected = false;
+      for (let index = 0; index < await slots.count(); index++) {
+        const slot = slots.nth(index);
+        if (await slot.isEnabled()) {
+          await slot.click();
+          selected = true;
+          break;
+        }
+      }
+      if (!selected) {
+        throw new Error(`no available home-booking time slot: ${JSON.stringify({ url: page.url(), slots: await slots.allTextContents() })}`);
+      }
+    }
+    await page.getByText(/^Pay ₹.*& book$/).last().click();
+    await page.getByText('Secure checkout', { exact: true }).waitFor();
+    await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
+    await page.getByText(/^Pay ₹/).last().click();
+    await page.getByText('Payment successful', { exact: true }).waitFor();
+    await page.waitForURL(/\/booking\/[0-9a-f-]{36}$/);
+    try {
+      await page.getByText('Request sent', { exact: true }).waitFor();
+    } catch {
+      throw new Error(`home visit-fee payment did not leave a pending provider request: ${JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() })}`);
+    }
+  });
+
+  await step('home-recurring-plan-request', async () => {
+    await go(`/recurring/new/${DEMO_IDS.timeService}?archetype=time_based&description=${encodeURIComponent(`${qaMarker} weekly home visit`)}`);
+    await page.getByLabel('Instructions for the provider').fill(`${qaMarker} weekly home visit`);
+    await page.getByText('Mon–Sat', { exact: true }).click();
+    const send = page.getByText(/^Send request to /).last();
+    await send.waitFor({ state: 'visible' });
+    await send.click();
+    await page.waitForURL(/\/recurring\/[0-9a-f-]{36}$/);
+    await page.getByText('Plan status', { exact: true }).waitFor();
+    try {
+      await page.getByText('Provider response: Pending', { exact: true }).waitFor();
+    } catch {
+      throw new Error(`home recurring request did not reach Pending: ${JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() })}`);
+    }
+  });
+
+  await step('home-booking-cancel-copy', async () => {
+    await go(`/booking/${DEMO_IDS.fixedBooking}`);
+    const previewResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/preview_cancellation'),
+    );
+    await page.getByText('Cancel booking', { exact: true }).first().click();
+    const previewResponse = await previewResponsePromise;
+    if (!previewResponse.ok()) {
+      throw new Error(`fixed-booking cancellation preview failed: ${JSON.stringify({ status: previewResponse.status(), body: await previewResponse.text() })}`);
+    }
+    const preview = await previewResponse.json();
+    const expectedCopy = preview.refund_amount > 0
+      ? `You'll be refunded ${formatINR(preview.refund_amount)}.`
+      : preview.charged_amount > 0
+        ? `${formatINR(preview.charged_amount)} will be charged.`
+        : 'No charge — you have not paid yet.';
+    try {
+      await page.getByText(expectedCopy, { exact: true }).waitFor();
+    } catch {
+      throw new Error(`fixed-booking cancel sheet differs from server preview: ${JSON.stringify({ preview, expectedCopy, body: await page.locator('body').innerText() })}`);
+    }
+    await page.getByText('Keep booking', { exact: true }).last().click();
+  });
+
   await step('phase-7a-shop-and-product-browse', async () => {
     await go('/shop');
     await page.getByText('Benz Circle Demo Tile House', { exact: true }).first().waitFor();
@@ -151,6 +272,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.locator('text="Tiles" >> visible=true').last().click();
     await page.getByLabel('Request title').fill(`${qaMarker} tile quotation`);
     await page.getByLabel('Description').first().fill('Anti-skid floor tiles for a demo bathroom');
+    await page.getByLabel('Quantity').first().fill('500');
     await page.getByLabel('Notes for suppliers (optional)').fill(qaMarker);
     await page.getByText('Send request', { exact: true }).last().click();
     await page.waitForURL(/\/rfq\/[0-9a-f-]{36}$/);
@@ -176,15 +298,10 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.waitForURL((url) => new URL(url).pathname === `/venue/${DEMO_IDS.sportsVenue}`);
     await page.getByText('Choose an activity and slot', { exact: true }).first().waitFor();
     await page.getByText('Badminton · Demo Court 1', { exact: true }).first().waitFor();
-    const dateInput = page.getByLabel('Date');
-    let candidateDate = await dateInput.inputValue();
     const initialResponse = await initialSlotsResponse;
+    let candidateDate = initialResponse.request().postDataJSON().p_date;
     if (!initialResponse.ok()) {
       throw new Error(`get_sports_slots failed for ${candidateDate} (${initialResponse.status()}): ${await initialResponse.text()}`);
-    }
-    const requestedDate = initialResponse.request().postDataJSON().p_date;
-    if (requestedDate !== candidateDate) {
-      throw new Error(`sports date mismatch: screen=${candidateDate}, request=${requestedDate}`);
     }
     let slots = await initialResponse.json();
     const checkedDates = [];
@@ -199,7 +316,13 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
           && response.url().includes('/rest/v1/rpc/get_sports_slots')
           && response.request().postDataJSON().p_date === candidateDate,
         );
-        await dateInput.fill(candidateDate);
+        const dateLabel = new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }).format(new Date(`${candidateDate}T12:00:00+05:30`));
+        await page.getByRole('button', { name: dateLabel, exact: true }).click();
         const response = await responsePromise;
         if (!response.ok()) {
           throw new Error(`get_sports_slots failed for ${candidateDate} (${response.status()}): ${await response.text()}`);

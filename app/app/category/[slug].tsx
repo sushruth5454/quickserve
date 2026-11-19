@@ -3,7 +3,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { ProviderCard, skillLabel } from '../../src/components/ProviderCard';
+import { skillLabel } from '../../src/components/ProviderCard';
+import { ListingCard } from '../../src/components/market/ListingCard';
 import {
   BottomSheet,
   Button,
@@ -25,9 +26,10 @@ import { ArchetypeCategory } from '../../src/features/catalogue/ArchetypeCategor
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
-import { rupeesToPaise } from '../../src/lib/money';
+import { formatINR, rupeesToPaise } from '../../src/lib/money';
 import type { Category, ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
+import { useT } from '../../src/i18n';
 
 const SORTS: { value: SortOption; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { value: 'recommended', label: 'Recommended', icon: 'sparkles-outline' },
@@ -60,6 +62,7 @@ export default function CategoryRoute() {
 
 function InspectQuoteCategory() {
   const t = useTheme();
+  const translate = useT();
   const flags = useAppFeatureFlags();
   const aiOn = aiAssistantEnabled && flags.isOn('ai_assistant');
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
@@ -241,11 +244,44 @@ function InspectQuoteCategory() {
           ) : (
             results!.map((p, i) => (
               <Animated.View key={p.provider_service_id} entering={FadeInDown.delay(Math.min(i, 6) * 40).duration(240)}>
-                <ProviderCard
-                  provider={p}
-                  onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.provider_id } })}
-                  onBook={() => router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: p.provider_service_id } })}
-                />
+                <View style={{ gap: t.spacing.sm }}>
+                  <ListingCard
+                    variant="provider"
+                    title={p.full_name || 'Provider'}
+                    avatarName={p.full_name || 'Provider'}
+                    imageUrl={p.avatar_url}
+                    subtitle={[
+                      p.distance_km != null && `${p.distance_km.toFixed(1)} km away`,
+                      `${p.jobs_completed} jobs`,
+                      `${p.years_experience} yrs exp.`,
+                    ]
+                      .filter(Boolean)
+                      .join('  ·  ')}
+                    rating={Number(p.rating_avg)}
+                    ratingCount={p.rating_count}
+                    verified
+                    tags={[p.is_online ? 'Online' : 'Offline', skillLabel[p.skill_level]]}
+                    priceLabel={translate('listing.from', { price: formatINR(p.visit_fee) })}
+                    onPress={() => router.push({ pathname: '/provider/[id]', params: { id: p.provider_id } })}
+                    testID={`provider-${p.provider_service_id}`}
+                  />
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Button
+                      title={p.is_online ? 'Book' : 'Schedule'}
+                      size="sm"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/book/[providerServiceId]',
+                          params: { providerServiceId: p.provider_service_id },
+                        })
+                      }
+                      accessibilityLabel={
+                        p.is_online ? `Book ${p.full_name}` : `Schedule with ${p.full_name}`
+                      }
+                      style={{ minWidth: 88 }}
+                    />
+                  </View>
+                </View>
               </Animated.View>
             ))
           )}

@@ -8,6 +8,7 @@ import { relativeTimeLabel } from '../../lib/schedule';
 import { proposalStatus } from '../../lib/proposalStatus';
 import type { Proposal, ProposalRequest } from '../../lib/types';
 import { listMyBusinessProposals } from '../merchantStaff/api';
+import { RequestQuestionThread } from './RequestQuestionThread';
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
@@ -18,6 +19,7 @@ export function ProviderProposalInbox({ providerId }: { providerId: string }) {
   const [requests, setRequests] = useState<ProposalRequest[]>([]);
   const [mine, setMine] = useState<Proposal[]>([]);
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
+  const [questionRequestId, setQuestionRequestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -95,6 +97,12 @@ export function ProviderProposalInbox({ providerId }: { providerId: string }) {
             ) : null}
             <Text variant="caption" color="muted">{String(r.intake?.brief ?? 'Custom event brief')}</Text>
             <Button title="Send proposal" onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: r.id } })} />
+            <Button
+              title={questionRequestId === r.id ? 'Hide messages' : 'Message customer'}
+              variant="outline"
+              onPress={() => setQuestionRequestId(questionRequestId === r.id ? null : r.id)}
+            />
+            {questionRequestId === r.id ? <RequestQuestionThread requestId={r.id} providerId={providerId} otherPartyLabel="Customer" /> : null}
           </Card>
         ))}
       </Section>
@@ -122,6 +130,12 @@ export function ProviderProposalInbox({ providerId }: { providerId: string }) {
                     <Button title="Send new proposal" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: p.request_id } })} />
                   ) : null}
                 </View>
+                <Button
+                  title={questionRequestId === p.request_id ? 'Hide messages' : 'Message customer'}
+                  variant="outline"
+                  onPress={() => setQuestionRequestId(questionRequestId === p.request_id ? null : p.request_id)}
+                />
+                {questionRequestId === p.request_id ? <RequestQuestionThread requestId={p.request_id} providerId={providerId} otherPartyLabel="Customer" /> : null}
               </Card>
             );
           })}

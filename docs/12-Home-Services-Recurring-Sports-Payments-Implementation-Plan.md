@@ -519,7 +519,7 @@ export type SportsPaymentMode = 'online' | 'pay_at_venue';
 export type SportsBookingStatus = 'pending_payment' | 'requested' | 'awaiting_payment' | 'accepted' | 'declined' | 'cancelled' | 'completed' | 'expired';
 export interface BookSlotResult { booking_id: string; status: SportsBookingStatus; total_paise: number; hold_expires_at: string | null; pay_by: string | null; }
 // RPCs: book_sports_slot, get_sports_slots (adds `remaining`), cancel_sports_booking, decide_sports_booking
-// Payment: create-payment edge function with body { kind: 'sports', sportsBookingId }
+// Payment: create-payment edge function with body { kind: 'sports', booking_id }
 ```
 
 ---

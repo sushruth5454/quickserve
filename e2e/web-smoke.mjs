@@ -157,7 +157,7 @@ async function grantE2eAdminMembership(phone) {
     select id from auth.users where phone = '${phone}'
     on conflict (user_id) do nothing`;
   const response = await fetch(
-    `https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
+    `${process.env.SUPABASE_MGMT_URL ?? 'https://api.supabase.com'}/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
     {
       method: 'POST',
       headers: {
@@ -517,6 +517,10 @@ await step('assistant-open-from-home', async () => {
   }
 });
 await step('assistant-draft-or-busy-fallback', async () => {
+  if (process.env.E2E_AI_UNAVAILABLE === '1') {
+    skipStep('assistant-draft-or-busy-fallback', 'No AI provider key in this backend (local E2E stack); hosted E2E covers the assistant.');
+    return;
+  }
   await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
   let http429Seen = false;
   let resolveRateLimit;
@@ -613,11 +617,26 @@ await step('my-activity-shop-segment', async () => {
 });
 await step('my-activity-sports-segment', async () => {
   await page.getByTestId('activity-segment-sports').click();
-  await page.getByTestId('my-activity-panel-sports').waitFor();
-  await Promise.any([
-    page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor({ state: 'visible' }),
-    page.getByText('No sports requests yet', { exact: true }).first().waitFor({ state: 'visible' }),
-  ]);
+  const sportsPanel = page.getByTestId('my-activity-panel-sports');
+  await sportsPanel.waitFor();
+  const firstBooking = sportsPanel.getByRole('button').first();
+  const emptyState = sportsPanel.getByText('No sports requests yet', { exact: true }).first();
+  const panelState = await Promise.any([
+    firstBooking.waitFor({ state: 'visible' }).then(() => 'booking'),
+    emptyState.waitFor({ state: 'visible' }).then(() => 'empty'),
+  ]).catch(async () => {
+    const actual = await sportsPanel.innerText().catch(() => '<no panel text>');
+    throw new Error(`sports segment rendered neither bookings nor empty state: ${JSON.stringify(actual)}`);
+  });
+  if (panelState === 'booking') {
+    const actual = await firstBooking.innerText();
+    if (!/\b(?:REQUESTED|PENDING[_ ]PAYMENT|AWAITING[_ ]PAYMENT|ACCEPTED|DECLINED|CANCELLED|COMPLETED|EXPIRED|Waiting for venue|Confirmed)\b/i.test(actual)) {
+      throw new Error(`sports booking card has no status label: ${JSON.stringify(actual)}`);
+    }
+    if (!/\b(?:Paid online|Pay at venue|No online payment)\b/i.test(actual)) {
+      throw new Error(`sports booking card has no payment summary: ${JSON.stringify(actual)}`);
+    }
+  }
 });
 await step('my-activity-services-segment', async () => {
   await page.getByTestId('activity-segment-services').click();

@@ -13,6 +13,7 @@ import type {
   Coords,
   CreateBookingInput,
   PaymentLinkResponse,
+  PaymentReceipt,
   ProviderDetail,
   ProviderProfileInput,
   ProviderServiceWithProvider,
@@ -20,7 +21,9 @@ import type {
   TopRatedProvider,
   LiveCity,
 } from '../apiTypes';
+import { getAppFeatures } from '../adminApi';
 import { commissionRateBp, providerPayout, quoteSubtotals, requiredTotal } from '../money';
+import { bookingRef } from '../schedule';
 import { DEFAULT_COINS_CONFIG, coinRedemptionLimit, type CoinLedgerEntry, type CoinRedemptionPreview } from '../coins';
 import type {
   Booking,
@@ -54,6 +57,8 @@ import { buildSeed, DEMO_OTP, DEMO_PROVIDER_END_CODE, DEMO_USER_ID, type DemoBoo
 import { maskPreview, type AppNotification } from '../unread';
 
 const SESSION_KEY = 'quickserve.demo.session';
+// DemoDb has no mutable app_config; mirror app_config.proposal.dispute_hours.
+const DEMO_APP_CONFIG = { proposal: { dispute_hours: 168 } };
 
 let db: DemoDb = buildSeed();
 let session: AuthSession | null = null;
@@ -64,6 +69,7 @@ const demoWaitlist = new Set<string>();
 let bookingSeq = 1046;
 let idSeq = 1;
 let demoCoinBalance = 12500;
+let demoReceiptSeq = 1;
 let travelRequests: TravelRequest[] = [];
 let serviceRequests: ServiceRequest[] = [];
 let proposals: Proposal[] = [];
@@ -239,7 +245,13 @@ function refundAll(b: DemoBooking) {
   b.refund_amount += total;
 }
 
-function createPayout(b: DemoBooking, gross: number, commissionable: number, releaseAfter: Date) {
+function createPayout(
+  b: DemoBooking,
+  gross: number,
+  commissionable: number,
+  releaseAfter: Date,
+  commissionCapPaise?: number,
+) {
   if (db.payouts.some((p) => p.booking_id === b.id)) return;
   const provider = db.providers.find((p) => p.id === b.provider_id)!;
   const rateBp = commissionRateBp({
@@ -247,7 +259,10 @@ function createPayout(b: DemoBooking, gross: number, commissionable: number, rel
     providerCreatedAt: new Date(provider.created_at),
     at: new Date(),
   });
-  const p = providerPayout({ gross, commissionable, rateBp });
+  const cappedCommissionable = commissionCapPaise != null && rateBp > 0
+    ? Math.min(commissionable, Math.floor(commissionCapPaise * 10000 / rateBp))
+    : commissionable;
+  const p = providerPayout({ gross, commissionable: cappedCommissionable, rateBp });
   b.commission = p.commission;
   b.gst_on_commission = p.gst;
   db.payouts.push({
@@ -265,6 +280,8 @@ function createPayout(b: DemoBooking, gross: number, commissionable: number, rel
 }
 
 const in24h = () => new Date(Date.now() + 24 * 60 * 60 * 1000);
+const afterProposalDisputeWindow = () =>
+  new Date(Date.now() + DEMO_APP_CONFIG.proposal.dispute_hours * 60 * 60 * 1000);
 
 function finalizeCompletion(b: DemoBooking, note: string) {
   const q = db.quotes.find((x) => x.id === b.approved_quote_id);
@@ -684,9 +701,85 @@ export const demoApi: Api = {
     return { short_url: `demo://milestone/${scheduleId}`, amount: row.amount, purpose: row.purpose, schedule_id: scheduleId };
   },
   async startProposalBooking() { return { ok: true }; },
-  async beginDelivery() {},
-  async submitDelivery(_bookingId, _links: DeliveryLink[]) {},
-  async acceptDelivery() {},
+  async beginDelivery(bookingId) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.provider_id === uid(), 'only the provider can begin delivery');
+    assert(booking.archetype === 'proposal' && booking.status === 'in_progress'
+      && booking.delivery_status === 'pending', 'delivery is not ready to begin');
+    booking.status = 'delivery_pending';
+  },
+  async submitDelivery(bookingId, links: DeliveryLink[]) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.provider_id === uid(), 'only the provider can submit delivery');
+    assert(booking.archetype === 'proposal' && booking.status === 'delivery_pending',
+      'delivery is not ready to submit');
+    assert(links.length >= 1 && links.length <= 20, 'submit 1 to 20 delivery links');
+    assert(links.every((link) => /^https:\/\/\S+$/.test(link.url)), 'every delivery item needs a full https URL');
+    booking.delivery_links = clone(links);
+    booking.delivery_status = 'submitted';
+    booking.delivery_submitted_at = nowIso();
+    booking.completion_requested_at = booking.delivery_submitted_at;
+    booking.status = 'completion_requested';
+    for (const schedule of paymentSchedules.filter((row) =>
+      row.booking_id === bookingId && row.due_rule === 'on_delivery' && row.status !== 'paid')) {
+      schedule.status = 'due';
+      schedule.due_at ??= booking.delivery_submitted_at;
+      schedule.reminded_at = booking.delivery_submitted_at;
+    }
+  },
+  async acceptDelivery(bookingId) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.customer_id === uid(), 'only the customer can accept delivery');
+    assert(booking.archetype === 'proposal' && booking.status === 'completion_requested'
+      && booking.delivery_status === 'submitted', 'delivery is not awaiting acceptance');
+    assert(paymentSchedules.filter((row) => row.booking_id === bookingId).every((row) => row.status === 'paid'),
+      'all milestones must be paid before accepting delivery');
+    booking.delivery_status = 'accepted';
+    booking.completed_at = nowIso();
+    booking.status = 'completed';
+  },
+  async cancelProposalPaymentDefault(bookingId) {
+    await wait();
+    const booking = findBooking(bookingId);
+    assert(booking.provider_id === uid(), 'only the provider can report payment default');
+    assert(
+      booking.archetype === 'proposal'
+        && (['confirmed', 'in_progress'].includes(booking.status)
+          || (booking.status === 'completion_requested'
+              && booking.delivery_status === 'submitted')),
+      'proposal is not active',
+    );
+    assert(paymentSchedules.some((row) =>
+      row.booking_id === bookingId
+      && row.status === 'due'
+      && row.due_at != null
+      && Date.parse(row.due_at) <= Date.now() - 48 * 60 * 60 * 1000
+      && row.reminded_at != null), 'the milestone is not overdue past the grace period');
+
+    const payments = db.payments.filter((payment) => payment.booking_id === bookingId && payment.status === 'paid');
+    const paidTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const explicitPlatform = payments
+      .filter((payment) => payment.purpose === 'platform_fee')
+      .reduce((sum, payment) => sum + payment.amount, 0);
+    const platformPaid = explicitPlatform > 0
+      ? Math.min(booking.platform_fee, explicitPlatform)
+      : booking.platform_fee > 0 && booking.total_amount != null
+        ? Math.min(booking.platform_fee, Math.max(paidTotal - Math.max(booking.total_amount - booking.platform_fee, booking.visit_fee, 0), 0))
+        : 0;
+    const paidPrincipal = Math.max(
+      paidTotal - platformPaid
+        - payments.reduce((sum, payment) => sum
+          + (payment.refunds ?? []).filter((refund) => refund.status !== 'failed')
+            .reduce((refunds, refund) => refunds + refund.amount, 0), 0),
+      0,
+    );
+    if (paidPrincipal > 0) createPayout(booking, paidPrincipal, paidPrincipal, afterProposalDisputeWindow(), 500000);
+    booking.cancelled_reason = 'customer payment default';
+    booking.status = 'cancelled';
+  },
 
   async searchProviders(categorySlug: string, coords: Coords | null, f: SearchFilters): Promise<ProviderSearchResult[]> {
     await wait();
@@ -1067,6 +1160,108 @@ export const demoApi: Api = {
     return clone(db.payments.filter((p) => p.booking_id === bookingId).sort((a, b) => a.created_at.localeCompare(b.created_at)));
   },
 
+  async getReceipt(paymentId) {
+    await wait();
+    const features = await getAppFeatures().catch(() => null);
+    if ((features as unknown as Record<string, unknown> | null)?.payment_receipts !== true) return null;
+
+    const payment = db.payments.find((item) => item.id === paymentId);
+    if (!payment || (!payment.paid_at && payment.status !== 'paid') || payment.funding_source === 'coins') return null;
+    const booking = db.bookings.find((item) => item.id === payment.booking_id);
+    const me = uid();
+    if (!booking || (booking.customer_id !== me && booking.provider_id !== me)) return null;
+
+    const issuedAt = payment.paid_at ?? payment.created_at;
+    const prior = db.payments
+      .filter((item) =>
+        item.booking_id === booking.id
+        && item.id !== payment.id
+        && item.status === 'paid'
+        && item.funding_source !== 'coins'
+        && Date.parse(item.paid_at ?? item.created_at) <= Date.parse(issuedAt),
+      )
+      .sort((a, b) => (a.paid_at ?? a.created_at).localeCompare(b.paid_at ?? b.created_at));
+    const quote = db.quotes.find((item) => item.id === payment.quote_id)
+      ?? db.quotes.filter((item) => item.booking_id === booking.id).sort((a, b) => b.version - a.version)[0];
+    const items = (quote?.quote_items ?? []).map((item) => {
+      const amount = Math.round(item.qty * item.unit_price) * (item.kind === 'discount' ? -1 : 1);
+      return {
+        description: item.title,
+        kind: item.kind,
+        qty: item.qty,
+        unit_price: item.unit_price,
+        amount,
+      };
+    });
+    const subtotal = quote?.total ?? payment.amount;
+    const platformFee = payment.purpose === 'visit_fee' && booking.total_amount == null
+      ? 0
+      : booking.platform_fee;
+    const coinsDiscount = booking.coin_discount ?? 0;
+    const priorTotal = prior.reduce((sum, item) => sum + item.amount, 0);
+    const grossTotal = booking.total_amount ?? (
+      payment.purpose === 'visit_fee' && !quote
+        ? priorTotal + payment.amount
+        : requiredTotal(quote?.total ?? subtotal, booking.visit_fee, booking.platform_fee)
+    );
+    const total = Math.max(grossTotal - coinsDiscount, 0);
+    const sequence = db.payments
+      .filter((item) => (item.paid_at || item.status === 'paid') && item.funding_source !== 'coins')
+      .findIndex((item) => item.id === payment.id) + 1;
+    const receiptNo = `NR-${new Date(issuedAt).getFullYear()}-${String(sequence || demoReceiptSeq++).padStart(6, '0')}`;
+
+    return {
+      id: `demo-receipt-${payment.id}`,
+      receipt_no: receiptNo,
+      payment_id: payment.id,
+      booking_id: booking.id,
+      issued_at: issuedAt,
+      snapshot: {
+        receipt_no: receiptNo,
+        issued_at: issuedAt,
+        status: 'Paid',
+        booking_ref: bookingRef(booking.id),
+        category: categoryOf(booking.category_id)?.name ?? 'Service',
+        provider_display_name: nameOf(booking.provider_id),
+        customer_name: nameOf(booking.customer_id),
+        customer_locality: booking.address.area,
+        items: items.length > 0 ? items : [{
+          description: payment.purpose === 'visit_fee' ? 'Visit fee' : 'Service payment',
+          kind: payment.purpose,
+          qty: 1,
+          unit_price: payment.amount,
+          amount: payment.amount,
+        }],
+        subtotal,
+        platform_fee: platformFee,
+        tax_lines: [],
+        coins_discount: coinsDiscount,
+        total,
+        prior_payments: prior.map((item) => ({
+          amount: item.amount,
+          purpose: item.purpose,
+          method: 'Online payment',
+          gateway_ref: null,
+          paid_at: item.paid_at,
+        })),
+        this_payment: {
+          amount: payment.amount,
+          method: 'Online payment',
+          gateway_ref: null,
+          paid_at: payment.paid_at,
+        },
+        balance_due: Math.max(total - priorTotal - payment.amount, 0),
+        refunds: (payment.refunds ?? []).map((refund) => ({
+          amount: refund.amount,
+          status: refund.status,
+          processed_at: null,
+        })),
+        dispute_link: `/booking/${booking.id}`,
+        tax_invoice_url: null,
+      },
+    } satisfies PaymentReceipt;
+  },
+
   async getEvents(bookingId) {
     await wait();
     return clone(db.events.filter((e) => e.booking_id === bookingId));
@@ -1349,6 +1544,21 @@ export const demoApi: Api = {
     setStatus(b, 'cancelled', reason ?? null);
   },
 
+  async providerCancelBooking(id, reason = 'provider_cancellation') {
+    await wait();
+    const b = findBooking(id);
+    assert(b.provider_id === uid(), 'only the provider can cancel');
+    assert(['provider_cancellation', 'provider_no_show'].includes(reason), 'invalid provider cancellation reason');
+    assert(
+      ['requested', 'accepted', 'confirmed', 'en_route', 'inspecting', 'quote_sent', 'awaiting_payment'].includes(b.status),
+      'booking can no longer be cancelled',
+    );
+    b.cancelled_reason = reason;
+    closeOpenQuotes(b);
+    refundAll(b);
+    setStatus(b, 'cancelled', reason);
+  },
+
   async disputeBooking(id, reason) {
     await wait();
     const b = findBooking(id);
@@ -1359,6 +1569,11 @@ export const demoApi: Api = {
       if (p.booking_id === b.id && p.status === 'pending') p.status = 'frozen';
     });
     setStatus(b, 'disputed', reason);
+  },
+
+  async reportNoShow() {
+    await wait();
+    throw new Error('No-show reporting is unavailable in the local demo.');
   },
 
   async submitReview(bookingId, r: ReviewInput) {
@@ -1670,6 +1885,7 @@ export const demoControls = {
     session = null;
     sessionLoaded = true;
     bookingSeq = 1046;
+    demoReceiptSeq = 1;
     addressBook = {};
     pendingDeletionRequests.clear();
   },

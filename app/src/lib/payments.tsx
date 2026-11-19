@@ -10,10 +10,18 @@ import { completeDemoPayment } from './demo/demoApi';
 import { haptics } from './haptics';
 import { formatINR } from './money';
 import { supabase } from './supabase';
+import { createSportsPayment, getCustomerSportsBooking } from '../features/sports/api';
+import { canContinueSportsCheckout } from '../features/sports/model';
 
 type PayResult = 'paid' | 'opened' | 'cancelled';
+type PaymentKind = 'booking' | 'sports';
+type PaymentLink = PaymentLinkResponse & { bookingId: string; kind: PaymentKind };
 
-const PaymentContext = createContext<(bookingId: string, scheduleId?: string) => Promise<PayResult>>(async () => 'cancelled');
+const PaymentContext = createContext<(
+  bookingId: string,
+  scheduleId?: string,
+  kind?: PaymentKind,
+) => Promise<PayResult>>(async () => 'cancelled');
 
 /**
  * Starts payment for a booking. Real mode: opens the Razorpay Payment Link (the webhook advances the booking).
@@ -47,6 +55,15 @@ async function settleDemoPayment(bookingId: string): Promise<void> {
   if (error) {
     throw new Error(/demo providers/i.test(error.message)
       ? 'Demo payments work only with demo providers. This booking needs a real payment.'
+      : error.message.replace(/^[a-z_]+: /, ''));
+  }
+}
+
+async function settleDemoSportsPayment(bookingId: string): Promise<void> {
+  const { error } = await supabase.rpc('demo_settle_sports_payment', { p_booking_id: bookingId });
+  if (error) {
+    throw new Error(/demo venue owners/i.test(error.message)
+      ? 'Demo payments work only with demo sports venues. This booking needs a real payment.'
       : error.message.replace(/^[a-z_]+: /, ''));
   }
 }
@@ -87,9 +104,21 @@ async function mockPayment(bookingId: string, scheduleId?: string): Promise<Paym
   };
 }
 
+async function mockSportsPayment(bookingId: string): Promise<PaymentLinkResponse> {
+  const booking = await getCustomerSportsBooking(bookingId);
+  if (!booking || !canContinueSportsCheckout(booking.status)) {
+    throw new Error('This sports booking is no longer payable.');
+  }
+  const amount = booking.total_paise ?? booking.price_paise;
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error('The server did not return a valid sports payment total.');
+  }
+  return { short_url: 'demo://payment', amount, purpose: 'fixed' };
+}
+
 export function PaymentProvider({ children }: { children: ReactNode }) {
   const t = useTheme();
-  const [link, setLink] = useState<(PaymentLinkResponse & { bookingId: string }) | null>(null);
+  const [link, setLink] = useState<PaymentLink | null>(null);
   const [visible, setVisible] = useState(false);
   const [method, setMethod] = useState('upi');
   const [stage, setStage] = useState<'choose' | 'processing' | 'done'>('choose');
@@ -102,15 +131,31 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
     resolver.current = null;
   }, []);
 
-  const pay = useCallback(async (bookingId: string, scheduleId?: string): Promise<PayResult> => {
-    const res = demoPaymentsEnabled && !isDemoMode
-      ? await mockPayment(bookingId, scheduleId)
-      : scheduleId ? await createSchedulePayment(bookingId, scheduleId) : await createPayment(bookingId);
+  const pay = useCallback(async (
+    bookingId: string,
+    scheduleId?: string,
+    kind: PaymentKind = 'booking',
+  ): Promise<PayResult> => {
+    let res: PaymentLinkResponse;
+    if (kind === 'sports') {
+      if (demoPaymentsEnabled) {
+        if (isDemoMode) throw new Error('Sports demo payments require a configured demo backend.');
+        res = await mockSportsPayment(bookingId);
+      } else {
+        const sportsLink = await createSportsPayment(bookingId);
+        await WebBrowser.openBrowserAsync(sportsLink.short_url);
+        return 'opened';
+      }
+    } else if (demoPaymentsEnabled && !isDemoMode) {
+      res = await mockPayment(bookingId, scheduleId);
+    } else {
+      res = scheduleId ? await createSchedulePayment(bookingId, scheduleId) : await createPayment(bookingId);
+    }
     if (!demoPaymentsEnabled) {
       await WebBrowser.openBrowserAsync(res.short_url);
       return 'opened';
     }
-    setLink({ ...res, bookingId });
+    setLink({ ...res, bookingId, kind });
     setStage('choose');
     setError(null);
     setVisible(true);
@@ -125,7 +170,8 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       await new Promise((r) => setTimeout(r, 700));
-      if (isDemoMode) await completeDemoPayment(link.bookingId);
+      if (link.kind === 'sports') await settleDemoSportsPayment(link.bookingId);
+      else if (isDemoMode) await completeDemoPayment(link.bookingId);
       // Live-backend demo builds: settle on the server (demo providers only), so the booking really moves on.
       else await settleDemoPayment(link.bookingId);
       haptics.success();
@@ -155,7 +201,7 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
           <View style={{ gap: t.spacing.lg }}>
             <View style={{ alignItems: 'center', gap: 4, paddingVertical: t.spacing.sm }}>
               <Text variant="footnote" color="muted" align="center">
-                {PURPOSE[link.purpose]}
+                {link.kind === 'sports' ? 'Sports booking' : PURPOSE[link.purpose]}
               </Text>
               <Text variant="display" tabular>
                 {formatINR(link.amount)}
@@ -166,7 +212,7 @@ export function PaymentProvider({ children }: { children: ReactNode }) {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Ionicons name="shield-checkmark-outline" size={14} color={t.colors.successText} />
                 <Text variant="footnote" color="successText">
-                  Held safely by QuickServe until the job is done
+                  {link.kind === 'sports' ? 'Payment protected by your sports booking policy' : 'Held safely by QuickServe until the job is done'}
                 </Text>
               </View>
             </View>

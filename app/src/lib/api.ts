@@ -50,6 +50,7 @@ export const {
   getBookingCommissionRate,
   getQuotes,
   getPayments,
+  getReceipt,
   getEvents,
   getBookingOtps,
   getBookingAddress,
@@ -64,7 +65,9 @@ export const {
   confirmCompletion,
   previewCancellation,
   cancelBooking,
+  providerCancelBooking,
   disputeBooking,
+  reportNoShow,
   regenerateOtp,
   rejectQuote,
   arrive,
@@ -122,6 +125,7 @@ export const {
   beginDelivery,
   submitDelivery,
   acceptDelivery,
+  cancelProposalPaymentDefault,
 } = impl;
 
 export function listCategories(city?: string): Promise<PublicCategory[]> {

@@ -8,6 +8,7 @@ import {
   parseRupeesToPaise,
   parseSportsRulesDraft,
   saveAdminRules,
+  toSportsRulesDraft,
   type RecurringRulesDraft,
   type SportsRulesDraft,
 } from '../adminRulesApi';
@@ -34,6 +35,9 @@ const recurringDraft: RecurringRulesDraft = {
 const sportsDraft: SportsRulesDraft = {
   paymentHoldMinutes: '10',
   approvalPayWindowMinutes: '60',
+  maxActiveHoldsPerCustomer: '3',
+  requestResponseMinutes: '120',
+  minLeadMinutes: '30',
   commissionPercent: '10',
   customerFeeRupees: '19.90',
   fullRefundHours: '24',
@@ -78,6 +82,9 @@ describe('admin rules editor (H1-SC-02, H1-SC-03)', () => {
     expect(parseSportsRulesDraft(sportsDraft)).toEqual({
       payment_hold_minutes: 10,
       approval_pay_window_minutes: 60,
+      max_active_holds_per_customer: 3,
+      request_response_minutes: 120,
+      min_lead_minutes: 30,
       commission_bp: 1000,
       customer_fee_paise: 1990,
       full_refund_hours: 24,
@@ -87,11 +94,30 @@ describe('admin rules editor (H1-SC-02, H1-SC-03)', () => {
     });
   });
 
+  it('converts sports hold and booking-window settings to admin inputs', () => {
+    expect(toSportsRulesDraft({
+      payment_hold_minutes: 10,
+      approval_pay_window_minutes: 60,
+      max_active_holds_per_customer: 3,
+      request_response_minutes: 120,
+      min_lead_minutes: 30,
+      commission_bp: 1000,
+      customer_fee_paise: 1990,
+      full_refund_hours: 24,
+      partial_refund_hours: 6,
+      partial_refund_bp: 5000,
+      release_after_hours: 24,
+    })).toEqual(sportsDraft);
+  });
+
   it('rejects invalid ranges, unsupported options, and inconsistent refund windows (H1-SC-03)', () => {
     expect(() => parseRecurringRulesDraft({ ...recurringDraft, horizonDays: '91' })).toThrow('between 1 and 90');
     expect(() => parseRecurringRulesDraft({ ...recurringDraft, frequencies: [] })).toThrow('Select at least one frequency');
     expect(() => parseRecurringRulesDraft({ ...recurringDraft, recurringDiscountPercent: '50.01' })).toThrow('between 0 and 50');
     expect(() => parseSportsRulesDraft({ ...sportsDraft, customerFeeRupees: '-1' })).toThrow('whole non-negative number');
+    expect(() => parseSportsRulesDraft({ ...sportsDraft, maxActiveHoldsPerCustomer: '0' })).toThrow('between 1 and 100');
+    expect(() => parseSportsRulesDraft({ ...sportsDraft, requestResponseMinutes: '1441' })).toThrow('between 5 and 1440');
+    expect(() => parseSportsRulesDraft({ ...sportsDraft, minLeadMinutes: '43201' })).toThrow('between 0 and 43200');
     expect(() => parseSportsRulesDraft({ ...sportsDraft, partialRefundPercent: '50.01' })).toThrow('between 0 and 50');
     expect(() => parseSportsRulesDraft({ ...sportsDraft, fullRefundHours: '5', partialRefundHours: '6' })).toThrow(
       'Full refund hours must be greater than or equal to partial refund hours.',
@@ -112,6 +138,9 @@ describe('admin rules editor (H1-SC-02, H1-SC-03)', () => {
     const saved = {
       payment_hold_minutes: 10,
       approval_pay_window_minutes: 60,
+      max_active_holds_per_customer: 3,
+      request_response_minutes: 120,
+      min_lead_minutes: 30,
       commission_bp: 1000,
       customer_fee_paise: 1990,
       full_refund_hours: 24,
@@ -135,6 +164,9 @@ describe('admin rules editor (H1-SC-02, H1-SC-03)', () => {
     await expect(saveAdminRules('sports_rules', {
       payment_hold_minutes: 10,
       approval_pay_window_minutes: 60,
+      max_active_holds_per_customer: 3,
+      request_response_minutes: 120,
+      min_lead_minutes: 30,
       commission_bp: 1000,
       customer_fee_paise: 1990,
       full_refund_hours: 24,
