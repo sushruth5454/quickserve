@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { PriceFooter } from '../../components/market/PriceFooter';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
+import { useT } from '../../i18n';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
@@ -46,6 +47,7 @@ function makeIdempotencyKey() {
 
 export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const t = useTheme();
+  const translate = useT();
   const toast = useToast();
   const flags = useAppFeatureFlags();
   const sportsEnabled = flags.isOn('sports');
@@ -322,7 +324,9 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                         <Pressable
                           key={slot.starts_at}
                           accessibilityRole="radio"
-                          accessibilityLabel={`${formatSlot(slot.starts_at)}${unavailable ? ', Unavailable' : ''}`}
+                          accessibilityLabel={unavailable
+                            ? `${formatSlot(slot.starts_at)}, ${translate('sports.slotUnavailable')}`
+                            : formatSlot(slot.starts_at)}
                           accessibilityState={{ checked: selected, disabled: !selectable }}
                           disabled={!selectable}
                           onPress={() => {
@@ -341,7 +345,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                         >
                           <Text variant="footnoteStrong" color={selected ? 'onPrimary' : 'text'}>{formatSlot(slot.starts_at)}</Text>
                           {unavailable ? (
-                            <Text variant="caption" color="muted">Unavailable</Text>
+                            <Text variant="caption" color="muted">{translate('sports.slotUnavailable')}</Text>
                           ) : slot.price_paise != null ? (
                             <Text variant="caption" color={selected ? 'onPrimary' : 'muted'}>{formatINR(slot.price_paise)} / slot</Text>
                           ) : null}
