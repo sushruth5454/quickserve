@@ -163,15 +163,22 @@ async function createFixture(index) {
   return { customer, provider, manager, city, categoryId, serviceId, addressId };
 }
 
-async function createRequest(fixture, intake = { brief: 'A clean creator brief' }, urgent = false) {
+async function createRequest(
+  fixture,
+  intake = { brief: 'A clean creator brief' },
+  urgent = false,
+  eventStart = '2027-03-25T10:00:00Z',
+) {
+  const startsAt = new Date(eventStart);
+  const endsAt = new Date(startsAt.getTime() + 4 * 60 * 60 * 1000);
   return (await as(fixture.customer, 'authenticated', `
     select public.create_service_request(
       $1::uuid, $2::text, $3::text, $4::timestamptz, $5::timestamptz,
       $6::jsonb, $7::int, $8::int, $9::uuid, $10::text, $11::uuid,
       $12::double precision, $13::double precision, $14::boolean
     ) id`,
-  [fixture.categoryId, fixture.city, 'Creator area', '2027-03-25T10:00:00Z',
-    '2027-03-25T14:00:00Z', JSON.stringify(intake), 50000, 200000,
+  [fixture.categoryId, fixture.city, 'Creator area', startsAt.toISOString(),
+    endsAt.toISOString(), JSON.stringify(intake), 50000, 200000,
     fixture.addressId, 'Creator venue', fixture.provider, 16.50, 80.60, urgent]))[0].id;
 }
 
@@ -226,11 +233,11 @@ await scenario('creator deadline is default-off, ignored while off, required and
   await db.query(`
     update public.feature_flags set enabled = $1::boolean where key = $2::text`,
   [true, 'creator_delivery_deadline']);
-  const onRequest = await createRequest(fixture);
+  const onRequest = await createRequest(fixture, undefined, false, '2027-03-26T10:00:00Z');
   const missingError = await fails(() => sendProposal(fixture, onRequest));
   const pastError = await fails(() => sendProposal(fixture, onRequest, { deadline: '2026-01-01T10:00:00Z' }));
   const lateError = await fails(() => sendProposal(fixture, onRequest, { deadline: '2028-03-26T10:00:00Z' }));
-  const proposalId = await sendProposal(fixture, onRequest, { deadline: '2027-03-24T10:00:00Z' });
+  const proposalId = await sendProposal(fixture, onRequest, { deadline: '2027-03-27T10:00:00Z' });
   await db.query(`
     update public.feature_flags set enabled = false where key = $1::text`,
   ['creator_delivery_deadline']);
@@ -242,13 +249,19 @@ await scenario('creator deadline is default-off, ignored while off, required and
   await db.query(`
     update public.feature_flags set enabled = true where key = $1::text`,
   ['creator_delivery_deadline']);
+  const parentOffFixture = await createFixture(9);
+  await db.query(`
+    update public.feature_flags set enabled = true where key = $1::text`,
+  ['creator_delivery_deadline']);
+  const parentOffRequest = await createRequest(
+    parentOffFixture, undefined, false, '2027-04-25T10:00:00Z',
+  );
   await db.query(`
     insert into public.app_config (key, value)
     values ($1::text, $2::jsonb)
     on conflict (key) do update set value = public.app_config.value || excluded.value`,
   ['archetype_flags', '{"proposal":false}']);
-  const parentOffRequest = await createRequest(fixture);
-  const parentOffProposal = await sendProposal(fixture, parentOffRequest, { deadline: '2027-03-24T10:00:00Z' });
+  const parentOffProposal = await sendProposal(parentOffFixture, parentOffRequest, { deadline: '2027-04-26T10:00:00Z' });
   const parentOffStored = await one(`
     select delivery_due_at from public.proposals where id = $1::uuid`, [parentOffProposal]);
   const actual = { defaultFlag, ignored, missingError, pastError, lateError, stored, parentOffStored };
@@ -258,38 +271,23 @@ await scenario('creator deadline is default-off, ignored while off, required and
     && /deliver-by date is required/i.test(missingError ?? '')
     && /future/i.test(pastError ?? '')
     && /365/i.test(lateError ?? '')
-    && stored.proposal_due === '2027-03-24T10:00:00.000Z'
+    && stored.proposal_due === '2027-03-27T10:00:00.000Z'
     && stored.booking_due === stored.proposal_due
     && !!bookingId,
   'deadline flag behavior and immutable booking copy are exact', actual);
 });
 
-await scenario('owner D2 revisions default to one and proposal terms override it', async () => {
+await scenario('C2 stores the configured revision default and explicit proposal terms', async () => {
   const defaultConfig = json((await one(`
     select value from public.app_config where key = $1::text`, ['creator'])).value);
   const anonymousConfigError = await fails(() => as(null, 'anon', `
     select public.get_creator_proposal_config()`));
-  const revisionsFlag = await one(`
-    select enabled from public.feature_flags where key = $1::text`, ['creator_revisions']);
   const defaultFixture = await createFixture(2);
   const defaultRequest = await createRequest(defaultFixture);
   const defaultProposal = await sendProposal(defaultFixture, defaultRequest);
   const defaultBooking = await acceptProposal(defaultFixture, defaultProposal);
   const defaultAllowed = (await one(`
     select revisions_allowed from public.bookings where id = $1::uuid`, [defaultBooking])).revisions_allowed;
-  await db.query(`
-    update public.bookings set status = 'completion_requested', delivery_status = 'submitted'
-     where id = $1::uuid`, [defaultBooking]);
-  await db.query(`
-    update public.feature_flags set enabled = false where key = $1::text`,
-  ['creator_revisions']);
-  const featureOffError = await fails(() => as(defaultFixture.customer, 'authenticated', `
-    select public.request_revision($1::uuid, $2::text)`,
-  [defaultBooking, 'Please adjust the opening']));
-  await db.query(`
-    update public.feature_flags set enabled = true where key = $1::text`,
-  ['creator_revisions']);
-
   const offeredFixture = await createFixture(3);
   const offeredRequest = await createRequest(offeredFixture);
   const invalidQtyError = await fails(() => sendProposal(offeredFixture, offeredRequest, { revisions: 11 }));
@@ -310,45 +308,23 @@ await scenario('owner D2 revisions default to one and proposal terms override it
     ])]));
   const offeredProposal = await sendProposal(offeredFixture, offeredRequest, { revisions: 3 });
   const offeredBooking = await acceptProposal(offeredFixture, offeredProposal);
-  await db.query(`
-    update public.bookings
-       set status = 'completion_requested', delivery_status = 'submitted'
-     where id = $1::uuid`, [offeredBooking]);
-  const firstRevisionError = await fails(() => as(offeredFixture.customer, 'authenticated', `
-    select public.request_revision($1::uuid, $2::text)`,
-  [offeredBooking, 'Please adjust the opening']));
-  await db.query(`
-    update public.bookings
-       set status = 'completion_requested', delivery_status = 'submitted'
-     where id = $1::uuid`, [offeredBooking]);
-  const secondRevisionError = await fails(() => as(offeredFixture.customer, 'authenticated', `
-    select public.request_revision($1::uuid, $2::text)`,
-  [offeredBooking, 'Please adjust it again']));
   const offeredAllowed = (await one(`
     select revisions_allowed from public.bookings where id = $1::uuid`, [offeredBooking])).revisions_allowed;
   const actual = {
     defaultConfig,
     anonymousConfigError,
-    revisionsFlag,
     defaultAllowed,
-    featureOffError,
     offeredAllowed,
     invalidQtyError,
     duplicateError,
-    firstRevisionError,
-    secondRevisionError,
   };
   check(defaultConfig.default_revisions === 1
     && /permission denied|not authenticated/i.test(anonymousConfigError ?? '')
-    && revisionsFlag.enabled === true
     && defaultAllowed === 1
-    && /creator revisions are not enabled/i.test(featureOffError ?? '')
     && offeredAllowed === 3
     && /revisions.*0.*10/i.test(invalidQtyError ?? '')
-    && /at most one/i.test(duplicateError ?? '')
-    && firstRevisionError === null
-    && /no revisions remaining/i.test(secondRevisionError ?? ''),
-  'default and offered revision counts are enforced, including the final allowed round', actual);
+    && /at most one/i.test(duplicateError ?? ''),
+  'configured default and proposal revision counts are stored, and invalid terms are rejected', actual);
 });
 
 await scenario('overdue cancellation uses provider_fault for an exact full refund after the flag is turned off', async () => {

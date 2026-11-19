@@ -26,7 +26,7 @@ describe('creator package proposal prefill', () => {
       deliverables: [
         { type: 'edited_reel', qty: 10, spec: '1080p exports' },
         { type: 'raw_files', qty: 1, spec: 'Raw files included' },
-        { type: 'usage_rights', qty: 1, spec: 'Organic posting; paid ads for 30 days; exclusivity for 7 days' },
+        { type: 'usage_rights', qty: 1, spec: 'Organic posting; Paid ads for 30 days; Exclusivity for 7 days' },
         { type: 'revisions', qty: 2, spec: 'Revision rounds' },
       ],
     });

@@ -62,8 +62,8 @@ export default function NewServiceRequest() {
       if (!categoryId) throw new Error('Choose a service category first');
       const schema = category?.intake_schema;
       if (schema && Object.keys((schema as { properties?: Record<string, unknown> }).properties ?? {}).length > 0) {
-        const issues = validateValues(schema, schemaValues);
-        if (issues.length) throw new Error(`${issues[0].path}: ${issues[0].message}`);
+        const [firstIssue] = validateValues(schema, schemaValues);
+        if (firstIssue) throw new Error(`${firstIssue.path}: ${firstIssue.message}`);
       }
       const urgent = !remoteOnly && when === 'urgent';
       if (urgent && urgentAt == null) throw new Error('Pick a start time');

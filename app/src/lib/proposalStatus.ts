@@ -15,7 +15,7 @@ export function dueRuleLabel(rule: string): string {
 
 export function deliverableLabel(type: string): string {
   const words = type.replaceAll('_', ' ').trim();
-  return words ? words[0].toUpperCase() + words.slice(1) : 'Delivery';
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Delivery';
 }
 
 export function proposalStatus(p: Proposal): { label: string; tone: Tone } {
