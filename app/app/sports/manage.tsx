@@ -3,8 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../src/components/ui';
 import {
+  getSportsBookingStatusLabel,
+  getSportsPaymentSummary,
   getSportsVenueSettingsVisibility,
+  getUpcomingVenueBookings,
   isSportsCapacityValid,
+  isSportsDateValid,
+  isSportsTimeRangeValid,
   resolveSportsResourceSettings,
   resolveSportsVenuePaymentModes,
   resolveSportsVenuePaymentModesForSave,
@@ -14,7 +19,7 @@ import {
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { useAuth } from '../../src/lib/auth';
-import { rupeesToPaise } from '../../src/lib/money';
+import { formatINR, rupeesToPaise } from '../../src/lib/money';
 import { supabase } from '../../src/lib/supabase';
 import { useTheme } from '../../src/theme';
 
@@ -81,6 +86,9 @@ interface SportsBookingRow {
   starts_at: string;
   status: string;
   price_paise: number;
+  total_paise?: number;
+  payment_mode?: 'online' | 'pay_at_venue';
+  paid_at?: string | null;
 }
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -136,6 +144,7 @@ export default function SportsVenueManagementScreen() {
   const [priceEnd, setPriceEnd] = useState('20:00');
   const [priceRupees, setPriceRupees] = useState('');
   const [priceLabel, setPriceLabel] = useState('Standard');
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [blockDate, setBlockDate] = useState(localTomorrow);
   const [blockStart, setBlockStart] = useState('12:00');
   const [blockEnd, setBlockEnd] = useState('13:00');
@@ -209,6 +218,10 @@ export default function SportsVenueManagementScreen() {
     ));
   }, [selected, onlinePaymentsEnabled]);
 
+  useEffect(() => {
+    setClosed(false);
+  }, [weekday]);
+
   const saveVenue = async () => {
     const modesToSave = resolveSportsVenuePaymentModesForSave(
       selected?.venue.payment_modes,
@@ -276,6 +289,10 @@ export default function SportsVenueManagementScreen() {
 
   const saveHours = async () => {
     if (!selectedId) return;
+    if (!closed && !isSportsTimeRangeValid(opens, closes)) {
+      setError('Enter valid opening and closing times in 24-hour format.');
+      return;
+    }
     setBusy(true);
     const { error: rpcError } = await supabase.rpc('set_sports_hours', {
       p_venue_id: selectedId,
@@ -293,11 +310,15 @@ export default function SportsVenueManagementScreen() {
 
   const savePrice = async () => {
     if (!resourceId) return;
+    if (!isSportsTimeRangeValid(priceStart, priceEnd)) {
+      setError('Enter valid price-rule times in 24-hour format.');
+      return;
+    }
     const price = rupeesToPaise(Number(priceRupees));
     setBusy(true);
     const { error: rpcError } = await supabase.rpc('save_sports_price_rule', {
       p_resource_id: resourceId,
-      p_id: null,
+      p_id: editingPriceId,
       p_weekday: priceDay === 'all' ? null : Number(priceDay),
       p_starts: priceStart,
       p_ends: priceEnd,
@@ -307,14 +328,36 @@ export default function SportsVenueManagementScreen() {
     setBusy(false);
     if (rpcError) setError(rpcError.message);
     else {
+      setEditingPriceId(null);
       setPriceRupees('');
-      toast({ message: 'Price rule added', tone: 'success' });
+      setPriceLabel('Standard');
+      toast({ message: editingPriceId ? 'Price rule updated' : 'Price rule added', tone: 'success' });
+      await load();
+    }
+  };
+
+  const deletePrice = async (id: string) => {
+    setBusy(true);
+    const { error: rpcError } = await supabase.rpc('delete_sports_price_rule', { p_id: id });
+    setBusy(false);
+    if (rpcError) setError(rpcError.message);
+    else {
+      if (editingPriceId === id) {
+        setEditingPriceId(null);
+        setPriceRupees('');
+        setPriceLabel('Standard');
+      }
+      toast({ message: 'Price rule deleted', tone: 'success' });
       await load();
     }
   };
 
   const addBlock = async () => {
     if (!resourceId) return;
+    if (!isSportsDateValid(blockDate) || !isSportsTimeRangeValid(blockStart, blockEnd)) {
+      setError('Enter a valid block date and a start time before the end time.');
+      return;
+    }
     const startsAt = toInstant(blockDate, blockStart);
     const endsAt = toInstant(blockDate, blockEnd);
     if (!startsAt || !endsAt) {
@@ -366,6 +409,7 @@ export default function SportsVenueManagementScreen() {
 
   const venueBookings = bookings.filter((booking) => booking.owner_id === selected?.venue.owner_id && booking.venue_id === selectedId);
   const myRequests = venueBookings.filter((booking) => booking.status === 'requested');
+  const upcomingBookings = getUpcomingVenueBookings(venueBookings, new Date());
 
   if (selected && selected.venue.owner_id !== userId) {
     return (
@@ -542,7 +586,20 @@ export default function SportsVenueManagementScreen() {
                   ))}
                 </View>
                 <Input label="Court/resource name" value={resourceName} onChangeText={setResourceName} maxLength={80} />
-                <Input label="Slot length (30, 60, 90 or 120 minutes)" value={slotMinutes} onChangeText={setSlotMinutes} keyboardType="number-pad" />
+                <View style={{ gap: t.spacing.xs }}>
+                  <Text variant="footnoteStrong">Slot length</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                    {['30', '60', '90', '120'].map((minutes) => (
+                      <Button
+                        key={minutes}
+                        title={`${minutes} min`}
+                        variant={slotMinutes === minutes ? 'secondary' : 'outline'}
+                        size="sm"
+                        onPress={() => setSlotMinutes(minutes)}
+                      />
+                    ))}
+                  </View>
+                </View>
                 {settingsVisibility.canEditBookingMode ? (
                   <View style={{ gap: t.spacing.xs }}>
                     <Text variant="footnoteStrong">Booking mode</Text>
@@ -632,7 +689,7 @@ export default function SportsVenueManagementScreen() {
                         }} />
                       </>
                     )}
-                    <Button title="Save opening hours" onPress={() => void saveHours()} loading={busy} disabled={busy || closed} />
+                    <Button title="Save opening hours" onPress={() => void saveHours()} loading={busy} disabled={busy || closed || !isSportsTimeRangeValid(opens, closes)} />
                     <View style={{ gap: 4 }}>
                       {selected?.hours.map((row) => (
                         <Text key={row.weekday} variant="caption" color="muted">{WEEKDAYS[row.weekday]} · {row.opens.slice(0, 5)}–{row.closes.slice(0, 5)}</Text>
@@ -656,12 +713,49 @@ export default function SportsVenueManagementScreen() {
                       <Input label="Price" prefix="₹" value={priceRupees} onChangeText={setPriceRupees} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
                       <Input label="Label" value={priceLabel} onChangeText={setPriceLabel} containerStyle={{ flex: 1 }} />
                     </View>
-                    <Button title="Add price rule" onPress={() => void savePrice()} loading={busy} disabled={busy || rupeesToPaise(Number(priceRupees)) <= 0} />
+                    <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                      <Button
+                        title={editingPriceId ? 'Update price rule' : 'Add price rule'}
+                        onPress={() => void savePrice()}
+                        loading={busy}
+                        disabled={busy || rupeesToPaise(Number(priceRupees)) <= 0 || !isSportsTimeRangeValid(priceStart, priceEnd)}
+                        style={{ flex: 1 }}
+                      />
+                      {editingPriceId ? (
+                        <Button
+                          title="Cancel edit"
+                          variant="outline"
+                          onPress={() => {
+                            setEditingPriceId(null);
+                            setPriceRupees('');
+                            setPriceLabel('Standard');
+                          }}
+                        />
+                      ) : null}
+                    </View>
                     <View style={{ gap: 4 }}>
                       {selected?.price_rules.filter((row) => row.resource_id === resourceId).map((row) => (
-                        <Text key={row.id} variant="caption" color="muted">
-                          {row.label} · {row.weekday == null ? 'Every day' : WEEKDAYS[row.weekday]} · {row.starts.slice(0, 5)}–{row.ends.slice(0, 5)} · ₹{(row.price_paise / 100).toFixed(2)}
-                        </Text>
+                        <View key={row.id} style={{ gap: t.spacing.xs, paddingVertical: t.spacing.xs }}>
+                          <Text variant="caption" color="muted">
+                            {row.label} · {row.weekday == null ? 'Every day' : WEEKDAYS[row.weekday]} · {row.starts.slice(0, 5)}–{row.ends.slice(0, 5)} · {formatINR(row.price_paise)}
+                          </Text>
+                          <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
+                            <Button
+                              title="Edit"
+                              variant="outline"
+                              size="sm"
+                              onPress={() => {
+                                setEditingPriceId(row.id);
+                                setPriceDay(row.weekday == null ? 'all' : String(row.weekday));
+                                setPriceStart(row.starts.slice(0, 5));
+                                setPriceEnd(row.ends.slice(0, 5));
+                                setPriceRupees((row.price_paise / 100).toFixed(2));
+                                setPriceLabel(row.label);
+                              }}
+                            />
+                            <Button title="Delete" variant="ghost" size="sm" onPress={() => void deletePrice(row.id)} loading={busy} />
+                          </View>
+                        </View>
                       ))}
                     </View>
                   </Card>
@@ -674,7 +768,13 @@ export default function SportsVenueManagementScreen() {
                       <Input label="Until" value={blockEnd} onChangeText={setBlockEnd} containerStyle={{ flex: 1 }} />
                     </View>
                     <Input label="Reason" value={blockReason} onChangeText={setBlockReason} maxLength={200} />
-                    <Button title="Block time" variant="outline" onPress={() => void addBlock()} loading={busy} disabled={busy || blockEnd <= blockStart} />
+                    <Button
+                      title="Block time"
+                      variant="outline"
+                      onPress={() => void addBlock()}
+                      loading={busy}
+                      disabled={busy || !isSportsDateValid(blockDate) || !isSportsTimeRangeValid(blockStart, blockEnd)}
+                    />
                     {selected?.blocks.filter((row) => row.resource_id === resourceId).map((row) => (
                       <View key={row.id} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
                         <Text variant="caption" color="muted" style={{ flex: 1 }}>{slotLabel(row.starts_at)} · {row.reason || 'Unavailable'}</Text>
@@ -693,6 +793,20 @@ export default function SportsVenueManagementScreen() {
                   <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
                     <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
                     <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} · ₹{(booking.price_paise / 100).toFixed(2)} · Respond by opening request</Text>
+                  </Pressable>
+                ))}
+              </Card>
+
+              <Card gap={t.spacing.sm}>
+                <Text variant="title3">Upcoming bookings</Text>
+                {upcomingBookings.length === 0 ? (
+                  <EmptyState icon="calendar-outline" title="No upcoming bookings" message="Confirmed and payment-due bookings will appear here." compact />
+                ) : upcomingBookings.map((booking) => (
+                  <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+                    <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
+                    <Text variant="caption" color="muted">
+                      {slotLabel(booking.starts_at)} · {getSportsBookingStatusLabel(booking.status)} · {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
+                    </Text>
                   </Pressable>
                 ))}
               </Card>

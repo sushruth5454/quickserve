@@ -1,4 +1,5 @@
 import type { SportsBookingStatus, SportsPaymentMode, SportsSlotAvailability } from './api';
+import { formatINR } from '../../lib/money';
 
 export type { SportsPaymentMode, SportsSlotAvailability } from './api';
 export type SportsBookingMode = 'instant' | 'approval';
@@ -168,4 +169,101 @@ export function getSportsHomePaymentNotice(onlinePaymentsEnabled: boolean): stri
   return onlinePaymentsEnabled
     ? 'Pay at the venue or online where available.'
     : 'Pay at the venue. QuickServe does not collect sports booking payments.';
+}
+
+export function getSportsCancellationConfirmationMessage(refundPaise: number): string {
+  return `You will get ${formatINR(refundPaise)} back.`;
+}
+
+export function getSportsCancellationPolicyLabel(policy: {
+  full_refund_hours: number | null;
+  partial_refund_hours: number | null;
+  partial_refund_bp: number | null;
+} | null | undefined): string | null {
+  if (!policy
+    || policy.full_refund_hours == null
+    || policy.partial_refund_hours == null
+    || policy.partial_refund_bp == null
+    || !Number.isInteger(policy.full_refund_hours)
+    || !Number.isInteger(policy.partial_refund_hours)
+    || !Number.isInteger(policy.partial_refund_bp)
+    || policy.full_refund_hours < policy.partial_refund_hours
+    || policy.partial_refund_bp < 0
+    || policy.partial_refund_bp > 10000) return null;
+  const whole = Math.floor(policy.partial_refund_bp / 100);
+  const fraction = policy.partial_refund_bp % 100;
+  const percent = `${whole}${fraction ? `.${String(fraction).padStart(2, '0')}` : ''}%`;
+  return `Online cancellations: full service refund at least ${policy.full_refund_hours}h ahead; ${percent} service refund from ${policy.partial_refund_hours}h to ${policy.full_refund_hours}h; no service refund under ${policy.partial_refund_hours}h.`;
+}
+
+export function getUpcomingVenueBookings<T extends { status: string; starts_at: string }>(
+  rows: readonly T[],
+  now: Date,
+): T[] {
+  const activeStatuses = new Set(['accepted', 'pending_payment', 'awaiting_payment']);
+  const nowMs = now.getTime();
+  return rows
+    .filter((row) => {
+      const startsAtMs = Date.parse(row.starts_at);
+      return activeStatuses.has(row.status) && Number.isFinite(startsAtMs) && startsAtMs >= nowMs;
+    })
+    .slice()
+    .sort((left, right) => Date.parse(left.starts_at) - Date.parse(right.starts_at));
+}
+
+export function formatSportsDuration(slotCount: number, slotMinutes: number): string {
+  if (!Number.isInteger(slotCount) || slotCount < 1 || !Number.isInteger(slotMinutes) || slotMinutes < 1) return '';
+  const minutes = slotCount * slotMinutes;
+  return minutes < 60 ? `${minutes} min` : `${minutes / 60} hr`;
+}
+
+export function getSportsEstimatedTotal(
+  slots: readonly SportsSlotAvailability[],
+  selectedStart: string | null,
+  duration: number,
+): number | null {
+  if (!selectedStart || !Number.isInteger(duration) || duration < 1) return null;
+  const startIndex = slots.findIndex((slot) => slot.starts_at === selectedStart);
+  if (startIndex < 0) return null;
+  const selectedSlots = slots.slice(startIndex, startIndex + duration);
+  if (selectedSlots.length !== duration) return null;
+
+  let total = 0;
+  for (let index = 0; index < selectedSlots.length; index += 1) {
+    const slot = selectedSlots[index];
+    if (!slot || slot.state !== 'free'
+      || slot.price_paise == null || !Number.isInteger(slot.price_paise) || slot.price_paise < 0) return null;
+    if (index > 0) {
+      const previous = selectedSlots[index - 1];
+      if (!previous || Date.parse(previous.ends_at) !== Date.parse(slot.starts_at)) return null;
+    }
+    total += slot.price_paise;
+  }
+  return total;
+}
+
+export function isSportsTimeValid(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function sportsTimeMinutes(value: string): number | null {
+  if (!isSportsTimeValid(value)) return null;
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours === undefined || minutes === undefined ? null : hours * 60 + minutes;
+}
+
+export function isSportsTimeRangeValid(starts: string, ends: string): boolean {
+  const startMinutes = sportsTimeMinutes(starts);
+  const endMinutes = sportsTimeMinutes(ends);
+  return startMinutes !== null && endMinutes !== null && startMinutes < endMinutes;
+}
+
+export function isSportsDateValid(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  if (year === undefined || month === undefined || day === undefined) return false;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
 }

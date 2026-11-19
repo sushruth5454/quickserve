@@ -18,7 +18,10 @@ import {
   canContinueSportsCheckout,
   getAvailableSportsPaymentModes,
   getAvailableSportsDurations,
+  getSportsCancellationPolicyLabel,
   getSportsBookingActionLabel,
+  getSportsEstimatedTotal,
+  formatSportsDuration,
   isSportsSlotTakenError,
 } from './model';
 
@@ -81,6 +84,21 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
     : [];
   const duration = durationOptions.includes(selectedDuration) ? selectedDuration : durationOptions[0] ?? 1;
   const effectiveBookingMode = resource?.booking_mode === 'instant' && instantBookingEnabled ? 'instant' : 'approval';
+  const estimatedTotal = getSportsEstimatedTotal(slots ?? [], selectedStart, duration);
+  const cancellationPolicyLabel = getSportsCancellationPolicyLabel(venue?.cancellation_policy);
+  const dateOptions = Array.from({ length: 14 }, (_, offset) => ({
+    value: indiaDate(offset),
+    label: offset === 0
+      ? 'Today'
+      : offset === 1
+        ? 'Tomorrow'
+        : new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }).format(new Date(`${indiaDate(offset)}T12:00:00+05:30`)),
+  }));
 
   const loadVenue = useCallback(async () => {
     if (!sportsEnabled || !venueId) return;
@@ -218,6 +236,9 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
             <Text variant="footnote" color="muted">{venue.address_line} · {venue.area}, {venue.city}</Text>
             {venue.description ? <Text variant="callout" color="textSecondary">{venue.description}</Text> : null}
             {venue.amenities?.length ? <Text variant="footnote">Amenities · {venue.amenities.join(' · ')}</Text> : null}
+            {selectedPaymentMode === 'online' && cancellationPolicyLabel ? (
+              <Text variant="caption" color="muted">{cancellationPolicyLabel}</Text>
+            ) : null}
           </Card>
 
           <Card gap={t.spacing.md}>
@@ -251,18 +272,19 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
             )}
             {resource ? (
               <>
-                <Input
-                  label="Date"
-                  value={date}
-                  onChangeText={(value) => chooseDate(value.trim())}
-                  placeholder="YYYY-MM-DD"
-                  autoCapitalize="none"
-                  helper="Choose a date within the next 30 days."
-                />
-                <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                  <Button title="Today" variant="outline" size="sm" onPress={() => chooseDate(indiaDate())} />
-                  <Button title="Tomorrow" variant="outline" size="sm" onPress={() => chooseDate(indiaDate(1))} />
-                  <Button title="Next day" variant="outline" size="sm" onPress={() => chooseDate(indiaDate(2))} />
+                <View style={{ gap: t.spacing.xs }}>
+                  <Text variant="footnoteStrong">Choose a date</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                    {dateOptions.map((option) => (
+                      <Button
+                        key={option.value}
+                        title={option.label}
+                        variant={date === option.value ? undefined : 'outline'}
+                        size="sm"
+                        onPress={() => chooseDate(option.value)}
+                      />
+                    ))}
+                  </View>
                 </View>
                 {!slots ? (
                   <Skeleton height={88} radius={t.radii.md} />
@@ -305,7 +327,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                       {durationOptions.map((count) => (
                         <Button
                           key={count}
-                          title={`${count} ${count === 1 ? 'slot' : 'slots'}`}
+                          title={formatSportsDuration(count, resource?.slot_minutes ?? 0)}
                           variant={duration === count ? undefined : 'outline'}
                           size="sm"
                           onPress={() => {
@@ -366,6 +388,9 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
               setNote(value);
             }} maxLength={500} placeholder="Anything the venue should know?" />
             <InlineAlert message={error && venue ? error : null} />
+            {selectedStart && estimatedTotal !== null ? (
+              <Text variant="bodyStrong">Estimated total {formatINR(estimatedTotal)}</Text>
+            ) : null}
             <Button
               title={getSportsBookingActionLabel(effectiveBookingMode, instantBookingEnabled)}
               onPress={() => void book()}

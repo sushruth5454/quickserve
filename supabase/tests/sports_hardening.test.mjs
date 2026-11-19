@@ -82,8 +82,10 @@ const migrationFiles = [
   '0062_coins_hardening.sql', '0063_o1_notifications.sql',
   '0064_o2_provider_verification.sql', '0065_h2a_recurring_correctness.sql',
   '0066_h2b_recurring_ux.sql', '0067_u3_account_deletion.sql',
-  '0068_u2_booking_cancellation_preview.sql',
-  '0072_s1_sports_money_hardening.sql',
+  '0068_u2_booking_cancellation_preview.sql', '0069_ws3_shop_product_remediation.sql',
+  '0070_nearo_r1.sql', '0071_f1_payment_recorder_safety.sql',
+  '0072_s1_sports_money_hardening.sql', '0073_b1_server_pricing.sql',
+  '0074_p1b_rfq.sql', '0080_s2_sports_ops_ux.sql',
 ];
 
 const db = new PGlite({ extensions: { pgcrypto } });
@@ -274,6 +276,23 @@ async function failureOf(run) {
   } catch (error) {
     return error?.message ?? String(error);
   }
+}
+
+async function setAdminSportsRules(adminId, patch) {
+  await db.query(`
+    update public.feature_flags set enabled = true where key = 'admin_rules_editor'
+  `);
+  await db.query(`
+    insert into public.admins (user_id) values ($1::uuid)
+    on conflict (user_id) do nothing
+  `, [adminId]);
+  const rows = await as(adminId, 'authenticated', `
+    select public.admin_set_rules(
+      'sports_rules'::text,
+      (select value || $1::jsonb from public.app_config where key = 'sports_rules')
+    ) value
+  `, [JSON.stringify(patch)]);
+  return json(rows[0].value);
 }
 
 await scenario('WS4-T02: customer list returns server payment fields after O1 payment notifications', async () => {
@@ -547,6 +566,251 @@ await scenario('WS6-T09: late capture on a retired attempt refunds separately an
     && payout.gross === 20000 && payout.commission === 2000
     && payout.gst_on_commission === 360 && payout.amount === 17640,
   `[WS6-T09] late-capture state: ${JSON.stringify({ validCapture, lateCapture, retiredRow, unmatchedCapture, refundBasis, payout })}`);
+});
+
+await scenario('WS4-T05/WS8-T08: own booking remains readable and cancellable with sports off; strangers see none', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('flag-off-readable', {
+    rules: { full_refund_hours: 24, partial_refund_hours: 6, partial_refund_bp: 5000 },
+  });
+  const booking = await makePaidBooking(fixture, fixture.customerIds[0], '10:00', 'flag-off-readable');
+  await setSportsFlags({ sports: false });
+
+  const list = await as(fixture.customerIds[0], 'authenticated', `
+    select * from public.list_my_customer_sports_bookings() where id = $1::uuid
+  `, [booking.bookingId]);
+  const detail = json((await as(fixture.customerIds[0], 'authenticated', `
+    select public.get_business_sports_booking($1::uuid) value
+  `, [booking.bookingId]))[0].value);
+  const ownRows = await as(fixture.customerIds[0], 'authenticated', `
+    select id from public.sports_bookings where id = $1::uuid
+  `, [booking.bookingId]);
+  const strangerRows = await as(fixture.customerIds[1], 'authenticated', `
+    select id from public.sports_bookings where id = $1::uuid
+  `, [booking.bookingId]);
+  const preview = json((await as(fixture.customerIds[0], 'authenticated', `
+    select public.preview_sports_cancellation($1::uuid) value
+  `, [booking.bookingId]))[0].value);
+  await as(fixture.customerIds[0], 'authenticated', `
+    select public.cancel_sports_booking($1::uuid, ''::text)
+  `, [booking.bookingId]);
+  const state = await one(`
+    select b.status, b.refund_paise,
+      (select coalesce(sum(r.amount), 0)::int
+         from public.refunds r join public.payments p on p.id = r.payment_id
+        where p.sports_booking_id = b.id) refund_total
+      from public.sports_bookings b where b.id = $1::uuid
+  `, [booking.bookingId]);
+  ok(list.length === 1 && detail?.id === booking.bookingId
+    && ownRows.length === 1 && strangerRows.length === 0
+    && preview.can_cancel === true && preview.refund_paise === 20000
+    && state.status === 'cancelled' && state.refund_paise === 20000
+    && state.refund_total === 20000,
+  `[WS4-T05/WS8-T08] flag-off state: ${JSON.stringify({ list, detail, ownRows, strangerRows, preview, state })}`);
+});
+
+await scenario('WS4-T07: refund preview equals the queued refund for customer tiers and venue cancellation', async () => {
+  const cases = [
+    { label: 'preview-48h', hours: 48, cancelBy: 'customer', expected: 20000, retained: 0 },
+    { label: 'preview-10h', hours: 10, cancelBy: 'customer', expected: 10000, retained: 10000 },
+    { label: 'preview-2h', hours: 2, cancelBy: 'customer', expected: 0, retained: 20000 },
+    { label: 'preview-venue', hours: 48, cancelBy: 'venue', expected: 20500, retained: 0 },
+  ];
+  const results = [];
+  for (const testCase of cases) {
+    await setSportsFlags();
+    const fixture = await createFixture(testCase.label, {
+      rules: { full_refund_hours: 24, partial_refund_hours: 6, partial_refund_bp: 5000 },
+    });
+    const booking = await makePaidBooking(fixture, fixture.customerIds[0], '10:00', testCase.label);
+    await db.query(`
+      update public.sports_bookings
+         set starts_at = now() + $2::int * interval '1 hour',
+             ends_at = now() + $2::int * interval '1 hour' + interval '1 hour'
+       where id = $1::uuid
+    `, [booking.bookingId, testCase.hours]);
+    const actor = testCase.cancelBy === 'venue' ? fixture.ownerId : fixture.customerIds[0];
+    const preview = json((await as(actor, 'authenticated', `
+      select public.preview_sports_cancellation($1::uuid) value
+    `, [booking.bookingId]))[0].value);
+    await as(actor, 'authenticated', `
+      select public.cancel_sports_booking($1::uuid, $2::text)
+    `, [booking.bookingId, testCase.cancelBy === 'venue' ? 'Venue maintenance' : 'Customer cancellation']);
+    const state = await one(`
+      select b.status, b.cancelled_by, b.refund_paise,
+        (select coalesce(sum(r.amount), 0)::int
+           from public.refunds r join public.payments p on p.id = r.payment_id
+          where p.sports_booking_id = b.id) refund_total
+        from public.sports_bookings b where b.id = $1::uuid
+    `, [booking.bookingId]);
+    results.push({
+      label: testCase.label,
+      preview,
+      state,
+      expected: testCase.expected,
+      expectedRetained: testCase.retained,
+    });
+    ok(preview.can_cancel === true && preview.refund_paise === testCase.expected
+      && preview.retained_paise === testCase.retained
+      && state.status === 'cancelled' && state.cancelled_by === testCase.cancelBy
+      && state.refund_paise === testCase.expected && state.refund_total === testCase.expected,
+    `[WS4-T07/D3] ${testCase.label}: ${JSON.stringify({ preview, state, expected: testCase.expected, expectedRetained: testCase.retained })}`);
+  }
+});
+
+await scenario('WS4-T09: owner edits a price rule by id and only the owner can delete it', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('price-edit-delete');
+  const existing = await one(`
+    select id from public.sports_price_rules where resource_id = $1::uuid limit 1
+  `, [fixture.resourceId]);
+  const editedId = (await as(fixture.ownerId, 'authenticated', `
+    select public.save_sports_price_rule(
+      $1::uuid, $2::uuid, null::smallint, time '08:00', time '20:00', $3::int, $4::text
+    ) id
+  `, [fixture.resourceId, existing.id, 25000, 'Edited standard']])[0].id;
+  const edited = await one(`
+    select price_paise, label from public.sports_price_rules where id = $1::uuid
+  `, [existing.id]);
+  const refused = await failureOf(() => as(fixture.customerIds[0], 'authenticated', `
+    select public.delete_sports_price_rule($1::uuid)
+  `, [existing.id]));
+  await as(fixture.ownerId, 'authenticated', `
+    select public.delete_sports_price_rule($1::uuid)
+  `, [existing.id]);
+  const remaining = await one(`
+    select count(*)::int count from public.sports_price_rules where id = $1::uuid
+  `, [existing.id]);
+  ok(editedId === existing.id && edited.price_paise === 25000
+    && edited.label === 'Edited standard' && /not found or not owned/.test(refused ?? '')
+    && remaining.count === 0,
+  `[WS4-T09] price-rule state: ${JSON.stringify({ editedId, edited, refused, remaining, ownerId: fixture.ownerId })}`);
+});
+
+await scenario('WS4-T13: active booking holds enforce the configurable customer limit', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('hoarding-limit');
+  const statuses = ['requested', 'pending_payment', 'awaiting_payment'];
+  for (const [index, status] of statuses.entries()) {
+    const starts = await startsAt(['10:00', '12:00', '14:00'][index]);
+    await db.query(`
+      insert into public.sports_bookings
+        (customer_id, venue_id, resource_id, starts_at, ends_at, status, price_paise,
+         note, expires_at, payment_mode, participants, customer_fee_paise, total_paise,
+         hold_expires_at, pay_by)
+      values ($1::uuid, $2::uuid, $3::uuid, $4::timestamptz,
+        $4::timestamptz + interval '1 hour', $5::text, 20000, '',
+        now() + interval '1 hour', 'online', 1, 500, 20500,
+        case when $5::text = 'pending_payment' then now() + interval '1 hour' else null end,
+        case when $5::text = 'awaiting_payment' then now() + interval '1 hour' else null end)
+    `, [fixture.customerIds[0], fixture.venueId, fixture.resourceId, starts, status]);
+  }
+  const refused = await failureOf(() => book(fixture, fixture.customerIds[0], fixture.resourceId, '16:00'));
+  const rules = await setAdminSportsRules(fixture.ownerId, { max_active_holds_per_customer: 4 });
+  const afterChange = await book(fixture, fixture.customerIds[0], fixture.resourceId, '16:00');
+  const count = await one(`
+    select count(*)::int count from public.sports_bookings
+     where customer_id = $1::uuid and status in ('requested','pending_payment','awaiting_payment','accepted')
+  `, [fixture.customerIds[0]]);
+  ok(/too many pending sports bookings/.test(refused ?? '')
+    && rules.max_active_holds_per_customer === 4
+    && afterChange.status === 'pending_payment' && count.count === 4,
+  `[WS4-T13] hoarding state: ${JSON.stringify({ refused, rules, afterChange, count })}`);
+});
+
+await scenario('WS4-T13: accepted pay-at-venue bookings count against the customer limit', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('hoarding-pay-at-venue');
+  for (const time of ['10:00', '12:00', '14:00']) {
+    const starts = await startsAt(time);
+    await db.query(`
+      insert into public.sports_bookings
+        (customer_id, venue_id, resource_id, starts_at, ends_at, status, price_paise,
+         note, expires_at, payment_mode, participants, customer_fee_paise, total_paise)
+      values ($1::uuid, $2::uuid, $3::uuid, $4::timestamptz,
+        $4::timestamptz + interval '1 hour', 'accepted', 20000, '',
+        now() + interval '1 hour', 'pay_at_venue', 1, 0, 20000)
+    `, [fixture.customerIds[0], fixture.venueId, fixture.resourceId, starts]);
+  }
+  const refused = await failureOf(() => book(fixture, fixture.customerIds[0], fixture.resourceId, '16:00'));
+  ok(/too many pending sports bookings/.test(refused ?? ''),
+    `[WS4-T13] pay-at-venue limit state: ${JSON.stringify({ refused, customerId: fixture.customerIds[0] })}`);
+});
+
+await scenario('WS4-T16: failed sports payment marks only the payment failed and notifies the customer', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('payment-failure');
+  const hold = await book(fixture, fixture.customerIds[0], fixture.resourceId, '10:00');
+  const attempt = await prepare(hold.booking_id, fixture.customerIds[0]);
+  await attachOrder(attempt.payment_id, 's2-failed-order');
+  const result = json((await as(null, 'service_role', `
+    select public.record_sports_payment_failed($1::text) result
+  `, ['s2-failed-order']))[0].result);
+  const state = await one(`
+    select p.status payment_status, b.status booking_status
+      from public.payments p join public.sports_bookings b on b.id = p.sports_booking_id
+     where p.id = $1::uuid
+  `, [attempt.payment_id]);
+  const notice = await one(`
+    select count(*)::int count from public.notifications
+     where user_id = $1::uuid and kind = 'sports_payment_failed'
+       and data ->> 'sports_booking_id' = $2::text
+  `, [fixture.customerIds[0], hold.booking_id]);
+  ok(result.ok === true && state.payment_status === 'failed'
+    && state.booking_status === 'pending_payment' && notice.count === 1,
+  `[WS4-T16] payment-failure state: ${JSON.stringify({ result, state, notice })}`);
+});
+
+await scenario('WS4-T16: demo sports settlement refuses a non-demo venue owner', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('non-demo-settlement');
+  const hold = await book(fixture, fixture.customerIds[0], fixture.resourceId, '10:00');
+  await db.query(`
+    update public.app_config set value = '{"is_demo_project":true}'::jsonb where key = 'deployment'
+  `);
+  await db.query(`
+    update public.app_config set value = '{"enabled":true}'::jsonb where key = 'demo_payments'
+  `);
+  const refused = await failureOf(() => as(fixture.customerIds[0], 'authenticated', `
+    select public.demo_settle_sports_payment($1::uuid)
+  `, [hold.booking_id]));
+  ok(/demo venue owners/.test(refused ?? ''),
+    `[WS4-T16] demo guard state: ${JSON.stringify({ refused, bookingId: hold.booking_id })}`);
+});
+
+await scenario('WS4-T17: admin-configured response and lead windows govern new requests', async () => {
+  await setSportsFlags({ instant: false });
+  const fixture = await createFixture('configured-windows', { bookingMode: 'approval' });
+  const rules = await setAdminSportsRules(fixture.ownerId, {
+    request_response_minutes: 15,
+    min_lead_minutes: 30,
+  });
+  const start = await startsAt('10:00');
+  const bookingId = (await as(fixture.customerIds[0], 'authenticated', `
+    select public.request_sports_slot(
+      $1::uuid, $2::timestamptz, 1::int, ''::text
+    ) id
+  `, [fixture.resourceId, start]))[0].id;
+  const timing = await one(`
+    select extract(epoch from (expires_at - now()))::int response_seconds
+      from public.sports_bookings where id = $1::uuid
+  `, [bookingId]);
+  const onlineRequest = await book(fixture, fixture.customerIds[0], fixture.resourceId, '12:00');
+  await as(fixture.ownerId, 'authenticated', `
+    select public.decide_sports_booking($1::uuid, true, ''::text)
+  `, [onlineRequest.booking_id]);
+  const paymentDeadline = await one(`
+    select extract(epoch from (pay_by - now()))::int response_seconds
+      from public.sports_bookings where id = $1::uuid
+  `, [onlineRequest.booking_id]);
+  await setAdminSportsRules(fixture.ownerId, { min_lead_minutes: 43200 });
+  const tooSoon = await failureOf(() => book(fixture, fixture.customerIds[1], fixture.resourceId, '14:00'));
+  ok(rules.request_response_minutes === 15 && rules.min_lead_minutes === 30
+    && timing.response_seconds > 0 && timing.response_seconds <= 900
+    && onlineRequest.status === 'requested'
+    && paymentDeadline.response_seconds > 0 && paymentDeadline.response_seconds <= 900
+    && /configured lead time/.test(tooSoon ?? ''),
+  `[WS4-T17] configured-window state: ${JSON.stringify({ rules, timing, onlineRequest, paymentDeadline, tooSoon })}`);
 });
 
 finish();

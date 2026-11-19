@@ -49,7 +49,21 @@ export interface CustomerSportsVenue {
   photos: string[];
   payment_modes?: SportsPaymentMode[];
   online_payment_ready?: boolean;
+  cancellation_policy?: {
+    full_refund_hours: number | null;
+    partial_refund_hours: number | null;
+    partial_refund_bp: number | null;
+  };
   resources: SportsResource[];
+}
+
+export interface SportsCancellationPreview {
+  can_cancel: boolean;
+  refund_paise: number;
+  retained_paise: number;
+  full_refund_hours: number | null;
+  partial_refund_hours: number | null;
+  partial_refund_bp: number | null;
 }
 
 export interface CustomerSportsBooking {
@@ -136,6 +150,13 @@ export async function getCustomerSportsBooking(id: string): Promise<CustomerSpor
 export async function cancelSportsBooking(id: string, reason = ''): Promise<void> {
   const { error } = await supabase.rpc('cancel_sports_booking', { p_id: id, p_reason: reason });
   if (error) throw new Error(error.message);
+}
+
+export async function previewSportsCancellation(id: string): Promise<SportsCancellationPreview> {
+  const { data, error } = await supabase.rpc('preview_sports_cancellation', { p_id: id });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('The server did not return a cancellation preview.');
+  return data as SportsCancellationPreview;
 }
 
 export async function decideSportsBooking(id: string, accept: boolean, reason = ''): Promise<void> {
