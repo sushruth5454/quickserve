@@ -157,7 +157,7 @@ async function grantE2eAdminMembership(phone) {
     select id from auth.users where phone = '${phone}'
     on conflict (user_id) do nothing`;
   const response = await fetch(
-    `https://api.supabase.com/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
+    `${process.env.SUPABASE_MGMT_URL ?? 'https://api.supabase.com'}/v1/projects/${encodeURIComponent(projectRef)}/database/query`,
     {
       method: 'POST',
       headers: {
@@ -517,6 +517,10 @@ await step('assistant-open-from-home', async () => {
   }
 });
 await step('assistant-draft-or-busy-fallback', async () => {
+  if (process.env.E2E_AI_UNAVAILABLE === '1') {
+    skipStep('assistant-draft-or-busy-fallback', 'No AI provider key in this backend (local E2E stack); hosted E2E covers the assistant.');
+    return;
+  }
   await page.getByLabel('Message QuickServe AI').first().fill('AC not cooling, making noise, need tomorrow evening');
   let http429Seen = false;
   let resolveRateLimit;

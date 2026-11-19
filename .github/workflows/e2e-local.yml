@@ -1,0 +1,98 @@
+name: E2E web (local Supabase)
+
+# Same smoke test as e2e-web.yml, but against a throwaway Supabase stack started inside the runner:
+# the full migration chain from this branch is applied, then the demo seeds. No shared backend, so
+# runs execute in parallel and DB batches get E2E before merge. Uses no project secrets.
+on:
+  push:
+    branches: ['integrate/**']
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-local-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPO_PUBLIC_FORCE_TEST_LOCATION: '1'
+      EXPO_PUBLIC_DEMO_CITY: 'Vijayawada Demo'
+      EXPO_PUBLIC_DEMO_PAYMENT: '1'
+      TARGET_SDK: '58'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (migrations + demo seeds)
+        run: bash scripts/ci/local-supabase.sh
+
+      - name: Install app dependencies (public npm, same as e2e-web)
+        working-directory: app
+        run: |
+          rm -f package-lock.json
+          npm config set registry https://registry.npmjs.org/
+          npm install --no-audit --no-fund --legacy-peer-deps
+          CURRENT=$(node -p 'require("expo/package.json").version.split(".")[0]')
+          if [ "$CURRENT" != "$TARGET_SDK" ]; then
+            npm install "expo@~$TARGET_SDK.0.0" --no-audit --no-fund --legacy-peer-deps
+            CI=1 npx expo install --fix -- --legacy-peer-deps
+          fi
+          CI=1 npx expo install react-native-web react-dom @expo/metro-runtime expo-audio expo-file-system expo-speech expo-notifications expo-image-manipulator expo-document-picker -- --legacy-peer-deps
+
+      - name: Build web against local Supabase
+        working-directory: app
+        run: |
+          EXPO_PUBLIC_SUPABASE_URL="$LOCAL_API_URL" EXPO_PUBLIC_SUPABASE_ANON_KEY="$LOCAL_ANON_KEY" \
+            npx expo export --platform web --output-dir dist
+
+      - name: Serve web build and local Management API stand-in
+        run: |
+          (cd app && npx --yes serve@14 -s dist -l 8081 > ../serve.log 2>&1 &)
+          python3 scripts/ci/mock-mgmt-api.py > mgmt.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://localhost:8081 > /dev/null && exit 0; sleep 1; done
+          cat serve.log; exit 1
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Run smoke test
+        working-directory: e2e
+        env:
+          BASE_URL: http://localhost:8081
+          SHOTS_DIR: ${{ github.workspace }}/e2e-shots
+          DEMO_PROJECT: '1'
+          ADMIN_E2E_PHONE: '9000000901'
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          E2E_AI_UNAVAILABLE: '1'
+          NEW_PRO_PHONE: '9000000301'
+          QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
+        run: SUPABASE_URL="$LOCAL_API_URL" SUPABASE_ANON_KEY="$LOCAL_ANON_KEY" node web-smoke.mjs
+
+      - name: Backend logs on failure
+        if: failure()
+        run: |
+          cat mgmt.log || true
+          docker ps --format '{{.Names}}' | grep -E 'auth|rest|edge' | while read c; do echo "== $c"; docker logs --tail 80 "$c" 2>&1; done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-local-screenshots
+          path: e2e-shots
+          retention-days: 7
