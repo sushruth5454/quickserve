@@ -131,7 +131,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByText('Proposal', { exact: true }).first().waitFor();
     await page.getByText('Payment milestones', { exact: true }).first().waitFor();
     await page.getByText('Deliverables', { exact: true }).first().waitFor();
-    await page.getByText(/demo_deliverable/i).first().waitFor();
+    await page.getByText(/Demo deliverable/i).first().waitFor();
     await go(`/booking/${DEMO_IDS.proposalBooking}`);
     await page.getByText('Demo booking advance', { exact: true }).first().waitFor();
     await page.getByText('Demo delivery milestone', { exact: true }).first().waitFor();
