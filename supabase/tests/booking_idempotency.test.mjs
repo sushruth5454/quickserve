@@ -22,9 +22,11 @@ async function addBookingService(customer, provider, label) {
   await addUser(customer, `${label} customer`);
   await addUser(provider, `${label} provider`);
   await db.query(`
-    insert into public.providers (id, city, base_location, kyc_status, submitted_at, is_online, suspended, paused, timezone)
+    insert into public.providers (
+      id, city, base_location, kyc_status, submitted_at, is_online, suspended, paused, timezone, admin_review_status
+    )
     values ($1::uuid, 'R1 City', extensions.st_setsrid(extensions.st_makepoint(80.6, 16.5), 4326),
-      'verified', now(), true, false, false, 'Asia/Kolkata')
+      'verified', now(), true, false, false, 'Asia/Kolkata', 'approved')
     on conflict (id) do nothing
   `, [provider]);
   const category = (await db.query("select id from public.categories where slug = 'ac-repair'")).rows[0].id;
