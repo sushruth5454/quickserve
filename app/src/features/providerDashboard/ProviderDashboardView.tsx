@@ -29,7 +29,7 @@ type ProviderDashboardViewProps = {
   refreshing: boolean;
   setRefreshing: Dispatch<SetStateAction<boolean>>;
   load: () => Promise<void>;
-  provider: BusinessProviderContext | null;
+  provider: Extract<BusinessProviderContext, { business_role: 'owner' }> | null;
   online: boolean;
   toggleOnline: (value: boolean) => Promise<void>;
   goLive: { status: GoLive; docTypes: DocumentType[] } | null;
