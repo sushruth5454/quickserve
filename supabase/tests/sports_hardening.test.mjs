@@ -443,13 +443,15 @@ await scenario('WS4-T10: legacy request keeps one-slot pay-at-venue, gates multi
   const legacy = await one(`
     select status, payment_mode from public.sports_bookings where id = $1::uuid
   `, [legacyId]);
+  const disabledMultiSlotStart = await startsAt('12:00');
   const disabledMultiSlotError = await failureOf(() => as(fixture.customerIds[1], 'authenticated', `
     select public.request_sports_slot($1::uuid, $2::timestamptz, $3::int, $4::text)
-  `, [fixture.resourceId, await startsAt('12:00'), 2, '']));
+  `, [fixture.resourceId, disabledMultiSlotStart, 2, '']));
   await setSportsFlags({ multiSlot: true });
+  const overLimitStart = await startsAt('14:00');
   const overLimitError = await failureOf(() => as(fixture.customerIds[1], 'authenticated', `
     select public.request_sports_slot($1::uuid, $2::timestamptz, $3::int, $4::text)
-  `, [fixture.resourceId, await startsAt('14:00'), 5, '']));
+  `, [fixture.resourceId, overLimitStart, 5, '']));
   const oldVenueOverload = await one(`
     select to_regprocedure(
       'public.save_sports_venue(uuid,text,text,text,text,text,double precision,double precision,text[],text[])'
