@@ -79,6 +79,7 @@ await db.exec("set timezone = 'UTC'");
 
 const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
 const json = (value) => typeof value === 'string' ? JSON.parse(value) : value;
+const timestampIso = (value) => value == null ? null : new Date(value).toISOString();
 const uuid = (value) => `00000000-0000-4000-8000-${String(value).padStart(12, '0')}`;
 const check = (condition, label, actual) => ok(condition, `${label}; actual=${JSON.stringify(actual)}`);
 
@@ -246,6 +247,8 @@ await scenario('creator deadline is default-off, ignored while off, required and
     select p.delivery_due_at as proposal_due, b.delivery_due_at as booking_due
       from public.proposals p join public.bookings b on b.proposal_id = p.id
      where p.id = $1::uuid`, [proposalId]);
+  const storedProposalDue = timestampIso(stored.proposal_due);
+  const storedBookingDue = timestampIso(stored.booking_due);
   await db.query(`
     update public.feature_flags set enabled = true where key = $1::text`,
   ['creator_delivery_deadline']);
@@ -264,15 +267,18 @@ await scenario('creator deadline is default-off, ignored while off, required and
   const parentOffProposal = await sendProposal(parentOffFixture, parentOffRequest, { deadline: '2027-04-26T10:00:00Z' });
   const parentOffStored = await one(`
     select delivery_due_at from public.proposals where id = $1::uuid`, [parentOffProposal]);
-  const actual = { defaultFlag, ignored, missingError, pastError, lateError, stored, parentOffStored };
+  const actual = {
+    defaultFlag, ignored, missingError, pastError, lateError, stored,
+    storedProposalDue, storedBookingDue, bookingId, parentOffStored,
+  };
   check(defaultFlag.enabled === false
     && ignored.delivery_due_at === null
     && parentOffStored.delivery_due_at === null
     && /deliver-by date is required/i.test(missingError ?? '')
     && /future/i.test(pastError ?? '')
     && /365/i.test(lateError ?? '')
-    && stored.proposal_due === '2027-03-27T10:00:00.000Z'
-    && stored.booking_due === stored.proposal_due
+    && storedProposalDue === '2027-03-27T10:00:00.000Z'
+    && storedBookingDue === storedProposalDue
     && !!bookingId,
   'deadline flag behavior and immutable booking copy are exact', actual);
 });
@@ -322,7 +328,7 @@ await scenario('C2 stores the configured revision default and explicit proposal 
     && /permission denied|not authenticated/i.test(anonymousConfigError ?? '')
     && defaultAllowed === 1
     && offeredAllowed === 3
-    && /revisions.*0.*10/i.test(invalidQtyError ?? '')
+    && /revision quantity must be between 0 and 10/i.test(invalidQtyError ?? '')
     && /at most one/i.test(duplicateError ?? ''),
   'configured default and proposal revision counts are stored, and invalid terms are rejected', actual);
 });
