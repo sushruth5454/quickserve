@@ -81,6 +81,9 @@ const categoryActivationBeforeSeed = (await db.query(`
     count(*) filter (where active and vertical = 'creators')::int as active_creators
   from public.categories
 `)).rows[0];
+const paymentReceiptTableAbsentBeforeSeed = (await db.query(`
+  select to_regclass('public.payment_receipts') is null as absent
+`)).rows[0].absent;
 
 const seed = fs.readFileSync(path.join(here, '..', 'seed-all-services.sql'), 'utf8')
   .replace("begin;\n\n", "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n", 1);
@@ -112,8 +115,29 @@ const countQuery = `
     (select count(*)::int from bookings where description like '[DEMO ONLY]%') bookings
 `;
 const first = await db.query(countQuery);
+const receiptBookingId = (await db.query(`
+  select id
+    from public.bookings
+   where description like '[DEMO ONLY]%'
+   order by id
+   limit 1
+`)).rows[0].id;
+await db.exec(`
+  create table public.payment_receipts (
+    id uuid primary key default gen_random_uuid(),
+    booking_id uuid not null references public.bookings (id)
+  )
+`);
+await db.query(`
+  insert into public.payment_receipts (booking_id)
+  values ($1::uuid)
+`, [receiptBookingId]);
 await db.exec(seed);
 const second = await db.query(countQuery);
+const demoReceiptsAfterReset = (await db.query(`
+  select count(*)::int as count
+    from public.payment_receipts
+`)).rows[0].count;
 const [demoProviders] = (await db.query(`
   select count(*)::int as providers,
          count(*) filter (where p.admin_review_status = 'approved')::int as approved,
@@ -143,6 +167,10 @@ const ok = (condition, message) => {
 };
 const initial = first.rows[0];
 const repeated = second.rows[0];
+ok(paymentReceiptTableAbsentBeforeSeed,
+  'seed reset tolerates a migration chain without the B2 payment_receipts table');
+ok(demoReceiptsAfterReset === 0,
+  'seed reset removes receipts attached to demo bookings before deleting those bookings');
 ok(initial.demo_users >= 31, 'one synthetic provider exists for every configured demo category');
 ok(initial.provider_categories >= 31, 'one provider service exists for every configured demo category');
 ok(initial.packages >= 31 && initial.package_categories >= 31, 'every configured demo category has a package');
