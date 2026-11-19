@@ -21,7 +21,7 @@ jobs:
           REMOVE_PHONE: '918888888888'
         run: |
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, urllib.request, urllib.error
           base = f"https://api.supabase.com/v1/projects/{os.environ['PROJECT_REF']}/config/auth"
           hdr = {"Authorization": f"Bearer {os.environ['SUPABASE_ACCESS_TOKEN']}", "Content-Type": "application/json"}
           cfg = json.load(urllib.request.urlopen(urllib.request.Request(base, headers=hdr)))
@@ -32,8 +32,15 @@ jobs:
           pairs.pop(os.environ["REMOVE_PHONE"], None)
           pairs[os.environ["ADD_PHONE"]] = os.environ["ADD_OTP"]
           new = ",".join(f"{k}={v}" for k, v in pairs.items())
-          req = urllib.request.Request(base, data=json.dumps({"sms_test_otp": new}).encode(), headers=hdr, method="PATCH")
-          urllib.request.urlopen(req).read()
+          body = {"sms_test_otp": new}
+          valid = cfg.get("sms_test_otp_valid_until")
+          print("valid_until:", valid)
+          if valid: body["sms_test_otp_valid_until"] = valid
+          req = urllib.request.Request(base, data=json.dumps(body).encode(), headers=hdr, method="PATCH")
+          try:
+              urllib.request.urlopen(req).read()
+          except urllib.error.HTTPError as e:
+              print("PATCH failed:", e.code, e.read().decode()[:500]); raise
           after = json.load(urllib.request.urlopen(urllib.request.Request(base, headers=hdr))).get("sms_test_otp") or ""
           phones = sorted(e.split("=", 1)[0] for e in after.split(",") if "=" in e)
           print("after:", phones)
