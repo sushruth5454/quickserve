@@ -66,8 +66,10 @@ Deno.test("identical event-id replay is non-fatal after payload lookup", async (
     payload: { order: { id: "order_test" }, metadata: { alpha: 1, beta: 2 } },
   };
   const storedPayload = {
-    metadata: { beta: 2, alpha: 1 },
-    payload: { order: { id: "order_test" } },
+    payload: {
+      metadata: { beta: 2, alpha: 1 },
+      order: { id: "order_test" },
+    },
     event: "order.paid",
   };
   const { client, calls } = fakeClient({
