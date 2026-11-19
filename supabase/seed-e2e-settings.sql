@@ -99,4 +99,27 @@ insert into public.admins (user_id)
 values ('e2e00000-0000-4000-8000-000000000901'), ('e2e00000-0000-4000-8000-000000000902')
 on conflict (user_id) do nothing;
 
+-- Local E2E compatibility: Supabase CLI skips 0060b_demo_payout_isolation.sql because its
+-- migration version is non-numeric. Keep the legacy guard allowlisted to this seeded provider only.
+do $$
+begin
+  if not exists (
+    select 1 from auth.users
+     where id = '11111111-1111-1111-1111-111111111111'::uuid
+       and raw_app_meta_data ->> 'demo_only' = 'true'
+  ) then
+    raise exception 'local E2E checkout provider must be service-marked demo-only';
+  end if;
+
+  update public.app_config
+     set value = jsonb_set(
+       value, '{provider_ids}', jsonb_build_array('11111111-1111-1111-1111-111111111111'), true
+     )
+   where key = 'demo_payments';
+  if not found then
+    raise exception 'demo_payments configuration must be seeded before local E2E settings';
+  end if;
+end;
+$$;
+
 commit;
