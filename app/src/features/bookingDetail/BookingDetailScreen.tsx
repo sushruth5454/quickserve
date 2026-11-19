@@ -12,6 +12,7 @@ import {
   Button,
   Card,
   Chip,
+  Divider,
   ErrorState,
   Header,
   IconButton,
