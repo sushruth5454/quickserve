@@ -163,6 +163,121 @@ export interface AdminBooking {
   city: string;
 }
 
+export interface AdminBookingDetail {
+  booking: {
+    id: string;
+    status: string;
+    total_amount: number | null;
+    visit_fee: number;
+    refund_amount: number;
+  };
+  category: string;
+  customer: { id: string; name: string; phone: string | null };
+  provider: { id: string; name: string; phone: string | null };
+  address: { line1: string; city: string } | null;
+  events: {
+    at: string;
+    from: string | null;
+    to: string;
+    note: string | null;
+    actor_id: string | null;
+    actor_role: 'customer' | 'provider' | 'admin' | 'system';
+  }[];
+  payments: {
+    id: string;
+    purpose: string;
+    amount: number;
+    status: string;
+    paid_at: string | null;
+    gateway_id: string | null;
+    funding_source: string | null;
+  }[];
+  refunds: {
+    id: string;
+    payment_id: string;
+    amount: number;
+    status: string;
+    attempts: number;
+    last_error: string | null;
+    created_at: string;
+  }[];
+  payouts: {
+    id: string;
+    gross: number;
+    commission: number;
+    amount: number;
+    status: string;
+    release_after: string;
+    transferred_at: string | null;
+  }[];
+  transfers: {
+    id: string;
+    payout_id: string;
+    status: string;
+    last_error: string | null;
+    attempts: number;
+    amount: number;
+    rail: string | null;
+    gateway_status: string | null;
+    transferred_at: string | null;
+  }[];
+  reversals: {
+    id: string;
+    payout_transfer_id: string;
+    amount: number;
+    rail: string;
+    status: string;
+    attempts: number;
+    last_error: string | null;
+    created_at: string;
+    completed_at: string | null;
+  }[];
+  receivables: {
+    id: string;
+    provider_id: string;
+    amount: number;
+    recovered: number;
+    reason: string;
+    status: string;
+    created_at: string;
+  }[];
+}
+
+export interface AdminProblemPayout {
+  id: string;
+  booking_id: string | null;
+  sports_booking_id: string | null;
+  provider_id: string | null;
+  payee_id: string | null;
+  provider_name: string | null;
+  gross: number;
+  commission: number;
+  amount: number;
+  status: string;
+  release_after: string;
+  transferred_at: string | null;
+  transfers: {
+    id: string;
+    status: string;
+    last_error: string | null;
+    attempts: number;
+    amount: number;
+    rail: string | null;
+    gateway_status: string | null;
+    created_at: string;
+  }[];
+}
+
+export interface AdminAuditEntry {
+  id: string;
+  admin_id: string;
+  admin_name: string;
+  action: string;
+  target_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface AdminSupportThread {
   id: string;
   subject: string;
@@ -260,9 +375,18 @@ export async function createProviderDocumentSignedUrl(filePath: string): Promise
 }
 export const listBookings = (status: string | null = 'all', search: string | null = null) =>
   rpc<AdminBooking[]>('admin_list_bookings', { p_status: status, p_search: search });
-export const getBooking = (id: string) => rpc<Record<string, any>>('admin_get_booking', { p_booking_id: id });
+export const getBooking = (id: string) => rpc<AdminBookingDetail>('admin_get_booking', { p_booking_id: id });
 export const resolveDispute = (id: string, outcome: 'denied' | 'partial_refund' | 'full_refund', amount: number | null, note: string) =>
   rpc<void>('resolve_dispute', { p_booking_id: id, p_outcome: outcome, p_refund_amount: amount, p_note: note });
+export const listProblemPayouts = () =>
+  rpc<{ payouts: AdminProblemPayout[] }>('admin_list_problem_payouts');
+export const retryPayout = (id: string, note: string) =>
+  rpc<{ payout_id: string; status: string; transfer_ids: string[] }>(
+    'admin_retry_payout',
+    { p_payout_id: id, p_note: note },
+  );
+export const listAudit = (target: string | null = null, limit = 100) =>
+  rpc<AdminAuditEntry[]>('admin_list_audit', { p_target: target, p_limit: limit });
 export const listAdminSupport = (status = 'open') =>
   rpc<AdminSupportThread[]>('admin_list_support_threads', { p_status: status });
 
