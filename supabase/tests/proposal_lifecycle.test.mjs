@@ -216,7 +216,7 @@ async function createDeliveredBooking({
     `insert into public.payment_schedule (
        booking_id, seq, obligation_type, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
      ) values (
-       $1::uuid, 0, 'service', 'Delivery balance', $5::int, $4::text,
+       $1::uuid, 1, 'service', 'Delivery balance', $5::int, $4::text,
        now() - ($2::int * interval '1 hour'), $3::text, 'milestone',
        case when $3::text = 'paid' then now() else null end,
        case when $3::text = 'paid' then now() else null end
@@ -248,7 +248,8 @@ async function addPaidAdvanceAndPolicy(
 ) {
   await db.query(`
     update public.payment_schedule
-       set amount = $3::int,
+       set seq = 2,
+           amount = $3::int,
            due_at = now() - make_interval(hours => $2::int),
            reminded_at = now() - make_interval(hours => $2::int)
      where id = $1::uuid
