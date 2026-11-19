@@ -1,6 +1,7 @@
-import { Image } from 'expo-image';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { Badge, Card, Text } from '../../components/ui';
+import { ListingCard } from '../../components/market/ListingCard';
+import { useT } from '../../i18n';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useTheme } from '../../theme';
 import type { ProductUnit, SearchProduct, ShopStatus } from './api';
@@ -40,37 +41,50 @@ export function ShopProductCard({
   product,
   imageUrl,
   onPress,
+  layout = 'row',
 }: {
   product: SearchProduct;
   imageUrl: string | null;
   onPress: () => void;
+  layout?: 'row' | 'grid';
 }) {
-  const t = useTheme();
+  const theme = useTheme();
+  const translate = useT();
+  const indicativePrice = formatIndicativePrice(product.indicative_price_paise, product.unit);
+  const priceLabel = product.indicative_price_paise == null
+    ? indicativePrice
+    : translate('listing.from', { price: indicativePrice });
+  const subtitle = [
+    product.brand,
+    product.model,
+    product.shop_name,
+    product.distance_km == null ? null : translate('listing.kmAway', { km: product.distance_km.toFixed(1) }),
+  ].filter(Boolean).join(' · ');
+
   return (
-    <Pressable onPress={onPress} accessibilityRole="button">
-      <Card style={{ flexDirection: 'row', gap: t.spacing.md, alignItems: 'center' }}>
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={{ width: 76, height: 76, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt }} contentFit="cover" />
-        ) : (
-          <View style={{ width: 76, height: 76, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' }}>
-            <Text variant="caption" color="muted">No photo</Text>
-          </View>
-        )}
-        <View style={{ flex: 1, gap: 4 }}>
-          <Text variant="calloutStrong" numberOfLines={2}>{product.name}</Text>
-          <Text variant="footnote" color="muted" numberOfLines={1}>
-            {[product.brand, product.model, product.shop_name].filter(Boolean).join(' · ')}
-          </Text>
-          <IndicativePrice
-            pricePaise={product.indicative_price_paise}
-            unit={product.unit}
-            updatedAt={product.price_updated_at}
-          />
-          {product.distance_km != null ? <Text variant="caption" color="muted">{product.distance_km.toFixed(1)} km away</Text> : null}
-          {!product.in_stock ? <Badge label="Currently unavailable" tone="warning" /> : null}
-        </View>
-      </Card>
-    </Pressable>
+    <View
+      style={{
+        width: layout === 'grid' ? '48%' : undefined,
+        gap: theme.spacing.xs,
+        marginBottom: layout === 'grid' ? theme.spacing.md : undefined,
+      }}
+    >
+      <ListingCard
+        variant="product"
+        layout={layout}
+        title={product.name}
+        subtitle={subtitle}
+        imageUrl={imageUrl}
+        priceLabel={priceLabel}
+        onPress={onPress}
+      />
+      {layout === 'grid' ? (
+        <Text variant="footnote" color="muted" numberOfLines={1}>
+          {[product.shop_name, product.distance_km == null ? null : translate('listing.kmAway', { km: product.distance_km.toFixed(1) })].filter(Boolean).join(' · ')}
+        </Text>
+      ) : null}
+      {!product.in_stock ? <Badge label="Currently unavailable" tone="warning" /> : null}
+    </View>
   );
 }
 

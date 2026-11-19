@@ -1,20 +1,28 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import { Badge, Button, Card, Chip, EmptyState, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text } from '../../src/components/ui';
+import { Badge, Button, Card, EmptyState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../src/components/ui';
+import { ChipRow } from '../../src/components/market/ChipRow';
+import { ListingCard } from '../../src/components/market/ListingCard';
+import { SearchField } from '../../src/components/market/SearchField';
 import { listMyProductEnquiries, listProductCategories, searchShops, type EnquirySummary, type ProductCategory, type ShopResult } from '../../src/features/shops/api';
 import { FeatureUnavailable, useShopFeatureFlags } from '../../src/features/shops/components';
+import { useRfqFeatureFlags } from '../../src/features/rfq/components';
+import { useT } from '../../src/i18n';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useTheme } from '../../src/theme';
 
 export default function ShopMarketplaceScreen() {
-  const t = useTheme();
+  const theme = useTheme();
+  const translate = useT();
   const features = useShopFeatureFlags();
+  const { rfq: rfqEnabled } = useRfqFeatureFlags();
   const { location } = useSelectedLocation();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [shops, setShops] = useState<ShopResult[]>([]);
   const [enquiries, setEnquiries] = useState<EnquirySummary[]>([]);
   const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +46,15 @@ export default function ShopMarketplaceScreen() {
     }
   }, [features.products, features.enquiries, location.lat, location.lng]);
 
+  const openProducts = (searchQuery: string) => {
+    router.push({ pathname: '/products', params: { q: searchQuery.trim() } });
+  };
+
+  const selectCategory = (slug: string) => {
+    setCategory(slug);
+    router.push(slug ? { pathname: '/products', params: { category: slug } } : '/products');
+  };
+
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   if (!features.products) {
@@ -47,32 +64,46 @@ export default function ShopMarketplaceScreen() {
   return (
     <Screen
       header={<Header title="Shop local" subtitle="Products from verified neighbourhood shops" />}
-      gap={t.spacing.lg}
+      gap={theme.spacing.lg}
       refreshing={loading}
       onRefresh={() => void load()}
     >
       <InlineAlert message={error} />
-      <Card gap={t.spacing.md}>
-        <Text variant="title3">Find a product</Text>
-        <Input label="Search products" placeholder="Tiles, paint, switches…" value={query} onChangeText={setQuery} returnKeyType="search" onSubmitEditing={() => router.push({ pathname: '/products', params: { q: query.trim() } })} />
-        <Button title="Search products" onPress={() => router.push({ pathname: '/products', params: { q: query.trim() } })} />
-      </Card>
+      <SearchField
+        mode="input"
+        value={query}
+        onChangeText={setQuery}
+        onSubmit={openProducts}
+        placeholder={translate('search.placeholder')}
+      />
+      <Button title="Search products" onPress={() => openProducts(query)} />
 
-      <View style={{ gap: t.spacing.sm }}>
+      <View style={{ gap: theme.spacing.sm }}>
         <Text variant="title3">Browse categories</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-          {categories.map((category) => (
-            <Chip
-              key={category.id}
-              label={category.name}
-              onPress={() => router.push({ pathname: '/products', params: { category: category.slug } })}
-            />
-          ))}
-        </View>
+        <ChipRow
+          options={[
+            { value: '', label: translate('search.scope.all') },
+            ...categories.map((item) => ({ value: item.slug, label: item.name })),
+          ]}
+          value={category}
+          onChange={selectCategory}
+          accessibilityLabel={translate('search.title')}
+        />
       </View>
 
+      {rfqEnabled ? (
+        <Card
+          variant="tinted"
+          tint={theme.colors.catShopsSoft}
+          onPress={() => router.push('/rfq/new')}
+          accessibilityLabel={translate('rfq.banner')}
+        >
+          <Text variant="bodyStrong">{translate('rfq.banner')}</Text>
+        </Card>
+      ) : null}
+
       {features.enquiries ? (
-        <View style={{ gap: t.spacing.sm }}>
+        <View style={{ gap: theme.spacing.sm }}>
           <Text variant="title3">Your product enquiries</Text>
           {enquiries.length ? enquiries.slice(0, 5).map((enquiry) => (
             <ListItem
@@ -87,19 +118,28 @@ export default function ShopMarketplaceScreen() {
         </View>
       ) : null}
 
-      <View style={{ gap: t.spacing.sm }}>
+      <View style={{ gap: theme.spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text variant="title3">Nearby shops</Text>
           <Text variant="caption" color="muted">{location.city}</Text>
         </View>
-        {loading ? <Skeleton height={92} radius={t.radii.lg} /> : shops.length ? shops.map((shop) => (
-          <Card key={shop.id} gap={4} onPress={() => router.push(`/shop/${shop.id}`)}>
-            <Text variant="calloutStrong">{shop.name}</Text>
-            <Text variant="footnote" color="muted">{[shop.area, shop.city, shop.distance_km == null ? null : `${shop.distance_km.toFixed(1)} km`].filter(Boolean).join(' · ')}</Text>
-            <Text variant="caption" color="muted">
-              {shop.category_slugs.slice(0, 3).join(' · ')}{shop.offers_delivery ? ' · Delivery' : ''}{shop.offers_pickup ? ' · Pickup' : ''}
-            </Text>
-          </Card>
+        {loading ? <Skeleton height={92} radius={theme.radii.lg} /> : shops.length ? shops.map((shop) => (
+          <ListingCard
+            key={shop.id}
+            variant="shop"
+            title={shop.name}
+            subtitle={[
+              shop.area,
+              shop.city,
+              shop.distance_km == null ? null : translate('listing.kmAway', { km: shop.distance_km.toFixed(1) }),
+            ].filter(Boolean).join(' · ')}
+            tags={[
+              ...shop.category_slugs.slice(0, 2),
+              ...(shop.offers_delivery ? ['Delivery'] : []),
+              ...(shop.offers_pickup ? ['Pickup'] : []),
+            ]}
+            onPress={() => router.push(`/shop/${shop.id}`)}
+          />
         )) : (
           <EmptyState title="No verified shops nearby yet" message="Try searching for a product across other nearby areas." />
         )}

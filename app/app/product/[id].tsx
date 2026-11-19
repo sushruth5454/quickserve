@@ -1,10 +1,12 @@
-import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, Button, Card, Header, InlineAlert, Screen, Skeleton, Text, TextArea } from '../../src/components/ui';
+import { MediaImage } from '../../src/components/market/MediaImage';
+import { PriceFooter } from '../../src/components/market/PriceFooter';
 import { getProduct, signedProductImage, startProductEnquiry, type ProductDetail } from '../../src/features/shops/api';
-import { FeatureUnavailable, IndicativePrice, useShopFeatureFlags } from '../../src/features/shops/components';
+import { FeatureUnavailable, useShopFeatureFlags } from '../../src/features/shops/components';
+import { formatIndicativePrice } from '../../src/features/shops/format';
 import { useTheme } from '../../src/theme';
 
 export default function ProductDetailScreen() {
@@ -12,7 +14,7 @@ export default function ProductDetailScreen() {
   const features = useShopFeatureFlags();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductDetail | null>(null);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<(string | null)[]>([]);
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ export default function ProductDetailScreen() {
       const next = await getProduct(id);
       setProduct(next);
       const signed = await Promise.all((next?.image_paths ?? []).map((path) => signedProductImage(path).catch(() => null)));
-      setImages(signed.filter((url): url is string => !!url));
+      setImages(signed);
       setError(next ? null : 'This product is no longer available.');
     } catch (e) {
       setError((e as Error).message);
@@ -53,33 +55,83 @@ export default function ProductDetailScreen() {
     return <Screen header={<Header title="Product" />}><FeatureUnavailable /></Screen>;
   }
 
+  const shopRoute = () => {
+    if (product) router.push(`/shop/${product.shop_id}`);
+  };
+  const priceUpdatedAt = product?.price_updated_at
+    ? new Date(product.price_updated_at).toLocaleDateString('en-IN')
+    : null;
+
   return (
-    <Screen header={<Header title={product?.name ?? 'Product'} subtitle={product ? `${product.shop_name} · ${product.area}, ${product.city}` : undefined} />} gap={t.spacing.md} refreshing={loading} onRefresh={() => void load()}>
+    <Screen
+      header={<Header title={product?.name ?? 'Product'} subtitle={product ? `${product.shop_name} · ${product.area}, ${product.city}` : undefined} />}
+      gap={t.spacing.md}
+      refreshing={loading}
+      onRefresh={() => void load()}
+      footer={product ? (
+        <PriceFooter
+          caption="Indicative price"
+          amountLabel={formatIndicativePrice(product.indicative_price_paise, product.unit)}
+          amountVariant="text"
+          note={{
+            text: priceUpdatedAt
+              ? `Indicative price — confirm with shop. Price updated ${priceUpdatedAt}`
+              : 'Indicative price — confirm with shop.',
+          }}
+          above={features.enquiries ? (
+            <Button title={`Visit ${product.shop_name}`} variant="outline" onPress={shopRoute} />
+          ) : null}
+          cta={features.enquiries ? {
+            title: 'Send enquiry',
+            loading: busy,
+            disabled: !body.trim(),
+            onPress: () => void enquire(),
+          } : {
+            title: `Visit ${product.shop_name}`,
+            onPress: shopRoute,
+          }}
+        />
+      ) : undefined}
+    >
       <InlineAlert message={error} />
       {loading && !product ? <Skeleton height={220} radius={t.radii.lg} /> : null}
       {product ? (
         <>
-          {images.length ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-              {images.map((url) => <Image key={url} source={{ uri: url }} style={{ width: '48%', aspectRatio: 1, borderRadius: t.radii.md, backgroundColor: t.colors.surfaceAlt }} contentFit="cover" />)}
-            </View>
-          ) : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            {(images.length ? images : [null]).map((url, index) => (
+              <View key={product.image_paths[index] ?? `${product.id}-${index}`} style={{ width: '48%', marginBottom: t.spacing.md }}>
+                <MediaImage
+                  uri={url}
+                  aspectRatio={1}
+                  fallbackIcon="image-outline"
+                  accessibilityLabel={product.name}
+                />
+              </View>
+            ))}
+          </View>
           <Card>
             <Text variant="title2">{product.name}</Text>
             <Text variant="footnote" color="muted">{[product.brand, product.model, product.category_name].filter(Boolean).join(' · ')}</Text>
-            <IndicativePrice pricePaise={product.indicative_price_paise} unit={product.unit} updatedAt={product.price_updated_at} />
             <Badge label={product.in_stock ? 'In stock' : 'Currently unavailable'} tone={product.in_stock ? 'success' : 'warning'} />
             {product.description ? <Text>{product.description}</Text> : null}
-            {Object.entries(product.specs ?? {}).map(([key, value]) => (
-              <Text key={key} variant="footnote" color="textSecondary">{`${key.replaceAll('_', ' ')}: ${String(value)}`}</Text>
-            ))}
-            <Button title={`Visit ${product.shop_name}`} variant="outline" onPress={() => router.push(`/shop/${product.shop_id}`)} />
           </Card>
+          {Object.keys(product.specs ?? {}).length ? (
+            <Card gap={t.spacing.md}>
+              <Text variant="title3">Specifications</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                {Object.entries(product.specs ?? {}).map(([key, value]) => (
+                  <View key={key} style={{ width: '48%', gap: t.spacing.xs, marginBottom: t.spacing.md }}>
+                    <Text variant="caption" color="muted">{key.replaceAll('_', ' ')}</Text>
+                    <Text variant="footnote" color="textSecondary">{String(value)}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+          ) : null}
           {features.enquiries ? (
             <Card>
               <Text variant="title3">Enquire with the shop</Text>
               <TextArea label="Message" value={body} onChangeText={setBody} placeholder="Ask about availability, specifications or delivery" maxLength={2000} />
-              <Button title="Send enquiry" loading={busy} disabled={!body.trim()} onPress={() => void enquire()} />
             </Card>
           ) : <Text variant="footnote" color="muted">Product enquiries are not available right now.</Text>}
         </>

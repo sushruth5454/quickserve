@@ -1,11 +1,12 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Chip, EmptyState, Header, InlineAlert, Input, Screen, Skeleton, Text } from '../src/components/ui';
+import { Button, Card, Chip, EmptyState, Header, InlineAlert, Input, Screen, Skeleton, Text } from '../src/components/ui';
 import { listProductCategories, searchProducts, signedProductImage, type ProductCategory, type SearchProduct } from '../src/features/shops/api';
 import { searchProductsWithAi } from '../src/features/ai/productSearch';
 import { FeatureUnavailable, ShopProductCard, useShopFeatureFlags } from '../src/features/shops/components';
 import { useRfqFeatureFlags } from '../src/features/rfq/components';
+import { useT } from '../src/i18n';
 import { isDemoMode } from '../src/lib/config';
 import { useAppFeatureFlags } from '../src/lib/featureFlags';
 import { parseRupees } from '../src/lib/onboarding/validation';
@@ -14,6 +15,7 @@ import { useTheme } from '../src/theme';
 
 export default function ProductSearchScreen() {
   const t = useTheme();
+  const translate = useT();
   const features = useShopFeatureFlags();
   const appFeatures = useAppFeatureFlags();
   const aiProductSearch = !isDemoMode && appFeatures.isOn('ai_product_search');
@@ -118,6 +120,16 @@ export default function ProductSearchScreen() {
       onRefresh={() => void load()}
     >
       <InlineAlert message={error} />
+      {rfqEnabled ? (
+        <Card
+          variant="tinted"
+          tint={t.colors.catShopsSoft}
+          onPress={() => router.push('/rfq/new')}
+          accessibilityLabel={translate('rfq.banner')}
+        >
+          <Text variant="bodyStrong">{translate('rfq.banner')}</Text>
+        </Card>
+      ) : null}
       {aiProductSearch ? (
         <View style={{ gap: t.spacing.sm }}>
           <Input
@@ -153,12 +165,19 @@ export default function ProductSearchScreen() {
         ))}
       </View>
       <Button title="Apply search and filters" variant="outline" onPress={() => void load()} />
-      {rfqEnabled ? (
-        <Button title="Request quotes from multiple shops" variant="outline" onPress={() => router.push('/rfq/new')} />
-      ) : null}
-      {loading ? <Skeleton height={100} radius={t.radii.lg} /> : products.length ? products.map((product) => (
-        <ShopProductCard key={product.id} product={product} imageUrl={images[product.id] ?? null} onPress={() => router.push(`/product/${product.id}`)} />
-      )) : (
+      {loading ? <Skeleton height={100} radius={t.radii.lg} /> : products.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          {products.map((product) => (
+            <ShopProductCard
+              key={product.id}
+              product={product}
+              imageUrl={images[product.id] ?? null}
+              layout="grid"
+              onPress={() => router.push(`/product/${product.id}`)}
+            />
+          ))}
+        </View>
+      ) : (
         <EmptyState title="No products found" message="Try a different product name, category, price or location." />
       )}
       {!loading && products.length ? <Text variant="caption" color="muted">Showing verified shops, ordered by distance.</Text> : null}
