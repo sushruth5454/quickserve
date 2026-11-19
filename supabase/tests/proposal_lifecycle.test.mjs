@@ -99,6 +99,15 @@ async function as(uid, role, sql, params = []) {
   }
 }
 
+async function fails(fn) {
+  try {
+    await fn();
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
 const service = (sql, params = []) => as(null, 'service_role', sql, params);
 let fixtureIndex = 0;
 let phoneIndex = 0;
