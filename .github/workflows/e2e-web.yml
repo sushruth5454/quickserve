@@ -2,7 +2,7 @@ name: E2E web smoke test
 
 on:
   push:
-    # E2E never applies migrations (deploy-backend does, on main only), so it runs against the deployed schema.
+    # E2E never applies migrations. The job waits for the latest migration in this revision to be deployed.
     # Lanes do not trigger E2E automatically (shared backend, ~30 min per run). App-only batches on integrate/ui-** do,
     # and main does after every deploy. A lane changing app/app/** or e2e/** without migrations may request one run:
     #   gh workflow run e2e-web.yml --ref lane/<ID>
@@ -33,6 +33,59 @@ jobs:
       TARGET_SDK: '58'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Wait for backend migrations to be deployed
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import time
+          import urllib.request
+
+          versions = []
+          for path in pathlib.Path("supabase/migrations").glob("*.sql"):
+              match = re.match(r"^(\d{4}[a-z]?)_", path.name)
+              if not match:
+                  raise SystemExit(f"Unrecognized migration filename: {path.name}")
+              versions.append(match.group(1))
+          if not versions:
+              raise SystemExit("No migration files found; refusing to run E2E without a schema version.")
+          expected = max(versions)
+          project_ref = os.environ.get("PROJECT_REF")
+          token = os.environ.get("SUPABASE_ACCESS_TOKEN")
+          if not project_ref or not token:
+              raise SystemExit("SUPABASE_PROJECT_REF and SUPABASE_ACCESS_TOKEN are required for the schema gate.")
+          url = f"https://api.supabase.com/v1/projects/{project_ref}/database/query"
+          sql = (
+              "select exists(select 1 from supabase_migrations.schema_migrations "
+              f"where version = '{expected}') as applied"
+          )
+          for attempt in range(30):
+              request = urllib.request.Request(
+                  url,
+                  data=json.dumps({"query": sql}).encode(),
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                  },
+                  method="POST",
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  rows = json.loads(response.read().decode() or "[]")
+              if rows and rows[0].get("applied"):
+                  print(f"Latest migration {expected} is applied; starting E2E.")
+                  break
+              print(f"Waiting for migration {expected} (attempt {attempt + 1}/30).")
+              if attempt < 29:
+                  time.sleep(30)
+          else:
+              raise SystemExit(f"Migration {expected} was not applied within 15 minutes; E2E stopped.")
+          PY
 
       - uses: actions/setup-node@v4
         with:
