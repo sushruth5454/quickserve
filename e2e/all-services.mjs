@@ -189,6 +189,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.locator('text="Tiles" >> visible=true').last().click();
     await page.getByLabel('Request title').fill(`${qaMarker} tile quotation`);
     await page.getByLabel('Description').first().fill('Anti-skid floor tiles for a demo bathroom');
+    await page.getByLabel('Quantity').first().fill('500');
     await page.getByLabel('Notes for suppliers (optional)').fill(qaMarker);
     await page.getByText('Send request', { exact: true }).last().click();
     await page.waitForURL(/\/rfq\/[0-9a-f-]{36}$/);
