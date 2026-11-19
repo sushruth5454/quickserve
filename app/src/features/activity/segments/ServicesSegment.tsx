@@ -8,13 +8,14 @@ import { activeStatuses, nextStepCopy, StatusPill, statusShort } from '../../../
 import { ProgressBar } from '../../../components/StatusTimeline';
 import { UnreadMessagesRow } from '../../../components/UnreadChat';
 import { Button, Card, Chip, EmptyState, ErrorState, InlineAlert, SegmentedControl, SkeletonBookingCard, Skeleton, Text } from '../../../components/ui';
-import { listMyBookings } from '../../../lib/api';
-import { useFeature } from '../../../lib/featureFlags';
+import { getPayments, listMyBookings } from '../../../lib/api';
+import { useAppFeatureFlags } from '../../../lib/featureFlags';
 import { formatINR } from '../../../lib/money';
 import { bookingRef, scheduleLabel } from '../../../lib/schedule';
 import type { Booking } from '../../../lib/types';
 import { useUnread } from '../../../lib/unreadContext';
 import { useTheme } from '../../../theme';
+import { activityReceiptLabel, shouldShowPaymentReceipt } from '../../receipts/formatReceipt';
 import { listMyRecurringPlans } from '../../recurring/api';
 import { shouldShowRepeatPlansFilter } from '../../recurring/customerPresentation';
 import { bookAgainRoute } from '../bookAgain';
@@ -23,7 +24,9 @@ import type { MarkRead, RegisterRefresh } from './types';
 
 export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: RegisterRefresh; markRead: MarkRead }) {
   const t = useTheme();
-  const recurringEnabled = useFeature('recurring_bookings');
+  const flags = useAppFeatureFlags();
+  const recurringEnabled = flags.isOn('recurring_bookings');
+  const receiptsEnabled = flags.isOn('payment_receipts');
   const unread = useUnread();
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [plans, setPlans] = useState<ActivityPlanSummary[] | null>(null);
@@ -73,6 +76,20 @@ export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh
   const open = (booking: Booking) => {
     void markRead('booking', booking.id).catch(() => undefined);
     router.push({ pathname: '/booking/[id]', params: { id: booking.id } });
+  };
+  const openReceipt = async (booking: Booking) => {
+    try {
+      const payment = (await getPayments(booking.id))
+        .filter((item) => shouldShowPaymentReceipt(true, item))
+        .at(-1);
+      if (payment) {
+        router.push({ pathname: '/receipt/[paymentId]', params: { paymentId: payment.id } });
+        return;
+      }
+    } catch {
+      // Keep booking details available if receipt lookup is temporarily unavailable.
+    }
+    open(booking);
   };
 
   return (
@@ -204,11 +221,11 @@ export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh
                       />
                     ) : null}
                     <Button
-                      title={done ? 'Receipt' : 'Details'}
+                      title={activityReceiptLabel(done, receiptsEnabled)}
                       size="sm"
                       variant="outline"
-                      leftIcon={done ? 'receipt-outline' : 'document-text-outline'}
-                      onPress={() => open(booking)}
+                      leftIcon={done && receiptsEnabled ? 'receipt-outline' : 'document-text-outline'}
+                      onPress={() => done && receiptsEnabled ? void openReceipt(booking) : open(booking)}
                       style={{ flex: 1 }}
                     />
                   </View>

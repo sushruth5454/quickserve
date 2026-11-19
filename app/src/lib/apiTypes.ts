@@ -136,6 +136,60 @@ export interface PaymentLinkResponse {
   schedule_id?: string | null;
 }
 
+export interface PaymentReceiptItem {
+  description: string;
+  kind: string;
+  qty: number;
+  unit_price: number;
+  amount: number;
+}
+
+export interface PaymentReceiptPayment {
+  amount: number;
+  purpose?: string | null;
+  method: string | null;
+  gateway_ref: string | null;
+  paid_at: string | null;
+}
+
+export interface PaymentReceiptRefund {
+  amount: number;
+  status: string;
+  processed_at: string | null;
+}
+
+export interface PaymentReceiptSnapshot {
+  receipt_no: string;
+  issued_at: string;
+  status: string;
+  booking_ref: string;
+  category: string;
+  provider_display_name: string;
+  customer_name: string;
+  customer_locality: string | null;
+  items: PaymentReceiptItem[];
+  subtotal: number;
+  platform_fee: number;
+  tax_lines: { label: string; amount: number }[];
+  coins_discount: number;
+  total: number;
+  prior_payments: PaymentReceiptPayment[];
+  this_payment: PaymentReceiptPayment;
+  balance_due: number;
+  refunds: PaymentReceiptRefund[];
+  dispute_link: string | null;
+  tax_invoice_url: string | null;
+}
+
+export interface PaymentReceipt {
+  id: string;
+  receipt_no: string;
+  payment_id: string;
+  booking_id: string;
+  issued_at: string;
+  snapshot: PaymentReceiptSnapshot;
+}
+
 export interface ProviderProfileInput {
   fullName: string;
   bio: string;
@@ -227,6 +281,7 @@ export interface Api {
   getBookingCommissionRate(bookingId: string): Promise<number>;
   getQuotes(bookingId: string): Promise<Quote[]>;
   getPayments(bookingId: string): Promise<Payment[]>;
+  getReceipt(paymentId: string): Promise<PaymentReceipt | null>;
   getEvents(bookingId: string): Promise<BookingEvent[]>;
   getBookingOtps(bookingId: string): Promise<BookingOtps | null>;
   getBookingAddress(bookingId: string): Promise<BookingAddress | null>;

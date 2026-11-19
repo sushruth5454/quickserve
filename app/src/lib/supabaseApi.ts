@@ -9,6 +9,7 @@ import type {
   CommissionTerms,
   CreateBookingInput,
   PaymentLinkResponse,
+  PaymentReceipt,
   ProviderDetail,
   ProviderProfileInput,
   ProviderServiceWithProvider,
@@ -540,6 +541,13 @@ export async function getPayments(bookingId: string): Promise<Payment[]> {
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: true }),
   );
+}
+
+export async function getReceipt(paymentId: string): Promise<PaymentReceipt | null> {
+  const rows = unwrap(
+    await supabase.rpc('get_receipt', { p_payment_id: paymentId }),
+  ) as PaymentReceipt[];
+  return rows[0] ?? null;
 }
 
 export async function getEvents(bookingId: string): Promise<BookingEvent[]> {

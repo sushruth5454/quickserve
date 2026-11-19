@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Fragment } from 'react';
 import { View } from 'react-native';
-import { Badge, Card, Divider, LIST_INSET, Section, Text, type Tone } from '../../components/ui';
+import { Badge, Button, Card, Divider, LIST_INSET, Section, Text, type Tone } from '../../components/ui';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { formatINR } from '../../lib/money';
 import type { Payment, PaymentStatus } from '../../lib/types';
 import type { useTheme } from '../../theme';
+import { shouldShowPaymentReceipt } from '../receipts/formatReceipt';
 import { fmt } from './model';
 
 type Theme = ReturnType<typeof useTheme>;
@@ -19,6 +22,7 @@ const PAYMENT_STATUS: Record<PaymentStatus, [string, Tone]> = {
 };
 
 export function PaymentsSection({ payments, theme: t }: { payments: Payment[]; theme: Theme }) {
+  const receiptsEnabled = useAppFeatureFlags().isOn('payment_receipts');
   return (
     <Section title="Payments">
       <Card padding={0} gap={0}>
@@ -53,6 +57,17 @@ export function PaymentsSection({ payments, theme: t }: { payments: Payment[]; t
                     <Badge label={label} tone={tone} />
                   </View>
                 </View>
+                {shouldShowPaymentReceipt(receiptsEnabled, p) ? (
+                  <View style={{ alignItems: 'flex-end', paddingHorizontal: t.spacing.lg, paddingBottom: t.spacing.md }}>
+                    <Button
+                      title="View receipt"
+                      size="sm"
+                      variant="outline"
+                      testID={`view-receipt-${p.id}`}
+                      onPress={() => router.push({ pathname: '/receipt/[paymentId]', params: { paymentId: p.id } })}
+                    />
+                  </View>
+                ) : null}
               </Fragment>
             );
           })

@@ -50,6 +50,7 @@ export const {
   getBookingCommissionRate,
   getQuotes,
   getPayments,
+  getReceipt,
   getEvents,
   getBookingOtps,
   getBookingAddress,
