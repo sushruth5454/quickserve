@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { ListingCard } from '../../src/components/market/ListingCard';
 import { Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../src/components/ui';
 import { getSportsHomePaymentNotice } from '../../src/features/sports/model';
 import { useAuth } from '../../src/lib/auth';
@@ -53,43 +54,48 @@ export default function SportsHomeScreen() {
         <EmptyState icon="football-outline" title="No activities available" message="Please check again later." />
       ) : (
         <>
-          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            <Card onPress={() => router.push('/sports/bookings' as Href)} style={{ flex: 1 }}>
-              <Text variant="calloutStrong">My sports requests</Text>
-            </Card>
+          <View style={{ gap: t.spacing.sm }}>
+            <ListingCard
+              variant="venue"
+              title="My sports requests"
+              subtitle="View your sports bookings and requests"
+              onPress={() => router.push('/sports/bookings' as Href)}
+            />
             {activeRole === 'provider' ? (
-              <Card onPress={() => router.push('/sports/manage' as Href)} style={{ flex: 1 }}>
-                <Text variant="calloutStrong">My venues</Text>
-              </Card>
+              <ListingCard
+                variant="venue"
+                title="My venues"
+                subtitle="Manage your sports venues"
+                onPress={() => router.push('/sports/manage' as Href)}
+              />
             ) : null}
           </View>
-          <View style={{ gap: t.spacing.sm }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: t.spacing.sm }}>
             {activities.map((activity) => (
-              <Pressable
+              <Card
                 key={activity.id}
-                accessibilityRole="button"
-                onPress={() => router.push(`/sports/${activity.slug}` as Href)}
-                style={({ pressed }) => ({
-                  minHeight: 68,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: t.spacing.md,
-                  padding: t.spacing.md,
-                  borderRadius: t.radii.lg,
-                  borderWidth: 1,
-                  borderColor: t.colors.border,
-                  backgroundColor: pressed ? t.colors.surfaceAlt : t.colors.surface,
-                })}
+                variant="outlined"
+                style={{ width: '48%', minHeight: 132, justifyContent: 'center' }}
+                onPress={() => router.push({
+                  pathname: '/sports/[activity]',
+                  params: { activity: activity.slug, name: activity.name },
+                } as Href)}
+                accessibilityLabel={`${activity.name} sports venues`}
               >
-                <View style={{
-                  width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: t.colors.primarySoft,
-                }}>
-                  <Ionicons name={activity.icon as never} size={22} color={t.colors.primaryText} />
+                <View style={{ alignItems: 'flex-start', gap: t.spacing.md }}>
+                  <View style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: t.radii.pill,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: t.colors.catSportsSoft,
+                  }}>
+                    <Ionicons name={activity.icon as never} size={t.iconSize.lg} color={t.colors.catSports} />
+                  </View>
+                  <Text variant="calloutStrong" numberOfLines={2}>{activity.name}</Text>
                 </View>
-                <Text variant="bodyStrong" style={{ flex: 1 }}>{activity.name}</Text>
-                <Ionicons name="chevron-forward" size={18} color={t.colors.muted} />
-              </Pressable>
+              </Card>
             ))}
           </View>
           <Text variant="caption" color="muted" style={{ textAlign: 'center' }}>

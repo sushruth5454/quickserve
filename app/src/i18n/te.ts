@@ -106,6 +106,7 @@ export const te: Partial<Record<keyof typeof en, string>> = {
   'pillar.home.sub': 'మరమ్మతులు, శుభ్రపరిచే పనులు, వంటవారు మరియు మరెన్నో',
   'pillar.shops.sub': 'సమీప దుకాణాల నుంచి ఉత్పత్తులు మరియు పెద్ద మొత్తపు ధరలు',
   'pillar.sports.sub': 'కోర్టులు, టర్ఫ్‌లు మరియు శిక్షణను బుక్ చేయండి',
+  'sports.slotUnavailable': 'అందుబాటులో లేదు',
   'pillar.creators.sub': 'వీడియో, ఫోటోలు, డిజైన్ మరియు మరెన్నో',
   'trust.verified': 'ధృవీకరించిన సేవాదారులు',
   'trust.price': 'చెల్లించే ముందు ధర చూడండి',

@@ -309,7 +309,7 @@ jobs:
           print("0019 live fixed-booking verification succeeded (rolled back fixture).")
           PY
 
-      - name: Apply migrations 0020-0074 through the Management API
+      - name: Apply migrations 0020-0084 through the Management API
         if: env.SUPABASE_ACCESS_TOKEN != '' && env.PROJECT_REF != ''
         env:
           MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -332,7 +332,7 @@ jobs:
                   headers={
                       "Authorization": f"Bearer {token}",
                       "Content-Type": "application/json",
-                      "User-Agent": "quickserve-0020-0074-ci",
+                      "User-Agent": "quickserve-0020-0084-ci",
                   },
                   method="POST",
               )
@@ -352,7 +352,7 @@ jobs:
               return bool(rows and rows[0].get("applied"))
 
           if not applied("0019"):
-              raise SystemExit("0019 is not live; refusing to apply 0020-0074.")
+              raise SystemExit("0019 is not live; refusing to apply 0020-0084.")
 
           # Each migration commits on its own: 0023 uses enum labels that 0020 must commit first.
           for version, name in [
@@ -412,6 +412,16 @@ jobs:
              ("0072", "0072_s1_sports_money_hardening.sql"),
              ("0073", "0073_b1_server_pricing.sql"),
              ("0074", "0074_p1b_rfq.sql"),
+             ("0075", "0075_f2_commission_correctness.sql"),
+             ("0076", "0076_f4_refund_dispute_engine.sql"),
+             ("0077", "0077_f5_webhook_log_financial_journal.sql"),
+             ("0078", "0078_f6_reconciliation_chargebacks.sql"),
+             ("0079", "0079_f7_platform_fees_and_identity.sql"),
+             ("0080", "0080_s2_sports_ops_ux.sql"),
+             ("0081", "0081_c2_creator_delivery.sql"),
+             ("0082", "0082_c1_creator_delivery_safety.sql"),
+             ("0083", "0083_h3_home_booking_safety.sql"),
+             ("0084", "0084_b2_receipts.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
@@ -494,7 +504,7 @@ jobs:
           for f in create-payment ai-assistant provider-payout-account provider-service places; do
             supabase functions deploy "$f" --project-ref "$PROJECT_REF" --yes
           done
-          for f in razorpay-webhook release-payouts process-refunds send-notifications review-insights verify-payment; do
+          for f in razorpay-webhook release-payouts process-refunds reconcile-payments send-notifications review-insights verify-payment; do
             supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF" --yes
           done
 

@@ -9,6 +9,7 @@ import type {
   CommissionTerms,
   CreateBookingInput,
   PaymentLinkResponse,
+  PaymentReceipt,
   ProviderDetail,
   ProviderProfileInput,
   ProviderServiceWithProvider,
@@ -331,6 +332,10 @@ export async function acceptDelivery(bookingId: string): Promise<void> {
   await rpcVoid('accept_delivery', { p_booking_id: bookingId });
 }
 
+export async function cancelProposalPaymentDefault(bookingId: string): Promise<void> {
+  await rpcVoid('cancel_proposal_payment_default', { p_booking_id: bookingId });
+}
+
 /** Columns granted to anon/authenticated on public.providers (migration 0009). */
 const PUBLIC_PROVIDER_COLUMNS =
   'id, bio, city, service_radius_km, years_experience, languages, kyc_status, suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, created_at, paused, base_area, timezone';
@@ -539,6 +544,13 @@ export async function getPayments(bookingId: string): Promise<Payment[]> {
   );
 }
 
+export async function getReceipt(paymentId: string): Promise<PaymentReceipt | null> {
+  const rows = unwrap(
+    await supabase.rpc('get_receipt', { p_payment_id: paymentId }),
+  ) as PaymentReceipt[];
+  return rows[0] ?? null;
+}
+
 export async function getEvents(bookingId: string): Promise<BookingEvent[]> {
   return unwrap(
     await supabase.from('booking_events').select('*').eq('booking_id', bookingId).order('at', { ascending: true }),
@@ -631,8 +643,12 @@ export async function cancelBooking(id: string, reason?: string): Promise<void> 
     p_reason: reason ?? null,
   });
 }
+export const providerCancelBooking = (id: string, reason: 'provider_cancellation' | 'provider_no_show' = 'provider_cancellation') =>
+  rpcVoid('provider_cancel_booking', { p_booking_id: id, p_reason: reason, p_note: null });
 export const disputeBooking = (id: string, reason: string) =>
   rpcVoid('dispute_booking', { p_booking_id: id, p_reason: reason });
+export const reportNoShow = (id: string, absentParty: 'customer' | 'provider') =>
+  rpcVoid('report_no_show', { p_booking_id: id, p_party: absentParty });
 export const regenerateOtp = (id: string, kind: 'start' | 'end') =>
   rpcVoid('regenerate_otp', { p_booking_id: id, p_kind: kind });
 export const rejectQuote = (bookingId: string, quoteId: string) =>

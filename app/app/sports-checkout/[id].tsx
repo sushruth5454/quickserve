@@ -1,11 +1,11 @@
-import * as WebBrowser from 'expo-web-browser';
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../src/components/ui';
-import { createSportsPayment, getCustomerSportsBooking, type CustomerSportsBookingDetail } from '../../src/features/sports/api';
+import { getCustomerSportsBooking, type CustomerSportsBookingDetail } from '../../src/features/sports/api';
 import { canContinueSportsCheckout, getSportsBookingStatusLabel } from '../../src/features/sports/model';
 import { formatINR } from '../../src/lib/money';
+import { usePayment } from '../../src/lib/payments';
 import { useTheme } from '../../src/theme';
 
 function slotLabel(value: string) {
@@ -27,6 +27,7 @@ function countdown(deadline: string, now: number) {
 
 export default function SportsCheckoutScreen() {
   const t = useTheme();
+  const startPayment = usePayment();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [booking, setBooking] = useState<CustomerSportsBookingDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,9 +78,8 @@ export default function SportsCheckoutScreen() {
     setLoading(true);
     setError(null);
     try {
-      const payment = await createSportsPayment(id);
-      await WebBrowser.openBrowserAsync(payment.short_url);
-      await load();
+      const result = await startPayment(id, undefined, 'sports');
+      if (result !== 'cancelled') await load();
     } catch (caught) {
       setError((caught as Error).message);
     } finally {

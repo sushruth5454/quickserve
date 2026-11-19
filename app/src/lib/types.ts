@@ -201,6 +201,7 @@ export interface Booking {
   payment_hold_expires_at?: string | null;
   delivery_status?: 'not_applicable' | 'pending' | 'submitted' | 'accepted';
   delivery_links?: DeliveryLink[];
+  delivery_submitted_at?: string | null;
   travel_requests?: {
     distance_km: number;
     quoted_fee: number;

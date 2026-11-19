@@ -53,6 +53,8 @@ export default function AdminDashboardScreen() {
             {isAdminRulesEditorEnabled(features.isOn) ? <Action label="Rules" icon="options-outline" onPress={() => router.push('/admin/rules')} /> : null}
             <Action label="AI usage" icon="sparkles-outline" onPress={() => router.push('/admin/ai')} />
             <Action label="Commission" icon="cash-outline" onPress={() => router.push('/admin/commission')} />
+            <Action label="Refunds" icon="card-outline" onPress={() => router.push('/admin/refunds')} />
+            {features.isOn('platform_fee_settings') ? <Action label="Platform fees" icon="pricetag-outline" onPress={() => router.push('/admin/fees')} /> : null}
             <Action label="Coins" icon="sparkles-outline" onPress={() => router.push('/admin/coins')} />
             <Action label="Geography" icon="map-outline" onPress={() => router.push('/admin/geography')} />
             <Action label="Sports" icon="football-outline" onPress={() => router.push('/admin/sports')} />
