@@ -210,6 +210,7 @@ jobs:
                         and n.created_at >= m.created_at
                    )
               );
+          delete from public.payment_receipts where booking_id in (select id from qa_bookings);
           delete from public.bookings where id in (select id from qa_bookings);
           delete from public.service_requests where id in (select id from qa_requests);
           delete from public.messages where body like '{marker}%';
