@@ -145,7 +145,26 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await visible('Products');
     await page.getByText('Demo Sandstone Anti-Skid Floor Tile', { exact: true }).first().waitFor();
     await page.getByText('Demo Ivory Ceramic Wall Tile', { exact: true }).first().waitFor();
-    await page.getByText('Request quotes from multiple shops', { exact: true }).first().click();
+    const rfqChoices = [
+      { expected: 'Request quotes from multiple shops', locator: page.getByText('Request quotes from multiple shops', { exact: true }).first() },
+      { expected: 'Need bulk quantity? Get quotes from 3+ shops', locator: page.getByText('Need bulk quantity? Get quotes from 3+ shops', { exact: true }).first() },
+    ];
+    const rfqStates = await Promise.all(rfqChoices.map(async ({ expected, locator }) => {
+      const count = await locator.count();
+      const isVisible = count > 0 && await locator.isVisible();
+      return {
+        expected,
+        count,
+        isVisible,
+        actualText: isVisible ? (await locator.textContent())?.trim() ?? null : null,
+      };
+    }));
+    const rfqIndex = rfqStates.findIndex(({ isVisible }) => isVisible);
+    if (rfqIndex < 0) {
+      const visiblePageText = (await page.locator('body').innerText()).slice(0, 2000);
+      throw new Error(`expected a visible legacy or banner RFQ entry; matched locator state=${JSON.stringify(rfqStates)}; actual visible text=${JSON.stringify(visiblePageText)}`);
+    }
+    await rfqChoices[rfqIndex].locator.click();
     await page.waitForURL((url) => new URL(url).pathname === '/rfq/new');
     await visible('Request product quotes');
     await page.locator('text="Tiles" >> visible=true').last().click();
