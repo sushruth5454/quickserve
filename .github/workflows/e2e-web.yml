@@ -150,7 +150,7 @@ jobs:
           )
           Path("seed-all-services-request.json").write_text(json.dumps({"query": sql}))
           PY
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+          curl --fail-with-body -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             -H "Content-Type: application/json" \
             --data-binary @seed-all-services-request.json

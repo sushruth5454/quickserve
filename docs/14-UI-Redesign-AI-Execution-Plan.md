@@ -839,6 +839,8 @@ Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44
 
 **DB batch 4 main E2E follow-up (2026-11-19):** Run `44599377760` failed six steps. The proposal-detail E2E asserted raw `demo_deliverable`, while the UI renders “Demo deliverable”; its fee-preview alert also raced backend deploy `44599377704` applying migration 0081 (logged at 19:37:05Z, after the step timed out at 19:35:48Z). `home-recurring-plan-request` used the demo `demo-home-tutor` category with recurrence disabled; the proposal brief step used `Event date` for remote-only `reel-maker`, whose UI label is `Deliver by`; the following null-request/proposal steps cascaded from that failure. T1 lane CI `44605844215` and H3 lane CI `44607548263` are green and integrated into UI batch 6; combined batch CI/E2E pending. The AI assistant issue was a soft failure, and the report recorded no page errors.
 
+**UI batch 6 pre-merge E2E (2026-11-19):** Combined lane CI `44608715561` passed. E2E `44608715414` stopped during the DEMO seed reset with HTTP 400 before smoke steps ran; the response body was hidden by `curl -fsS`. H3's targeted Codespace seed test passed, and the lane SQL suite is green; the next workflow revision uses `--fail-with-body` so the reset error is actionable. Batch E2E retry pending.
+
 Baseline screenshot artifact: *(Q-01 fills this)*
 
 ## 8. Definition of done (whole redesign)
