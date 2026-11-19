@@ -794,7 +794,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | C-05 | merged; lane CI green after type fix; E2E cancelled | 07879722-0a44-46a3-b508-a7924f3e168a | 44408097637 (green); 44408097628 (E2E cancelled) | f2ab430 (lane 5759992) |
 | C-06 | merged; lane CI green; all code-owned E2E steps passed; admin step remains owner-blocked | 0328e331-9d52-4778-97e5-e6737df3e1a8 | 44407916876 (green); 44407916872 (`ADMIN_E2E_PHONE` invalid/empty) | b75808a (lane 19afe98) |
 | C-08 | merged; lane CI green; E2E queued | ff027770-83f4-4c19-88e9-1dd0a4dabfda | 44412326937 (green); 44412370229 (E2E pending) | 674c6de (lane 49fb432) |
-| H-01 | merged; lane CI and post-admin-fix lane E2E green; main E2E validation pending | 861e2a89-2c68-445a-b38e-9b0dc736ad51 | 44454062046 (pre-fix green); 44454062014 (H-01 steps passed; admin locator timeout); 44458765488 (post-fix lane CI green); 44458765479 (post-fix lane E2E green) | 76db124 |
+| H-01 | merged; lane CI and post-admin-fix lane E2E green; main app publish and E2E passed | 861e2a89-2c68-445a-b38e-9b0dc736ad51 | 44454062046 (pre-fix green); 44454062014 (H-01 steps passed; admin locator timeout); 44458765488 (post-fix lane CI green); 44458765479 (post-fix lane E2E green); 44464543378 (main app publish success); 44464543331 (main E2E success) | 76db124 |
 | H-02 | blocked by C-01, C-03, C-04, and doc 17 P1a | — | — | — |
 | G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
 | HS-01 | blocked by R-02, C-03, C-05 | — | — | — |
@@ -807,7 +807,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | CR-01 | merged; lane CI green; existing Card/CategoryIcon retained per spec | 6878626f-8b83-4ae5-9c10-10eb19c470dd | 44414854482 (green) | 0a12c33 (lane 52f3ba6) |
 | CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
 | BD-01 | blocked by R-01 and C-07 | — | — | — |
-| A-01 | merged; lane CI and post-admin-fix lane E2E green; main E2E validation pending | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green) | 557bcb9 |
+| A-01 | merged; lane CI and post-admin-fix lane E2E green; main app publish passed, main E2E queued | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green); 44464706450 (main app publish success); 44464706447 (main E2E queued) | 557bcb9 |
 | M-01 | blocked by R-05 and T-01 | — | — | — |
 | M-02 | blocked by R-06 and T-01 | — | — | — |
 | M-03 | merged; lane CI green; E2E queued | 53f643d6-ed52-4e6d-b3f5-f84edbd0a207 | 44411999739 (green); 44411999701 (E2E pending) | 061d55b (lane 53c5bd9) |
@@ -817,7 +817,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
 
-Latest lane E2E outcomes (Nov 19, 2026): H-01 `44458765479` and A-01 `44458045387` passed after the admin-flow fix; both are merged, with main E2E validation pending. U2 `44458119027` reached the cancellation modal but showed the safe fallback because `preview_cancellation` migration `0068` is not yet deployed to the shared backend; rerun after main deployment.
+Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main app publish `44464706450` passed; main E2E `44464706447` is queued. U2 lane run `44458119027` reached the cancellation modal but showed the safe fallback because `preview_cancellation` migration `0068` was not deployed then; main deploy `44465627380` applied 0068 and succeeded, app publish `44465627372` succeeded, and main E2E `44465627435` is queued.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
