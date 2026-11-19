@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import type { Coords } from './apiTypes';
 import { resolveServiceCity } from './api';
 import { useAuth } from './auth';
-import { demoSeedCity, forceTestLocation, isDemoMode, isSeedDemoMode } from './config';
+import { demoSeedCity, isSeedDemoMode } from './config';
 import { DEFAULT_LOCATION, geocodeQuery, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
 import { newPlacesSession, placeDetail, PlacesUnavailable, placeSuggestions } from './places';
 
@@ -137,12 +137,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       }
       // The reset drops the old selection for good, so it cannot come back on the next launch.
       if (stored) void AsyncStorage.removeItem(LOCATION_STORAGE_KEY).catch(() => undefined);
-      // First run: demo data, demo-city builds and EXPO_PUBLIC_FORCE_TEST_LOCATION start at the launch-city default;
-      // otherwise try GPS. Either way the user can change it from the picker.
+      // First run uses the default until the customer chooses a location from the picker.
       setReady(true);
-      if (isDemoMode || isSeedDemoMode || forceTestLocation) return;
-      const gps = await locateWithGps();
-      if (alive && gps.ok) setLoc(gps.location);
     })();
     return () => {
       alive = false;

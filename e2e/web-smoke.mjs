@@ -153,6 +153,14 @@ function skipStep(name, reason) {
 }
 
 // ---------- Auth (one OTP send per run: the test number is rate limited) ----------
+await step('login-help-link', async () => {
+  await go('/login');
+  await page.getByRole('link', { name: 'Need help signing in?' }).click();
+  await visible('Sign-in help');
+  await visible('Changed your number?');
+  await page.getByRole('button', { name: /^Email / }).waitFor({ state: 'visible' });
+  await go('/login');
+});
 await step('login', async () => {
   await go('/');
   await page.getByLabel('Mobile number, India plus 91').fill(PHONE);
@@ -161,11 +169,13 @@ await step('login', async () => {
 });
 await step('verify', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
+  await page.waitForURL((u) => new URL(u).pathname === '/dashboard');
+  await page.getByText(/^You're (online|offline)$/).first().waitFor();
 });
-await step('role-continue-customer', async () => {
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+await step('returning-provider-switch-to-customer', async () => {
+  await go('/pro-account');
+  await page.getByText('Switch to customer mode', { exact: true }).click();
+  await page.waitForURL((u) => new URL(u).pathname === '/');
   await visible('Bookings');
 });
 
@@ -592,9 +602,30 @@ for (const [n, label, scrolled] of [
   await step(`booking-fc${n}-${label}`, async () => {
     await go(`/booking/${seeded('fc', n)}`);
     await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+    if (n === 1) {
+      await visible('Payment pending');
+      await visible('Ask support a question');
+      if (await page.getByRole('button', { name: 'Call', exact: true }).count()) {
+        throw new Error('call button should be hidden until masked calling is available');
+      }
+    }
+    if (n === 10) await visible('Pauses payment to the pro while support reviews');
   });
   if (scrolled) await optional(`booking-fc${n}-scrolled`, () => snapScrolled(`booking-fc${n}-${label}-scrolled`, 900));
 }
+await step('booking-fc3-cancel-copy', async () => {
+  await go(`/booking/${seeded('fc', 3)}`);
+  await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+  await page.getByRole('button', { name: 'Cancel booking', exact: true }).first().click();
+  await visible('Cancel this booking?');
+  const previewCopy = page.getByText(/(?:You'll be refunded|will be charged)/).last();
+  await previewCopy.waitFor({ state: 'visible' });
+  const actual = (await previewCopy.innerText()).trim();
+  if (!actual.includes('₹')) {
+    throw new Error(`expected server cancellation preview to include ₹: ${JSON.stringify({ actual })}`);
+  }
+  await page.getByLabel('Close', { exact: true }).last().click();
+});
 await step('booking-chat-send', async () => {
   await go(`/chat/${seeded('fc', 9)}`);
   const box = page.getByLabel('Message', { exact: true }).first();
@@ -939,16 +970,14 @@ await step('admin-feature-registry', async () => {
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
-  await optional('admin display name', () => page.getByLabel('Your name').fill('QuickServe Admin', { timeout: 3000 }));
-  await page.getByText('Continue', { exact: true }).click();
-  await page.waitForURL((u) => !/\/(login|verify|role)$/.test(new URL(u).pathname));
+  await page.waitForURL((u) => ['/', '/dashboard'].includes(new URL(u).pathname));
   await grantE2eAdminMembership(adminPhone);
-  await go('/account');
+  const accountPath = new URL(page.url()).pathname === '/dashboard' ? '/pro-account' : '/account';
+  await go(accountPath);
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
   await page.getByLabel('Go back').last().click();
-  await page.waitForURL((u) => new URL(u).pathname === '/account');
+  await page.waitForURL((u) => new URL(u).pathname === accountPath);
   await page.getByRole('button', { name: /Admin portal/ }).last().waitFor({ state: 'visible' });
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');

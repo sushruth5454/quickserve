@@ -5,9 +5,9 @@
 -- It creates synthetic users, providers, packages, requests and bookings prefixed with DEMO metadata.
 -- When migrations 0048-0050 are present, it also seeds verified sports and tile-marketplace fixtures.
 -- Legacy seed tests without those migrations keep the original service fixtures and skip marketplace rows.
--- Creator/event categories deliberately remain inactive globally. Their seeded data is reachable only
--- with an explicit app build using EXPO_PUBLIC_DEMO_CITY="Vijayawada Demo", or by authenticated
--- demo-participant routes (proposal/request/booking IDs).
+-- Creator/event category activation is migration-managed (0024); this seed does not change their
+-- global active state. Demo data is reachable only with an explicit app build using
+-- EXPO_PUBLIC_DEMO_CITY="Vijayawada Demo", or by authenticated demo-participant routes.
 --
 -- The caller MUST mark the transaction as a demo seed:
 --   select set_config('quickserve.demo_seed', '1', true);
@@ -146,6 +146,13 @@ on conflict (key) do update set value = excluded.value;
 update auth.users
    set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"demo_only":"true"}'::jsonb
  where id = '11111111-1111-1111-1111-111111111111'::uuid;
+update public.providers p
+   set admin_review_status = 'approved'
+ where p.id = '11111111-1111-1111-1111-111111111111'::uuid
+   and exists (
+     select 1 from auth.users u
+      where u.id = p.id and u.raw_app_meta_data->>'demo_only' = 'true'
+   );
 
 insert into public.app_config (key, value)
 values ('deployment', '{"is_demo_project": true}'::jsonb)
@@ -255,7 +262,7 @@ select pg_temp.demo_sid('provider:' || slug), phone, now()
 on conflict (user_id) do update set phone = excluded.phone, updated_at = now();
 
 insert into public.providers (
-  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status,
+  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status, admin_review_status,
   suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, razorpay_account_id,
   created_at, timezone, base_area, max_jobs_per_day, paused, onboarding_step, submitted_at,
   terms_version, terms_accepted_at, kyc_updated_at
@@ -270,6 +277,7 @@ select
   6,
   array['Telugu','English','Hindi'],
   'verified'::public.kyc_status,
+  'approved',
   false, true, (4.6 + ((row_number() over (order by s.slug)) % 4) * 0.1)::numeric(3,2),
   40 + ((row_number() over (order by s.slug)) % 80), 60 + ((row_number() over (order by s.slug)) % 180),
   10, 'acc_demo_only_never_payout_' || substr(md5(s.slug), 1, 12),
@@ -282,6 +290,7 @@ set bio = excluded.bio,
     service_radius_km = excluded.service_radius_km,
     base_location = excluded.base_location,
     kyc_status = excluded.kyc_status,
+    admin_review_status = 'approved',
     suspended = false,
     is_online = true,
     rating_avg = excluded.rating_avg,
@@ -861,7 +870,7 @@ select pg_temp.demo_sid('match-customer-home:' || key), pg_temp.demo_sid('match-
 on conflict (id) do update set line1 = excluded.line1, city = excluded.city, lat = excluded.lat, lng = excluded.lng;
 
 insert into public.providers (
-  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status,
+  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status, admin_review_status,
   suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, razorpay_account_id,
   created_at, timezone, base_area, max_jobs_per_day, paused, onboarding_step, submitted_at,
   terms_version, terms_accepted_at, kyc_updated_at
@@ -870,13 +879,14 @@ select
   pg_temp.demo_sid('provider:' || e.key), e.provider_bio, 'Vijayawada Demo', 25,
   extensions.st_setsrid(extensions.st_makepoint(80.648 + (row_number() over (order by e.key)) * 0.003,
                                                16.503 + (row_number() over (order by e.key)) * 0.002), 4326)::extensions.geography,
-  5, array['Telugu','English'], 'verified'::public.kyc_status, false, true, 0, 0, 30, 10,
+  5, array['Telugu','English'], 'verified'::public.kyc_status, 'approved', false, true, 0, 0, 30, 10,
   'acc_demo_only_never_payout_' || substr(md5(e.key), 1, 12),
   now() - interval '180 days', 'Asia/Kolkata', 'Labbipet', 6, false, 7,
   now() - interval '170 days', 'demo-only-v1', now() - interval '170 days', now() - interval '170 days'
 from demo_match_extras e
 on conflict (id) do update
 set bio = excluded.bio, city = excluded.city, base_location = excluded.base_location, kyc_status = excluded.kyc_status,
+    admin_review_status = 'approved',
     suspended = false, is_online = true, paused = false, submitted_at = excluded.submitted_at, onboarding_step = 7;
 
 -- Same service shape as the category's primary demo provider; only attributes and visit fee differ.

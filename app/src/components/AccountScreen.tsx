@@ -4,7 +4,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
-import { getMyCoinBalance, getMyProfile, getMyProvider, isDemoMode, signOut } from '../lib/api';
+import { getMyCoinBalance, getMyProfile, getMyProvider, isDemoMode, signOut, updateMyProfile } from '../lib/api';
 import { amIAdmin } from '../lib/adminApi';
 import { useAppFeatureFlags } from '../lib/featureFlags';
 import { getCoinsConfig } from '../lib/coinsConfigApi';
@@ -15,7 +15,7 @@ import type { Profile, Provider } from '../lib/types';
 import { useLanguage, useT, type TranslationKey } from '../i18n';
 import { useTheme } from '../theme';
 import { ProviderMeSections } from './ProviderMeSections';
-import { Avatar, Card, Divider, Header, LIST_INSET, ListItem, Screen, Skeleton, Text, useConfirm, useToast } from './ui';
+import { Avatar, BottomSheet, Button, Card, Divider, Header, InlineAlert, Input, LIST_INSET, ListItem, Screen, Skeleton, Text, useConfirm, useToast } from './ui';
 
 export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
   const t = useTheme();
@@ -32,6 +32,10 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
   const [coinsPolicyUnavailable, setCoinsPolicyUnavailable] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [languageOptionsVisible, setLanguageOptionsVisible] = useState(false);
+  const [nameSheetVisible, setNameSheetVisible] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaving, setNameSaving] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -78,6 +82,32 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
     if (ok) await signOut();
   };
 
+  const editName = () => {
+    setNameDraft(profile?.full_name ?? '');
+    setNameError(null);
+    setNameSheetVisible(true);
+  };
+
+  const saveName = async () => {
+    const fullName = nameDraft.trim();
+    if (!fullName) {
+      setNameError('Enter your name.');
+      return;
+    }
+    setNameSaving(true);
+    setNameError(null);
+    try {
+      await updateMyProfile({ full_name: fullName });
+      setProfile((current) => current ? { ...current, full_name: fullName } : current);
+      setNameSheetVisible(false);
+      toast({ message: 'Name updated', tone: 'success' });
+    } catch (e) {
+      setNameError((e as Error).message);
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
   const help = () => router.push('/support');
 
   const soon = (message: TranslationKey) => toast({ message: tr(message), tone: 'default' });
@@ -95,13 +125,13 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
     <Screen inTabs header={<Header title={tr('account.header')} large back={false} />} gap={t.spacing.section}>
       <Card padding={0} gap={0}>
         <Pressable
-          accessibilityRole={mode === 'provider' ? 'button' : undefined}
+          accessibilityRole="button"
           accessibilityLabel={tr('account.profile.accessibility', {
             name,
             phone: formatPhone(session?.phone) || tr('account.phoneVerified.accessibility'),
           })}
-          disabled={mode !== 'provider'}
-          onPress={() => router.push('/onboarding')}
+          accessibilityHint={mode === 'customer' ? 'Edit your name' : 'Edit your provider profile'}
+          onPress={() => mode === 'provider' ? router.push('/onboarding') : editName()}
           style={({ pressed }) => ({
             flexDirection: 'row',
             alignItems: 'center',
@@ -224,7 +254,7 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
                 <Divider inset={LIST_INSET} />
               </>
             )}
-            <ListItem icon="location-outline" title={tr('account.savedAddresses.title')} subtitle={tr('account.savedAddresses.subtitle')} chevron onPress={() => soon('account.savedAddresses.comingSoon')} />
+            <ListItem icon="location-outline" title={tr('account.savedAddresses.title')} subtitle={tr('account.savedAddresses.subtitle')} chevron onPress={() => router.push('/location')} />
             <Divider inset={LIST_INSET} />
             <ListItem icon="card-outline" title={tr('account.paymentMethods.title')} subtitle={tr('account.paymentMethods.subtitle')} chevron onPress={() => soon('account.paymentMethods.comingSoon')} />
             <Divider inset={LIST_INSET} />
@@ -279,6 +309,16 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
         QuickServe {Constants.expoConfig?.version ?? '1.0.0'}
         {isDemoMode ? ` · ${tr('account.demoMode')}` : ''}
       </Text>
+
+      <BottomSheet
+        visible={nameSheetVisible}
+        onClose={() => setNameSheetVisible(false)}
+        title="Edit name"
+        footer={<Button title="Save" onPress={() => void saveName()} loading={nameSaving} disabled={!nameDraft.trim()} size="lg" fullWidth />}
+      >
+        <Input label="Your name" value={nameDraft} onChangeText={setNameDraft} autoComplete="name" />
+        <InlineAlert message={nameError} />
+      </BottomSheet>
     </Screen>
   );
 }

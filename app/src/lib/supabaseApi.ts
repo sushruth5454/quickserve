@@ -1,6 +1,8 @@
 import { Linking } from 'react-native';
 import type {
   AuthSession,
+  AccountDeletionOutcome,
+  CancellationPreview,
   ChatReadState,
   PushPlatform,
   Coords,
@@ -15,6 +17,7 @@ import type {
   LiveCity,
 } from './apiTypes';
 import { supabase } from './supabase';
+import { supportContact } from './config';
 import { invokeFunction } from './invokeFunction';
 import type {
   Booking,
@@ -85,15 +88,17 @@ export function onAuthChange(cb: (s: AuthSession | null) => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 
-/**
- * There is no self-serve deletion RPC yet (it needs refund/payout checks first), so this opens a pre-filled
- * deletion request email to support. Store policies accept an in-app path that initiates deletion.
- */
-export async function requestAccountDeletion(): Promise<void> {
+export async function requestAccountDeletion(): Promise<AccountDeletionOutcome> {
   const uid = await requireUserId();
-  const subject = encodeURIComponent('Delete my QuickServe account');
-  const body = encodeURIComponent(`Please delete my account and personal data.\n\nUser ID: ${uid}`);
-  await Linking.openURL(`mailto:support@quickserve.app?subject=${subject}&body=${body}`);
+  try {
+    unwrap(await supabase.rpc('request_account_deletion'));
+    return 'recorded';
+  } catch {
+    const subject = encodeURIComponent('Delete my QuickServe account');
+    const body = encodeURIComponent(`Please delete my account and personal data.\n\nUser ID: ${uid}`);
+    await Linking.openURL(`mailto:${supportContact.email}?subject=${subject}&body=${body}`);
+    return 'email';
+  }
 }
 
 export async function sendOtp(phone: string): Promise<void> {
@@ -442,6 +447,18 @@ export async function addAddress(input: NewAddressInput): Promise<SavedAddress> 
   ) as SavedAddress;
 }
 
+export async function deleteAddress(id: string): Promise<void> {
+  const uid = await requireUserId();
+  unwrap(
+    await supabase
+      .from('addresses')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', uid)
+      .neq('label', 'Booking'),
+  );
+}
+
 // ---------- Booking ----------
 export async function createBooking(input: CreateBookingInput): Promise<string> {
   return unwrap(
@@ -582,6 +599,29 @@ export async function requestCompletion(id: string): Promise<void> {
 export async function confirmCompletion(id: string): Promise<void> {
   const booking = await getBooking(id);
   await rpcVoid(booking.archetype === 'time_based' ? 'confirm_session_completion' : 'confirm_completion', { p_booking_id: id });
+}
+export async function previewCancellation(id: string): Promise<CancellationPreview> {
+  const raw = unwrap(await supabase.rpc('preview_cancellation', { p_booking_id: id })) as unknown;
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('The server returned an invalid cancellation preview.');
+  }
+  const preview = raw as Record<string, unknown>;
+  const refundAmount = preview.refund_amount;
+  const chargedAmount = preview.charged_amount;
+  if (
+    typeof refundAmount !== 'number'
+    || !Number.isSafeInteger(refundAmount)
+    || refundAmount < 0
+    || typeof chargedAmount !== 'number'
+    || !Number.isSafeInteger(chargedAmount)
+    || chargedAmount < 0
+  ) {
+    throw new Error('The server returned an invalid cancellation preview.');
+  }
+  return {
+    refund_amount: refundAmount,
+    charged_amount: chargedAmount,
+  };
 }
 export async function cancelBooking(id: string, reason?: string): Promise<void> {
   const booking = await getBooking(id);

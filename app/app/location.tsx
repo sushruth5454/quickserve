@@ -3,8 +3,8 @@ import { router } from 'expo-router';
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../src/components/AddressEditor';
-import { Card, Divider, Header, InlineAlert, Input, LIST_INSET, Screen, Section, Skeleton, Text, useToast } from '../src/components/ui';
-import { listMyAddresses } from '../src/lib/api';
+import { Card, Divider, Header, IconButton, InlineAlert, Input, LIST_INSET, Screen, Section, Skeleton, Text, useConfirm, useToast } from '../src/components/ui';
+import { deleteAddress, listMyAddresses } from '../src/lib/api';
 import { isAreaPickerEnabled, listAreas } from '../src/lib/geographyApi';
 import { placeSearchSupported, resolvePlace, searchPlaces, useSelectedLocation, type PlaceResult } from '../src/lib/locationContext';
 import { newPlacesSession } from '../src/lib/places';
@@ -13,6 +13,7 @@ import {
   fromSavedAddress,
   sameLocation,
   sortAddresses,
+  DEFAULT_LOCATION,
   type ManagedArea,
   type SelectedLocation,
 } from '../src/lib/locationModel';
@@ -27,6 +28,7 @@ export default function LocationPicker() {
   const t = useTheme();
   const tr = useT();
   const toast = useToast();
+  const confirm = useConfirm();
   const { location, setLocation, locateWithGps } = useSelectedLocation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlaceResult[] | null>(null);
@@ -49,6 +51,25 @@ export default function LocationPicker() {
       setAddrError((e as Error).message);
     }
   }, []);
+
+  const removeAddress = async (address: SavedAddress) => {
+    const confirmed = await confirm({
+      title: 'Delete this address?',
+      message: `Remove ${address.label} from saved addresses?`,
+      confirmLabel: 'Delete',
+      destructive: true,
+      icon: 'trash-outline',
+    });
+    if (!confirmed) return;
+    try {
+      await deleteAddress(address.id);
+      if (location.addressId === address.id) setLocation(DEFAULT_LOCATION);
+      await loadAddresses();
+      toast({ message: 'Address deleted', tone: 'success' });
+    } catch (e) {
+      toast({ message: (e as Error).message, tone: 'error' });
+    }
+  };
   useEffect(() => {
     void loadAddresses();
   }, [loadAddresses]);
@@ -258,6 +279,15 @@ export default function LocationPicker() {
                     subtitle={`${a.line1}, ${a.city}`}
                     selected={sameLocation(location, l)}
                     onPress={() => choose(l)}
+                    right={
+                      <IconButton
+                        icon="trash-outline"
+                        variant="neutral"
+                        size={18}
+                        accessibilityLabel={`Delete ${a.label} address`}
+                        onPress={() => void removeAddress(a)}
+                      />
+                    }
                   />
                 </Fragment>
               );
@@ -329,51 +359,66 @@ function Row(props: {
   const t = useTheme();
   const tr = useT();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: !!props.selected }}
-      accessibilityLabel={[props.title, props.subtitle, props.selected ? tr('location.selected') : null].filter(Boolean).join(', ')}
-      onPress={props.onPress}
-      style={({ pressed }) => ({
+    <View
+      style={{
         flexDirection: 'row',
         alignItems: 'center',
         gap: t.spacing.md,
         paddingHorizontal: t.spacing.lg,
         paddingVertical: t.spacing.md,
         minHeight: 56,
-        backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
-      })}
+      }}
     >
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: t.radii.sm,
-          backgroundColor: props.accent ? t.colors.primarySoft : t.colors.surfaceAlt,
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ selected: !!props.selected }}
+        accessibilityLabel={[props.title, props.subtitle, props.selected ? tr('location.selected') : null].filter(Boolean).join(', ')}
+        onPress={props.onPress}
+        style={({ pressed }) => ({
+          flex: 1,
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
-        }}
+          gap: t.spacing.md,
+          minHeight: 32,
+          backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
+        })}
       >
-        <Ionicons name={props.icon} size={18} color={props.accent ? t.colors.primaryText : t.colors.textSecondary} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-          <Text variant="body" color={props.accent ? 'primaryText' : 'text'} numberOfLines={1} style={{ flexShrink: 1 }}>
-            {props.title}
-          </Text>
-          {props.badge ? (
-            <Text variant="captionStrong" color="muted">
-              {props.badge}
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: t.radii.sm,
+            backgroundColor: props.accent ? t.colors.primarySoft : t.colors.surfaceAlt,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name={props.icon} size={18} color={props.accent ? t.colors.primaryText : t.colors.textSecondary} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+            <Text variant="body" color={props.accent ? 'primaryText' : 'text'} numberOfLines={1} style={{ flexShrink: 1 }}>
+              {props.title}
+            </Text>
+            {props.badge ? (
+              <Text variant="captionStrong" color="muted">
+                {props.badge}
+              </Text>
+            ) : null}
+          </View>
+          {props.subtitle ? (
+            <Text variant="footnote" color="muted" numberOfLines={2}>
+              {props.subtitle}
             </Text>
           ) : null}
         </View>
-        {props.subtitle ? (
-          <Text variant="footnote" color="muted" numberOfLines={2}>
-            {props.subtitle}
-          </Text>
-        ) : null}
-      </View>
-      {props.right ?? (props.selected ? <Ionicons name="checkmark-circle" size={22} color={t.colors.primary} accessibilityElementsHidden /> : null)}
-    </Pressable>
+        {props.selected ? <Ionicons name="checkmark-circle" size={22} color={t.colors.primary} accessibilityElementsHidden /> : null}
+      </Pressable>
+      {props.right ? (
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+          {props.right}
+        </View>
+      ) : null}
+    </View>
   );
 }
