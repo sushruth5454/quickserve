@@ -1326,6 +1326,11 @@ export const demoApi: Api = {
     finalizeCompletion(b, 'confirmed by customer');
   },
 
+  async previewCancellation() {
+    await wait();
+    return null;
+  },
+
   async cancelBooking(id, reason) {
     await wait();
     const b = findBooking(id);

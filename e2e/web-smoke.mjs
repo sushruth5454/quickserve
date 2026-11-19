@@ -613,6 +613,19 @@ for (const [n, label, scrolled] of [
   });
   if (scrolled) await optional(`booking-fc${n}-scrolled`, () => snapScrolled(`booking-fc${n}-${label}-scrolled`, 900));
 }
+await step('booking-fc3-cancel-copy', async () => {
+  await go(`/booking/${seeded('fc', 3)}`);
+  await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
+  await page.getByRole('button', { name: 'Cancel booking', exact: true }).first().click();
+  await visible('Cancel this booking?');
+  const previewCopy = page.getByText(/(?:You'll be refunded|will be charged)/).last();
+  await previewCopy.waitFor({ state: 'visible' });
+  const actual = (await previewCopy.innerText()).trim();
+  if (!actual.includes('₹')) {
+    throw new Error(`expected server cancellation preview to include ₹: ${JSON.stringify({ actual })}`);
+  }
+  await page.getByLabel('Close', { exact: true }).last().click();
+});
 await step('booking-chat-send', async () => {
   await go(`/chat/${seeded('fc', 9)}`);
   const box = page.getByLabel('Message', { exact: true }).first();

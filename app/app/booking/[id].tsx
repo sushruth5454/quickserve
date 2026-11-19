@@ -36,6 +36,7 @@ import {
 import * as api from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { isDemoMode } from '../../src/lib/config';
+import { cancellationPreviewCopy } from '../../src/lib/cancellationCopy';
 import { DEMO_PROVIDER_END_CODE, DEMO_PROVIDER_START_CODE } from '../../src/lib/demo/seed';
 import { haptics } from '../../src/lib/haptics';
 import { amountDue, customerDueNow, formatINR, requiredTotal } from '../../src/lib/money';
@@ -84,6 +85,13 @@ const PAYMENT_STATUS: Record<PaymentStatus, [string, Tone]> = {
   refund_processing: ['Refund processing', 'neutral'],
   refunded: ['Refunded', 'neutral'],
 };
+
+const POLICY_CANCEL_STATUSES = new Set([
+  'pending_payment', 'requested', 'accepted', 'confirmed', 'en_route',
+  'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress', 'completion_requested',
+]);
+const SESSION_CANCEL_STATUSES = new Set(['pending_payment', 'requested', 'accepted']);
+const DEMO_CANCEL_STATUSES = new Set(['pending_payment', 'requested', 'accepted', 'en_route', 'awaiting_payment']);
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
@@ -264,10 +272,16 @@ export default function BookingDetail() {
     }, 'Changes requested');
   };
 
-  const cancel = async (warning: string) => {
+  const cancel = async () => {
+    let message = cancellationPreviewCopy(null);
+    try {
+      message = cancellationPreviewCopy(await api.previewCancellation(booking.id));
+    } catch {
+      message = cancellationPreviewCopy(null);
+    }
     const ok = await confirm({
       title: 'Cancel this booking?',
-      message: warning,
+      message,
       confirmLabel: 'Cancel booking',
       cancelLabel: 'Keep booking',
       destructive: true,
@@ -454,17 +468,14 @@ export default function BookingDetail() {
   }
 
   // ---------- secondary actions at the bottom (cancel / report) ----------
-  const cancelAction: [string, string] | null = !isCustomer
-    ? null
-    : s === 'pending_payment'
-      ? ['Cancel booking', 'No charge — you have not paid yet.']
-      : s === 'requested' || s === 'accepted'
-        ? ['Cancel booking', 'Your visit fee will be refunded in full.']
-        : s === 'en_route'
-          ? ['Cancel booking', `${first} is already on the way, so the visit fee will not be refunded.`]
-          : s === 'awaiting_payment'
-            ? ['Cancel job', `The inspection is done, so the visit fee will be paid to ${first}.`]
-            : null;
+  const cancellableStatuses = isDemoMode
+    ? DEMO_CANCEL_STATUSES
+    : isTimeBased
+      ? SESSION_CANCEL_STATUSES
+      : POLICY_CANCEL_STATUSES;
+  const cancelAction = isCustomer && cancellableStatuses.has(s)
+    ? s === 'awaiting_payment' ? 'Cancel job' : 'Cancel booking'
+    : null;
   const canReport = isCustomer && (s === 'in_progress' || s === 'completion_requested' || s === 'completed');
 
   const startCode = otps?.start_otp ?? null;
@@ -500,7 +511,7 @@ export default function BookingDetail() {
       onPress: () => setDisputeOpen(true),
     });
   }
-  if (cancelAction) helpItems.push({ key: 'cancel', title: cancelAction[0], icon: 'close-circle-outline', destructive: true, onPress: () => void cancel(cancelAction[1]) });
+  if (cancelAction) helpItems.push({ key: 'cancel', title: cancelAction, icon: 'close-circle-outline', destructive: true, onPress: () => void cancel() });
 
   return (
     <Screen

@@ -62,6 +62,7 @@ export const {
   startTrip,
   requestCompletion,
   confirmCompletion,
+  previewCancellation,
   cancelBooking,
   disputeBooking,
   regenerateOtp,
