@@ -155,8 +155,9 @@ async function createFixture(index, archetype, packagePrice) {
       unit, qty_min, qty_max, duration_min, active
     ) values (
       $1::uuid, $2::text, '', 'fixed', $3::int, $3::int, $3::int,
-      'visit', 1, 1, 60, true
-    ) returning id`, [serviceId, `F2 package ${index}`, packagePrice])).id;
+      $4::text, 1, 1, 60, true
+    ) returning id`, [serviceId, `F2 package ${index}`, packagePrice,
+    archetype === 'time_based' ? 'session' : 'visit'])).id;
   await db.query(`
     insert into public.app_config (key, value)
     values ('archetype_flags', '{"fixed":true,"time_based":true,"proposal":true}'::jsonb)
@@ -350,14 +351,6 @@ await scenario('WS6-T03 recurring fixed occurrence stores package subtotal and s
       from public.get_quote_settlement_preview($1::uuid)`, [currentBooking.approved_quote_id]))[0];
   const customerPreview = await as(fixture.customer, 'authenticated', `
     select * from public.get_quote_settlement_preview($1::uuid)`, [currentBooking.approved_quote_id]);
-  await db.query(`update public.providers set jobs_completed = 50 where id = $1::uuid`, [fixture.provider]);
-  const tier50 = (await as(null, 'service_role', `
-    select public._commission_bp($1::uuid, $2::uuid, $3::uuid, now()::timestamptz) rate`,
-  [fixture.provider, fixture.customer, occurrence.id]))[0].rate;
-  await db.query(`update public.providers set jobs_completed = 200 where id = $1::uuid`, [fixture.provider]);
-  const tier200 = (await as(null, 'service_role', `
-    select public._commission_bp($1::uuid, $2::uuid, $3::uuid, now()::timestamptz) rate`,
-  [fixture.provider, fixture.customer, occurrence.id]))[0].rate;
   await db.query(`
     update public.app_config
        set value = jsonb_set(
@@ -367,9 +360,31 @@ await scenario('WS6-T03 recurring fixed occurrence stores package subtotal and s
          true
        )
      where key = 'commission'`);
+  await db.query(`update public.providers set jobs_completed = 50 where id = $1::uuid`, [fixture.provider]);
+  const tier50 = (await as(null, 'service_role', `
+    select public._commission_bp($1::uuid, $2::uuid, $3::uuid, now()::timestamptz) rate`,
+  [fixture.provider, fixture.customer, occurrence.id]))[0].rate;
+  await db.query(`update public.providers set jobs_completed = 200 where id = $1::uuid`, [fixture.provider]);
+  const tier200 = (await as(null, 'service_role', `
+    select public._commission_bp($1::uuid, $2::uuid, $3::uuid, now()::timestamptz) rate`,
+  [fixture.provider, fixture.customer, occurrence.id]))[0].rate;
   const actual = {
-    addon, approval, addonPayment, before, payout, preview, customerPreview,
-    tier50, tier200, basePayment: occurrence.amount,
+    snapshotBp: before.commission_bp_snapshot,
+    packageAndAddonCommissionable: addon.subtotal_commissionable,
+    itemKinds: addon.item_kinds,
+    addonDue: Number(approval.amount_due),
+    addonPayment,
+    payout: { gross: payout.gross, commission: payout.commission, gst: payout.gst_on_commission, amount: payout.amount },
+    preview: {
+      commissionable: preview.commissionable,
+      bp: preview.commission_bp,
+      commission: preview.commission,
+      gst: preview.gst_on_commission,
+      payout: preview.payout,
+    },
+    customerPreviewCount: customerPreview.length,
+    tier50,
+    tier200,
   };
   check(before.commission_bp_snapshot === 1500
     && addon.subtotal_commissionable === 109900
@@ -557,11 +572,11 @@ await scenario('WS5-T03 proposal commission uses commissionable items, the 50000
   const eventEnd = '2027-03-25T14:00:00.000Z';
   const requestId = (await as(fixture.customer, 'authenticated', `
     select public.create_service_request(
-      $1::uuid, $2::text, 'F2 event area', $3::timestamptz, $4::timestamptz,
-      $5::jsonb, $6::int, $7::int, $8::uuid, null::uuid
+      $1::uuid, $2::text, $3::text, $4::timestamptz, $5::timestamptz,
+      $6::jsonb, $7::int, $8::int, $9::uuid, null::text
     ) id`,
-  [fixture.categoryId, fixture.city, eventStart, eventEnd, JSON.stringify({ brief: 'F2 commission project' }),
-    10000000, 20000000, fixture.addressId]))[0].id;
+  [fixture.categoryId, fixture.city, 'F2 event area', eventStart, eventEnd,
+    JSON.stringify({ brief: 'F2 commission project' }), 10000000, 20000000, fixture.addressId]))[0].id;
   const badProposalError = await fails(() => as(fixture.provider, 'authenticated', `
     select public.send_proposal(
       $1::uuid, $2::jsonb, $3::jsonb, now() + interval '2 days', null::text, '[]'::jsonb
@@ -672,7 +687,7 @@ await scenario('WS5-T03 a 1200000 paise proposal receives 96000 commission and 1
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
       'F2 uncapped proposal fixture', '2027-04-15T10:00:00Z'::timestamptz,
       tstzrange('2027-04-15T10:00:00Z'::timestamptz, '2027-04-15T14:00:00Z'::timestamptz, '[)'),
-      'completion_requested', 0, 12000, 1212000, 'proposal', 'remote', 'marketplace'
+      'completion_requested', 0, 12000, 1212000, 'proposal', 'at_customer', 'marketplace'
     ) returning id`,
   [fixture.customer, fixture.provider, fixture.categoryId, fixture.serviceId, fixture.addressId])).id;
   await db.query(`
