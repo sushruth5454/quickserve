@@ -819,7 +819,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
 
-Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2 lane run `44458119027` showed the safe fallback before 0068 existed; main deploy `44465627380` applied 0068 and app publish `44465627372` passed, but main E2E `44465627435` reported three failures. The cancellation preview rendered correctly; the integration fix now dismisses via “Keep booking,” stabilizes the shop verification assertion against the async status refresh, and restores `/admin` after the nested shop step. Main E2E revalidation is pending.
+Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2 lane run `44458119027` showed the safe fallback before 0068 existed; main deploy `44465627380` applied 0068 and app publish `44465627372` passed, but main E2E `44465627435` reported three failures. The cancellation preview rendered correctly; commit `eeee6b3` fixes the incorrect modal-dismissal locator and makes shop approval wait for the verified row while restoring `/admin` after the nested step. Main E2E revalidation is pending.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
