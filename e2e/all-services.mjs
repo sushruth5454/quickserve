@@ -216,7 +216,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.waitForURL(/\/recurring\/[0-9a-f-]{36}$/);
     await page.getByText('Plan status', { exact: true }).waitFor();
     try {
-      await page.getByText('Provider response: Pending', { exact: true }).waitFor();
+      await page.getByText(/^Provider response:\s*Pending\b/i).waitFor();
     } catch {
       throw new Error(`home recurring request did not reach Pending: ${JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() })}`);
     }
