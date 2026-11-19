@@ -887,14 +887,18 @@ await step('new-pro-role', async () => {
   }
   await optional('name', () => page.getByLabel('Your name').first().fill('Kiran Test Pro', { timeout: 3000 }));
   await page.getByLabel(/^I provide services\./).first().click();
+  const providerResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_my_provider'),
+  );
   await page.getByText('Continue', { exact: true }).click();
-  const destination = await Promise.race([
-    page.waitForURL((url) => new URL(url).pathname === '/dashboard').then(() => 'dashboard'),
-    page.waitForURL((url) => new URL(url).pathname === '/onboarding').then(() => 'onboarding'),
-  ]);
-  if (destination === 'dashboard') {
-    newProReturningProvider = true;
-    console.log('  Returning provider detected after role selection; onboarding form steps will be skipped.');
+  const providerResponse = await providerResponsePromise;
+  if (!providerResponse.ok()) {
+    throw new Error(`get_my_provider failed (${providerResponse.status()}): ${await providerResponse.text()}`);
+  }
+  const provider = await providerResponse.json();
+  newProReturningProvider = provider !== null;
+  if (newProReturningProvider) {
+    console.log('  Returning provider confirmed by get_my_provider; onboarding form steps will be skipped.');
     return;
   }
   await visible('Tell customers about you');
