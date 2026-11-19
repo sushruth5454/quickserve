@@ -2,9 +2,11 @@ name: E2E web smoke test
 
 on:
   push:
-    # Lanes do not trigger E2E automatically (shared backend, ~30 min per run). Batches on integrate/** and main do.
-    # A lane that changes app/app/** or e2e/** may request one run: gh workflow run e2e-web.yml --ref lane/<ID>
-    branches: [main, 'integrate/**']
+    # E2E never applies migrations (deploy-backend does, on main only), so it runs against the deployed schema.
+    # Lanes do not trigger E2E automatically (shared backend, ~30 min per run). App-only batches on integrate/ui-** do,
+    # and main does after every deploy. A lane changing app/app/** or e2e/** without migrations may request one run:
+    #   gh workflow run e2e-web.yml --ref lane/<ID>
+    branches: [main, 'integrate/ui-**']
     paths:
       - 'app/**'
       - 'supabase/migrations/**'
