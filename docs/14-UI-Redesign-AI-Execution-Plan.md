@@ -797,12 +797,12 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | C-06 | merged; lane CI green; all code-owned E2E steps passed; admin step remains owner-blocked | 0328e331-9d52-4778-97e5-e6737df3e1a8 | 44407916876 (green); 44407916872 (`ADMIN_E2E_PHONE` invalid/empty) | b75808a (lane 19afe98) |
 | C-08 | merged; lane CI green; E2E queued | ff027770-83f4-4c19-88e9-1dd0a4dabfda | 44412326937 (green); 44412370229 (E2E pending) | 674c6de (lane 49fb432) |
 | H-01 | merged; lane CI and post-admin-fix lane E2E green; main app publish and E2E passed | 861e2a89-2c68-445a-b38e-9b0dc736ad51 | 44454062046 (pre-fix green); 44454062014 (H-01 steps passed; admin locator timeout); 44458765488 (post-fix lane CI green); 44458765479 (post-fix lane E2E green); 44464543378 (main app publish success); 44464543331 (main E2E success) | 76db124 |
-| H-02 | blocked by C-01, C-03, C-04, and doc 17 P1a | — | — | — |
+| H-02 | in progress; C-01/C-03/C-04 and doc 17 P1a are merged; lane run pending | a9c54d32-3b09-4e80-9749-41a3bc589778 | — | — |
 | G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
 | HS-01 | blocked by R-02, C-03, C-05 | — | — | — |
 | HS-02 | blocked by R-03 and C-08 | — | — | — |
 | HS-03 | blocked by R-04 | — | — | — |
-| SH-01 | blocked by components and doc 17 P1a | — | — | — |
+| SH-01 | lane CI green; main E2E pending; no additional i18n key is used by the pushed lane | 703bb5a0-ac2f-4b45-8a73-94b5ce016007 | 44473985162 | 59d06e2 |
 | SH-02 | blocked by C-06 and doc 17 P1b | — | — | — |
 | SP-01 | blocked by components and doc 17 S2 | — | — | — |
 | SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
@@ -819,7 +819,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
 
-Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2 lane run `44458119027` showed the safe fallback before 0068 existed; main deploy `44465627380` applied 0068 and app publish `44465627372` passed, but main E2E `44465627435` reported three failures. The cancellation preview rendered correctly; commit `eeee6b3` fixes the incorrect modal-dismissal locator and makes shop approval wait for the verified row while restoring `/admin` after the nested step. Main E2E revalidation is pending.
+Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2's first main E2E `44465627435` exposed cancellation-dismissal and nested admin-shop issues; fix-forward `eeee6b3` corrected them. P1a main backend `44470999495` applied 0069, app publish `44470999525` succeeded, and main E2E `44470999417` passed.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
