@@ -1,4 +1,5 @@
 import { getTimeBookingModes, hasSupportedRecurringFrequency, packageRepeatPlanRoute } from '../packageModel';
+import { packageCheckoutTotal } from '../../../../lib/money';
 
 type EligibilityCategory = { recurrence_allowed?: boolean; allowed_frequencies?: string[] };
 
@@ -46,5 +47,9 @@ describe('package booking modes', () => {
         source: 'package-booking',
       },
     });
+  });
+
+  it('includes the server platform fee in the fixed-package checkout total', () => {
+    expect(packageCheckoutTotal({ price: 99900, price_min: 99900 }, 1, 2900)).toBe(102800);
   });
 });

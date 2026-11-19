@@ -195,11 +195,52 @@ const [seedFixes] = (await db.query(`
        join provider_services ps on ps.id = sp.provider_service_id
        join categories c on c.id = ps.category_id
       where c.slug = 'house-cleaning' and sp.title = 'Demo 2 BHK deep clean' limit 1) as cleaning_price_type,
+    (select sp.price::int from service_packages sp
+       join provider_services ps on ps.id = sp.provider_service_id
+       join categories c on c.id = ps.category_id
+      where c.slug = 'house-cleaning' and sp.title = 'Demo 2 BHK deep clean' limit 1) as cleaning_price_paise,
+    (select b.platform_fee::int from bookings b
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.' limit 1) as fixed_booking_fee,
+    (select b.total_amount::int from bookings b
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.' limit 1) as fixed_booking_total,
+    (select (b.pricing_snapshot->>'price_paise')::int from bookings b
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.' limit 1) as fixed_booking_snapshot_price,
+    (select q.total::int from quotes q join bookings b on b.id = q.booking_id
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.' limit 1) as fixed_quote_total,
+    (select (q.package_snapshot->>'unit_price')::int from quotes q join bookings b on b.id = q.booking_id
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.' limit 1) as fixed_quote_snapshot_price,
+    (select qi.unit_price::int from quote_items qi join quotes q on q.id = qi.quote_id
+       join bookings b on b.id = q.booking_id
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.' limit 1) as fixed_quote_item_price,
+    (select array_agg(ps.amount order by ps.seq)::int[] from payment_schedule ps
+       join bookings b on b.id = ps.booking_id
+      where b.description = '[DEMO ONLY] 2 BHK fixed package.') as fixed_schedule_amounts,
     (select (value->>'time_based')::boolean from app_config where key = 'archetype_flags') as time_based_on,
     (select count(*)::int from addresses a join auth.users u on u.id = a.user_id
       where u.phone in ('919999999999', '+919999999999') and a.is_default) as founder_defaults
 `)).rows;
-ok(seedFixes.cleaning_price_type === 'fixed', 'fixed categories get instantly bookable fixed-price packages');
+ok(seedFixes.cleaning_price_type === 'fixed' && seedFixes.cleaning_price_paise === 99900,
+  `the fixed-package E2E fixture matches the ₹999 sample: ${JSON.stringify(seedFixes)}`);
+const fixedSeedAmounts = {
+  package: seedFixes.cleaning_price_paise,
+  booking_fee: seedFixes.fixed_booking_fee,
+  booking_total: seedFixes.fixed_booking_total,
+  booking_snapshot: seedFixes.fixed_booking_snapshot_price,
+  quote_total: seedFixes.fixed_quote_total,
+  quote_snapshot: seedFixes.fixed_quote_snapshot_price,
+  quote_item: seedFixes.fixed_quote_item_price,
+  schedule: seedFixes.fixed_schedule_amounts,
+};
+ok(JSON.stringify(fixedSeedAmounts) === JSON.stringify({
+  package: 99900,
+  booking_fee: 2900,
+  booking_total: 102800,
+  booking_snapshot: 99900,
+  quote_total: 99900,
+  quote_snapshot: 99900,
+  quote_item: 99900,
+  schedule: [99900, 2900],
+}), `the seeded fixed booking, quote, item and payment schedule stay consistent: ${JSON.stringify(fixedSeedAmounts)}`);
 ok(seedFixes.time_based_on === true, 'the demo tutor archetype is enabled');
 ok(seedFixes.founder_defaults <= 1, 'the seed never adds a second default address for the founder');
 

@@ -20,8 +20,9 @@ import { track } from '../../src/lib/analytics';
 import { DESCRIPTION_MAX, readBookPrefill, selectedChips, toggleChip } from '../../src/lib/assistant/prefill';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { fromSavedAddress } from '../../src/lib/locationModel';
-import { formatINR, PLATFORM_FEE_PAISE } from '../../src/lib/money';
+import { formatINR } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
+import { supabase } from '../../src/lib/supabase';
 import { useAppFeatureFlags, useFeature } from '../../src/lib/featureFlags';
 import { typicalRange } from '../../src/lib/pricing';
 import { dayLabel, firstAvailableDay, nextDays, WINDOW_START_HOURS, windowAvailable, windowLabel, windowStart } from '../../src/lib/schedule';
@@ -32,6 +33,14 @@ import type { TravelPreview } from '../../src/lib/types';
 import { PackageBookingScreen } from '../../src/features/booking/packages/PackageBookingScreen';
 import { hasSupportedRecurringFrequency } from '../../src/features/booking/packages/packageModel';
 import { getBookingModeOptions } from '../../src/features/recurring/customerPresentation';
+
+interface BookingPricePreview {
+  visit_fee: number;
+  platform_fee: number;
+  package_total: number;
+  total: number;
+  pay_now: number;
+}
 
 export default function BookScreen() {
   const t = useTheme();
@@ -51,6 +60,9 @@ export default function BookScreen() {
   const { location, setLocation } = useSelectedLocation();
   const [service, setService] = useState<ProviderServiceWithProvider | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pricePreview, setPricePreview] = useState<BookingPricePreview | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [priceAttempt, setPriceAttempt] = useState(0);
   const now = useMemo(() => new Date(), []);
   const days = useMemo(() => nextDays(now, 7), [now]);
   // Draft hand-off from QuickServe AI (src/lib/assistant/prefill.ts); read once so the user's edits stick.
@@ -82,6 +94,42 @@ export default function BookScreen() {
       .catch((e: Error) => setLoadError(e.message));
   };
   useEffect(load, [providerServiceId]);
+  useEffect(() => {
+    if (!service || packageId) return;
+    let active = true;
+    setPricePreview(null);
+    setPriceError(null);
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_booking_price_preview', {
+          p_provider_service_id: service.id,
+          p_quantity: 1,
+        });
+        if (error) throw new Error(error.message);
+        if (!data || typeof data !== 'object') throw new Error('No booking price preview returned');
+        const raw = data as Record<keyof BookingPricePreview, unknown>;
+        const readPaise = (value: unknown) => {
+          if (value == null || typeof value === 'boolean') throw new Error('The booking price preview is incomplete');
+          const amount = Number(value);
+          if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('The booking price preview is invalid');
+          return amount;
+        };
+        const preview = {
+          visit_fee: readPaise(raw.visit_fee),
+          platform_fee: readPaise(raw.platform_fee),
+          package_total: readPaise(raw.package_total),
+          total: readPaise(raw.total),
+          pay_now: readPaise(raw.pay_now),
+        };
+        if (active) setPricePreview(preview);
+      } catch (caught) {
+        if (active) setPriceError(caught instanceof Error ? caught.message : String(caught));
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [service?.id, packageId, priceAttempt]);
 
   // The draft used a saved address that is not the current selection (e.g. changed since): switch to it.
   useEffect(() => {
@@ -247,6 +295,20 @@ export default function BookScreen() {
   if (packageId && (archetype === 'fixed' || archetype === 'time_based')) {
     return <PackageBookingScreen packageId={packageId} archetype={archetype} />;
   }
+  if (!pricePreview) {
+    return (
+      <Screen header={<Header title={`Book ${service.categories?.name ?? 'service'}`} />}>
+        {priceError ? (
+          <ErrorState message={priceError} onRetry={() => setPriceAttempt((attempt) => attempt + 1)} />
+        ) : (
+          <>
+            <Skeleton height={72} radius={t.radii.lg} />
+            <Skeleton height={180} radius={t.radii.lg} />
+          </>
+        )}
+      </Screen>
+    );
+  }
   const firstName = providerName.split(' ')[0] ?? providerName;
   const slug = service.categories?.slug;
   const recurrenceCategory = service.categories;
@@ -264,9 +326,9 @@ export default function BookScreen() {
     ? travelPending
       ? 'Waiting for provider'
       : travelApproved
-        ? `Pay ${formatINR(service.visit_fee)} & book`
+        ? `Pay ${formatINR(pricePreview.pay_now)} & book`
         : `Request availability${travel.quoted_fee ? ` (+${formatINR(travel.quoted_fee)})` : ''}`
-    : `Pay ${formatINR(service.visit_fee)} & book`;
+    : `Pay ${formatINR(pricePreview.pay_now)} & book`;
 
   return (
     <>
@@ -281,7 +343,7 @@ export default function BookScreen() {
                   To pay now
                 </Text>
                 <Text variant="title2" tabular>
-                  {formatINR(service.visit_fee)}
+                  {formatINR(pricePreview.pay_now)}
                 </Text>
               </View>
               <Button
@@ -574,15 +636,20 @@ export default function BookScreen() {
         {/* Price */}
         <Block title="Price details">
           <Card gap={t.spacing.md}>
-            <PriceRow label="Visit / inspection fee" amount={service.visit_fee} hint="Adjusted in your final bill" />
+            <PriceRow label="Visit / inspection fee" amount={pricePreview.visit_fee} hint="Adjusted in your final bill" />
             <PriceRow
               label="Platform fee"
-              amount={PLATFORM_FEE_PAISE}
+              amount={pricePreview.platform_fee}
               hint="Added to the final bill — not charged now"
               emphasis="muted"
             />
+            <PriceRow
+              label="Minimum total including platform fee"
+              amount={pricePreview.total}
+              hint="The provider's approved quote determines the final service amount"
+            />
             <Divider />
-            <PriceRow label="To pay now" amount={service.visit_fee} emphasis="total" />
+            <PriceRow label="To pay now" amount={pricePreview.pay_now} emphasis="total" />
             {range ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
                 <Ionicons name="analytics-outline" size={16} color={t.colors.muted} />

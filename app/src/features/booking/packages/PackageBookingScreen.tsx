@@ -5,8 +5,9 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Button, ErrorState, Header, IconButton, InlineAlert, Input, PriceRow, Screen, Skeleton, Text, useToast } from '../../../components/ui';
 import { useSelectedLocation } from '../../../lib/locationContext';
 import { friendlyDbError } from '../../../lib/onboarding/supabaseOnboarding';
-import { formatINR } from '../../../lib/money';
+import { formatINR, packageCheckoutTotal } from '../../../lib/money';
 import { usePayment } from '../../../lib/payments';
+import { supabase } from '../../../lib/supabase';
 import { asapStart, dayLabel, nextDays, relativeTimeLabel, windowLabel, windowStart } from '../../../lib/schedule';
 import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
 import { asapAvailable } from '../../../lib/onboarding/availability';
@@ -27,6 +28,8 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const [item, setItem] = useState<CataloguePackage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [platformFee, setPlatformFee] = useState<number | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [pack, setPack] = useState(false);
   const [dayIndex, setDayIndex] = useState(0);
   const [hour, setHour] = useState(10);
@@ -41,22 +44,32 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   );
   const repeatPlanAvailable = timeBookingModes.includes('repeat') && quantity === 1;
   const day = days[dayIndex]!;
-  const load = () => {
-    setError(null);
-    getCataloguePackage(packageId)
-      .then((next) => {
-        setItem(next);
-        setQuantity(Math.max(1, Number(next.package.qty_min)));
-      })
-      .catch((caught: Error) => setError(caught.message));
-  };
-
   useEffect(() => {
     let alive = true;
+    setItem(null);
+    setPlatformFee(null);
+    setError(null);
     void getCataloguePackage(packageId)
-      .then((next) => {
+      .then(async (next) => {
+        const priceResult = archetype === 'fixed'
+          ? await supabase.rpc('get_fixed_booking_fee')
+          : await supabase.rpc('get_booking_price_preview', {
+              p_provider_service_id: next.providerServiceId,
+              p_quantity: 1,
+            });
+        if (priceResult.error) throw new Error(priceResult.error.message);
+        const priceData = priceResult.data as { platform_fee?: unknown } | number | null;
+        const rawFee = archetype === 'fixed'
+          ? priceData
+          : priceData && typeof priceData === 'object'
+            ? priceData.platform_fee
+            : null;
+        if (rawFee == null || typeof rawFee === 'boolean') throw new Error('The booking price is incomplete');
+        const fee = Number(rawFee);
+        if (!Number.isSafeInteger(fee) || fee < 0) throw new Error('The booking price is invalid');
         if (!alive) return;
         setItem(next);
+        setPlatformFee(fee);
         setQuantity(Math.max(1, Number(next.package.qty_min)));
         if (archetype === 'fixed') {
           void onboardingApi.getProviderSchedule(next.providerId).then((s) => {
@@ -68,11 +81,11 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       })
       .catch((caught: Error) => alive && setError(caught.message));
     return () => { alive = false; };
-  }, [packageId]);
+  }, [packageId, archetype, loadAttempt]);
 
-  if (!item) return (
+  if (!item || platformFee === null) return (
     <Screen header={<Header title="Book package" />}>
-      {error ? <ErrorState message={error} onRetry={load} /> :
+      {error ? <ErrorState message={error} onRetry={() => setLoadAttempt((attempt) => attempt + 1)} /> :
         <Skeleton height={260} radius={t.radii.lg} />}
     </Screen>
   );
@@ -80,7 +93,7 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
   const schema = item.category.intake_schema ?? { type: 'object', properties: {} };
   const schemaIssues = validateValues(schema, intake);
   const total = packageTotal(item.package, quantity);
-  const dueNow = pack ? total + 4900 : total;
+  const dueNow = pack ? total + 4900 : packageCheckoutTotal(item.package, quantity, platformFee);
   const totalMinutes = packageDuration(item.package, quantity);
   const asapOk = archetype === 'fixed' && flags.isOn('fixed_asap') && item.providerOnline && !item.providerPaused && asapAvailable(sched, new Date());
   const useAsap = asap && asapOk;
@@ -155,8 +168,14 @@ export function PackageBookingScreen({ packageId, archetype }: { packageId: stri
       header={<Header title={archetype === 'fixed' ? 'Book package' : pack ? 'Buy a session pack' : 'Book a session'} right={<IconButton icon="location-outline" onPress={() => router.push('/location')} accessibilityLabel="Change service address" />} />}
       footer={
         <View style={{ gap: t.spacing.sm }}>
+          <PriceRow label={archetype === 'fixed' ? 'Package' : pack ? 'Session pack' : 'Session service'} amount={total} />
+          <PriceRow
+            label={pack ? 'Pack fee' : 'Platform fee'}
+            amount={pack ? 4900 : platformFee}
+            hint={pack ? undefined : 'Charged once'}
+          />
           <PriceRow label={pack ? `${quantity} sessions + ₹49 pack fee` : 'Total'} amount={dueNow} emphasis="total" />
-          <Button title={`Pay ${formatINR(dueNow)}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon="lock-closed" />
+          <Button title={`Pay ${formatINR(dueNow, { alwaysShowPaise: true })}`} onPress={() => void book()} loading={busy} disabled={!!blocker} accessibilityHint={blocker ?? undefined} fullWidth size="lg" leftIcon="lock-closed" />
         </View>
       }
     >

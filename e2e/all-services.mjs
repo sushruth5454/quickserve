@@ -57,6 +57,17 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
   });
 
   await step('archetype-fixed-package-book-mocked-payment', async () => {
+    const amountInPaise = (value) => {
+      const match = value.match(/₹([\d,]+)(?:\.(\d{2}))?/);
+      if (!match) throw new Error(`missing INR amount in ${JSON.stringify(value)}`);
+      return Number(match[1].replaceAll(',', '')) * 100 + Number(match[2] ?? '0');
+    };
+    const priceRowPaise = async (label) => {
+      const row = page.locator(`[aria-label^="${label}: "] >> visible=true`).last();
+      const accessibilityLabel = await row.getAttribute('aria-label');
+      if (!accessibilityLabel) throw new Error(`missing ${label} price row`);
+      return amountInPaise(accessibilityLabel);
+    };
     // A random later day and window; if an earlier booking already holds it, try another one.
     const days = page.locator('button >> visible=true').filter({ hasText: /(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2}$/ });
     const slots = page.locator('text=/^\\d{1,2}( am| pm)?–\\d{1,2} (am|pm)$/ >> visible=true');
@@ -67,9 +78,36 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
       if (dayCount > 2) await days.nth(2 + Math.floor(Math.random() * (dayCount - 2))).click();
       const slotCount = await slots.count();
       if (slotCount) await slots.nth(Math.floor(Math.random() * slotCount)).click();
-      await page.locator('text=/^Pay ₹/ >> visible=true').last().click();
+      const footerButton = page.locator('text=/^Pay ₹/ >> visible=true').last();
+      const footerText = await footerButton.innerText();
+      const packagePaise = await priceRowPaise('Package');
+      const platformFeePaise = await priceRowPaise('Platform fee');
+      const totalPaise = await priceRowPaise('Total');
+      const footerPaise = amountInPaise(footerText);
+      const breakdown = { packagePaise, platformFeePaise, totalPaise, footerText, footerPaise };
+      if (packagePaise !== 99900 || platformFeePaise !== 2900 || totalPaise !== 102800
+        || footerText !== 'Pay ₹1,028.00' || footerPaise !== 102800) {
+        throw new Error(`fixed package Pay label does not match the ₹999 + ₹29 sample: ${JSON.stringify(breakdown)}`);
+      }
+      if (packagePaise + platformFeePaise !== totalPaise || totalPaise !== footerPaise) {
+        throw new Error(`fixed package footer does not match the displayed price breakdown: ${JSON.stringify(breakdown)}`);
+      }
+      await footerButton.click();
       await checkout.or(taken).waitFor();
-      if (await checkout.isVisible()) break;
+      if (await checkout.isVisible()) {
+        const checkoutAmount = await page
+          .locator('text=/^₹[\\d,]+(?:\\.\\d{2})?$/ >> visible=true')
+          .last()
+          .innerText();
+        const checkoutPayButton = await page.locator('text=/^Pay ₹/ >> visible=true').last().innerText();
+        const checkoutPaise = amountInPaise(checkoutAmount);
+        const checkoutButtonPaise = amountInPaise(checkoutPayButton);
+        const actual = { ...breakdown, checkoutPaise, checkoutButtonPaise };
+        if (checkoutPaise !== footerPaise || checkoutButtonPaise !== footerPaise) {
+          throw new Error(`fixed package checkout amount differs from the footer: ${JSON.stringify(actual)}`);
+        }
+        break;
+      }
       if (attempt >= 4) throw new Error('every tried slot was already taken');
     }
     await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
