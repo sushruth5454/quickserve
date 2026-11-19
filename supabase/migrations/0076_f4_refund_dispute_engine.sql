@@ -511,7 +511,7 @@ declare
   v_uid uuid := public._require_uid();
   b public.bookings := public._lock_booking(p_booking_id);
   po public.payouts;
-  r record;
+  v_cash_payment record;
   v_refund int := 0;
   v_refunded int := 0;
   v_cash_net int := 0;
@@ -559,7 +559,7 @@ begin
 
   if v_refund > 0 then
     if p_outcome = 'full_refund' then
-      for r in
+      for v_cash_payment in
         select p.id,
                greatest(p.amount - coalesce(refunds.amount, 0), 0)::int as amount
           from public.payments p
@@ -573,9 +573,9 @@ begin
            and p.status in ('paid', 'refund_pending', 'refund_processing', 'refunded')
          order by p.paid_at nulls first, p.id
       loop
-        if r.amount > 0 then
+        if v_cash_payment.amount > 0 then
           v_refunded := v_refunded
-            + public._queue_refund(r.id, r.amount, 'dispute: full refund');
+            + public._queue_refund(v_cash_payment.id, v_cash_payment.amount, 'dispute: full refund');
         end if;
       end loop;
     else

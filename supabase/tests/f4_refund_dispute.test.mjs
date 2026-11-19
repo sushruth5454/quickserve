@@ -509,7 +509,7 @@ await scenario('WS6-T10 partial pre-completion dispute uses net cash without a p
     actors.admin,
     'authenticated',
     `select public.resolve_dispute($1::uuid, $2::public.dispute_outcome, $3::int, $4::text)`,
-    [bookingId, 'partial_refund', 25000, 'F4 partial refund'],
+    [bookingId, 'partial_refund', 10000, 'F4 partial refund'],
   );
   const actual = await one(
     `select
@@ -527,10 +527,10 @@ await scenario('WS6-T10 partial pre-completion dispute uses net cash without a p
   check(
     before.payouts === 0
       && actual.booking_status === 'completed'
-      && actual.refund_amount === 25000
-      && actual.queued_refund === 25000
+      && actual.refund_amount === 10000
+      && actual.queued_refund === 10000
       && actual.payouts === 1,
-    'partial dispute with no payout caps to net cash, queues 25,000 paise, and finalizes once',
+    'partial dispute with no payout caps to net cash, queues 10,000 paise, and finalizes once',
     { before, actual },
   );
 });
