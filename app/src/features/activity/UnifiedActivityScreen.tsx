@@ -23,6 +23,7 @@ import {
 } from '../../components/ui';
 import { listMyBookings, listMyServiceRequests } from '../../lib/api';
 import { useAppFeatureFlags, useFeature } from '../../lib/featureFlags';
+import { useAuth } from '../../lib/auth';
 import { formatINR } from '../../lib/money';
 import { bookingRef, scheduleLabel } from '../../lib/schedule';
 import type { Booking, ServiceRequest } from '../../lib/types';
@@ -112,11 +113,36 @@ export default function UnifiedActivityScreen() {
   const flags = useAppFeatureFlags();
   const productsEnabled = flags.isOn('products');
   const sportsEnabled = flags.isOn('sports');
+  const { userId } = useAuth();
   const activityUnread = useActivityUnread();
   const chatUnread = useUnread();
+  const [hasSportsBookings, setHasSportsBookings] = useState(false);
+
+  useEffect(() => {
+    setHasSportsBookings(false);
+    if (sportsEnabled || !userId) {
+      return;
+    }
+    let active = true;
+    void listMyCustomerSportsBookings()
+      .then((bookings) => {
+        if (active) setHasSportsBookings(bookings.length > 0);
+      })
+      .catch(() => {
+        if (active) setHasSportsBookings(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [sportsEnabled, userId]);
+
   const segments = useMemo(
-    () => visibleActivitySegments({ products: productsEnabled, sports: sportsEnabled }),
-    [productsEnabled, sportsEnabled],
+    () => visibleActivitySegments({
+      products: productsEnabled,
+      sports: sportsEnabled,
+      hasSportsBookings: hasSportsBookings || activityUnread.counts.sports > 0,
+    }),
+    [productsEnabled, sportsEnabled, hasSportsBookings, activityUnread.counts.sports],
   );
   const [segment, setSegment] = useState<ActivitySegment>('services');
   const [refreshing, setRefreshing] = useState(false);

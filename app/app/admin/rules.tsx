@@ -125,6 +125,9 @@ export default function AdminRulesScreen() {
             <Text variant="footnote" color="muted">Sports payment and refund settings are stored as paise and basis points.</Text>
             <RuleInput label="Payment hold (minutes)" value={sports.paymentHoldMinutes} onChange={(paymentHoldMinutes) => setSports((current) => current ? { ...current, paymentHoldMinutes } : current)} />
             <RuleInput label="Approval payment window (minutes)" value={sports.approvalPayWindowMinutes} onChange={(approvalPayWindowMinutes) => setSports((current) => current ? { ...current, approvalPayWindowMinutes } : current)} />
+            <RuleInput label="Maximum active bookings per customer" value={sports.maxActiveHoldsPerCustomer} onChange={(maxActiveHoldsPerCustomer) => setSports((current) => current ? { ...current, maxActiveHoldsPerCustomer } : current)} />
+            <RuleInput label="Request response window (minutes)" value={sports.requestResponseMinutes} onChange={(requestResponseMinutes) => setSports((current) => current ? { ...current, requestResponseMinutes } : current)} />
+            <RuleInput label="Minimum booking lead time (minutes)" value={sports.minLeadMinutes} onChange={(minLeadMinutes) => setSports((current) => current ? { ...current, minLeadMinutes } : current)} />
             <RuleInput label="Sports commission (%)" value={sports.commissionPercent} onChange={(commissionPercent) => setSports((current) => current ? { ...current, commissionPercent } : current)} decimal />
             <RuleInput label="Customer fee" value={sports.customerFeeRupees} onChange={(customerFeeRupees) => setSports((current) => current ? { ...current, customerFeeRupees } : current)} decimal prefix="₹" />
             <RuleInput label="Full refund window (hours)" value={sports.fullRefundHours} onChange={(fullRefundHours) => setSports((current) => current ? { ...current, fullRefundHours } : current)} />

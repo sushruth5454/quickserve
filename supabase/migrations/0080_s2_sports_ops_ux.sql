@@ -312,6 +312,51 @@ begin
 end;
 $$;
 
+create or replace function public.get_my_business_sports_bookings()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := public._require_uid();
+  v_result jsonb;
+begin
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', b.id, 'customer_id', b.customer_id, 'customer_name', p.full_name,
+    'owner_id', v.owner_id, 'business_role', public._business_role(v.owner_id),
+    'venue_id', v.id, 'venue_name', v.name, 'payment_modes', v.payment_modes,
+    'online_payment_ready', coalesce(
+      public._sports_feature('sports_online_payments')
+      and 'online' = any(v.payment_modes)
+      and exists (
+        select 1 from public.provider_payout_accounts pa
+         where pa.provider_id = v.owner_id and pa.activation_status = 'activated'
+      ),
+      false
+    ),
+    'resource_id', r.id, 'resource_name', r.name, 'activity_name', a.name,
+    'booking_mode', r.booking_mode, 'capacity', r.capacity,
+    'starts_at', b.starts_at, 'ends_at', b.ends_at, 'status', b.status,
+    'price_paise', b.price_paise, 'total_paise', b.total_paise,
+    'customer_fee_paise', b.customer_fee_paise, 'refund_paise', b.refund_paise,
+    'payment_mode', b.payment_mode, 'participants', b.participants,
+    'hold_expires_at', b.hold_expires_at, 'pay_by', b.pay_by, 'paid_at', b.paid_at,
+    'note', b.note, 'decision_reason', b.decision_reason,
+    'expires_at', b.expires_at, 'decided_at', b.decided_at, 'created_at', b.created_at
+  ) order by b.starts_at desc), '[]'::jsonb)
+    into v_result
+    from public.sports_bookings b
+    join public.sports_venues v on v.id = b.venue_id
+    join public.sports_resources r on r.id = b.resource_id
+    join public.sports_activities a on a.id = r.activity_id
+    join public.profiles p on p.id = b.customer_id
+   where b.customer_id = v_uid or public._acts_for(v.owner_id, 'staff');
+  return v_result;
+end;
+$$;
+
 create or replace function public._sports_cancellation_refund(
   p_booking_id uuid,
   p_owner_cancel boolean
@@ -607,6 +652,7 @@ $$;
 revoke all on function public.record_sports_payment_failed(text) from public, anon, authenticated;
 grant execute on function public.record_sports_payment_failed(text) to service_role;
 
+-- A feature shutdown must not strand an existing payable booking; this demo-only RPC settles a live hold.
 create or replace function public.demo_settle_sports_payment(p_booking_id uuid)
 returns jsonb
 language plpgsql
@@ -685,10 +731,13 @@ declare
   v_booking_id uuid;
   v_response_minutes int;
   v_min_lead_minutes int;
+  v_max_active_holds int;
+  v_active_holds int;
   i int;
 begin
   perform public._assert(public._sports_feature('sports'), 'Sports & venues are turned off right now.');
   perform pg_advisory_xact_lock(hashtext(p_resource_id::text));
+  perform pg_advisory_xact_lock(hashtext('sports-customer:' || v_uid::text));
   select r.id, r.venue_id, r.slot_minutes, r.capacity, v.owner_id, v.name venue_name,
          v.status, v.payment_modes, a.active
     into v_resource
@@ -700,6 +749,20 @@ begin
   perform public._assert('pay_at_venue' = any(v_resource.payment_modes),
                          'This venue does not accept pay-at-venue booking yet');
   perform public._assert(v_resource.owner_id <> v_uid, 'venue owners cannot book their own venue');
+  v_max_active_holds := coalesce(nullif(public._sports_rule('max_active_holds_per_customer'), '')::int, -1);
+  perform public._assert(v_max_active_holds between 1 and 100,
+                         'sports booking limit is unavailable');
+  select count(*)::int into v_active_holds
+    from public.sports_bookings b
+   where b.customer_id = v_uid
+     and (
+       (b.status = 'requested' and b.expires_at > now())
+       or (b.status = 'pending_payment' and b.hold_expires_at > now())
+       or (b.status = 'awaiting_payment' and b.pay_by > now())
+       or (b.status = 'accepted' and b.starts_at > now() and b.payment_mode = 'pay_at_venue')
+     );
+  perform public._assert(v_active_holds < v_max_active_holds,
+                         'You have too many pending sports bookings.');
   perform public._assert(p_starts_at > now() and p_starts_at <= now() + interval '30 days',
                          'start time must be within the next 30 days');
   perform public._assert(p_slots between 1 and 4, 'slot count must be between 1 and 4');
@@ -822,7 +885,7 @@ begin
                          'request is no longer pending');
 
   if p_accept and v_booking.payment_mode = 'online' then
-    v_window_minutes := coalesce(nullif(public._sports_rule('request_response_minutes'), '')::int, -1);
+    v_window_minutes := coalesce(nullif(public._sports_rule('approval_pay_window_minutes'), '')::int, -1);
     v_min_lead_minutes := coalesce(nullif(public._sports_rule('min_lead_minutes'), '')::int, -1);
     perform public._assert(v_window_minutes between 5 and 1440
                            and v_min_lead_minutes between 0 and 43200,

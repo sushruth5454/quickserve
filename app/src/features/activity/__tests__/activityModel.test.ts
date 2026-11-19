@@ -37,9 +37,22 @@ describe('customer activity model', () => {
     expect(visibleActivitySegments({ products: false, sports: true })).toEqual(['services', 'requests', 'sports']);
   });
 
+  it('keeps Sports visible when the feature is off but the customer has existing bookings', () => {
+    expect(visibleActivitySegments({
+      products: false,
+      sports: false,
+      hasSportsBookings: true,
+    })).toEqual(['services', 'requests', 'sports']);
+  });
+
   it('totals only unread counts from visible segments', () => {
     expect(totalVisibleActivityUnread(counts, { products: false, sports: false })).toBe(8);
     expect(totalVisibleActivityUnread(counts, { products: true, sports: false })).toBe(15);
+    expect(visibleActivityUnreadCounts(counts, {
+      products: false,
+      sports: false,
+      hasSportsBookings: true,
+    })).toEqual({ services: 5, requests: 3, shop: 0, sports: 11 });
     expect(visibleActivityUnreadCounts(counts, { products: false, sports: true })).toEqual({
       services: 5,
       requests: 3,

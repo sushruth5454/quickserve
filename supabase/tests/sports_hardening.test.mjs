@@ -568,6 +568,25 @@ await scenario('WS4-T05/WS8-T08: own booking remains readable and cancellable wi
   `[WS4-T05/WS8-T08] flag-off state: ${JSON.stringify({ list, detail, ownRows, strangerRows, preview, state })}`);
 });
 
+await scenario('WS4-T08: venue staff can still read existing bookings with sports off', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('operator-flag-off');
+  const booking = await book(fixture, fixture.customerIds[0], fixture.resourceId, '10:00', {
+    mode: 'pay_at_venue',
+  });
+  await setSportsFlags({ sports: false });
+  const ownerBookings = json((await as(fixture.ownerId, 'authenticated', `
+    select public.get_my_business_sports_bookings() value
+  `))[0].value);
+  const strangerBookings = json((await as(fixture.customerIds[1], 'authenticated', `
+    select public.get_my_business_sports_bookings() value
+  `))[0].value);
+  ok(booking.status === 'accepted'
+    && ownerBookings.some((row) => row.id === booking.booking_id)
+    && strangerBookings.every((row) => row.id !== booking.booking_id),
+  `[WS4-T08] flag-off operator state: ${JSON.stringify({ booking, ownerBookings, strangerBookings })}`);
+});
+
 await scenario('WS4-T07: refund preview equals the queued refund for customer tiers and venue cancellation', async () => {
   const cases = [
     { label: 'preview-48h', hours: 48, cancelBy: 'customer', expected: 20000, retained: 0 },
@@ -698,6 +717,27 @@ await scenario('WS4-T13: accepted pay-at-venue bookings count against the custom
     `[WS4-T13] pay-at-venue limit state: ${JSON.stringify({ rules, refused, customerId: fixture.customerIds[0] })}`);
 });
 
+await scenario('WS4-T13: legacy slot requests cannot bypass the customer hold limit', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('legacy-hoarding-limit', { bookingMode: 'approval' });
+  const rules = await setAdminSportsRules(fixture.ownerId, { max_active_holds_per_customer: 3 });
+  const requestIds = [];
+  for (const time of ['10:00', '12:00', '14:00']) {
+    const starts = await startsAt(time);
+    const requestId = (await as(fixture.customerIds[0], 'authenticated', `
+      select public.request_sports_slot($1::uuid, $2::timestamptz, 1::int, ''::text) id
+    `, [fixture.resourceId, starts]))[0].id;
+    requestIds.push(requestId);
+  }
+  const fourthStart = await startsAt('16:00');
+  const refused = await failureOf(() => as(fixture.customerIds[0], 'authenticated', `
+    select public.request_sports_slot($1::uuid, $2::timestamptz, 1::int, ''::text)
+  `, [fixture.resourceId, fourthStart]));
+  ok(rules.max_active_holds_per_customer === 3 && requestIds.length === 3
+    && /too many pending sports bookings/.test(refused ?? ''),
+  `[WS4-T13] legacy hold limit state: ${JSON.stringify({ rules, requestIds, refused, customerId: fixture.customerIds[0] })}`);
+});
+
 await scenario('WS4-T16: failed sports payment marks only the payment failed and notifies the customer', async () => {
   await setSportsFlags();
   const fixture = await createFixture('payment-failure');
@@ -739,12 +779,44 @@ await scenario('WS4-T16: demo sports settlement refuses a non-demo venue owner',
     `[WS4-T16] demo guard state: ${JSON.stringify({ refused, bookingId: hold.booking_id })}`);
 });
 
+await scenario('WS4-T16: existing demo sports payment settles after sports flags turn off', async () => {
+  await setSportsFlags();
+  const fixture = await createFixture('demo-settlement-flag-off');
+  await db.query(`
+    update auth.users set raw_app_meta_data = '{"demo_only":"true"}'::jsonb where id = $1::uuid
+  `, [fixture.ownerId]);
+  const hold = await book(fixture, fixture.customerIds[0], fixture.resourceId, '10:00');
+  const attempt = await prepare(hold.booking_id, fixture.customerIds[0]);
+  await db.query(`
+    update public.app_config set value = '{"is_demo_project":true}'::jsonb where key = 'deployment'
+  `);
+  await db.query(`
+    update public.app_config set value = '{"enabled":true}'::jsonb where key = 'demo_payments'
+  `);
+  await setSportsFlags({ sports: false, online: false });
+  const result = json((await as(fixture.customerIds[0], 'authenticated', `
+    select public.demo_settle_sports_payment($1::uuid) result
+  `, [hold.booking_id]))[0].result);
+  const state = await one(`
+    select b.status booking_status, b.paid_at,
+      p.status payment_status, p.razorpay_payment_id, p.amount
+      from public.sports_bookings b
+      join public.payments p on p.sports_booking_id = b.id
+     where b.id = $1::uuid
+  `, [hold.booking_id]);
+  ok(result.ok === true && result.amount === attempt.amount && state.booking_status === 'accepted'
+    && state.paid_at !== null && state.payment_status === 'paid'
+    && state.amount === 20500 && state.razorpay_payment_id.startsWith('pay_demo_'),
+  `[WS4-T16] demo in-flight settlement state: ${JSON.stringify({ result, attempt, state })}`);
+});
+
 await scenario('WS4-T17: admin-configured response and lead windows govern new requests', async () => {
   await setSportsFlags({ instant: false });
   const fixture = await createFixture('configured-windows', { bookingMode: 'approval' });
   const rules = await setAdminSportsRules(fixture.ownerId, {
     request_response_minutes: 15,
     min_lead_minutes: 30,
+    approval_pay_window_minutes: 20,
   });
   const start = await startsAt('10:00');
   const bookingId = (await as(fixture.customerIds[0], 'authenticated', `
@@ -767,9 +839,10 @@ await scenario('WS4-T17: admin-configured response and lead windows govern new r
   await setAdminSportsRules(fixture.ownerId, { min_lead_minutes: 43200 });
   const tooSoon = await failureOf(() => book(fixture, fixture.customerIds[1], fixture.resourceId, '14:00'));
   ok(rules.request_response_minutes === 15 && rules.min_lead_minutes === 30
+    && rules.approval_pay_window_minutes === 20
     && timing.response_seconds > 0 && timing.response_seconds <= 900
     && onlineRequest.status === 'requested'
-    && paymentDeadline.response_seconds > 0 && paymentDeadline.response_seconds <= 900
+    && paymentDeadline.response_seconds > 1000 && paymentDeadline.response_seconds <= 1200
     && /configured lead time/.test(tooSoon ?? ''),
   `[WS4-T17] configured-window state: ${JSON.stringify({ rules, timing, onlineRequest, paymentDeadline, tooSoon })}`);
 });

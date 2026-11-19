@@ -165,9 +165,17 @@ export default function SportsVenueManagementScreen() {
   const capacityValid = isSportsCapacityValid(capacity);
 
   const load = useCallback(async () => {
-    if (!enabled) return;
     setError(null);
     try {
+      if (!enabled) {
+        const bookingResult = await supabase.rpc('get_my_business_sports_bookings');
+        if (bookingResult.error) throw new Error(bookingResult.error.message);
+        setBookings((bookingResult.data ?? []) as SportsBookingRow[]);
+        setVenues([]);
+        setActivities([]);
+        setSelectedId('');
+        return;
+      }
       const [venueResult, activityResult, bookingResult] = await Promise.all([
         supabase.rpc('get_my_business_sports_venues'),
         supabase.rpc('list_sports_activities'),
@@ -407,7 +415,9 @@ export default function SportsVenueManagementScreen() {
     });
   };
 
-  const venueBookings = bookings.filter((booking) => booking.owner_id === selected?.venue.owner_id && booking.venue_id === selectedId);
+  const venueBookings = enabled
+    ? bookings.filter((booking) => booking.owner_id === selected?.venue.owner_id && booking.venue_id === selectedId)
+    : bookings;
   const myRequests = venueBookings.filter((booking) => booking.status === 'requested');
   const upcomingBookings = getUpcomingVenueBookings(venueBookings, new Date());
 
@@ -434,7 +444,26 @@ export default function SportsVenueManagementScreen() {
   return (
     <Screen header={<Header title="My sports venues" subtitle="Manage courts, hours, prices and requests" onBack={() => router.back()} />}>
       {!enabled ? (
-        <InlineAlert message="Sports & venues are turned off right now." />
+        <>
+          <InlineAlert message="Sports & venues are turned off. Existing bookings remain available below." />
+          {error ? <InlineAlert message={error} /> : null}
+          <Card gap={t.spacing.sm}>
+            <Text variant="title3">Existing sports bookings</Text>
+            {bookings.length === 0 ? (
+              <EmptyState icon="calendar-outline" title="No existing bookings" message="Sports bookings will appear here." compact />
+            ) : bookings.map((booking) => (
+              <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+                <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
+                <Text variant="caption" color="muted">
+                  {slotLabel(booking.starts_at)} · {getSportsBookingStatusLabel(booking.status)}
+                </Text>
+                <Text variant="caption" color="muted">
+                  {formatINR(booking.total_paise ?? booking.price_paise)} · {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
+                </Text>
+              </Pressable>
+            ))}
+          </Card>
+        </>
       ) : error && venues.length === 0 ? (
         <ErrorState message={error} onRetry={() => void load()} />
       ) : (
