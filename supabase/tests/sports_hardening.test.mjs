@@ -52,56 +52,14 @@ alter default privileges in schema public grant all on sequences to anon, authen
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 `;
 
-const migrationFiles = [
-  '0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql',
-  '0007_chat_unread_notifications.sql', '0008_provider_kyc_status_values.sql',
-  '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
-  '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
-  '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
-  '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
-  '0020_proposal_enum_values.sql', '0021_cancellation_availability_payouts.sql',
-  '0022_time_based_booking.sql', '0023_proposal_milestone_booking.sql',
-  '0024_activate_creator_event_categories.sql', '0025_targeted_proposal_requests.sql',
-  '0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql',
-  '0028_auto_approve_provider_links.sql', '0029_single_due_payment.sql',
-  '0030_review_fixes.sql', '0031_holiday_mode_enforcement.sql',
-  '0032_notification_centre.sql', '0033_city_waitlist.sql',
-  '0034_targeted_request_radius.sql', '0035_request_coordinates.sql',
-  '0036_provider_service_city.sql', '0037_proposal_validity_cap.sql',
-  '0038_proposal_lead_time.sql', '0039_proposal_start_code.sql',
-  '0040_urgent_proposals.sql', '0041_admin_support.sql', '0042_feature_registry.sql',
-  '0043_commission_config.sql', '0044_creator_revisions.sql',
-  '0045_preferred_language.sql', '0046_managed_geography.sql', '0047_coins_config.sql',
-  '0048_sports.sql', '0049_shops_catalogue.sql', '0050_rfq.sql',
-  '0051_ai_usage_v3.sql', '0052_merchant_staff.sql', '0053_activity_contracts.sql',
-  '0054_addendum_foundations.sql', '0055_addendum_foundation_hardening.sql',
-  '0056_home_services_catalogue.sql', '0057_recurring_plans_v2.sql',
-  '0058_sports_payments.sql', '0059_admin_identity_hardening.sql',
-  '0060a_demo_payout_status.sql', '0060b_demo_payout_isolation.sql',
-  '0061_h1_provider_cancellation_and_recurring_privacy.sql',
-  '0062_coins_hardening.sql', '0063_o1_notifications.sql',
-  '0064_o2_provider_verification.sql', '0065_h2a_recurring_correctness.sql',
-  '0066_h2b_recurring_ux.sql', '0067_u3_account_deletion.sql',
-  '0068_u2_booking_cancellation_preview.sql', '0069_ws3_shop_product_remediation.sql',
-  '0070_nearo_r1.sql', '0071_f1_payment_recorder_safety.sql',
-  '0072_s1_sports_money_hardening.sql', '0073_b1_server_pricing.sql',
-  '0074_p1b_rfq.sql', '0080_s2_sports_ops_ux.sql',
-];
+const migrationDir = path.join(here, '..', 'migrations');
+const migrationFiles = fs.readdirSync(migrationDir)
+  .filter((file) => /^\d{4}[a-z]?_.*\.sql$/.test(file) && Number(file.slice(0, 4)) <= 80)
+  .sort();
 
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
 for (const file of migrationFiles) {
-  if (file === '0051_ai_usage_v3.sql') {
-    await db.exec(`
-      create table public.ai_usage (
-        id bigint generated always as identity primary key,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-        request_id uuid,
-        created_at timestamptz not null default now()
-      )
-    `);
-  }
   await db.exec(migration(file));
 }
 await db.exec("set timezone = 'UTC'");
