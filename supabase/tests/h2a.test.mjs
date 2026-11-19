@@ -118,10 +118,10 @@ async function fixture(index, archetype = 'time_based', { packagePrice = 50000, 
     `+9199001${String(index).padStart(4, '0')}`, `+9199002${String(index).padStart(4, '0')}`]);
   await db.query(`
     insert into public.providers (
-      id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended
+      id, city, base_location, kyc_status, submitted_at, admin_review_status, is_online, paused, suspended
     ) values (
       $1::uuid, $2::text, extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
-      'verified', now(), true, false, false
+      'verified', now(), 'approved', true, false, false
     )`, [provider, city]);
   await db.query(`
     insert into public.business_members (owner_id, member_id, role, active)
