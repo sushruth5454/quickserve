@@ -91,6 +91,8 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 
 **2026-11-19 · B1 E2E ownership:** WS2-T04 and WS9-T09 require assertions in the existing `archetype-fixed-package-book-mocked-payment` step in `e2e/all-services.mjs`. B1 owns only those fixed-package/price assertions; sequence this file T1 → H2b → B1 → H3 → doc 14 Q-02 so B1 can proceed before H3 without concurrent edits.
 
+**2026-11-19 · Owner-directed migration sequencing:** The owner requested integrating P1a, R1, F1, and S1 ahead of the original WP order. This authorizes code/migration integration only; G1 exit criteria remain open and G2/live payments stay prohibited until the documented release gates pass. No live Razorpay keys, payouts, or production payment/data operations are authorized.
+
 **2026-11-18 · T2:** WS2-T12 explicitly specifies a new `ws2_lifecycle_latest.test.mjs` full-chain suite. T2 owns that suite, its package registration, and the shared RP-27 test fixture correction described below; it does not change unrelated existing test expectations that encode known later-migration behavior (including WS2-31). CI runs for X3, F3, and T2 all failed the existing RP-27 recurring-plan fixture with `outside_working_hours`. T2 must make that test-only fixture deterministic without changing production code or weakening the RP-27 assertions. U3 independently carried the same test-only fixture correction in its branch; T2 owns the migration-free fix so it can merge before X3/F3, and those branches must merge main and rerun afterward. The original WP table's reference to early-loader suites is superseded by this source-row-aligned scope.
 
 **2026-11-18 · U1:** WS1-T01 explicitly requires a provider-profile E2E step, omitted from the original U1 ownership cell. U1 owns that step in `e2e/web-smoke.mjs`; because T1 also edits that file, T1 merges first and U1 then merges/revalidates against the resulting main.
@@ -235,7 +237,7 @@ Legend:
 |---|---|---|---|
 | **A** | Owner approval | X1, X3, H1, F3, O1, O2, H2a, U1, U3, P1a, R1, T2 (+ X2 by integrator/owner) | **12** |
 | **A′** | Its blocker merged | T1 (after X1), H2b (after H2a), U2 (after F3), B1 (after U2), P1b (after P1a) | 5 |
-| **B** | G1 exit + D1/D3 answered | F1, S1, (F2 after F1 + D1 + B1), C1 (after D2 + B1) | 3–4 |
+| **B** | Owner-directed early integration of F1/S1 (D1/D3 answered); G2 remains closed until G1 exit | F1, S1, (F2 after F1 + D1 + B1), C1 (after D2 + B1) | 3–4 |
 | **B′** | Blockers merged | F4, F5, S2, C2, B4, H3 | up to 6 |
 | **C** | Blockers merged | F6, F7, F8, B2, O3, then B6 | up to 6 |
 | **D** | G2 exit | S3, C3, O4, O5, B5, U4, U5, B3 (after D4) | up to 8 |
