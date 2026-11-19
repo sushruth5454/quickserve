@@ -7,8 +7,9 @@ import { CategoryIcon, iconForSlug } from '../../../components/CategoryIcon';
 import { activeStatuses, nextStepCopy, StatusPill, statusShort } from '../../../components/status';
 import { ProgressBar } from '../../../components/StatusTimeline';
 import { UnreadMessagesRow } from '../../../components/UnreadChat';
-import { Button, Card, Chip, EmptyState, ErrorState, InlineAlert, SegmentedControl, SkeletonBookingCard, Skeleton, Text } from '../../../components/ui';
-import { getPayments, listMyBookings } from '../../../lib/api';
+import { Button, Card, Chip, EmptyState, ErrorState, InlineAlert, SegmentedControl, SkeletonBookingCard, Skeleton, Text, useToast } from '../../../components/ui';
+import { getPayments, getProviderService, listMyBookings } from '../../../lib/api';
+import { useT } from '../../../i18n';
 import { useAppFeatureFlags } from '../../../lib/featureFlags';
 import { formatINR } from '../../../lib/money';
 import { bookingRef, scheduleLabel } from '../../../lib/schedule';
@@ -18,13 +19,16 @@ import { useTheme } from '../../../theme';
 import { activityReceiptLabel, shouldShowPaymentReceipt } from '../../receipts/formatReceipt';
 import { listMyRecurringPlans } from '../../recurring/api';
 import { shouldShowRepeatPlansFilter } from '../../recurring/customerPresentation';
-import { bookAgainRoute } from '../bookAgain';
+import { bookAgainRoute, shouldShowBookAgain } from '../bookAgain';
 import { fmtDate, parseActivityPlans, planFrequencyLabel, type ActivityPlanSummary } from '../model';
 import type { MarkRead, RegisterRefresh } from './types';
 
 export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh: RegisterRefresh; markRead: MarkRead }) {
   const t = useTheme();
+  const translate = useT();
+  const toast = useToast();
   const flags = useAppFeatureFlags();
+  const bookAgainEnabled = flags.isOn('book_again');
   const recurringEnabled = flags.isOn('recurring_bookings');
   const receiptsEnabled = flags.isOn('payment_receipts');
   const unread = useUnread();
@@ -90,6 +94,19 @@ export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh
       // Keep booking details available if receipt lookup is temporarily unavailable.
     }
     open(booking);
+  };
+  const openBookAgain = async (booking: Booking) => {
+    if (!shouldShowBookAgain(booking, bookAgainEnabled)) return;
+    try {
+      const service = await getProviderService(booking.provider_service_id);
+      const target = bookAgainRoute(booking, service.active);
+      if (target) router.push(target);
+    } catch (error) {
+      toast({
+        message: error instanceof Error ? error.message : translate('error.generic'),
+        tone: 'error',
+      });
+    }
   };
 
   return (
@@ -166,7 +183,6 @@ export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh
       ) : (
         list.map((booking, index) => {
           const done = booking.status === 'completed' || booking.status === 'closed';
-          const bookAgain = bookAgainRoute(booking);
           return (
             <Animated.View key={booking.id} entering={FadeInDown.delay(Math.min(index, 6) * 30).duration(240)}>
               <Card
@@ -210,13 +226,12 @@ export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh
                     {booking.status === 'completed' ? (
                       <Button title="Rate" size="sm" variant="secondary" leftIcon="star-outline" onPress={() => open(booking)} style={{ flex: 1 }} />
                     ) : null}
-                    {bookAgain ? (
+                    {shouldShowBookAgain(booking, bookAgainEnabled) ? (
                       <Button
-                        title="Book again"
+                        title={translate('booking.bookAgain')}
                         size="sm"
-                        variant="outline"
-                        leftIcon="refresh"
-                        onPress={() => router.push(bookAgain)}
+                        variant="secondary"
+                        onPress={() => void openBookAgain(booking)}
                         style={{ flex: 1 }}
                       />
                     ) : null}
