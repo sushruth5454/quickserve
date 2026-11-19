@@ -57,6 +57,7 @@ export default function AdminDashboardScreen() {
             <Action label="Geography" icon="map-outline" onPress={() => router.push('/admin/geography')} />
             <Action label="Sports" icon="football-outline" onPress={() => router.push('/admin/sports')} />
             <Action label="Shops" icon="storefront-outline" onPress={() => router.push('/admin/shops')} />
+            <Action label="Documents" icon="document-text-outline" onPress={() => router.push('/admin/documents')} />
             <Action label="Product RFQs" icon="document-text-outline" onPress={() => router.push('/admin/rfqs')} />
             <Action label="Services" icon="grid-outline" onPress={() => router.push('/admin/services')} />
             <Action label="People" icon="people-outline" badge={data.totals.providers_pending} onPress={() => router.push('/admin/people')} />

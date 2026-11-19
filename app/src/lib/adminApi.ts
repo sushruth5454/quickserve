@@ -108,6 +108,8 @@ export interface AdminProvider {
   phone: string;
   city: string;
   kyc_status: string;
+  admin_review_status: ProviderReviewStatus;
+  has_payout_account: boolean;
   suspended: boolean;
   paused: boolean;
   is_online: boolean;
@@ -118,6 +120,25 @@ export interface AdminProvider {
   categories: string[];
   submitted_at: string | null;
   created_at: string;
+}
+
+export type ProviderReviewStatus = 'pending' | 'approved' | 'rejected' | 'needs_clarification';
+
+export interface AdminDocumentQueueItem {
+  document_id: string;
+  provider_id: string;
+  provider_name: string;
+  doc_type: string;
+  category_id: string | null;
+  file_path: string;
+  expires_on: string | null;
+  created_at: string;
+}
+
+export interface AdminDocumentType {
+  code: string;
+  label: string;
+  has_expiry: boolean;
 }
 
 export interface AdminBooking {
@@ -203,8 +224,30 @@ export const listProviders = (filter = 'all', search: string | null = null) =>
   rpc<AdminProvider[]>('admin_list_providers', { p_filter: filter, p_search: search });
 export const setProviderSuspended = (id: string, suspended: boolean, reason: string) =>
   rpc<void>('set_provider_suspended', { p_provider_id: id, p_suspended: suspended, p_reason: reason });
-export const setProviderKyc = (id: string, status: string, reason: string | null = null) =>
-  rpc<void>('admin_set_provider_kyc', { p_provider_id: id, p_status: status, p_reason: reason });
+export const setProviderReview = (id: string, status: Exclude<ProviderReviewStatus, 'pending'>, reason: string | null = null) =>
+  rpc<void>('admin_set_provider_review', { p_provider_id: id, p_status: status, p_reason: reason });
+export const listDocumentQueue = () => rpc<AdminDocumentQueueItem[]>('admin_list_document_queue');
+export const reviewDocument = (id: string, approve: boolean, reason: string | null = null, expiresOn: string | null = null) =>
+  rpc<void>('admin_review_document', {
+    p_document_id: id,
+    p_approve: approve,
+    p_reason: reason,
+    p_expires_on: expiresOn,
+  });
+export async function listDocumentTypes(): Promise<AdminDocumentType[]> {
+  const { data, error } = await supabase
+    .from('document_types')
+    .select('code, label, has_expiry')
+    .order('sort_order');
+  if (error) throw new Error(error.message);
+  return data as AdminDocumentType[];
+}
+export async function createProviderDocumentSignedUrl(filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('provider-docs').createSignedUrl(filePath, 300);
+  if (error) throw new Error(error.message);
+  if (!data?.signedUrl) throw new Error('provider document URL is unavailable');
+  return data.signedUrl;
+}
 export const listBookings = (status: string | null = 'all', search: string | null = null) =>
   rpc<AdminBooking[]>('admin_list_bookings', { p_status: status, p_search: search });
 export const getBooking = (id: string) => rpc<Record<string, any>>('admin_get_booking', { p_booking_id: id });
