@@ -60,3 +60,6 @@ if [ -n "${GITHUB_ENV:-}" ]; then
   { echo "LOCAL_API_URL=$API_URL"; echo "LOCAL_ANON_KEY=$ANON_KEY"; echo "LOCAL_DB_URL=$DB_URL"; } >> "$GITHUB_ENV"
 fi
 echo "== local Supabase ready at $API_URL"
+
+echo '== runtime settings'
+psql "$DB_URL" -qtA -f scripts/ci/state-dump.sql
