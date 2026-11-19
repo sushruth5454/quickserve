@@ -5,7 +5,7 @@ name: E2E web (local Supabase)
 # runs execute in parallel and DB batches get E2E before merge. Uses no project secrets.
 on:
   push:
-    branches: ['ci/e2e-local']
+    branches: ['integrate/**']
   workflow_dispatch:
 
 concurrency:
