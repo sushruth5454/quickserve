@@ -40,7 +40,7 @@ Deno.test("daily reconciliation fetches every gateway page and reports exact mis
         gateway_id: `pay_page_${index}`,
         amount: 1000,
       })),
-      { local_id: "payment_2", gateway_id: "pay_amount_mismatch", amount: 1100 },
+      { local_id: "payment_mismatch", gateway_id: "pay_amount_mismatch", amount: 1100 },
       { local_id: "payment_3", gateway_id: "pay_local_only", amount: 300 },
     ],
     refunds: [
@@ -69,7 +69,7 @@ Deno.test("daily reconciliation fetches every gateway page and reports exact mis
         entity_type: "payment",
         issue: "amount_mismatch",
         gateway_id: "pay_amount_mismatch",
-        local_id: "payment_2",
+        local_id: "payment_mismatch",
         expected_amount: 1100,
         actual_amount: 900,
       },
