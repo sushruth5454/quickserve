@@ -46,18 +46,14 @@ alter default privileges in schema public grant execute on functions to anon, au
 
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
-for (const file of [
-  '0001_init.sql', '0002_qa_fixes.sql', '0003_payout_transfer_payment_cascade.sql',
-  '0007_chat_unread_notifications.sql', '0008_provider_kyc_status_values.sql',
-  '0009_provider_onboarding.sql', '0010_notification_freshness.sql',
-  '0011_payout_rails.sql', '0012_matching_foundations.sql', '0013_review_matching.sql',
-  '0014_travel_requests.sql', '0015_seva_coins.sql', '0016_leakage_programme.sql',
-  '0017_creator_config.sql', '0018_archetype_core.sql', '0019_fixed_package_booking.sql',
-  '0020_proposal_enum_values.sql', '0021_cancellation_availability_payouts.sql',
-  '0022_time_based_booking.sql',
-  '0023_proposal_milestone_booking.sql',
-]) {
-  if (!fs.existsSync(path.join(here, '..', 'migrations', file))) continue;
+const migrationsDir = path.join(here, '..', 'migrations');
+const migrationFiles = fs.readdirSync(migrationsDir)
+  .filter((file) => /^\d{4}[a-z]?_.+\.sql$/.test(file) && file <= '0065_h2a_recurring_correctness.sql')
+  .sort();
+for (const required of ['0064_o2_provider_verification.sql', '0065_h2a_recurring_correctness.sql']) {
+  if (!migrationFiles.includes(required)) throw new Error(`required migration is missing: ${required}`);
+}
+for (const file of migrationFiles) {
   const sql = migration(file);
   try {
     if (file === '0023_proposal_milestone_booking.sql') {
@@ -77,6 +73,14 @@ for (const file of [
     throw new Error(`migration ${file} failed: ${error.message}`, { cause: error });
   }
 }
+
+const categoryActivationBeforeSeed = (await db.query(`
+  select
+    count(*) filter (where active and vertical = 'weddings-events')::int as active_events,
+    count(*) filter (where active and vertical = 'photo-video')::int as active_photo,
+    count(*) filter (where active and vertical = 'creators')::int as active_creators
+  from public.categories
+`)).rows[0];
 
 const seed = fs.readFileSync(path.join(here, '..', 'seed-all-services.sql'), 'utf8')
   .replace("begin;\n\n", "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n", 1);
@@ -110,6 +114,27 @@ const countQuery = `
 const first = await db.query(countQuery);
 await db.exec(seed);
 const second = await db.query(countQuery);
+const [demoProviders] = (await db.query(`
+  select count(*)::int as providers,
+         count(*) filter (where p.admin_review_status = 'approved')::int as approved,
+         count(*) filter (where public._provider_is_live(p.id))::int as live
+    from public.providers p
+    join auth.users u on u.id = p.id
+   where u.raw_app_meta_data->>'demo_only' = 'true'
+`)).rows;
+const [plumberBookingGate] = (await db.query(`
+  select p.admin_review_status,
+         public._provider_is_live(p.id) as live,
+         public._is_bookable(c.id, p.id, 'Vijayawada Demo', c.archetype, null) as bookable
+    from public.providers p
+    join auth.users u on u.id = p.id
+    join public.provider_services ps on ps.provider_id = p.id and ps.active
+    join public.categories c on c.id = ps.category_id
+   where u.raw_app_meta_data->>'demo_only' = 'true'
+     and p.city = 'Vijayawada Demo'
+     and c.slug = 'plumber'
+   limit 1
+`)).rows;
 
 const failures = [];
 const ok = (condition, message) => {
@@ -123,6 +148,11 @@ ok(initial.provider_categories >= 31, 'one provider service exists for every con
 ok(initial.packages >= 31 && initial.package_categories >= 31, 'every configured demo category has a package');
 ok(initial.proposals >= 19, 'every creator/event category has a participant-scoped proposal');
 ok(initial.bookings >= 6, 'inspect_quote, fixed and proposal booking paths are seeded');
+ok(demoProviders.providers >= 35 && demoProviders.approved === demoProviders.providers
+  && demoProviders.live === demoProviders.providers,
+`full-chain guarded seed approves and keeps all demo providers live: ${JSON.stringify(demoProviders)}`);
+ok(plumberBookingGate.admin_review_status === 'approved' && plumberBookingGate.live && plumberBookingGate.bookable,
+  `seeded demo plumber passes the booking predicate: ${JSON.stringify(plumberBookingGate)}`);
 const demoConfig = (await db.query(`select value->>'is_demo_project' is_demo from public.app_config where key='deployment'`)).rows[0];
 const demoMetadata = (await db.query(`
   select count(*)::int missing_app_flag
@@ -150,8 +180,13 @@ const [gates] = (await db.query(`
     max((slug = 'demo-home-tutor' and active and archetype = 'time_based')::int)::int as time_category
   from categories
 `)).rows;
-ok(gates.active_events === 0 && gates.active_photo === 0 && gates.active_creators === 0,
-  'creator and event categories remain inactive globally');
+const categoryActivationAfterSeed = {
+  active_events: gates.active_events,
+  active_photo: gates.active_photo,
+  active_creators: gates.active_creators,
+};
+ok(JSON.stringify(categoryActivationAfterSeed) === JSON.stringify(categoryActivationBeforeSeed),
+  `guarded seed preserves global creator/event category activation: ${JSON.stringify({ before: categoryActivationBeforeSeed, after: categoryActivationAfterSeed })}`);
 ok(gates.time_category === 1, 'the explicitly demo-only time category is active only in the demo seed');
 
 const [seedFixes] = (await db.query(`
@@ -176,8 +211,7 @@ const [payments] = (await db.query(`
 `)).rows;
 ok(payments.real_ids === 0, 'seed contains no real Razorpay identifiers');
 
-// Payment preparation across archetypes with the latest prepare_payment (0026 + 0027).
-for (const file of ['0026_fix_proposal_prepare_payment.sql', '0027_restore_fixed_prepare_payment.sql']) await db.exec(migration(file));
+// Payment preparation across archetypes uses the complete migration chain through 0065.
 const [fixedBooking] = (await db.query(`
   select id, customer_id from bookings
    where archetype = 'fixed' and status = 'pending_payment' and description like '[DEMO ONLY]%' limit 1
@@ -228,7 +262,6 @@ ok(insightRows.insights >= 60 && insightRows.unprocessed === 0 && insightRows.fo
   'matching-demo insights are pre-processed and never written by the founder');
 
 // 0028: provider links go live on save; the safety validation still blocks contact links.
-await db.exec(migration('0028_auto_approve_provider_links.sql'));
 const linkPro = (await db.query(`select id from providers where city = 'Vijayawada Demo' order by id limit 1`)).rows[0].id;
 const asLinkPro = async (sql, params = []) => {
   await db.exec('set role authenticated');
@@ -241,9 +274,8 @@ let blocked = false;
 try { await asLinkPro(`select save_provider_link('other', 'https://wa.me/919999999999', null)`); } catch { blocked = true; }
 ok(savedLink?.status === 'approved' && blocked, 'provider links are approved on save and WhatsApp links are still rejected');
 
-// 0029: a fixed package pays every due obligation in one payment and the webhook confirms it
+// A fixed package pays every due obligation in one payment and the webhook confirms it
 // (0023 had dropped the fixed branch, so real fixed payments were queued for refund).
-await db.exec(migration('0029_single_due_payment.sql'));
 const [fixedDue] = (await db.query(`
   select coalesce(sum(amount), 0)::int total, count(*)::int n from payment_schedule where booking_id = $1 and status = 'due'
 `, [fixedBooking.id])).rows;
@@ -266,10 +298,9 @@ ok(fixedDue.n >= 1 && fixedSettled?.amount === fixedDue.total && fixedSettled.st
   && fixedSettled.unpaid === 0 && fixedSettled.refunds === 0,
   `one fixed-package payment settles all due rows and sends the request (${JSON.stringify(fixedSettled)})`);
 
-// The seed must also load on the latest schema (e.g. 0030's link host checks), as CI runs it after deploys.
+// The seed must reload cleanly on the complete migration chain used by lane CI.
 let reloadError = null;
 try {
-  await db.exec(migration('0030_review_fixes.sql'));
   await db.exec(seed);
 } catch (error) {
   reloadError = error.message;

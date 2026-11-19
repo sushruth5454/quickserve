@@ -77,6 +77,10 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 
 **2026-11-18 · S1/D3 refund scope:** D3's non-refundable ₹5 fee applies to late customer cancellations. Venue cancellations retain the full customer-payment refund (service plus fee) specified by WS4-F17 and the 0058 `cancel_sports_booking` implementation; only a paid customer cancellation can create the retained-share payout.
 
+**2026-11-18 · H2b/H3 E2E ownership:** WS2-T07 and WS2-T13 require steps in `e2e/all-services.mjs`, omitted from their original ownership cells. H2b owns `recurring-plan-skip-pause-resume-web`; H3 owns its home-service money steps. The file sequence is T1 → H2b → H3 → doc 14 Q-02. U3's `e2e/web-smoke.mjs` login-help step is a separate file.
+
+**2026-11-19 · O2 demo-seed compatibility:** O2's `admin_review_status` defaults to `pending`, and `_provider_is_live` requires `approved`; the DEMO-only seed explicitly approves only its synthetic providers so seed bookings remain bookable. Production defaults and admin authorization remain unchanged. The full-chain seed test covers migrations through 0065. Creator/event activation is migration-managed (0024); the seed preserves pre-seed category state.
+
 **2026-11-18 · T2:** WS2-T12 explicitly specifies a new `ws2_lifecycle_latest.test.mjs` full-chain suite. T2 owns that suite, its package registration, and the shared RP-27 test fixture correction described below; it does not change unrelated existing test expectations that encode known later-migration behavior (including WS2-31). CI runs for X3, F3, and T2 all failed the existing RP-27 recurring-plan fixture with `outside_working_hours`. T2 must make that test-only fixture deterministic without changing production code or weakening the RP-27 assertions. U3 independently carried the same test-only fixture correction in its branch; T2 owns the migration-free fix so it can merge before X3/F3, and those branches must merge main and rerun afterward. The original WP table's reference to early-loader suites is superseded by this source-row-aligned scope.
 
 **2026-11-18 · U1:** WS1-T01 explicitly requires a provider-profile E2E step, omitted from the original U1 ownership cell. U1 owns that step in `e2e/web-smoke.mjs`; because T1 also edits that file, T1 merges first and U1 then merges/revalidates against the resulting main.
@@ -114,9 +118,9 @@ Legend:
 | **H1** 🔒 | Close provider-cancellation abuse; hide the customer address before plan acceptance and after decline | WS2-T01, WS2-T08 | `provider_cancel_booking`; recurring plan provider read RPC/policy | 0061 | — | S |
 | **F3** 🔒 | Coin fixes: approval independent of the redemption switch; no double subtraction in QuoteView; single restore; preview shows "already redeemed"; earning never blocks close | WS9-T01, T02, T03, T04, T16 | `_apply_quote_coins`, `_restore_coins_for_terminal_booking`, `get_coin_redemption_preview`, coin earn on close; `app/app/booking/[id].tsx` (coins default only); `app/src/components/QuoteView.tsx` (coin due only) | 0062 | — | M |
 | **O1** 🔒 | Notifications: notify the right party on cancellation; harden sports notification inserts | WS7-T01, T08 | `_on_booking_event_notify`; notification-only changes to `request_sports_slot`, `book_sports_slot`, `decide_sports_booking`, `_refund_unmatched_sports_capture`, `record_sports_payment_paid`, `cancel_sports_booking`, `expire_sports_requests` | 0063 | — | S |
-| **O2** 🔒 | Provider verification: separate admin approval from payout KYC; admin document review screen; shop verification rules | WS7-T03, T04, WS3-T11 | provider status fields/RPCs; `app/app/admin/people.tsx`, new `app/app/admin/documents.tsx`; `app/app/admin/shops.tsx` | 0064 | — | M |
+| **O2** 🔒 | Provider verification: separate admin approval from payout KYC; admin document review screen; shop verification rules | WS7-T03, T04, WS3-T11 | provider status fields/RPCs; `app/app/admin/people.tsx`, new `app/app/admin/documents.tsx`; `app/app/admin/shops.tsx`; DEMO-only provider approval in `supabase/seed-all-services.sql` and `supabase/tests/all_services_seed.test.mjs` | 0064 | — | M |
 | **H2a** 🔒 | Recurring correctness (SQL): accepted plan ⇒ paid visits confirmed; lock prices at acceptance; plan edge cases | WS2-T02, T05, T10 | `respond_recurring_plan`, occurrence generator and prepare functions (latest `0057`) | 0065 | — | M |
-| **H2b** | Recurring UX: payment-due notice + per-visit Pay; web-safe confirmations; plan request shows earnings/area; date-time pickers; calendar opens the visit; recurring deep links | WS2-T06, T07, T09, T15, WS7-T02 | `app/app/recurring/**`, `app/src/features/recurring/**`, `app/app/merchant-calendar.tsx`, push routing for recurring kinds | 0066 (enum split if needed) | H2a | M |
+| **H2b** | Recurring UX: payment-due notice + per-visit Pay; web-safe confirmations; plan request shows earnings/area; date-time pickers; calendar opens the visit; recurring deep links | WS2-T06, T07, T09, T15, WS7-T02 | `app/app/recurring/**`, `app/src/features/recurring/**`, `app/app/merchant-calendar.tsx`, push routing for recurring kinds, `e2e/all-services.mjs` (`recurring-plan-skip-pause-resume-web` step only) | 0066 (enum split if needed) | H2a | M |
 | **U2** | Truthful home-service cancel: server refund preview RPC + policy-driven copy + every allowed cancel state | WS1-T03, WS2-T03 | new `preview_booking_cancellation` (calls `_cancellation_outcome` read-only); cancel UI in `app/app/booking/[id].tsx` | 0068 | F3, U3 (same file) | M |
 | **B1** | Server-sourced price display: book screens and QuoteView show the server breakdown; fixed Pay includes the platform fee; show every line kind | WS9-T09, WS6-T21, WS2-T04, WS9-T05 | `app/app/book/**`, `app/app/book-fixed/**`, `QuoteView.tsx`, `PriceRow.tsx`; a read-only breakdown RPC if the source rows require one | 0069 | F3, U2 (shared files) | M |
 | **U1** | Booking entry and "Book again" routed by archetype | WS1-T01, WS1-T02, WS2-T14 | `app/app/provider/[id].tsx`, `app/src/features/activity/**` (book-again only), `e2e/web-smoke.mjs` (provider-profile E2E step only) | — | T1 (shared E2E file; merge T1 first) | S |
@@ -142,7 +146,7 @@ Legend:
 | **S2** | Sports ops & UX: readable/cancellable bookings with `sports` off; refund preview + safe cancel; operator booking list; edit/delete price rules; hoarding limit; payment-failure notice; configurable windows; form fixes | WS4-T05, WS8-T08, WS4-T07, T08, T09, T13, T16, T17, T19 | `app/app/sports/**`, `app/app/sports-*/**`, `app/src/features/sports/**`, sports read/config RPCs | 0080 | S1 | M |
 | **C1** 🔒 | Creator money safety: unpaid balance after delivery; dispute/cancel while awaiting delivery + delivery deadline; acceptance window from config + reminders; show delivered work; correct post-delivery copy | WS5-T01, T02, T14, T04, T05 | proposal delivery/acceptance functions (not `accept_proposal`); `app/app/proposal-delivery/**`, `app/app/proposal/[id].tsx`, `app/app/booking/[id].tsx` (delivery section only) | 0081 | **D2**, B1 (same booking file) | M |
 | **C2** | Creator scope clarity: agreed revisions; deliver-by; structured brief; package carried into request; compose shows the brief; contact screening; Q&A + cancel request; fee shown before accept; labels | WS5-T06…T12, T15, T16 | `create_service_request`, `send_proposal`/proposal create (and `accept_proposal` **after F2**); `app/app/request/**`, `app/app/proposal/compose/**`, `features/proposals/**` | 0082 | F2, D2 | L |
-| **H3** | Home stuck states + no-show actions; E2E for home-service money paths | WS2-T11, T13 | timeout/no-show functions + scheduled job; provider job actions UI (`merchant-job/[id].tsx`, booking detail action row) | 0083 | F4, T1 | L |
+| **H3** | Home stuck states + no-show actions; E2E for home-service money paths | WS2-T11, T13 | timeout/no-show functions + scheduled job; provider job actions UI (`merchant-job/[id].tsx`, booking detail action row); `e2e/all-services.mjs` (WS2-T13 steps only) | 0083 | F4, T1, H2b (shared E2E file) | L |
 | **B2** | Customer payment receipt (non-tax) | WS9-T06 | new receipt table/RPC/screen; "Receipt" button in activity + booking detail | 0084 | F1, F5 | L |
 | **B4** | Provider earnings statement + venue payouts visible + honest failed-payout copy | WS9-T08, WS7-T05 | `app/app/(provider)/earnings.tsx`, statement RPC | 0085 | F2, S1 | M |
 | **B6** | Payments list readability + money notifications (payment received, refund done, payout sent, verification, suspension) | WS9-T14, WS7-T07 | notification kinds (enum split!), inserts in recorders **after F1**; payments section in booking detail | 0086a/b | F1, O1, B2 | L |
@@ -199,7 +203,8 @@ Legend:
 | `app/app/(provider)/earnings.tsx` | B4 |
 | `app/src/features/sports/**`, `app/app/sports*/**` | S1 → S2 → S3 |
 | `supabase/functions/razorpay-webhook/**`, `verify-payment/**` | F1 → F6 → F8 |
-| `e2e/*.mjs` | X1 → T1 → U1 → U3 → H3 → F8 → (doc 14 Q-01/Q-02) |
+| `e2e/web-smoke.mjs` | X1 → T1 → doc 14 Q-01 screenshot helper → U1 → U3 → doc 14 Q-02 |
+| `e2e/all-services.mjs` | T1 → H2b → H3 → doc 14 Q-02 |
 
 ---
 
@@ -287,13 +292,13 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 |---|---|---|---|---|---|---|
 | X1 | G1 | merged; admin E2E step BLOCKED on owner config | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
 | X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
-| X3 | G1 | 0060a/b deployed; legacy E2E provider seed fix merged; main E2E verification pending | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal E2E failure); 44419846387 (backend success); 44419845866 (main E2E pending); 44422452507 (main E2E pending); 44423228486 (main E2E pending); 44427389151 (main E2E pending) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
+| X3 | G1 | 0060a/b deployed; legacy E2E seed fix merged; main E2E verification pending (see Q-01) | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal E2E failure); 44419846387 (backend success); 44419845866 (main E2E pending); 44422452507 (main E2E pending); 44423228486 (demo reset failed; smoke not run); 44427389151 (demo reset failed; smoke not run); 44429275638 (demo reset failed; smoke not run) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
 | H1 | G1 | merged; 0061 applied and recorded by successful main deployment | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44411611254 (revalidation green); 44411611318 (E2E pending); 44412263137 (main success) | 0061 | 83ca69f (lane 7fc2ed9) |
 | F3 | G1 | scope-corrected lane green; lower-model review clear; 0062 applied and recorded on main | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44414018378 (green); 44412649463 (prior green); 44419846387 (main success) | 0062 | 6e89494 (lane 68c1c4d) |
 | O1 | G1 | merged; lower-model review clear; 0063 applied and recorded on main | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 (prior green); 44420825698 (revalidated green); 44423228645 (main success) | 0063 | 66931b8 |
-| O2 | G1 | merged; lower-model review clear; 0064 applied and recorded on main | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 (prior green); 44425010957 (revalidated green); 44427389305 (main success) | 0064 | 5c962d9 |
-| H2a | G1 | merged; lower-model review clear; 0065 registered; main deployment pending | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 (prior green); 44428059570 (9 O2 approval-fixture failures; fixed); 44428516193 (revalidated green) | 0065 | 4856883 |
-| H2b | G1 | ready after H2a merge; launch pending main push | — | — | 0066 | — |
+| O2 | G1 | merged; 0064 applied; demo-seed fix merged locally at a501fc3; lane E2E reset/code-owned steps pass; admin step owner-blocked; main validation pending | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 (prior green); 44425010957 (revalidated green); 44427389305 (main success); 44435464586 (seed test green); 44436860237 (comment follow-up green); 44436860234 (lane E2E admin-only failure) | 0064 | 5c962d9 |
+| H2a | G1 | merged; lower-model review clear; 0065 applied and recorded on main | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 (prior green); 44428059570 (9 O2 approval-fixture failures; fixed); 44428516193 (revalidated green); 44429275573 (main success) | 0065 | 4856883 |
+| H2b | G1 | lane green; SQL registration and source-required E2E step included; E2E queued; merge after demo-seed fix | e5fb46bc-9408-4df7-9ff8-5bdf75f0a538 | 44433698320 (ai_usage fixture failure; fixed); 44434278137 (green); 44433698314 (E2E pending) | 0066 | — |
 | U2 | G1 | not started; blocked by U3 booking-detail sequence and migration order | — | — | 0068 | — |
 | B1 | G1 | not started; blocked by U2 | — | — | 0069 | — |
 | U1 | G1 | merged; lane CI green; E2E remains queued | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44413025536 (lane CI); 44413025293 (E2E pending) | — | 7c7f3b7 (lane 290a0c7) |
@@ -310,11 +315,11 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | F5 | G2 | not started; blocked by F1 | — | — | 0076 | — |
 | F7 | G2 | not started; blocked by F2; tax wording remains placeholder-only until review | — | — | 0078 | — |
 | F8 | G2 | not started; blocked by F1 and owner-blocked X2 | — | — | — | — |
-| S1 | G2 | D3 refund scope reconciled; lane green and lower-model review clear; waiting for migration order and final-chain validation | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | 44426947299 (green; after fix) | 0079 | — |
+| S1 | G2 | D3 refund scope reconciled; lane green and lower-model review clear; waiting for migration order and final-chain validation | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | 44426415098 (syntax error; fixed); 44426947299 (green) | 0079 | — |
 | S2 | G2 | not started; blocked by S1 | — | — | 0080 | — |
 | C1 | G2 | not started; blocked by B1; D2 decided | — | — | 0081 | — |
 | C2 | G2 | not started; blocked by F2; D2 decided | — | — | 0082 | — |
-| H3 | G2 | not started; blocked by F4 and T1 | — | — | 0083 | — |
+| H3 | G2 | not started; blocked by F4, T1, and H2b (shared E2E file) | — | — | 0083 | — |
 | B2 | G2 | not started; blocked by F1 and F5 | — | — | 0084 | — |
 | B4 | G2 | not started; blocked by F2 and S1 | — | — | 0085 | — |
 | B6 | G2 | not started; blocked by F1, O1, and B2 | — | — | 0086a/b | — |
