@@ -1,0 +1,11 @@
+{
+  // Remote test runner for agents (see "Fast validation loop" in .github/copilot-instructions.md).
+  // Dependencies install here in the cloud, never on the owner's Windows machine.
+  "name": "quickserve-tests",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers-community/features/deno:1": { "version": "latest" }
+  },
+  "hostRequirements": { "cpus": 2 },
+  "postCreateCommand": "bash scripts/cs/run.sh - setup"
+}
