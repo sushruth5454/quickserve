@@ -89,6 +89,13 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
 
 **2026-11-18 · X1/Q-00:** Main E2E run 44395541860 reported `DEMO_PROJECT` and `ADMIN_E2E_PHONE` as empty. X1's security migration is merged, but the admin E2E assertion is blocked until the owner sets repository variable `DEMO_PROJECT=1` and secret `ADMIN_E2E_PHONE` to a dedicated demo test phone included in that project's SMS test-OTP list; the old public admin phone must be removed from production `sms_test_otp`. Do not hard-code a phone, bypass the demo guard, or report the blocked step as passed.
 
+**2026-11-18 · Owner (X1 follow-up):** repo variable `DEMO_PROJECT=1` and secret `ADMIN_E2E_PHONE` (dedicated test phone `919000000901`) are set. The Supabase `sms_test_otp` update (add `919000000901`, remove `918888888888`) runs through the one-time `ops-sms-test-otp.yml` workflow; delete that workflow once it succeeds.
+
+**2026-11-18 · Owner decisions on owner-blocked items:**
+- **X2: unblocked with placeholders.** Use Supabase test OTPs (`sms_test_otp`) for all logins for now. Do not integrate MSG91 yet: add only the configuration placeholders (`SMS_PROVIDER`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `MSG91_SENDER_ID`) as empty or unset settings, documented with no real values, and leave the code path inert while they are empty. The same applies to the Expo `projectId` and FCM settings (placeholders only; push delivery on devices stays unverified). **F8 is no longer blocked by X2:** it proceeds in Razorpay **test mode** with the existing test keys.
+- **B3: deferred by the owner** (the CA review happens later). Keep it out of the current waves. Tax fields stay 0 or placeholder-only per D4.
+- **U4: deferred by the owner** until the rebrand. Keep the "Seva Coins" naming, and do not start the U4 copy sweep in the current waves.
+
 ---
 
 ## 1. Release gates
