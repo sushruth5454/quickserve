@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { Button, Card, Input, Text, TextArea } from '../../../components/ui';
+import { Badge, Button, Card, Input, Text, TextArea } from '../../../components/ui';
 import type { SportsVenueManagementActions } from './actions';
 import type { useSportsVenueManagementState } from './useSportsVenueManagementState';
 
@@ -16,7 +16,10 @@ export function renderVenueSwitcher(state: ManagementState, spacing: Spacing) {
           <Pressable key={item.venue.id} onPress={() => state.setSelectedId(item.venue.id)}>
             <Card padding={spacing.md} variant={item.venue.id === state.selectedId ? 'tinted' : 'outlined'}>
               <Text variant="footnoteStrong">{item.venue.name}</Text>
-              <Text variant="caption" color="muted">{item.venue.status.toUpperCase()}</Text>
+              <Badge
+                label={item.venue.status.toUpperCase()}
+                tone={item.venue.status === 'verified' ? 'success' : 'neutral'}
+              />
             </Card>
           </Pressable>
         ))}
@@ -47,9 +50,20 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
     <Card gap={spacing.sm}>
       <Text variant="title3">{selected ? 'Venue details' : 'Create a venue'}</Text>
       {selected ? (
-        <Text variant="footnoteStrong" color={selected.venue.status === 'verified' ? 'successText' : 'muted'}>
-          Status: {selected.venue.status.toUpperCase()}{selected.venue.status_reason ? ` · ${selected.venue.status_reason}` : ''}
-        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs }}>
+          <Text variant="footnoteStrong" color={selected.venue.status === 'verified' ? 'successText' : 'muted'}>
+            Status:
+          </Text>
+          <Badge
+            label={selected.venue.status.toUpperCase()}
+            tone={selected.venue.status === 'verified' ? 'success' : 'neutral'}
+          />
+          {selected.venue.status_reason ? (
+            <Text variant="footnoteStrong" color={selected.venue.status === 'verified' ? 'successText' : 'muted'}>
+              · {selected.venue.status_reason}
+            </Text>
+          ) : null}
+        </View>
       ) : null}
       <Input label="Venue name" value={state.name} onChangeText={state.setName} maxLength={120} />
       <TextArea label="Description" value={state.description} onChangeText={state.setDescription} maxLength={2000} />
@@ -103,9 +117,10 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
           ) : null}
           {settingsVisibility.showPayoutStatus ? (
             <View style={{ gap: spacing.xs }}>
-              <Text variant="caption" color={selected?.payout_account_ready ? 'successText' : 'muted'}>
-                Payout account: {selected?.payout_account_ready ? 'Ready' : 'Not ready'}
-              </Text>
+              <Badge
+                label={`Payout account: ${selected?.payout_account_ready ? 'Ready' : 'Not ready'}`}
+                tone={selected?.payout_account_ready ? 'success' : 'neutral'}
+              />
               {settingsVisibility.showPayoutSetup ? (
                 <Button
                   title="Set up payout account"

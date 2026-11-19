@@ -1,6 +1,6 @@
 import { router, type Href } from 'expo-router';
-import { Pressable } from 'react-native';
-import { Button, Card, EmptyState, Header, InlineAlert, Screen, Text } from '../../../components/ui';
+import { Pressable, View } from 'react-native';
+import { Badge, Button, Card, EmptyState, Header, InlineAlert, Screen, Text, type Tone } from '../../../components/ui';
 import { formatINR } from '../../../lib/money';
 import {
   getSportsBookingStatusLabel,
@@ -8,6 +8,17 @@ import {
 } from '../model';
 import { slotLabel } from './model';
 import type { SportsBookingRow } from './types';
+
+const SPORTS_BOOKING_STATUS_TONES: Record<string, Tone> = {
+  pending_payment: 'warning',
+  requested: 'primary',
+  awaiting_payment: 'warning',
+  accepted: 'primary',
+  declined: 'danger',
+  cancelled: 'neutral',
+  completed: 'success',
+  expired: 'neutral',
+};
 
 export function renderAssignedBookings(venueName: string, venueBookings: SportsBookingRow[], gap: number) {
   return (
@@ -21,7 +32,8 @@ export function renderAssignedBookings(venueName: string, venueBookings: SportsB
         ) : venueBookings.map((booking) => (
           <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
-            <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} · {booking.status.toUpperCase()}</Text>
+            <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} ·</Text>
+            <Badge label={booking.status.toUpperCase()} tone={SPORTS_BOOKING_STATUS_TONES[booking.status] ?? 'neutral'} />
           </Pressable>
         ))}
       </Card>
@@ -41,12 +53,16 @@ export function renderExistingBookings(bookings: SportsBookingRow[], error: stri
         ) : bookings.map((booking) => (
           <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
-            <Text variant="caption" color="muted">
-              {slotLabel(booking.starts_at)} · {getSportsBookingStatusLabel(booking.status)}
-            </Text>
-            <Text variant="caption" color="muted">
-              {formatINR(booking.total_paise ?? booking.price_paise)} · {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
-            </Text>
+            <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} ·</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap }}>
+              <Badge
+                label={getSportsBookingStatusLabel(booking.status)}
+                tone={SPORTS_BOOKING_STATUS_TONES[booking.status] ?? 'neutral'}
+              />
+              <Text variant="caption" color="muted">
+                · {formatINR(booking.total_paise ?? booking.price_paise)} · {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
+              </Text>
+            </View>
           </Pressable>
         ))}
       </Card>
@@ -79,9 +95,16 @@ export function renderVenueBookingLists(
         ) : upcomingBookings.map((booking) => (
           <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
-            <Text variant="caption" color="muted">
-              {slotLabel(booking.starts_at)} · {getSportsBookingStatusLabel(booking.status)} · {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
-            </Text>
+            <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} ·</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap }}>
+              <Badge
+                label={getSportsBookingStatusLabel(booking.status)}
+                tone={SPORTS_BOOKING_STATUS_TONES[booking.status] ?? 'neutral'}
+              />
+              <Text variant="caption" color="muted">
+                · {getSportsPaymentSummary(booking.status, booking.payment_mode, booking.paid_at)}
+              </Text>
+            </View>
           </Pressable>
         ))}
       </Card>
