@@ -51,7 +51,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
 const migrationFiles = fs.readdirSync(migrationsDir)
-  .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 73)
+  .filter((name) => /^\d{4}[a-z]?_.+\.sql$/.test(name) && Number(name.slice(0, 4)) <= 77)
   .sort((left, right) => left.localeCompare(right, 'en', { numeric: true }));
 for (const name of migrationFiles) await db.exec(migration(name));
 await db.exec("set timezone = 'UTC'");
@@ -662,5 +662,325 @@ await scenario('WS8-T04 payment exception table is unavailable to client roles',
   check(!hasAnon && !hasAuthenticated, 'payment exception records are not readable by client roles', { hasAnon, hasAuthenticated });
 });
 
+await scenario('F5 journals home, session, and pack captures in exact paise', async () => {
+  const cases = [
+    { name: 'home', create: createHomePayment, recorder: 'record_payment_paid', expectedPaise: 19900 },
+    { name: 'session', create: createSessionPayment, recorder: 'record_time_payment_paid', expectedPaise: 60000 },
+    { name: 'pack', create: createPackPayment, recorder: 'record_time_payment_paid', expectedPaise: 184900 },
+  ];
+  const results = [];
+  for (const testCase of cases) {
+    const fixture = await testCase.create();
+    const paymentId = await gatewayId();
+    const result = await record(testCase.recorder, fixture.link, paymentId, fixture.payment.amount);
+    const replay = await record(testCase.recorder, fixture.link, paymentId, fixture.payment.amount);
+    const financialEvent = await one(
+      `select id, kind, booking_id, payment_id, amount_paise, gateway_ref
+         from public.financial_events
+        where payment_id = $1::uuid`,
+      [fixture.payment.payment_id],
+    );
+    const [{ journalRows }] = await db.query(
+      `select count(*)::int as "journalRows"
+         from public.financial_events
+        where gateway_ref = $1::text`,
+      [paymentId],
+    ).then((result) => result.rows);
+    const payment = await one(
+      `select status, amount, razorpay_payment_id
+         from public.payments
+        where id = $1::uuid`,
+      [fixture.payment.payment_id],
+    );
+    results.push({
+      name: testCase.name,
+      expectedPaise: testCase.expectedPaise,
+      actualPaise: fixture.payment.amount,
+      result: { ok: result.ok, duplicate: result.duplicate, refund: result.refund },
+      replay: { duplicate: replay.duplicate },
+      financialEvent: {
+        kind: financialEvent?.kind,
+        amount_paise: financialEvent?.amount_paise,
+        payment_id: financialEvent?.payment_id,
+        gateway_ref: financialEvent?.gateway_ref,
+      },
+      journalRows,
+      payment: {
+        status: payment.status,
+        amount: payment.amount,
+        razorpay_payment_id: payment.razorpay_payment_id,
+      },
+      paymentId,
+      expectedPaymentId: fixture.payment.payment_id,
+    });
+  }
+  check(
+    results.every(({ expectedPaise, actualPaise, result, replay, financialEvent, journalRows, payment, paymentId, expectedPaymentId }) =>
+      actualPaise === expectedPaise
+      && result.ok === true
+      && replay.duplicate === true
+      && journalRows === 1
+      && payment.status === 'paid'
+      && payment.razorpay_payment_id === paymentId
+      && financialEvent?.kind === 'payment_captured'
+      && financialEvent.amount_paise === expectedPaise
+      && financialEvent.payment_id === expectedPaymentId
+      && financialEvent.gateway_ref === paymentId),
+    'each F1 recorder writes one server-derived capture journal row without changing payment state',
+    results,
+  );
+});
+
+await scenario('F5 journals an extra capture without changing F1 refund semantics', async () => {
+  const fixture = await createHomePayment();
+  const originalCaptureId = await gatewayId();
+  const extraCaptureId = await gatewayId();
+  const originalResult = await record('record_payment_paid', fixture.link, originalCaptureId, 19900);
+  const extraResult = await record('record_payment_paid', fixture.link, extraCaptureId, 19900);
+  const extraEvent = await one(
+    `select payment_id, amount_paise, gateway_ref
+       from public.financial_events
+      where gateway_ref = $1::text`,
+    [extraCaptureId],
+  );
+  const extraPayment = await one(
+    `select p.status, p.amount, p.razorpay_payment_id, r.amount as refund_amount, r.status as refund_status
+       from public.payments p
+       left join public.refunds r on r.payment_id = p.id
+      where p.razorpay_payment_id = $1::text`,
+    [extraCaptureId],
+  );
+  const originalPayment = await one(
+    `select status, amount, razorpay_payment_id
+       from public.payments
+      where id = $1::uuid`,
+    [fixture.payment.payment_id],
+  );
+  check(
+    originalResult.ok === true
+      && extraResult.duplicate_capture === true
+      && extraEvent?.amount_paise === 19900
+      && extraEvent.gateway_ref === extraCaptureId
+      && extraPayment?.status === 'refund_pending'
+      && extraPayment.amount === 19900
+      && extraPayment.refund_amount === 19900
+      && extraPayment.refund_status === 'pending'
+      && originalPayment.status === 'paid'
+      && originalPayment.amount === 19900
+      && originalPayment.razorpay_payment_id === originalCaptureId,
+    'F5 journals the extra 19900-paise capture on its refund row, preserving the original paid row',
+    {
+      expectedExtraPaise: 19900,
+      actual: {
+        originalResult: { ok: originalResult.ok },
+        extraResult: { duplicate_capture: extraResult.duplicate_capture, refund_amount: extraResult.refund_amount },
+        extraEvent: { amount_paise: extraEvent?.amount_paise, gateway_ref: extraEvent?.gateway_ref },
+        extraPayment: {
+          status: extraPayment?.status,
+          amount: extraPayment?.amount,
+          refund_amount: extraPayment?.refund_amount,
+          refund_status: extraPayment?.refund_status,
+        },
+        originalPayment: {
+          status: originalPayment.status,
+          amount: originalPayment.amount,
+          razorpay_payment_id: originalPayment.razorpay_payment_id,
+        },
+      },
+    },
+  );
+});
+
+await scenario('F5 journals a mismatched capture while preserving its exact refund', async () => {
+  const fixture = await createHomePayment();
+  const paymentId = await gatewayId();
+  const capturedPaise = 20000;
+  const result = await record('record_payment_paid', fixture.link, paymentId, capturedPaise);
+  const financialEvent = await one(
+    `select payment_id, amount_paise, gateway_ref
+       from public.financial_events
+      where gateway_ref = $1::text`,
+    [paymentId],
+  );
+  const capture = await one(
+    `select p.status, p.amount, p.razorpay_payment_id, r.amount as refund_amount, r.status as refund_status
+       from public.payments p
+       left join public.refunds r on r.payment_id = p.id
+      where p.razorpay_payment_id = $1::text`,
+    [paymentId],
+  );
+  const original = await one(
+    `select status, amount, razorpay_payment_id
+       from public.payments
+      where id = $1::uuid`,
+    [fixture.payment.payment_id],
+  );
+  check(
+    result.amount_mismatch === true
+      && financialEvent?.amount_paise === capturedPaise
+      && financialEvent.gateway_ref === paymentId
+      && capture?.status === 'refund_pending'
+      && capture.amount === capturedPaise
+      && capture.refund_amount === capturedPaise
+      && capture.refund_status === 'pending'
+      && original.status === 'failed'
+      && original.amount === 19900
+      && original.razorpay_payment_id === null,
+    'F5 journals the captured 20000 paise without changing F1 mismatch/refund behavior',
+    {
+      expectedCapturedPaise: capturedPaise,
+      actual: {
+        result: {
+          amount_mismatch: result.amount_mismatch,
+          refund: result.refund,
+          refund_amount: result.refund_amount,
+        },
+        financialEvent: { amount_paise: financialEvent?.amount_paise, gateway_ref: financialEvent?.gateway_ref },
+        capture: {
+          status: capture?.status,
+          amount: capture?.amount,
+          refund_amount: capture?.refund_amount,
+          refund_status: capture?.refund_status,
+        },
+        original: {
+          status: original.status,
+          amount: original.amount,
+          razorpay_payment_id: original.razorpay_payment_id,
+        },
+      },
+    },
+  );
+});
+
+await scenario('F5 journal and webhook log allow inserts but reject mutation', async () => {
+  const eventId = `evt_${(await uuid()).replaceAll('-', '')}`;
+  const payload = { event: 'order.paid', payload: { order: { id: 'order_f5' } } };
+  await service(
+    `insert into public.gateway_webhook_log (event_id, event, payload)
+     values ($1::text, $2::text, $3::jsonb)`,
+    [eventId, 'order.paid', JSON.stringify(payload)],
+  );
+  await service(
+    `insert into public.financial_events (
+       kind, payment_id, amount_paise, gateway_ref, payload
+     ) values (
+       $1::text, $2::uuid, $3::int, $4::text, $5::jsonb
+     )`,
+    ['payment_captured', await uuid(), 193760, 'pay_f5_append_only', JSON.stringify(payload)],
+  );
+  const webhook = await one(
+    `select id, event_id, event, payload
+       from public.gateway_webhook_log
+      where event_id = $1::text`,
+    [eventId],
+  );
+  const journal = await one(
+    `select id, kind, payment_id, amount_paise, gateway_ref, payload
+       from public.financial_events
+      where gateway_ref = $1::text`,
+    ['pay_f5_append_only'],
+  );
+  let webhookUpdateError = '';
+  let webhookDeleteError = '';
+  let journalUpdateError = '';
+  let journalDeleteError = '';
+  let journalTruncateError = '';
+  try {
+    await db.query(
+      `update public.gateway_webhook_log
+          set payload = $2::jsonb
+        where id = $1::bigint`,
+      [webhook.id, JSON.stringify({ altered: true })],
+    );
+  } catch (error) {
+    webhookUpdateError = error.message;
+  }
+  try {
+    await db.query(
+      `delete from public.gateway_webhook_log where id = $1::bigint`,
+      [webhook.id],
+    );
+  } catch (error) {
+    webhookDeleteError = error.message;
+  }
+  try {
+    await db.query(
+      `update public.financial_events
+          set payload = $2::jsonb
+        where id = $1::bigint`,
+      [journal.id, JSON.stringify({ altered: true })],
+    );
+  } catch (error) {
+    journalUpdateError = error.message;
+  }
+  try {
+    await db.query(
+      `delete from public.financial_events where id = $1::bigint`,
+      [journal.id],
+    );
+  } catch (error) {
+    journalDeleteError = error.message;
+  }
+  try {
+    await db.exec('truncate table public.financial_events');
+  } catch (error) {
+    journalTruncateError = error.message;
+  }
+  const finalWebhook = await one(
+    `select event_id, event, payload from public.gateway_webhook_log where id = $1::bigint`,
+    [webhook.id],
+  );
+  const finalJournal = await one(
+    `select kind, amount_paise, gateway_ref from public.financial_events where id = $1::bigint`,
+    [journal.id],
+  );
+  const privileges = await one(`
+    select has_table_privilege('anon', 'public.gateway_webhook_log', 'select') as anon_webhook_read,
+           has_table_privilege('authenticated', 'public.financial_events', 'select') as authenticated_journal_read,
+           has_table_privilege('service_role', 'public.gateway_webhook_log', 'select') as service_webhook_read,
+           has_table_privilege('service_role', 'public.financial_events', 'select') as service_journal_read,
+           has_table_privilege('service_role', 'public.gateway_webhook_log', 'insert') as service_webhook_insert,
+           has_table_privilege('service_role', 'public.financial_events', 'insert') as service_journal_insert,
+           has_table_privilege('service_role', 'public.financial_events', 'update') as service_journal_update,
+           has_table_privilege('service_role', 'public.gateway_webhook_log', 'delete') as service_webhook_delete
+  `);
+  check(
+    webhook.event_id === eventId
+      && finalWebhook?.event_id === eventId
+      && finalWebhook.event === 'order.paid'
+      && finalWebhook.payload.event === 'order.paid'
+      && journal.amount_paise === 193760
+      && finalJournal?.amount_paise === 193760
+      && finalJournal.gateway_ref === 'pay_f5_append_only'
+      && webhookUpdateError.includes('append-only')
+      && webhookDeleteError.includes('append-only')
+      && journalUpdateError.includes('append-only')
+      && journalDeleteError.includes('append-only')
+      && journalTruncateError.includes('append-only')
+      && privileges.anon_webhook_read === false
+      && privileges.authenticated_journal_read === false
+      && privileges.service_webhook_read === true
+      && privileges.service_journal_read === false
+      && privileges.service_webhook_insert === true
+      && privileges.service_journal_insert === true
+      && privileges.service_journal_update === false
+      && privileges.service_webhook_delete === false,
+    'F5 audit rows are service-role-only and immutable',
+    {
+      webhook,
+      finalWebhook,
+      journal,
+      finalJournal,
+      webhookUpdateError,
+      webhookDeleteError,
+      journalUpdateError,
+      journalDeleteError,
+      journalTruncateError,
+      privileges,
+    },
+  );
+});
+
 assert.ok(migrationFiles.includes('0071_f1_payment_recorder_safety.sql'), 'the full migration chain includes the reserved F1 migration');
+assert.ok(migrationFiles.includes('0077_f5_webhook_log_financial_journal.sql'), 'the full migration chain includes the reserved F5 migration');
 finish();

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { hmacSha256Hex, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import { recordGatewayPayment } from "../_shared/record-payment.ts";
 import { handleRailWebhook, isRailEvent, type RailWebhookEvent, type RpcClient } from "../_shared/payout-rail.ts";
+import { appendGatewayWebhookLog } from "./webhook-log.ts";
 
 interface RazorpayEvent {
   event: string;
@@ -38,6 +39,22 @@ Deno.serve(async (req) => {
   const admin = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false },
   });
+
+  const eventName = typeof event.event === "string" ? event.event : "";
+  const logResult = await appendGatewayWebhookLog(
+    admin,
+    req.headers.get("X-Razorpay-Event-Id"),
+    eventName,
+    event,
+  );
+  if (!logResult.ok) {
+    console.error("webhook log failed", logResult.error);
+    return json(
+      { error: logResult.status === 409 ? "conflicting webhook event id" : "webhook processing failed" },
+      logResult.status,
+    );
+  }
+  if (logResult.duplicate) console.warn("duplicate Razorpay webhook event", eventName);
 
   if (isRailEvent(event.event)) {
     // Linked-account activation (product.route.*), bank validation (fund_account.validation.*), RazorpayX payout.*.
