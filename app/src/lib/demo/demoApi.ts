@@ -7,6 +7,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   Api,
+  AccountDeletionOutcome,
   AuthSession,
   CommissionTerms,
   Coords,
@@ -118,6 +119,7 @@ function uid(): string {
 
 // Saved addresses per user (demo only; reset with the rest of the demo state on account deletion).
 let addressBook: Record<string, SavedAddress[]> = {};
+const pendingDeletionRequests = new Set<string>();
 
 function myAddresses(): SavedAddress[] {
   const me = uid();
@@ -583,18 +585,10 @@ export const demoApi: Api = {
     await setSession(null);
   },
 
-  async requestAccountDeletion() {
+  async requestAccountDeletion(): Promise<AccountDeletionOutcome> {
     await wait();
-    clearTimers();
-    db = buildSeed();
-    travelRequests = [];
-    serviceRequests = [];
-    proposals = [];
-    requestMessages = [];
-    paymentSchedules = [];
-    chatReads = {};
-    addressBook = {};
-    await setSession(null);
+    pendingDeletionRequests.add(uid());
+    return 'recorded';
   },
 
   async getMyProfile() {
@@ -838,7 +832,7 @@ export const demoApi: Api = {
 
   async listMyAddresses() {
     await wait();
-    return clone(myAddresses());
+    return clone(myAddresses().filter((address) => address.label !== 'Booking'));
   },
 
   async addAddress(input: NewAddressInput) {
@@ -857,6 +851,14 @@ export const demoApi: Api = {
     };
     list.push(a);
     return clone(a);
+  },
+
+  async deleteAddress(id: string) {
+    await wait();
+    const me = uid();
+    const address = myAddresses().find((saved) => saved.id === id);
+    if (!address || address.label === 'Booking') return;
+    addressBook[me] = myAddresses().filter((saved) => saved.id !== id);
   },
 
   async inspectTravelRequest(providerServiceId, coords, scheduledAt): Promise<TravelPreview> {
@@ -1324,6 +1326,11 @@ export const demoApi: Api = {
     finalizeCompletion(b, 'confirmed by customer');
   },
 
+  async previewCancellation() {
+    await wait();
+    return null;
+  },
+
   async cancelBooking(id, reason) {
     await wait();
     const b = findBooking(id);
@@ -1663,6 +1670,8 @@ export const demoControls = {
     session = null;
     sessionLoaded = true;
     bookingSeq = 1046;
+    addressBook = {};
+    pendingDeletionRequests.clear();
   },
   setLatency(min: number, max: number) {
     latency = [min, max];

@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { Button, Card, Header, Screen, Text, useConfirm, useToast } from '../../src/components/ui';
+import { supportContact } from '../../src/lib/config';
 import { requestAccountDeletion } from '../../src/lib/api';
 import { useAuth } from '../../src/lib/auth';
 import { useTheme } from '../../src/theme';
 
-type Topic = 'safety' | 'terms' | 'privacy';
+type Topic = 'safety' | 'terms' | 'privacy' | 'help';
 
 const CONTENT: Record<Topic, { title: string; intro: string; points: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] }> = {
   safety: {
@@ -39,6 +40,13 @@ const CONTENT: Record<Topic, { title: string; intro: string; points: { icon: key
       { icon: 'download-outline', title: 'Get a copy', body: 'Email support@quickserve.app to receive a copy of your data.' },
     ],
   },
+  help: {
+    title: 'Sign-in help',
+    intro: 'If you cannot receive a verification code or have changed your number, contact support for account-access help.',
+    points: [
+      { icon: 'key-outline', title: 'Changed your number?', body: 'Explain that you can no longer receive codes and ask support for next steps. Never share your one-time verification code.' },
+    ],
+  },
 };
 
 export default function InfoScreen() {
@@ -47,7 +55,7 @@ export default function InfoScreen() {
   const confirm = useConfirm();
   const { session } = useAuth();
   const { topic } = useLocalSearchParams<{ topic: string }>();
-  const key: Topic = topic === 'terms' || topic === 'privacy' ? topic : 'safety';
+  const key: Topic = topic === 'terms' || topic === 'privacy' || topic === 'help' ? topic : 'safety';
   const c = CONTENT[key];
 
   const deleteAccount = async () => {
@@ -61,8 +69,13 @@ export default function InfoScreen() {
     });
     if (!ok) return;
     try {
-      await requestAccountDeletion();
-      toast({ message: 'Account deletion requested.', tone: 'success' });
+      const outcome = await requestAccountDeletion();
+      toast({
+        message: outcome === 'recorded'
+          ? 'Deletion requested. We’ll confirm within 30 days.'
+          : 'Your email app is open. Send the message to complete your deletion request.',
+        tone: 'success',
+      });
     } catch (e) {
       toast({ message: (e as Error).message, tone: 'error' });
     }
@@ -90,6 +103,38 @@ export default function InfoScreen() {
           </View>
         ))}
       </Card>
+      {key === 'help' ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Button
+            title={`Email ${supportContact.email}`}
+            variant="outline"
+            leftIcon="mail-outline"
+            onPress={() => void Linking.openURL(`mailto:${supportContact.email}?subject=${encodeURIComponent('Sign-in help')}`).catch(() =>
+              toast({ message: 'Could not open your email app.', tone: 'error' }),
+            )}
+          />
+          {supportContact.phone ? (
+            <Button
+              title="Call support"
+              variant="outline"
+              leftIcon="call-outline"
+              onPress={() => void Linking.openURL(`tel:${supportContact.phone}`).catch(() =>
+                toast({ message: 'Could not start a call.', tone: 'error' }),
+              )}
+            />
+          ) : null}
+          {supportContact.whatsapp ? (
+            <Button
+              title="Message support on WhatsApp"
+              variant="outline"
+              leftIcon="chatbubble-outline"
+              onPress={() => void Linking.openURL(`https://wa.me/${supportContact.whatsapp}`).catch(() =>
+                toast({ message: 'Could not open WhatsApp.', tone: 'error' }),
+              )}
+            />
+          ) : null}
+        </View>
+      ) : null}
       {key === 'privacy' && session ? (
         <View style={{ gap: t.spacing.sm }}>
           <Text variant="overline" color="muted" style={{ paddingHorizontal: t.spacing.lg }}>

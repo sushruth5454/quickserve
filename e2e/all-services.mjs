@@ -15,6 +15,7 @@ export const DEMO_IDS = Object.freeze({
   timePackage: sid('package:demo-home-tutor'),
   timeService: sid('service:demo-home-tutor'),
   timeBooking: sid('booking:time-session'),
+  recurringPlan: sid('recurring:demo-home-tutor'),
   sportsVenue: sid('sports-venue:benz-circle-badminton'),
   tileShop: sid('shop:benz-circle-tile-house'),
   tileProduct: sid('product:demo-anti-skid-floor-tile'),
@@ -96,6 +97,28 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByText('Buy a session pack', { exact: true }).first().waitFor();
   });
 
+  await step('recurring-plan-skip-pause-resume-web', async () => {
+    await go(`/recurring/${DEMO_IDS.recurringPlan}`);
+    await page.getByText('Plan status', { exact: true }).waitFor();
+    await page.getByText('Cancel plan', { exact: true }).first().waitFor();
+
+    const confirmations = [
+      ['Skip next visit', 'Skip the next visit?'],
+      ['Pause plan', 'Pause this plan?'],
+      ['Resume plan', 'Resume this plan?'],
+      ['Cancel plan', 'Cancel this plan?'],
+    ];
+    for (const [action, prompt] of confirmations) {
+      const button = page.getByText(action, { exact: true }).first();
+      if (!await button.isVisible().catch(() => false)) continue;
+      await button.click();
+      await page.getByText(prompt, { exact: true }).waitFor();
+      await page.getByText('Not now', { exact: true }).last().click();
+      await page.getByText(prompt, { exact: true }).waitFor({ state: 'hidden' });
+    }
+    await page.getByText('Plan status', { exact: true }).waitFor();
+  });
+
   await step('phase-7a-shop-and-product-browse', async () => {
     await go('/shop');
     await page.getByText('Benz Circle Demo Tile House', { exact: true }).first().waitFor();
@@ -146,19 +169,66 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByText('Badminton', { exact: true }).first().click();
     await page.waitForURL((url) => new URL(url).pathname === '/sports/badminton');
     await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().waitFor();
+    const initialSlotsResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_sports_slots'),
+    );
     await page.getByText('Benz Circle Demo Badminton Courts', { exact: true }).first().click();
     await page.waitForURL((url) => new URL(url).pathname === `/venue/${DEMO_IDS.sportsVenue}`);
     await page.getByText('Choose an activity and slot', { exact: true }).first().waitFor();
     await page.getByText('Badminton · Demo Court 1', { exact: true }).first().waitFor();
-    await page.getByText('Tomorrow', { exact: true }).first().click();
-    const firstFreeSlot = page.getByRole('radio').nth(1);
-    await firstFreeSlot.waitFor({ state: 'visible' });
-    await firstFreeSlot.click();
+    const dateInput = page.getByLabel('Date');
+    let candidateDate = await dateInput.inputValue();
+    const initialResponse = await initialSlotsResponse;
+    if (!initialResponse.ok()) {
+      throw new Error(`get_sports_slots failed for ${candidateDate} (${initialResponse.status()}): ${await initialResponse.text()}`);
+    }
+    const requestedDate = initialResponse.request().postDataJSON().p_date;
+    if (requestedDate !== candidateDate) {
+      throw new Error(`sports date mismatch: screen=${candidateDate}, request=${requestedDate}`);
+    }
+    let slots = await initialResponse.json();
+    const checkedDates = [];
+    let slotSelected = false;
+    for (let offset = 0; offset < 7; offset++) {
+      if (offset > 0) {
+        const nextDate = new Date(`${candidateDate}T00:00:00.000Z`);
+        nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+        candidateDate = nextDate.toISOString().slice(0, 10);
+        const responsePromise = page.waitForResponse((response) =>
+          response.request().method() === 'POST'
+          && response.url().includes('/rest/v1/rpc/get_sports_slots')
+          && response.request().postDataJSON().p_date === candidateDate,
+        );
+        await dateInput.fill(candidateDate);
+        const response = await responsePromise;
+        if (!response.ok()) {
+          throw new Error(`get_sports_slots failed for ${candidateDate} (${response.status()}): ${await response.text()}`);
+        }
+        slots = await response.json();
+      }
+      if (!Array.isArray(slots)) throw new Error(`get_sports_slots returned unexpected data for ${candidateDate}: ${JSON.stringify(slots)}`);
+      const freeSlots = slots.filter((slot) => slot.state === 'free' && (slot.remaining == null || slot.remaining >= 1));
+      const stateCounts = slots.reduce((counts, slot) => {
+        counts[slot.state] = (counts[slot.state] ?? 0) + 1;
+        return counts;
+      }, {});
+      checkedDates.push({ date: candidateDate, free: freeSlots.length, states: stateCounts });
+      if (freeSlots.length === 0) continue;
+      const firstFreeSlot = page.getByRole('radio').nth(1);
+      await firstFreeSlot.waitFor({ state: 'visible' }).catch(async () => {
+        const radioCount = await page.getByRole('radio').count();
+        throw new Error(`sports UI did not show a slot radio for ${candidateDate}; API free slots=${JSON.stringify(freeSlots)}, radios=${radioCount}`);
+      });
+      await firstFreeSlot.click();
+      slotSelected = true;
+      break;
+    }
+    if (!slotSelected) throw new Error(`No free sports slot found across seven dates: ${JSON.stringify(checkedDates)}`);
     await page.getByLabel('Note (optional)').fill(`${qaMarker} sports booking`);
-    await page.getByText('Request booking', { exact: true }).first().click();
+    await page.getByText('Send request', { exact: true }).first().click();
     await page.waitForURL(/\/sports-booking\/[0-9a-f-]{36}$/);
     await visible('Sports booking');
-    await page.getByText('REQUESTED', { exact: true }).first().waitFor();
+    await page.getByText('Waiting for venue', { exact: true }).first().waitFor();
     await page.getByText(qaMarker, { exact: false }).first().waitFor();
   });
 }
