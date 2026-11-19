@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { useTheme } from '../../theme';
-import { BottomSheet, Button, Card, IconButton, Text, TextArea } from '../../components/ui';
+import { Badge, BottomSheet, Button, Card, IconButton, Text, TextArea } from '../../components/ui';
 import { CategoryIcon } from '../../components/CategoryIcon';
-import { StatusPill } from '../../components/status';
+import { statusShort, statusTone } from '../../components/status';
 import { ChatButton, UnreadMessagesRow } from '../../components/UnreadChat';
 import { formatINR } from '../../lib/money';
 import { bookingRef, scheduleLabel } from '../../lib/schedule';
@@ -126,7 +126,7 @@ export function NextJobCard(props: {
         <ChatButton bookingId={j.booking_id} count={props.unread} accessibilityLabel="Chat with customer" />
       </View>
       <View style={{ gap: t.spacing.sm }}>
-        <StatusPill status={j.status} />
+        <Badge label={statusShort[j.status]} tone={statusTone[j.status]} dot />
         <Meta icon="time-outline" text={j.scheduled_at ? scheduleLabel(j.scheduled_at) : 'As soon as possible'} />
         <Meta
           icon="location-outline"

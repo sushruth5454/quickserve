@@ -1,7 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from 'react';
 import { StyleSheet, Switch, View, Pressable } from 'react-native';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { Card, Text } from '../../components/ui';
 import type { BookingStatus } from '../../lib/types';
@@ -21,11 +19,11 @@ export const NEXT_STEP: Partial<Record<BookingStatus, { label: string; icon: Ico
 };
 
 export const RESPONSE_WINDOW_MS = 15 * 60 * 1000;
-/** react-native-web paints the ON thumb teal unless ctiveThumbColor is set (not in the RN types). */
-const webSwitchThumb = { activeThumbColor: '#FFFFFF' } as object;
 
 export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: boolean; radiusKm: number | null; onChange: (v: boolean) => void; disabled: boolean }) {
   const t = useTheme();
+  /** react-native-web paints the ON thumb teal unless activeThumbColor is set (not in the RN types). */
+  const webSwitchThumb = { activeThumbColor: t.colors.onPrimary } as object;
   return (
     <View
       style={{
@@ -49,7 +47,7 @@ export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: b
           justifyContent: 'center',
         }}
       >
-        <Ionicons name={online ? 'radio' : 'moon-outline'} size={20} color={online ? '#FFFFFF' : t.colors.textSecondary} />
+        <Ionicons name={online ? 'radio' : 'moon-outline'} size={20} color={online ? t.colors.onPrimary : t.colors.textSecondary} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text variant="calloutStrong" color={online ? 'successText' : 'text'}>
@@ -66,7 +64,7 @@ export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: b
         onValueChange={onChange}
         disabled={disabled}
         trackColor={{ true: t.colors.success, false: t.colors.outline }}
-        thumbColor="#FFFFFF"
+        thumbColor={t.colors.onPrimary}
         {...webSwitchThumb}
         accessibilityLabel={online ? 'Online. Turn off to stop receiving requests' : 'Offline. Turn on to receive requests'}
       />
@@ -106,30 +104,6 @@ export function StatsStrip({ items }: { items: { label: string; value: string; i
           </Text>
         </Pressable>
       ))}
-    </Card>
-  );
-}
-
-export function WaitingRow({ online }: { online: boolean }) {
-  const t = useTheme();
-  const reduce = useReducedMotion();
-  const pulse = useSharedValue(1);
-  useEffect(() => {
-    if (online && !reduce) pulse.value = withRepeat(withTiming(0.35, { duration: 900 }), -1, true);
-    else pulse.value = 1;
-  }, [online, reduce, pulse]);
-  const style = useAnimatedStyle(() => ({ opacity: pulse.value }));
-  return (
-    <Card padding={t.spacing.md} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-      <Animated.View
-        style={[
-          { width: 10, height: 10, borderRadius: 5, marginHorizontal: 4, backgroundColor: online ? t.colors.success : t.colors.outline },
-          style,
-        ]}
-      />
-      <Text variant="footnote" color="textSecondary" style={{ flex: 1 }}>
-        {online ? 'Waiting for requests — we’ll notify you when a customer nearby books you.' : 'Go online to start receiving requests.'}
-      </Text>
     </Card>
   );
 }

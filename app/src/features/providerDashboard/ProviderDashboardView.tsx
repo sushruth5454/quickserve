@@ -2,9 +2,9 @@ import { router } from 'expo-router';
 import type { Dispatch, SetStateAction } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Card, CountBadge, Divider, ErrorState, IconButton, InlineAlert, LIST_INSET, Screen, Section, SkeletonCard, Text, useToast } from '../../components/ui';
+import { Badge, Button, Card, CountBadge, Divider, EmptyState, ErrorState, IconButton, InlineAlert, LIST_INSET, Screen, Section, SkeletonCard, Text, useToast } from '../../components/ui';
 import { CategoryIcon } from '../../components/CategoryIcon';
-import { StatusPill } from '../../components/status';
+import { statusShort, statusTone } from '../../components/status';
 import { acceptBooking, declineBooking } from '../../lib/api';
 import { formatINR, settleVisitOnly } from '../../lib/money';
 import { pct } from '../../lib/providerInsights';
@@ -20,7 +20,7 @@ import { ProviderRecurringOverview } from '../recurring/ProviderRecurringOvervie
 import { firstName } from './model';
 import { openBooking } from './navigation';
 import { DeclineSheet, NextJobCard, RequestCard } from './JobCards';
-import { NEXT_STEP, OnlineCard, StatsStrip, WaitingRow } from './DashboardWidgets';
+import { NEXT_STEP, OnlineCard, StatsStrip } from './DashboardWidgets';
 
 type ProviderDashboardViewProps = {
   t: Theme;
@@ -136,7 +136,12 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
               <SkeletonCard lines={3} />
             )
           ) : incoming.length === 0 ? (
-            <WaitingRow online={online} />
+            <EmptyState
+              compact
+              icon={online ? 'radio-outline' : 'moon-outline'}
+              title={online ? 'Waiting for requests' : 'Go online to start receiving requests.'}
+              message={online ? 'We’ll notify you when a customer nearby books you.' : undefined}
+            />
           ) : (
             incoming.map((j) => (
               <RequestCard
@@ -185,9 +190,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
           {!jobs ? (
             <SkeletonCard lines={2} />
           ) : rest.length === 0 ? (
-            <Text variant="footnote" color="muted">
-              {next ? 'No other active jobs.' : 'No active jobs right now.'}
-            </Text>
+            <EmptyState compact icon="briefcase-outline" title={next ? 'No other active jobs.' : 'No active jobs right now.'} />
           ) : (
             <Card padding={0} gap={0}>
               {rest.map((j, i) => (
@@ -216,7 +219,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
                       </Text>
                     </View>
                     <CountBadge count={unread.countFor(j.booking_id)} />
-                    <StatusPill status={j.status} />
+                    <Badge label={statusShort[j.status]} tone={statusTone[j.status]} dot />
                   </Pressable>
                 </View>
               ))}

@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import type { Dispatch, SetStateAction } from 'react';
 import { View } from 'react-native';
-import { Button, Card, InlineAlert, Screen, Section, SkeletonCard, Text } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, InlineAlert, Screen, Section, SkeletonCard, Text } from '../../components/ui';
+import { statusShort, statusTone } from '../../components/status';
 import type { BusinessProviderContext } from '../merchantStaff/api';
 import type { ProviderJob } from '../../lib/types';
 import type { Theme } from '../../theme/ThemeProvider';
@@ -37,11 +38,14 @@ export function BusinessDashboardView({ provider, t, refreshing, setRefreshing, 
         <ProviderRecurringOverview providerId={provider.id} role={provider.business_role} />
         <Section title="Assigned jobs">
           {!jobs ? <SkeletonCard lines={3} /> : jobs.length === 0 ? (
-            <Text variant="footnote" color="muted">No jobs are assigned to this business.</Text>
+            <EmptyState compact icon="briefcase-outline" title="No jobs are assigned to this business." />
           ) : jobs.map((job) => (
             <Card key={job.booking_id} gap={t.spacing.sm}>
               <Text variant="calloutStrong">{job.customer_name} · {job.category_name}</Text>
-              <Text variant="caption" color="muted">{job.status} · {job.area || 'Location shared after acceptance'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+                <Badge label={statusShort[job.status]} tone={statusTone[job.status]} />
+                <Text variant="caption" color="muted">{job.area || 'Location shared after acceptance'}</Text>
+              </View>
               <Text variant="footnote">{job.description}</Text>
               <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
                 <Button
