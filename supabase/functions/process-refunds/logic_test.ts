@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { reconcileStaleRefund, type StaleRefund } from "./logic.ts";
+import { isDemoRefund, reconcileStaleRefund, refundRequest, type StaleRefund } from "./logic.ts";
 
 const row = (overrides: Partial<StaleRefund> = {}): StaleRefund => ({
   refund_id: "refund-1",
@@ -10,6 +10,30 @@ const row = (overrides: Partial<StaleRefund> = {}): StaleRefund => ({
   is_full: true,
   attempts: 1,
   ...overrides,
+});
+
+Deno.test("refund request builder preserves the payment amount and idempotency metadata", () => {
+  assertEquals(refundRequest(row({
+    refund_id: "refund-123",
+    booking_id: null,
+    amount: 12500,
+    razorpay_payment_id: "pay-1",
+  })), {
+    path: "/payments/pay-1/refund",
+    body: {
+      amount: 12500,
+      speed: "normal",
+      receipt: "refund-123",
+      notes: { refund_id: "refund-123", payment_id: "payment-1", booking_id: null },
+    },
+    headers: { "X-Refund-Idempotency": "refund-123" },
+  });
+  assertEquals(refundRequest(row({ refund_id: "r".repeat(48) })).body.receipt, "r".repeat(40));
+});
+
+Deno.test("demo refund detection matches only demo payment references", () => {
+  assertEquals(isDemoRefund(row({ razorpay_payment_id: "pay_demo_123" })), true);
+  assertEquals(isDemoRefund(row({ razorpay_payment_id: "pay_123" })), false);
 });
 
 Deno.test("stale refund found by notes.refund_id is completed with its gateway id", async () => {

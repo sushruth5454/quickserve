@@ -1,8 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { hmacSha256Hex, json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
+import { json, requireEnv } from "../_shared/razorpay.ts";
 import { recordGatewayPayment } from "../_shared/record-payment.ts";
 import { handleRailWebhook, isRailEvent, type RailWebhookEvent, type RpcClient } from "../_shared/payout-rail.ts";
 import { routeChargebackEvent } from "./chargeback.ts";
+import { verifyWebhook } from "./logic.ts";
 import { appendGatewayWebhookLog } from "./webhook-log.ts";
 import { routeSportsPaymentFailed } from "./sports-payment-failed.ts";
 
@@ -24,12 +25,8 @@ Deno.serve(async (req) => {
   const signature = req.headers.get("X-Razorpay-Signature") ?? "";
   // RazorpayX (payouts / fund account validation) webhooks are configured in the X dashboard and may use their own
   // secret (RAZORPAYX_WEBHOOK_SECRET); either valid signature is accepted.
-  const secrets = [requireEnv("RAZORPAY_WEBHOOK_SECRET"), Deno.env.get("RAZORPAYX_WEBHOOK_SECRET") ?? ""].filter(Boolean);
-  let valid = false;
-  for (const s of secrets) {
-    if (signature && timingSafeEqual(signature, await hmacSha256Hex(s, rawBody))) valid = true;
-  }
-  if (!valid) {
+  const secrets = [requireEnv("RAZORPAY_WEBHOOK_SECRET"), Deno.env.get("RAZORPAYX_WEBHOOK_SECRET") ?? ""];
+  if (!await verifyWebhook(rawBody, signature, secrets)) {
     return json({ error: "invalid signature" }, 401);
   }
 

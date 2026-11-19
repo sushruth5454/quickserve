@@ -8,7 +8,9 @@ import {
   timingSafeEqual,
 } from "../_shared/razorpay.ts";
 import {
+  isDemoRefund,
   reconcileStaleRefund,
+  refundRequest,
   type StaleRefund,
   type StaleRefundResult,
 } from "./logic.ts";
@@ -65,7 +67,7 @@ Deno.serve(async (req) => {
   const results: { refund_id: string; ok: boolean; error?: string }[] = [];
   for (const r of (due ?? []) as DueRefund[]) {
     let razorpayRefundId: string;
-    if (r.razorpay_payment_id.startsWith("pay_demo_")) {
+    if (isDemoRefund(r)) {
       // Demo-settled payments (demo_settle_payment) moved no money, so there is nothing to refund at Razorpay.
       const done = await admin.rpc("complete_refund", { p_refund_id: r.refund_id, p_razorpay_refund_id: `rfnd_demo_${r.refund_id.slice(0, 20)}` });
       if (done.error) console.error("complete_refund (demo)", r.refund_id, done.error);
@@ -74,15 +76,11 @@ Deno.serve(async (req) => {
     }
     try {
       // X-Refund-Idempotency makes retries of the same refund row safe even after an ambiguous failure.
+      const request = refundRequest(r);
       const res = await razorpay<{ id: string }>(
-        `/payments/${r.razorpay_payment_id}/refund`,
-        {
-          amount: r.amount,
-          speed: "normal",
-          receipt: r.refund_id.slice(0, 40),
-          notes: { refund_id: r.refund_id, payment_id: r.payment_id, booking_id: r.booking_id },
-        },
-        { "X-Refund-Idempotency": r.refund_id },
+        request.path,
+        request.body,
+        request.headers,
       );
       razorpayRefundId = res.id;
       if (!razorpayRefundId) throw new Error("no refund id in response");
