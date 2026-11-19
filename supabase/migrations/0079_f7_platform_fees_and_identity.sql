@@ -20,7 +20,7 @@ values (
   'business_payout_identity',
   false,
   'Business payout identity',
-  'When off, providers can submit individual payout details; business PAN and GSTIN fields are unavailable.',
+  'When off, only individual payout details are available; turning on alone does not permit business submissions until legal-entity and PAN mapping is approved.',
   'Provider onboarding',
   60
 )

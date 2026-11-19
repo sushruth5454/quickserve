@@ -54,7 +54,7 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<'submit' | 'refresh' | null>(null);
   const [editing, setEditing] = useState(view === 'none' || view === 'attention');
-  const existingBusinessReadOnly = payout?.account_type === 'business' && !businessIdentityEnabled;
+  const existingBusinessReadOnly = payout?.account_type === 'business';
   const showEditing = editing && !existingBusinessReadOnly;
 
   useEffect(() => {
@@ -107,10 +107,10 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
   const submit = async () => {
     const clean: PayoutForm = {
       ...form,
-      account_type: businessIdentityEnabled ? form.account_type : 'individual',
+      account_type: 'individual',
       legal_name: form.legal_name.trim(),
       pan: form.pan.trim().toUpperCase(),
-      gstin: form.gstin.trim().toUpperCase(),
+      gstin: '',
       ifsc: form.ifsc.trim().toUpperCase(),
       email: form.email.trim(),
       account_number: form.account_number.replace(/\s/g, ''),
@@ -196,25 +196,30 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
 
       {showEditing ? (
         <Card gap={t.spacing.lg}>
-          {businessIdentityEnabled ? (
-            <View style={{ gap: t.spacing.sm }}>
-              <Text variant="calloutStrong">Account type</Text>
-              <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                <Button
-                  title="Individual"
-                  size="sm"
-                  variant={form.account_type === 'individual' ? 'primary' : 'outline'}
-                  onPress={() => setForm((current) => ({ ...current, account_type: 'individual', gstin: '' }))}
-                />
-                <Button
-                  title="Business"
-                  size="sm"
-                  variant={form.account_type === 'business' ? 'primary' : 'outline'}
-                  onPress={() => set('account_type', 'business')}
-                />
-              </View>
+          <View style={{ gap: t.spacing.sm }}>
+            <Text variant="calloutStrong">Account type</Text>
+            <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+              <Button
+                title="Individual"
+                size="sm"
+                variant="primary"
+                onPress={() => setForm((current) => ({ ...current, account_type: 'individual', gstin: '' }))}
+              />
+              <Button
+                title="Business (unavailable)"
+                size="sm"
+                variant="outline"
+                disabled
+                onPress={() => undefined}
+              />
             </View>
-          ) : null}
+            <InlineAlert
+              tone="info"
+              message={businessIdentityEnabled
+                ? 'Business payout setup is unavailable until supported entity types and required PAN fields are approved. Choose Individual for now.'
+                : 'Business payout setup is turned off. Choose Individual for now.'}
+            />
+          </View>
           <Input
             label={form.account_type === 'business' ? 'Registered business name' : 'Name as on PAN / bank account'}
             value={form.legal_name}
@@ -234,18 +239,6 @@ export function PayoutSection({ data, reload, header, mode, onDone, onBack }: Se
             placeholder="ABCDE1234F"
             autoComplete="off"
           />
-          {businessIdentityEnabled && form.account_type === 'business' ? (
-            <Input
-              label="GSTIN (optional)"
-              value={form.gstin}
-              onChangeText={(v) => set('gstin', v.toUpperCase())}
-              error={errors.gstin}
-              autoCapitalize="characters"
-              maxLength={15}
-              placeholder="29ABCDE1234F1Z5"
-              autoComplete="off"
-            />
-          ) : null}
           <Input label="Email" value={form.email} onChangeText={(v) => set('email', v)} error={errors.email} keyboardType="email-address" autoCapitalize="none" autoComplete="email" maxLength={120} />
           <Input
             label="Bank account number"

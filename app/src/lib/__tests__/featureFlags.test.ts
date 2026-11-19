@@ -6,7 +6,7 @@ describe('feature flags', () => {
     expect(isFeatureOn({}, 'business_payout_identity')).toBe(false);
   });
 
-  it('shows business payout fields only when the explicit flag is on', () => {
+  it('reads the explicit business payout feature switch', () => {
     expect(isFeatureOn({ business_payout_identity: false }, 'business_payout_identity')).toBe(false);
     expect(isFeatureOn({ business_payout_identity: true }, 'business_payout_identity')).toBe(true);
   });

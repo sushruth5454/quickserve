@@ -18,6 +18,7 @@ import {
   canManagePayoutAccount,
   canSubmitBusinessPayoutAccount,
   canSubmitPayoutAccount,
+  businessPayoutFeatureEnabled,
   friendlyGatewayError,
   maskAccount,
   parseSubmit,
@@ -427,24 +428,31 @@ Deno.test("venue-owner payout submit requires both sports flags while provider e
   assert(!canSubmitPayoutAccount(false, false, { sports: true, sports_online_payments: true }));
 });
 
-Deno.test("business payout identity fails closed and respects venue parent switches", () => {
-  assert(canSubmitBusinessPayoutAccount(true, false, { business_payout_identity: true }));
-  assert(!canSubmitBusinessPayoutAccount(true, false, { business_payout_identity: false }));
-  assert(canSubmitBusinessPayoutAccount(false, true, {
+Deno.test("business payout identity stays unavailable until mapping approval and respects venue parent switches", () => {
+  const providerFlags = { business_payout_identity: true };
+  assert(businessPayoutFeatureEnabled(true, false, providerFlags));
+  assert(!canSubmitBusinessPayoutAccount(true, false, providerFlags));
+  assert(canSubmitBusinessPayoutAccount(true, false, providerFlags, true));
+  assert(!businessPayoutFeatureEnabled(true, false, { business_payout_identity: false }));
+  assert(!canSubmitBusinessPayoutAccount(true, false, { business_payout_identity: false }, true));
+  const venueFlags = {
     business_payout_identity: true,
     sports: true,
     sports_online_payments: true,
-  }));
+  };
+  assert(businessPayoutFeatureEnabled(false, true, venueFlags));
+  assert(!canSubmitBusinessPayoutAccount(false, true, venueFlags));
+  assert(canSubmitBusinessPayoutAccount(false, true, venueFlags, true));
   assert(!canSubmitBusinessPayoutAccount(false, true, {
     business_payout_identity: true,
     sports: false,
     sports_online_payments: true,
-  }));
+  }, true));
   assert(!canSubmitBusinessPayoutAccount(false, false, {
     business_payout_identity: true,
     sports: true,
     sports_online_payments: true,
-  }));
+  }, true));
 });
 
 Deno.test("parseSubmit: validates PAN (individual), IFSC, account confirmation, email; address only on route", () => {

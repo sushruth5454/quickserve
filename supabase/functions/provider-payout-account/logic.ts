@@ -30,12 +30,21 @@ export function canSubmitPayoutAccount(isProvider: boolean, hasVerifiedVenue: bo
   return flags.sports === true && flags.sports_online_payments === true;
 }
 
-export function canSubmitBusinessPayoutAccount(isProvider: boolean, hasVerifiedVenue: boolean, features: unknown): boolean {
+export function businessPayoutFeatureEnabled(isProvider: boolean, hasVerifiedVenue: boolean, features: unknown): boolean {
   if (!features || typeof features !== "object") return false;
   const flags = features as Record<string, unknown>;
   if (flags.business_payout_identity !== true) return false;
   if (isProvider) return true;
   return hasVerifiedVenue && flags.sports === true && flags.sports_online_payments === true;
+}
+
+export function canSubmitBusinessPayoutAccount(
+  isProvider: boolean,
+  hasVerifiedVenue: boolean,
+  features: unknown,
+  mappingApproved = false,
+): boolean {
+  return mappingApproved && businessPayoutFeatureEnabled(isProvider, hasVerifiedVenue, features);
 }
 
 /** Validates the payout form. Address is required only on the Route rail (linked-account registered address). */

@@ -20,6 +20,7 @@ import {
   type PayoutAccountRow,
 } from "../_shared/payout-beneficiary.ts";
 import {
+  businessPayoutFeatureEnabled,
   canManagePayoutAccount,
   canSubmitBusinessPayoutAccount,
   canSubmitPayoutAccount,
@@ -34,6 +35,8 @@ const UNAVAILABLE = {
   message: "Payouts setup is temporarily unavailable. Your profile is saved and we'll notify you when you can finish this step.",
 };
 
+// Route entity type and business/signatory PAN mapping are not approved yet.
+const BUSINESS_PAYOUT_MAPPING_APPROVED = false;
 const F7_PAYOUT_ACCOUNT_COLUMNS = `${PAYOUT_ACCOUNT_COLUMNS}, account_type, gstin, registered_address`;
 type PayoutAccountWithBusinessIdentity = PayoutAccountRow & {
   account_type: "individual" | "business";
@@ -95,8 +98,15 @@ Deno.serve(async (req) => {
       if (!isProvider && !canSubmitPayoutAccount(false, !!venue, features)) {
         return json({ error: "Sports online payments are turned off right now." }, 403);
       }
-      if (accountType === "business" && !canSubmitBusinessPayoutAccount(isProvider, !!venue, features)) {
-        return json({ error: "Business payout details are turned off right now." }, 403);
+      if (accountType === "business") {
+        if (!businessPayoutFeatureEnabled(isProvider, !!venue, features)) {
+          return json({ error: "Business payout details are turned off right now." }, 403);
+        }
+        if (!canSubmitBusinessPayoutAccount(isProvider, !!venue, features, BUSINESS_PAYOUT_MAPPING_APPROVED)) {
+          return json({
+            error: "Business payout setup is unavailable until supported entity types and required PAN fields are approved.",
+          }, 403);
+        }
       }
     }
 
