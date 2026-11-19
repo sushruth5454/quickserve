@@ -1,7 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
+import { BookingStepLayout } from '../../../src/components/market/BookingStepLayout';
+import { PriceFooter } from '../../../src/components/market/PriceFooter';
 import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useToast } from '../../../src/components/ui';
+import { useT } from '../../../src/i18n';
 import { getProviderService, type ProviderServiceWithProvider } from '../../../src/lib/api';
 import { listFixedPackages } from '../../../src/lib/fixedBooking';
 import { useAppFeatureFlags, useFeature } from '../../../src/lib/featureFlags';
@@ -10,6 +13,7 @@ import { formatINR } from '../../../src/lib/money';
 import type { ServicePackage } from '../../../src/lib/types';
 import { istDateKey, nextDays, WINDOW_START_HOURS } from '../../../src/lib/schedule';
 import { useTheme } from '../../../src/theme';
+import { getBookingStepKeys } from '../../../src/features/booking/book/model';
 import {
   createRecurringPlan,
   quoteRecurringPlan,
@@ -76,6 +80,7 @@ function frequencyLabel(frequency: BillingFrequency) {
 
 export default function NewRecurringPlanScreen() {
   const t = useTheme();
+  const translate = useT();
   const toast = useToast();
   const { providerServiceId, packageId, packageQty, durationMin: durationMinParam, archetype: archetypeParam, description: descriptionParam, source } =
     useLocalSearchParams<{
@@ -89,6 +94,8 @@ export default function NewRecurringPlanScreen() {
     }>();
   const recurringEnabled = useFeature('recurring_bookings');
   const featureFlags = useAppFeatureFlags();
+  const stepKeys = getBookingStepKeys(featureFlags.isOn('booking_steps'), recurringEnabled);
+  const steps = stepKeys?.map((key) => translate(key)) ?? null;
   const { location } = useSelectedLocation();
   const [service, setService] = useState<ProviderServiceWithProvider | null>(null);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
@@ -318,18 +325,19 @@ export default function NewRecurringPlanScreen() {
   };
 
   if (!service) {
+    const loadingContent = loadError ? (
+      <ErrorState message={loadError} onRetry={() => router.replace({ pathname: '/recurring/new/[providerServiceId]', params: { providerServiceId: providerServiceId ?? '' } })} />
+    ) : (
+      <>
+        <Skeleton height={72} radius={t.radii.lg} />
+        <Skeleton height={180} radius={t.radii.lg} />
+        <Skeleton height={140} radius={t.radii.lg} />
+      </>
+    );
     return (
-      <Screen header={<Header title="Repeat service" onBack={backToBooking} />}>
-        {loadError ? (
-          <ErrorState message={loadError} onRetry={() => router.replace({ pathname: '/recurring/new/[providerServiceId]', params: { providerServiceId: providerServiceId ?? '' } })} />
-        ) : (
-          <>
-            <Skeleton height={72} radius={t.radii.lg} />
-            <Skeleton height={180} radius={t.radii.lg} />
-            <Skeleton height={140} radius={t.radii.lg} />
-          </>
-        )}
-      </Screen>
+      steps
+        ? <BookingStepLayout title="Repeat service" steps={steps} current={0} footer={null} onBack={backToBooking}>{loadingContent}</BookingStepLayout>
+        : <Screen header={<Header title="Repeat service" onBack={backToBooking} />}>{loadingContent}</Screen>
     );
   }
 
@@ -342,57 +350,66 @@ export default function NewRecurringPlanScreen() {
     );
   }
 
-  return (
-    <Screen
-      header={<Header title="Repeat service" onBack={backToBooking} />}
-      gap={t.spacing.lg}
-      footer={
-        <View style={{ gap: t.spacing.sm }}>
-          {quoteSummary ? (
-            <Card gap={t.spacing.xs}>
-              <Text variant="subheadStrong">Price</Text>
-              <Text variant="footnote" color="textSecondary">
-                {formatINR(quoteSummary.perVisitPaise)} per visit
-              </Text>
-              {fourWeekEstimate ? (
-                <Text variant="footnote" color="textSecondary">{fourWeekEstimate.label}</Text>
-              ) : null}
-              {quoteSummary.visitsTotal != null ? <Text variant="footnote" color="textSecondary">{quoteSummary.visitsTotal} visits in total</Text> : null}
-              {quoteSummary.discountPaise > 0 ? <Text variant="footnote" color="textSecondary">Discount: −{formatINR(quoteSummary.discountPaise)}</Text> : null}
-              <Text variant="footnote" color="textSecondary">Platform fee: {formatINR(quoteSummary.platformFeePaise)}</Text>
-              {quoteSummary.gstPaise > 0 ? <Text variant="footnote" color="textSecondary">Taxes: {formatINR(quoteSummary.gstPaise)}</Text> : null}
-              <Text variant="title3">
-                Total per visit:{' '}
-                {formatINR(quoteSummary.totalPaisePerCycle)}
-              </Text>
-              <Text variant="caption" color="muted">{frequencyLabel(quoteSummary.billingFrequency)}</Text>
-              <Text variant="caption" color="muted">
-                Next visits: {quoteSummary.firstDates.map(dateLabel).join(' · ')}
-              </Text>
-            </Card>
-          ) : quoteLoading ? (
-            <Skeleton height={96} radius={t.radii.lg} />
+  const requestDisabled = !quote || quoteLoading || !location.addressId || !location.line1 || !description.trim() || !planInput;
+  const footerAbove = (
+    <>
+      {quoteSummary ? (
+        <Card gap={t.spacing.xs}>
+          <Text variant="subheadStrong">Price</Text>
+          <Text variant="footnote" color="textSecondary">
+            {formatINR(quoteSummary.perVisitPaise)} per visit
+          </Text>
+          {fourWeekEstimate ? (
+            <Text variant="footnote" color="textSecondary">{fourWeekEstimate.label}</Text>
           ) : null}
-          {requestError ? (
-            <InlineAlert
-              tone="danger"
-              title="Could not send request"
-              message={requestError}
-              actionLabel="Try again"
-              onAction={() => void submit()}
-            />
-          ) : null}
-          <Button
-            title={`Send request to ${providerName}`}
-            onPress={() => void submit()}
-            loading={busy}
-            disabled={!quote || quoteLoading || !location.addressId || !location.line1 || !description.trim() || !planInput}
-            fullWidth
-            size="lg"
-          />
-        </View>
-      }
-    >
+          {quoteSummary.visitsTotal != null ? <Text variant="footnote" color="textSecondary">{quoteSummary.visitsTotal} visits in total</Text> : null}
+          {quoteSummary.discountPaise > 0 ? <Text variant="footnote" color="textSecondary">Discount: −{formatINR(quoteSummary.discountPaise)}</Text> : null}
+          <Text variant="footnote" color="textSecondary">Platform fee: {formatINR(quoteSummary.platformFeePaise)}</Text>
+          {quoteSummary.gstPaise > 0 ? <Text variant="footnote" color="textSecondary">Taxes: {formatINR(quoteSummary.gstPaise)}</Text> : null}
+          <Text variant="title3">
+            Total per visit:{' '}
+            {formatINR(quoteSummary.totalPaisePerCycle)}
+          </Text>
+          <Text variant="caption" color="muted">{frequencyLabel(quoteSummary.billingFrequency)}</Text>
+          <Text variant="caption" color="muted">
+            Next visits: {quoteSummary.firstDates.map(dateLabel).join(' · ')}
+          </Text>
+        </Card>
+      ) : quoteLoading ? (
+        <Skeleton height={96} radius={t.radii.lg} />
+      ) : null}
+      {requestError ? (
+        <InlineAlert
+          tone="danger"
+          title="Could not send request"
+          message={requestError}
+          actionLabel="Try again"
+          onAction={() => void submit()}
+        />
+      ) : null}
+    </>
+  );
+  const requestAction = {
+    title: `Send request to ${providerName}`,
+    onPress: () => void submit(),
+    loading: busy,
+    disabled: requestDisabled,
+  };
+  const footer = steps ? (
+    <PriceFooter
+      caption={quoteSummary ? 'Total per visit' : 'Price'}
+      amountLabel={quoteSummary ? formatINR(quoteSummary.totalPaisePerCycle) : ''}
+      cta={requestAction}
+      above={footerAbove}
+    />
+  ) : (
+    <View style={{ gap: t.spacing.sm }}>
+      {footerAbove}
+      <Button {...requestAction} fullWidth size="lg" />
+    </View>
+  );
+  const content = (
+    <>
       <Text variant="footnote" color="textSecondary">
         Choose a schedule. {providerName} will review your repeat-plan request before visits are created.
       </Text>
@@ -654,6 +671,15 @@ export default function NewRecurringPlanScreen() {
         />
       ) : null}
       {loadError ? <InlineAlert tone="danger" title="Could not load service" message={loadError} /> : null}
+    </>
+  );
+  return steps ? (
+    <BookingStepLayout title="Repeat service" steps={steps} current={0} footer={footer} onBack={backToBooking}>
+      {content}
+    </BookingStepLayout>
+  ) : (
+    <Screen header={<Header title="Repeat service" onBack={backToBooking} />} gap={t.spacing.lg} footer={footer}>
+      {content}
     </Screen>
   );
 }
