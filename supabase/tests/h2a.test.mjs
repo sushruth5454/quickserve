@@ -146,7 +146,7 @@ async function fixture(index, archetype = 'time_based', { packagePrice = 50000, 
   [customer, city])).id;
   await db.query(`
     insert into public.provider_availability (provider_id, weekday, start_time, end_time)
-    select $1::uuid, day, time '00:00', time '23:59'
+    select $1::uuid, day, time '08:00', time '23:59'
       from generate_series(0, 6) day`, [provider]);
   let servicePackageId = null;
   if (packageId) {
@@ -259,6 +259,35 @@ async function payFixedVisit(fixtureRow, bookingId, tag) {
 
 const lockedPriceDate = '2027-02-01';
 const paidVisitDate = '2027-02-02';
+
+function nearTermSlot() {
+  const now = Date.now();
+  const firstMs = Math.ceil((now + 90 * 60 * 1000) / (15 * 60 * 1000)) * 15 * 60 * 1000;
+  const lastMs = now + 11 * 60 * 60 * 1000 + 59 * 60 * 1000;
+  // Session creation reserves a two-hour provider window, even for a 60-minute visit.
+  for (let atMs = firstMs; atMs <= lastMs; atMs += 15 * 60 * 1000) {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(atMs))
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]));
+    const localMinutes = Number(parts.hour) * 60 + Number(parts.minute);
+    if (localMinutes >= 8 * 60 && localMinutes + 120 <= 23 * 60 + 59) {
+      return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        time: `${parts.hour}:${parts.minute}`,
+        scheduledAt: new Date(atMs).toISOString(),
+      };
+    }
+  }
+  throw new Error(`No future two-hour availability slot before the 12-hour cutoff; now=${new Date(now).toISOString()}`);
+}
 
 await scenario('H2a accepts plan-mode paid visits', async () => {
   const f = await fixture(1);
@@ -393,28 +422,38 @@ await scenario('H2a does not charge a changed time-based labour rate', async () 
 
 await scenario('H2a cancels an unpaid near-term session without charging', async () => {
   const f = await fixture(6);
-  const slotParts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(new Date(Date.now() + 6 * 60 * 60 * 1000))
-    .filter((part) => part.type !== 'literal')
-    .map((part) => [part.type, part.value]));
-  const slot = `${slotParts.year}-${slotParts.month}-${slotParts.day}`;
-  const time = `${slotParts.hour}:${slotParts.minute}`;
-  const planId = await createPlan(f, planInput(f, slot, time));
+  const slot = nearTermSlot();
+  const planId = await createPlan(f, planInput(f, slot.date, slot.time));
   await as(f.manager, 'authenticated',
     `select public.respond_recurring_plan($1::uuid, true, null)`, [planId]);
-  const bookingId = (await one(`
-    select id from public.bookings where recurring_schedule_id = $1::uuid`, [planId])).id;
+  const booking = await one(`
+    select b.id, b.status::text status, b.scheduled_at::text scheduled_at,
+           r.status plan_status, r.provider_acceptance,
+           coalesce((
+             select jsonb_agg(jsonb_build_object('kind', c.kind, 'reason', c.reason))
+               from public.recurring_occurrence_changes c where c.schedule_id = r.id
+           ), '[]'::jsonb) occurrence_changes
+      from public.recurring_schedules r
+      left join public.bookings b on b.recurring_schedule_id = r.id
+     where r.id = $1::uuid`, [planId]);
+  if (!booking?.id) {
+    throw new Error(`Expected near-term occurrence; slot=${JSON.stringify(slot)} actual=${JSON.stringify(booking)}`);
+  }
+  const bookingId = booking.id;
   const amount = (await one(`
     select coalesce(sum(amount), 0)::int amount
       from public.payment_schedule where booking_id = $1::uuid and status = 'due'`,
   [bookingId])).amount;
-  await db.query(`
+  const linkId = `h2a-cancel-${f.customer}`;
+  const payment = await one(`
     insert into public.payments (booking_id, purpose, amount, status, razorpay_link_id)
-    values ($1::uuid, 'session', $2::int, 'created', 'h2a-cancel-link')`, [bookingId, amount]);
-  const paymentId = (await one(`
-    select id from public.payments where razorpay_link_id = 'h2a-cancel-link'::text`)).id;
+    values ($1::uuid, 'session', $2::int, 'created', $3::text)
+    returning id, booking_id, razorpay_link_id`,
+  [bookingId, amount, linkId]);
+  if (!payment?.id) {
+    throw new Error(`Expected created payment; slot=${JSON.stringify(slot)} booking=${JSON.stringify(booking)} amount=${amount} actual=${JSON.stringify(payment)}`);
+  }
+  const paymentId = payment.id;
   await db.query(`
     insert into public.payment_obligations (payment_id, schedule_id, amount)
     select $1::uuid, ps.id, ps.amount from public.payment_schedule ps
@@ -435,7 +474,7 @@ await scenario('H2a cancels an unpaid near-term session without charging', async
   ok(!cancelError && actual.plan_status === 'cancelled' && actual.booking_status === 'cancelled'
     && actual.payment_status === 'failed' && actual.cancel_link_pending
     && actual.waived_rows > 0 && actual.refunds === 0,
-  `[H2a RP-43] near-term unpaid visit cancels without charge; actual=${JSON.stringify({ cancelError, amount, ...actual })}`);
+  `[H2a RP-43] near-term unpaid visit cancels without charge; actual=${JSON.stringify({ slot, booking, payment, cancelError, amount, ...actual })}`);
 });
 
 await scenario('H2a refuses pause and provider response in invalid plan states', async () => {
