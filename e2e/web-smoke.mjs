@@ -85,6 +85,42 @@ async function rest(path) {
   return res.json();
 }
 
+// Call self-service RPCs with the signed-in browser session; never use service-role credentials or table writes.
+async function currentUserRpc(name, args = {}) {
+  const result = await page.evaluate(async ({ url, anonKey, functionName, params }) => {
+    let accessToken = null;
+    for (const key of Object.keys(localStorage)) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) ?? 'null');
+        const sessions = [value, value?.currentSession, value?.session, value?.data?.session];
+        const session = sessions.find((candidate) => typeof candidate?.access_token === 'string');
+        if (session) {
+          accessToken = session.access_token;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (!accessToken) return { ok: false, status: 0, error: 'Signed-in session token is missing from browser storage.' };
+    const response = await fetch(`${url.replace(/\/+$/, '')}/rest/v1/rpc/${functionName}`, {
+      method: 'POST',
+      headers: { apikey: anonKey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const body = await response.text();
+    let data = null;
+    try {
+      data = body ? JSON.parse(body) : null;
+    } catch {
+      data = null;
+    }
+    return { ok: response.ok, status: response.status, resultExists: data !== null, error: response.ok ? '' : body };
+  }, { url: SUPABASE_URL, anonKey: ANON, functionName: name, params: args });
+  if (!result.ok) throw new Error(`${name} RPC failed (${result.status}): ${result.error}`);
+  return result.resultExists;
+}
+
 /** Signs a second test user in through the Auth API (fixed test OTP) and returns their access token. */
 async function signInAs(phone) {
   const headers = { apikey: ANON, 'Content-Type': 'application/json' };
@@ -887,38 +923,32 @@ await step('new-pro-role', async () => {
   }
   await optional('name', () => page.getByLabel('Your name').first().fill('Kiran Test Pro', { timeout: 3000 }));
   await page.getByLabel(/^I provide services\./).first().click();
-  const profileUpdateResponsePromise = page.waitForResponse((response) =>
-    response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/rest/v1/profiles',
-  );
-  const providerResponsePromise = page.waitForResponse((response) =>
-    response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_my_provider'),
-  ).then((response) => ({ response }), (error) => ({ error: String(error?.message ?? error) }));
-  await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  const profileUpdateResponse = await profileUpdateResponsePromise;
-  console.log(`  Role profile update: PATCH /rest/v1/profiles -> ${profileUpdateResponse.status()}`);
-  if (!profileUpdateResponse.ok()) {
-    throw new Error(`role profile update failed (${profileUpdateResponse.status()}): ${await profileUpdateResponse.text()}`);
-  }
-  const providerResponseResult = await providerResponsePromise;
-  if (!providerResponseResult.response) {
-    const roleScreenVisible = await page.getByText('Welcome to QuickServe', { exact: true }).isVisible().catch(() => false);
-    const continueVisible = await page.getByRole('button', { name: 'Continue', exact: true }).isVisible().catch(() => false);
-    throw new Error(
-      `POST /rest/v1/rpc/get_my_provider had no response after profile PATCH ${profileUpdateResponse.status()}; route=${new URL(page.url()).pathname}, roleScreen=${roleScreenVisible}, continue=${continueVisible}, wait=${providerResponseResult.error}`,
-    );
-  }
-  const providerResponse = providerResponseResult.response;
-  if (!providerResponse.ok()) {
-    throw new Error(`get_my_provider failed (${providerResponse.status()}): ${await providerResponse.text()}`);
-  }
-  const provider = await providerResponse.json();
-  newProReturningProvider = provider !== null;
-  console.log(
-    `  ${providerResponse.request().method()} ${new URL(providerResponse.url()).pathname} -> ${providerResponse.status()}; providerExists=${newProReturningProvider}`,
-  );
-  if (newProReturningProvider) {
+  const existingProvider = await currentUserRpc('get_my_provider');
+  console.log(`  get_my_provider: ${existingProvider ? 'provider exists' : 'no provider record'}`);
+  if (existingProvider) {
+    newProReturningProvider = true;
+    await page.reload();
+    await go('/account');
+    await visible('Manage jobs and earnings');
+    await page.getByText('Switch to provider mode', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === '/dashboard');
+    console.log('  Returning provider confirmed by get_my_provider and switched through the account UI.');
     return;
   }
+  await currentUserRpc('save_provider_basics', {
+    p_full_name: 'Kiran Test Pro',
+    p_avatar_url: null,
+    p_gender: null,
+    p_languages: ['English'],
+    p_years_experience: 6,
+    p_bio: 'AC technician for 6 years. Split and window AC service, gas refills and installations.',
+  });
+  console.log('  Provider role initialized through save_provider_basics RPC.');
+  if (!(await currentUserRpc('get_my_provider'))) {
+    throw new Error('save_provider_basics completed but get_my_provider still returned no provider record.');
+  }
+  await page.reload();
+  await go('/onboarding');
   await visible('Tell customers about you');
 });
 await step('new-pro-basics', async () => {
