@@ -15,6 +15,10 @@ async function createFixture(seed) {
     insert into auth.users (id) values
       ($1::uuid), ($2::uuid), ($3::uuid), ($4::uuid)
   `, [customer, provider, admin, stranger]);
+  await db.query(
+    'update public.profiles set role_provider = true where id = $1::uuid',
+    [provider],
+  );
   await db.query(`
     update public.profiles
        set full_name = case id
@@ -26,7 +30,9 @@ async function createFixture(seed) {
   `, [customer, provider]);
   await db.query('insert into public.admins (user_id) values ($1::uuid)', [admin]);
   await db.query(
-    `insert into public.providers (id, city) values ($1::uuid, $2::text)`,
+    `insert into public.providers (
+       id, city, kyc_status, admin_review_status, submitted_at, is_online, paused, suspended
+     ) values ($1::uuid, $2::text, 'verified', 'approved', now(), true, false, false)`,
     [provider, `Receipt City ${seed}`],
   );
   const category = (await one(`
@@ -34,6 +40,10 @@ async function createFixture(seed) {
     values ($1::text, $2::text, 'quote'::public.pricing_mode, true)
     returning id
   `, [`b2-receipt-${seed}`, `Receipt service ${seed}`])).id;
+  await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, true, now())
+  `, [category, `Receipt City ${seed}`]);
   const service = (await one(`
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, $3::int, 0, true)
