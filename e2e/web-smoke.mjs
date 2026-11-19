@@ -409,8 +409,8 @@ await step('proposal-flow-pro-sends-proposal', async () => {
     p_request_id: briefRequestId,
     p_items: [{ kind: 'package', title: '30-second launch reel', qty: 1, unit: 'job', unit_price: 1200000 }],
     p_schedule: [
-      { label: 'Booking advance', amount: 400000, due_rule: 'at_booking' },
-      { label: 'On delivery', amount: 800000, due_rule: 'on_delivery' },
+      { label: 'Booking advance', amount: 300000, due_rule: 'at_booking' },
+      { label: 'On delivery', amount: 900000, due_rule: 'on_delivery' },
     ],
     p_valid_until: iso(3),
     p_note: `${QA_MARKER} fixed proposal`,
