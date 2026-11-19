@@ -11,6 +11,7 @@ import { allRejected, type AttemptRecord, runAgent, withFallback } from "./agent
 import { buildJobBrief, renderBrief } from "./brief.ts";
 import { chatUsageRows, recordChatModelCall, type ChatModelUsage } from "./chat_usage.ts";
 import { type AiConfig, attemptPlan, corsFor, loadConfig } from "./config.ts";
+import { monthlyBudgetReached, sumModelUsageCostMicrosUsd, type ModelTokenUsage } from "./monthly_budget.ts";
 import { AbortedError, type Content, GeminiError, generateContent, type Part } from "./gemini.ts";
 import { type ImageMime, ImageFormatError, sniffImage, stripImageMetadata, visualPiiRedactionReady } from "./image.ts";
 import {
@@ -88,6 +89,25 @@ function log(level: "info" | "warn" | "error", event: Record<string, unknown>) {
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
+}
+
+async function assertMonthlyAiBudget(admin: SupabaseClient, cfg: AiConfig, now: Date): Promise<void> {
+  const clock = new MarketClock(cfg.tzOffsetMinutes, cfg.tzLabel);
+  const local = clock.parts(now);
+  const monthStart = clock.instant(`${local.y}-${String(local.m).padStart(2, "0")}-01`, 0).toISOString();
+  const { data, error } = await admin.rpc("ai_monthly_usage_cost", { p_month_start: monthStart });
+  if (error) {
+    log("error", { event: "monthly_budget_read_failed" });
+    throw new HttpError(503, "usage_unavailable", "AI usage is unavailable right now.");
+  }
+  const monthlyCostMicros = typeof data === "number" ? data : typeof data === "string" ? Number(data) : Number.NaN;
+  if (!Number.isSafeInteger(monthlyCostMicros) || monthlyCostMicros < 0) {
+    log("error", { event: "monthly_budget_read_invalid" });
+    throw new HttpError(503, "usage_unavailable", "AI usage is unavailable right now.");
+  }
+  if (monthlyBudgetReached(monthlyCostMicros, cfg.monthlyBudgetUsd)) {
+    throw new HttpError(429, "monthly_budget", "The monthly AI budget has been reached.");
+  }
 }
 
 interface Ctx {
@@ -471,6 +491,7 @@ async function productSearch(
       },
       async (attemptModel, callTimeoutMs) => {
         model = attemptModel;
+        await assertMonthlyAiBudget(auth.admin, cfg, now);
         const response = await generateContent(
           cfg.apiBase,
           attemptModel,
@@ -609,71 +630,101 @@ async function transcribe(cfg: AiConfig, auth: Auth, body: Json, apiKey: string,
   const ins = await auth.admin.from("ai_usage").insert({ user_id: auth.uid, kind: "transcribe", request_id: requestId });
   if (ins.error) throw ins.error;
 
-  const budget = Math.min(cfg.requestBudgetMs, 30_000);
   const usage = { input: 0, output: 0, calls: 0 };
-  const fb = await withFallback(
-    {
-      plan: attemptPlan(cfg),
-      primaryModel: cfg.primaryModel,
-      hasFallback: !!cfg.fallbackModel,
-      cooldown: primaryCooldown,
-      cooldownMs: cfg.primaryCooldownMs,
-      deadline: started + budget,
-      signal,
-    },
-    async (model, callTimeoutMs) => {
-      const res = await generateContent(
-        cfg.apiBase,
-        model,
-        {
-          systemInstruction: { parts: [{ text: transcriptionPrompt() }] },
-          contents: [{ role: "user", parts: [{ inlineData: { mimeType: audio.mimeType, data: audio.data } }, { text: "Transcribe this voice message." }] }],
-          tools: [{ functionDeclarations: [TRANSCRIBE_DECLARATION] }],
-          toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["transcribe"] } },
-          generationConfig: { maxOutputTokens: 1024, ...(cfg.thinkingLevel ? { thinkingConfig: { thinkingLevel: cfg.thinkingLevel } } : {}) },
-        },
-        apiKey,
-        Math.min(callTimeoutMs, started + budget - Date.now()),
+  const modelUsage: ModelTokenUsage[] = [];
+  let model = cfg.primaryModel;
+  let tokenMetadataComplete = true;
+  let succeeded = false;
+  try {
+    const budget = Math.min(cfg.requestBudgetMs, 30_000);
+    const fb = await withFallback(
+      {
+        plan: attemptPlan(cfg),
+        primaryModel: cfg.primaryModel,
+        hasFallback: !!cfg.fallbackModel,
+        cooldown: primaryCooldown,
+        cooldownMs: cfg.primaryCooldownMs,
+        deadline: started + budget,
         signal,
-      );
-      usage.calls += 1;
-      usage.input += res.usageMetadata?.promptTokenCount ?? 0;
-      usage.output += (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
-      const call = (res.candidates?.[0]?.content?.parts ?? []).find((p) => p.functionCall?.name === "transcribe");
-      if (!call) throw new GeminiError("no transcription", 0, true);
-      return parseTranscription(call.functionCall!.args);
-    },
-  );
-  if (!fb.result) {
-    if (allRejected(fb.attempts)) {
-      log("warn", { event: "audio_rejected", mode: "transcribe", request_id: requestId, attempts: fb.attempts });
-      throw new HttpError(400, "bad_audio", "We couldn't understand that recording. Please try again or type your message.");
+      },
+      async (attemptModel, callTimeoutMs) => {
+        await assertMonthlyAiBudget(auth.admin, cfg, now);
+        model = attemptModel;
+        const res = await generateContent(
+          cfg.apiBase,
+          attemptModel,
+          {
+            systemInstruction: { parts: [{ text: transcriptionPrompt() }] },
+            contents: [{ role: "user", parts: [{ inlineData: { mimeType: audio.mimeType, data: audio.data } }, { text: "Transcribe this voice message." }] }],
+            tools: [{ functionDeclarations: [TRANSCRIBE_DECLARATION] }],
+            toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["transcribe"] } },
+            generationConfig: { maxOutputTokens: 1024, ...(cfg.thinkingLevel ? { thinkingConfig: { thinkingLevel: cfg.thinkingLevel } } : {}) },
+          },
+          apiKey,
+          Math.min(callTimeoutMs, started + budget - Date.now()),
+          signal,
+        );
+        const inputTokens = res.usageMetadata?.promptTokenCount;
+        const outputTokens = (res.usageMetadata?.candidatesTokenCount ?? 0) + (res.usageMetadata?.thoughtsTokenCount ?? 0);
+        if (Number.isSafeInteger(inputTokens) && Number.isSafeInteger(outputTokens)) {
+          modelUsage.push({ model: attemptModel, inputTokens: inputTokens!, outputTokens });
+        } else {
+          tokenMetadataComplete = false;
+        }
+        usage.calls += 1;
+        usage.input += inputTokens ?? 0;
+        usage.output += outputTokens;
+        const call = (res.candidates?.[0]?.content?.parts ?? []).find((p) => p.functionCall?.name === "transcribe");
+        if (!call) throw new GeminiError("no transcription", 0, true);
+        return parseTranscription(call.functionCall!.args);
+      },
+    );
+    if (!fb.result) {
+      if (allRejected(fb.attempts)) {
+        log("warn", { event: "audio_rejected", mode: "transcribe", request_id: requestId, attempts: fb.attempts });
+        throw new HttpError(400, "bad_audio", "We couldn't understand that recording. Please try again or type your message.");
+      }
+      log("error", { event: "model_unavailable", mode: "transcribe", request_id: requestId, attempts: fb.attempts, ms: Date.now() - started });
+      throw modelFailure(fb.attempts, fb.lastError, started, cfg, budget);
     }
-    log("error", { event: "model_unavailable", mode: "transcribe", request_id: requestId, attempts: fb.attempts, ms: Date.now() - started });
-    throw modelFailure(fb.attempts, fb.lastError, started, cfg, budget);
+    const t = fb.result;
+    succeeded = true;
+    log("info", {
+      event: "transcribed",
+      request_id: requestId,
+      user: auth.uid,
+      model: fb.model,
+      attempts: fb.attempts,
+      language: t.language,
+      clarity: t.clarity,
+      tokens_in: usage.input,
+      tokens_out: usage.output,
+      ms: Date.now() - started,
+    });
+    return {
+      request_id: requestId,
+      policy_version: POLICY_VERSION,
+      ...t,
+      model: fb.model,
+      fallback_used: fb.model !== cfg.primaryModel,
+      usage: { input_tokens: usage.input, output_tokens: usage.output, model_calls: usage.calls, ms: Date.now() - started },
+      limits: { voice_left: Math.max(0, cfg.dailyVoiceLimit - used.voice - 1) },
+    };
+  } finally {
+    const { error } = await auth.admin.from("ai_usage").update({
+      feature: "ai_assistant",
+      model,
+      input_tokens: tokenMetadataComplete && usage.calls ? usage.input : null,
+      output_tokens: tokenMetadataComplete && usage.calls ? usage.output : null,
+      cost_micros_usd: tokenMetadataComplete ? sumModelUsageCostMicrosUsd(modelUsage, now) : null,
+      latency_ms: Math.max(0, Date.now() - started),
+      ok: succeeded,
+    }).eq("user_id", auth.uid).eq("kind", "transcribe").eq("request_id", requestId);
+    if (error) {
+      log("error", { event: "transcription_usage_write_failed", request_id: requestId, user: auth.uid });
+      throw new HttpError(503, "usage_unavailable", "AI usage could not be recorded.");
+    }
   }
-  const t = fb.result;
-  log("info", {
-    event: "transcribed",
-    request_id: requestId,
-    user: auth.uid,
-    model: fb.model,
-    attempts: fb.attempts,
-    language: t.language,
-    clarity: t.clarity,
-    tokens_in: usage.input,
-    tokens_out: usage.output,
-    ms: Date.now() - started,
-  });
-  return {
-    request_id: requestId,
-    policy_version: POLICY_VERSION,
-    ...t,
-    model: fb.model,
-    fallback_used: fb.model !== cfg.primaryModel,
-    usage: { input_tokens: usage.input, output_tokens: usage.output, model_calls: usage.calls, ms: Date.now() - started },
-    limits: { voice_left: Math.max(0, cfg.dailyVoiceLimit - used.voice - 1) },
-  };
 }
 
 // ---------- mode: chat ----------
@@ -934,12 +985,15 @@ async function runChatCore(p: Prepared, stages: StageTracker, signal: AbortSigna
           p.contents,
           state,
           {
-            generate: (m, body, timeoutMs, sig) => recordChatModelCall(
-              modelCalls,
-              m,
-              new Date(),
-              () => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
-            ),
+            generate: async (m, body, timeoutMs, sig) => {
+              await assertMonthlyAiBudget(admin, cfg, new Date());
+              return recordChatModelCall(
+                modelCalls,
+                m,
+                new Date(),
+                () => generateContent(cfg.apiBase, m, body, p.apiKey, timeoutMs, sig),
+              );
+            },
             execTool: (name, args) => execTool(ctx, state, name, args),
             stages,
             signal,
