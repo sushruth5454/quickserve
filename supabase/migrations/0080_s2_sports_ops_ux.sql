@@ -629,12 +629,6 @@ begin
   if not found then
     return jsonb_build_object('ok', true, 'ignored', true);
   end if;
-  update public.payments
-     set status = 'failed', cancel_link_pending = false
-   where id = v_payment.id and status = 'created';
-  if not found then
-    return jsonb_build_object('ok', true, 'ignored', true);
-  end if;
   begin
     perform public._queue_notification(
       v_customer_id, 'sports_payment_failed', null, 'Sports payment failed',

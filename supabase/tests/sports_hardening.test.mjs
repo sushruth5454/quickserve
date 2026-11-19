@@ -738,7 +738,7 @@ await scenario('WS4-T13: legacy slot requests cannot bypass the customer hold li
   `[WS4-T13] legacy hold limit state: ${JSON.stringify({ rules, requestIds, refused, customerId: fixture.customerIds[0] })}`);
 });
 
-await scenario('WS4-T16: failed sports payment marks only the payment failed and notifies the customer', async () => {
+await scenario('WS4-T16: failed sports payment remains retryable and later capture settles', async () => {
   await setSportsFlags();
   const fixture = await createFixture('payment-failure');
   const hold = await book(fixture, fixture.customerIds[0], fixture.resourceId, '10:00');
@@ -757,9 +757,19 @@ await scenario('WS4-T16: failed sports payment marks only the payment failed and
      where user_id = $1::uuid and kind = 'sports_payment_failed'
        and data ->> 'sports_booking_id' = $2::text
   `, [fixture.customerIds[0], hold.booking_id]);
-  ok(result.ok === true && state.payment_status === 'failed'
-    && state.booking_status === 'pending_payment' && notice.count === 1,
-  `[WS4-T16] payment-failure state: ${JSON.stringify({ result, state, notice })}`);
+  const payment = await one('select amount from public.payments where id = $1::uuid', [attempt.payment_id]);
+  const capture = await recordPaid('s2-failed-order', 's2-retry-payment', payment.amount);
+  const settled = await one(`
+    select p.status payment_status, p.razorpay_payment_id, b.status booking_status, b.paid_at
+      from public.payments p join public.sports_bookings b on b.id = p.sports_booking_id
+     where p.id = $1::uuid
+  `, [attempt.payment_id]);
+  ok(result.ok === true && state.payment_status === 'created'
+    && state.booking_status === 'pending_payment' && notice.count === 1
+    && capture.ok === true && capture.refund !== true
+    && settled.payment_status === 'paid' && settled.razorpay_payment_id === 's2-retry-payment'
+    && settled.booking_status === 'accepted' && settled.paid_at !== null,
+  `[WS4-T16] payment retry state: ${JSON.stringify({ result, state, notice, capture, settled })}`);
 });
 
 await scenario('WS4-T16: demo sports settlement refuses a non-demo venue owner', async () => {
