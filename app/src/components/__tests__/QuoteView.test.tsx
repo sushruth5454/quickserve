@@ -10,7 +10,7 @@ jest.mock('../ui', () => ({
   Divider: () => null,
   InlineAlert: () => null,
   PriceRow: () => null,
-  Text: () => null,
+  Text: 'Text',
 }));
 jest.mock('../../theme', () => ({
   useTheme: () => ({
@@ -31,6 +31,13 @@ function findPriceRow(node: any, label: string): any {
   if (!node || typeof node !== 'object') return null;
   if (node.type === PriceRow && node.props.label === label) return node;
   return findPriceRow(node.props?.children, label);
+}
+
+function renderedText(node: any): string[] {
+  if (typeof node === 'string' || typeof node === 'number') return [String(node)];
+  if (Array.isArray(node)) return node.flatMap(renderedText);
+  if (!node || typeof node !== 'object') return [];
+  return renderedText(node.props?.children);
 }
 
 function expectExact(actual: unknown, expected: unknown) {
@@ -84,6 +91,42 @@ describe('QuoteView coin due', () => {
       alreadyRedeemed: 193000,
       reducedRedemption: 195000,
       fullyRestored: 198000,
+    });
+  });
+
+  describe('QuoteView line kinds', () => {
+    it('renders package lines and discounts as negative values', () => {
+      const tree = QuoteView({
+        quote: {
+          ...quote,
+          total: 97500,
+          quote_items: [
+            {
+              id: 'item-package',
+              quote_id: quote.id,
+              kind: 'package',
+              title: 'Cleaning package',
+              qty: 1,
+              unit_price: 100000,
+              bill_photo_url: null,
+            },
+            {
+              id: 'item-discount',
+              quote_id: quote.id,
+              kind: 'discount',
+              title: 'Promotion',
+              qty: 1,
+              unit_price: 2500,
+              bill_photo_url: null,
+            },
+          ],
+        },
+        visitFee: 0,
+        platformFee: 0,
+        alreadyPaid: 0,
+      });
+      const text = renderedText(tree);
+      expect(text).toEqual(expect.arrayContaining(['Packages', 'Discounts', 'Cleaning package', 'Promotion', '-₹25']));
     });
   });
 });

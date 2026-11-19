@@ -71,7 +71,7 @@ export function QuoteView({
   const open = quote.status === 'sent' || quote.status === 'approved_pending_payment';
   const [label, tone] = statusText[quote.status];
   const aboveTypical = typical ? grossTotal > typical[1] * 100 : false;
-  const groups = (['labour', 'part', 'other'] as const)
+  const groups = (Object.keys(groupLabel) as QuoteItemKind[])
     .map((kind) => ({ kind, items: quote.quote_items.filter((i) => i.kind === kind) }))
     .filter((g) => g.items.length > 0);
   const first = counterpartName?.split(' ')[0];
@@ -109,7 +109,11 @@ export function QuoteView({
                   ) : null}
                 </View>
                 <Text variant="callout" tabular>
-                  {formatINR(Math.round(Number(item.qty) * item.unit_price))}
+                  {formatINR(
+                    item.kind === 'discount'
+                      ? -Math.abs(Math.round(Number(item.qty) * item.unit_price))
+                      : Math.round(Number(item.qty) * item.unit_price),
+                  )}
                 </Text>
               </View>
             ))}

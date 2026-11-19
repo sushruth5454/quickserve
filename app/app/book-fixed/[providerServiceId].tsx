@@ -1,13 +1,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, Card, ErrorState, Header, InlineAlert, Screen, SegmentedControl, Skeleton, Text, useToast } from '../../src/components/ui';
+import { Button, Card, ErrorState, Header, InlineAlert, PriceRow, Screen, SegmentedControl, Skeleton, Text, useToast } from '../../src/components/ui';
 import { getProviderService, type ProviderServiceWithProvider } from '../../src/lib/api';
 import { createFixedBooking, listFixedPackages } from '../../src/lib/fixedBooking';
 import { useAppFeatureFlags, useFeature } from '../../src/lib/featureFlags';
 import { useSelectedLocation } from '../../src/lib/locationContext';
-import { formatINR } from '../../src/lib/money';
+import { formatINR, packageCheckoutTotal } from '../../src/lib/money';
 import { usePayment } from '../../src/lib/payments';
+import { supabase } from '../../src/lib/supabase';
 import type { ServicePackage } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
 import { hasSupportedRecurringFrequency } from '../../src/features/booking/packages/packageModel';
@@ -24,6 +25,7 @@ export default function FixedPackageBookScreen() {
   const [providerService, setProviderService] = useState<ProviderServiceWithProvider | null>(null);
   const [packages, setPackages] = useState<ServicePackage[] | null>(null);
   const [selected, setSelected] = useState<ServicePackage | null>(null);
+  const [platformFee, setPlatformFee] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,13 +33,29 @@ export default function FixedPackageBookScreen() {
 
   useEffect(() => {
     if (!providerServiceId) return;
-    listFixedPackages(providerServiceId)
-      .then((rows) => {
-        setPackages(rows);
-        setSelected(rows[0] ?? null);
-        setQuantity(Math.max(1, rows[0]?.qty_min ?? 1));
-      })
-      .catch((e: Error) => setError(e.message));
+    let active = true;
+    setPackages(null);
+    setPlatformFee(null);
+    setError(null);
+    void Promise.all([
+      listFixedPackages(providerServiceId),
+      supabase.rpc('get_fixed_booking_fee'),
+    ]).then(([rows, feeResult]) => {
+      if (feeResult.error) throw new Error(feeResult.error.message);
+      if (feeResult.data == null || typeof feeResult.data === 'boolean') throw new Error('The fixed booking fee is unavailable');
+      const fee = Number(feeResult.data);
+      if (!Number.isSafeInteger(fee) || fee < 0) throw new Error('The fixed booking fee is invalid');
+      if (!active) return;
+      setPackages(rows);
+      setSelected(rows[0] ?? null);
+      setQuantity(Math.max(1, rows[0]?.qty_min ?? 1));
+      setPlatformFee(fee);
+    }).catch((e: Error) => {
+      if (active) setError(e.message);
+    });
+    return () => {
+      active = false;
+    };
   }, [providerServiceId]);
 
   useEffect(() => {
@@ -58,7 +76,9 @@ export default function FixedPackageBookScreen() {
     ? new Date(start.getTime() + Math.max(60, selected.duration_min ?? 60) * Math.max(1, Math.ceil(quantity)) * 60000)
     : start;
   const serviceTotal = selected ? Math.round((selected.price ?? 0) * quantity) : 0;
-  const platformFee = 2900;
+  const checkoutTotal = selected && platformFee !== null
+    ? packageCheckoutTotal(selected, quantity, platformFee)
+    : 0;
   const recurrenceCategory = providerService?.categories;
   const bookingModeOptions = getFixedBookingModeOptions(
     recurringEnabled && featureFlags.archetypes?.fixed === true,
@@ -94,7 +114,7 @@ export default function FixedPackageBookScreen() {
     }
   };
 
-  if (!packages) {
+  if (!packages || platformFee === null) {
     return (
       <Screen header={<Header title="Book a package" />}>
         {error ? <ErrorState message={error} onRetry={() => router.replace(`/book-fixed/${providerServiceId}`)} /> : <Skeleton height={240} radius={t.radii.lg} />}
@@ -112,7 +132,7 @@ export default function FixedPackageBookScreen() {
       gap={t.spacing.lg}
       footer={
         <Button
-          title={`Pay ${formatINR(serviceTotal + platformFee)} & book`}
+          title={`Pay ${formatINR(checkoutTotal, { alwaysShowPaise: true })} & book`}
           onPress={() => void submit()}
           loading={busy}
           disabled={!selected || !location.line1}
@@ -174,9 +194,9 @@ export default function FixedPackageBookScreen() {
       ) : null}
       <Card gap={t.spacing.sm}>
         <Text variant="subheadStrong">Payment summary</Text>
-        <Text variant="body" color="textSecondary">Package: {formatINR(serviceTotal)}</Text>
-        <Text variant="body" color="textSecondary">Platform fee: {formatINR(platformFee)} (charged once)</Text>
-        <Text variant="title3">Total: {formatINR(serviceTotal + platformFee)}</Text>
+        <PriceRow label="Package" amount={serviceTotal} />
+        <PriceRow label="Platform fee" amount={platformFee} hint="Charged once" />
+        <PriceRow label="Total" amount={checkoutTotal} emphasis="total" />
         <Text variant="caption" color="muted">Slot: {start.toLocaleString('en-IN')} – {end.toLocaleTimeString('en-IN')}</Text>
       </Card>
       {error ? <InlineAlert tone="danger" title="Could not book" message={error} /> : null}
