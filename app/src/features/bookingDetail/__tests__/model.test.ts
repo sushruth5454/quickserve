@@ -1,4 +1,4 @@
-import { fmt, heroCopy } from '../model';
+import { canReportProposalPaymentDefault, fmt, heroCopy } from '../model';
 
 const baseInput = {
   archetype: 'inspect_quote' as const,
@@ -130,6 +130,28 @@ describe('booking detail hero copy', () => {
     ).toEqual({
       title: 'Booking cancelled',
       subtitle: 'Provider unavailable',
+    });
+  });
+
+  describe('proposal payment-default eligibility', () => {
+    const now = Date.parse('2026-11-19T12:00:00.000Z');
+
+    it('requires an unpaid due milestone that was reminded at least 48 hours ago', () => {
+      const due = {
+        status: 'due' as const,
+        due_at: new Date(now - 49 * 60 * 60 * 1000).toISOString(),
+        reminded_at: new Date(now - 49 * 60 * 60 * 1000).toISOString(),
+      };
+      const early = {
+        ...due,
+        due_at: new Date(now - 47 * 60 * 60 * 1000).toISOString(),
+        reminded_at: new Date(now - 47 * 60 * 60 * 1000).toISOString(),
+      };
+
+      expect(canReportProposalPaymentDefault([due], now)).toBe(true);
+      expect(canReportProposalPaymentDefault([early], now)).toBe(false);
+      expect(canReportProposalPaymentDefault([{ ...due, reminded_at: null }], now)).toBe(false);
+      expect(canReportProposalPaymentDefault([{ ...due, status: 'paid' }], now)).toBe(false);
     });
   });
 });

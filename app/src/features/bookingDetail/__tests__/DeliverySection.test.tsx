@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, ListItem, Section, Text } from '../../../components/ui';
+import { Button, Card, ListItem, Section, Text } from '../../../components/ui';
 import { DeliverySection } from '../DeliverySection';
 import type { useTheme } from '../../../theme';
 
@@ -58,5 +58,24 @@ describe('booking delivery section', () => {
     expect(row.type).toBe(ListItem);
     row.props.onPress?.();
     expect(onOpenLink).toHaveBeenCalledWith('https://files.example.test/final-edit');
+  });
+
+  it('shows the provider payment-default action only when the caller says it is eligible', () => {
+    const onPress = jest.fn();
+    const action = DeliverySection({
+      placement: 'payment-default',
+      theme,
+      busy: false,
+      onPress,
+    });
+    const button = action as React.ReactElement<{
+      title?: string;
+      onPress?: () => void;
+    }>;
+
+    expect(button.type).toBe(Button);
+    expect(button.props.title).toBe('Customer has not paid — close and get paid');
+    button.props.onPress?.();
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

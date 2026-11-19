@@ -110,6 +110,7 @@ async function createDeliveredBooking({
   bookingStatus = 'completion_requested',
   deliveryStatus = 'submitted',
   dueRule = 'on_delivery',
+  totalPaise = 12000,
 } = {}) {
   fixtureIndex += 1;
   const customer = (await one('select gen_random_uuid() as id')).id;
@@ -167,14 +168,14 @@ async function createDeliveredBooking({
        scheduled_at, service_window
      ) values (
        $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-       'C1 delivery test', $6::public.booking_status, 0, 0, 12000, 'proposal',
+       'C1 delivery test', $6::public.booking_status, 0, 0, $11::int, 'proposal',
        $7::text, '[{"title":"Final edit","url":"https://example.test/final-edit"}]'::jsonb,
        now() - ($8::int * interval '1 hour'),
        case when $9::public.booking_status = 'completion_requested'
          then now() - ($8::int * interval '1 hour') else null end,
        $10::timestamptz, tstzrange($10::timestamptz, $10::timestamptz + interval '2 hours', '[)')
      ) returning id`,
-    [customer, provider, categoryId, serviceId, addressId, bookingStatus, deliveryStatus, elapsedHours, bookingStatus, scheduledAt],
+    [customer, provider, categoryId, serviceId, addressId, bookingStatus, deliveryStatus, elapsedHours, bookingStatus, scheduledAt, totalPaise],
   );
   await db.query(
     `insert into public.booking_secrets (booking_id, start_otp)
@@ -184,8 +185,8 @@ async function createDeliveredBooking({
   const { id: quoteId } = await one(
     `insert into public.quotes (
        booking_id, version, status, total, subtotal_labour, subtotal_commissionable
-     ) values ($1::uuid, 1, 'approved', 12000, 0, 12000) returning id`,
-    [bookingId],
+    ) values ($1::uuid, 1, 'approved', $2::int, 0, $2::int) returning id`,
+    [bookingId, totalPaise],
   );
   await db.query(
     `update public.bookings
@@ -197,28 +198,62 @@ async function createDeliveredBooking({
     `insert into public.payment_schedule (
        booking_id, seq, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
      ) values (
-       $1::uuid, 0, 'Delivery balance', 12000, $4::text,
+       $1::uuid, 0, 'Delivery balance', $5::int, $4::text,
        now() - ($2::int * interval '1 hour'), $3::text, 'milestone',
        case when $3::text = 'paid' then now() else null end,
        case when $3::text = 'paid' then now() else null end
      ) returning id`,
-    [bookingId, elapsedHours, scheduleStatus, dueRule],
+    [bookingId, elapsedHours, scheduleStatus, dueRule, totalPaise],
   );
   if (scheduleStatus === 'paid') {
     const { id: paymentId } = await one(
       `insert into public.payments (
          booking_id, quote_id, purpose, amount, status, razorpay_payment_id, paid_at, schedule_id
        ) values (
-         $1::uuid, $2::uuid, 'final', 12000, 'paid', $3::text, now(), $4::uuid
+         $1::uuid, $2::uuid, 'final', $5::int, 'paid', $3::text, now(), $4::uuid
        ) returning id`,
-      [bookingId, quoteId, `pay_demo_c1_${fixtureIndex}`, scheduleId],
+      [bookingId, quoteId, `pay_demo_c1_${fixtureIndex}`, scheduleId, totalPaise],
     );
     await db.query(
       `update public.payment_schedule set payment_id = $2::uuid where id = $1::uuid`,
       [scheduleId, paymentId],
     );
   }
-  return { bookingId, customer, provider, categoryId, scheduleId };
+  return { bookingId, customer, provider, categoryId, scheduleId, quoteId };
+}
+
+async function addPaidAdvanceAndPolicy(
+  fixture,
+  overdueHours = 49,
+  paidPrincipal = 6000,
+  dueAmount = 6000,
+) {
+  await db.query(`
+    update public.payment_schedule
+       set amount = $3::int,
+           due_at = now() - make_interval(hours => $2::int),
+           reminded_at = now() - make_interval(hours => $2::int)
+     where id = $1::uuid
+  `, [fixture.scheduleId, overdueHours, dueAmount]);
+  const { id: advanceScheduleId } = await one(`
+    insert into public.payment_schedule (
+      booking_id, seq, label, amount, due_rule, due_at, status, purpose, reminded_at, paid_at
+    ) values (
+      $1::uuid, 1, 'Booking advance', $2::int, 'at_booking', now() - interval '30 days',
+      'paid', 'advance', now() - interval '30 days', now() - interval '30 days'
+    ) returning id
+  `, [fixture.bookingId, paidPrincipal]);
+  const { id: paymentId } = await one(`
+    insert into public.payments (
+      booking_id, quote_id, purpose, amount, status, razorpay_payment_id, paid_at, schedule_id
+    ) values (
+      $1::uuid, $2::uuid, 'advance', $3::int, 'paid', $4::text,
+      now() - interval '30 days', $5::uuid
+    ) returning id
+  `, [fixture.bookingId, fixture.quoteId, paidPrincipal, `pay_demo_c1_default_${fixtureIndex}`, advanceScheduleId]);
+  await db.query(`
+    update public.payment_schedule set payment_id = $2::uuid where id = $1::uuid
+  `, [advanceScheduleId, paymentId]);
 }
 
 await scenario('proposal category defaults to the owner-approved 72-hour acceptance window', async () => {
@@ -257,6 +292,158 @@ await scenario('request_completion marks the remaining milestone due and notifie
   check(notification?.user_id === fixture.customer
     && notification.collapse_key === `milestone:${fixture.scheduleId}`,
     'completion request notifies the customer once', notification);
+});
+
+await scenario('request_completion payment default is available after its reminded milestone ages 48 hours', async () => {
+  const fixture = await createDeliveredBooking({
+    elapsedHours: 0,
+    scheduleStatus: 'upcoming',
+    bookingStatus: 'in_progress',
+    deliveryStatus: 'not_applicable',
+    dueRule: 'on_completion',
+  });
+  await as(fixture.provider, 'authenticated',
+    `select public.request_completion($1::uuid)`, [fixture.bookingId]);
+  await addPaidAdvanceAndPolicy(fixture, 49);
+  await as(fixture.provider, 'authenticated', `
+    select public.cancel_proposal_payment_default($1::uuid)
+  `, [fixture.bookingId]);
+  const result = await one(`
+    select b.status::text as status, b.cancellation_outcome ->> 'reason' as reason,
+           p.gross, p.commission, p.gst_on_commission, p.amount
+      from public.bookings b
+      left join public.payouts p on p.booking_id = b.id
+     where b.id = $1::uuid
+  `, [fixture.bookingId]);
+  check(result.status === 'cancelled'
+    && result.reason === 'customer_payment_default'
+    && result.gross === 6000 && result.commission === 480
+    && result.gst_on_commission === 86 && result.amount === 5434,
+  'request_completion balance default closes with exact paid-principal paise', result);
+});
+
+await scenario('submit_delivery marks the final milestone reminded and queues its due notification', async () => {
+  const fixture = await createDeliveredBooking({
+    elapsedHours: 0,
+    scheduleStatus: 'upcoming',
+    bookingStatus: 'delivery_pending',
+    deliveryStatus: 'pending',
+  });
+  const contactError = await fails(() => as(fixture.provider, 'authenticated', `
+    select public.submit_delivery(
+      $1::uuid, '[{"title":"Call +91 9876543210","url":"https://example.test/final"}]'::jsonb
+    )`, [fixture.bookingId]));
+  await as(fixture.provider, 'authenticated', `
+    select public.submit_delivery(
+      $1::uuid, '[{"title":"Final edit","url":"https://example.test/final"}]'::jsonb
+    )`, [fixture.bookingId]);
+  const schedule = await one(`
+    select status, due_at is not null as has_due_at, reminded_at is not null as reminded
+      from public.payment_schedule where id = $1::uuid
+  `, [fixture.scheduleId]);
+  const notification = await one(`
+    select kind, user_id, collapse_key from public.notifications
+     where booking_id = $1::uuid and kind = 'milestone_due'
+  `, [fixture.bookingId]);
+  const booking = await one(`
+    select status::text as status, delivery_status, delivery_submitted_at is not null as submitted
+      from public.bookings where id = $1::uuid
+  `, [fixture.bookingId]);
+  const actual = { contactError, schedule, notification, booking };
+  check(/contact|phone|payment/i.test(contactError ?? '')
+    && schedule.status === 'due' && schedule.has_due_at && schedule.reminded
+    && notification?.user_id === fixture.customer
+    && notification.collapse_key === `milestone:${fixture.scheduleId}`
+    && booking.status === 'completion_requested'
+    && booking.delivery_status === 'submitted' && booking.submitted,
+  'C1 records the due milestone while preserving C2 delivery screening', actual);
+});
+
+await scenario('provider can settle an overdue delivery default for exact paid-principal paise', async () => {
+  const fixture = await createDeliveredBooking({
+    elapsedHours: 49,
+    scheduleStatus: 'due',
+    bookingStatus: 'completion_requested',
+    deliveryStatus: 'submitted',
+  });
+  await addPaidAdvanceAndPolicy(fixture, 49);
+  const customerCancelError = await fails(() => as(fixture.customer, 'authenticated', `
+    select public.cancel_booking($1::uuid, null::text)
+  `, [fixture.bookingId]));
+  const customerDefaultError = await fails(() => as(fixture.customer, 'authenticated', `
+    select public.cancel_proposal_payment_default($1::uuid)
+  `, [fixture.bookingId]));
+  await as(fixture.provider, 'authenticated', `
+    select public.cancel_proposal_payment_default($1::uuid)
+  `, [fixture.bookingId]);
+  const result = await one(`
+    select b.status::text as status,
+           b.cancellation_outcome ->> 'reason' as reason,
+           (b.cancellation_outcome ->> 'provider_compensation')::int as provider_compensation,
+           p.gross, p.commission, p.gst_on_commission, p.amount, p.status::text as payout_status
+      from public.bookings b
+      left join public.payouts p on p.booking_id = b.id
+     where b.id = $1::uuid
+  `, [fixture.bookingId]);
+  const actual = { customerCancelError, customerDefaultError, result };
+  check(/delivery already submitted/i.test(customerCancelError ?? '')
+    && /only the provider/i.test(customerDefaultError ?? '')
+    && result.status === 'cancelled'
+    && result.reason === 'customer_payment_default'
+    && result.provider_compensation === 6000
+    && result.gross === 6000
+    && result.commission === 480
+    && result.gst_on_commission === 86
+    && result.amount === 5434
+    && result.payout_status === 'demo',
+  'provider default closes delivery review and pays the exact net paid principal', actual);
+});
+
+await scenario('provider payment default is rejected before the 48-hour grace expires', async () => {
+  const fixture = await createDeliveredBooking({
+    elapsedHours: 47,
+    scheduleStatus: 'due',
+    bookingStatus: 'completion_requested',
+    deliveryStatus: 'submitted',
+  });
+  await addPaidAdvanceAndPolicy(fixture, 47);
+  const error = await fails(() => as(fixture.provider, 'authenticated', `
+    select public.cancel_proposal_payment_default($1::uuid)
+  `, [fixture.bookingId]));
+  const state = await one(`
+    select b.status::text as status, count(p.id)::int as payout_count
+      from public.bookings b
+      left join public.payouts p on p.booking_id = b.id
+     where b.id = $1::uuid
+     group by b.id
+  `, [fixture.bookingId]);
+  const actual = { error, state };
+  check(/not overdue past the grace period/i.test(error ?? '')
+    && state.status === 'completion_requested' && state.payout_count === 0,
+  'payment default cannot settle before 48 hours after the reminded due time', actual);
+});
+
+await scenario('creator payment-default commission is capped at the configured 5,000 rupees', async () => {
+  const fixture = await createDeliveredBooking({
+    elapsedHours: 49,
+    scheduleStatus: 'due',
+    bookingStatus: 'completion_requested',
+    deliveryStatus: 'submitted',
+    totalPaise: 7010000,
+  });
+  await addPaidAdvanceAndPolicy(fixture, 49, 7000000, 10000);
+  await as(fixture.provider, 'authenticated', `
+    select public.cancel_proposal_payment_default($1::uuid)
+  `, [fixture.bookingId]);
+  const payout = await one(`
+    select gross, commission, gst_on_commission, amount from public.payouts
+     where booking_id = $1::uuid
+  `, [fixture.bookingId]);
+  check(payout.gross === 7000000
+    && payout.commission === 500000
+    && payout.gst_on_commission === 90000
+    && payout.amount === 6410000,
+  'payment-default payout applies the configured proposal commission cap in exact paise', payout);
 });
 
 await scenario('auto-confirm waits until the category acceptance window and releases payout after seven days', async () => {

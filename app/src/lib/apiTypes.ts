@@ -310,6 +310,7 @@ export interface Api {
   beginDelivery(bookingId: string): Promise<void>;
   submitDelivery(bookingId: string, links: DeliveryLink[]): Promise<void>;
   acceptDelivery(bookingId: string): Promise<void>;
+  cancelProposalPaymentDefault(bookingId: string): Promise<void>;
 }
 
 export type AccountDeletionOutcome = 'recorded' | 'email';

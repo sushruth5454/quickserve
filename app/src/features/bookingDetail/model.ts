@@ -1,5 +1,5 @@
 import { formatINR } from '../../lib/money';
-import type { BookingArchetype, BookingStatus } from '../../lib/types';
+import type { BookingArchetype, BookingStatus, PaymentSchedule } from '../../lib/types';
 
 export interface BookingHeroCopy {
   title: string;
@@ -83,6 +83,7 @@ export function heroCopy(p: {
         return { title: 'Refunded', subtitle: 'Your payment has been refunded.' };
     }
   }
+
   switch (p.status) {
     case 'confirmed':
       return p.archetype === 'proposal'
@@ -124,4 +125,16 @@ export function heroCopy(p: {
     default:
       return { title: p.defaultStatusLabel };
   }
+}
+
+export function canReportProposalPaymentDefault(
+  schedules: Pick<PaymentSchedule, 'status' | 'due_at' | 'reminded_at'>[],
+  nowMs = Date.now(),
+): boolean {
+  const graceCutoff = nowMs - 48 * 60 * 60 * 1000;
+  return schedules.some((schedule) => {
+    if (schedule.status !== 'due' || !schedule.reminded_at || !schedule.due_at) return false;
+    const dueAt = Date.parse(schedule.due_at);
+    return Number.isFinite(dueAt) && dueAt <= graceCutoff;
+  });
 }

@@ -51,7 +51,7 @@ import { CancelSection, type HelpItem } from './CancelSection';
 import { DeliverySection } from './DeliverySection';
 import { PaymentsSection } from './PaymentsSection';
 import { StatusHeader } from './StatusHeader';
-import { fmt, heroCopy } from './model';
+import { canReportProposalPaymentDefault, fmt, heroCopy } from './model';
 
 interface Data {
   booking: CreatorRevisionBooking;
@@ -215,6 +215,11 @@ export default function BookingDetailScreen() {
     && booking.archetype === 'proposal'
     && booking.delivery_status === 'submitted'
     && revisionsLeft > 0;
+  const canReportPaymentDefault =
+    !isCustomer
+    && booking.archetype === 'proposal'
+    && (s === 'confirmed' || s === 'in_progress' || s === 'completion_requested')
+    && canReportProposalPaymentDefault(data.paymentSchedule);
   const revisionRequestEvent = data.events.slice().reverse().find(
     (event) => event.to_status === 'delivery_pending' && event.note?.startsWith('revision requested: '),
   );
@@ -648,6 +653,19 @@ export default function BookingDetailScreen() {
           onSetOtpMsg={setOtpMsg}
           onSubmitOtp={submitOtp}
           onOpenEditor={openEditor}
+        />
+      ) : null}
+      {canReportPaymentDefault ? (
+        <DeliverySection
+          placement="payment-default"
+          theme={t}
+          busy={busy}
+          onPress={() => {
+            void run(
+              () => api.cancelProposalPaymentDefault(booking.id),
+              'Customer payment default recorded',
+            );
+          }}
         />
       ) : null}
       {!isCustomer && s === 'delivery_pending' && booking.archetype === 'proposal' && booking.delivery_status === 'revision_requested' ? (

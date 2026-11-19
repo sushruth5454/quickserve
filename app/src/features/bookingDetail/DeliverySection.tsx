@@ -34,6 +34,11 @@ type DeliverySectionPlacement =
       links: DeliveryLink[];
       submittedAt: string | null;
       onOpenLink: (url: string) => void;
+    }
+  | {
+      placement: 'payment-default';
+      busy: boolean;
+      onPress: () => void;
     };
 
 type DeliverySectionProps = DeliverySectionPlacement & { theme: Theme };
@@ -90,6 +95,18 @@ export function DeliverySection(props: DeliverySectionProps) {
           ) : null}
         </Card>
       </Section>
+    );
+  }
+
+  if (props.placement === 'payment-default') {
+    return (
+      <Button
+        title="Customer has not paid — close and get paid"
+        variant="destructive"
+        disabled={props.busy}
+        loading={props.busy}
+        onPress={props.onPress}
+      />
     );
   }
 

@@ -122,6 +122,7 @@ export const {
   beginDelivery,
   submitDelivery,
   acceptDelivery,
+  cancelProposalPaymentDefault,
 } = impl;
 
 export function listCategories(city?: string): Promise<PublicCategory[]> {
