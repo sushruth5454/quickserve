@@ -215,15 +215,10 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.waitForURL((url) => new URL(url).pathname === `/venue/${DEMO_IDS.sportsVenue}`);
     await page.getByText('Choose an activity and slot', { exact: true }).first().waitFor();
     await page.getByText('Badminton · Demo Court 1', { exact: true }).first().waitFor();
-    const dateInput = page.getByLabel('Date');
-    let candidateDate = await dateInput.inputValue();
     const initialResponse = await initialSlotsResponse;
+    let candidateDate = initialResponse.request().postDataJSON().p_date;
     if (!initialResponse.ok()) {
       throw new Error(`get_sports_slots failed for ${candidateDate} (${initialResponse.status()}): ${await initialResponse.text()}`);
-    }
-    const requestedDate = initialResponse.request().postDataJSON().p_date;
-    if (requestedDate !== candidateDate) {
-      throw new Error(`sports date mismatch: screen=${candidateDate}, request=${requestedDate}`);
     }
     let slots = await initialResponse.json();
     const checkedDates = [];
@@ -238,7 +233,13 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
           && response.url().includes('/rest/v1/rpc/get_sports_slots')
           && response.request().postDataJSON().p_date === candidateDate,
         );
-        await dateInput.fill(candidateDate);
+        const dateLabel = new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }).format(new Date(`${candidateDate}T12:00:00+05:30`));
+        await page.getByRole('button', { name: dateLabel, exact: true }).click();
         const response = await responsePromise;
         if (!response.ok()) {
           throw new Error(`get_sports_slots failed for ${candidateDate} (${response.status()}): ${await response.text()}`);
