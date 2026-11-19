@@ -80,6 +80,9 @@ const migrationFiles = [
   '0060a_demo_payout_status.sql', '0060b_demo_payout_isolation.sql',
   '0061_h1_provider_cancellation_and_recurring_privacy.sql',
   '0062_coins_hardening.sql', '0063_o1_notifications.sql',
+  '0064_o2_provider_verification.sql', '0065_h2a_recurring_correctness.sql',
+  '0066_h2b_recurring_ux.sql', '0067_u3_account_deletion.sql',
+  '0068_u2_booking_cancellation_preview.sql',
   '0079_s1_sports_money_hardening.sql',
 ];
 
