@@ -215,6 +215,8 @@ Legend:
 | File | Order |
 |---|---|
 | `app/app/booking/[id].tsx` | F3 → U3 (status/help copy only) → U2 → B1 → C1 → B2 → B6 → H3 |
+| `app/app/book/[providerServiceId].tsx` | B1 → doc 14 R-03 |
+| `app/app/book-fixed/[providerServiceId].tsx` | B1 → doc 14 HS-02 |
 | `app/src/components/QuoteView.tsx` | F3 → B1 (line kinds) → F2 (server settlement preview) |
 | `app/app/quote/[bookingId].tsx` | F2 |
 | `app/src/lib/money.ts` | B1 → F2 |
