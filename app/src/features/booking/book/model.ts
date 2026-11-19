@@ -1,3 +1,33 @@
+import type { CreateBookingInput } from '../../../lib/apiTypes';
+
+export type BookingStepKey =
+  | 'booking.step.type'
+  | 'booking.step.time'
+  | 'booking.step.address'
+  | 'booking.step.review';
+
+export function getBookingStepKeys(bookingStepsEnabled: unknown, recurringBookingsEnabled: unknown): BookingStepKey[] | null {
+  if (bookingStepsEnabled !== true) return null;
+
+  const steps: BookingStepKey[] = [];
+  if (recurringBookingsEnabled === true) steps.push('booking.step.type');
+  steps.push('booking.step.time', 'booking.step.address', 'booking.step.review');
+  return steps;
+}
+
+export function buildBookingPayload(input: CreateBookingInput): CreateBookingInput {
+  return {
+    providerServiceId: input.providerServiceId,
+    description: input.description,
+    addressLine: input.addressLine,
+    city: input.city,
+    coords: input.coords,
+    scheduledAt: input.scheduledAt,
+    photos: input.photos,
+    travelRequestId: input.travelRequestId,
+  };
+}
+
 export interface BookingPricePreview {
   visit_fee: number;
   platform_fee: number;

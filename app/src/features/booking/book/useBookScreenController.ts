@@ -15,7 +15,7 @@ import { useTheme } from '../../../theme';
 import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
 import { asapAvailable, windowFits } from '../../../lib/onboarding/availability';
 import type { TravelPreview } from '../../../lib/types';
-import { readPaise, type BookingPricePreview } from './model';
+import { buildBookingPayload, readPaise, type BookingPricePreview } from './model';
 
 export function useBookScreenController() {
   const t = useTheme();
@@ -219,7 +219,7 @@ export function useBookScreenController() {
         return;
       }
       const paths = await Promise.all(photos.map((p) => uploadJobPhoto(p.uri, p.mimeType)));
-      const bookingId = await createBooking({
+      const bookingId = await createBooking(buildBookingPayload({
         providerServiceId: service.id,
         description: description.trim(),
         addressLine: location.line1,
@@ -228,7 +228,7 @@ export function useBookScreenController() {
         scheduledAt,
         photos: paths,
         travelRequestId: travelApproved ? travel?.travel_request_id ?? null : null,
-      });
+      }));
       if (prefill.fromAssistant) track('draft_to_booking_conversion', { category: service.categories?.slug ?? null, edited: description.trim() !== (prefill.description ?? '').trim() });
       const result = await pay(bookingId).catch((e: Error) => {
         toast({ message: e.message, tone: 'error' });
