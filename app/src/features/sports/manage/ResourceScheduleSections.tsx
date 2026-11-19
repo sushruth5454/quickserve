@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { ChipRow } from '../../../components/market/ChipRow';
 import { Button, Card, Input, Text } from '../../../components/ui';
 import { formatINR, rupeesToPaise } from '../../../lib/money';
 import { supabase } from '../../../lib/supabase';
@@ -14,11 +15,12 @@ export function renderOpeningHours(state: ManagementState, actions: SportsVenueM
   return (
     <Card gap={spacing.sm}>
       <Text variant="title3">Opening hours</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-        {WEEKDAYS.map((day, index) => (
-          <Button key={day} title={day.slice(0, 3)} size="sm" variant={state.weekday === String(index) ? 'secondary' : 'outline'} onPress={() => state.setWeekday(String(index))} />
-        ))}
-      </View>
+      <ChipRow
+        options={WEEKDAYS.map((day, index) => ({ value: String(index), label: day.slice(0, 3) }))}
+        value={state.weekday}
+        onChange={state.setWeekday}
+        accessibilityLabel="Opening-hours weekday"
+      />
       {state.closed ? (
         <Button title="Closed — tap to set hours" variant="outline" onPress={() => state.setClosed(false)} />
       ) : (
@@ -50,12 +52,15 @@ export function renderPriceRules(state: ManagementState, actions: SportsVenueMan
   return (
     <Card gap={spacing.sm}>
       <Text variant="title3">Prices (₹ per slot)</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-        <Button title="Every day" size="sm" variant={state.priceDay === 'all' ? 'secondary' : 'outline'} onPress={() => state.setPriceDay('all')} />
-        {WEEKDAYS.map((day, index) => (
-          <Button key={day} title={day.slice(0, 3)} size="sm" variant={state.priceDay === String(index) ? 'secondary' : 'outline'} onPress={() => state.setPriceDay(String(index))} />
-        ))}
-      </View>
+      <ChipRow
+        options={[
+          { value: 'all', label: 'Every day' },
+          ...WEEKDAYS.map((day, index) => ({ value: String(index), label: day.slice(0, 3) })),
+        ]}
+        value={state.priceDay}
+        onChange={state.setPriceDay}
+        accessibilityLabel="Price-rule day"
+      />
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <Input label="From" value={state.priceStart} onChangeText={state.setPriceStart} containerStyle={{ flex: 1 }} />
         <Input label="Until" value={state.priceEnd} onChangeText={state.setPriceEnd} containerStyle={{ flex: 1 }} />
