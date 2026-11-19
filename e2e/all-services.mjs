@@ -168,35 +168,69 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
   });
 
   await step('home-inspect-book-pay-visit-fee', async () => {
-    await go(`/book/${DEMO_IDS.inspectService}?description=${encodeURIComponent(`${qaMarker} split AC is not cooling`)}`);
-    await page.getByLabel('Describe the problem').fill(`${qaMarker} split AC is not cooling`);
-    const asap = page.getByRole('radio', { name: /As soon as possible/ });
-    if (!await asap.isEnabled().catch(() => false)) {
-      await page.getByRole('radio', { name: /Schedule/ }).click();
-      const slots = page.getByRole('button', { name: /\d{1,2}.*[–-].*(am|pm)/ });
-      let selected = false;
-      for (let index = 0; index < await slots.count(); index++) {
-        const slot = slots.nth(index);
-        if (await slot.isEnabled()) {
-          await slot.click();
-          selected = true;
-          break;
-        }
-      }
-      if (!selected) {
-        throw new Error(`no available home-booking time slot: ${JSON.stringify({ url: page.url(), slots: await slots.allTextContents() })}`);
-      }
+    const description = `${qaMarker} split AC is not cooling`;
+    await go(`/book/${DEMO_IDS.inspectService}?description=${encodeURIComponent(description)}`);
+    await page.getByLabel('Describe the problem').fill(description);
+    await page.getByRole('radio', { name: /Schedule/ }).click();
+
+    const dayButtons = page.getByRole('button', { name: /^(Today|Tomorrow|Sun|Mon|Tue|Wed|Thu|Fri|Sat),/ });
+    const dayCount = await dayButtons.count();
+    const windowName = /^10 am–12 pm(?:, unavailable)?$/;
+    let selectedSlot = null;
+    // The demo reset seeds an active quote at now()+2h; skip today and tomorrow so this window cannot overlap it.
+    for (let index = 2; index < dayCount; index++) {
+      const day = dayButtons.nth(index);
+      if (!await day.isEnabled()) continue;
+      const dayLabel = await day.getAttribute('aria-label') ?? await day.innerText();
+      await day.click();
+      const slot = page.getByRole('button', { name: windowName });
+      if (!await slot.count() || !await slot.isEnabled()) continue;
+      const timeLabel = await slot.getAttribute('aria-label') ?? await slot.innerText();
+      await slot.click();
+      selectedSlot = { day: dayLabel, time: timeLabel };
+      break;
     }
-    await page.getByText(/^Pay ₹.*& book$/).last().click();
-    await page.getByText('Secure checkout', { exact: true }).waitFor();
-    await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
-    await page.getByText(/^Pay ₹/).last().click();
-    await page.getByText('Payment successful', { exact: true }).waitFor();
-    await page.waitForURL(/\/booking\/[0-9a-f-]{36}$/);
+    if (!selectedSlot) {
+      throw new Error(`no future 10 am–12 pm home-booking window: ${JSON.stringify({ days: await dayButtons.allTextContents(), url: page.url(), body: await page.locator('body').innerText() })}`);
+    }
+
+    const createBookingResponsePromise = page.waitForResponse(
+      (response) => response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/create_booking'),
+      { timeout: 20000 },
+    ).then(async (response) => {
+      const responseText = await response.text();
+      let responseBody = responseText;
+      try {
+        responseBody = JSON.parse(responseText);
+      } catch {
+        // Keep the raw response when the API does not return JSON.
+      }
+      return { status: response.status(), ok: response.ok(), url: response.url(), body: responseBody };
+    }).catch((error) => ({ status: null, ok: false, url: null, body: null, error: error.message }));
+    let createBookingResponse = null;
+    try {
+      await page.getByText(/^Pay ₹.*& book$/).last().click();
+      createBookingResponse = await createBookingResponsePromise;
+      if (!createBookingResponse.ok) throw new Error('create_booking did not succeed');
+      await page.getByText('Secure checkout', { exact: true }).waitFor();
+      await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
+      await page.getByText(/^Pay ₹/).last().click();
+      await page.getByText('Payment successful', { exact: true }).waitFor();
+      await page.waitForURL(/\/booking\/[0-9a-f-]{36}$/);
+    } catch (error) {
+      if (!createBookingResponse) createBookingResponse = await createBookingResponsePromise;
+      throw new Error(`home visit-fee booking flow failed: ${JSON.stringify({
+        selectedSlot,
+        createBookingResponse,
+        failure: error instanceof Error ? error.message : String(error),
+        url: page.url(),
+        body: await page.locator('body').innerText(),
+      })}`);
+    }
     try {
       await page.getByText('Request sent', { exact: true }).waitFor();
     } catch {
-      throw new Error(`home visit-fee payment did not leave a pending provider request: ${JSON.stringify({ url: page.url(), body: await page.locator('body').innerText() })}`);
+      throw new Error(`home visit-fee payment did not leave a pending provider request: ${JSON.stringify({ selectedSlot, createBookingResponse, url: page.url(), body: await page.locator('body').innerText() })}`);
     }
   });
 
