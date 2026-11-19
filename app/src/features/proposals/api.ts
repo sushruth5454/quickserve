@@ -10,7 +10,7 @@ export interface CreatorProposalConfig {
 
 export interface ProposalFeePreview {
   platform_fee: number;
-  advance_due: number;
+  service_due: number;
   total_today: number;
 }
 
@@ -52,17 +52,34 @@ export async function sendProposalWithDeadline(
 export async function getProposalFeePreview(proposalId: string): Promise<ProposalFeePreview> {
   if (isDemoMode) {
     const proposal = await appApi.getProposal(proposalId);
-    const advanceDue = proposal.proposal_schedule
-      .filter((row) => row.due_rule === 'at_booking')
+    const serviceDue = proposal.proposal_schedule
+      .filter((row) => row.due_rule === 'at_booking'
+        || row.due_at != null && new Date(row.due_at).getTime() <= Date.now())
       .reduce((sum, row) => sum + row.amount, 0);
     const platformFee = Math.min(49900, Math.max(9900, Math.round(proposal.total * 0.01)));
-    return { platform_fee: platformFee, advance_due: advanceDue, total_today: advanceDue + platformFee };
+    return { platform_fee: platformFee, service_due: serviceDue, total_today: serviceDue + platformFee };
   }
   const { data, error } = await supabase.rpc('get_proposal_fee_preview', { p_proposal_id: proposalId });
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== 'object') throw new Error('Proposal fee preview is unavailable');
   return row as ProposalFeePreview;
+}
+
+export async function acceptProposalWithFeePreview(
+  proposalId: string,
+  addressId: string | null,
+  preview: ProposalFeePreview,
+): Promise<string> {
+  if (isDemoMode) return appApi.acceptProposal(proposalId, addressId);
+  const { data, error } = await supabase.rpc('accept_proposal', {
+    p_proposal_id: proposalId,
+    p_address_id: addressId,
+    p_expected_platform_fee: preview.platform_fee,
+    p_expected_service_due: preview.service_due,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
 }
 
 export async function getRequestRecipientCount(requestId: string): Promise<number> {

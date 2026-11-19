@@ -1,4 +1,10 @@
-import { packageProposalPrefill, parseDeliveryDate, proposalAmountError, proposalFeeLabel } from './model';
+import {
+  packageProposalPrefill,
+  parseDeliveryDate,
+  proposalAmountError,
+  proposalFeeChanged,
+  proposalFeeLabel,
+} from './model';
 
 describe('creator package proposal prefill', () => {
   it('carries price, deliverables, revision count, and turnaround date', () => {
@@ -33,8 +39,15 @@ describe('creator package proposal prefill', () => {
     });
 
     it('shows the server fee and total due today without adding tax', () => {
-      expect(proposalFeeLabel({ platform_fee: 9900, advance_due: 25000, total_today: 34900 }))
+      expect(proposalFeeLabel({ platform_fee: 9900, total_today: 34900 }))
         .toBe('Platform fee ₹99 · Total today ₹349');
+    });
+
+    it('detects a fee or due-now change since the proposal was displayed', () => {
+      const shown = { platform_fee: 9900, service_due: 25000, total_today: 34900 };
+      expect(proposalFeeChanged(shown, { ...shown })).toBe(false);
+      expect(proposalFeeChanged(shown, { ...shown, platform_fee: 12000, total_today: 37000 })).toBe(true);
+      expect(proposalFeeChanged(shown, { ...shown, service_due: 30000, total_today: 39900 })).toBe(true);
     });
 
     it('rejects malformed or impossible delivery dates', () => {

@@ -10,13 +10,14 @@ import { usePayment } from '../../src/lib/payments';
 import type { Proposal } from '../../src/lib/types';
 import { deliverableLabel, dueRuleLabel, proposalStatus } from '../../src/lib/proposalStatus';
 import {
+  acceptProposalWithFeePreview,
   getCreatorProposalConfig,
   getProposalFeePreview,
   proposalWithDeliveryDate,
   type ProposalFeePreview,
 } from '../../src/features/proposals/api';
 import { RequestQuestionThread } from '../../src/features/proposals/RequestQuestionThread';
-import { proposalFeeLabel } from '../../src/features/proposals/model';
+import { proposalFeeChanged, proposalFeeLabel } from '../../src/features/proposals/model';
 
 export default function ProposalDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -67,12 +68,29 @@ export default function ProposalDetail() {
     setBusy(true);
     setAcceptError(null);
     try {
+      const latestFeePreview = await getProposalFeePreview(proposal.id);
+      if (proposalFeeChanged(feePreview, latestFeePreview)) {
+        setFeePreview(latestFeePreview);
+        setAcceptError('The amount due today changed. Review the updated fee and tap Accept again to continue.');
+        return;
+      }
       // The venue: the request's own address if it has one, otherwise the saved address currently selected.
-      const bookingId = await api.acceptProposal(proposal.id, location.addressId ?? null);
+      const bookingId = await acceptProposalWithFeePreview(proposal.id, location.addressId ?? null, latestFeePreview);
       await startPayment(bookingId);
       router.replace({ pathname: '/booking/[id]', params: { id: bookingId } });
     } catch (e) {
       const message = (e as Error).message;
+      if (/fee preview changed/i.test(message)) {
+        try {
+          setFeePreview(await getProposalFeePreview(proposal.id));
+          setAcceptError('The amount due today changed. Review the updated fee and tap Accept again to continue.');
+          return;
+        } catch {
+          setFeePreview(null);
+          setFeePreviewError('Refresh the proposal to load its current platform fee.');
+          return;
+        }
+      }
       setAcceptError(/address is required/i.test(message)
         ? 'Choose a saved address for the venue (tap your location at the top of Home), then accept again.'
         : message);

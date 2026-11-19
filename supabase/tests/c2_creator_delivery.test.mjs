@@ -163,21 +163,22 @@ async function createFixture(index) {
   return { customer, provider, manager, city, categoryId, serviceId, addressId };
 }
 
-async function createRequest(fixture, intake = { brief: 'A clean creator brief' }) {
+async function createRequest(fixture, intake = { brief: 'A clean creator brief' }, urgent = false) {
   return (await as(fixture.customer, 'authenticated', `
     select public.create_service_request(
       $1::uuid, $2::text, $3::text, $4::timestamptz, $5::timestamptz,
       $6::jsonb, $7::int, $8::int, $9::uuid, $10::text, $11::uuid,
-      $12::double precision, $13::double precision
+      $12::double precision, $13::double precision, $14::boolean
     ) id`,
   [fixture.categoryId, fixture.city, 'Creator area', '2027-03-25T10:00:00Z',
     '2027-03-25T14:00:00Z', JSON.stringify(intake), 50000, 200000,
-    fixture.addressId, 'Creator venue', fixture.provider, 16.50, 80.60]))[0].id;
+    fixture.addressId, 'Creator venue', fixture.provider, 16.50, 80.60, urgent]))[0].id;
 }
 
 async function sendProposal(fixture, requestId, {
   total = 100000,
   advance = Math.round(total * 0.25),
+  extraMilestone = null,
   deadline = null,
   revisions = null,
   note = 'A clear proposal',
@@ -196,12 +197,18 @@ async function sendProposal(fixture, requestId, {
     JSON.stringify([{ kind: 'package', title: itemTitle, qty: 1, unit: 'job', unit_price: total }]),
     JSON.stringify([
       { label: 'Booking advance', amount: advance, due_rule: 'at_booking' },
-      { label: 'Delivery balance', amount: total - advance, due_rule: 'on_delivery' },
+      ...(extraMilestone ? [extraMilestone] : []),
+      { label: 'Delivery balance', amount: total - advance - (extraMilestone?.amount ?? 0), due_rule: 'on_delivery' },
     ]),
     '2040-01-01T10:00:00Z', note, JSON.stringify(deliverables), deadline]))[0].id;
 }
 
-async function acceptProposal(fixture, proposalId) {
+async function acceptProposal(fixture, proposalId, expectedPreview = null) {
+  if (expectedPreview) {
+    return (await as(fixture.customer, 'authenticated', `
+      select public.accept_proposal($1::uuid, $2::uuid, $3::int, $4::int) id`,
+    [proposalId, fixture.addressId, expectedPreview.platform_fee, expectedPreview.service_due]))[0].id;
+  }
   return (await as(fixture.customer, 'authenticated', `
     select public.accept_proposal($1::uuid, $2::uuid) id`,
   [proposalId, fixture.addressId]))[0].id;
@@ -224,11 +231,17 @@ await scenario('creator deadline is default-off, ignored while off, required and
   const pastError = await fails(() => sendProposal(fixture, onRequest, { deadline: '2026-01-01T10:00:00Z' }));
   const lateError = await fails(() => sendProposal(fixture, onRequest, { deadline: '2028-03-26T10:00:00Z' }));
   const proposalId = await sendProposal(fixture, onRequest, { deadline: '2027-03-24T10:00:00Z' });
+  await db.query(`
+    update public.feature_flags set enabled = false where key = $1::text`,
+  ['creator_delivery_deadline']);
   const bookingId = await acceptProposal(fixture, proposalId);
   const stored = await one(`
     select p.delivery_due_at as proposal_due, b.delivery_due_at as booking_due
       from public.proposals p join public.bookings b on b.proposal_id = p.id
      where p.id = $1::uuid`, [proposalId]);
+  await db.query(`
+    update public.feature_flags set enabled = true where key = $1::text`,
+  ['creator_delivery_deadline']);
   await db.query(`
     insert into public.app_config (key, value)
     values ($1::text, $2::jsonb)
@@ -436,17 +449,23 @@ await scenario('customer can dispute delivery_pending and the pending payout is 
 
 await scenario('creator contact hints are rejected at each C2 server entry point', async () => {
   const fixture = await createFixture(7);
+  await db.query(`
+    update public.categories set min_lead_hours = $1::int where id = $2::uuid`,
+  [4000, fixture.categoryId]);
   const requestCountBefore = (await one('select count(*)::int as count from public.service_requests')).count;
   const badBriefError = await fails(() => as(fixture.customer, 'authenticated', `
     select public.create_service_request(
       $1::uuid, $2::text, $3::text, $4::timestamptz, $5::timestamptz,
       $6::jsonb, $7::int, $8::int, $9::uuid, $10::text, $11::uuid,
-      $12::double precision, $13::double precision
+      $12::double precision, $13::double precision, $14::boolean
     )`,
   [fixture.categoryId, fixture.city, 'Creator area', '2027-03-25T10:00:00Z',
     '2027-03-25T14:00:00Z', JSON.stringify({ brief: 'Call +91 9876543210' }),
-    50000, 200000, fixture.addressId, 'Creator venue', fixture.provider, 16.50, 80.60]));
+    50000, 200000, fixture.addressId, 'Creator venue', fixture.provider, 16.50, 80.60, true]));
   const requestCountAfter = (await one('select count(*)::int as count from public.service_requests')).count;
+  await db.query(`
+    update public.categories set min_lead_hours = $1::int where id = $2::uuid`,
+  [24, fixture.categoryId]);
   const requestId = await createRequest(fixture);
   const noteError = await fails(() => sendProposal(fixture, requestId, { note: 'Call +91 9876543210' }));
   const itemError = await fails(() => sendProposal(fixture, requestId, { itemTitle: 'UPI transfer' }));
@@ -480,20 +499,59 @@ await scenario('proposal advance cap and fee preview match the accepted booking 
     total: 5000000,
     advance: 1300000,
   }));
-  const proposalId = await sendProposal(fixture, requestId, { total: 5000000, advance: 1250000 });
+  const proposalId = await sendProposal(fixture, requestId, {
+    total: 5000000,
+    advance: 1250000,
+    extraMilestone: { label: 'Earlier project milestone', amount: 500000, due_rule: 'days_before_start:7' },
+  });
   const preview = (await as(fixture.customer, 'authenticated', `
-    select platform_fee, advance_due, total_today
+    select platform_fee, service_due, total_today
       from public.get_proposal_fee_preview($1::uuid)`, [proposalId]))[0];
-  const bookingId = await acceptProposal(fixture, proposalId);
-  const acceptedFee = (await one(`
-    select platform_fee from public.bookings where id = $1::uuid`, [bookingId])).platform_fee;
-  const actual = { rejectedAdvanceError, preview, acceptedFee };
+  const anonymousPreviewError = await fails(() => as(null, 'anon', `
+    select * from public.get_proposal_fee_preview($1::uuid)`, [proposalId]));
+  await db.query(`
+    update public.proposal_schedule
+       set due_at = $1::timestamptz
+     where proposal_id = $2::uuid and due_rule = $3::text`,
+  ['2025-01-01T10:00:00Z', proposalId, 'days_before_start:7']);
+  const staleDueError = await fails(() => acceptProposal(fixture, proposalId, preview));
+  const duePreview = (await as(fixture.customer, 'authenticated', `
+    select platform_fee, service_due, total_today
+      from public.get_proposal_fee_preview($1::uuid)`, [proposalId]))[0];
+  await db.query(`
+    update public.app_config
+       set value = jsonb_set(value, $1::text[], $2::jsonb, true)
+     where key = $3::text`,
+  [['proposal'], JSON.stringify({ bp: 200, min: 10000, max: 60000 }), 'platform_fees']);
+  const staleFeeError = await fails(() => acceptProposal(fixture, proposalId, duePreview));
+  const currentPreview = (await as(fixture.customer, 'authenticated', `
+    select platform_fee, service_due, total_today
+      from public.get_proposal_fee_preview($1::uuid)`, [proposalId]))[0];
+  const bookingId = await acceptProposal(fixture, proposalId, currentPreview);
+  const accepted = await one(`
+    select b.platform_fee,
+           coalesce(sum(ps.amount) filter (
+             where ps.obligation_kind = 'service' and ps.status = 'due'
+           ), 0)::int as service_due
+      from public.bookings b
+      left join public.payment_schedule ps on ps.booking_id = b.id
+     where b.id = $1::uuid
+     group by b.id`, [bookingId]);
+  const actual = { rejectedAdvanceError, preview, anonymousPreviewError, staleDueError, duePreview, staleFeeError, currentPreview, accepted };
   check(/advance can be at most 25%/i.test(rejectedAdvanceError ?? '')
     && preview.platform_fee === 49900
-    && preview.advance_due === 1250000
+    && preview.service_due === 1250000
     && preview.total_today === 1299900
-    && acceptedFee === preview.platform_fee,
-  'advance limit and preview use the exact accepted platform fee without tax additions', actual);
+    && /permission denied|not authenticated/i.test(anonymousPreviewError ?? '')
+    && /fee preview changed/i.test(staleDueError ?? '')
+    && duePreview.service_due === 1750000
+    && duePreview.total_today === 1799900
+    && /fee preview changed/i.test(staleFeeError ?? '')
+    && currentPreview.platform_fee === 60000
+    && currentPreview.total_today === 1810000
+    && accepted.platform_fee === currentPreview.platform_fee
+    && accepted.service_due === currentPreview.service_due,
+  'advance limit, overdue service obligations and fresh admin fee preview are enforced at acceptance without tax additions', actual);
 });
 
 await scenario('creator intake schemas cover all four supported creator categories', async () => {

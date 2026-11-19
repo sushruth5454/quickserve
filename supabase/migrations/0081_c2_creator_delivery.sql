@@ -130,6 +130,25 @@ insert into public.archetype_transitions (archetype, from_status, to_status, act
 values ('proposal', 'delivery_pending', 'cancelled', 'customer')
 on conflict do nothing;
 
+create or replace function public._creator_contact_hint(p_text text)
+returns boolean
+language sql
+immutable
+set search_path = public
+as $$
+  select public._contains_contact_hint(coalesce(p_text, ''))
+      or coalesce(p_text, '') ~* (
+        '(^|[^0-9])(\+?91[[:space:]().-]*)?[6-9][0-9][[:space:]().-]*([xX*][[:space:]().-]*){3,8}([^0-9]|$)'
+      );
+$$;
+
+revoke all on function public._creator_contact_hint(text) from public, anon, authenticated;
+
+drop function if exists public.create_service_request(
+  uuid, text, text, timestamptz, timestamptz, jsonb, int, int,
+  uuid, text, uuid, double precision, double precision
+);
+
 create or replace function public.create_service_request(
   p_category_id uuid,
   p_city text,
@@ -143,7 +162,8 @@ create or replace function public.create_service_request(
   p_venue_text text default null,
   p_provider_id uuid default null,
   p_lat double precision default null,
-  p_lng double precision default null
+  p_lng double precision default null,
+  p_urgent boolean default false
 )
 returns uuid
 language plpgsql
@@ -156,15 +176,30 @@ declare
   v_address public.addresses;
   v_request uuid;
   v_routed int;
+  v_urgent boolean;
 begin
   select * into v_category from public.categories where id = p_category_id;
   perform public._assert(found and v_category.active and v_category.archetype = 'proposal', 'proposal category is not available');
   perform public._assert(p_event_start > now() and p_event_end > p_event_start, 'event window must be in the future');
   perform public._assert(p_event_start <= now() + interval '365 days', 'event is outside the booking window');
+  v_urgent := coalesce(p_urgent, false)
+    and p_event_start < now() + make_interval(hours => v_category.min_lead_hours);
+  if v_urgent then
+    perform public._assert(
+      p_event_start >= now() + interval '2 hours' - interval '5 minutes',
+      'An urgent request needs at least 2 hours so the pro can get there. Choose a later time.'
+    );
+  else
+    perform public._assert(
+      p_event_start >= now() + make_interval(hours => v_category.min_lead_hours),
+      format('%s needs at least %s hours'' notice. Choose a later date, or mark it urgent.',
+        v_category.name, v_category.min_lead_hours)
+    );
+  end if;
   perform public._assert(coalesce(trim(p_city), '') <> '', 'city is required');
   perform public._assert(jsonb_typeof(coalesce(p_intake, '{}'::jsonb)) = 'object', 'intake must be an object');
   perform public._assert(
-    not public._contains_contact_hint(coalesce(p_intake, '{}'::jsonb)::text),
+    not public._creator_contact_hint(coalesce(p_intake, '{}'::jsonb)::text),
     'Remove phone numbers, emails or payment handles from the brief'
   );
   perform public._assert(p_budget_min is null or p_budget_max is null or p_budget_min <= p_budget_max, 'budget range is invalid');
@@ -179,10 +214,13 @@ begin
 
   insert into public.service_requests (
     customer_id, category_id, city, area, event_start, event_end, intake, budget_min, budget_max,
-    expires_at, target_provider_id
+    expires_at, target_provider_id, urgent
   ) values (
     v_uid, p_category_id, trim(p_city), coalesce(trim(p_area), ''), p_event_start, p_event_end,
-    coalesce(p_intake, '{}'::jsonb), p_budget_min, p_budget_max, now() + interval '7 days', p_provider_id
+    coalesce(p_intake, '{}'::jsonb), p_budget_min, p_budget_max,
+    case when v_urgent then least(now() + interval '7 days', p_event_start - interval '30 minutes')
+         else now() + interval '7 days' end,
+    p_provider_id, v_urgent
   ) returning id into v_request;
 
   insert into public.request_private (
@@ -200,6 +238,15 @@ begin
   return v_request;
 end;
 $$;
+
+revoke execute on function public.create_service_request(
+  uuid, text, text, timestamptz, timestamptz, jsonb, int, int,
+  uuid, text, uuid, double precision, double precision, boolean
+) from public, anon;
+grant execute on function public.create_service_request(
+  uuid, text, text, timestamptz, timestamptz, jsonb, int, int,
+  uuid, text, uuid, double precision, double precision, boolean
+) to authenticated;
 
 create or replace function public.get_creator_proposal_config()
 returns jsonb
@@ -311,7 +358,7 @@ begin
                          'proposal needs 1 to 8 payment milestones');
   perform public._assert(jsonb_typeof(coalesce(p_deliverables, '[]'::jsonb)) = 'array', 'deliverables must be an array');
   perform public._assert(
-    not public._contains_contact_hint(coalesce(p_note, '')),
+    not public._creator_contact_hint(coalesce(p_note, '')),
     'Remove phone numbers, emails or payment handles from the proposal'
   );
 
@@ -339,7 +386,7 @@ begin
       );
     end if;
     perform public._assert(
-      not public._contains_contact_hint(coalesce(v_row ->> 'spec', '')),
+      not public._creator_contact_hint(coalesce(v_row ->> 'spec', '')),
       'Remove phone numbers, emails or payment handles from proposal deliverables'
     );
   end loop;
@@ -366,7 +413,7 @@ begin
     perform public._assert(v_kind <> 'discount', 'discount proposal items are not allowed');
     perform public._assert(coalesce(trim(v_item ->> 'title'), '') <> '', 'proposal item title is required');
     perform public._assert(
-      not public._contains_contact_hint(coalesce(v_item ->> 'title', '')),
+      not public._creator_contact_hint(coalesce(v_item ->> 'title', '')),
       'Remove phone numbers, emails or payment handles from proposal item titles'
     );
     perform public._assert((v_item ->> 'qty')::numeric > 0 and (v_item ->> 'qty')::numeric <= 1000,
@@ -444,6 +491,255 @@ revoke all on function public.send_proposal(uuid, jsonb, jsonb, timestamptz, tex
   from public, anon;
 grant execute on function public.send_proposal(uuid, jsonb, jsonb, timestamptz, text, jsonb, timestamptz)
   to authenticated;
+
+create or replace function public.proposal_platform_fee(p_total int)
+returns int
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_config jsonb := public._platform_fee_config();
+  v_bp int := (v_config #>> '{proposal,bp}')::int;
+  v_min int := (v_config #>> '{proposal,min}')::int;
+  v_max int := (v_config #>> '{proposal,max}')::int;
+begin
+  perform public._assert(p_total > 0, 'proposal total must be positive');
+  return least(v_max, greatest(v_min, round(p_total::numeric * v_bp / 10000)::int));
+end;
+$$;
+
+create or replace function public.get_proposal_fee_preview(p_proposal_id uuid)
+returns table (platform_fee int, service_due int, total_today int)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := public._require_uid();
+  v_total int;
+begin
+  select p.total,
+         coalesce(sum(ps.amount) filter (
+           where ps.due_rule = 'at_booking' or ps.due_at <= now()
+         ), 0)::int
+    into v_total, service_due
+    from public.proposals p
+    join public.service_requests r on r.id = p.request_id
+    left join public.proposal_schedule ps on ps.proposal_id = p.id
+   where p.id = p_proposal_id
+     and (r.customer_id = v_uid or public._acts_for(p.provider_id, 'staff'))
+   group by p.id, p.total;
+  perform public._assert(found, 'proposal not found');
+  platform_fee := public.proposal_platform_fee(v_total);
+  total_today := service_due + platform_fee;
+  return next;
+end;
+$$;
+
+-- Extend F7's configured fee path only to freeze the proposal's agreed delivery date.
+drop function if exists public.accept_proposal(uuid, uuid);
+
+create or replace function public.accept_proposal(
+  p_proposal_id uuid,
+  p_address_id uuid default null,
+  p_expected_platform_fee int default null,
+  p_expected_service_due int default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := public._require_uid();
+  v_proposal public.proposals;
+  v_request public.service_requests;
+  v_private public.request_private;
+  v_address public.addresses;
+  v_category public.categories;
+  v_booking uuid;
+  v_existing uuid;
+  v_quote uuid;
+  v_address_id uuid;
+  v_window tstzrange;
+  v_platform_fee int;
+  v_cancel_snapshot jsonb := '{}'::jsonb;
+  v_fee_snapshot jsonb;
+  v_commissionable int;
+  v_seq int;
+  v_fee_config jsonb := public._platform_fee_config();
+  v_proposal_bp int;
+  v_proposal_min int;
+  v_proposal_max int;
+  v_service_due int;
+begin
+  select * into v_proposal from public.proposals where id = p_proposal_id for update;
+  perform public._assert(found, 'proposal not found');
+  select * into v_request from public.service_requests where id = v_proposal.request_id for update;
+  perform public._assert(v_request.customer_id = v_uid, 'only the customer can accept this proposal');
+  select b.id into v_existing
+    from public.bookings b
+   where b.service_request_id = v_request.id
+     and b.status in ('pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
+                      'delivery_pending', 'completion_requested', 'disputed')
+   limit 1;
+  if v_existing is not null then
+    perform public._assert(
+      exists (select 1 from public.bookings where id = v_existing and proposal_id = p_proposal_id),
+      'this request already has an active booking'
+    );
+    return v_existing;
+  end if;
+  perform public._assert(v_request.status = 'open', 'request is not open');
+  perform public._assert(v_proposal.status = 'sent' and v_proposal.valid_until > now(), 'proposal is no longer valid');
+
+  perform pg_advisory_xact_lock(hashtext(v_proposal.provider_id::text));
+  select * into v_category from public.categories where id = v_request.category_id;
+  perform public._assert(v_category.active and v_category.archetype = 'proposal', 'category is unavailable');
+  select * into v_private from public.request_private where request_id = v_request.id;
+  v_address_id := coalesce(p_address_id, v_private.address_id);
+  if v_address_id is not null then
+    select * into v_address from public.addresses where id = v_address_id;
+    perform public._assert(found and v_address.user_id = v_uid, 'address belongs to another customer');
+  elsif v_private.lat is not null and v_private.lng is not null then
+    insert into public.addresses (user_id, label, line1, city, lat, lng)
+    values (v_uid, 'Event venue', coalesce(v_private.venue_text, v_request.area), v_request.city,
+            v_private.lat, v_private.lng)
+    returning id into v_address_id;
+  else
+    raise exception 'address is required for booking' using errcode = 'P0001';
+  end if;
+
+  v_window := tstzrange(v_request.event_start, v_request.event_end, '[)');
+  perform public._assert(not exists (
+    select 1 from public.bookings b
+     where b.provider_id = v_proposal.provider_id
+       and b.service_window && v_window
+       and b.status in ('pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
+                        'delivery_pending', 'completion_requested')
+       and (b.status <> 'pending_payment' or coalesce(b.payment_hold_expires_at, '-infinity') > now())
+  ), 'provider is no longer available for this event');
+
+  v_proposal_bp := (v_fee_config #>> '{proposal,bp}')::int;
+  v_proposal_min := (v_fee_config #>> '{proposal,min}')::int;
+  v_proposal_max := (v_fee_config #>> '{proposal,max}')::int;
+  v_platform_fee := least(
+    v_proposal_max,
+    greatest(v_proposal_min, round(v_proposal.total::numeric * v_proposal_bp / 10000)::int)
+  );
+  select coalesce(sum(ps.amount) filter (
+           where ps.due_rule = 'at_booking' or ps.due_at <= now()
+         ), 0)::int
+    into v_service_due
+    from public.proposal_schedule ps
+   where ps.proposal_id = v_proposal.id;
+  -- Client preview values are freshness guards only; the server computes the charged fee and due amount.
+  perform public._assert(
+    (p_expected_platform_fee is null) = (p_expected_service_due is null),
+    'fee preview values must be supplied together'
+  );
+  if p_expected_platform_fee is not null then
+    perform public._assert(
+      p_expected_platform_fee = v_platform_fee and p_expected_service_due = v_service_due,
+      'proposal fee preview changed; refresh and confirm before accepting'
+    );
+  end if;
+  v_fee_snapshot := jsonb_build_object(
+    'archetype', 'proposal', 'rate_bp', v_proposal_bp,
+    'minimum', v_proposal_min, 'maximum', v_proposal_max, 'amount', v_platform_fee
+  );
+  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'cancellation_policies') then
+    execute $sql$
+      select rules from public.cancellation_policies
+       where key = 'event_moderate' limit 1
+    $sql$ into v_cancel_snapshot;
+  end if;
+
+  insert into public.bookings (
+    customer_id, provider_id, category_id, provider_service_id, address_id, description,
+    scheduled_at, status, visit_fee, platform_fee, total_amount, service_window,
+    service_request_id, proposal_id, archetype, category_config_version,
+    pricing_snapshot, payment_template_snapshot, cancellation_snapshot, platform_fee_rule_snapshot,
+    payment_hold_expires_at, delivery_status, delivery_snapshot, delivery_due_at
+  ) values (
+    v_uid, v_proposal.provider_id, v_request.category_id, v_proposal.provider_service_id, v_address_id,
+    'Proposal request ' || left(v_request.id::text, 8), v_request.event_start, 'pending_payment',
+    0, v_platform_fee, v_proposal.total + v_platform_fee, v_window,
+    v_request.id, v_proposal.id, 'proposal', v_category.config_version,
+    v_proposal.pricing_snapshot, v_proposal.payment_snapshot, coalesce(v_cancel_snapshot, '{}'::jsonb),
+    v_fee_snapshot, now() + interval '30 minutes',
+    case when jsonb_array_length(v_proposal.deliverables) > 0 then 'pending' else 'not_applicable' end,
+    v_proposal.deliverables, v_proposal.delivery_due_at
+  ) returning id into v_booking;
+
+  update public.bookings
+     set commission_bp_snapshot = public._booking_commission_bp(v_booking, now())
+   where id = v_booking;
+  select coalesce(sum(round(pi.qty * pi.unit_price)::int), 0)::int
+    into v_commissionable
+    from public.proposal_items pi
+   where pi.proposal_id = v_proposal.id
+     and public._commissionable(pi.kind);
+  insert into public.quotes (
+    booking_id, version, status, is_change_order, subtotal_other,
+    subtotal_commissionable, total, note
+  ) values (
+    v_booking, 1, 'approved_pending_payment', false, v_proposal.total,
+    v_commissionable, v_proposal.total, v_proposal.note
+  ) returning id into v_quote;
+
+  insert into public.quote_items (quote_id, kind, title, qty, unit, unit_price, bill_photo_url)
+  select v_quote, pi.kind, pi.title, pi.qty, pi.unit, pi.unit_price, pi.bill_photo_url
+    from public.proposal_items pi
+   where pi.proposal_id = v_proposal.id
+   order by pi.seq;
+
+  update public.bookings set approved_quote_id = v_quote where id = v_booking;
+  insert into public.booking_secrets (booking_id, start_otp) values (v_booking, public._gen_otp());
+  insert into public.booking_events (booking_id, actor_id, from_status, to_status, note)
+  values (v_booking, v_uid, null, 'pending_payment', 'proposal accepted; 30 minute payment hold');
+
+  insert into public.payment_schedule (
+    booking_id, quote_id, seq, obligation_type, label, amount, due_rule, due_at,
+    status, purpose, obligation_kind, proposal_schedule_id
+  )
+  select v_booking, v_quote, ps.seq, 'service', ps.label, ps.amount, ps.due_rule, ps.due_at,
+         case when ps.due_rule = 'at_booking' or ps.due_at <= now() then 'due' else 'upcoming' end,
+         case
+           when ps.due_rule = 'at_booking' then 'advance'::public.payment_purpose
+           when ps.due_rule in ('on_completion', 'on_delivery') then 'final'::public.payment_purpose
+           else 'milestone'::public.payment_purpose
+         end,
+         'service', ps.id
+    from public.proposal_schedule ps
+   where ps.proposal_id = v_proposal.id
+   order by ps.seq;
+
+  select coalesce(max(seq), 0) + 1 into v_seq from public.payment_schedule where booking_id = v_booking;
+  insert into public.payment_schedule (
+    booking_id, quote_id, seq, obligation_type, label, amount, due_rule, due_at,
+    status, purpose, obligation_kind
+  ) values (
+    v_booking, v_quote, v_seq, 'platform_fee', 'QuickServe platform fee', v_platform_fee, 'at_booking', now(),
+    'due', 'platform_fee', 'platform_fee'
+  );
+
+  update public.proposals set status = 'accepted', updated_at = now() where id = v_proposal.id;
+  update public.service_requests set status = 'closed', updated_at = now() where id = v_request.id;
+  return v_booking;
+end;
+$$;
+
+revoke all on function public.accept_proposal(uuid, uuid, int, int) from public, anon;
+grant execute on function public.accept_proposal(uuid, uuid, int, int) to authenticated;
+
+revoke all on function public.proposal_platform_fee(int) from public, anon, authenticated;
+
+revoke all on function public.get_proposal_fee_preview(uuid) from public, anon;
+grant execute on function public.get_proposal_fee_preview(uuid) to authenticated;
 
 create or replace function public._cancel_booking_by_policy(
   p_booking_id uuid,
@@ -619,7 +915,7 @@ begin
       'every delivery item needs a full https URL'
     );
     perform public._assert(
-      not public._contains_contact_hint(coalesce(v_link ->> 'title', '')),
+      not public._creator_contact_hint(coalesce(v_link ->> 'title', '')),
       'Remove phone numbers, emails or payment handles from delivery titles'
     );
   end loop;

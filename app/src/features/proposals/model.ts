@@ -41,6 +41,15 @@ export function proposalFeeLabel(preview: { platform_fee: number; total_today: n
   return `Platform fee ${formatINR(preview.platform_fee)} · Total today ${formatINR(preview.total_today)}`;
 }
 
+export function proposalFeeChanged(
+  shown: { platform_fee: number; service_due: number; total_today: number },
+  latest: { platform_fee: number; service_due: number; total_today: number },
+): boolean {
+  return shown.platform_fee !== latest.platform_fee
+    || shown.service_due !== latest.service_due
+    || shown.total_today !== latest.total_today;
+}
+
 export function packageProposalPrefill(
   servicePackage: Pick<ServicePackage, 'title' | 'price_min' | 'turnaround_days' | 'revisions_included' | 'deliverables' | 'raw_files_included' | 'usage_rights'>,
   eventStart: string,
