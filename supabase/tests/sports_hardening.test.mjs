@@ -83,7 +83,7 @@ const migrationFiles = [
   '0064_o2_provider_verification.sql', '0065_h2a_recurring_correctness.sql',
   '0066_h2b_recurring_ux.sql', '0067_u3_account_deletion.sql',
   '0068_u2_booking_cancellation_preview.sql',
-  '0079_s1_sports_money_hardening.sql',
+  '0072_s1_sports_money_hardening.sql',
 ];
 
 const db = new PGlite({ extensions: { pgcrypto } });
