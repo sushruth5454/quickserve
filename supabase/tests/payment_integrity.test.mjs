@@ -184,16 +184,33 @@ async function createTimeService() {
   return { ...actors, timeServiceId, packageId };
 }
 
-async function createSessionPayment() {
+async function createSessionPayment({ recurringPlan = false } = {}) {
   const fixture = await createTimeService();
+  let recurringScheduleId = null;
+  if (recurringPlan) {
+    recurringScheduleId = (await one(
+      `insert into public.recurring_schedules (
+         customer_id, provider_id, provider_service_id, frequency, weekdays,
+         start_time, timezone, session_duration_min, payment_mode, address_line,
+         city, lat, lng, starts_on, custom_dates, archetype, provider_acceptance,
+         acceptance_mode, billing_frequency
+       ) values (
+         $1::uuid, $2::uuid, $3::uuid, 'custom', array[]::smallint[],
+         time '10:00', 'Asia/Kolkata', 60, 'per_session', '1 F1 Road',
+         'Vijayawada', 16.51::double precision, 80.64::double precision,
+         $4::date, array[$4::date]::date[], 'time_based', 'accepted', 'plan', 'per_visit'
+       ) returning id`,
+      [fixture.customer, fixture.provider, fixture.timeServiceId, '2027-01-11'],
+    )).id;
+  }
   const [{ booking_id: bookingId }] = await service(
     `select public._create_session_booking(
        $1::uuid, $2::uuid, null::uuid,
        make_timestamptz(2027, 1, 11, 10, 0, 0, 'Asia/Kolkata'),
        60::int, $3::text, $4::text, 16.51::double precision, 80.64::double precision,
-       $5::text, null::uuid, null::uuid
+       $5::text, null::uuid, $6::uuid
      ) as booking_id`,
-    [fixture.customer, fixture.timeServiceId, '1 F1 Road', 'Vijayawada', 'F1 session payment'],
+    [fixture.customer, fixture.timeServiceId, '1 F1 Road', 'Vijayawada', 'F1 session payment', recurringScheduleId],
   );
   await db.query(
     `delete from public.payment_schedule
@@ -211,7 +228,7 @@ async function createSessionPayment() {
       where id = $3::uuid`,
     [link, 'https://pay.test/f1-session', payment.payment_id],
   );
-  return { ...fixture, bookingId, payment, link };
+  return { ...fixture, bookingId, payment, link, recurringScheduleId };
 }
 
 async function createPackPayment() {
@@ -340,6 +357,26 @@ await scenario('WS6-T01 session recorder does not refund a duplicate capture', a
       && bookingStatus === 'requested' && refunds === 0 && requestedEvents === 1,
     'same session capture is applied once with no refund and one booking advance',
     { results, payment, bookingStatus, refunds, requestedEvents },
+  );
+});
+
+await scenario('H2a plan-mode payment remains pre-accepted after F1 recorder overrides', async () => {
+  const fixture = await createSessionPayment({ recurringPlan: true });
+  const paymentId = await gatewayId();
+  const result = await record('record_session_payment_paid', fixture.link, paymentId, fixture.payment.amount);
+  const actual = await one(
+    `select b.status::text as status, b.accepted_at is not null as accepted_at_set,
+            r.acceptance_mode, r.provider_acceptance
+       from public.bookings b
+       join public.recurring_schedules r on r.id = b.recurring_schedule_id
+      where b.id = $1::uuid`,
+    [fixture.bookingId],
+  );
+  check(
+    result.ok === true && actual.status === 'accepted' && actual.accepted_at_set
+      && actual.acceptance_mode === 'plan' && actual.provider_acceptance === 'accepted',
+    'paid plan-mode session is automatically accepted after payment',
+    { result, actual },
   );
 });
 

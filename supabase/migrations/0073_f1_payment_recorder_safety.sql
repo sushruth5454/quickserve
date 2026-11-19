@@ -186,6 +186,15 @@ begin
       perform public._activate_quote(b.id, q.id);
       if b.status = 'pending_payment' then
         perform public._set_status(b.id, 'requested', null, 'fixed package fully paid');
+        if b.recurring_schedule_id is not null and exists (
+          select 1 from public.recurring_schedules r
+           where r.id = b.recurring_schedule_id
+             and r.acceptance_mode = 'plan'
+             and r.provider_acceptance = 'accepted'
+        ) then
+          update public.bookings set accepted_at = now() where id = b.id;
+          perform public._set_status(b.id, 'accepted', null, 'recurring plan pre-accepted');
+        end if;
       else
         perform public._log_event(b.id, null, 'fixed add-on v' || q.version || ' paid');
       end if;
@@ -335,6 +344,15 @@ begin
      where x.booking_id = b.id and x.status in ('upcoming', 'due')
   ) and b.status = 'pending_payment' then
     perform public._set_status(b.id, 'requested', null, 'session paid');
+    if b.recurring_schedule_id is not null and exists (
+      select 1 from public.recurring_schedules r
+       where r.id = b.recurring_schedule_id
+         and r.acceptance_mode = 'plan'
+         and r.provider_acceptance = 'accepted'
+    ) then
+      update public.bookings set accepted_at = now() where id = b.id;
+      perform public._set_status(b.id, 'accepted', null, 'recurring plan pre-accepted');
+    end if;
   end if;
   return jsonb_build_object('ok', true, 'booking_id', b.id, 'schedule_ids', to_jsonb(v_ids));
 end;
