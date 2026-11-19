@@ -1,3 +1,5 @@
+import type { ServicePackage } from './types';
+
 /**
  * Money math for QuickServe. All amounts are integer paise.
  * Mirrors docs/03-Pricing-Payments-Commission.md and the SQL in supabase/migrations/0001_init.sql
@@ -78,6 +80,15 @@ export function commissionRateBp(params: { jobsCompleted: number; providerCreate
 
 export function lineTotal(qty: number, unitPrice: number): number {
   return Math.round(qty * unitPrice);
+}
+
+export function packageCheckoutTotal(
+  pkg: Pick<ServicePackage, 'price' | 'price_min'>,
+  quantity: number,
+  platformFeePaise: number,
+): number {
+  const unitPricePaise = pkg.price ?? pkg.price_min ?? 0;
+  return Math.max(0, Math.round(unitPricePaise * quantity)) + platformFeePaise;
 }
 
 export function quoteSubtotals(items: LineInput[]): Subtotals {

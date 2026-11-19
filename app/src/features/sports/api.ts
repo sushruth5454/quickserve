@@ -155,7 +155,7 @@ export interface SportsPaymentLink {
 
 export async function createSportsPayment(sportsBookingId: string): Promise<SportsPaymentLink> {
   const { data, error } = await supabase.functions.invoke<SportsPaymentLink>('create-payment', {
-    body: { kind: 'sports', sportsBookingId },
+    body: { kind: 'sports', booking_id: sportsBookingId },
   });
   if (error) throw new Error(error.message);
   if (!data?.short_url) throw new Error('No sports payment link returned.');

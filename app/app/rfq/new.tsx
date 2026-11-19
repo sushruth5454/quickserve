@@ -24,14 +24,14 @@ const newItem = (): ItemDraft => ({
   key: `${Date.now()}-${Math.random()}`,
   description: '',
   brand: '',
-  quantity: '1',
+  quantity: '',
   unit: 'piece',
   specs: {},
 });
 
-function defaultNeededBy() {
+function defaultNeededBy(days = 7) {
   const date = new Date();
-  date.setDate(date.getDate() + 7);
+  date.setDate(date.getDate() + days);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
@@ -42,7 +42,7 @@ export default function NewRfqScreen() {
   const { location, ready } = useSelectedLocation();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [categoryId, setCategoryId] = useState('');
-  const [title, setTitle] = useState('Product quotation request');
+  const [title, setTitle] = useState('');
   const [items, setItems] = useState<ItemDraft[]>([newItem()]);
   const [needsDelivery, setNeedsDelivery] = useState(true);
   const [neededBy, setNeededBy] = useState(defaultNeededBy);
@@ -149,7 +149,13 @@ export default function NewRfqScreen() {
         </View>
       )}
       {!loadingCategories && !categories.length ? <Text color="muted">No product categories are available.</Text> : null}
-      <Input label="Request title" value={title} onChangeText={setTitle} maxLength={120} />
+      <Input
+        label="Request title"
+        placeholder="e.g. Floor tiles for 2BHK"
+        value={title}
+        onChangeText={setTitle}
+        maxLength={120}
+      />
       <Text variant="subheadStrong">Items ({items.length}/20)</Text>
       {items.map((item, index) => (
         <View key={item.key} style={{ gap: t.spacing.sm, paddingVertical: t.spacing.sm }}>
@@ -195,7 +201,18 @@ export default function NewRfqScreen() {
         </View>
       ))}
       <Button title="Add item" variant="outline" disabled={items.length >= 20} onPress={() => setItems((current) => [...current, newItem()])} />
-      <Input label="Needed by (YYYY-MM-DD)" value={neededBy} onChangeText={setNeededBy} placeholder="2026-12-01" />
+      <View style={{ gap: t.spacing.xs }}>
+        <Text variant="subheadStrong">Needed by</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+          <Chip label="In 3 days" selected={neededBy === defaultNeededBy(3)} onPress={() => setNeededBy(defaultNeededBy(3))} />
+          <Chip label="In 1 week" selected={neededBy === defaultNeededBy(7)} onPress={() => setNeededBy(defaultNeededBy(7))} />
+          <Chip label="In 2 weeks" selected={neededBy === defaultNeededBy(14)} onPress={() => setNeededBy(defaultNeededBy(14))} />
+          <Chip label="In 1 month" selected={neededBy === defaultNeededBy(30)} onPress={() => setNeededBy(defaultNeededBy(30))} />
+        </View>
+        <Text variant="caption" color="muted">
+          Needed by {new Date(`${neededBy}T00:00:00`).toLocaleDateString()}
+        </Text>
+      </View>
       <View style={{ gap: t.spacing.xs }}>
         <Text variant="subheadStrong">Delivery</Text>
         <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
@@ -203,6 +220,12 @@ export default function NewRfqScreen() {
           <Chip label="Pickup is okay" selected={!needsDelivery} onPress={() => setNeedsDelivery(false)} />
         </View>
         <Text color="muted">{location.area}, {location.city}</Text>
+        <Button
+          title="Change location"
+          size="sm"
+          variant="ghost"
+          onPress={() => router.push('/location')}
+        />
       </View>
       <Input label="Notes for suppliers (optional)" value={notes} onChangeText={setNotes} maxLength={2000} multiline />
       {selectedCategory ? <Text variant="caption" color="muted">Category: {selectedCategory.name}. No product matching or equivalence is assumed.</Text> : null}

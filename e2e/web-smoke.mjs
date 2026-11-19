@@ -851,7 +851,7 @@ await step('after-logout-deep-link', async () => {
   await page.getByLabel('Mobile number, India plus 91').waitFor();
 });
 
-// ---------- Brand-new provider: signup -> 7-step onboarding -> submit (docs/08) ----------
+// ---------- Provider signup/onboarding or returning-provider dashboard verification (docs/08) ----------
 // A 1x1 PNG is enough: the app resizes it client-side before uploading to the public avatars/portfolio buckets.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 async function chooseImage(trigger) {
@@ -859,21 +859,48 @@ async function chooseImage(trigger) {
   await trigger();
   await (await chooser).setFiles({ name: 'photo.png', mimeType: 'image/png', buffer: PNG });
 }
+let newProReturningProvider = false;
+const skipOnboardingStepForReturningProvider = (name) => {
+  if (!newProReturningProvider) return false;
+  skipStep(name, 'Returning provider onboarding cannot be replayed.');
+  return true;
+};
 await step('new-pro-login', async () => {
   await go('/');
   await page.getByLabel('Mobile number, India plus 91').fill(NEW_PRO_PHONE);
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
   await page.getByLabel('6-digit verification code').fill(OTP);
-  await visible('Welcome to QuickServe');
+  const destination = await Promise.race([
+    page.waitForURL((url) => new URL(url).pathname === '/dashboard').then(() => 'dashboard'),
+    visible('Welcome to QuickServe').then(() => 'role'),
+  ]);
+  if (destination === 'dashboard') {
+    newProReturningProvider = true;
+    console.log('  Returning provider detected after login; onboarding form steps will be skipped.');
+  }
 });
 await step('new-pro-role', async () => {
+  if (newProReturningProvider) {
+    console.log('  Returning provider is already on /dashboard; the role screen is not shown.');
+    return;
+  }
   await optional('name', () => page.getByLabel('Your name').first().fill('Kiran Test Pro', { timeout: 3000 }));
   await page.getByLabel(/^I provide services\./).first().click();
   await page.getByText('Continue', { exact: true }).click();
+  const destination = await Promise.race([
+    page.waitForURL((url) => new URL(url).pathname === '/dashboard').then(() => 'dashboard'),
+    page.waitForURL((url) => new URL(url).pathname === '/onboarding').then(() => 'onboarding'),
+  ]);
+  if (destination === 'dashboard') {
+    newProReturningProvider = true;
+    console.log('  Returning provider detected after role selection; onboarding form steps will be skipped.');
+    return;
+  }
   await visible('Tell customers about you');
 });
 await step('new-pro-basics', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-basics')) return;
   await chooseImage(async () => {
     await page.getByLabel('Change profile photo').first().click();
     await page.getByText('Choose from gallery', { exact: true }).first().click();
@@ -886,6 +913,7 @@ await step('new-pro-basics', async () => {
   await visible('Services & skills');
 });
 await step('new-pro-services', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-services')) return;
   // Six-step guided service editor: category → expertise → details → pricing → coverage → review.
   await page.getByRole('radio', { name: /^AC Repair/ }).first().click();
   await page.getByText('Next', { exact: true }).click();
@@ -907,6 +935,7 @@ await step('new-pro-services', async () => {
   await visible('Where do you work?');
 });
 await step('new-pro-area', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-area')) return;
   await page.getByText('Use my current location', { exact: true }).first().click();
   await page.getByText(/^Covers about /).first().waitFor();
   const city = page.getByLabel('City').first();
@@ -916,12 +945,14 @@ await step('new-pro-area', async () => {
   await visible('When can you work?');
 });
 await step('new-pro-hours', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-hours')) return;
   await page.getByText('Mon–Sat, 9 am–7 pm', { exact: true }).first().click();
   await page.getByText('9 am–7 pm', { exact: true }).first().waitFor();
   await page.getByText('Save & continue', { exact: true }).first().click();
   await visible('Your work, links & credentials');
 });
 await step('new-pro-portfolio', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-portfolio')) return;
   await chooseImage(async () => {
     await page.getByText('Add work photo', { exact: true }).first().click();
     await page.getByText('Choose from gallery', { exact: true }).first().click();
@@ -931,6 +962,7 @@ await step('new-pro-portfolio', async () => {
   await visible('Payouts & verification');
 });
 await step('new-pro-payouts', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-payouts')) return;
   // Razorpay Route / RazorpayX are not enabled on the test account yet: the function must answer with the
   // "temporarily unavailable" state instead of failing, and onboarding continues.
   await page.getByLabel('Name as on PAN / bank account', { exact: true }).first().fill('KIRAN TEST PRO');
@@ -945,6 +977,7 @@ await step('new-pro-payouts', async () => {
   await visible('Review & submit');
 });
 await step('new-pro-submit', async () => {
+  if (skipOnboardingStepForReturningProvider('new-pro-submit')) return;
   await page.getByRole('checkbox').first().click();
   await page.getByText('Submit profile', { exact: true }).first().click();
   await page.waitForURL((u) => new URL(u).pathname === '/dashboard');

@@ -55,6 +55,8 @@ Worktree: <path>. Branch: lane/<TASK-ID>, created from origin/main @ <sha>.
 ### 0.6 Owner orchestration override (2026-11-18)
 The owner directed the integrator to start T-01 and C-07 while doc 17 T1/Q-00 is in progress; I-01 is integrator-owned and may proceed in parallel. These tasks have no shared-file conflict with Q-00. Their implementation and lane validation may proceed now; do not merge the UI foundation tasks until all code-owned Q-00 failures are green. The admin E2E step is explicitly owner-blocked until `DEMO_PROJECT=1` and `ADMIN_E2E_PHONE` are configured; never report that step as passed or weaken its guard.
 
+**2026-11-19 · B-01 review privacy decision:** Guest provider details must not expose the private review `insights_*`, booking, or customer fields. Use an explicit public review projection in `getProviderDetail`, with matching column-level grants and public-row RLS; keep authenticated `getReviewForBooking` behavior unchanged. The `guest_browse` parent flag and the relevant products/sports child flags must fail closed server-side.
+
 ---
 
 ## 1. Approved design inputs (source of truth)
@@ -776,10 +778,10 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 
 | Task | Status | Agent | Lane run | Merged SHA |
 |---|---|---|---|---|
-| Q-00 / doc 17 T1 | code-owned E2E fixes merged; owner test env/OTP/admin setup completed; returning-role admin route fixed in 17461fd; main E2E 44457835276 passed with admin step green | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (pre-setup E2E admin-only failure); 44452693916/44453087353 (owner setup); 44457835276 (post-fix E2E green) | fb069de |
+| Q-00 / doc 17 T1 | Fix-forward `4f33f44` did not pass main E2E `44487041930`; `new-pro-role` URL detection timed out, followed by the expected `new-pro-basics` filechooser timeout; follow-up delegated to T1 agent | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44457835276 (prior main E2E green); 44474185680/44474246256 (earlier failures); 44481109581 (prior fix-forward lane CI); 44476452706 and 44487041930 (main failures); lane E2E `44481109622` canceled | fb069de; fix-forward `4f33f44` |
 | Q-01 | workflow trigger, 14-day retention, and queue:max merged; O2 seed fix is on main; post-fix main E2E `44457835276` passed with 0 failed steps and admin pass; two AI-limit steps were skipped; viewport screenshot pass sequenced after doc 17 H3/F8 | integrator | 44406412351; 44408156814; 44412263196; 44413775287 (cancelled before jobs); 44411077594 (proposal + admin failed); 44418061376 (X3 seed fix green); 44418061318 (E2E pending); 44419845866 (main E2E pending); 44419846387 (backend success); 44419845889 (app publish success); 44422452457 (app publish success); 44422452507 (main E2E pending); 44423228645 (backend success; 0063 applied); 44423228486 (demo reset failed; smoke not run); 44427389305 (backend success; 0064 applied); 44427389306 (app publish success); 44427389151 (demo reset failed; smoke not run); 44429275573 (backend success; 0065 applied); 44429275638 (demo reset failed; smoke not run); 44436860234 (lane seed reset/code smoke pass; admin config blocked); 44439583542 (backend success); 44439583544 (pre-setup code-owned pass; admin blocked); 44444203933 (backend success; 0066 applied); 44444204058 (app publish success); 44444203959 (pre-setup code-owned pass; admin blocked); 44449228932 (U3 lane smoke code-owned pass; admin blocked); 44451219523 (app publish success); 44451219515 (backend success; 0067 applied); 44451219597 (pre-setup code-owned pass; admin blocked); 44452693916/44453087353 (owner setup); 44452023387 (A-01 lane CI green); 44452023356 (pre-setup admin-only failure); 44454062046 (H-01 lane CI green); 44454062014 (pre-fix admin flow failure); 44454043918 (A-01 lane CI green); 44454043903 (pre-fix admin flow failure); 44457835276 (post-fix main E2E green; admin pass; AI-limit steps skipped); 44458045441 (A-01 lane CI green); 44458045387 (post-fix E2E pending); 44458119039 (U2 lane CI green); 44458119027 (E2E pending); 44458765488 (H-01 lane CI green); 44458765479 (E2E pending) | 5152f6c |
 | T-01 | merged; contrast/typecheck/Jest green; lane E2E cancelled | 964b65b2-8e74-4f6e-beb3-cb43251cba18 | 44403000486 (lane CI); 44402999988 (E2E cancelled) | 3c707d8 |
-| B-01 | blocked by Q-00 and R1 | — | — | — |
+| B-01 | implementation complete; `guest_browse` gates anon only, preserving authenticated reads; public review projection and SQL test registered; current main merged; agent committing/pushing for lane CI; migration 0088 requires full-chain revalidation after 0071–0087 land | 2bbbd190-ab0e-4903-a493-029cc2acaa55 | lane CI pending | — |
 | I-01 | merged; lane typecheck/Jest green | integrator | 44401816876 | cd56e88 |
 | C-07 | merged; lane typecheck/Jest green; E2E run cancelled | 3626acf9-4fb6-4673-aebc-b393502e56c8 | 44402357918; 44402357939 (cancelled) | 5f751fa |
 | R-01 | blocked by doc 17 H3 | — | — | — |
@@ -797,12 +799,12 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | C-06 | merged; lane CI green; all code-owned E2E steps passed; admin step remains owner-blocked | 0328e331-9d52-4778-97e5-e6737df3e1a8 | 44407916876 (green); 44407916872 (`ADMIN_E2E_PHONE` invalid/empty) | b75808a (lane 19afe98) |
 | C-08 | merged; lane CI green; E2E queued | ff027770-83f4-4c19-88e9-1dd0a4dabfda | 44412326937 (green); 44412370229 (E2E pending) | 674c6de (lane 49fb432) |
 | H-01 | merged; lane CI and post-admin-fix lane E2E green; main app publish and E2E passed | 861e2a89-2c68-445a-b38e-9b0dc736ad51 | 44454062046 (pre-fix green); 44454062014 (H-01 steps passed; admin locator timeout); 44458765488 (post-fix lane CI green); 44458765479 (post-fix lane E2E green); 44464543378 (main app publish success); 44464543331 (main E2E success) | 76db124 |
-| H-02 | blocked by C-01, C-03, C-04, and doc 17 P1a | — | — | — |
+| H-02 | lane CI green; prior E2E run `44474246256` failed in T1's returning-provider steps, now fixed forward on main; integrate in the upcoming UI batch and validate once there | a9c54d32-3b09-4e80-9749-41a3bc589778 | 44474246349 (lane CI green); 44474246256 (pre-fix E2E failure) | — |
 | G-01 | blocked by B-01, H-02, doc 17 R1/U3 | — | — | — |
-| HS-01 | blocked by R-02, C-03, C-05 | — | — | — |
+| HS-01 | lane CI green; existing category Book/Schedule route preserved; lane E2E `44477499108` queued; main E2E pending; commit `7d6ff5c` | 4b4fc777-b51b-4af9-9b73-c67b8b27a8e2 | 44476597048 (pre-fix); 44477499112 (final lane CI green); 44477499108 (E2E queued) | — |
 | HS-02 | blocked by R-03 and C-08 | — | — | — |
 | HS-03 | blocked by R-04 | — | — | — |
-| SH-01 | blocked by components and doc 17 P1a | — | — | — |
+| SH-01 | lane CI green; E2E banner-selector fix in `73d7543`; main E2E pending; prior lane E2E failure is pre-fix | 703bb5a0-ac2f-4b45-8a73-94b5ce016007 | 44473985162 (pre-fix lane CI); 44473985142 (pre-fix E2E failure); 44480873936 (final lane CI green); 44480874231 (E2E pending) | — |
 | SH-02 | blocked by C-06 and doc 17 P1b | — | — | — |
 | SP-01 | blocked by components and doc 17 S2 | — | — | — |
 | SP-02 | blocked by C-05 and doc 17 S1/S2 | — | — | — |
@@ -819,7 +821,9 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
 
-Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2 lane run `44458119027` showed the safe fallback before 0068 existed; main deploy `44465627380` applied 0068 and app publish `44465627372` passed, but main E2E `44465627435` reported three failures. The cancellation preview rendered correctly; commit `eeee6b3` fixes the incorrect modal-dismissal locator and makes shop approval wait for the verified row while restoring `/admin` after the nested step. Main E2E revalidation is pending.
+**E2E batch status (2026-11-19):** Lane E2E runs `44477499108` (HS-01), `44480874231` (SH-01), and `44481109622` (T1) were canceled to avoid per-lane runs. The UI-only tasks will be validated in one `integrate/ui-batch-*` run; migration batches use SQL CI before merge and main deploy/E2E afterward.
+
+Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44464543331` passed; its main app publish `44464543378` succeeded. A-01 lane run `44458045387` and main run `44464706447` passed; its main app publish `44464706450` succeeded. U2's first main E2E `44465627435` exposed cancellation-dismissal and nested admin-shop issues; fix-forward `eeee6b3` corrected them. P1a main backend `44470999495` applied 0069, app publish `44470999525` succeeded, and main E2E `44470999417` passed.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 

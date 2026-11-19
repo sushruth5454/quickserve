@@ -428,9 +428,12 @@ select
        else 'Demo ' || c.name || ' package' end,
   '[DEMO ONLY] Production-shaped package for CI browsing and booking; no real service will be delivered.',
   case when c.archetype in ('fixed','time_based') then 'fixed' else 'quote' end,
-  case when c.archetype = 'fixed' then 249900 when c.archetype = 'time_based' then 60000 else null end,
-  case when c.archetype = 'fixed' then 249900 when c.archetype = 'time_based' then 60000 else null end,
-  case when c.archetype = 'fixed' then 249900 when c.archetype = 'time_based' then 60000 else null end,
+  case when c.archetype = 'fixed' and s.slug = 'house-cleaning' then 99900
+       when c.archetype = 'fixed' then 249900 when c.archetype = 'time_based' then 60000 else null end,
+  case when c.archetype = 'fixed' and s.slug = 'house-cleaning' then 99900
+       when c.archetype = 'fixed' then 249900 when c.archetype = 'time_based' then 60000 else null end,
+  case when c.archetype = 'fixed' and s.slug = 'house-cleaning' then 99900
+       when c.archetype = 'fixed' then 249900 when c.archetype = 'time_based' then 60000 else null end,
   case when c.archetype = 'time_based' then 'session'
        when c.archetype = 'proposal' then coalesce((c.pricing_units)[1], 'event')
        else 'job' end,
@@ -1086,15 +1089,16 @@ select
   pg_temp.demo_sid('service:house-cleaning'), pg_temp.demo_sid('founder:demo-home'),
   '[DEMO ONLY] 2 BHK fixed package.', now() + interval '5 days',
   tstzrange(now() + interval '5 days', now() + interval '5 days 3 hours', '[)'),
-  'pending_payment', 0, 2900, 252800, 0, 'fixed', c.config_version,
-  '{"quantity":1,"unit":"job","price_paise":249900,"demo_only":true}'::jsonb,
+  'pending_payment', 0, 2900, 102800, 0, 'fixed', c.config_version,
+  '{"quantity":1,"unit":"job","price_paise":99900,"demo_only":true}'::jsonb,
   '{"template":"full_upfront","demo_only":true}'::jsonb,
   '{"key":"fixed_flexible","demo_only":true}'::jsonb,
   '{"amount":2900,"demo_only":true}'::jsonb, now(), now()
 from public.categories c cross join demo_founder f
 where c.slug = 'house-cleaning'
 on conflict (id) do update
-set status = excluded.status, service_window = excluded.service_window, total_amount = excluded.total_amount;
+set status = excluded.status, service_window = excluded.service_window,
+    total_amount = excluded.total_amount, pricing_snapshot = excluded.pricing_snapshot;
 
 insert into public.booking_secrets (booking_id, start_otp)
 values (pg_temp.demo_sid('booking:fixed-package'), '4242')
@@ -1106,18 +1110,18 @@ insert into public.quotes (
 )
 values (
   pg_temp.demo_sid('quote:fixed-package'), pg_temp.demo_sid('booking:fixed-package'), 1,
-  'approved_pending_payment', false, 249900, 249900, 'package',
+  'approved_pending_payment', false, 99900, 99900, 'package',
   pg_temp.demo_sid('package:house-cleaning'),
-  '{"title":"Demo 2 BHK deep clean","quantity":1,"inclusions":["DEMO scope confirmed before payment"]}'::jsonb,
+  '{"title":"Demo 2 BHK deep clean","quantity":1,"unit_price":99900,"inclusions":["DEMO scope confirmed before payment"]}'::jsonb,
   '[DEMO ONLY] Full package snapshot.', now()
 )
 on conflict (booking_id, version) do update
-set total = excluded.total, package_snapshot = excluded.package_snapshot;
+set subtotal_other = excluded.subtotal_other, total = excluded.total, package_snapshot = excluded.package_snapshot;
 
 insert into public.quote_items (id, quote_id, kind, title, qty, unit, unit_price)
 values (
   pg_temp.demo_sid('quote-item:fixed-package'), pg_temp.demo_sid('quote:fixed-package'),
-  'other', 'Demo 2 BHK deep clean', 1, 'job', 249900
+  'other', 'Demo 2 BHK deep clean', 1, 'job', 99900
 )
 on conflict (id) do update set unit_price = excluded.unit_price;
 
@@ -1131,7 +1135,7 @@ insert into public.payment_schedule (
 )
 values
   (pg_temp.demo_sid('payment-schedule:fixed:service'), pg_temp.demo_sid('booking:fixed-package'),
-   pg_temp.demo_sid('quote:fixed-package'), 1, 'service', 'Package payment', 249900, 'at_booking', now(), 'due',
+   pg_temp.demo_sid('quote:fixed-package'), 1, 'service', 'Package payment', 99900, 'at_booking', now(), 'due',
    'package', 'service'),
   (pg_temp.demo_sid('payment-schedule:fixed:fee'), pg_temp.demo_sid('booking:fixed-package'),
    pg_temp.demo_sid('quote:fixed-package'), 2, 'platform_fee', 'Platform fee', 2900, 'at_booking', now(), 'due',
