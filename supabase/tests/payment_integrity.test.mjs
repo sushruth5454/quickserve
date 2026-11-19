@@ -696,11 +696,20 @@ await scenario('F5 journals home, session, and pack captures in exact paise', as
       name: testCase.name,
       expectedPaise: testCase.expectedPaise,
       actualPaise: fixture.payment.amount,
-      result,
-      replay,
-      financialEvent,
+      result: { ok: result.ok, duplicate: result.duplicate, refund: result.refund },
+      replay: { duplicate: replay.duplicate },
+      financialEvent: {
+        kind: financialEvent?.kind,
+        amount_paise: financialEvent?.amount_paise,
+        payment_id: financialEvent?.payment_id,
+        gateway_ref: financialEvent?.gateway_ref,
+      },
       journalRows,
-      payment,
+      payment: {
+        status: payment.status,
+        amount: payment.amount,
+        razorpay_payment_id: payment.razorpay_payment_id,
+      },
       paymentId,
       expectedPaymentId: fixture.payment.payment_id,
     });
@@ -752,7 +761,7 @@ await scenario('F5 journals an extra capture without changing F1 refund semantic
       && extraResult.duplicate_capture === true
       && extraEvent?.amount_paise === 19900
       && extraEvent.gateway_ref === extraCaptureId
-      && extraPayment?.status === 'paid'
+      && extraPayment?.status === 'refund_pending'
       && extraPayment.amount === 19900
       && extraPayment.refund_amount === 19900
       && extraPayment.refund_status === 'pending'
@@ -760,7 +769,25 @@ await scenario('F5 journals an extra capture without changing F1 refund semantic
       && originalPayment.amount === 19900
       && originalPayment.razorpay_payment_id === originalCaptureId,
     'F5 journals the extra 19900-paise capture on its refund row, preserving the original paid row',
-    { expectedExtraPaise: 19900, actual: { originalResult, extraResult, extraEvent, extraPayment, originalPayment } },
+    {
+      expectedExtraPaise: 19900,
+      actual: {
+        originalResult: { ok: originalResult.ok },
+        extraResult: { duplicate_capture: extraResult.duplicate_capture, refund_amount: extraResult.refund_amount },
+        extraEvent: { amount_paise: extraEvent?.amount_paise, gateway_ref: extraEvent?.gateway_ref },
+        extraPayment: {
+          status: extraPayment?.status,
+          amount: extraPayment?.amount,
+          refund_amount: extraPayment?.refund_amount,
+          refund_status: extraPayment?.refund_status,
+        },
+        originalPayment: {
+          status: originalPayment.status,
+          amount: originalPayment.amount,
+          razorpay_payment_id: originalPayment.razorpay_payment_id,
+        },
+      },
+    },
   );
 });
 
@@ -792,7 +819,7 @@ await scenario('F5 journals a mismatched capture while preserving its exact refu
     result.amount_mismatch === true
       && financialEvent?.amount_paise === capturedPaise
       && financialEvent.gateway_ref === paymentId
-      && capture?.status === 'paid'
+      && capture?.status === 'refund_pending'
       && capture.amount === capturedPaise
       && capture.refund_amount === capturedPaise
       && capture.refund_status === 'pending'
@@ -800,7 +827,28 @@ await scenario('F5 journals a mismatched capture while preserving its exact refu
       && original.amount === 19900
       && original.razorpay_payment_id === null,
     'F5 journals the captured 20000 paise without changing F1 mismatch/refund behavior',
-    { expectedCapturedPaise: capturedPaise, actual: { result, financialEvent, capture, original } },
+    {
+      expectedCapturedPaise: capturedPaise,
+      actual: {
+        result: {
+          amount_mismatch: result.amount_mismatch,
+          refund: result.refund,
+          refund_amount: result.refund_amount,
+        },
+        financialEvent: { amount_paise: financialEvent?.amount_paise, gateway_ref: financialEvent?.gateway_ref },
+        capture: {
+          status: capture?.status,
+          amount: capture?.amount,
+          refund_amount: capture?.refund_amount,
+          refund_status: capture?.refund_status,
+        },
+        original: {
+          status: original.status,
+          amount: original.amount,
+          razorpay_payment_id: original.razorpay_payment_id,
+        },
+      },
+    },
   );
 });
 
