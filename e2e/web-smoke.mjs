@@ -624,7 +624,7 @@ await step('booking-fc3-cancel-copy', async () => {
   if (!actual.includes('₹')) {
     throw new Error(`expected server cancellation preview to include ₹: ${JSON.stringify({ actual })}`);
   }
-  await page.getByLabel('Close', { exact: true }).last().click();
+  await page.getByRole('button', { name: 'Keep booking', exact: true }).click();
 });
 await step('booking-chat-send', async () => {
   await go(`/chat/${seeded('fc', 9)}`);
@@ -989,14 +989,23 @@ await step('admin-feature-registry', async () => {
     }
     await go('/admin/shops');
     await page.locator('text="Shop management" >> visible=true').last().waitFor();
+    await page.getByText('all', { exact: true }).first().click();
     await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
     const shopCard = page.getByText(qaApprovalShopName, { exact: true })
       .locator('xpath=ancestor::*[.//*[@role="button"]][1]');
     await shopCard.getByRole('button', { name: 'Verify', exact: true }).click();
-    await page.locator('text="verified" >> visible=true').first().click();
-    await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
-    await go('/admin');
+    try {
+      await shopCard.getByText('Verified', { exact: true }).waitFor({ state: 'visible' });
+    } catch {
+      const bodyText = await page.locator('body').innerText();
+      throw new Error(`admin shop verification did not update the submitted row: ${JSON.stringify({
+        shopId: qaApprovalShopId,
+        shopName: qaApprovalShopName,
+        bodyText: bodyText.slice(-1200),
+      })}`);
+    }
   });
+  await go('/admin');
 
   const rows = [
     { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },

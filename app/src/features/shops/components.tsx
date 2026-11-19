@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
 import { Pressable, View } from 'react-native';
 import { Badge, Card, Text } from '../../components/ui';
-import { formatINR } from '../../lib/money';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useTheme } from '../../theme';
-import type { SearchProduct, ShopStatus } from './api';
+import type { ProductUnit, SearchProduct, ShopStatus } from './api';
+import { formatIndicativePrice } from './format';
 
 export function useShopFeatureFlags() {
   const flags = useAppFeatureFlags();
@@ -18,10 +18,19 @@ export function FeatureUnavailable({ feature = 'Products and shops are not avail
   return <Card><Text color="muted">{feature}</Text></Card>;
 }
 
-export function IndicativePrice({ pricePaise }: { pricePaise: number | null }) {
+export function IndicativePrice({
+  pricePaise,
+  unit,
+  updatedAt,
+}: {
+  pricePaise: number | null;
+  unit: ProductUnit;
+  updatedAt?: string | null;
+}) {
   return (
     <View style={{ gap: 2 }}>
-      <Text variant="calloutStrong">{pricePaise == null ? 'Ask shop for price' : formatINR(pricePaise)}</Text>
+      <Text variant="calloutStrong">{formatIndicativePrice(pricePaise, unit)}</Text>
+      {updatedAt ? <Text variant="caption" color="muted">Price updated {new Date(updatedAt).toLocaleDateString('en-IN')}</Text> : null}
       <Text variant="footnote" color="muted">Indicative price — confirm with shop.</Text>
     </View>
   );
@@ -52,7 +61,11 @@ export function ShopProductCard({
           <Text variant="footnote" color="muted" numberOfLines={1}>
             {[product.brand, product.model, product.shop_name].filter(Boolean).join(' · ')}
           </Text>
-          <IndicativePrice pricePaise={product.indicative_price_paise} />
+          <IndicativePrice
+            pricePaise={product.indicative_price_paise}
+            unit={product.unit}
+            updatedAt={product.price_updated_at}
+          />
           {product.distance_km != null ? <Text variant="caption" color="muted">{product.distance_km.toFixed(1)} km away</Text> : null}
           {!product.in_stock ? <Badge label="Currently unavailable" tone="warning" /> : null}
         </View>
