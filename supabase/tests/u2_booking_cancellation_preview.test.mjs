@@ -62,17 +62,6 @@ alter default privileges in schema public grant execute on functions to anon, au
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
 for (const file of migrationFiles) {
-  if (file === '0051_ai_usage_v3.sql') {
-    await db.exec(`
-      create table public.ai_usage (
-        id bigint generated always as identity primary key,
-        user_id uuid not null references public.profiles (id) on delete cascade,
-        kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-        request_id uuid,
-        created_at timestamptz not null default now()
-      )
-    `);
-  }
   await db.exec(migration(file));
 }
 await db.exec("set timezone = 'UTC'");
