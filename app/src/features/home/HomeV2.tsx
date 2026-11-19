@@ -144,8 +144,7 @@ export function HomeV2({ flags }: { flags: HomeFlagReader }) {
   ) : null;
   const gutter = { paddingHorizontal: t.spacing.lg };
   const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
-  const searchInputTypography: TextStyle = { ...t.typography.body };
-  delete searchInputTypography.lineHeight;
+  const searchInputTypography: TextStyle = { ...t.typography.body, lineHeight: undefined };
   const city = location.city || location.area;
 
   const onPillarPress = (pillar: Pillar) => {

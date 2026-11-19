@@ -119,8 +119,7 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
   ) : null;
   const gutter = { paddingHorizontal: t.spacing.lg };
   const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
-  const searchInputTypography: TextStyle = { ...t.typography.body };
-  delete searchInputTypography.lineHeight;
+  const searchInputTypography: TextStyle = { ...t.typography.body, lineHeight: undefined };
 
   return (
     <Screen inTabs padded={false} refreshing={refreshing} onRefresh={refresh} gap={t.spacing.section}>
