@@ -157,6 +157,18 @@ async function createDeliveredBooking({
     ...requiredProfileAttributes(category.profile_schema),
     techniques: ['hd'],
   };
+  await db.query(`
+    insert into public.app_config (key, value)
+    values ('archetype_flags', '{"proposal":true}'::jsonb)
+    on conflict (key) do update
+      set value = public.app_config.value || excluded.value
+  `);
+  await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, 'C1 Test City', true, now())
+    on conflict (category_id, city) do update
+      set live = true, launched_at = coalesce(public.category_cities.launched_at, excluded.launched_at)
+  `, [categoryId]);
   await db.query(
     `update public.categories set deliverable_acceptance_hours = $1::int where id = $2::uuid`,
     [acceptanceHours, categoryId],
@@ -179,7 +191,7 @@ async function createDeliveredBooking({
      ) values ($1::uuid, 'route', $2::text, 'activated')`,
     [provider, `c1_acc_${fixtureIndex}`],
   );
-  const scheduledAt = new Date(Date.UTC(2031, 0, fixtureIndex, 4, 30)).toISOString();
+  const scheduledAt = new Date(Date.UTC(2027, 2, 15 + fixtureIndex, 4, 30)).toISOString();
   const { id: bookingId } = await one(
     `insert into public.bookings (
        customer_id, provider_id, category_id, provider_service_id, address_id,

@@ -47,8 +47,11 @@ describe('booking delivery section', () => {
       'files.example.test',
       'files.example.test',
     ]);
-    expect(rows[2].type).toBe(Text);
-    expect(rows[2].props.children).toEqual(expect.stringMatching(/^Submitted /));
+    const submittedRow = rows[2];
+    expect(submittedRow?.type).toBe(Text);
+    const submittedCopy = React.Children.toArray(submittedRow?.props.children);
+    expect(submittedCopy[0]?.toString()).toBe('Submitted ');
+    expect(typeof submittedCopy[1]).toBe('string');
   });
 
   it('opens the selected delivered link', () => {
