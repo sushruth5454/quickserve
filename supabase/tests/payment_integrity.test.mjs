@@ -662,5 +662,5 @@ await scenario('WS8-T04 payment exception table is unavailable to client roles',
   check(!hasAnon && !hasAuthenticated, 'payment exception records are not readable by client roles', { hasAnon, hasAuthenticated });
 });
 
-assert.ok(migrationFiles.includes('0073_f1_payment_recorder_safety.sql'), 'the full migration chain includes the reserved F1 migration');
+assert.ok(migrationFiles.includes('0071_f1_payment_recorder_safety.sql'), 'the full migration chain includes the reserved F1 migration');
 finish();

@@ -70,7 +70,6 @@ export default function ShopDetailScreen() {
             <Text variant="footnote" color="muted">
               {shop.offers_pickup ? 'Pickup available' : 'Pickup not listed'}
               {shop.offers_delivery ? ` · Delivery within ${shop.delivery_radius_km} km` : ''}
-              {shop.whatsapp_contact ? ' · WhatsApp contact available' : ''}
             </Text>
             <Text variant="caption" color="muted">Categories: {shop.category_slugs.join(' · ')}</Text>
           </Card>

@@ -2,7 +2,9 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Chip, Header, InlineAlert, Input, Screen, Text, TextArea, useToast } from '../../src/components/ui';
+import { SpecFields } from '../../src/features/shops/SpecFields';
 import { listProductCategories, type ProductCategory } from '../../src/features/shops/api';
+import { cleanSpecs } from '../../src/features/shops/specs';
 import { createRfq, type NewRfqItem, type RfqUnit } from '../../src/features/rfq/api';
 import { RfqFeatureUnavailable, useRfqFeatureFlags } from '../../src/features/rfq/components';
 import { useSelectedLocation } from '../../src/lib/locationContext';
@@ -14,7 +16,7 @@ type ItemDraft = {
   brand: string;
   quantity: string;
   unit: RfqUnit;
-  specs: string;
+  specs: Record<string, string>;
 };
 
 const units: RfqUnit[] = ['piece', 'sqft', 'box', 'kg', 'litre', 'bag', 'metre', 'set'];
@@ -24,14 +26,8 @@ const newItem = (): ItemDraft => ({
   brand: '',
   quantity: '1',
   unit: 'piece',
-  specs: '{}',
+  specs: {},
 });
-
-function parseSpecs(value: string): Record<string, unknown> {
-  const parsed: unknown = JSON.parse(value || '{}');
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Specifications must be a JSON object.');
-  return parsed as Record<string, unknown>;
-}
 
 function defaultNeededBy() {
   const date = new Date();
@@ -76,6 +72,10 @@ export default function NewRfqScreen() {
   const updateItem = (key: string, patch: Partial<ItemDraft>) => {
     setItems((current) => current.map((item) => item.key === key ? { ...item, ...patch } : item));
   };
+  const selectCategory = (id: string) => {
+    setCategoryId(id);
+    setItems((current) => current.map((item) => ({ ...item, specs: {} })));
+  };
 
   const submit = async () => {
     if (!categoryId || !ready) return;
@@ -90,7 +90,7 @@ export default function NewRfqScreen() {
         return {
           description: item.description.trim(),
           brand_pref: item.brand.trim(),
-          specs: parseSpecs(item.specs),
+          specs: cleanSpecs(item.specs),
           quantity,
           unit: item.unit,
         };
@@ -144,7 +144,7 @@ export default function NewRfqScreen() {
       {loadingCategories ? <Text color="muted">Loading categories…</Text> : (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
           {categories.map((category) => (
-            <Chip key={category.id} label={category.name} selected={category.id === categoryId} onPress={() => setCategoryId(category.id)} />
+            <Chip key={category.id} label={category.name} selected={category.id === categoryId} onPress={() => selectCategory(category.id)} />
           ))}
         </View>
       )}
@@ -184,11 +184,10 @@ export default function NewRfqScreen() {
               </View>
             </View>
           </View>
-          <TextArea
-            label="Requested specifications (JSON object)"
+          <SpecFields
+            schema={selectedCategory?.attribute_schema ?? { properties: {} }}
             value={item.specs}
-            onChangeText={(value) => updateItem(item.key, { specs: value })}
-            maxLength={1000}
+            onChange={(value) => updateItem(item.key, { specs: value })}
           />
           {items.length > 1 ? (
             <Button title="Remove item" size="sm" variant="ghost" onPress={() => setItems((current) => current.filter((entry) => entry.key !== item.key))} />
