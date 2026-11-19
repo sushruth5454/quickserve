@@ -17,12 +17,15 @@ Same as doc 14 §0.1:
 - **WP agent.** Exactly one WP, one worktree, one lane branch `lane/<WP-ID>`.
 
 ### 0.2 Mandatory loop
-Follow `.github/copilot-instructions.md` → **Fast validation loop**, rules 1–10:
+Follow `.github/copilot-instructions.md` → **Fast validation loop**, rules 1–16, especially rules 11, 12 and 16:
 1. CI only; no local npm, jest, tsc, deno or expo.
 2. Push `git push origin HEAD:refs/heads/lane/<WP-ID>`.
 3. Read **all** failures and fix them in one push.
 4. A WP is done only when its lane is green and its run ID is reported.
 5. Use a lower-model review **only** for money, auth or concurrency WPs (marked 🔒). Never trigger Opus reviews automatically.
+6. Before each lane push, copy `scripts/cs-test.ps1` from current `origin/main` to `$env:TEMP`, run the narrow Codespace suite, and push only after `cs-test result: PASS`.
+7. Every `integrate/**` batch needs green lane CI and private `e2e-local`; hosted `e2e-web` runs only on `main` after deploy. Never dispatch hosted E2E on lanes or batches.
+8. E2E flag values come from `e2e/e2e-flags.json`; add any new switch the smoke test requires ON.
 
 ### 0.3 Agent prompt template
 ```
@@ -45,7 +48,7 @@ Worktree <path>, branch lane/<WP-ID> from origin/main @ <sha>. Reserved migratio
    Follow §0.5 when a new enum value must be used. Start each file with a header comment:
    -- WP <id>; owns: <function list>; sources: <task ids>
 7. Self-check: run git diff --check, confirm no hex/fontSize literals in new UI code, and confirm every changed money path has a test asserting exact paise.
-8. Commit "<type>(<area>): <WP-ID> <summary>" plus the Co-authored-by trailer. Push lane/<WP-ID>. Watch lane CI; fix all failures per run in one push.
+8. Before pushing, run the current-main Codespace check as described in rules 11/12/16; then commit "<type>(<area>): <WP-ID> <summary>" plus the Co-authored-by trailer and push lane/<WP-ID>. Watch lane CI; fix all failures per run in one push. Do not dispatch hosted e2e-web on lanes or batches.
 9. Report: source task IDs done, files and functions changed, tests added (names), lane run ID, deviations or blockers.
 ```
 
@@ -385,8 +388,8 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 | H3 | G2 | migration 0083 merged to main at `8663e06`; lane CI `44592148458`, lower-model review, and combined DB batch CI `44598533157` are green. Main deploy `44599377704` and app publish `44599377715` succeeded; main E2E `44599377760` failed; H3 fixture fix-forward is in progress (see doc 14 §7) | a4d4c288-5bf0-48c9-b3d5-de9273571e5c | 44592148458 (lane CI); lower-model review clear; 44598533157 (combined batch CI); 44599377704 (main deploy); 44599377715 (app publish); 44599377760 (main E2E failed) | 0083 | `8663e06` |
 | B2 | G2 | migration 0084 merged to main at `8663e06`; lane CI `44595108901`, lower-model review, and combined DB batch CI `44598533157` are green. Main deploy `44599377704` and app publish `44599377715` succeeded; main E2E `44599377760` failed and fix-forward is in progress (see doc 14 §7) | db967723-ebc9-47f7-8cc6-d6b40be15522 | 44595108901 (lane CI); lower-model review clear; 44598533157 (combined batch CI); 44599377704 (main deploy); 44599377715 (app publish); 44599377760 (main E2E failed) | 0084 | `8663e06` |
 | B4 | G2 | implementation at `d25d1f5`; source lane CI `44523067442` and focused lower-model review are green. Fix-forward `925e76e` includes current main and removes the duplicate demo `bookingRef`; lane CI `44604740245` is green. Existing B4-only DB batch CI `44605909397` is green; current DB batch 5 adds O3/F8/B-01 and remains gated on a private E2E fix-forward before push | 807950c2-09b4-4cc0-8084-ce97cdd6efb6 | 44523067442 (source lane CI); 44604740245 (current-main B4 lane CI); 44605909397 (B4-only combined batch CI); focused review clear | 0085 | — |
-| B6 | G2 | implementation complete on `lane/B6` at `cf90d4b`; migrations renumbered to 0088a/b. Codespace SQL/app checks and lane CI `44619678497` are green; lower-model money review is pending. Integrate only after the review and after O3/0086 + doc 14 B-01/0087 are merged | 2a891318-f319-4137-adaf-ecefb4b86da9 | 44619678497 (lane CI green); lower-model review pending | 0088a/b | — |
-| O3 | G2 | lane green at `3db245b`; reuses F4's audited refund retry; lower-model review clear; SQL test passed. Integrated locally into DB batch 5 at `f00f8e5` as migration 0086; combined batch CI/private E2E pending | d417d1f2-59e3-44bb-81b3-3016af817af3 | 44513318423 (O3 lane CI; SQL passed); lower-model review clear | 0086 | `f00f8e5` (local batch) |
+| B6 | G2 | implementation complete on `lane/B6` at `cf90d4b`; migrations renumbered to 0088a/b. Codespace SQL/app checks and lane CI `44619678497` are green; lower-model money review found no high-confidence findings. Integrate only after O3/0086 + doc 14 B-01/0087 are merged | 2a891318-f319-4137-adaf-ecefb4b86da9 | 44619678497 (lane CI green); lower-model review clear | 0088a/b | — |
+| O3 | G2 | lane green at `3db245b`; reuses F4's audited refund retry; lower-model review clear. Integrated locally into DB batch 5 at `f00f8e5` as migration 0086. Combined Codespace SQL found one O3 test-fixture failure: `send_quote` requires a bill photo for parts above ₹500; fix is assigned to the O3 lane. B-01 targeted SQL passed; batch push/CI/private E2E remain gated | d417d1f2-59e3-44bb-81b3-3016af817af3 | 44513318423 (O3 lane CI); lower-model review clear; Codespace follow-up pending | 0086 | `f00f8e5` (local batch) |
 | B3 | G2 | DEFERRED — owner will engage CA later; no tax invoices before review and no live payments before D4 review | — | — | later | — |
 | S3 | G3 | deferred until G2/S2 | — | — | — | — |
 | C3 | G3 | deferred until C2 | — | — | — | — |
