@@ -28,7 +28,13 @@ describe('doc 03 section 4 worked example (AC gas refill, provider past free per
   });
 
   it('splits subtotals with parts as pass-through', () => {
-    expect(result.subtotals).toEqual({ labour: 150000, parts: 65000, other: 0, total: 215000 });
+    expect(result.subtotals).toEqual({
+      labour: 150000,
+      parts: 65000,
+      other: 0,
+      total: 215000,
+      commissionable: 150000,
+    });
   });
   it('customer pays 2,179 in total and 1,980 after the visit fee', () => {
     expect(result.customerTotal).toBe(217900);
@@ -130,6 +136,7 @@ describe('balance and change orders', () => {
     expect(r.commission).toBe(12000);
     expect(r.gst).toBe(2160);
     expect(r.providerPayout).toBe(105840);
+    expect(r.subtotals.commissionable).toBe(100000);
   });
 });
 
@@ -158,5 +165,26 @@ describe('formatting helpers', () => {
   });
   it('rounds fractional quantities per line', () => {
     expect(quoteSubtotals([{ kind: 'labour', qty: 1.5, unitPrice: 33333 }]).labour).toBe(50000);
+  });
+
+  it('uses the server commissionable-kind set for quote subtotals', () => {
+    expect(quoteSubtotals([
+      { kind: 'labour', qty: 1, unitPrice: 10000 },
+      { kind: 'package', qty: 1, unitPrice: 20000 },
+      { kind: 'per_unit', qty: 1, unitPrice: 5000 },
+      { kind: 'addon', qty: 1, unitPrice: 3000 },
+      { kind: 'travel', qty: 1, unitPrice: 4000 },
+      { kind: 'part', qty: 1, unitPrice: 5000 },
+      { kind: 'material', qty: 1, unitPrice: 6000 },
+      { kind: 'other', qty: 1, unitPrice: 7000 },
+      { kind: 'discount', qty: 1, unitPrice: 8000 },
+      { kind: 'rental', qty: 1, unitPrice: 9000 },
+    ])).toEqual({
+      labour: 42000,
+      parts: 5000,
+      other: 30000,
+      total: 77000,
+      commissionable: 42000,
+    });
   });
 });

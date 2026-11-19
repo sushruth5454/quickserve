@@ -38,6 +38,7 @@ export interface Subtotals {
   parts: number;
   other: number;
   total: number;
+  commissionable: number;
 }
 
 export function rupeesToPaise(rupees: number): number {
@@ -92,10 +93,13 @@ export function packageCheckoutTotal(
 }
 
 export function quoteSubtotals(items: LineInput[]): Subtotals {
-  const s = { labour: 0, parts: 0, other: 0 };
+  const s = { labour: 0, parts: 0, other: 0, commissionable: 0 };
   for (const item of items) {
     const t = lineTotal(item.qty, item.unitPrice);
-    if (item.kind === 'labour' || item.kind === 'package' || item.kind === 'per_unit' || item.kind === 'addon' || item.kind === 'travel') s.labour += t;
+    if (item.kind === 'labour' || item.kind === 'package' || item.kind === 'per_unit' || item.kind === 'addon' || item.kind === 'travel') {
+      s.labour += t;
+      s.commissionable += t;
+    }
     else if (item.kind === 'part') s.parts += t;
     else s.other += t;
   }
