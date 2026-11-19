@@ -807,7 +807,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | CR-01 | merged; lane CI green; existing Card/CategoryIcon retained per spec | 6878626f-8b83-4ae5-9c10-10eb19c470dd | 44414854482 (green) | 0a12c33 (lane 52f3ba6) |
 | CR-02 | blocked by C-06 and doc 17 C1/C2 | — | — | — |
 | BD-01 | blocked by R-01 and C-07 | — | — | — |
-| A-01 | lane CI and post-admin-fix lane E2E green; ready for integration | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green) | — |
+| A-01 | merged; lane CI and post-admin-fix lane E2E green; main E2E validation pending | a0cd519f-5118-4f6e-b167-68b01c6e7e7c | 44452023387 (green); 44452023356 (pre-setup admin-only failure); 44454043918 (green); 44454043903 (admin locator timeout); 44458045441 (post-fix lane CI green); 44458045387 (post-fix lane E2E green) | 557bcb9 |
 | M-01 | blocked by R-05 and T-01 | — | — | — |
 | M-02 | blocked by R-06 and T-01 | — | — | — |
 | M-03 | merged; lane CI green; E2E queued | 53f643d6-ed52-4e6d-b3f5-f84edbd0a207 | 44411999739 (green); 44411999701 (E2E pending) | 061d55b (lane 53c5bd9) |
@@ -817,7 +817,7 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
 
-Latest lane E2E outcomes (Nov 19, 2026): H-01 `44458765479` and A-01 `44458045387` passed after the admin-flow fix. U2 `44458119027` reached the cancellation modal but showed the safe fallback because `preview_cancellation` migration `0068` is not yet deployed to the shared backend; rerun after main deployment.
+Latest lane E2E outcomes (Nov 19, 2026): H-01 `44458765479` and A-01 `44458045387` passed after the admin-flow fix; both are merged, with main E2E validation pending. U2 `44458119027` reached the cancellation modal but showed the safe fallback because `preview_cancellation` migration `0068` is not yet deployed to the shared backend; rerun after main deployment.
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
