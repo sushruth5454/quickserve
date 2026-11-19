@@ -1,5 +1,6 @@
 -- WP F5; owns: record_payment_paid, record_session_payment_paid, record_pack_payment_paid;
 -- sources: WS6-T14.
+-- G2 boundary: signed webhook log plus payment_captured events from the F1 home/session/pack recorders only; refund, transfer, and reversal journal writers are deferred to G3.
 
 create table public.gateway_webhook_log (
   id bigint generated always as identity primary key,
@@ -11,7 +12,10 @@ create table public.gateway_webhook_log (
 create index gateway_webhook_log_received_idx on public.gateway_webhook_log (received_at desc);
 alter table public.gateway_webhook_log enable row level security;
 revoke all on public.gateway_webhook_log from public, anon, authenticated, service_role;
-grant insert on public.gateway_webhook_log to service_role;
+grant select, insert on public.gateway_webhook_log to service_role;
+create policy gateway_webhook_log_service_select
+  on public.gateway_webhook_log for select to service_role
+  using (true);
 revoke all on sequence public.gateway_webhook_log_id_seq from public, anon, authenticated, service_role;
 grant usage on sequence public.gateway_webhook_log_id_seq to service_role;
 create policy gateway_webhook_log_service_insert

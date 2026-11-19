@@ -49,7 +49,10 @@ Deno.serve(async (req) => {
   );
   if (!logResult.ok) {
     console.error("webhook log failed", logResult.error);
-    return json({ error: "webhook processing failed" }, 500);
+    return json(
+      { error: logResult.status === 409 ? "conflicting webhook event id" : "webhook processing failed" },
+      logResult.status,
+    );
   }
   if (logResult.duplicate) console.warn("duplicate Razorpay webhook event", eventName);
 

@@ -959,13 +959,13 @@ await scenario('F5 journal and webhook log allow inserts but reject mutation', a
       && journalTruncateError.includes('append-only')
       && privileges.anon_webhook_read === false
       && privileges.authenticated_journal_read === false
-      && privileges.service_webhook_read === false
+      && privileges.service_webhook_read === true
       && privileges.service_journal_read === false
       && privileges.service_webhook_insert === true
       && privileges.service_journal_insert === true
       && privileges.service_journal_update === false
       && privileges.service_webhook_delete === false,
-    'F5 audit rows are service-insertable, client-hidden, and immutable',
+    'F5 audit rows are service-role-only and immutable',
     {
       webhook,
       finalWebhook,
