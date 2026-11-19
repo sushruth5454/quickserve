@@ -5,9 +5,9 @@
 -- It creates synthetic users, providers, packages, requests and bookings prefixed with DEMO metadata.
 -- When migrations 0048-0050 are present, it also seeds verified sports and tile-marketplace fixtures.
 -- Legacy seed tests without those migrations keep the original service fixtures and skip marketplace rows.
--- Creator/event categories deliberately remain inactive globally. Their seeded data is reachable only
--- with an explicit app build using EXPO_PUBLIC_DEMO_CITY="Vijayawada Demo", or by authenticated
--- demo-participant routes (proposal/request/booking IDs).
+-- Creator/event category activation is migration-managed (0024); this seed does not change their
+-- global active state. Demo data is reachable only with an explicit app build using
+-- EXPO_PUBLIC_DEMO_CITY="Vijayawada Demo", or by authenticated demo-participant routes.
 --
 -- The caller MUST mark the transaction as a demo seed:
 --   select set_config('quickserve.demo_seed', '1', true);
