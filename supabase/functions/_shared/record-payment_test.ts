@@ -70,3 +70,31 @@ Deno.test("sports recorder rejection is returned to the webhook caller for retry
     error: "amount mismatch",
   });
 });
+
+Deno.test("non-sports recorder rejection is returned to the webhook caller for retry", async () => {
+  const { admin } = mockAdmin({ booking_id: "booking" }, "fixed", { ok: false, error: "unknown link" });
+  assertEquals(await recordGatewayPayment(admin, "order_1", "pay_1", 500), {
+    ok: false,
+    error: "unknown link",
+  });
+});
+
+Deno.test("persisted payment exception is logged and acknowledged", async () => {
+  const { admin } = mockAdmin(
+    { booking_id: "booking" },
+    "fixed",
+    { ok: false, error: "unknown link", exception: true },
+  );
+  const logged: unknown[][] = [];
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => logged.push(args);
+  try {
+    assertEquals(await recordGatewayPayment(admin, "order_1", "pay_1", 500), {
+      ok: true,
+      result: { ok: false, error: "unknown link", exception: true },
+    });
+  } finally {
+    console.error = originalError;
+  }
+  assertEquals(logged.length, 1);
+});
