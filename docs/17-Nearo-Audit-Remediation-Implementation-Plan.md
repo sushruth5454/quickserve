@@ -287,30 +287,30 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 |---|---|---|---|---|---|---|
 | X1 | G1 | merged; admin E2E step BLOCKED on owner config | b49bc035-5681-4314-af7a-c0bfe704be85 | 44390538759 | 0059 | 173be83 (lane 92cb959) |
 | X2 | G1 | BLOCKED — owner: provide MSG91 credentials/DLT template and Expo projectId/FCM; re-decide separate production project before G2 | integrator + owner | — | — | — |
-| X3 | G1 | 0060a/b deployed; legacy E2E provider seed fix merged; main E2E verification pending | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal E2E failure); 44419846387 (backend success); 44419845866 (main E2E pending); 44422452507 (main E2E pending); 44423228486 (main E2E pending) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
+| X3 | G1 | 0060a/b deployed; legacy E2E provider seed fix merged; main E2E verification pending | daa94142-b851-4a4e-8185-b0ddb5ffd01c | 44404269482; 44418061376 (seed fix green); 44418061318 (E2E pending); 44411077594 (proposal E2E failure); 44419846387 (backend success); 44419845866 (main E2E pending); 44422452507 (main E2E pending); 44423228486 (main E2E pending); 44427389151 (main E2E pending) | 0060a/b | 9bd12a5 (lane 7562163); b044510 (lane c2441c2) |
 | H1 | G1 | merged; 0061 applied and recorded by successful main deployment | 043f0559-145b-424b-a6ee-3a5d2a81eee5 | 44411611254 (revalidation green); 44411611318 (E2E pending); 44412263137 (main success) | 0061 | 83ca69f (lane 7fc2ed9) |
 | F3 | G1 | scope-corrected lane green; lower-model review clear; 0062 applied and recorded on main | f8bfe61d-b277-4cba-8fb4-8bb0ef7659ca | 44414018378 (green); 44412649463 (prior green); 44419846387 (main success) | 0062 | 6e89494 (lane 68c1c4d) |
 | O1 | G1 | merged; lower-model review clear; 0063 applied and recorded on main | ff25279d-1209-44db-9fee-42a727ac6c33 | 44390988731 (prior green); 44420825698 (revalidated green); 44423228645 (main success) | 0063 | 66931b8 |
-| O2 | G1 | merged; lower-model review clear; 0064 registered; main deployment pending | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 (prior green); 44425010957 (revalidated green) | 0064 | 5c962d9 |
-| H2a | G1 | revalidating after O2 0064 integration; next migration | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 (prior green) | 0065 | — |
-| H2b | G1 | not started; blocked by H2a | — | — | 0066 | — |
+| O2 | G1 | merged; lower-model review clear; 0064 applied and recorded on main | db2d3708-01f6-481c-a6a6-0f4f6bb17fca | 44392429239 (prior green); 44425010957 (revalidated green); 44427389305 (main success) | 0064 | 5c962d9 |
+| H2a | G1 | merged; lower-model review clear; 0065 registered; main deployment pending | bbba8810-4b2c-49d0-8ab6-f6262ad7176c | 44392157222 (prior green); 44428059570 (9 O2 approval-fixture failures; fixed); 44428516193 (revalidated green) | 0065 | 4856883 |
+| H2b | G1 | ready after H2a merge; launch pending main push | — | — | 0066 | — |
 | U2 | G1 | not started; blocked by U3 booking-detail sequence and migration order | — | — | 0068 | — |
 | B1 | G1 | not started; blocked by U2 | — | — | 0069 | — |
 | U1 | G1 | merged; lane CI green; E2E remains queued | c44e9364-73ac-4c6e-919f-ab14808f8b64 | 44413025536 (lane CI); 44413025293 (E2E pending) | — | 7c7f3b7 (lane 290a0c7) |
-| U3 | G1 | integrator-renumbered to 0067; lane green; lower-model review pending; web-smoke pending | bc0c8141-772b-4d97-9181-1286094f2f57 | 44399638736 (partial); 44423704672 (prior green); 44425332784 (post-rename green); 44423704687 (web-smoke pending) | 0067 | — |
+| U3 | G1 | integrator-renumbered to 0067; lane green; lower-model review clear; waiting for 0066; web-smoke pending | bc0c8141-772b-4d97-9181-1286094f2f57 | 44399638736 (partial); 44423704672 (prior green); 44425332784 (post-rename green); 44423704687 (web-smoke pending) | 0067 | — |
 | P1a | G1 | green; waiting for migrations through 0069 | 3f745efa-75d9-4e5b-bee7-be8d2fe6fea0 | 44395068717 | 0070 | — |
 | P1b | G1 | blocked by P1a; rebase and rerun after P1a merges | a1da8d43-6977-44a8-9e45-25e435995465 | 44393359114 (prior base) | 0071 | — |
 | R1 | G1 | green; lower-model review clear; waiting for migration order | d2882009-c908-4082-a75e-94d2bf52d65a | 44392525563 | 0072 | — |
 | T1 | G1 | merged; code-owned Q-00 steps pass; admin E2E step BLOCKED on owner config | 6c5934c4-e869-4e30-b4d4-dd2469724210 | 44400112596 (lane CI); 44400112598 (E2E admin-only failure) | — | fb069de (lane d8cea17) |
 | T2 | G1 | RP-29 isolated-provider, future-safe date-offset fix merged; main SQL validation green | f9d40dc6-5959-43b3-b3fc-0e885a212f8b | 44410255193; 44411901585 (lane green); 44410255110 (E2E pending); 44413775484 (main success) | — | caed73d; c409974 (lane f05803e); 61a5f78 (lane 4052664) |
-| F1 | G2 | lane green; lower-model review pending before 0073 integration | f585de6d-23a0-4b78-a795-0153ebe81f77 | 44425343894 | 0073 | — |
+| F1 | G2 | lane green; lower-model review clear; waiting for migration order before 0073 integration | f585de6d-23a0-4b78-a795-0153ebe81f77 | 44425343894 | 0073 | — |
 | F2 | G2 | not started; blocked by F1; D1 decided | — | — | 0074 | — |
 | F4 | G2 | not started; blocked by F3 and F1 | — | — | 0075 | — |
 | F6 | G2 | not started; blocked by F1 and F5 | — | — | 0077 | — |
 | F5 | G2 | not started; blocked by F1 | — | — | 0076 | — |
 | F7 | G2 | not started; blocked by F2; tax wording remains placeholder-only until review | — | — | 0078 | — |
 | F8 | G2 | not started; blocked by F1 and owner-blocked X2 | — | — | — | — |
-| S1 | G2 | D3 refund scope reconciled; registration committed; lane CI pending; preserve O1 notifications | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | pending | 0079 | — |
+| S1 | G2 | D3 refund scope reconciled; lane green and lower-model review clear; waiting for migration order and final-chain validation | 190cae34-4263-4cb9-8b16-fa1895ce73e1 | 44426947299 (green; after fix) | 0079 | — |
 | S2 | G2 | not started; blocked by S1 | — | — | 0080 | — |
 | C1 | G2 | not started; blocked by B1; D2 decided | — | — | 0081 | — |
 | C2 | G2 | not started; blocked by F2; D2 decided | — | — | 0082 | — |
