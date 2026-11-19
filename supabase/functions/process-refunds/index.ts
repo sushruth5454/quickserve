@@ -47,12 +47,13 @@ Deno.serve(async (req) => {
         );
         return page.items ?? [];
       },
-      (refundId, gatewayRefundId) =>
-        admin.rpc("complete_refund", {
+      async (refundId, gatewayRefundId) =>
+        await admin.rpc("complete_refund", {
           p_refund_id: refundId,
           p_razorpay_refund_id: gatewayRefundId,
         }),
-      (refundId) => admin.rpc("requeue_stale_processing_refund", { p_refund_id: refundId }),
+      async (refundId) =>
+        await admin.rpc("requeue_stale_processing_refund", { p_refund_id: refundId }),
     );
     if (!result.ok) console.error("stale refund reconciliation deferred", result.refund_id, result.error);
     staleResults.push(result);
