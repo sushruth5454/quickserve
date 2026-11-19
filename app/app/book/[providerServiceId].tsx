@@ -99,30 +99,33 @@ export default function BookScreen() {
     let active = true;
     setPricePreview(null);
     setPriceError(null);
-    void supabase.rpc('get_booking_price_preview', {
-      p_provider_service_id: service.id,
-      p_quantity: 1,
-    }).then(({ data, error }) => {
-      if (error) throw new Error(error.message);
-      if (!data || typeof data !== 'object') throw new Error('No booking price preview returned');
-      const raw = data as Record<keyof BookingPricePreview, unknown>;
-      const readPaise = (value: unknown) => {
-        if (value == null || typeof value === 'boolean') throw new Error('The booking price preview is incomplete');
-        const amount = Number(value);
-        if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('The booking price preview is invalid');
-        return amount;
-      };
-      const preview = {
-        visit_fee: readPaise(raw.visit_fee),
-        platform_fee: readPaise(raw.platform_fee),
-        package_total: readPaise(raw.package_total),
-        total: readPaise(raw.total),
-        pay_now: readPaise(raw.pay_now),
-      };
-      if (active) setPricePreview(preview);
-    }).catch((caught: Error) => {
-      if (active) setPriceError(caught.message);
-    });
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_booking_price_preview', {
+          p_provider_service_id: service.id,
+          p_quantity: 1,
+        });
+        if (error) throw new Error(error.message);
+        if (!data || typeof data !== 'object') throw new Error('No booking price preview returned');
+        const raw = data as Record<keyof BookingPricePreview, unknown>;
+        const readPaise = (value: unknown) => {
+          if (value == null || typeof value === 'boolean') throw new Error('The booking price preview is incomplete');
+          const amount = Number(value);
+          if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('The booking price preview is invalid');
+          return amount;
+        };
+        const preview = {
+          visit_fee: readPaise(raw.visit_fee),
+          platform_fee: readPaise(raw.platform_fee),
+          package_total: readPaise(raw.package_total),
+          total: readPaise(raw.total),
+          pay_now: readPaise(raw.pay_now),
+        };
+        if (active) setPricePreview(preview);
+      } catch (caught) {
+        if (active) setPriceError(caught instanceof Error ? caught.message : String(caught));
+      }
+    })();
     return () => {
       active = false;
     };

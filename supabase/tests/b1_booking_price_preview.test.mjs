@@ -65,17 +65,6 @@ await db.exec(prelude);
 for (const file of migrationFiles) {
   const sql = migration(file);
   try {
-    if (file === '0051_ai_usage_v3.sql') {
-      await db.exec(`
-        create table public.ai_usage (
-          id bigint generated always as identity primary key,
-          user_id uuid not null references public.profiles (id) on delete cascade,
-          kind text not null constraint ai_usage_kind_check check (kind in ('transcribe', 'voice_chat', 'photo')),
-          request_id uuid,
-          created_at timestamptz not null default now()
-        )
-      `);
-    }
     if (file === '0023_proposal_milestone_booking.sql') {
       const split = sql.indexOf('alter table public.categories');
       await db.exec(sql.slice(0, split));
