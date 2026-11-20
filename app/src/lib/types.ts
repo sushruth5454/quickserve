@@ -289,10 +289,17 @@ export interface Payment {
   amount: number;
   status: PaymentStatus;
   funding_source?: 'customer' | 'coins';
+  cancel_link_pending?: boolean;
+  schedule_id?: string | null;
   created_at: string;
   paid_at: string | null;
   /** Partial or full refunds queued against this payment. */
-  refunds?: { amount: number; status: 'pending' | 'processing' | 'refunded' | 'failed' }[];
+  refunds?: {
+    amount: number;
+    status: 'pending' | 'processing' | 'refunded' | 'failed';
+    created_at?: string | null;
+    processed_at?: string | null;
+  }[];
 }
 
 export interface Payout {

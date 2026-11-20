@@ -132,12 +132,83 @@ await db.query(`
   insert into public.payment_receipts (booking_id)
   values ($1::uuid)
 `, [receiptBookingId]);
-await db.exec(seed);
+const [recurringFixture] = (await db.query(`
+  select p.id as provider_id, ps.id as provider_service_id
+    from public.providers p
+    join auth.users pu on pu.id = p.id
+      and pu.raw_app_meta_data->>'demo_only' = 'true'
+      and pu.raw_user_meta_data->>'demo_only' = 'true'
+    join public.provider_services ps on ps.provider_id = p.id
+   where p.city = 'Vijayawada Demo'
+   limit 1
+`)).rows;
+if (!recurringFixture) throw new Error('demo recurring schedule fixture could not find demo participants');
+await db.query(`
+  update auth.users
+     set raw_user_meta_data = raw_user_meta_data - 'demo_only'
+   where id = $1::uuid
+`, [recurringFixture.provider_id]);
+const [providerFlagsBeforeReset] = (await db.query(`
+  select raw_app_meta_data ->> 'demo_only' as app_demo,
+         raw_user_meta_data ->> 'demo_only' as user_demo
+    from auth.users
+   where id = $1::uuid
+`, [recurringFixture.provider_id])).rows;
+const founderIdForSchedule = (await db.query(`
+  select id from auth.users where phone in ('919999999999', '+919999999999') limit 1
+`)).rows[0].id;
+const [recurringSchedule] = (await db.query(`
+  insert into public.recurring_schedules (
+    customer_id, provider_id, provider_service_id, weekdays, start_time,
+    session_duration_min, payment_mode, address_line, city, lat, lng, starts_on, description
+  )
+  values (
+    $1::uuid, $2::uuid, $3::uuid, array[1]::smallint[], $4::time,
+    $5::int, $6::text, $7::text, $8::text, $9::double precision,
+    $10::double precision, $11::date, $12::text
+  )
+  returning id
+`, [
+  founderIdForSchedule,
+  recurringFixture.provider_id,
+  recurringFixture.provider_service_id,
+  '09:00:00',
+  60,
+  'per_session',
+  'Demo home',
+  'Vijayawada Demo',
+  16.503,
+  80.645,
+  '2027-01-04',
+  'Recurring plan from a prior E2E run',
+])).rows;
+let resetError = null;
+try {
+  await db.exec(seed);
+} catch (error) {
+  resetError = error;
+  await db.exec('rollback');
+  await db.query(`delete from public.recurring_schedules where id = $1::uuid`, [recurringSchedule.id]);
+  await db.exec(seed);
+}
 const second = await db.query(countQuery);
 const demoReceiptsAfterReset = (await db.query(`
   select count(*)::int as count
     from public.payment_receipts
 `)).rows[0].count;
+const recurringSchedulesAfterReset = (await db.query(`
+  select count(*)::int as count
+    from public.recurring_schedules
+   where id = $1::uuid
+`, [recurringSchedule.id])).rows[0].count;
+const [remainingRecurringSchedule] = (await db.query(`
+  select r.provider_id, r.description,
+         u.raw_app_meta_data ->> 'demo_only' as provider_app_demo,
+         u.raw_user_meta_data ->> 'demo_only' as provider_user_demo
+    from public.recurring_schedules r
+    left join auth.users u on u.id = r.provider_id
+   where r.id = $1::uuid
+`, [recurringSchedule.id])).rows;
 const [demoProviders] = (await db.query(`
   select count(*)::int as providers,
          count(*) filter (where p.admin_review_status = 'approved')::int as approved,
@@ -171,6 +242,14 @@ ok(paymentReceiptTableAbsentBeforeSeed,
   'seed reset tolerates a migration chain without the B2 payment_receipts table');
 ok(demoReceiptsAfterReset === 0,
   'seed reset removes receipts attached to demo bookings before deleting those bookings');
+ok(resetError === null && recurringSchedulesAfterReset === 0,
+  `seed reset removes prior schedules for demo providers even when descriptions are unmarked: ${JSON.stringify({
+    recurringScheduleId: recurringSchedule.id,
+    remaining: recurringSchedulesAfterReset,
+    providerFlagsBeforeReset,
+    remainingRecurringSchedule: remainingRecurringSchedule ?? null,
+    resetError: resetError?.message ?? null,
+  })}`);
 ok(initial.demo_users >= 31, 'one synthetic provider exists for every configured demo category');
 ok(initial.provider_categories >= 31, 'one provider service exists for every configured demo category');
 ok(initial.packages >= 31 && initial.package_categories >= 31, 'every configured demo category has a package');
