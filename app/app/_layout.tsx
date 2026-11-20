@@ -61,10 +61,10 @@ function RootNavigator() {
   const inAuthGroup = segments[0] === '(auth)';
   // Public pages (safety, terms, privacy) are linked from the login screen.
   const onPublicPage = segments[0] === 'info' || segments[0] === 'byo';
-  const potentialGuestBrowseRoute = isBrowseRoute(segments) || isGuestGatedCustomerTab(segments);
+  const potentialGuestEntryRoute = isBrowseRoute(segments) || isGuestGatedCustomerTab(segments);
   const awaitingGuestFlag =
-    featureFlagsLoading && !signedIn && !inAuthGroup && !onPublicPage && potentialGuestBrowseRoute;
-  const canBrowseAsGuest = canGuestBrowse(guestBrowse, segments);
+    featureFlagsLoading && !signedIn && !inAuthGroup && !onPublicPage && potentialGuestEntryRoute;
+  const canEnterAsGuest = canGuestBrowse(guestBrowse, segments);
   const returnTo = safeReturnTo(currentPath) ? currentPath : '/';
 
   // Resolve the default-off flag before a guest browse deep link is redirected to login.
@@ -95,10 +95,10 @@ function RootNavigator() {
   // Signed out anywhere outside the auth screens (cold start on a deep link or "/", or right after logout):
   // the protected routes no longer match, so send the user to the login screen instead of "Unmatched Route".
   useEffect(() => {
-    if (!loading && !awaitingGuestFlag && !signedIn && !inAuthGroup && !onPublicPage && !canBrowseAsGuest) {
+    if (!loading && !awaitingGuestFlag && !signedIn && !inAuthGroup && !onPublicPage && !canEnterAsGuest) {
       router.replace({ pathname: '/login', params: { returnTo } });
     }
-  }, [loading, awaitingGuestFlag, signedIn, inAuthGroup, onPublicPage, canBrowseAsGuest, returnTo]);
+  }, [loading, awaitingGuestFlag, signedIn, inAuthGroup, onPublicPage, canEnterAsGuest, returnTo]);
 
   if (loading || awaitingGuestFlag) return <FullScreenLoader />;
   return (
@@ -114,32 +114,23 @@ function RootNavigator() {
         <Stack.Protected guard={!signedIn || choosingRole}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
+        <Stack.Protected guard={(signedIn && !choosingRole) || (!signedIn && canEnterAsGuest)}>
+          <Stack.Screen name="(customer)" options={{ animation: 'fade' }} />
+          <Stack.Screen name="category/[slug]" />
+          <Stack.Screen name="provider/[id]" />
+          <Stack.Screen name="top-rated" />
+          <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} />
+        </Stack.Protected>
         <Stack.Protected guard={signedIn && !choosingRole}>
           <Stack.Screen name="(provider)" options={{ animation: 'fade' }} />
-          {!guestBrowse ? <Stack.Screen name="(customer)" options={{ animation: 'fade' }} /> : null}
-          {!guestBrowse ? <Stack.Screen name="category/[slug]" /> : null}
-          {!guestBrowse ? <Stack.Screen name="provider/[id]" /> : null}
           <Stack.Screen name="book/[providerServiceId]" />
           <Stack.Screen name="booking/[id]" />
           <Stack.Screen name="chat/[bookingId]" />
           <Stack.Screen name="quote/[bookingId]" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="jobs" />
-          {!guestBrowse ? <Stack.Screen name="top-rated" /> : null}
-          {!guestBrowse ? <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} /> : null}
           <Stack.Screen name="assistant" />
         </Stack.Protected>
-        {guestBrowse ? (
-          <>
-            <Stack.Protected guard={(signedIn && !choosingRole) || (!signedIn && canBrowseAsGuest)}>
-              <Stack.Screen name="(customer)" options={{ animation: 'fade' }} />
-            </Stack.Protected>
-            <Stack.Screen name="category/[slug]" />
-            <Stack.Screen name="provider/[id]" />
-            <Stack.Screen name="top-rated" />
-            <Stack.Screen name="location" options={{ animation: 'slide_from_bottom' }} />
-          </>
-        ) : null}
         <Stack.Screen name="info/[topic]" />
         <Stack.Screen name="byo/[token]" />
       </Stack>
