@@ -13,6 +13,7 @@
   "creator_delivery_reminders": false,
   "creator_revisions": true,
   "fixed_asap": true,
+  "guest_browse": true,
   "home_no_show_reporting": false,
   "home_services_catalogue_v2": true,
   "merchant_calendar": true,

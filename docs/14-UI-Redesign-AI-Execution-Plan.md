@@ -850,6 +850,8 @@ Baseline screenshot artifact: *(Q-01 fills this)*
 
 **Latest fix-forward validation (2026-11-19):** Fix-forward commit `93f7cf0` passed lane CI `44639312164` and private `e2e-local` `44639312152` (162 screens, zero failures, two expected AI-dependent skips; normalized local versions `006000/006001` applied). It was fast-forwarded to main at `1885add`; backend deploy `44641076318` succeeded and hosted E2E `44641076647` passed. No app publish was triggered for this E2E/CI-only change. DB batch 5 remains unpushed pending its own combined CI and private E2E.
 
+**DB batch 5 private E2E `44643327590`:** Migration application and seed setup completed; lane CI `44643327608` passed. The smoke test failed eight cascading steps beginning with `proposal-flow-pro-offers-reel-maker`: its anonymous category read returned no `reel-maker` row, then proposal and provider/book-screen steps failed. Migration 0087 intentionally gates anonymous reads behind default-OFF `guest_browse`; the smoke flag manifest omitted it. Add `guest_browse: true` to `e2e/e2e-flags.json` (E2E-only override; production default remains OFF) and rerun the batch gates.
+
 ## 8. Definition of done (whole redesign)
 1. Every §4 task is merged with a green lane run, and the `main` E2E is green.
 2. All six flags were tested on and off, and the owner has enabled them in admin.
