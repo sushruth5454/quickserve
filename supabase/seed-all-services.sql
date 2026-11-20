@@ -79,7 +79,23 @@ begin
     $sql$;
   end if;
   if to_regclass('public.recurring_schedules') is not null then
-    execute 'delete from public.recurring_schedules where description like ''[DEMO ONLY]%''';
+    execute $sql$
+      delete from public.recurring_schedules r
+       where r.description like '[DEMO ONLY]%'
+          or exists (
+            select 1
+              from auth.users u
+             where (u.id = r.provider_id or u.id = r.customer_id)
+               and (
+                 coalesce(u.raw_app_meta_data ->> 'demo_only', '') = 'true'
+                 or coalesce(u.raw_user_meta_data ->> 'demo_only', '') = 'true'
+                 or u.id = any(array[
+                   pg_temp.demo_sid('provider:demo-home-tutor'),
+                   pg_temp.demo_sid('customer:demo-founder-address')
+                 ])
+               )
+          )
+    $sql$;
   end if;
   if to_regclass('public.pack_purchases') is not null then
     execute $sql$
