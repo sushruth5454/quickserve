@@ -30,7 +30,12 @@ export function renderAssignedBookings(venueName: string, venueBookings: SportsB
         {venueBookings.length === 0 ? (
           <EmptyState icon="calendar-outline" title="No bookings" message="Bookings for this venue will appear here." compact />
         ) : venueBookings.map((booking) => (
-          <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+          <Pressable
+            key={booking.id}
+            accessibilityRole="button"
+            accessibilityLabel={`View assigned sports booking for ${booking.customer_name || 'Customer'}, ${booking.activity_name}, ${booking.resource_name}, ${slotLabel(booking.starts_at)}`}
+            onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}
+          >
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
             <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} ·</Text>
             <Badge label={booking.status.toUpperCase()} tone={SPORTS_BOOKING_STATUS_TONES[booking.status] ?? 'neutral'} />
@@ -51,7 +56,12 @@ export function renderExistingBookings(bookings: SportsBookingRow[], error: stri
         {bookings.length === 0 ? (
           <EmptyState icon="calendar-outline" title="No existing bookings" message="Sports bookings will appear here." compact />
         ) : bookings.map((booking) => (
-          <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+          <Pressable
+            key={booking.id}
+            accessibilityRole="button"
+            accessibilityLabel={`View existing sports booking for ${booking.customer_name || 'Customer'}, ${booking.activity_name}, ${booking.resource_name}, ${slotLabel(booking.starts_at)}`}
+            onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}
+          >
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
             <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} ·</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap }}>
@@ -82,7 +92,12 @@ export function renderVenueBookingLists(
         {myRequests.length === 0 ? (
           <EmptyState icon="mail-outline" title="No pending requests" message="New customer requests will appear here." compact />
         ) : myRequests.map((booking) => (
-          <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+          <Pressable
+            key={booking.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Open booking request for ${booking.customer_name || 'Customer'}, ${booking.activity_name}, ${booking.resource_name}, ${slotLabel(booking.starts_at)}`}
+            onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}
+          >
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
             <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} · ₹{(booking.price_paise / 100).toFixed(2)} · Respond by opening request</Text>
           </Pressable>
@@ -93,7 +108,12 @@ export function renderVenueBookingLists(
         {upcomingBookings.length === 0 ? (
           <EmptyState icon="calendar-outline" title="No upcoming bookings" message="Confirmed and payment-due bookings will appear here." compact />
         ) : upcomingBookings.map((booking) => (
-          <Pressable key={booking.id} onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}>
+          <Pressable
+            key={booking.id}
+            accessibilityRole="button"
+            accessibilityLabel={`View upcoming sports booking for ${booking.customer_name || 'Customer'}, ${booking.activity_name}, ${booking.resource_name}, ${slotLabel(booking.starts_at)}`}
+            onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}
+          >
             <Text variant="footnoteStrong">{booking.customer_name || 'Customer'} · {booking.activity_name} / {booking.resource_name}</Text>
             <Text variant="caption" color="muted">{slotLabel(booking.starts_at)} ·</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap }}>

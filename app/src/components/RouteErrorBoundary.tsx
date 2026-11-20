@@ -1,5 +1,6 @@
 import type { ErrorBoundaryProps } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { lightPalette, typography } from '../theme';
 
 /**
  * Shown by Expo Router when a screen throws while rendering. Without it a published build shows a blank screen.
@@ -7,25 +8,26 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
  */
 export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, gap: 12, backgroundColor: '#ffffff' }}>
-      <Text style={{ fontSize: 20, fontWeight: '700', color: '#0f172a' }}>Something went wrong on this screen</Text>
-      <Text style={{ fontSize: 15, color: '#475569' }}>Please send a screenshot of this message to the QuickServe team.</Text>
-      <View style={{ padding: 12, borderRadius: 8, backgroundColor: '#f1f5f9' }}>
-        <Text selectable style={{ fontSize: 13, color: '#b91c1c' }}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, gap: 12, backgroundColor: lightPalette.surface }}>
+      <Text style={{ fontSize: typography.title2.fontSize, fontWeight: '700', color: lightPalette.text }}>Something went wrong on this screen</Text>
+      <Text style={{ fontSize: typography.callout.fontSize, color: lightPalette.textSecondary }}>Please send a screenshot of this message to the QuickServe team.</Text>
+      <View style={{ padding: 12, borderRadius: 8, backgroundColor: lightPalette.surfaceAlt }}>
+        <Text selectable style={{ fontSize: typography.footnote.fontSize, color: lightPalette.dangerText }}>
           {error?.message || String(error)}
         </Text>
         {error?.stack ? (
-          <Text selectable style={{ fontSize: 11, color: '#64748b', marginTop: 8 }} numberOfLines={12}>
+          <Text selectable style={{ fontSize: typography.micro.fontSize, color: lightPalette.muted, marginTop: 8 }} numberOfLines={12}>
             {error.stack}
           </Text>
         ) : null}
       </View>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Try again"
         onPress={() => void retry()}
-        style={{ minHeight: 48, borderRadius: 12, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}
+        style={{ minHeight: 48, borderRadius: 12, backgroundColor: lightPalette.primary, alignItems: 'center', justifyContent: 'center' }}
       >
-        <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>Try again</Text>
+        <Text style={{ color: lightPalette.onPrimary, fontSize: typography.button.fontSize, fontWeight: '600' }}>Try again</Text>
       </Pressable>
     </ScrollView>
   );

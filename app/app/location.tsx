@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Linking, Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { AddressEditorSheet, addressIcon } from '../src/components/AddressEditor';
 import { Card, Divider, Header, IconButton, InlineAlert, Input, LIST_INSET, Screen, Section, Skeleton, Text, useConfirm, useToast } from '../src/components/ui';
 import { deleteAddress, listMyAddresses } from '../src/lib/api';
@@ -235,7 +235,14 @@ export default function LocationPicker() {
             accent
             title={tr('location.current.title')}
             subtitle={locating ? tr('location.current.finding') : tr('location.current.usingGps')}
-            right={locating ? <ActivityIndicator color={t.colors.primary} /> : null}
+            right={
+              locating ? (
+                <View style={{ width: 56, gap: t.spacing.xs }}>
+                  <Skeleton width="100%" height={8} />
+                  <Skeleton width="70%" height={8} />
+                </View>
+              ) : null
+            }
             selected={location.source === 'gps'}
             onPress={() => void useGps()}
           />

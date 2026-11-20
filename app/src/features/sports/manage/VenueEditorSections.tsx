@@ -13,7 +13,13 @@ export function renderVenueSwitcher(state: ManagementState, spacing: Spacing) {
       <Text variant="subheadStrong">Your venues</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {state.venues.map((item) => (
-          <Pressable key={item.venue.id} onPress={() => state.setSelectedId(item.venue.id)}>
+          <Pressable
+            key={item.venue.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Select venue ${item.venue.name}, ${item.venue.status}`}
+            accessibilityState={{ selected: item.venue.id === state.selectedId }}
+            onPress={() => state.setSelectedId(item.venue.id)}
+          >
             <Card padding={spacing.md} variant={item.venue.id === state.selectedId ? 'tinted' : 'outlined'}>
               <Text variant="footnoteStrong">{item.venue.name}</Text>
               <Badge
@@ -83,6 +89,7 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
           <Text variant="subheadStrong">Accepted payment modes</Text>
           <Pressable
             accessibilityRole="checkbox"
+            accessibilityLabel="Pay at venue"
             accessibilityState={{ checked: paymentModes.includes('pay_at_venue') }}
             onPress={() => actions.togglePaymentMode('pay_at_venue')}
           >
@@ -103,6 +110,7 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
           {settingsVisibility.showOnlinePaymentOption ? (
             <Pressable
               accessibilityRole="checkbox"
+              accessibilityLabel="Pay online"
               accessibilityState={{ checked: paymentModes.includes('online'), disabled: !settingsVisibility.canSelectOnlinePayment }}
               disabled={!settingsVisibility.canSelectOnlinePayment}
               onPress={() => actions.togglePaymentMode('online')}
