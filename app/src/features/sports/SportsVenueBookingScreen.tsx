@@ -5,6 +5,7 @@ import { Pressable, View } from 'react-native';
 import { PriceFooter } from '../../components/market/PriceFooter';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import { useT } from '../../i18n';
+import { requireSignIn } from '../../lib/authGate';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
@@ -27,6 +28,7 @@ import {
   isSportsSlotTakenError,
   slotCellState,
 } from './model';
+import { sportsVenueBookingReturnTo } from './bookingPresentation';
 
 function indiaDate(offsetDays = 0) {
   const date = new Date(Date.now() + offsetDays * 86400000);
@@ -175,6 +177,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
 
   const book = async () => {
     if (!resource || !selectedStart || durationOptions.length === 0 || !availablePaymentModes.includes(selectedPaymentMode) || loading) return;
+    if (!(await requireSignIn(sportsVenueBookingReturnTo(venueId)))) return;
     setLoading(true);
     setError(null);
     try {
