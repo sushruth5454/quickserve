@@ -1,6 +1,6 @@
 # QuickServe — Product Requirements Document (PRD)
 
-> Working name: **QuickServe**. Version 1.0 (MVP). Owner: founder. Status: Draft for build.
+> Working name: **QuickServe**. Version 1.0 (MVP). Owner: founder. Status: Approved for implementation (2026-11-18); production launch gates remain tracked in docs/14 and docs/17.
 > Platforms: Android (Play Store) + iOS (App Store) from one codebase.
 
 ---
