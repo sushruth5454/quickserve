@@ -401,6 +401,8 @@ WPs without migrations (T1, T2, X2, F8) merge whenever they are green; U1 merges
 
 Manual verification log (device, OS, date, result): SMS OTP · push delivery · Razorpay test-mode checkout on Android and iPhone.
 
+**Current validation (2026-11-20):** Main backend deploy `44751250534` and hosted E2E `44752216574` succeeded. The two-pass smoke run completed Pass A (134 screens, 0 failed steps; 1 non-blocking AI soft-fail) and Pass B (167 screens, 0 failed steps); no HTTP 403s were observed, and OTP/feature-flag restoration plus QA cleanup passed. The AI draft/review path remains unvalidated after the Pass A soft-fail; manual device verification and owner-blocked F8 checkout remain open.
+
 ## 8. Definition of done (whole remediation)
 1. All G1 and G2 WPs are merged with green lanes, and `main` E2E plus the F8 payment lane are green.
 2. Every doc 15 P0 and P1 marked G1/G2 is closed with a named test, recorded in the appendix status columns by the integrator.
