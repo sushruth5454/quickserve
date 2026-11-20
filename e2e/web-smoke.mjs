@@ -198,7 +198,7 @@ await step('login-help-link', async () => {
   await go('/login');
 });
 await step('login', async () => {
-  await go('/');
+  await go('/login');
   await page.getByLabel('Mobile number, India plus 91').fill(PHONE);
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
