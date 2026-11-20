@@ -8,6 +8,7 @@ import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/u
 import { isDemoMode, sendOtp } from '../../src/lib/api';
 import { authErrorMessage } from '../../src/lib/authErrors';
 import { useT } from '../../src/i18n';
+import { safeReturnTo } from '../../src/lib/authGate';
 import { useTheme } from '../../src/theme';
 import { normalizeIndianPhone } from '../../src/lib/phone';
 
@@ -19,7 +20,8 @@ export default function LoginScreen() {
   const t = useTheme();
   const tr = useT();
   const insets = useSafeAreaInsets();
-  const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
+  const { inviteToken, returnTo } = useLocalSearchParams<{ inviteToken?: string; returnTo?: string }>();
+  const safePath = safeReturnTo(returnTo) ? returnTo : undefined;
   const [digits, setDigits] = useState('');
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,9 +45,14 @@ export default function LoginScreen() {
     setError(null);
     try {
       await sendOtp(e164);
-      router.push(inviteToken
-        ? { pathname: '/verify', params: { phone: e164, inviteToken } }
-        : { pathname: '/verify', params: { phone: e164 } });
+      router.push({
+        pathname: '/verify',
+        params: {
+          phone: e164,
+          ...(inviteToken ? { inviteToken } : {}),
+          ...(safePath ? { returnTo: safePath } : {}),
+        },
+      });
     } catch (e) {
       setError(authErrorMessage(e as Error));
     } finally {
