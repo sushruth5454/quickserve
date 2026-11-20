@@ -6,6 +6,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 API_BASE = os.environ.get("SUPABASE_MGMT_URL", "https://api.supabase.com")
@@ -144,20 +145,21 @@ def get_auth_config():
     config = request_json("GET", "config/auth")
     if not isinstance(config, dict) or not isinstance(config.get("sms_test_otp"), str):
         fail("Auth config does not contain a string sms_test_otp setting")
+    if not isinstance(config.get("sms_test_otp_valid_until"), str) or not config["sms_test_otp_valid_until"]:
+        fail("Auth config does not contain sms_test_otp_valid_until; refusing temporary OTP changes")
     return config
 
 
 def prepare():
     _, _, phone = environment()
     ensure_guest_phone_is_distinct(phone)
-    reset_test_user()
-    config = get_auth_config()
     if STATE.exists():
         fail("guest OTP snapshot already exists")
-    state = {"sms_test_otp": config["sms_test_otp"]}
-    if "sms_test_otp_valid_until" in config:
-        state["sms_test_otp_valid_until"] = config["sms_test_otp_valid_until"]
-    STATE.write_text(json.dumps(state), encoding="utf-8")
+    config = get_auth_config()
+    state = {
+        "sms_test_otp": config["sms_test_otp"],
+        "sms_test_otp_valid_until": config["sms_test_otp_valid_until"],
+    }
 
     entries = [entry.strip() for entry in config["sms_test_otp"].split(",") if entry.strip()]
     updated = []
@@ -175,17 +177,27 @@ def prepare():
     if not found:
         updated.append(f"{phone}={TEST_OTP}")
     new_value = ",".join(updated)
-    if new_value != config["sms_test_otp"]:
-        request_json("PATCH", "config/auth", {"sms_test_otp": new_value})
+    temporary_valid_until = (
+        (datetime.now(timezone.utc) + timedelta(hours=2))
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    STATE.write_text(json.dumps(state), encoding="utf-8")
+    reset_test_user()
+    request_json("PATCH", "config/auth", {
+        "sms_test_otp": new_value,
+        "sms_test_otp_valid_until": temporary_valid_until,
+    })
     current = get_auth_config()
     configured = any(
         re.sub(r"\D", "", entry.partition("=")[0]) == phone
         and entry.partition("=")[2].strip() == TEST_OTP
         for entry in current["sms_test_otp"].split(",")
     )
-    if not configured:
+    if not configured or current["sms_test_otp_valid_until"] != temporary_valid_until:
         request_json("PATCH", "config/auth", state)
-        fail("guest test OTP entry was not persisted")
+        fail("temporary guest OTP mapping or expiry was not persisted; original settings restored")
     print("guest-otp: DEMO test account reset and temporary SMS test OTP enabled")
 
 

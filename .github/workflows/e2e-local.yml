@@ -77,6 +77,58 @@ jobs:
           SUPABASE_MGMT_URL: http://127.0.0.1:54399
         run: python3 scripts/ci/e2e-flags.py pin
 
+      - name: Prepare guest OTP helper state against local Management API
+        id: guest_otp_prepare
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          E2E_CUSTOMER_PHONE: '9999999999'
+          NEW_PRO_PHONE: '9000000301'
+          ADMIN_E2E_PHONE: '9000000901'
+          GUEST_E2E_PHONE: '9000000999'
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py prepare
+
+      - name: Restore guest OTP helper state
+        if: always() && steps.guest_otp_prepare.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          GUEST_E2E_PHONE: '9000000999'
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py restore
+
+      - name: Verify guest OTP helper state restoration
+        if: always() && steps.guest_otp_prepare.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          GUEST_E2E_PHONE: '9000000999'
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py verify
+
+      - name: Clean up local guest OTP test account
+        if: always() && steps.guest_otp_prepare.outcome == 'success'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          GUEST_E2E_PHONE: '9000000999'
+        run: python3 scripts/ci/e2e-guest-otp.py cleanup
+
+      - name: Remove local guest OTP snapshot
+        if: always()
+        env:
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: rm -f "$GUEST_OTP_STATE"
+
       - name: Run smoke test
         working-directory: e2e
         env:
