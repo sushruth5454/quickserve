@@ -28,12 +28,45 @@ def environment():
     raw_phone = os.environ.get("GUEST_E2E_PHONE", "")
     if not token or not project or not raw_phone:
         fail("SUPABASE_ACCESS_TOKEN, PROJECT_REF, and GUEST_E2E_PHONE are required")
-    digits = re.sub(r"\D", "", raw_phone)
+    raw_phone = raw_phone.strip()
+    if not re.fullmatch(r"\+?[0-9\s()-]+", raw_phone):
+        fail("GUEST_E2E_PHONE must contain only a phone number and common separators")
+    digits = re.sub(r"[\s()-]", "", raw_phone)
+    if digits.startswith("+"):
+        digits = digits[1:]
     if len(digits) == 10:
         digits = "91" + digits
     if not re.fullmatch(r"91[6-9]\d{9}", digits):
         fail("GUEST_E2E_PHONE must be a 10-digit Indian mobile or 91-prefixed test number")
     return token, project, digits
+
+
+def sql_literal(value):
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def normalized_role_phone(raw_phone):
+    digits = re.sub(r"\D", "", raw_phone or "")
+    if len(digits) == 10:
+        return "91" + digits
+    if re.fullmatch(r"91[6-9]\d{9}", digits):
+        return digits
+    return None
+
+
+def ensure_guest_phone_is_distinct(guest_phone):
+    roles = {
+        "E2E_CUSTOMER_PHONE": os.environ.get("E2E_CUSTOMER_PHONE", "9999999999"),
+        "NEW_PRO_PHONE": os.environ.get("NEW_PRO_PHONE", "9000000301"),
+        "ADMIN_E2E_PHONE": os.environ.get("ADMIN_E2E_PHONE", ""),
+        "RAVI_SIGN_IN": "+919000000101",
+    }
+    collisions = sorted(
+        role for role, value in roles.items()
+        if normalized_role_phone(value) == guest_phone
+    )
+    if collisions:
+        fail(f"GUEST_E2E_PHONE must be distinct from other OTP roles: {', '.join(collisions)}")
 
 
 def request_json(method, path, body=None):
@@ -79,11 +112,12 @@ def database_query(sql):
 
 def reset_test_user():
     _, _, phone = environment()
+    phone_literals = f"{sql_literal(phone)}, {sql_literal('+' + phone)}"
     rows = database_query(
         "select u.id, exists (select 1 from public.bookings b "
         "where b.customer_id = u.id or b.provider_id = u.id) as has_bookings, "
         "exists (select 1 from public.admins a where a.user_id = u.id) as is_admin "
-        f"from auth.users u where u.phone in ('{phone}', '+{phone}')"
+        f"from auth.users u where u.phone in ({phone_literals})"
     )
     if not isinstance(rows, list):
         fail("guest test-account query returned an unexpected shape")
@@ -96,11 +130,11 @@ def reset_test_user():
     if has_bookings or is_admin:
         fail("guest test account has bookings or admin membership; refusing to delete it")
     user_id = rows[0].get("id", "")
-    if not re.fullmatch(r"[0-9a-fA-F-]{36}", str(user_id)):
+    if not re.fullmatch(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}", str(user_id)):
         fail("guest test-account query returned an invalid user id")
-    database_query(f"delete from auth.users where id = '{user_id}'")
+    database_query(f"delete from auth.users where id = {sql_literal(user_id)}")
     remaining = database_query(
-        f"select count(*)::int as count from auth.users where phone in ('{phone}', '+{phone}')"
+        f"select count(*)::int as count from auth.users where phone in ({phone_literals})"
     )
     if not isinstance(remaining, list) or not remaining or int(remaining[0].get("count", -1)) != 0:
         fail("guest test account could not be reset")
@@ -115,6 +149,7 @@ def get_auth_config():
 
 def prepare():
     _, _, phone = environment()
+    ensure_guest_phone_is_distinct(phone)
     reset_test_user()
     config = get_auth_config()
     if STATE.exists():
@@ -142,6 +177,15 @@ def prepare():
     new_value = ",".join(updated)
     if new_value != config["sms_test_otp"]:
         request_json("PATCH", "config/auth", {"sms_test_otp": new_value})
+    current = get_auth_config()
+    configured = any(
+        re.sub(r"\D", "", entry.partition("=")[0]) == phone
+        and entry.partition("=")[2].strip() == TEST_OTP
+        for entry in current["sms_test_otp"].split(",")
+    )
+    if not configured:
+        request_json("PATCH", "config/auth", state)
+        fail("guest test OTP entry was not persisted")
     print("guest-otp: DEMO test account reset and temporary SMS test OTP enabled")
 
 

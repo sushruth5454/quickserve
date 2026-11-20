@@ -34,7 +34,7 @@ jobs:
 
       - name: Start local Supabase (migrations + demo seeds)
         env:
-          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+          GUEST_E2E_PHONE: '9000000999' # local-only synthetic phone; no repository secret
         run: bash scripts/ci/local-supabase.sh
 
       - name: Install app dependencies (public npm, same as e2e-web)
@@ -89,7 +89,7 @@ jobs:
           SUPABASE_MGMT_URL: http://127.0.0.1:54399
           E2E_AI_UNAVAILABLE: '1'
           NEW_PRO_PHONE: '9000000301'
-          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+          GUEST_E2E_PHONE: '9000000999'
           QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
           E2E_FLAGS: 'on'
         run: SUPABASE_URL="$LOCAL_API_URL" SUPABASE_ANON_KEY="$LOCAL_ANON_KEY" node web-smoke.mjs

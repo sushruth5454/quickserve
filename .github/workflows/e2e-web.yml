@@ -271,6 +271,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
           DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          E2E_CUSTOMER_PHONE: '9999999999'
+          NEW_PRO_PHONE: '9000000301'
+          ADMIN_E2E_PHONE: ${{ secrets.ADMIN_E2E_PHONE }}
           GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
           GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-snapshot.json
         run: python3 scripts/ci/e2e-guest-otp.py prepare
