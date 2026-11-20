@@ -628,13 +628,28 @@ await step('unified-search-flag', async () => {
     })}`);
   }
   await go('/search');
-  const body = await page.locator('body').innerText();
-  if (E2E_FLAGS_ON ? !body.includes('Type at least 2 letters') : !/not available right now/i.test(body)) {
-    throw new Error(`unified_search route did not match this pass: ${JSON.stringify({
-      expected: E2E_FLAGS_ON ? 'search input with minimum-length hint' : 'feature-off message',
-      actual: body,
-      url: page.url(),
-    })}`);
+  if (E2E_FLAGS_ON) {
+    const body = await page.locator('body').innerText();
+    if (!body.includes('Type at least 2 letters')) {
+      throw new Error(`unified_search route did not match this pass: ${JSON.stringify({
+        expected: 'search input with minimum-length hint',
+        actual: body,
+        url: page.url(),
+      })}`);
+    }
+  } else {
+    const actualPath = new URL(page.url()).pathname;
+    const legacyHome = await page.locator('body').innerText();
+    const legacyHomeVisible = legacyHome.includes('Choose a category');
+    if (actualPath !== '/' || !legacyHomeVisible) {
+      throw new Error(`unified_search OFF did not safely fall back to the legacy home: ${JSON.stringify({
+        expectedPath: '/',
+        actualPath,
+        expectedLegacyHomeVisible: true,
+        legacyHomeVisible,
+        body: legacyHome,
+      })}`);
+    }
   }
   await go('/');
 });
@@ -775,6 +790,8 @@ const iso = (days) => new Date(Date.now() + days * 86400000).toISOString();
 let proToken = null;
 let proReelServiceId = null;
 let briefRequestId = null;
+let proposalSent = false;
+let proposalCompared = false;
 let qaApprovalShopId = null;
 let qaApprovalShopName = null;
 let qaApprovalSkipReason = null;
@@ -789,7 +806,8 @@ async function asPro(path, body, method = 'POST') {
 }
 await step('proposal-flow-pro-offers-reel-maker', async () => {
   proToken = await signInAs(RAVI_E2E_PHONE);
-  const [reel] = await rest('categories?select=id&slug=eq.reel-maker');
+  const [reel] = await asPro('/rest/v1/categories?select=id&slug=eq.reel-maker', null, 'GET');
+  if (!reel?.id) throw new Error('authenticated category query did not find reel-maker');
   await asPro('/functions/v1/provider-service', {
     action: 'save_service', categoryId: reel.id, skillLevel: 'expert', visitFee: 0, labourRate: 100000, rateUnit: 'job',
     specialisations: [], brands: [], tools: [], attributes: { styles: ['cinematic', 'fast-cut'] },
@@ -829,6 +847,9 @@ await step('phase-7a-owner-submits-shop', async () => {
   }
 });
 await step('proposal-flow-customer-sends-brief', async () => {
+  if (!proReelServiceId) {
+    throw new Error(`reel-maker service was not created for the proposal flow: ${JSON.stringify({ proReelServiceId })}`);
+  }
   // The test pro works in Vijayawada; requests are routed only within the request's city.
   await go('/location');
   await page.getByText(/^Flat 302, Sri Sai Residency/).first().click();
@@ -849,6 +870,9 @@ await step('proposal-flow-customer-sends-brief', async () => {
   await visible('Waiting for proposals');
 });
 await step('proposal-flow-pro-sends-proposal', async () => {
+  if (!briefRequestId) {
+    throw new Error(`customer brief was not created; not sending a proposal: ${JSON.stringify({ briefRequestId })}`);
+  }
   const inbox = await asPro('/rest/v1/service_request_provider_view?select=id&id=eq.' + briefRequestId, null, 'GET');
   if (inbox.length !== 1) throw new Error('targeted creator did not receive the brief');
   await asPro('/rest/v1/rpc/send_proposal', {
@@ -862,8 +886,12 @@ await step('proposal-flow-pro-sends-proposal', async () => {
     p_note: `${QA_MARKER} fixed proposal`,
     p_deliverables: [{ type: 'edited_reel', qty: 1, spec: '30s vertical 1080p with captions' }],
   });
+  proposalSent = true;
 });
 await step('proposal-flow-customer-compares', async () => {
+  if (!proposalSent || !briefRequestId) {
+    throw new Error(`proposal comparison prerequisites are missing: ${JSON.stringify({ proposalSent, briefRequestId })}`);
+  }
   await go(`/request/${briefRequestId}`);
   await page.getByText('₹12,000', { exact: true }).first().waitFor();
   await page.getByText('Compare proposal', { exact: true }).first().click();
@@ -872,8 +900,12 @@ await step('proposal-flow-customer-compares', async () => {
   await page.getByText('Payment milestones', { exact: true }).last().waitFor({ state: 'visible' });
   await visible('Booking advance');
   await page.getByText(/30s vertical 1080p|edited_reel/i).first().waitFor();
+  proposalCompared = true;
 });
 await step('proposal-flow-accept-and-checkout', async () => {
+  if (!proposalCompared) {
+    throw new Error(`proposal was not compared; checkout cannot continue: ${JSON.stringify({ proposalCompared })}`);
+  }
   await page.getByText(/^Accept & reserve · ₹/).first().click();
   await visible('Secure checkout');
   await page.getByText(/^Pay ₹/).last().click();
@@ -910,13 +942,17 @@ await step('provider-detail', async () => {
   await visible('Ratings & reviews');
 });
 await optional('provider-detail-scrolled', () => snapScrolled('provider-detail-scrolled', 900));
-const fixedServiceRows = await rest(`provider_services?select=id,provider_id,categories(slug,archetype)&id=eq.${DEMO_IDS.fixedService}&active=eq.true`).catch(() => []);
 await step('provider-detail-fixed-service-routes-to-packages', async () => {
+  const fixedServiceRows = await asPro(
+    `/rest/v1/provider_services?select=id,provider_id,categories(slug,archetype)&id=eq.${DEMO_IDS.fixedService}&active=eq.true`,
+    null,
+    'GET',
+  );
   const fixedService = fixedServiceRows[0];
   if (!fixedService?.provider_id || !fixedService.categories?.slug) {
-    throw new Error(`seeded fixed service is unavailable: ${JSON.stringify(fixedService)}`);
+    throw new Error(`seeded fixed service is unavailable: ${JSON.stringify({ fixedServiceRows })}`);
   }
-  const providerServices = await rest(`provider_services?select=id,categories(archetype)&provider_id=eq.${fixedService.provider_id}&active=eq.true`);
+  const providerServices = await asPro(`/rest/v1/provider_services?select=id,categories(archetype)&provider_id=eq.${fixedService.provider_id}&active=eq.true`, null, 'GET');
   if (
     fixedService.categories.archetype !== 'fixed' ||
     providerServices.length !== 1 ||
@@ -934,9 +970,13 @@ await step('provider-detail-fixed-service-routes-to-packages', async () => {
   await page.waitForURL(new RegExp(`/category/${fixedService.categories.slug}(?:\\?|$)`));
   await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
 });
-const raviServices = await rest(`provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`).catch(() => []);
 await step('book-screen', async () => {
-  if (!raviServices[0]) throw new Error('no active service for Ravi');
+  const raviServices = await asPro(
+    `/rest/v1/provider_services?select=id&provider_id=eq.${RAVI}&active=eq.true&limit=1`,
+    null,
+    'GET',
+  );
+  if (!raviServices[0]) throw new Error(`no active service for Ravi: ${JSON.stringify({ raviServices })}`);
   await go(`/book/${raviServices[0].id}`);
   await page.getByText(/& book$/).first().waitFor();
   await visible('Price details');
