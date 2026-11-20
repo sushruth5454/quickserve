@@ -830,8 +830,8 @@ All Phase 3 ──► Q-02, Q-03 ──► P2-01 ──► Q-04 ──► T-99
 | M-01 | implementation green on `lane/M-01` @ `51b89b7`; token/badge/empty-state update only; batch CI `44533768870` and E2E `44533768761` passed; merged to main at `1d35ca6`; main app publish `44536124524` and E2E `44536124440` passed | 5e80191a-2264-4c9a-b9d7-1ac9a47e6ecb | 44505210511 (lane CI green); 44533768870 (batch CI green); 44533768761 (batch E2E green); 44536124524 (main app publish green); 44536124440 (main E2E green) | `1d35ca6` (`51b89b7` source) |
 | M-02 | sports-manage styling merged to main in UI batch 5 code commit `33aa68e`; stacked on R-06; lane CI `44577045674`, batch CI `44577803660`, batch E2E `44577803169`, main app publish `44581222193`, and main E2E `44581222188` all passed | e11f6c73-d4d7-4548-9e97-5decf7667f22 | 44577045674 (lane CI); 44577803660 (batch CI); 44577803169 (batch E2E); 44581222193 (main publish); 44581222188 (main E2E) | `33aa68e` |
 | M-03 | merged; lane CI green; E2E queued | 53f643d6-ed52-4e6d-b3f5-f84edbd0a207 | 44411999739 (green); 44411999701 (E2E pending) | 061d55b (lane 53c5bd9) |
-| Q-02 | Unblocked: all covered Phase 3 tasks, including G-01, are merged to main. Ready to implement the six-flag off/on passes and G-01 guest journey; hosted dual-pass validation remains pending | — | — | — |
-| Q-03 | Unblocked: all Phase 3 tasks, including G-01, are merged to main. Ready to add the redesign lint and ongoing lane gate using baseline `1586a09` | — | — | — |
+| Q-02 | In progress on `lane/Q-02`: six-flag off/on passes and G-01 guest journey; integrator owns hosted `e2e-web.yml` snapshot/off/on/restore; private `e2e-local` gate pending | bbf4a85a-7a6c-4d43-a871-79f9fc21ddc1 | Lane CI pending | — |
+| Q-03 | In progress on `lane/Q-03`: redesign lint and ongoing lane gate using baseline `1586a09`; integrator owns `lane-ci.yml` registration | 713844cf-f2f5-45ff-9326-38622adde27a | Lane CI pending | — |
 | P2-01 | blocked by Q-03 | — | — | — |
 | Q-04 | blocked by all; requires 3-device checklist on EAS preview | — | — | — |
 | T-99 | blocked by all | integrator | — | — |
