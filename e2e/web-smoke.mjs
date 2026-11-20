@@ -29,7 +29,11 @@ const consoleErrors = [];
 const failures = [];
 const softFailures = [];
 const skippedSteps = [];
+const blockedSteps = [];
 let shot = 0;
+let guestBookBoundaryPassed = false;
+let guestVenuePath = null;
+let guestVenueName = null;
 const otpCooldownPath = `${SHOTS}/otp-cooldowns.json`;
 let otpCooldowns = {};
 if (existsSync(otpCooldownPath)) {
@@ -320,6 +324,14 @@ function skipStep(name, reason) {
   console.log(`  SKIPPED: ${reason}`);
 }
 
+function blockStep(name, reason) {
+  const message = `${name}: ${reason}`;
+  skippedSteps.push(message);
+  blockedSteps.push(message);
+  console.warn(`  SKIPPED: BLOCKED: ${reason}`);
+  console.warn(`::warning::BLOCKED ${message}`);
+}
+
 // ---------- Auth (per-phone OTP cooldown state is shared between the two E2E passes) ----------
 await step('login-help-link', async () => {
   await go('/login');
@@ -347,8 +359,7 @@ if (E2E_FLAGS_ON) {
     }
   }, guestPage);
 
-  await step('guest-sports-book-login-role-return', async () => {
-    const guestPhone = getGuestE2ePhone();
+  await step('guest-sports-browse-book-login-boundary', async () => {
     await goOn(guestPage, '/');
     await guestPage.getByText(/Search services, shops, venues/).first().waitFor({ state: 'visible' });
     await guestPage.getByText('Sports & venues', { exact: true }).first().click();
@@ -444,23 +455,44 @@ if (E2E_FLAGS_ON) {
         body: await guestPage.locator('body').innerText(),
       })}`);
     }
-
-    await sendOtpFromUi(guestPage, guestPhone, 'G-01 guest');
-    await guestPage.getByLabel('6-digit verification code').fill(OTP);
-    await guestPage.waitForURL((url) => new URL(url).pathname === '/role');
-    await guestPage.getByText('Welcome to QuickServe', { exact: true }).waitFor({ state: 'visible' });
-    await guestPage.getByRole('radio', { name: /^I need a service\./ }).click();
-    await guestPage.getByText('Continue', { exact: true }).last().click();
-    await guestPage.waitForURL((url) => new URL(url).pathname === venuePath);
-    const actualVenueVisible = await guestPage.getByText(venueName, { exact: true }).first().isVisible().catch(() => false);
-    if (!actualVenueVisible) {
-      throw new Error(`customer role did not return to the sports venue: ${JSON.stringify({
-        expectedPath: venuePath,
-        url: guestPage.url(),
-        body: await guestPage.locator('body').innerText(),
-      })}`);
-    }
+    guestVenueName = venueName;
+    guestVenuePath = venuePath;
+    guestBookBoundaryPassed = true;
   }, guestPage);
+
+  if (!GUEST_E2E_PHONE) {
+    const boundaryNote = guestBookBoundaryPassed
+      ? ''
+      : 'The guest Book-to-login boundary also failed. ';
+    blockStep(
+      'guest-otp-customer-role-return',
+      `${boundaryNote}Owner action: add a dedicated fresh test-only phone to Supabase sms_test_otp and provide it as GUEST_E2E_PHONE.`,
+    );
+  } else if (!guestBookBoundaryPassed) {
+    blockStep(
+      'guest-otp-customer-role-return',
+      'The guest Book-to-login boundary did not pass; the customer OTP/role/return substep is blocked until that boundary passes.',
+    );
+  } else {
+    await step('guest-otp-customer-role-return', async () => {
+      const guestPhone = getGuestE2ePhone();
+      await sendOtpFromUi(guestPage, guestPhone, 'G-01 guest');
+      await guestPage.getByLabel('6-digit verification code').fill(OTP);
+      await guestPage.waitForURL((url) => new URL(url).pathname === '/role');
+      await guestPage.getByText('Welcome to QuickServe', { exact: true }).waitFor({ state: 'visible' });
+      await guestPage.getByRole('radio', { name: /^I need a service\./ }).click();
+      await guestPage.getByText('Continue', { exact: true }).last().click();
+      await guestPage.waitForURL((url) => new URL(url).pathname === guestVenuePath);
+      const actualVenueVisible = await guestPage.getByText(guestVenueName, { exact: true }).first().isVisible().catch(() => false);
+      if (!actualVenueVisible) {
+        throw new Error(`customer role did not return to the sports venue: ${JSON.stringify({
+          expectedPath: guestVenuePath,
+          url: guestPage.url(),
+          body: await guestPage.locator('body').innerText(),
+        })}`);
+      }
+    }, guestPage);
+  }
 } else {
   await step('guest-browse-off-gate', async () => {
     await goOn(guestPage, '/');
@@ -1508,11 +1540,25 @@ await step('admin-feature-registry', async () => {
 
 await browser.close();
 
-writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ failures, softFailures, skippedSteps, pageErrors, consoleErrors }, null, 2));
-console.log(`\nScreens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, skipped steps: ${skippedSteps.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
+const guestOtpBlocked = blockedSteps.some((blocked) => blocked.startsWith('guest-otp-customer-role-return:'));
+const guestJourneyFailed = failures.some((failure) =>
+  failure.startsWith('guest-sports-browse-book-login-boundary:')
+  || failure.startsWith('guest-otp-customer-role-return:'),
+);
+const guestJourneyStatus = !E2E_FLAGS_ON
+  ? 'NOT_APPLICABLE'
+  : guestOtpBlocked
+    ? 'BLOCKED'
+    : guestJourneyFailed
+      ? 'FAILED'
+      : 'PASS';
+const status = failures.length || pageErrors.length ? 'FAILED' : blockedSteps.length ? 'BLOCKED' : 'PASS';
+writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ status, guestJourneyStatus, failures, softFailures, skippedSteps, blockedSteps, pageErrors, consoleErrors }, null, 2));
+console.log(`\nQ-02 status: ${status}; G-01 guest journey: ${guestJourneyStatus}; screens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, skipped steps: ${skippedSteps.length}, blocked steps: ${blockedSteps.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
 for (const f of failures) console.log(`FAIL ${f}`);
 for (const f of softFailures) console.log(`SOFT FAIL ${f}`);
 for (const s of skippedSteps) console.log(`SKIP ${s}`);
+for (const b of blockedSteps) console.log(`BLOCKED ${b}`);
 for (const e of pageErrors) console.log(`PAGEERROR ${e}`);
 for (const e of consoleErrors) console.log(`CONSOLE ${e}`);
-process.exit(failures.length || pageErrors.length ? 1 : 0);
+process.exit(status === 'PASS' ? 0 : 1);
