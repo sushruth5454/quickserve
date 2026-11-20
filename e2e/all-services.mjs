@@ -44,6 +44,41 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     await page.getByLabel('Demo data only. No real payments.').first().waitFor();
   });
 
+  await step('booking-steps-flag', async () => {
+    const appFeaturesResponsePromise = page.waitForResponse((response) =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features'),
+    );
+    await go(`/book-fixed/${DEMO_IDS.fixedService}`);
+    const response = await appFeaturesResponsePromise;
+    if (!response.ok()) {
+      throw new Error(`get_app_features failed while checking booking_steps (${response.status()}): ${await response.text()}`);
+    }
+    const appFeatures = await response.json();
+    const actualFlag = appFeatures?.booking_steps === true;
+    if (actualFlag !== E2E_FLAGS_ON) {
+      throw new Error(`booking_steps app flag did not match this pass: ${JSON.stringify({
+        expected: E2E_FLAGS_ON,
+        actual: appFeatures?.booking_steps,
+        appFeatures,
+        url: page.url(),
+      })}`);
+    }
+    await visible('Book a package');
+    const stepIndicator = page.getByRole('progressbar').first();
+    if (E2E_FLAGS_ON) {
+      await stepIndicator.waitFor({ state: 'visible' });
+    } else if (await stepIndicator.isVisible().catch(() => false)) {
+      throw new Error(`booking_steps OFF rendered a step indicator: ${JSON.stringify({
+        expectedVisible: false,
+        actualVisible: true,
+        appFeatures,
+        url: page.url(),
+        body: await page.locator('body').innerText(),
+      })}`);
+    }
+  });
+
   await step('archetype-inspect-quote-browse-and-quote', async () => {
     await go('/category/ac-repair?name=AC%20Repair');
     await page.getByText('Ravi Demo Kumar', { exact: true }).first().waitFor();
@@ -65,15 +100,7 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     // The category screen stays mounted (hidden) on web, so match only the visible copy of shared text.
     await page.locator('text="Book package" >> visible=true').first().waitFor();
     await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
-    const stepIndicatorVisible = await page.getByRole('progressbar').isVisible().catch(() => false);
-    if (stepIndicatorVisible !== E2E_FLAGS_ON) {
-      throw new Error(`booking_steps visibility did not match this pass: ${JSON.stringify({
-        expectedVisible: E2E_FLAGS_ON,
-        actualVisible: stepIndicatorVisible,
-        url: page.url(),
-        body: await page.locator('body').innerText(),
-      })}`);
-    }
+    // This packageId route uses PackageBookingScreen; booking_steps is asserted on /book-fixed above.
   });
 
   await step('archetype-fixed-package-book-mocked-payment', async () => {

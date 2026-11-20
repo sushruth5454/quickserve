@@ -26,11 +26,14 @@ const seeded = (prefix, n) => `${prefix}${String(n).padStart(6, '0')}-5eed-5eed-
 mkdirSync(SHOTS, { recursive: true });
 const pageErrors = [];
 const consoleErrors = [];
+const httpFailures = [];
+const appFeatureResponses = [];
 const failures = [];
 const softFailures = [];
 const skippedSteps = [];
 const blockedSteps = [];
 let shot = 0;
+let bookAgainAppFlag = null;
 let guestBookBoundaryPassed = false;
 let guestVenuePath = null;
 let guestVenueName = null;
@@ -59,6 +62,30 @@ page.on('pageerror', (e) => pageErrors.push(`[${page.url()}] ${e.message}`));
 page.on('console', (m) => {
   if (m.type() === 'error') consoleErrors.push(`[${page.url()}] ${m.text()}`);
 });
+page.on('response', (response) => {
+  if (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features')
+  ) {
+    appFeatureResponses.push(response);
+  }
+});
+function recordHttpFailures(pageName, target) {
+  target.on('response', (response) => {
+    if (response.status() !== 403) return;
+    const url = new URL(response.url());
+    const path = url.pathname.replace(/[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}/gi, '[UUID]');
+    httpFailures.push({
+      page: pageName,
+      route: new URL(target.url()).pathname,
+      status: response.status(),
+      method: response.request().method(),
+      host: url.host,
+      path,
+    });
+  });
+}
+recordHttpFailures('app', page);
 const guestContext = await browser.newContext({
   ...devices['iPhone 15'],
   geolocation: { latitude: 16.4995, longitude: 80.656 },
@@ -71,6 +98,7 @@ guestPage.on('pageerror', (e) => pageErrors.push(`[guest ${guestPage.url()}] ${e
 guestPage.on('console', (m) => {
   if (m.type() === 'error') consoleErrors.push(`[guest ${guestPage.url()}] ${m.text()}`);
 });
+recordHttpFailures('guest', guestPage);
 
 const guestPrivateDataRequests = [];
 const guestSportsCommitRequests = [];
@@ -626,13 +654,17 @@ await step('home-family-drilldown-and-marketplace-entry-points', async () => {
   }
 });
 await optional('home-top-rated', async () => {
+  await go('/');
   await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
   await page.mouse.move(195, 420);
   await page.mouse.wheel(0, 200);
   await snap('home-top-rated');
 });
 await step('top-rated-see-all', async () => {
-  await page.getByText('See all', { exact: true }).first().click();
+  await go('/');
+  const topRatedHeading = page.getByRole('heading', { name: 'Top rated near you', exact: true }).first();
+  await topRatedHeading.waitFor({ state: 'visible' });
+  await topRatedHeading.locator('xpath=../..').getByText('See all', { exact: true }).click();
   await page.waitForURL(/\/top-rated$/);
   await page.getByText(/verified pros?$/).first().waitFor();
 });
@@ -988,14 +1020,44 @@ await step('assistant-review-prefills-book', async () => {
 await step('bookings-active', async () => {
   await go('/bookings');
   await visible('My activity');
+  const response = appFeatureResponses.at(-1);
+  if (!response) {
+    throw new Error(`get_app_features response was not observed before the book_again check: ${JSON.stringify({
+      url: page.url(),
+      responseCount: appFeatureResponses.length,
+      body: await page.locator('body').innerText(),
+    })}`);
+  }
+  if (!response.ok()) {
+    throw new Error(`get_app_features failed while checking book_again (${response.status()}): ${await response.text()}`);
+  }
+  const appFeatures = await response.json();
+  bookAgainAppFlag = appFeatures?.book_again;
+  if (bookAgainAppFlag !== E2E_FLAGS_ON) {
+    throw new Error(`book_again app flag did not match this pass: ${JSON.stringify({
+      expected: E2E_FLAGS_ON,
+      actual: bookAgainAppFlag,
+      appFeatures,
+      url: page.url(),
+    })}`);
+  }
 });
 await step('bookings-past', async () => {
   await page.getByText('Past', { exact: true }).first().click();
-  const bookAgainVisible = await page.getByText('Book again', { exact: true }).first().isVisible().catch(() => false);
-  if (bookAgainVisible !== E2E_FLAGS_ON) {
+  const completedSeedBooking = page.getByRole('button', {
+    name: /Electrician with Srinivas Rao Electricals, Completed/,
+  }).first();
+  await completedSeedBooking.waitFor({ state: 'visible' });
+  await completedSeedBooking.getByText('Frequent MCB tripping in the kitchen', { exact: true }).waitFor({ state: 'visible' });
+  const bookAgainButton = completedSeedBooking.getByText('Book again', { exact: true }).first();
+  if (bookAgainAppFlag === true) {
+    await bookAgainButton.waitFor({ state: 'visible' });
+  } else if (await bookAgainButton.isVisible().catch(() => false)) {
     throw new Error(`book_again visibility did not match this pass: ${JSON.stringify({
       expectedVisible: E2E_FLAGS_ON,
-      actualVisible: bookAgainVisible,
+      actualVisible: true,
+      bookAgainAppFlag,
+      completedFixtureVisible: await completedSeedBooking.isVisible().catch(() => false),
       url: page.url(),
       body: await page.locator('body').innerText(),
     })}`);
@@ -1139,7 +1201,7 @@ await step('info-safety', async () => {
 // ---------- Customer, dark mode ----------
 await page.emulateMedia({ colorScheme: 'dark' });
 for (const [name, path, wait] of [
-  ['dark-home', '/', 'Choose a category'],
+  ['dark-home', '/', E2E_FLAGS_ON ? 'Home services' : 'Choose a category'],
   ['dark-category', '/category/ac-repair?name=AC%20Repair', null],
   ['dark-provider-detail', `/provider/${RAVI}`, 'Ratings & reviews'],
   ['dark-booking-quote', `/booking/${seeded('fc', 6)}`, null],
@@ -1151,6 +1213,17 @@ for (const [name, path, wait] of [
     await go(path);
     if (wait) await visible(wait);
     else await page.getByText(/^QS-[0-9A-F]{8} · |verified pros? near|pros nearby yet/).first().waitFor();
+    if (name === 'dark-home' && E2E_FLAGS_ON) {
+      await page.getByText(/Search services, shops, venues/).first().waitFor({ state: 'visible' });
+      const legacyHomeVisible = await page.getByText('Choose a category', { exact: true }).first().isVisible().catch(() => false);
+      if (legacyHomeVisible) {
+        throw new Error(`dark home_v2 ON still rendered the legacy category header: ${JSON.stringify({
+          legacyHomeVisible,
+          url: page.url(),
+          body: await page.locator('body').innerText(),
+        })}`);
+      }
+    }
   });
 }
 await optional('dark-home-top-rated', async () => {
@@ -1555,12 +1628,13 @@ const guestJourneyStatus = !E2E_FLAGS_ON
       ? 'FAILED'
       : 'PASS';
 const status = failures.length || pageErrors.length ? 'FAILED' : blockedSteps.length ? 'BLOCKED' : 'PASS';
-writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ status, guestJourneyStatus, failures, softFailures, skippedSteps, blockedSteps, pageErrors, consoleErrors }, null, 2));
-console.log(`\nQ-02 status: ${status}; G-01 guest journey: ${guestJourneyStatus}; screens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, skipped steps: ${skippedSteps.length}, blocked steps: ${blockedSteps.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}`);
+writeFileSync(`${SHOTS}/report.json`, JSON.stringify({ status, guestJourneyStatus, failures, softFailures, skippedSteps, blockedSteps, pageErrors, consoleErrors, httpFailures }, null, 2));
+console.log(`\nQ-02 status: ${status}; G-01 guest journey: ${guestJourneyStatus}; screens: ${shot}, failed steps: ${failures.length}, soft-failed steps: ${softFailures.length}, skipped steps: ${skippedSteps.length}, blocked steps: ${blockedSteps.length}, page errors: ${pageErrors.length}, console errors: ${consoleErrors.length}, HTTP 403 responses: ${httpFailures.length}`);
 for (const f of failures) console.log(`FAIL ${f}`);
 for (const f of softFailures) console.log(`SOFT FAIL ${f}`);
 for (const s of skippedSteps) console.log(`SKIP ${s}`);
 for (const b of blockedSteps) console.log(`BLOCKED ${b}`);
 for (const e of pageErrors) console.log(`PAGEERROR ${e}`);
 for (const e of consoleErrors) console.log(`CONSOLE ${e}`);
+for (const e of httpFailures) console.log(`HTTP ${e.status} ${e.method} ${e.path} [${e.page} ${e.route}]`);
 process.exit(status === 'PASS' ? 0 : 1);
