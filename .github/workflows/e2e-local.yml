@@ -83,6 +83,10 @@ jobs:
         id: test_otp_expiry
         run: python3 scripts/ci/test-e2e-guest-otp.py
 
+      - name: Test E2E demo-state safety guards
+        id: test_demo_state
+        run: python3 scripts/ci/test-e2e-demo-state.py
+
       - name: Set legacy feature switches OFF
         id: legacy_flags
         if: ${{ always() && steps.pin_flags.outcome == 'success' }}
@@ -117,9 +121,47 @@ jobs:
           mkdir -p e2e-shots/pass-a
           find e2e-shots -maxdepth 1 -type f ! -name 'otp-cooldowns.json' -exec mv {} e2e-shots/pass-a/ \;
 
+      - name: Remove Pass A QA data
+        id: cleanup_pass_a
+        if: always() && steps.pass_a.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
+        run: python3 scripts/ci/e2e-demo-state.py cleanup-qa
+
+      - name: Reset private demo fixtures for Pass B
+        id: reset_pass_b_demo
+        if: always() && steps.cleanup_pass_a.outcome == 'success'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+        run: python3 scripts/ci/e2e-demo-state.py reset
+
+      - name: Restore hosted demo settings for Pass B
+        id: seed_settings_pass_b
+        if: always() && steps.reset_pass_b_demo.outcome == 'success'
+        env:
+          LOCAL_DB_URL: ${{ env.LOCAL_DB_URL }}
+        run: psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed-e2e-settings.sql
+
+      - name: Reset fresh provider test account for Pass B
+        id: reset_new_pro_pass_b
+        if: always() && steps.seed_settings_pass_b.outcome == 'success'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+        run: python3 scripts/ci/e2e-demo-state.py reset-fresh-provider
+
       - name: Set redesign feature switches ON
         id: redesign_flags
-        if: ${{ always() && steps.pin_flags.outcome == 'success' }}
+        if: ${{ always() && steps.reset_new_pro_pass_b.outcome == 'success' }}
         env:
           SUPABASE_ACCESS_TOKEN: local
           PROJECT_REF: local
@@ -202,6 +244,17 @@ jobs:
           GUEST_E2E_PHONE: '9000000999'
         run: python3 scripts/ci/e2e-guest-otp.py cleanup
 
+      - name: Remove Pass B QA data
+        id: cleanup_final
+        if: always() && steps.pass_b.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
+        run: python3 scripts/ci/e2e-demo-state.py cleanup-qa
+
       - name: Remove local guest OTP snapshot
         if: always()
         env:
@@ -241,16 +294,22 @@ jobs:
           LEGACY_FLAGS_OUTCOME: ${{ steps.legacy_flags.outcome }}
           PASS_A_OUTCOME: ${{ steps.pass_a.outcome }}
           TEST_OTP_OUTCOME: ${{ steps.test_otp_expiry.outcome }}
+          TEST_DEMO_STATE_OUTCOME: ${{ steps.test_demo_state.outcome }}
+          CLEANUP_PASS_A_OUTCOME: ${{ steps.cleanup_pass_a.outcome }}
+          RESET_PASS_B_DEMO_OUTCOME: ${{ steps.reset_pass_b_demo.outcome }}
+          SEED_SETTINGS_PASS_B_OUTCOME: ${{ steps.seed_settings_pass_b.outcome }}
+          RESET_NEW_PRO_PASS_B_OUTCOME: ${{ steps.reset_new_pro_pass_b.outcome }}
           REDESIGN_FLAGS_OUTCOME: ${{ steps.redesign_flags.outcome }}
           PREPARE_GUEST_OTP_OUTCOME: ${{ steps.guest_otp_prepare.outcome }}
           PASS_B_OUTCOME: ${{ steps.pass_b.outcome }}
           RESTORE_GUEST_OTP_OUTCOME: ${{ steps.restore_guest_otp.outcome }}
           VERIFY_GUEST_OTP_OUTCOME: ${{ steps.verify_guest_otp.outcome }}
           CLEANUP_GUEST_OTP_OUTCOME: ${{ steps.cleanup_guest_otp.outcome }}
+          CLEANUP_FINAL_OUTCOME: ${{ steps.cleanup_final.outcome }}
           RESTORE_FLAGS_OUTCOME: ${{ steps.restore_flags.outcome }}
           VERIFY_FLAGS_OUTCOME: ${{ steps.verify_flags.outcome }}
         run: |
-          for outcome in "$PIN_FLAGS_OUTCOME" "$TEST_OTP_OUTCOME" "$LEGACY_FLAGS_OUTCOME" "$PASS_A_OUTCOME" "$REDESIGN_FLAGS_OUTCOME" "$PREPARE_GUEST_OTP_OUTCOME" "$PASS_B_OUTCOME" "$RESTORE_GUEST_OTP_OUTCOME" "$VERIFY_GUEST_OTP_OUTCOME" "$CLEANUP_GUEST_OTP_OUTCOME" "$RESTORE_FLAGS_OUTCOME" "$VERIFY_FLAGS_OUTCOME"; do
+          for outcome in "$PIN_FLAGS_OUTCOME" "$TEST_OTP_OUTCOME" "$TEST_DEMO_STATE_OUTCOME" "$LEGACY_FLAGS_OUTCOME" "$PASS_A_OUTCOME" "$CLEANUP_PASS_A_OUTCOME" "$RESET_PASS_B_DEMO_OUTCOME" "$SEED_SETTINGS_PASS_B_OUTCOME" "$RESET_NEW_PRO_PASS_B_OUTCOME" "$REDESIGN_FLAGS_OUTCOME" "$PREPARE_GUEST_OTP_OUTCOME" "$PASS_B_OUTCOME" "$RESTORE_GUEST_OTP_OUTCOME" "$VERIFY_GUEST_OTP_OUTCOME" "$CLEANUP_GUEST_OTP_OUTCOME" "$CLEANUP_FINAL_OUTCOME" "$RESTORE_FLAGS_OUTCOME" "$VERIFY_FLAGS_OUTCOME"; do
             if [ "$outcome" != "success" ]; then
               echo "Local E2E gate failed; step outcome: $outcome"
               exit 1

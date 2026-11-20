@@ -115,62 +115,20 @@ jobs:
       - name: Reset the fresh-provider test user
         # The onboarding e2e signs up NEW_PRO_PHONE as a brand-new provider every run (no seed data). Deleting the
         # auth user cascades to its profile/provider rows. The number must be in the project's sms_test_otp list.
+        id: reset_new_pro
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-        run: |
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
-            -d '{"query":"delete from auth.users where phone = '\''919000000301'\'' and not exists (select 1 from public.bookings b where b.provider_id = auth.users.id or b.customer_id = auth.users.id)"}'
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+        run: python3 scripts/ci/e2e-demo-state.py reset-fresh-provider
 
       - name: Reset all-service demo data (DEMO project only)
         id: reset_demo
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          import sys
-          import urllib.error
-          import urllib.request
-          from pathlib import Path
-
-          sql = Path("supabase/seed-all-services.sql").read_text()
-          sql = sql.replace(
-              "begin;\n\n",
-              "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n",
-              1,
-          )
-          request = urllib.request.Request(
-              f"https://api.supabase.com/v1/projects/{os.environ['PROJECT_REF']}/database/query",
-              data=json.dumps({"query": sql}).encode(),
-              headers={
-                  "Authorization": f"Bearer {os.environ['SUPABASE_ACCESS_TOKEN']}",
-                  "Content-Type": "application/json",
-              },
-              method="POST",
-          )
-          try:
-              with urllib.request.urlopen(request, timeout=60) as response:
-                  status, body = response.status, response.read()
-          except urllib.error.HTTPError as error:
-              status, body = error.code, error.read()
-          if not 200 <= status < 300:
-              try:
-                  response = json.loads(body)
-                  safe = {key: response[key] for key in ("code", "message", "hint", "details") if key in response}
-              except (json.JSONDecodeError, TypeError):
-                  safe = {}
-              details = json.dumps(safe, ensure_ascii=False)
-              details = re.sub(r"\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b", "[REDACTED-GUID]", details, flags=re.I)
-              details = re.sub(r"(?<!\d)(?:\+?\d[\d\s()-]{6,}\d)(?!\d)", "[REDACTED-NUMBER]", details)
-              print(f"Supabase demo reset failed with HTTP {status}: {details or 'no safe error details returned'}")
-              sys.exit(1)
-          print("Supabase demo reset succeeded")
-          PY
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+        run: python3 scripts/ci/e2e-demo-state.py reset
 
       - name: Dump hosted settings after a reset failure
         if: failure() && steps.reset_demo.outcome == 'failure'
@@ -256,9 +214,37 @@ jobs:
           mkdir -p e2e-shots/pass-a
           find e2e-shots -maxdepth 1 -type f ! -name 'otp-cooldowns.json' -exec mv {} e2e-shots/pass-a/ \;
 
+      - name: Remove Pass A QA data
+        id: cleanup_pass_a
+        if: always() && steps.pass_a.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          QA_MARKER: 'QA-E2E web-smoke ${{ github.run_id }}-${{ github.run_attempt }}'
+        run: python3 scripts/ci/e2e-demo-state.py cleanup-qa
+
+      - name: Reset demo fixtures for Pass B
+        id: reset_pass_b_demo
+        if: always() && steps.cleanup_pass_a.outcome == 'success'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+        run: python3 scripts/ci/e2e-demo-state.py reset
+
+      - name: Reset fresh-provider test user for Pass B
+        id: reset_new_pro_pass_b
+        if: always() && steps.reset_pass_b_demo.outcome == 'success'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+        run: python3 scripts/ci/e2e-demo-state.py reset-fresh-provider
+
       - name: Set redesign feature switches ON
         id: redesign_flags
-        if: ${{ always() && steps.pin_flags.outcome == 'success' }}
+        if: ${{ always() && steps.reset_new_pro_pass_b.outcome == 'success' }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -360,141 +346,44 @@ jobs:
           E2E_FLAGS_STATE: flags-snapshot.json
         run: python3 scripts/ci/e2e-flags.py verify
 
-      - name: Fail if either smoke pass or feature restore failed
-        if: always()
-        env:
-          PIN_FLAGS_OUTCOME: ${{ steps.pin_flags.outcome }}
-          LEGACY_FLAGS_OUTCOME: ${{ steps.legacy_flags.outcome }}
-          PASS_A_OUTCOME: ${{ steps.pass_a.outcome }}
-          REDESIGN_FLAGS_OUTCOME: ${{ steps.redesign_flags.outcome }}
-          PASS_B_OUTCOME: ${{ steps.pass_b.outcome }}
-          PREPARE_GUEST_OTP_OUTCOME: ${{ steps.prepare_guest_otp.outcome }}
-          RESTORE_GUEST_OTP_OUTCOME: ${{ steps.restore_guest_otp.outcome }}
-          VERIFY_GUEST_OTP_OUTCOME: ${{ steps.verify_guest_otp.outcome }}
-          RESET_GUEST_USER_OUTCOME: ${{ steps.reset_guest_user.outcome }}
-          RESTORE_FLAGS_OUTCOME: ${{ steps.restore_flags.outcome }}
-          VERIFY_FLAGS_OUTCOME: ${{ steps.verify_flags.outcome }}
-        run: |
-          for outcome in "$PIN_FLAGS_OUTCOME" "$LEGACY_FLAGS_OUTCOME" "$PASS_A_OUTCOME" "$REDESIGN_FLAGS_OUTCOME" "$PREPARE_GUEST_OTP_OUTCOME" "$PASS_B_OUTCOME" "$RESTORE_GUEST_OTP_OUTCOME" "$VERIFY_GUEST_OTP_OUTCOME" "$RESET_GUEST_USER_OUTCOME" "$RESTORE_FLAGS_OUTCOME" "$VERIFY_FLAGS_OUTCOME"; do
-            if [ "$outcome" != "success" ]; then
-              echo "Hosted E2E gate failed; step outcome: $outcome"
-              exit 1
-            fi
-          done
-
-      - name: Remove QA-E2E rows created by the smoke test
-        # Runs even when the test fails. Source rows are selected by this run's exact QA marker;
-        # notifications are removed only when their payload points to one of those marked rows.
+      - name: Remove Pass B QA data
+        id: cleanup_final
         if: always()
         continue-on-error: true
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
           QA_MARKER: 'QA-E2E web-smoke ${{ github.run_id }}-${{ github.run_attempt }}'
+        run: python3 scripts/ci/e2e-demo-state.py cleanup-qa
+
+      - name: Fail if any E2E pass, reset, cleanup, or restore failed
+        if: always()
+        env:
+          RESET_NEW_PRO_OUTCOME: ${{ steps.reset_new_pro.outcome }}
+          RESET_DEMO_OUTCOME: ${{ steps.reset_demo.outcome }}
+          PIN_FLAGS_OUTCOME: ${{ steps.pin_flags.outcome }}
+          LEGACY_FLAGS_OUTCOME: ${{ steps.legacy_flags.outcome }}
+          PASS_A_OUTCOME: ${{ steps.pass_a.outcome }}
+          CLEANUP_PASS_A_OUTCOME: ${{ steps.cleanup_pass_a.outcome }}
+          RESET_PASS_B_DEMO_OUTCOME: ${{ steps.reset_pass_b_demo.outcome }}
+          RESET_NEW_PRO_PASS_B_OUTCOME: ${{ steps.reset_new_pro_pass_b.outcome }}
+          REDESIGN_FLAGS_OUTCOME: ${{ steps.redesign_flags.outcome }}
+          PREPARE_GUEST_OTP_OUTCOME: ${{ steps.prepare_guest_otp.outcome }}
+          PASS_B_OUTCOME: ${{ steps.pass_b.outcome }}
+          RESTORE_GUEST_OTP_OUTCOME: ${{ steps.restore_guest_otp.outcome }}
+          VERIFY_GUEST_OTP_OUTCOME: ${{ steps.verify_guest_otp.outcome }}
+          RESET_GUEST_USER_OUTCOME: ${{ steps.reset_guest_user.outcome }}
+          RESTORE_FLAGS_OUTCOME: ${{ steps.restore_flags.outcome }}
+          VERIFY_FLAGS_OUTCOME: ${{ steps.verify_flags.outcome }}
+          CLEANUP_FINAL_OUTCOME: ${{ steps.cleanup_final.outcome }}
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-          marker = os.environ["QA_MARKER"].replace("'", "''")
-          sql = f"""
-          begin;
-          create temp table qa_sports_bookings on commit drop as
-            select id from public.sports_bookings
-             where note like '{marker} sports booking%';
-          create temp table qa_product_enquiry_messages on commit drop as
-            select id, enquiry_id, created_at from public.product_enquiry_messages
-             where body like '{marker} product enquiry%';
-          create temp table qa_new_product_enquiries on commit drop as
-            select e.id
-              from public.product_enquiries e
-              join (
-                select enquiry_id, min(created_at) as created_at
-                  from qa_product_enquiry_messages
-                 group by enquiry_id
-              ) m on m.enquiry_id = e.id and m.created_at = e.created_at;
-          create temp table qa_rfqs on commit drop as
-            select id from public.rfqs
-             where title like '{marker}%' or notes like '{marker}%';
-          create temp table qa_owner_shops on commit drop as
-            select id from public.shops
-             where name = '{marker} approval shop'
-               and description = '{marker} synthetic owner submission and admin approval; no real sales.';
-          create temp table qa_owner_shop_audit on commit drop as
-            select id from public.admin_audit_log
-               where target_id in (
-                 select s.id from public.shops s
-                  where s.id in (select id from qa_owner_shops)
-                    and not exists (select 1 from public.products p where p.shop_id = s.id)
-                    and not exists (select 1 from public.product_enquiries e where e.shop_id = s.id)
-                    and not exists (select 1 from public.rfq_recipients r where r.shop_id = s.id)
-                    and not exists (select 1 from public.supplier_quotes q where q.shop_id = s.id)
-               )
-               and action = 'set_shop_status'
-               and details ->> 'status' = 'verified';
-          create temp table qa_owner_shops_cleanup on commit drop as
-            select s.id from public.shops s
-               where s.id in (select id from qa_owner_shops)
-                 and not exists (select 1 from public.products p where p.shop_id = s.id)
-                 and not exists (select 1 from public.product_enquiries e where e.shop_id = s.id)
-                 and not exists (select 1 from public.rfq_recipients r where r.shop_id = s.id)
-                 and not exists (select 1 from public.supplier_quotes q where q.shop_id = s.id);
-          create temp table qa_requests on commit drop as
-            select id from public.service_requests where intake::text like '%{marker}%';
-          create temp table qa_bookings on commit drop as
-            select b.id from public.bookings b
-             where b.service_request_id in (select id from qa_requests)
-                or b.proposal_id in (select p.id from public.proposals p where p.note like '{marker}%')
-                or b.description like '%{marker}%';
-          delete from public.notifications n
-           where n.data ->> 'sports_booking_id' in
-                   (select id::text from qa_sports_bookings)
-              or n.data ->> 'rfq_id' in
-                   (select id::text from qa_rfqs)
-              or (
-                   n.data ->> 'enquiry_id' in
-                     (select enquiry_id::text from qa_product_enquiry_messages)
-                   and n.body like '{marker} product enquiry%'
-                   and exists (
-                     select 1 from qa_product_enquiry_messages m
-                      where m.enquiry_id::text = n.data ->> 'enquiry_id'
-                        and n.created_at >= m.created_at
-                   )
-              );
-          delete from public.payment_receipts where booking_id in (select id from qa_bookings);
-          delete from public.bookings where id in (select id from qa_bookings);
-          delete from public.service_requests where id in (select id from qa_requests);
-          delete from public.messages where body like '{marker}%';
-          delete from public.product_enquiry_messages
-           where id in (select id from qa_product_enquiry_messages);
-          delete from public.product_enquiries e
-           where e.id in (select id from qa_new_product_enquiries)
-             and not exists (
-               select 1 from public.product_enquiry_messages m where m.enquiry_id = e.id
-             );
-          delete from public.rfqs where id in (select id from qa_rfqs);
-          delete from public.sports_bookings where id in (select id from qa_sports_bookings);
-          delete from public.admin_audit_log where id in (select id from qa_owner_shop_audit);
-          delete from public.shops s
-           where s.id in (select id from qa_owner_shops_cleanup);
-          select
-            (select count(*) from qa_bookings) as bookings_removed,
-            (select count(*) from qa_requests) as requests_removed,
-            (select count(*) from qa_sports_bookings) as sports_bookings_removed,
-            (select count(*) from qa_product_enquiry_messages) as product_messages_removed,
-            (select count(*) from qa_new_product_enquiries) as product_enquiries_considered,
-            (select count(*) from qa_rfqs) as rfqs_removed,
-            (select count(*) from qa_owner_shops) as owner_shops_matched,
-            (select count(*) from qa_owner_shops_cleanup) as owner_shops_removed,
-            (select count(*) from qa_owner_shop_audit) as owner_shop_audit_removed;
-          commit;
-          """
-          Path("qa-cleanup-request.json").write_text(json.dumps({"query": sql}))
-          PY
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
-            --data-binary @qa-cleanup-request.json
-          rm qa-cleanup-request.json
+          for outcome in "$RESET_NEW_PRO_OUTCOME" "$RESET_DEMO_OUTCOME" "$PIN_FLAGS_OUTCOME" "$LEGACY_FLAGS_OUTCOME" "$PASS_A_OUTCOME" "$CLEANUP_PASS_A_OUTCOME" "$RESET_PASS_B_DEMO_OUTCOME" "$RESET_NEW_PRO_PASS_B_OUTCOME" "$REDESIGN_FLAGS_OUTCOME" "$PREPARE_GUEST_OTP_OUTCOME" "$PASS_B_OUTCOME" "$RESTORE_GUEST_OTP_OUTCOME" "$VERIFY_GUEST_OTP_OUTCOME" "$RESET_GUEST_USER_OUTCOME" "$RESTORE_FLAGS_OUTCOME" "$VERIFY_FLAGS_OUTCOME" "$CLEANUP_FINAL_OUTCOME"; do
+            if [ "$outcome" != "success" ]; then
+              echo "Hosted E2E gate failed; step outcome: $outcome"
+              exit 1
+            fi
+          done
 
       - name: Upload screenshots
         if: always()
