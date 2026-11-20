@@ -85,6 +85,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch main for UI lint
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: UI lint
+        run: bash scripts/ci/ui-lint.sh lane
       - uses: actions/setup-node@v4
         with:
           node-version: 22

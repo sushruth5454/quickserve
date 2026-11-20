@@ -29,6 +29,18 @@ auth_token = "e2e-dummy"
 919000000901 = "123456"
 919000000902 = "123456"
 TOML
+if [[ -n "${GUEST_E2E_PHONE:-}" ]]; then
+  guest_phone="$(printf '%s' "$GUEST_E2E_PHONE" | tr -cd '0-9')"
+  if [[ "$guest_phone" =~ ^[6-9][0-9]{9}$ ]]; then
+    guest_phone="91${guest_phone}"
+  elif [[ ! "$guest_phone" =~ ^91[6-9][0-9]{9}$ ]]; then
+    echo "GUEST_E2E_PHONE must be a 10-digit Indian mobile or 91-prefixed test number" >&2
+    exit 1
+  fi
+  if ! grep -qE "^${guest_phone}[[:space:]]*=" supabase/config.toml; then
+    printf '%s = "123456"\n' "$guest_phone" >> supabase/config.toml
+  fi
+fi
 # The sms section already exists in config.toml; relax the resend interval for fast test logins.
 sed -i 's/^\[auth\.sms\]$/[auth.sms]\nmax_frequency = "1s"/' supabase/config.toml
 

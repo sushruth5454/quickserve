@@ -3,7 +3,7 @@
 values afterwards, so toggling switches in the admin app never breaks E2E and E2E never leaves the
 owner's settings changed.
 
-Usage: python3 scripts/ci/e2e-flags.py pin|restore
+Usage: python3 scripts/ci/e2e-flags.py pin|legacy-off|redesign-on|restore|verify
 Env:   SUPABASE_ACCESS_TOKEN, PROJECT_REF, optional SUPABASE_MGMT_URL (local stand-in for e2e-local),
        E2E_FLAGS_STATE (snapshot file, default e2e-flags-before.json).
 """
@@ -14,6 +14,14 @@ import urllib.request
 
 BASE = os.environ.get("SUPABASE_MGMT_URL", "https://api.supabase.com")
 STATE = os.environ.get("E2E_FLAGS_STATE", "e2e-flags-before.json")
+REDESIGN_FLAGS = (
+    "home_v2",
+    "unified_search",
+    "guest_browse",
+    "creators_landing",
+    "booking_steps",
+    "book_again",
+)
 
 
 def query(sql):
@@ -47,12 +55,40 @@ def apply(values):
     )
 
 
+def read_redesign_flags():
+    keys = ", ".join(f"'{key}'" for key in REDESIGN_FLAGS)
+    rows = query(f"select key, enabled from public.feature_flags where key in ({keys})")
+    if not isinstance(rows, list):
+        sys.exit("e2e-flags: feature flag query returned an unexpected shape")
+    values = {row["key"]: row["enabled"] for row in rows if isinstance(row, dict) and "key" in row}
+    missing = sorted(set(REDESIGN_FLAGS) - set(values))
+    if missing:
+        sys.exit(f"e2e-flags: required redesign switches missing from this database: {', '.join(missing)}")
+    return values
+
+
+def set_redesign_flags(enabled):
+    expected = {key: enabled for key in REDESIGN_FLAGS}
+    read_redesign_flags()
+    apply(expected)
+    actual = read_redesign_flags()
+    if actual != expected:
+        sys.exit(f"e2e-flags: redesign switch update did not persist: {json.dumps(actual, sort_keys=True)}")
+    state = "ON" if enabled else "OFF"
+    print(f"e2e-flags: set all six redesign switches {state}")
+
+
 def main(mode):
     if mode == "pin":
         rows = query("select coalesce(json_object_agg(key, enabled), '{}'::json) as flags from public.feature_flags")
         before = rows[0]["flags"] if rows else {}
         with open(STATE, "w") as f:
             json.dump(before, f)
+        if not isinstance(before, dict):
+            sys.exit("e2e-flags: feature flag snapshot returned an unexpected shape")
+        missing_required = sorted(set(REDESIGN_FLAGS) - set(before))
+        if missing_required:
+            sys.exit(f"e2e-flags: required redesign switches missing from snapshot: {', '.join(missing_required)}")
         want = wanted()
         changed = {k: v for k, v in want.items() if k in before and before[k] != v}
         missing = sorted(k for k in want if k not in before)
@@ -60,17 +96,42 @@ def main(mode):
         print(f"e2e-flags: pinned {len(want)} switches; changed for this run: {json.dumps(changed)}")
         if missing:
             print(f"e2e-flags: not in this database yet (ignored): {', '.join(missing)}")
+    elif mode == "legacy-off":
+        set_redesign_flags(False)
+    elif mode == "redesign-on":
+        set_redesign_flags(True)
     elif mode == "restore":
         if not os.path.exists(STATE):
-            print("e2e-flags: no snapshot; nothing to restore")
-            return
+            sys.exit("e2e-flags: snapshot is missing; cannot restore owner values")
         with open(STATE) as f:
             before = json.load(f)
+        if not isinstance(before, dict):
+            sys.exit("e2e-flags: snapshot has an unexpected shape")
+        missing_required = sorted(set(REDESIGN_FLAGS) - set(before))
+        if missing_required:
+            sys.exit(f"e2e-flags: snapshot is missing required redesign switches: {', '.join(missing_required)}")
         # Restore only switches this run pinned, so other switches edited during the run are kept.
         apply({k: before[k] for k in wanted() if k in before})
         print("e2e-flags: restored the previous values")
+    elif mode == "verify":
+        if not os.path.exists(STATE):
+            sys.exit("e2e-flags: snapshot is missing; cannot verify owner values")
+        with open(STATE) as f:
+            before = json.load(f)
+        if not isinstance(before, dict):
+            sys.exit("e2e-flags: snapshot has an unexpected shape")
+        expected = {key: before[key] for key in REDESIGN_FLAGS if key in before}
+        if len(expected) != len(REDESIGN_FLAGS):
+            sys.exit("e2e-flags: snapshot is missing required redesign switches")
+        actual = read_redesign_flags()
+        if actual != expected:
+            sys.exit(
+                "e2e-flags: restored switch values differ from snapshot: "
+                f"expected={json.dumps(expected, sort_keys=True)} actual={json.dumps(actual, sort_keys=True)}"
+            )
+        print("e2e-flags: all six redesign switches match the original snapshot")
     else:
-        sys.exit("usage: e2e-flags.py pin|restore")
+        sys.exit("usage: e2e-flags.py pin|legacy-off|redesign-on|restore|verify")
 
 
 if __name__ == "__main__":

@@ -217,12 +217,25 @@ jobs:
           PY
 
       - name: Pin the feature switches the smoke test expects (restored afterwards)
+        id: pin_flags
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          E2E_FLAGS_STATE: flags-snapshot.json
         run: python3 scripts/ci/e2e-flags.py pin
 
-      - name: Run smoke test
+      - name: Set legacy feature switches OFF
+        id: legacy_flags
+        if: ${{ steps.pin_flags.outcome == 'success' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: python3 scripts/ci/e2e-flags.py legacy-off
+
+      - name: Run legacy smoke test (redesign switches OFF)
+        id: pass_a
+        if: ${{ steps.legacy_flags.outcome == 'success' }}
+        continue-on-error: true
         working-directory: e2e
         env:
           BASE_URL: http://localhost:8081
@@ -237,13 +250,134 @@ jobs:
           QA_MARKER: 'QA-E2E web-smoke ${{ github.run_id }}-${{ github.run_attempt }}'
         run: node web-smoke.mjs
 
-      - name: Restore the owner's feature switches
-        if: always()
-        continue-on-error: true
+      - name: Archive legacy smoke artifacts (preserve OTP cooldown state)
+        if: always() && steps.pass_a.outcome != 'skipped'
+        run: |
+          mkdir -p e2e-shots/pass-a
+          find e2e-shots -maxdepth 1 -type f ! -name 'otp-cooldowns.json' -exec mv {} e2e-shots/pass-a/ \;
+
+      - name: Set redesign feature switches ON
+        id: redesign_flags
+        if: ${{ always() && steps.pin_flags.outcome == 'success' }}
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: python3 scripts/ci/e2e-flags.py redesign-on
+
+      - name: Prepare fresh guest OTP test account
+        id: prepare_guest_otp
+        if: ${{ always() && steps.redesign_flags.outcome == 'success' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py prepare
+
+      - name: Run redesigned smoke test (redesign switches ON)
+        id: pass_b
+        if: ${{ always() && steps.prepare_guest_otp.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: e2e
+        env:
+          BASE_URL: http://localhost:8081
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          SHOTS_DIR: ${{ github.workspace }}/e2e-shots
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          ADMIN_E2E_PHONE: ${{ secrets.ADMIN_E2E_PHONE }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          NEW_PRO_PHONE: '9000000301'
+          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+          QA_MARKER: 'QA-E2E web-smoke ${{ github.run_id }}-${{ github.run_attempt }}'
+          E2E_FLAGS: 'on'
+        run: node web-smoke.mjs
+
+      - name: Archive redesigned smoke artifacts
+        if: always() && steps.pass_b.outcome != 'skipped'
+        run: |
+          mkdir -p e2e-shots/pass-b
+          find e2e-shots -maxdepth 1 -type f ! -name 'otp-cooldowns.json' -exec mv {} e2e-shots/pass-b/ \;
+
+      - name: Restore guest OTP test settings
+        id: restore_guest_otp
+        if: ${{ always() && steps.prepare_guest_otp.outcome != 'skipped' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py restore
+
+      - name: Verify guest OTP test settings were restored
+        id: verify_guest_otp
+        if: ${{ always() && steps.prepare_guest_otp.outcome != 'skipped' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py verify
+
+      - name: Remove guest OTP snapshot
+        if: always()
+        env:
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-snapshot.json
+        run: rm -f "$GUEST_OTP_STATE"
+
+      - name: Reset guest E2E test account
+        id: reset_guest_user
+        if: ${{ always() && steps.prepare_guest_otp.outcome == 'success' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          DEMO_PROJECT: ${{ vars.DEMO_PROJECT }}
+          GUEST_E2E_PHONE: ${{ secrets.GUEST_E2E_PHONE }}
+        run: python3 scripts/ci/e2e-guest-otp.py cleanup
+
+      - name: Restore the owner's feature switches
+        id: restore_flags
+        if: always()
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          E2E_FLAGS_STATE: flags-snapshot.json
         run: python3 scripts/ci/e2e-flags.py restore
+
+      - name: Verify the owner's feature switches were restored
+        id: verify_flags
+        if: always()
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          E2E_FLAGS_STATE: flags-snapshot.json
+        run: python3 scripts/ci/e2e-flags.py verify
+
+      - name: Fail if either smoke pass or feature restore failed
+        if: always()
+        env:
+          PIN_FLAGS_OUTCOME: ${{ steps.pin_flags.outcome }}
+          LEGACY_FLAGS_OUTCOME: ${{ steps.legacy_flags.outcome }}
+          PASS_A_OUTCOME: ${{ steps.pass_a.outcome }}
+          REDESIGN_FLAGS_OUTCOME: ${{ steps.redesign_flags.outcome }}
+          PASS_B_OUTCOME: ${{ steps.pass_b.outcome }}
+          PREPARE_GUEST_OTP_OUTCOME: ${{ steps.prepare_guest_otp.outcome }}
+          RESTORE_GUEST_OTP_OUTCOME: ${{ steps.restore_guest_otp.outcome }}
+          VERIFY_GUEST_OTP_OUTCOME: ${{ steps.verify_guest_otp.outcome }}
+          RESET_GUEST_USER_OUTCOME: ${{ steps.reset_guest_user.outcome }}
+          RESTORE_FLAGS_OUTCOME: ${{ steps.restore_flags.outcome }}
+          VERIFY_FLAGS_OUTCOME: ${{ steps.verify_flags.outcome }}
+        run: |
+          for outcome in "$PIN_FLAGS_OUTCOME" "$LEGACY_FLAGS_OUTCOME" "$PASS_A_OUTCOME" "$REDESIGN_FLAGS_OUTCOME" "$PREPARE_GUEST_OTP_OUTCOME" "$PASS_B_OUTCOME" "$RESTORE_GUEST_OTP_OUTCOME" "$VERIFY_GUEST_OTP_OUTCOME" "$RESET_GUEST_USER_OUTCOME" "$RESTORE_FLAGS_OUTCOME" "$VERIFY_FLAGS_OUTCOME"; do
+            if [ "$outcome" != "success" ]; then
+              echo "Hosted E2E gate failed; step outcome: $outcome"
+              exit 1
+            fi
+          done
 
       - name: Remove QA-E2E rows created by the smoke test
         # Runs even when the test fails. Source rows are selected by this run's exact QA marker;
