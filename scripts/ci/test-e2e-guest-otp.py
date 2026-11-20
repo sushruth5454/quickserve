@@ -17,6 +17,8 @@ ORIGINAL_CONFIG = {
 def load_helper(state_path):
     os.environ.update({
         "DEMO_PROJECT": "1",
+        "SUPABASE_ACCESS_TOKEN": "local",
+        "PROJECT_REF": "local",
         "GUEST_E2E_PHONE": "9000000999",
         "GUEST_OTP_STATE": str(state_path),
     })
