@@ -924,7 +924,7 @@ const skipOnboardingStepForReturningProvider = (name) => {
   return true;
 };
 await step('new-pro-login', async () => {
-  await go('/');
+  await go('/login');
   await page.getByLabel('Mobile number, India plus 91').fill(NEW_PRO_PHONE);
   await page.getByText('Send OTP', { exact: true }).click();
   await visible('Verify your number');
