@@ -422,7 +422,8 @@ await step('proposal-flow-customer-compares', async () => {
   await page.getByText('₹12,000', { exact: true }).first().waitFor();
   await page.getByText('Compare proposal', { exact: true }).first().click();
   await page.waitForURL(/\/proposal\//);
-  await visible('Payment milestones');
+  // The request comparison remains mounted behind the pushed proposal detail screen.
+  await page.getByText('Payment milestones', { exact: true }).last().waitFor({ state: 'visible' });
   await visible('Booking advance');
   await page.getByText(/30s vertical 1080p|edited_reel/i).first().waitFor();
 });
