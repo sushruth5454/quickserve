@@ -150,6 +150,19 @@ def get_auth_config():
     return config
 
 
+def parse_auth_expiry(value):
+    if not isinstance(value, str) or not value:
+        return None
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
 def prepare():
     _, _, phone = environment()
     ensure_guest_phone_is_distinct(phone)
@@ -195,9 +208,21 @@ def prepare():
         and entry.partition("=")[2].strip() == TEST_OTP
         for entry in current["sms_test_otp"].split(",")
     )
-    if not configured or current["sms_test_otp_valid_until"] != temporary_valid_until:
+    expected_expiry = parse_auth_expiry(temporary_valid_until)
+    actual_expiry = parse_auth_expiry(current["sms_test_otp_valid_until"])
+    expiry_matches = expected_expiry is not None and actual_expiry == expected_expiry
+    if not configured or not expiry_matches:
+        diagnostics = {
+            "guest_mapping_configured": configured,
+            "expiry_matches": expiry_matches,
+            "requested_expiry_utc": expected_expiry.isoformat() if expected_expiry else "invalid",
+            "actual_expiry_utc": actual_expiry.isoformat() if actual_expiry else "unparseable",
+        }
         request_json("PATCH", "config/auth", state)
-        fail("temporary guest OTP mapping or expiry was not persisted; original settings restored")
+        fail(
+            "temporary guest OTP mapping or expiry was not persisted; "
+            f"verification={json.dumps(diagnostics, sort_keys=True)}; original settings restored"
+        )
     print("guest-otp: DEMO test account reset and temporary SMS test OTP enabled")
 
 

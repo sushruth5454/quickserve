@@ -77,6 +77,9 @@ jobs:
           SUPABASE_MGMT_URL: http://127.0.0.1:54399
         run: python3 scripts/ci/e2e-flags.py pin
 
+      - name: Test guest OTP expiry normalization
+        run: python3 scripts/ci/test-e2e-guest-otp.py
+
       - name: Prepare guest OTP helper state against local Management API
         id: guest_otp_prepare
         env:
