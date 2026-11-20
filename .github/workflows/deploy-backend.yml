@@ -427,6 +427,7 @@ jobs:
              ("0087", "0087_ui_redesign_flags_guest_read.sql"),
              ("0088a", "0088a_b6_notification_kinds.sql"),
              ("0088b", "0088b_b6_money_notifications.sql"),
+             ("0089", "0089_r1_provider_request_view_projection.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
