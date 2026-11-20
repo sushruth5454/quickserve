@@ -71,17 +71,64 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Pin the feature switches the smoke test expects
+        id: pin_flags
         env:
           SUPABASE_ACCESS_TOKEN: local
           PROJECT_REF: local
           SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          E2E_FLAGS_STATE: ${{ runner.temp }}/e2e-flags-local-snapshot.json
         run: python3 scripts/ci/e2e-flags.py pin
 
       - name: Test guest OTP expiry normalization
+        id: test_otp_expiry
         run: python3 scripts/ci/test-e2e-guest-otp.py
+
+      - name: Set legacy feature switches OFF
+        id: legacy_flags
+        if: ${{ always() && steps.pin_flags.outcome == 'success' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+        run: python3 scripts/ci/e2e-flags.py legacy-off
+
+      - name: Run legacy smoke test (redesign switches OFF)
+        id: pass_a
+        if: ${{ always() && steps.legacy_flags.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: e2e
+        env:
+          BASE_URL: http://localhost:8081
+          SHOTS_DIR: ${{ github.workspace }}/e2e-shots
+          DEMO_PROJECT: '1'
+          ADMIN_E2E_PHONE: '9000000901'
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          E2E_AI_UNAVAILABLE: '1'
+          NEW_PRO_PHONE: '9000000301'
+          GUEST_E2E_PHONE: '9000000999'
+          QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
+        run: SUPABASE_URL="$LOCAL_API_URL" SUPABASE_ANON_KEY="$LOCAL_ANON_KEY" node web-smoke.mjs
+
+      - name: Archive legacy smoke artifacts
+        if: always() && steps.pass_a.outcome != 'skipped'
+        run: |
+          mkdir -p e2e-shots/pass-a
+          find e2e-shots -maxdepth 1 -type f ! -name 'otp-cooldowns.json' -exec mv {} e2e-shots/pass-a/ \;
+
+      - name: Set redesign feature switches ON
+        id: redesign_flags
+        if: ${{ always() && steps.pin_flags.outcome == 'success' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+        run: python3 scripts/ci/e2e-flags.py redesign-on
 
       - name: Prepare guest OTP helper state against local Management API
         id: guest_otp_prepare
+        if: ${{ always() && steps.redesign_flags.outcome == 'success' }}
         env:
           SUPABASE_ACCESS_TOKEN: local
           PROJECT_REF: local
@@ -94,45 +141,10 @@ jobs:
           GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
         run: python3 scripts/ci/e2e-guest-otp.py prepare
 
-      - name: Restore guest OTP helper state
-        if: always() && steps.guest_otp_prepare.outcome != 'skipped'
-        env:
-          SUPABASE_ACCESS_TOKEN: local
-          PROJECT_REF: local
-          SUPABASE_MGMT_URL: http://127.0.0.1:54399
-          DEMO_PROJECT: '1'
-          GUEST_E2E_PHONE: '9000000999'
-          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
-        run: python3 scripts/ci/e2e-guest-otp.py restore
-
-      - name: Verify guest OTP helper state restoration
-        if: always() && steps.guest_otp_prepare.outcome != 'skipped'
-        env:
-          SUPABASE_ACCESS_TOKEN: local
-          PROJECT_REF: local
-          SUPABASE_MGMT_URL: http://127.0.0.1:54399
-          DEMO_PROJECT: '1'
-          GUEST_E2E_PHONE: '9000000999'
-          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
-        run: python3 scripts/ci/e2e-guest-otp.py verify
-
-      - name: Clean up local guest OTP test account
-        if: always() && steps.guest_otp_prepare.outcome == 'success'
-        env:
-          SUPABASE_ACCESS_TOKEN: local
-          PROJECT_REF: local
-          SUPABASE_MGMT_URL: http://127.0.0.1:54399
-          DEMO_PROJECT: '1'
-          GUEST_E2E_PHONE: '9000000999'
-        run: python3 scripts/ci/e2e-guest-otp.py cleanup
-
-      - name: Remove local guest OTP snapshot
-        if: always()
-        env:
-          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
-        run: rm -f "$GUEST_OTP_STATE"
-
-      - name: Run smoke test
+      - name: Run redesigned smoke test (redesign switches ON)
+        id: pass_b
+        if: ${{ always() && steps.guest_otp_prepare.outcome == 'success' }}
+        continue-on-error: true
         working-directory: e2e
         env:
           BASE_URL: http://localhost:8081
@@ -148,6 +160,102 @@ jobs:
           QA_MARKER: 'QA-E2E local ${{ github.run_id }}-${{ github.run_attempt }}'
           E2E_FLAGS: 'on'
         run: SUPABASE_URL="$LOCAL_API_URL" SUPABASE_ANON_KEY="$LOCAL_ANON_KEY" node web-smoke.mjs
+
+      - name: Archive redesigned smoke artifacts
+        if: always() && steps.pass_b.outcome != 'skipped'
+        run: |
+          mkdir -p e2e-shots/pass-b
+          find e2e-shots -maxdepth 1 -type f ! -name 'otp-cooldowns.json' -exec mv {} e2e-shots/pass-b/ \;
+
+      - name: Restore guest OTP helper state
+        id: restore_guest_otp
+        if: always() && steps.guest_otp_prepare.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          GUEST_E2E_PHONE: '9000000999'
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py restore
+
+      - name: Verify guest OTP helper state restoration
+        id: verify_guest_otp
+        if: always() && steps.guest_otp_prepare.outcome != 'skipped'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          GUEST_E2E_PHONE: '9000000999'
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: python3 scripts/ci/e2e-guest-otp.py verify
+
+      - name: Clean up local guest OTP test account
+        id: cleanup_guest_otp
+        if: always() && steps.guest_otp_prepare.outcome == 'success'
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          DEMO_PROJECT: '1'
+          GUEST_E2E_PHONE: '9000000999'
+        run: python3 scripts/ci/e2e-guest-otp.py cleanup
+
+      - name: Remove local guest OTP snapshot
+        if: always()
+        env:
+          GUEST_OTP_STATE: ${{ runner.temp }}/guest-otp-local-snapshot.json
+        run: rm -f "$GUEST_OTP_STATE"
+
+      - name: Restore local feature switches
+        id: restore_flags
+        if: ${{ always() && steps.pin_flags.outcome != 'skipped' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          E2E_FLAGS_STATE: ${{ runner.temp }}/e2e-flags-local-snapshot.json
+        run: python3 scripts/ci/e2e-flags.py restore
+
+      - name: Verify local feature switches were restored
+        id: verify_flags
+        if: ${{ always() && steps.pin_flags.outcome != 'skipped' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: local
+          PROJECT_REF: local
+          SUPABASE_MGMT_URL: http://127.0.0.1:54399
+          E2E_FLAGS_STATE: ${{ runner.temp }}/e2e-flags-local-snapshot.json
+        run: python3 scripts/ci/e2e-flags.py verify
+
+      - name: Remove local feature flag snapshot
+        if: always()
+        env:
+          E2E_FLAGS_STATE: ${{ runner.temp }}/e2e-flags-local-snapshot.json
+        run: rm -f "$E2E_FLAGS_STATE"
+
+      - name: Fail if either smoke pass or restoration failed
+        if: always()
+        env:
+          PIN_FLAGS_OUTCOME: ${{ steps.pin_flags.outcome }}
+          LEGACY_FLAGS_OUTCOME: ${{ steps.legacy_flags.outcome }}
+          PASS_A_OUTCOME: ${{ steps.pass_a.outcome }}
+          TEST_OTP_OUTCOME: ${{ steps.test_otp_expiry.outcome }}
+          REDESIGN_FLAGS_OUTCOME: ${{ steps.redesign_flags.outcome }}
+          PREPARE_GUEST_OTP_OUTCOME: ${{ steps.guest_otp_prepare.outcome }}
+          PASS_B_OUTCOME: ${{ steps.pass_b.outcome }}
+          RESTORE_GUEST_OTP_OUTCOME: ${{ steps.restore_guest_otp.outcome }}
+          VERIFY_GUEST_OTP_OUTCOME: ${{ steps.verify_guest_otp.outcome }}
+          CLEANUP_GUEST_OTP_OUTCOME: ${{ steps.cleanup_guest_otp.outcome }}
+          RESTORE_FLAGS_OUTCOME: ${{ steps.restore_flags.outcome }}
+          VERIFY_FLAGS_OUTCOME: ${{ steps.verify_flags.outcome }}
+        run: |
+          for outcome in "$PIN_FLAGS_OUTCOME" "$TEST_OTP_OUTCOME" "$LEGACY_FLAGS_OUTCOME" "$PASS_A_OUTCOME" "$REDESIGN_FLAGS_OUTCOME" "$PREPARE_GUEST_OTP_OUTCOME" "$PASS_B_OUTCOME" "$RESTORE_GUEST_OTP_OUTCOME" "$VERIFY_GUEST_OTP_OUTCOME" "$CLEANUP_GUEST_OTP_OUTCOME" "$RESTORE_FLAGS_OUTCOME" "$VERIFY_FLAGS_OUTCOME"; do
+            if [ "$outcome" != "success" ]; then
+              echo "Local E2E gate failed; step outcome: $outcome"
+              exit 1
+            fi
+          done
 
       - name: Backend logs on failure
         if: failure()
