@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, router, Tabs } from 'expo-router';
 import { useAuth } from '../../src/lib/auth';
 import { badgeLabel } from '../../src/lib/unread';
 import { useTheme } from '../../src/theme';
@@ -6,6 +6,7 @@ import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
 import { ActivityUnreadProvider, useActivityUnread } from '../../src/features/activity/ActivityUnreadProvider';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { useT } from '../../src/i18n';
+import { safeReturnTo } from '../../src/lib/authGate';
 
 export const unstable_settings = { initialRouteName: 'index' };
 
@@ -20,11 +21,19 @@ export default function CustomerTabs() {
 }
 
 function CustomerTabsContent() {
+  const { session } = useAuth();
   const screenOptions = useTabScreenOptions();
   const t = useTheme();
   const translate = useT();
   const flags = useAppFeatureFlags();
+  const guestBrowse = flags.isOn('guest_browse');
   const unread = useActivityUnread().total;
+  const requireSignInForTab = (event: { preventDefault: () => void }, path: string) => {
+    if (session || !guestBrowse) return;
+    event.preventDefault();
+    const returnTo = safeReturnTo(path) ? path : '/';
+    router.push({ pathname: '/login', params: { returnTo } });
+  };
   return (
     <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
@@ -44,6 +53,7 @@ function CustomerTabsContent() {
       />
       <Tabs.Screen
         name="bookings"
+        listeners={{ tabPress: (event) => requireSignInForTab(event, '/bookings') }}
         options={{
           tabBarBadge: badgeLabel(unread),
           tabBarBadgeStyle: { backgroundColor: t.colors.danger, color: '#FFFFFF', fontSize: 11 },
@@ -53,6 +63,7 @@ function CustomerTabsContent() {
       />
       <Tabs.Screen
         name="account"
+        listeners={{ tabPress: (event) => requireSignInForTab(event, '/account') }}
         options={{
           title: translate('tabs.account'),
           tabBarIcon: ({ color, focused }) => <TabIcon name="person-circle-outline" activeName="person-circle" focused={focused} color={color as string} />,

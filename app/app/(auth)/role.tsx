@@ -5,6 +5,7 @@ import { Pressable, View } from 'react-native';
 import { Button, InlineAlert, Input, Screen, Text } from '../../src/components/ui';
 import { getCommissionTerms, getMyProfile, getMyProvider, updateMyProfile } from '../../src/lib/api';
 import { useAuth, type ActiveRole } from '../../src/lib/auth';
+import { safeReturnTo } from '../../src/lib/authGate';
 import { haptics } from '../../src/lib/haptics';
 import { useTheme } from '../../src/theme';
 
@@ -27,7 +28,8 @@ const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof ty
 
 export default function RoleScreen() {
   const t = useTheme();
-  const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
+  const { inviteToken, returnTo } = useLocalSearchParams<{ inviteToken?: string; returnTo?: string }>();
+  const safePath = safeReturnTo(returnTo) ? returnTo : undefined;
   const { setChoosingRole, setActiveRole } = useAuth();
   const [name, setName] = useState('');
   const [role, setRole] = useState<ActiveRole>('customer');
@@ -63,7 +65,7 @@ export default function RoleScreen() {
       setTimeout(
         () => inviteToken
           ? router.replace({ pathname: '/byo/[token]', params: { token: inviteToken } })
-          : router.replace(target),
+          : router.replace(role === 'customer' && safePath ? safePath : target),
         0,
       );
     } catch (e) {

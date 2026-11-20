@@ -8,6 +8,7 @@ import { authErrorMessage, formatOtpCountdown } from '../../src/lib/authErrors';
 import { haptics } from '../../src/lib/haptics';
 import { formatPhone } from '../../src/lib/phone';
 import { hasCompletedOnboarding, returningUserRole } from '../../src/lib/returningUser';
+import { safeReturnTo } from '../../src/lib/authGate';
 import { useTheme } from '../../src/theme';
 
 const RESEND_SECONDS = 60;
@@ -15,7 +16,8 @@ const RESEND_SECONDS = 60;
 export default function VerifyScreen() {
   const t = useTheme();
   const toast = useToast();
-  const { phone, inviteToken } = useLocalSearchParams<{ phone: string; inviteToken?: string }>();
+  const { phone, inviteToken, returnTo } = useLocalSearchParams<{ phone: string; inviteToken?: string; returnTo?: string }>();
+  const safePath = safeReturnTo(returnTo) ? returnTo : undefined;
   const { setChoosingRole, setActiveRole } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -48,11 +50,21 @@ export default function VerifyScreen() {
         if (inviteToken) {
           router.replace({ pathname: '/byo/[token]', params: { token: inviteToken } });
         } else {
-          setTimeout(() => router.replace(role === 'provider' ? '/dashboard' : '/'), 0);
+          setTimeout(() => router.replace(role === 'provider' ? '/dashboard' : safePath ?? '/'), 0);
         }
         return;
       }
-      router.replace(inviteToken ? { pathname: '/role', params: { inviteToken } } : '/role');
+      router.replace(
+        inviteToken || safePath
+          ? {
+              pathname: '/role',
+              params: {
+                ...(inviteToken ? { inviteToken } : {}),
+                ...(safePath ? { returnTo: safePath } : {}),
+              },
+            }
+          : '/role',
+      );
     } catch (e) {
       setChoosingRole(false);
       haptics.error();
