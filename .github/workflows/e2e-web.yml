@@ -173,7 +173,7 @@ jobs:
           PY
 
       - name: Dump hosted settings after a reset failure
-        if: steps.reset_demo.outcome == 'failure'
+        if: failure() && steps.reset_demo.outcome == 'failure'
         continue-on-error: true
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
