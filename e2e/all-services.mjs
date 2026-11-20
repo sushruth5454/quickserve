@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 
+const E2E_FLAGS_ON = process.env.E2E_FLAGS === 'on';
 const sid = (key) => {
   const h = createHash('md5').update(`quickserve-demo-all-services:${key}`).digest('hex');
   return `${h.slice(0, 8)}-5eed-de00-${h.slice(16, 20)}-${h.slice(20, 32)}`;
@@ -64,6 +65,15 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     // The category screen stays mounted (hidden) on web, so match only the visible copy of shared text.
     await page.locator('text="Book package" >> visible=true').first().waitFor();
     await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
+    const stepIndicatorVisible = await page.getByRole('progressbar').isVisible().catch(() => false);
+    if (stepIndicatorVisible !== E2E_FLAGS_ON) {
+      throw new Error(`booking_steps visibility did not match this pass: ${JSON.stringify({
+        expectedVisible: E2E_FLAGS_ON,
+        actualVisible: stepIndicatorVisible,
+        url: page.url(),
+        body: await page.locator('body').innerText(),
+      })}`);
+    }
   });
 
   await step('archetype-fixed-package-book-mocked-payment', async () => {
