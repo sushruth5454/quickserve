@@ -847,6 +847,9 @@ await step('phase-7a-owner-submits-shop', async () => {
   }
 });
 await step('proposal-flow-customer-sends-brief', async () => {
+  if (!proReelServiceId) {
+    throw new Error(`reel-maker service was not created for the proposal flow: ${JSON.stringify({ proReelServiceId })}`);
+  }
   // The test pro works in Vijayawada; requests are routed only within the request's city.
   await go('/location');
   await page.getByText(/^Flat 302, Sri Sai Residency/).first().click();
