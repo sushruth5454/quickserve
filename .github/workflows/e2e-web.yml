@@ -2,16 +2,17 @@ name: E2E web smoke test
 
 on:
   push:
-    # E2E never applies migrations (deploy-backend does, on main only), so it runs against the deployed schema.
-    # Hosted DEMO project, one run at a time (~30 min): main only, after deploy. Batches and lanes use e2e-local.yml,
-    # which starts a private Supabase stack per run.
+    # App-only changes run directly. Commits that also trigger deploy-backend are deferred to workflow_run below.
     branches: [main]
     paths:
       - 'app/**'
-      - 'supabase/migrations/**'
       - 'supabase/seed-all-services.sql'
       - 'e2e/**'
       - '.github/workflows/e2e-web.yml'
+  workflow_run:
+    workflows: ['Deploy backend (Supabase)']
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -19,8 +20,48 @@ concurrency:
   queue: max
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run_e2e: ${{ steps.gate.outputs.run_e2e }}
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Choose serialized E2E trigger
+        id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          REF_NAME: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          echo "sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            [[ "$DEPLOY_CONCLUSION" == "success" ]] && echo "run_e2e=true" >> "$GITHUB_OUTPUT" || echo "run_e2e=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            [[ "$REF_NAME" == "refs/heads/main" ]] && echo "run_e2e=true" >> "$GITHUB_OUTPUT" || echo "run_e2e=false" >> "$GITHUB_OUTPUT"
+          else
+            changed=$(git diff --name-only "$BEFORE_SHA" "$EVENT_SHA")
+            if grep -Eq '^(supabase/migrations/|supabase/functions/|supabase/tests/|scripts/ci/|\.github/workflows/deploy-backend\.yml$)' <<< "$changed"; then
+              echo "run_e2e=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "run_e2e=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
   e2e:
+    needs: gate
+    if: needs.gate.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -32,6 +73,8 @@ jobs:
       TARGET_SDK: '58'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
 
       - uses: actions/setup-node@v4
         with:
