@@ -85,6 +85,7 @@ describe('unread helpers', () => {
   it('follows only our own notification routes', () => {
     expect(notificationRoute({ url: '/chat/3f2c-11' })).toBe('/chat/3f2c-11');
     expect(notificationRoute({ url: '/booking/abc' })).toBe('/booking/abc');
+    expect(notificationRoute({ url: '/earnings' }, 'payout_sent')).toBe('/earnings');
     expect(notificationRoute({ url: '/venue/venue-1' })).toBe('/venue/venue-1');
     expect(notificationRoute({ url: '/sports-booking/booking-1' })).toBe('/sports-booking/booking-1');
     expect(notificationRoute({ url: '/recurring/plan-1' })).toBe('/recurring/plan-1');
@@ -97,6 +98,7 @@ describe('unread helpers', () => {
     expect(notificationRoute({ url: '/chat/../../x' })).toBeNull();
     expect(notificationRoute({ url: '/product/../../x' })).toBeNull();
     expect(notificationRoute({ url: '/rfq/merchant/../../x' })).toBeNull();
+    expect(notificationRoute({ url: '/earnings/../../x' }, 'payout_sent')).toBeNull();
     expect(notificationRoute(null)).toBeNull();
   });
 
