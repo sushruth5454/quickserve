@@ -511,16 +511,45 @@ if (E2E_FLAGS_ON) {
       await guestPage.waitForURL((url) => new URL(url).pathname === '/role');
       await guestPage.getByText('Welcome to QuickServe', { exact: true }).waitFor({ state: 'visible' });
       await guestPage.getByRole('radio', { name: /^I need a service\./ }).click();
+      const venueResponsePromise = guestPage.waitForResponse((response) => {
+        if (
+          response.request().method() !== 'POST'
+          || !new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_sports_venue')
+        ) return false;
+        return response.request().postDataJSON()?.p_id === DEMO_IDS.sportsVenue;
+      }, { timeout: 20000 });
       await guestPage.getByText('Continue', { exact: true }).last().click();
       await guestPage.waitForURL((url) => new URL(url).pathname === guestVenuePath);
-      const actualVenueVisible = await guestPage.getByText(guestVenueName, { exact: true }).first().isVisible().catch(() => false);
-      if (!actualVenueVisible) {
-        throw new Error(`customer role did not return to the sports venue: ${JSON.stringify({
+      let venueResponse;
+      try {
+        venueResponse = await venueResponsePromise;
+      } catch (error) {
+        throw new Error(`return-to-venue get_sports_venue response was not observed: ${JSON.stringify({
           expectedPath: guestVenuePath,
+          expectedVenueId: DEMO_IDS.sportsVenue,
+          failure: error instanceof Error ? error.message : String(error),
           url: guestPage.url(),
           body: await guestPage.locator('body').innerText(),
         })}`);
       }
+      const venueResponseBody = redactPhoneNumbers(await venueResponse.text());
+      if (!venueResponse.ok()) {
+        throw new Error(`return-to-venue get_sports_venue failed (HTTP ${venueResponse.status()}): ${venueResponseBody.slice(0, 400)}`);
+      }
+      let returnedVenue;
+      try {
+        returnedVenue = JSON.parse(venueResponseBody);
+      } catch {
+        returnedVenue = null;
+      }
+      if (!returnedVenue || returnedVenue.name !== guestVenueName) {
+        throw new Error(`return-to-venue get_sports_venue returned no matching venue: ${JSON.stringify({
+          expectedName: guestVenueName,
+          actualName: returnedVenue?.name ?? null,
+          status: venueResponse.status(),
+        })}`);
+      }
+      await guestPage.getByText(guestVenueName, { exact: true }).first().waitFor({ state: 'visible' });
     }, guestPage);
   }
 } else {
