@@ -124,26 +124,97 @@ jobs:
             -d '{"query":"delete from auth.users where phone = '\''919000000301'\'' and not exists (select 1 from public.bookings b where b.provider_id = auth.users.id or b.customer_id = auth.users.id)"}'
 
       - name: Reset all-service demo data (DEMO project only)
+        id: reset_demo
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           python3 - <<'PY'
           import json
+          import os
+          import re
+          import sys
+          import urllib.error
+          import urllib.request
           from pathlib import Path
+
           sql = Path("supabase/seed-all-services.sql").read_text()
           sql = sql.replace(
               "begin;\n\n",
               "begin;\nselect set_config('quickserve.demo_seed', '1', true);\n\n",
               1,
           )
-          Path("seed-all-services-request.json").write_text(json.dumps({"query": sql}))
+          request = urllib.request.Request(
+              f"https://api.supabase.com/v1/projects/{os.environ['PROJECT_REF']}/database/query",
+              data=json.dumps({"query": sql}).encode(),
+              headers={
+                  "Authorization": f"Bearer {os.environ['SUPABASE_ACCESS_TOKEN']}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  status, body = response.status, response.read()
+          except urllib.error.HTTPError as error:
+              status, body = error.code, error.read()
+          if not 200 <= status < 300:
+              try:
+                  response = json.loads(body)
+                  safe = {key: response[key] for key in ("code", "message", "hint", "details") if key in response}
+              except (json.JSONDecodeError, TypeError):
+                  safe = {}
+              details = json.dumps(safe, ensure_ascii=False)
+              details = re.sub(r"\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b", "[REDACTED-GUID]", details, flags=re.I)
+              details = re.sub(r"(?<!\d)(?:\+?\d[\d\s()-]{6,}\d)(?!\d)", "[REDACTED-NUMBER]", details)
+              print(f"Supabase demo reset failed with HTTP {status}: {details or 'no safe error details returned'}")
+              sys.exit(1)
+          print("Supabase demo reset succeeded")
           PY
-          curl -fsS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data-binary @seed-all-services-request.json
-          rm seed-all-services-request.json
+
+      - name: Dump hosted settings after a reset failure
+        if: steps.reset_demo.outcome == 'failure'
+        continue-on-error: true
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+
+          request = urllib.request.Request(
+              f"https://api.supabase.com/v1/projects/{os.environ['PROJECT_REF']}/database/query",
+              data=json.dumps({"query": Path("scripts/ci/state-dump.sql").read_text()}).encode(),
+              headers={
+                  "Authorization": f"Bearer {os.environ['SUPABASE_ACCESS_TOKEN']}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  result = json.loads(response.read())
+          except urllib.error.HTTPError as error:
+              print(f"Hosted settings snapshot unavailable (HTTP {error.code})")
+              sys.exit(1)
+          if isinstance(result, list) and result and isinstance(result[0], dict):
+              state = result[0].get("state")
+          elif isinstance(result, dict):
+              state = result.get("state")
+          else:
+              state = None
+          if isinstance(state, str):
+              state = json.loads(state)
+          if not isinstance(state, dict):
+              print("Hosted settings snapshot returned an unexpected shape")
+              sys.exit(1)
+          print(json.dumps(state, indent=2, sort_keys=True, ensure_ascii=False))
+          PY
 
       - name: Pin the feature switches the smoke test expects (restored afterwards)
         env:
