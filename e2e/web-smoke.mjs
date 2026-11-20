@@ -201,12 +201,14 @@ function phoneRoleCollisions(roles) {
 function getGuestE2ePhone() {
   const digits = GUEST_E2E_PHONE.replace(/\D/g, '');
   const normalized = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
-  const phoneCollisions = phoneRoleCollisions([
+  const phoneRoles = [
     ['E2E_CUSTOMER_PHONE', PHONE],
     ['NEW_PRO_PHONE', NEW_PRO_PHONE],
     ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
     ['GUEST_E2E_PHONE', GUEST_E2E_PHONE],
-  ]);
+  ];
+  if (ADMIN_E2E_PHONE?.trim()) phoneRoles.push(['ADMIN_E2E_PHONE', ADMIN_E2E_PHONE.trim()]);
+  const phoneCollisions = phoneRoleCollisions(phoneRoles);
   if (!/^[6-9]\d{9}$/.test(normalized) || phoneCollisions.length) {
     throw new Error(`OTP test phones must be distinct; GUEST_E2E_PHONE must also be SMS-test-enabled: ${JSON.stringify({
       configured: !!GUEST_E2E_PHONE,
