@@ -1,6 +1,7 @@
 // Web smoke test: logs in with the Supabase test OTP and visits every screen against the live dev project.
-// Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR.
-import { mkdirSync, writeFileSync } from 'node:fs';
+// Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR,
+// E2E_CUSTOMER_PHONE, NEW_PRO_PHONE, GUEST_E2E_PHONE (required when E2E_FLAGS=on).
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
 import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
@@ -9,12 +10,17 @@ const SHOTS = process.env.SHOTS_DIR ?? 'e2e-shots';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON = process.env.SUPABASE_ANON_KEY;
 const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
-const PHONE = '9999999999';
+const E2E_FLAGS_ON = process.env.E2E_FLAGS === 'on';
+const PHONE = process.env.E2E_CUSTOMER_PHONE ?? '9999999999';
 const OTP = '123456';
 const ADMIN_E2E_PHONE = process.env.ADMIN_E2E_PHONE;
 const RAVI = '11111111-1111-1111-1111-111111111111';
+const RAVI_E2E_PHONE = '+919000000101';
 // Fresh-provider onboarding user: test OTP number reset by e2e-web.yml before each run (no seed data).
 const NEW_PRO_PHONE = process.env.NEW_PRO_PHONE ?? '9000000301';
+// Pass B requires a separate, workflow-reset SMS test account that has no completed customer role.
+const GUEST_E2E_PHONE = process.env.GUEST_E2E_PHONE?.trim() ?? '';
+const OTP_COOLDOWN_MS = 60_000; // Matches the verify screen's resend timer.
 const seeded = (prefix, n) => `${prefix}${String(n).padStart(6, '0')}-5eed-5eed-8000-000000000000`;
 
 mkdirSync(SHOTS, { recursive: true });
@@ -24,6 +30,16 @@ const failures = [];
 const softFailures = [];
 const skippedSteps = [];
 let shot = 0;
+const otpCooldownPath = `${SHOTS}/otp-cooldowns.json`;
+let otpCooldowns = {};
+if (existsSync(otpCooldownPath)) {
+  try {
+    otpCooldowns = JSON.parse(readFileSync(otpCooldownPath, 'utf8'));
+    if (!otpCooldowns || typeof otpCooldowns !== 'object' || Array.isArray(otpCooldowns)) throw new Error('expected an object');
+  } catch (error) {
+    throw new Error(`OTP cooldown state is invalid: ${String(error?.message ?? error)}`);
+  }
+}
 
 const browser = await chromium.launch();
 const context = await browser.newContext({
@@ -39,31 +55,70 @@ page.on('pageerror', (e) => pageErrors.push(`[${page.url()}] ${e.message}`));
 page.on('console', (m) => {
   if (m.type() === 'error') consoleErrors.push(`[${page.url()}] ${m.text()}`);
 });
+const guestContext = await browser.newContext({
+  ...devices['iPhone 15'],
+  geolocation: { latitude: 16.4995, longitude: 80.656 },
+  permissions: ['geolocation'],
+  timezoneId: 'Asia/Kolkata',
+});
+const guestPage = await guestContext.newPage();
+guestPage.setDefaultTimeout(20000);
+guestPage.on('pageerror', (e) => pageErrors.push(`[guest ${guestPage.url()}] ${e.message}`));
+guestPage.on('console', (m) => {
+  if (m.type() === 'error') consoleErrors.push(`[guest ${guestPage.url()}] ${m.text()}`);
+});
 
-async function snap(name) {
+const guestPrivateDataRequests = [];
+const guestSportsCommitRequests = [];
+guestPage.on('request', (request) => {
+  const url = new URL(request.url());
+  if (
+    /\/rest\/v1\/rpc\/(?:get_my_|list_my_)[^/]*$/.test(url.pathname)
+    || url.pathname === '/rest/v1/profiles'
+  ) {
+    guestPrivateDataRequests.push({ method: request.method(), url: request.url() });
+  }
+  if (url.pathname.endsWith('/rest/v1/rpc/book_sports_slot')) {
+    guestSportsCommitRequests.push({ method: request.method(), url: request.url() });
+  }
+});
+
+async function snap(name, target = page) {
   shot += 1;
-  await page.waitForTimeout(800);
-  await page.screenshot({ path: `${SHOTS}/${String(shot).padStart(2, '0')}-${name}.png` });
+  await target.waitForTimeout(800);
+  await target.screenshot({ path: `${SHOTS}/${String(shot).padStart(2, '0')}-${name}.png` });
 }
 
-async function step(name, fn) {
+async function step(name, fn, target = page) {
   console.log(`> ${name}`);
   try {
     await fn();
-    await snap(name);
+    await snap(name, target);
   } catch (e) {
-    const msg = String(e?.message ?? e).split('\n')[0];
+    const actual = {
+      url: target.url(),
+      body: await target.locator('body').innerText().catch(() => '<body unavailable>'),
+    };
+    const msg = `${String(e?.message ?? e).split('\n')[0]} | actual=${JSON.stringify({
+      url: actual.url,
+      body: redactPhoneNumbers(actual.body).slice(0, 2400),
+    })}`;
     failures.push(`${name}: ${msg}`);
     console.log(`  FAILED: ${msg}`);
-    await snap(`${name}-FAILED`).catch(() => undefined);
+    await snap(`${name}-FAILED`, target).catch(() => undefined);
   }
 }
 
+function redactPhoneNumbers(value) {
+  return value.replace(/(?<!\d)(?:\+?\d[\d\s()-]{6,}\d)(?!\d)/g, '[REDACTED-PHONE]');
+}
+
 const visible = (text) => page.getByText(text, { exact: true }).first().waitFor({ state: 'visible' });
-const go = async (path) => {
-  await page.goto(BASE + path);
-  await page.waitForLoadState('networkidle').catch(() => undefined);
+const goOn = async (target, path) => {
+  await target.goto(BASE + path);
+  await target.waitForLoadState('networkidle').catch(() => undefined);
 };
+const go = (path) => goOn(page, path);
 // Scrolls the screen's main scroll view (react-native-web renders it as an overflow div) and takes an extra shot.
 async function snapScrolled(name, dy = 640) {
   await page.mouse.move(195, 420);
@@ -121,18 +176,95 @@ async function currentUserRpc(name, args = {}) {
   return result.resultExists;
 }
 
+function phoneKey(phone) {
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  return digits;
+}
+
+function phoneRoleCollisions(roles) {
+  const firstRoleByPhone = new Map();
+  const collisions = [];
+  for (const [role, phone] of roles) {
+    const key = phoneKey(phone);
+    if (!key) continue;
+    if (firstRoleByPhone.has(key)) collisions.push([firstRoleByPhone.get(key), role]);
+    else firstRoleByPhone.set(key, role);
+  }
+  return collisions;
+}
+
+function getGuestE2ePhone() {
+  const digits = GUEST_E2E_PHONE.replace(/\D/g, '');
+  const normalized = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+  const phoneCollisions = phoneRoleCollisions([
+    ['E2E_CUSTOMER_PHONE', PHONE],
+    ['NEW_PRO_PHONE', NEW_PRO_PHONE],
+    ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
+    ['GUEST_E2E_PHONE', GUEST_E2E_PHONE],
+  ]);
+  if (!/^[6-9]\d{9}$/.test(normalized) || phoneCollisions.length) {
+    throw new Error(`OTP test phones must be distinct; GUEST_E2E_PHONE must also be SMS-test-enabled: ${JSON.stringify({
+      configured: !!GUEST_E2E_PHONE,
+      validIndianMobile: /^[6-9]\d{9}$/.test(normalized),
+      phoneRoleCollisions: phoneCollisions,
+    })}`);
+  }
+  return GUEST_E2E_PHONE;
+}
+
+async function waitForOtpCooldown(target, flowName) {
+  const savedTimestamp = otpCooldowns[flowName];
+  const lastSentAt = Number(savedTimestamp ?? 0);
+  if (!Number.isFinite(lastSentAt) || lastSentAt < 0) {
+    throw new Error(`OTP cooldown timestamp is invalid for ${flowName}: ${JSON.stringify(savedTimestamp)}`);
+  }
+  const remaining = OTP_COOLDOWN_MS - (Date.now() - lastSentAt);
+  if (remaining > 0) {
+    console.log(`  Waiting ${Math.ceil(remaining / 1000)}s for the prior OTP cooldown to expire.`);
+    await target.waitForTimeout(remaining);
+  }
+}
+
+function recordOtpSent(flowName) {
+  otpCooldowns[flowName] = Date.now();
+  writeFileSync(otpCooldownPath, JSON.stringify(otpCooldowns, null, 2));
+}
+
+async function sendOtpFromUi(target, phone, flowName) {
+  await waitForOtpCooldown(target, flowName);
+  const responsePromise = target.waitForResponse((response) =>
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/auth/v1/otp',
+  );
+  await target.getByLabel('Mobile number, India plus 91').fill(phone);
+  await target.getByText('Send OTP', { exact: true }).click();
+  const response = await responsePromise;
+  const responseBody = redactPhoneNumbers(await response.text());
+  if (response.status() === 429) {
+    throw new Error(`${flowName} OTP request was rate-limited (HTTP 429): ${responseBody.slice(0, 400)}`);
+  }
+  if (!response.ok()) {
+    throw new Error(`${flowName} OTP send failed (HTTP ${response.status()}): ${responseBody.slice(0, 400)}`);
+  }
+  recordOtpSent(flowName);
+  await target.getByText('Verify your number', { exact: true }).waitFor({ state: 'visible' });
+}
+
 /** Signs a second test user in through the Auth API (fixed test OTP) and returns their access token. */
 async function signInAs(phone) {
   const headers = { apikey: ANON, 'Content-Type': 'application/json' };
-  let sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
-  if (sent.status === 429) {
-    await new Promise((r) => setTimeout(r, 4500));
-    sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
-  }
-  if (!sent.ok) throw new Error(`otp ${sent.status}: ${await sent.text()}`);
+  await waitForOtpCooldown(page, 'signInAs');
+  const sent = await fetch(`${SUPABASE_URL}/auth/v1/otp`, { method: 'POST', headers, body: JSON.stringify({ phone }) });
+  const sentBody = redactPhoneNumbers(await sent.text());
+  if (sent.status === 429) throw new Error(`OTP request for signInAs was rate-limited (HTTP 429): ${sentBody.slice(0, 400)}`);
+  if (!sent.ok) throw new Error(`OTP request for signInAs failed (HTTP ${sent.status}): ${sentBody.slice(0, 400)}`);
+  recordOtpSent('signInAs');
   const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, { method: 'POST', headers, body: JSON.stringify({ phone, token: OTP, type: 'sms' }) });
-  if (!res.ok) throw new Error(`verify ${res.status}: ${await res.text()}`);
-  return (await res.json()).access_token;
+  const verifyResponseText = await res.text();
+  const verifyBody = redactPhoneNumbers(verifyResponseText);
+  if (!res.ok) throw new Error(`verify ${res.status}: ${verifyBody.slice(0, 400)}`);
+  return JSON.parse(verifyResponseText).access_token;
 }
 
 function getAdminPhone() {
@@ -188,7 +320,7 @@ function skipStep(name, reason) {
   console.log(`  SKIPPED: ${reason}`);
 }
 
-// ---------- Auth (one OTP send per run: the test number is rate limited) ----------
+// ---------- Auth (per-phone OTP cooldown state is shared between the two E2E passes) ----------
 await step('login-help-link', async () => {
   await go('/login');
   await page.getByRole('link', { name: 'Need help signing in?' }).click();
@@ -197,11 +329,164 @@ await step('login-help-link', async () => {
   await page.getByRole('button', { name: /^Email / }).waitFor({ state: 'visible' });
   await go('/login');
 });
+if (E2E_FLAGS_ON) {
+  await step('guest-private-routes-no-personal-data', async () => {
+    for (const path of ['/bookings', '/account']) {
+      guestPrivateDataRequests.length = 0;
+      await goOn(guestPage, path);
+      const promptVisible = await guestPage.getByText('Sign in to continue', { exact: true }).first().isVisible().catch(() => false);
+      if (!promptVisible || guestPrivateDataRequests.length) {
+        throw new Error(`guest ${path} gate did not stay private: ${JSON.stringify({
+          path,
+          promptVisible,
+          privateDataRequests: guestPrivateDataRequests,
+          url: guestPage.url(),
+          body: await guestPage.locator('body').innerText().catch(() => '<body unavailable>'),
+        })}`);
+      }
+    }
+  }, guestPage);
+
+  await step('guest-sports-book-login-role-return', async () => {
+    const guestPhone = getGuestE2ePhone();
+    await goOn(guestPage, '/');
+    await guestPage.getByText(/Search services, shops, venues/).first().waitFor({ state: 'visible' });
+    await guestPage.getByText('Sports & venues', { exact: true }).first().click();
+    await guestPage.waitForURL((url) => new URL(url).pathname === '/sports');
+    await guestPage.getByText('Badminton', { exact: true }).first().click();
+    await guestPage.waitForURL((url) => new URL(url).pathname === '/sports/badminton');
+
+    const initialSlotsResponsePromise = guestPage.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes('/rest/v1/rpc/get_sports_slots'),
+    );
+    const venueName = 'Benz Circle Demo Badminton Courts';
+    await guestPage.getByText(venueName, { exact: true }).first().click();
+    const venuePath = `/venue/${DEMO_IDS.sportsVenue}`;
+    await guestPage.waitForURL((url) => new URL(url).pathname === venuePath);
+    await guestPage.getByText('Choose an activity and slot', { exact: true }).first().waitFor();
+
+    const initialResponse = await initialSlotsResponsePromise;
+    if (!initialResponse.ok()) {
+      throw new Error(`guest get_sports_slots failed (${initialResponse.status()}): ${await initialResponse.text()}`);
+    }
+    let candidateDate = initialResponse.request().postDataJSON().p_date;
+    let slots = await initialResponse.json();
+    let selectedSlot = null;
+    const checkedDates = [];
+    for (let offset = 0; offset < 7; offset++) {
+      if (offset > 0) {
+        const nextDate = new Date(`${candidateDate}T00:00:00.000Z`);
+        nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+        candidateDate = nextDate.toISOString().slice(0, 10);
+        const responsePromise = guestPage.waitForResponse((response) =>
+          response.request().method() === 'POST'
+          && response.url().includes('/rest/v1/rpc/get_sports_slots')
+          && response.request().postDataJSON().p_date === candidateDate,
+        );
+        const dateLabel = new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }).format(new Date(`${candidateDate}T12:00:00+05:30`));
+        await guestPage.getByRole('button', { name: dateLabel, exact: true }).click();
+        const response = await responsePromise;
+        if (!response.ok()) {
+          throw new Error(`guest get_sports_slots failed for ${candidateDate} (${response.status()}): ${await response.text()}`);
+        }
+        slots = await response.json();
+      }
+      if (!Array.isArray(slots)) {
+        throw new Error(`guest get_sports_slots returned unexpected data: ${JSON.stringify({ candidateDate, slots })}`);
+      }
+      const freeSlots = slots.filter((slot) => slot.state === 'free' && (slot.remaining == null || slot.remaining >= 1));
+      checkedDates.push({ date: candidateDate, free: freeSlots.length });
+      if (!freeSlots.length) continue;
+
+      const startsAt = freeSlots[0].starts_at;
+      const timeLabel = new Date(startsAt).toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      await guestPage.getByRole('radio', { name: timeLabel, exact: true }).click();
+      selectedSlot = { date: candidateDate, startsAt, timeLabel };
+      break;
+    }
+    if (!selectedSlot) {
+      throw new Error(`guest could not select a free sports slot: ${JSON.stringify({
+        checkedDates,
+        url: guestPage.url(),
+        body: await guestPage.locator('body').innerText(),
+      })}`);
+    }
+
+    const commitButton = guestPage.getByRole('button', { name: /^(Book|Send request)$/ }).last();
+    await commitButton.waitFor({ state: 'visible' });
+    if (!await commitButton.isEnabled()) {
+      throw new Error(`guest sports commit action stayed disabled: ${JSON.stringify({
+        selectedSlot,
+        label: await commitButton.getAttribute('aria-label'),
+        body: await guestPage.locator('body').innerText(),
+      })}`);
+    }
+    await commitButton.click();
+    await guestPage.waitForURL((url) => new URL(url).pathname === '/login', { timeout: 5000 }).catch(() => undefined);
+    const loginUrl = new URL(guestPage.url());
+    const returnTo = loginUrl.searchParams.get('returnTo');
+    if (loginUrl.pathname !== '/login' || returnTo !== venuePath || guestSportsCommitRequests.length) {
+      throw new Error(`guest Book action did not gate at login and preserve the venue: ${JSON.stringify({
+        selectedSlot,
+        expectedReturnTo: venuePath,
+        actualReturnTo: returnTo,
+        url: guestPage.url(),
+        sportsCommitRequests: guestSportsCommitRequests,
+        body: await guestPage.locator('body').innerText(),
+      })}`);
+    }
+
+    await sendOtpFromUi(guestPage, guestPhone, 'G-01 guest');
+    await guestPage.getByLabel('6-digit verification code').fill(OTP);
+    await guestPage.waitForURL((url) => new URL(url).pathname === '/role');
+    await guestPage.getByText('Welcome to QuickServe', { exact: true }).waitFor({ state: 'visible' });
+    await guestPage.getByRole('radio', { name: /^I need a service\./ }).click();
+    await guestPage.getByText('Continue', { exact: true }).last().click();
+    await guestPage.waitForURL((url) => new URL(url).pathname === venuePath);
+    const actualVenueVisible = await guestPage.getByText(venueName, { exact: true }).first().isVisible().catch(() => false);
+    if (!actualVenueVisible) {
+      throw new Error(`customer role did not return to the sports venue: ${JSON.stringify({
+        expectedPath: venuePath,
+        url: guestPage.url(),
+        body: await guestPage.locator('body').innerText(),
+      })}`);
+    }
+  }, guestPage);
+} else {
+  await step('guest-browse-off-gate', async () => {
+    await goOn(guestPage, '/');
+    await guestPage.getByLabel('Mobile number, India plus 91').waitFor({ state: 'visible' });
+    const actualPath = new URL(guestPage.url()).pathname;
+    if (actualPath !== '/login') {
+      throw new Error(`guest_browse OFF should redirect the guest home to /login: ${JSON.stringify({
+        expectedPath: '/login',
+        actualPath,
+        url: guestPage.url(),
+        body: await guestPage.locator('body').innerText(),
+      })}`);
+    }
+  }, guestPage);
+}
 await step('login', async () => {
   await go('/login');
-  await page.getByLabel('Mobile number, India plus 91').fill(PHONE);
-  await page.getByText('Send OTP', { exact: true }).click();
-  await visible('Verify your number');
+  const phoneCollisions = phoneRoleCollisions([
+    ['E2E_CUSTOMER_PHONE', PHONE],
+    ['NEW_PRO_PHONE', NEW_PRO_PHONE],
+    ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
+  ]);
+  if (phoneCollisions.length) {
+    throw new Error(`OTP test roles must use separate phones: ${JSON.stringify({ phoneRoleCollisions: phoneCollisions })}`);
+  }
+  await sendOtpFromUi(page, PHONE, 'existing customer');
 });
 await step('verify', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
@@ -220,25 +505,91 @@ await runAllServiceScenarios({ page, go, step, visible, qaMarker: QA_MARKER });
 // ---------- Customer ----------
 await step('home', async () => {
   await go('/');
-  await visible('Choose a category');
-  await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().waitFor({ state: 'visible' });
+  if (E2E_FLAGS_ON) {
+    await page.getByText(/Search services, shops, venues/).first().waitFor({ state: 'visible' });
+    for (const pillar of ['Home services', 'Shops & products', 'Sports & venues', 'Creators & freelancers']) {
+      await visible(pillar);
+    }
+    await visible('Verified providers');
+    await visible('See the price before you pay');
+    await visible('Secure online payments');
+    const legacyHomeVisible = await page.getByText('Choose a category', { exact: true }).first().isVisible().catch(() => false);
+    if (legacyHomeVisible) {
+      throw new Error(`home_v2 ON still rendered the legacy category header: ${JSON.stringify({
+        legacyHomeVisible,
+        url: page.url(),
+        body: await page.locator('body').innerText(),
+      })}`);
+    }
+  } else {
+    await visible('Choose a category');
+    await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().waitFor({ state: 'visible' });
+  }
+});
+await step('unified-search-flag', async () => {
+  const searchTabVisible = await page.getByText('Search', { exact: true }).first().isVisible().catch(() => false);
+  if (searchTabVisible !== E2E_FLAGS_ON) {
+    throw new Error(`unified_search tab visibility did not match this pass: ${JSON.stringify({
+      expectedVisible: E2E_FLAGS_ON,
+      actualVisible: searchTabVisible,
+      url: page.url(),
+      body: await page.locator('body').innerText(),
+    })}`);
+  }
+  await go('/search');
+  const body = await page.locator('body').innerText();
+  if (E2E_FLAGS_ON ? !body.includes('Type at least 2 letters') : !/not available right now/i.test(body)) {
+    throw new Error(`unified_search route did not match this pass: ${JSON.stringify({
+      expected: E2E_FLAGS_ON ? 'search input with minimum-length hint' : 'feature-off message',
+      actual: body,
+      url: page.url(),
+    })}`);
+  }
+  await go('/');
 });
 await step('home-family-drilldown-and-marketplace-entry-points', async () => {
-  await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().click();
-  await visible('Choose a service');
-  await visible('AC Repair');
-  await page.getByRole('button', { name: 'AC Repair, Request a quote' }).click();
-  await page.waitForURL(/\/category\/ac-repair(?:\?|$)/);
-  await go('/');
-  await page.getByRole('button', { name: 'Learning & sessions' }).click();
-  await visible('Demo Home Tutor');
-  await go('/');
-  await page.getByRole('button', { name: 'Sports & venues' }).click();
-  await page.waitForURL(/\/sports/);
-  await go('/');
-  await page.getByRole('button', { name: 'Shop local' }).click();
-  await page.waitForURL(/\/shop/);
-  await go('/');
+  if (E2E_FLAGS_ON) {
+    await page.getByText('Home services', { exact: true }).first().click();
+    await visible('Choose a service');
+    await visible('AC Repair');
+    await page.getByRole('button', { name: 'AC Repair, Request a quote' }).click();
+    await page.waitForURL(/\/category\/ac-repair(?:\?|$)/);
+    await go('/');
+    await page.getByText('Sports & venues', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === '/sports');
+    await go('/');
+    await page.getByText('Shops & products', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === '/shop');
+    await go('/');
+    await page.getByText('Creators & freelancers', { exact: true }).first().click();
+    await page.waitForURL((url) => new URL(url).pathname === '/creators');
+    await visible('How it works');
+  } else {
+    await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().click();
+    await visible('Choose a service');
+    await visible('AC Repair');
+    await page.getByRole('button', { name: 'AC Repair, Request a quote' }).click();
+    await page.waitForURL(/\/category\/ac-repair(?:\?|$)/);
+    await go('/');
+    await page.getByRole('button', { name: 'Learning & sessions' }).click();
+    await visible('Demo Home Tutor');
+    await go('/');
+    await page.getByRole('button', { name: 'Sports & venues' }).click();
+    await page.waitForURL(/\/sports/);
+    await go('/');
+    await page.getByRole('button', { name: 'Shop local' }).click();
+    await page.waitForURL(/\/shop/);
+    await go('/');
+    await go('/creators');
+    const creatorsOff = await page.locator('body').innerText();
+    if (!/Creators & freelancers is not available right now/i.test(creatorsOff)) {
+      throw new Error(`creators_landing OFF did not render its disabled state: ${JSON.stringify({
+        url: page.url(),
+        body: creatorsOff,
+      })}`);
+    }
+    await go('/');
+  }
 });
 await optional('home-top-rated', async () => {
   await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
@@ -342,7 +693,7 @@ async function asPro(path, body, method = 'POST') {
   return res.status === 204 ? null : res.json();
 }
 await step('proposal-flow-pro-offers-reel-maker', async () => {
-  proToken = await signInAs('+919000000101');
+  proToken = await signInAs(RAVI_E2E_PHONE);
   const [reel] = await rest('categories?select=id&slug=eq.reel-maker');
   await asPro('/functions/v1/provider-service', {
     action: 'save_service', categoryId: reel.id, skillLevel: 'expert', visitFee: 0, labourRate: 100000, rateUnit: 'job',
@@ -606,6 +957,15 @@ await step('bookings-active', async () => {
 });
 await step('bookings-past', async () => {
   await page.getByText('Past', { exact: true }).first().click();
+  const bookAgainVisible = await page.getByText('Book again', { exact: true }).first().isVisible().catch(() => false);
+  if (bookAgainVisible !== E2E_FLAGS_ON) {
+    throw new Error(`book_again visibility did not match this pass: ${JSON.stringify({
+      expectedVisible: E2E_FLAGS_ON,
+      actualVisible: bookAgainVisible,
+      url: page.url(),
+      body: await page.locator('body').innerText(),
+    })}`);
+  }
   await page.waitForTimeout(500);
 });
 await step('my-activity-requests-segment', async () => {
@@ -696,7 +1056,7 @@ await step('booking-chat-send', async () => {
 const FC6 = seeded('fc', 6);
 const unreadBody = `${QA_MARKER} unread ${Date.now()}`;
 await step('unread-badge-on-booking', async () => {
-  const token = await signInAs('+919000000101');
+  const token = await signInAs(RAVI_E2E_PHONE);
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_booking_message`, {
     method: 'POST',
     headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -925,9 +1285,7 @@ const skipOnboardingStepForReturningProvider = (name) => {
 };
 await step('new-pro-login', async () => {
   await go('/login');
-  await page.getByLabel('Mobile number, India plus 91').fill(NEW_PRO_PHONE);
-  await page.getByText('Send OTP', { exact: true }).click();
-  await visible('Verify your number');
+  await sendOtpFromUi(page, NEW_PRO_PHONE, 'new-provider');
   await page.getByLabel('6-digit verification code').fill(OTP);
   const destination = await Promise.race([
     page.waitForURL((url) => new URL(url).pathname === '/dashboard').then(() => 'dashboard'),
