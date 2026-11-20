@@ -7,6 +7,7 @@ import { getCommissionTerms, getMyProfile, getMyProvider, updateMyProfile } from
 import { useAuth, type ActiveRole } from '../../src/lib/auth';
 import { safeReturnTo } from '../../src/lib/authGate';
 import { haptics } from '../../src/lib/haptics';
+import { roleProfilePatch } from '../../src/lib/roleSelection';
 import { useTheme } from '../../src/theme';
 
 const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bullets: string[] }[] = [
@@ -53,11 +54,8 @@ export default function RoleScreen() {
     setBusy(true);
     setError(null);
     try {
-      await updateMyProfile({
-        ...(name.trim() ? { full_name: name.trim() } : {}),
-        role_customer: true,
-        ...(role === 'provider' ? { role_provider: true } : {}),
-      });
+      const profilePatch = roleProfilePatch(name);
+      if (profilePatch) await updateMyProfile(profilePatch);
       const target = role === 'provider' ? ((await getMyProvider()) ? '/dashboard' : '/onboarding') : '/';
       setActiveRole(inviteToken ? 'customer' : role);
       setChoosingRole(false);

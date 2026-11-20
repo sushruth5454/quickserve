@@ -129,7 +129,7 @@ export async function getMyProfile(): Promise<Profile | null> {
 }
 
 export async function updateMyProfile(
-  patch: Partial<Pick<Profile, 'full_name' | 'role_customer' | 'role_provider'>>,
+  patch: Partial<Pick<Profile, 'full_name' | 'avatar_url'>>,
 ): Promise<void> {
   const uid = await requireUserId();
   unwrap(await supabase.from('profiles').update(patch).eq('id', uid));
