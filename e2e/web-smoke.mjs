@@ -549,7 +549,7 @@ if (E2E_FLAGS_ON) {
           status: venueResponse.status(),
         })}`);
       }
-      await guestPage.getByText(guestVenueName, { exact: true }).first().waitFor({ state: 'visible' });
+      await guestPage.locator(`text="${guestVenueName}" >> visible=true`).first().waitFor({ state: 'visible' });
     }, guestPage);
   }
 } else {
