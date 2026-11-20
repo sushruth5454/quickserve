@@ -1,6 +1,13 @@
 import { router } from 'expo-router';
 import { getSession } from '../api';
-import { BROWSE_SEGMENTS, canGuestBrowse, isBrowseRoute, requireSignIn, safeReturnTo } from '../authGate';
+import {
+  BROWSE_SEGMENTS,
+  canGuestBrowse,
+  isBrowseRoute,
+  isGuestGatedCustomerTab,
+  requireSignIn,
+  safeReturnTo,
+} from '../authGate';
 
 jest.mock('expo-router', () => ({ router: { replace: jest.fn() } }));
 jest.mock('../api', () => ({ getSession: jest.fn() }));
@@ -49,6 +56,17 @@ describe('guest browse route helpers', () => {
     'allows only the customer browse tabs for %s',
     (...segments) => {
       expect(isBrowseRoute(segments)).toBe(true);
+      expect(isGuestGatedCustomerTab(segments)).toBe(false);
+    },
+  );
+
+  it.each([['(customer)', 'bookings'], ['(customer)', 'account']])(
+    'classifies private customer tabs as guest-gated entries, not browse routes: %s',
+    (...segments) => {
+      expect(isBrowseRoute(segments)).toBe(false);
+      expect(isGuestGatedCustomerTab(segments)).toBe(true);
+      expect(canGuestBrowse(true, segments)).toBe(true);
+      expect(canGuestBrowse(false, segments)).toBe(false);
     },
   );
 
@@ -73,7 +91,7 @@ describe('guest browse route helpers', () => {
 
   it('allows only approved routes when guest_browse is on', () => {
     expect(canGuestBrowse(true, ['category', 'plumbing'])).toBe(true);
-    expect(canGuestBrowse(true, ['(customer)', 'bookings'])).toBe(false);
+    expect(canGuestBrowse(false, ['category', 'plumbing'])).toBe(false);
   });
 
   it('accepts only safe internal return paths', () => {

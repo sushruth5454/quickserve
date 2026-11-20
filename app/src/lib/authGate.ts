@@ -23,8 +23,13 @@ export function isBrowseRoute(segments: readonly string[]): boolean {
   return BROWSE_SEGMENTS.includes(first as (typeof BROWSE_SEGMENTS)[number]);
 }
 
+export function isGuestGatedCustomerTab(segments: readonly string[]): boolean {
+  const [first, second] = segments;
+  return first === '(customer)' && (second === 'bookings' || second === 'account');
+}
+
 export function canGuestBrowse(guestBrowseEnabled: boolean, segments: readonly string[]): boolean {
-  return guestBrowseEnabled && isBrowseRoute(segments);
+  return guestBrowseEnabled && (isBrowseRoute(segments) || isGuestGatedCustomerTab(segments));
 }
 
 export function safeReturnTo(path: unknown): path is string {

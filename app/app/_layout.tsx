@@ -19,7 +19,7 @@ import { UnreadProvider, useUnread } from '../src/lib/unreadContext';
 import { LanguageProvider } from '../src/i18n';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
-import { canGuestBrowse, isBrowseRoute, safeReturnTo } from '../src/lib/authGate';
+import { canGuestBrowse, isBrowseRoute, isGuestGatedCustomerTab, safeReturnTo } from '../src/lib/authGate';
 import { getAppFeatures } from '../src/lib/adminApi';
 import { isFeatureOn } from '../src/lib/featureFlagModel';
 
@@ -61,7 +61,7 @@ function RootNavigator() {
   const inAuthGroup = segments[0] === '(auth)';
   // Public pages (safety, terms, privacy) are linked from the login screen.
   const onPublicPage = segments[0] === 'info' || segments[0] === 'byo';
-  const potentialGuestBrowseRoute = isBrowseRoute(segments);
+  const potentialGuestBrowseRoute = isBrowseRoute(segments) || isGuestGatedCustomerTab(segments);
   const awaitingGuestFlag =
     featureFlagsLoading && !signedIn && !inAuthGroup && !onPublicPage && potentialGuestBrowseRoute;
   const canBrowseAsGuest = canGuestBrowse(guestBrowse, segments);
