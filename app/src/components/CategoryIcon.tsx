@@ -5,6 +5,11 @@ import { categoryGlyphTints, useTheme } from '../theme';
 import { CATEGORY_SLUG_TO_ICON } from './categoryIconMap';
 
 type McIcon = ComponentProps<typeof MaterialCommunityIcons>['name'];
+type CategoryGlyphTintKey = keyof typeof categoryGlyphTints;
+
+function isCategoryGlyphTintKey(key: string): key is CategoryGlyphTintKey {
+  return Object.prototype.hasOwnProperty.call(categoryGlyphTints, key);
+}
 
 /** Category `icon` keys from the database → vector icon + glyph tint (tiles themselves are neutral). */
 export const CATEGORY_VISUALS: Record<string, { icon: McIcon; tint: string }> = {
@@ -57,7 +62,7 @@ export const CATEGORY_VISUALS: Record<string, { icon: McIcon; tint: string }> = 
 export function categoryVisual(icon: string | undefined | null, dark = false) {
   const key = icon ?? '';
   const visual = CATEGORY_VISUALS[key] ?? { icon: 'tools' as McIcon, tint: categoryGlyphTints.default.light };
-  const tint = categoryGlyphTints[key] ?? categoryGlyphTints.default;
+  const tint = isCategoryGlyphTintKey(key) ? categoryGlyphTints[key] : categoryGlyphTints.default;
   return { icon: visual.icon, tint: dark ? tint.dark : visual.tint };
 }
 

@@ -163,10 +163,7 @@ export const darkPalette: Palette = {
   catCreatorsSoft: '#221447',
 };
 
-export const categoryGlyphTints: {
-  default: { light: string; dark: string };
-  [category: string]: { light: string; dark: string };
-} = {
+export const categoryGlyphTints = {
   default: { light: '#1E5EFF', dark: '#8FAFFF' },
   snowflake: { light: '#0086C9', dark: '#80C3E4' },
   zap: { light: '#B54708', dark: '#DAA384' },
@@ -210,7 +207,7 @@ export const categoryGlyphTints: {
   music: { light: '#444CE7', dark: '#A2A6F3' },
   briefcase: { light: '#067647', dark: '#83BBA3' },
   school: { light: '#1E5EFF', dark: '#8FAFFF' },
-};
+} as const;
 
 /** 4-pt scale. Screen gutter 16, card padding 16, sibling cards 12, sections 28. */
 export const spacing = {
