@@ -76,7 +76,7 @@ export function BookIssueSection({ controller }: { controller: BookScreenControl
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="close" size={14} color="#FFFFFF" />
+              <Ionicons name="close" size={14} color={t.colors.onPrimary} />
             </Pressable>
           </View>
         ))}

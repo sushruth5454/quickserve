@@ -15,12 +15,17 @@ export function renderResourceEditor(
     <Card gap={spacing.sm}>
       <Text variant="title3">Courts and resources</Text>
       {state.resources.map((item) => (
-        <Pressable key={item.id} onPress={() => {
-          state.setResourceId(item.id);
-          state.setActivityId(item.activity_id);
-          state.setResourceName(item.name);
-          state.setSlotMinutes(String(item.slot_minutes));
-        }}>
+        <Pressable
+          key={item.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${item.activity_name} resource ${item.name}, ${item.slot_minutes} minute slot`}
+          onPress={() => {
+            state.setResourceId(item.id);
+            state.setActivityId(item.activity_id);
+            state.setResourceName(item.name);
+            state.setSlotMinutes(String(item.slot_minutes));
+          }}
+        >
           <Text variant="footnoteStrong" color={item.id === state.resourceId ? 'primaryText' : 'text'}>
             {item.activity_name} · {item.name} · {item.slot_minutes} min
           </Text>
@@ -29,7 +34,12 @@ export function renderResourceEditor(
       <Text variant="subheadStrong">{state.resourceId ? 'Edit selected resource' : 'Add a resource'}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {state.activities.map((item) => (
-          <Pressable key={item.id} onPress={() => state.setActivityId(item.id)}>
+          <Pressable
+            key={item.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Select activity ${item.name}`}
+            onPress={() => state.setActivityId(item.id)}
+          >
             <Card padding={spacing.sm} variant={item.id === state.activityId ? 'tinted' : 'outlined'}>
               <Text variant="captionStrong">{item.name}</Text>
             </Card>
@@ -59,6 +69,7 @@ export function renderResourceEditor(
               <Pressable
                 key={mode}
                 accessibilityRole="radio"
+                accessibilityLabel={mode === 'instant' ? 'Instant booking' : 'Venue approval'}
                 accessibilityState={{ checked: state.bookingMode === mode }}
                 onPress={() => state.setBookingMode(mode)}
                 style={{ flex: 1 }}
