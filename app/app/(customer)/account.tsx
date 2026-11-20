@@ -1,5 +1,10 @@
+import { GuestGate } from '../../src/components/GuestGate';
 import { AccountScreen } from '../../src/components/AccountScreen';
 
 export default function CustomerAccount() {
-  return <AccountScreen mode="customer" />;
+  return (
+    <GuestGate returnTo="/account">
+      <AccountScreen mode="customer" />
+    </GuestGate>
+  );
 }
