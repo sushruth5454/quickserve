@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, Card, ErrorState, Header, Input, Screen, SegmentedControl, Skeleton, Text, Button, useConfirm, useToast } from '../../src/components/ui';
@@ -77,6 +77,7 @@ export default function AdminPeopleScreen() {
 
   return (
     <Screen header={<Header title="Providers & creators" subtitle={`${rows?.length ?? 0} results`} />}>
+      <Button title="Audit log" variant="outline" onPress={() => router.push('/admin/audit')} />
       <Input label="Search" placeholder="Name, phone or city" value={q} onChangeText={setQ} />
       <SegmentedControl
         options={[{ value: 'all', label: `All ${counts.all || ''}` }, { value: 'creators', label: `Creators ${counts.creators || ''}` }, { value: 'pending', label: `Review ${counts.pending || ''}` }, { value: 'suspended', label: 'Suspended' }]}

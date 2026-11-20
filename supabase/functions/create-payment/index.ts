@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { cancelRetiredLinks, corsHeaders, json, razorpay, RazorpayError, requireEnv } from "../_shared/razorpay.ts";
 import {
+  buildCheckoutUrl,
+  checkoutDescription,
+  checkoutPurposeLabel,
+  paymentBookingRef,
   recoverSportsCheckoutRace,
   resolveSportsPaymentRequest,
   sportsPaymentPreparation,
@@ -24,6 +28,14 @@ interface PaymentLink {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
+
+  let checkoutPageUrl: string;
+  try {
+    checkoutPageUrl = requireEnv("CHECKOUT_PAGE_URL");
+    buildCheckoutUrl(checkoutPageUrl, {});
+  } catch {
+    return json({ error: "Checkout is temporarily unavailable." }, 503);
+  }
 
   try {
     const supabaseUrl = requireEnv("SUPABASE_URL");
@@ -111,7 +123,6 @@ Deno.serve(async (req) => {
     // Razorpay Orders + hosted Checkout (payment links are capped at 30 in test mode). The order id is stored in
     // payments.razorpay_link_id, which every downstream step (record_payment_paid, refunds, retirement) keys on.
     // short_url is the hosted checkout page for this order; the app opens it exactly as it opened a payment link.
-    const checkoutBase = Deno.env.get("CHECKOUT_PAGE_URL") ?? "https://sushruth5454.github.io/quickserve/checkout/";
     let link: PaymentLink;
     try {
       const order = await razorpay<{ id: string; amount: number }>("/orders", {
@@ -126,20 +137,21 @@ Deno.serve(async (req) => {
           ...(prepared.schedule_id ?? scheduleId ? { schedule_id: prepared.schedule_id ?? scheduleId } : {}),
         },
       });
-      const description = prepared.purpose === "visit_fee"
-        ? "QuickServe visit fee"
-        : prepared.purpose === "addon"
-          ? "QuickServe approved add-on"
-          : "QuickServe job payment";
-      const params = new URLSearchParams({
+      const checkoutParentId = sportsRequest?.bookingId ?? bookingId ?? packId;
+      if (!checkoutParentId) throw new Error("Missing checkout booking reference");
+      const description = checkoutDescription(
+        paymentBookingRef(checkoutParentId),
+        checkoutPurposeLabel(prepared.purpose),
+      );
+      const params = {
         o: order.id,
         k: requireEnv("RAZORPAY_KEY_ID"),
         a: String(order.amount),
         d: description,
         v: `${supabaseUrl}/functions/v1/verify-payment`,
         ...(account?.phone ? { c: account.phone } : {}),
-      });
-      link = { id: order.id, short_url: `${checkoutBase}?${params.toString()}` };
+      };
+      link = { id: order.id, short_url: buildCheckoutUrl(checkoutPageUrl, params) };
     } catch (e) {
       await admin.from("payments").update({ status: "failed" }).eq("id", prepared.payment_id);
       console.error(e);

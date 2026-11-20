@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders, hmacSha256Hex, json, razorpay, razorpayRequest, RazorpayError, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
+import { corsHeaders, json, razorpay, razorpayRequest, RazorpayError, requireEnv } from "../_shared/razorpay.ts";
 import { recordGatewayPayment } from "../_shared/record-payment.ts";
+import { verifyCheckoutSignature } from "./logic.ts";
 
 interface RazorpayPayment {
   id: string;
@@ -29,8 +30,9 @@ Deno.serve(async (req) => {
       return json({ error: "invalid payment details" }, 400);
     }
 
-    const expected = await hmacSha256Hex(requireEnv("RAZORPAY_KEY_SECRET"), `${orderId}|${paymentId}`);
-    if (!timingSafeEqual(signature, expected)) return json({ error: "invalid signature" }, 401);
+    if (!await verifyCheckoutSignature(orderId, paymentId, signature, requireEnv("RAZORPAY_KEY_SECRET"))) {
+      return json({ error: "invalid signature" }, 401);
+    }
 
     let payment = await razorpayRequest<RazorpayPayment>("GET", `/payments/${paymentId}`);
     if (payment.order_id !== orderId) return json({ error: "payment does not belong to this order" }, 400);

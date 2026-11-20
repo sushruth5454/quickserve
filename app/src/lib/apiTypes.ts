@@ -8,6 +8,7 @@ import type {
   OtpResult,
   Payment,
   Payout,
+  ProviderStatementRow,
   Profile,
   Provider,
   ProviderJob,
@@ -81,10 +82,22 @@ export interface TopRatedService {
   categories: { name: string; slug: string } | null;
 }
 
+export interface PublicReview {
+  id: string;
+  rating: number;
+  punctuality: number | null;
+  quality: number | null;
+  behaviour: number | null;
+  pricing: number | null;
+  comment: string | null;
+  provider_reply: string | null;
+  created_at: string;
+}
+
 export interface ProviderDetail {
   provider: Provider & { profiles: { full_name: string; avatar_url: string | null } | null };
   services: ProviderService[];
-  reviews: Review[];
+  reviews: PublicReview[];
 }
 
 export type ProviderServiceWithProvider = ProviderService & {
@@ -323,6 +336,7 @@ export interface Api {
   addRateCardItem(providerServiceId: string, title: string, price: number): Promise<void>;
   getProviderJobs(): Promise<ProviderJob[]>;
   listMyPayouts(): Promise<Payout[]>;
+  getProviderStatement(from: string, to: string): Promise<ProviderStatementRow[]>;
   // chat & realtime
   listMessages(bookingId: string): Promise<Message[]>;
   sendMessage(bookingId: string, body: string): Promise<void>;

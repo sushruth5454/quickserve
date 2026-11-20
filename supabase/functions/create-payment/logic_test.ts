@@ -2,12 +2,34 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { recordGatewayPayment } from "../_shared/record-payment.ts";
 import {
+  buildCheckoutUrl,
+  checkoutDescription,
+  checkoutPurposeLabel,
   failedSportsPaymentAttempt,
+  paymentBookingRef,
   recoverSportsCheckoutRace,
   resolveSportsPaymentRequest,
   sportsPaymentPreparation,
   sportsPaymentsEnabled,
 } from "./logic.ts";
+
+Deno.test("checkout description uses the Nearo booking reference and purpose label", () => {
+  const ref = paymentBookingRef("fc000006-5eed-5eed-8000-000000000000");
+  assertEquals(ref, "QS-FC000006");
+  assertEquals(checkoutDescription(ref, checkoutPurposeLabel("visit_fee")), "Nearo · QS-FC000006 · Visit fee");
+  assertEquals(checkoutDescription("QS-1042", checkoutPurposeLabel("addon")), "Nearo · QS-1042 · Approved add-on");
+  assertEquals(checkoutPurposeLabel("advance"), "Job payment");
+});
+
+Deno.test("checkout URL builder requires a valid HTTPS URL and preserves query parameters", async () => {
+  assertEquals(
+    buildCheckoutUrl("https://checkout.example/checkout?theme=light", { o: "order_1", d: "Nearo · QS-FC000006 · Visit fee" }),
+    "https://checkout.example/checkout?theme=light&o=order_1&d=Nearo+%C2%B7+QS-FC000006+%C2%B7+Visit+fee",
+  );
+  await assertRejects(async () => buildCheckoutUrl("", {}));
+  await assertRejects(async () => buildCheckoutUrl("http://checkout.example/checkout", {}));
+  await assertRejects(async () => buildCheckoutUrl("https://user:pass@checkout.example/checkout", {}));
+});
 
 Deno.test("sports checkout requires both the sports parent and online-payment switch", () => {
   assertEquals(sportsPaymentsEnabled({ sports: true, sports_online_payments: true }), true);

@@ -17,6 +17,30 @@ export interface CurrentSportsCheckout {
   purpose: string;
 }
 
+export function paymentBookingRef(id: string): string {
+  const compact = id.replace(/-/g, "").toUpperCase();
+  return compact.startsWith("QS") ? `QS-${compact.slice(2, 10)}` : `QS-${compact.slice(0, 8)}`;
+}
+
+export function checkoutPurposeLabel(purpose: string): string {
+  if (purpose === "visit_fee") return "Visit fee";
+  if (purpose === "addon") return "Approved add-on";
+  return "Job payment";
+}
+
+export function checkoutDescription(bookingRef: string, purposeLabel: string): string {
+  return `Nearo · ${bookingRef} · ${purposeLabel}`;
+}
+
+export function buildCheckoutUrl(checkoutPageUrl: string, params: Record<string, string>): string {
+  const url = new URL(checkoutPageUrl);
+  if (url.protocol !== "https:" || !url.hostname || url.username || url.password) {
+    throw new Error("CHECKOUT_PAGE_URL must be an HTTPS URL without embedded credentials");
+  }
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  return url.toString();
+}
+
 export function failedSportsPaymentAttempt(order: LosingSportsOrder) {
   return {
     sports_booking_id: order.bookingId,

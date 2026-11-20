@@ -148,16 +148,18 @@ The **"Pay" button must show ₹1,028.00**. Today it shows ₹999 (WS2-04).
   - **RECOMMENDED:** 8% of total, capped at 500000 (D1)
   - The final milestone is due on delivery acceptance or auto-acceptance (D2 window).
   - An unpaid final balance after delivery triggers the WP-C1 path.
-- **Sample** (₹20,000 job, 30% advance):
+- **Sample** (₹20,000 job, 25% default advance cap):
 
 | Item | TODAY | RECOMMENDED |
 |---|---:|---:|
 | Total | ₹20,000.00 | ₹20,000.00 |
 | Platform fee 1% | ₹200.00 | ₹200.00 |
-| **Customer payable** | **₹20,200.00** (₹6,200 now + ₹14,000 on delivery) | **₹20,200.00** |
+| **Customer payable** | **₹20,200.00** (₹5,200 now + ₹15,000 on delivery) | **₹20,200.00** |
 | Commission | ₹0.00 | ₹1,600.00 |
 | GST on commission | ₹0.00 | ₹288.00 |
 | **Creator net** | **₹20,000.00** | **₹18,112.00** |
+
+**Decision (2026-11-19):** Use the 25% advance cap from WS5-T10 and migration `0081_c2_creator_delivery.sql` (`proposal.max_advance_bp=2500`) for this sample and smoke fixtures. The prior 30% timing example contradicted the server-enforced default; keep the server cap unchanged unless the owner approves a validated admin-config change.
 
 ### 3.6 Product enquiry & RFQ (no money through Nearo; D7)
 Nearo neither collects nor commissions product sales. That is confirmed by the passing test `selecting a supplier creates no payment`. Every RFQ and quote screen must state: **"Pay the shop directly. Nearo charges no commission."**

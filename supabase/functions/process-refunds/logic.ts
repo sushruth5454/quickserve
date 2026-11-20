@@ -24,6 +24,27 @@ export type StaleRefundResult = {
   error?: string;
 };
 
+export function isDemoRefund(refund: Pick<StaleRefund, "razorpay_payment_id">): boolean {
+  return refund.razorpay_payment_id.startsWith("pay_demo_");
+}
+
+export function refundRequest(refund: StaleRefund) {
+  return {
+    path: `/payments/${refund.razorpay_payment_id}/refund`,
+    body: {
+      amount: refund.amount,
+      speed: "normal" as const,
+      receipt: refund.refund_id.slice(0, 40),
+      notes: {
+        refund_id: refund.refund_id,
+        payment_id: refund.payment_id,
+        booking_id: refund.booking_id,
+      },
+    },
+    headers: { "X-Refund-Idempotency": refund.refund_id },
+  };
+}
+
 async function applyRpc(
   refundId: string,
   action: "completed" | "requeued",
@@ -50,7 +71,7 @@ export async function reconcileStaleRefund(
   complete: (refundId: string, gatewayRefundId: string) => Promise<RefundRpcResult>,
   requeue: (refundId: string) => Promise<RefundRpcResult>,
 ): Promise<StaleRefundResult> {
-  if (refund.razorpay_payment_id.startsWith("pay_demo_")) {
+  if (isDemoRefund(refund)) {
     return await applyRpc(
       refund.refund_id,
       "completed",

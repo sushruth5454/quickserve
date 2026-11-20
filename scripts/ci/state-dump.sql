@@ -4,7 +4,7 @@
 select json_build_object(
   'flags', (select json_object_agg(key, enabled order by key) from public.feature_flags),
   'app_config', (select json_object_agg(key, value order by key) from public.app_config
-                  where key !~* '(secret|token|password|key_id|api_key)'),
+                  where key !~* '(secret|token|password|key_id|api_key|otp|phone|email|address|contact|admin|identity)'),
   'categories', (select json_object_agg(slug, json_build_object('active', active, 'restricted', restricted,
                    'archetype', archetype) order by slug) from public.categories),
   'live_cities', (select json_object_agg(c.slug, cities order by c.slug) from (
@@ -13,5 +13,5 @@ select json_build_object(
                    join public.categories c on c.id = cc.category_id),
   'category_rows', (select json_object_agg(slug, to_jsonb(c) - 'id' - 'created_at' - 'updated_at' order by slug)
                      from public.categories c),
-  'admins', (select json_agg(u.phone order by u.phone) from public.admins a join auth.users u on u.id = a.user_id)
+  'admin_count', (select count(*) from public.admins)
 ) as state;
