@@ -256,7 +256,7 @@ export interface Api {
   signOut(): Promise<void>;
   requestAccountDeletion(): Promise<AccountDeletionOutcome>;
   getMyProfile(): Promise<Profile | null>;
-  updateMyProfile(patch: Partial<Pick<Profile, 'full_name' | 'role_customer' | 'role_provider'>>): Promise<void>;
+  updateMyProfile(patch: Partial<Pick<Profile, 'full_name' | 'avatar_url'>>): Promise<void>;
   // discovery
   listCategories(city?: string): Promise<Category[]>;
   searchProviders(categorySlug: string, coords: Coords | null, filters: SearchFilters): Promise<ProviderSearchResult[]>;
