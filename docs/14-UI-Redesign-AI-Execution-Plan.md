@@ -848,7 +848,7 @@ Latest E2E outcomes (Nov 19, 2026): H-01 lane run `44458765479` and main run `44
 
 Baseline screenshot artifact: *(Q-01 fills this)*
 
-**Latest fix-forward validation (2026-11-19):** Fix-forward commit `93f7cf0` passed lane CI `44639312164` and private `e2e-local` `44639312152` (162 screens, zero failures, two expected AI-dependent skips; normalized local versions `006000/006001` applied). It was fast-forwarded to main at `1885add`; backend deploy `44641076318` and hosted E2E `44641076647` are in progress. DB batch 5 remains unpushed pending its own combined CI and private E2E.
+**Latest fix-forward validation (2026-11-19):** Fix-forward commit `93f7cf0` passed lane CI `44639312164` and private `e2e-local` `44639312152` (162 screens, zero failures, two expected AI-dependent skips; normalized local versions `006000/006001` applied). It was fast-forwarded to main at `1885add`; backend deploy `44641076318` succeeded and hosted E2E `44641076647` passed. No app publish was triggered for this E2E/CI-only change. DB batch 5 remains unpushed pending its own combined CI and private E2E.
 
 ## 8. Definition of done (whole redesign)
 1. Every §4 task is merged with a green lane run, and the `main` E2E is green.
