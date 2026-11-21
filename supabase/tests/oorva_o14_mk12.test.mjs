@@ -42,6 +42,11 @@ async function createFixture(base) {
     select id, 'MK-T12 provider ' || right(id::text, 4), null, false, true
       from auth.users
      where id between $1::uuid and $2::uuid
+    on conflict (id) do update
+      set full_name = excluded.full_name,
+          avatar_url = excluded.avatar_url,
+          role_customer = excluded.role_customer,
+          role_provider = excluded.role_provider
   `, [uuid(base + 1), uuid(base + 91)]);
   await db.query(`
     insert into public.providers (
