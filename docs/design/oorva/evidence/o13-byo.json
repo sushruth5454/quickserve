@@ -1,0 +1,93 @@
+{
+  "stage": "O13-BYO",
+  "workPackage": "O13",
+  "sourceTask": "PF-T05",
+  "sourceFinding": "PF-F06",
+  "status": "implementation-and-final-head-lane-ci-passed",
+  "base": {
+    "plan": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementation": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "dependencies": [
+      {
+        "stage": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE"
+      },
+      {
+        "stage": "O38R",
+        "commit": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+        "status": "DONE"
+      }
+    ]
+  },
+  "gates": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "files": [
+    "app\\app\\byo\\[token].tsx",
+    "app\\src\\lib\\byoInvitePresentation.ts",
+    "app\\src\\lib\\__tests__\\byoInvitePresentation.test.ts",
+    "app\\src\\features\\platformScreens\\ByoDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o13-byo.json"
+  ],
+  "implementation": [
+    "Extracted S39 route content to ByoDetailScreen and left the route as a thin token-param wrapper with one useByoDetailController.",
+    "Added token/request-keyed loading, available, unavailable, error, and claimed states; stale preview callbacks are ignored, and failed preview reads expose Retry instead of invalid/expired copy.",
+    "Captured the canonical booking ID in claimed state before invoking payment. Payment error/cancellation retains View booking and Retry payment actions; Retry payment uses the existing payment path and never calls claimByoInvite.",
+    "Preserved server preview amounts, the current 3% fee label/policy, existing login inviteToken intent, and server-side claim validation. Participant and price rows wrap at natural height."
+  ],
+  "validation": [
+    {
+      "suite": "Codespace app",
+      "filter": "src.lib.__tests__.byoInvitePresentation[.]test[.]ts$",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.byoInvitePresentation[.]test[.]ts$'",
+      "result": "BLOCKED_BEFORE_SELECTION",
+      "testsRun": false,
+      "snapshot": "wip/qs-oorva-o13-byo @ a09e0bd912b8ace85568ce9613f6b87ba97546de",
+      "detail": "The current-main helper could not fetch the WIP snapshot in the shared Codespace because its Git credential helper had no GITHUB_TOKEN. The tsc/Jest test selection did not start. No Codespace PASS is claimed; the documented fallback is lane CI."
+    },
+    {
+      "suite": "lane-ci",
+      "validation": "implementation",
+      "runId": 44914674676,
+      "commit": "0e8a6bbc4f0a73a0af6e02df8962bd3942537a2c",
+      "result": "PASS",
+      "jobs": {
+        "app": "PASS",
+        "sql": "PASS",
+        "deno": "PASS",
+        "private-postgres": "PASS",
+        "tooling": "PASS"
+      }
+    },
+    {
+      "suite": "lane-ci",
+      "validation": "final-head",
+      "runId": 44915482436,
+      "commit": "1d41dac9129db303b9f3c3b23bd10a604c9b26a1",
+      "result": "PASS",
+      "jobs": {
+        "app": "PASS",
+        "sql": "PASS",
+        "deno": "PASS",
+        "private-postgres": "PASS",
+        "tooling": "PASS"
+      }
+    }
+  ],
+  "scope": {
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "featureKeys": [],
+    "deployment": false,
+    "productionActions": false
+  },
+  "review": {
+    "required": "money",
+    "owner": "coordinator",
+    "status": "pending post-handoff"
+  }
+}
