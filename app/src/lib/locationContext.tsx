@@ -6,7 +6,16 @@ import type { Coords } from './apiTypes';
 import { resolveServiceCity } from './api';
 import { useAuth } from './auth';
 import { demoSeedCity, isSeedDemoMode } from './config';
-import { DEFAULT_LOCATION, geocodeQuery, LAUNCH_CITY, LOCATION_STORAGE_KEY, parseStoredLocation, type SelectedLocation } from './locationModel';
+import {
+  DEFAULT_LOCATION,
+  geocodeQuery,
+  LAUNCH_CITY,
+  LOCATION_STORAGE_KEY,
+  locationForConfirmedActor,
+  resolveStoredLocation,
+  serializeStoredLocation,
+  type SelectedLocation,
+} from './locationModel';
 import { newPlacesSession, placeDetail, PlacesUnavailable, placeSuggestions } from './places';
 
 export type GpsResult =
@@ -117,54 +126,72 @@ export async function resolvePlace(r: PlaceResult, sessionToken?: string): Promi
 }
 
 export function LocationProvider({ children }: { children: ReactNode }) {
+  const { userId, loading: authLoading } = useAuth();
   const [location, setLoc] = useState<SelectedLocation>(DEFAULT_LOCATION);
+  const [locationOwnerId, setLocationOwnerId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     let alive = true;
     void (async () => {
-      const stored = parseStoredLocation(await AsyncStorage.getItem(LOCATION_STORAGE_KEY).catch(() => null));
+      const raw = await AsyncStorage.getItem(LOCATION_STORAGE_KEY).catch(() => null);
+      const restored = resolveStoredLocation(raw, authLoading, userId);
+      if (!alive || restored.status === 'pending') return;
       // Demo-city builds only have seeded providers in that city. A location saved by an earlier build is dropped
       // once, on the first launch of the demo build; anything the user picks after that is kept.
       const resetKey = `${LOCATION_STORAGE_KEY}.demoReset.${demoSeedCity.toLowerCase()}`;
       const needsDemoReset = isSeedDemoMode && !(await AsyncStorage.getItem(resetKey).catch(() => '1'));
       if (!alive) return;
       if (needsDemoReset) void AsyncStorage.setItem(resetKey, '1').catch(() => undefined);
-      if (stored && (!needsDemoReset || stored.city?.trim().toLowerCase() === demoSeedCity.toLowerCase())) {
-        setLoc(stored);
+      if (
+        restored.status === 'restore' &&
+        (!needsDemoReset || restored.location.city.trim().toLowerCase() === demoSeedCity.toLowerCase())
+      ) {
+        setLoc(restored.location);
+        setLocationOwnerId(restored.ownerUserId);
+        void AsyncStorage.setItem(
+          LOCATION_STORAGE_KEY,
+          serializeStoredLocation(restored.location, restored.ownerUserId),
+        ).catch(() => undefined);
         setReady(true);
         return;
       }
       // The reset drops the old selection for good, so it cannot come back on the next launch.
-      if (stored) void AsyncStorage.removeItem(LOCATION_STORAGE_KEY).catch(() => undefined);
+      if (raw) void AsyncStorage.removeItem(LOCATION_STORAGE_KEY).catch(() => undefined);
+      setLocationOwnerId(null);
       // First run uses the default until the customer chooses a location from the picker.
       setReady(true);
     })();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [authLoading, userId]);
 
-  // A saved address belongs to the signed-in user: drop it on sign-out so the next user never sees it.
-  const { userId } = useAuth();
+  // Auth loading is not a sign-out; only a confirmed actor change can invalidate a saved selection.
   useEffect(() => {
-    if (ready && !userId && location.source === 'saved') {
+    if (!authLoading && ready && location.source === 'saved' && (!userId || locationOwnerId !== userId)) {
       setLoc(DEFAULT_LOCATION);
+      setLocationOwnerId(null);
       void AsyncStorage.removeItem(LOCATION_STORAGE_KEY).catch(() => undefined);
     }
-  }, [ready, userId, location.source]);
+  }, [authLoading, ready, userId, location.source, locationOwnerId]);
 
   const setLocation = useCallback((l: SelectedLocation) => {
+    if (l.source === 'saved' && (authLoading || !userId)) return;
+    const ownerId = l.source === 'saved' ? userId : null;
     setLoc(l);
-    void AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(l)).catch(() => undefined);
-  }, []);
+    setLocationOwnerId(ownerId);
+    void AsyncStorage.setItem(LOCATION_STORAGE_KEY, serializeStoredLocation(l, ownerId)).catch(() => undefined);
+  }, [authLoading, userId]);
+  const exposedLocation = locationForConfirmedActor(location, locationOwnerId, authLoading, userId);
 
   // Geocoders name the village or suburb ("Pothireddypally") rather than the launch city ("Sangareddy") that the
   // catalogue and booking use. Map the coordinates to the live service city covering them; keep the geocoded name
   // when no live provider serves the area, so the home screen can say the area is not served yet.
   const { lat: curLat, lng: curLng, city: curCity } = location;
   useEffect(() => {
-    if (!ready || !userId) return;
+    if (!ready || authLoading || !userId || (location.source === 'saved' && locationOwnerId !== userId)) return;
     let alive = true;
     resolveServiceCity(curLat, curLng, curCity)
       .then((city) => {
@@ -172,7 +199,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
         setLoc((prev) => {
           if (prev.lat !== curLat || prev.lng !== curLng || prev.city !== curCity) return prev;
           const next = { ...prev, city };
-          void AsyncStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+          void AsyncStorage.setItem(LOCATION_STORAGE_KEY, serializeStoredLocation(next, locationOwnerId)).catch(() => undefined);
           return next;
         });
       })
@@ -180,11 +207,17 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [ready, userId, curLat, curLng, curCity]);
+  }, [ready, authLoading, userId, location.source, locationOwnerId, curLat, curLng, curCity]);
 
   const value = useMemo<LocationContextValue>(
-    () => ({ location, coords: { lat: location.lat, lng: location.lng }, ready, setLocation, locateWithGps }),
-    [location, ready, setLocation],
+    () => ({
+      location: exposedLocation,
+      coords: { lat: exposedLocation.lat, lng: exposedLocation.lng },
+      ready,
+      setLocation,
+      locateWithGps,
+    }),
+    [exposedLocation, ready, setLocation],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
