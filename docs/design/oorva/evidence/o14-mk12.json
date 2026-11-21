@@ -12,7 +12,7 @@
     "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
   },
   "migration": "supabase\\migrations\\0091_o14_mk12_oorva.sql",
-  "implementationStatus": "CI_FAILURE_CORRECTION_PREPARED_AWAITING_AUTH_REVIEW",
+  "implementationStatus": "CORRECTED_FIXTURE_CODESPACE_PASS_READY_FOR_LANE_CI",
   "sourceDrift": {
     "scope": "Affected files/functions only; no repeat audit.",
     "baseDifferencesFromAuditedSha": [
@@ -55,16 +55,26 @@
     "codespaceSelectors": {
       "app": {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.providerCardModel[.]test[.]ts$'",
-        "status": "UNAVAILABLE_NO_PASS",
-        "result": "Codespace could not fetch the WIP snapshot because GitHub credentials were unavailable; failure occurred before selector results, so no tests ran."
+        "status": "PASS",
+        "snapshot": "b86c8f9b",
+        "result": "One selected suite; 6 tests passed; cs-test result: PASS."
       },
       "sqlTest": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o14_mk12'",
-        "status": "NOT_RUN_CODESPACE_UNAVAILABLE_BEFORE_SELECTION"
+        "status": "PASS",
+        "snapshot": "6bc45d1e",
+        "result": "One selected SQL file; 1/1 checks passed; cs-test result: PASS.",
+        "previousAttempt": {
+          "status": "FAIL",
+          "snapshot": "5e05fc8d",
+          "cause": "Both fixtures used the same city, so the second scenario's rank query included the first scenario's higher-count providers. The fixture now uses a unique city per scenario."
+        }
       },
       "migrationParser": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o14_mk12_oorva.sql'",
-        "status": "NOT_RUN_CODESPACE_UNAVAILABLE_BEFORE_SELECTION"
+        "status": "PASS",
+        "snapshot": "bd49f9df",
+        "result": "One selected migration parser; 3 top-level statements and 1 function body parsed with 0 errors; cs-test result: PASS."
       }
     },
     "laneCI": {
@@ -77,17 +87,17 @@
         "sql": "FAIL"
       },
       "sqlSummary": "145/146 SQL checks passed. Both O14-MK12 scenarios failed before assertions because the fixture profile insert hit duplicate key profiles_pkey.",
-      "correction": "Changed the fixture profile insert to ON CONFLICT DO UPDATE; correction is not yet validated or pushed."
+      "correction": "The CI duplicate-key fixture failure was fixed with ON CONFLICT DO UPDATE. A subsequent Codespace run found city contamination across scenarios; fixtures now use distinct cities and the SQL selector passes."
     },
     "privateE2E": "Base-only pass 44929374348; no stage E2E dispatched.",
     "authReview": {
       "status": "PASS",
       "reviewedHead": "1584e814abe243de90359c0cb1b8fd0fd687411e",
-      "correctionCommitReview": "PENDING"
+      "validity": "Coordinator confirmed the prior PASS remains valid for test/evidence-only fixture corrections; no auth implementation changes."
     },
     "lanePush": {
-      "validatedHead": "1584e814abe243de90359c0cb1b8fd0fd687411e",
-      "correction": "NOT_PUSHED_PENDING_AUTH_REVIEW"
+      "remoteHeadBeforeCorrection": "1584e814abe243de90359c0cb1b8fd0fd687411e",
+      "correction": "NOT_YET_PUSHED; current-main app, SQL, and parser selectors pass."
     }
   },
   "scope": {

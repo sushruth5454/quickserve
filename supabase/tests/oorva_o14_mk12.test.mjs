@@ -10,6 +10,8 @@ const one = async (query, params = []) => (await db.query(query, params)).rows[0
 async function createFixture(base) {
   const categorySlug = `mk-t12-inspect-${base}`;
   const providerBio = `MK-T12 fixture ${base}`;
+  const city = `MK-T12 City ${base}`;
+  const otherCity = `MK-T12 Other City ${base}`;
   const cityCategory = await one(`
     insert into public.categories (slug, name, vertical, archetype, active, restricted)
     values ($1::text, 'MK-T12 inspect', 'mk-t12', 'inspect_quote', true, false)
@@ -18,9 +20,9 @@ async function createFixture(base) {
   await db.query(`
     insert into public.category_cities (category_id, city, live, launched_at)
     values
-      ($1::uuid, 'Mysuru', true, $2::timestamptz),
-      ($1::uuid, 'Bengaluru', true, $2::timestamptz)
-  `, [cityCategory.id, fixedCreatedAt]);
+      ($1::uuid, $2::text, true, $3::timestamptz),
+      ($1::uuid, $4::text, true, $3::timestamptz)
+  `, [cityCategory.id, city, fixedCreatedAt, otherCity]);
   await db.query(`
     insert into public.app_config as config (key, value)
     values ('archetype_flags', '{"inspect_quote":true}'::jsonb)
@@ -54,18 +56,18 @@ async function createFixture(base) {
       suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier,
       created_at, admin_review_status, submitted_at, paused, timezone, base_area
     )
-    select id, $2::text, 'Mysuru', 15, 5, array['en'], 'verified',
+    select id, $2::text, $8::text, 15, 5, array['en'], 'verified',
            false, true, 4.8, right(id::text, 4)::int - $3::int, 1, 12,
            $1::timestamptz, 'approved', $1::timestamptz, false, 'Asia/Kolkata', 'Public locality'
       from auth.users
      where id between $4::uuid and $5::uuid
         or id in ($6::uuid, $7::uuid)
-  `, [fixedCreatedAt, providerBio, base, uuid(base + 1), uuid(base + 52), uuid(base + 90), uuid(base + 91)]);
+  `, [fixedCreatedAt, providerBio, base, uuid(base + 1), uuid(base + 52), uuid(base + 90), uuid(base + 91), city]);
   await db.query(`
     update public.providers
-       set city = 'Bengaluru', rating_count = 99
+       set city = $2::text, rating_count = 99
      where id = $1::uuid
-  `, [uuid(base + 90)]);
+  `, [uuid(base + 90), otherCity]);
   await db.query(`
     update public.providers
        set rating_count = 0
@@ -98,7 +100,7 @@ async function createFixture(base) {
     values ($1::uuid, tstzrange(now() - interval '1 hour', now() + interval '1 day', '[)'), 'current leave')
   `, [uuid(base + 51)]);
 
-  return { categoryId: cityCategory.id, categorySlug, leaveProviderId: uuid(base + 51), callerId: uuid(base + 52) };
+  return { city, categoryId: cityCategory.id, categorySlug, leaveProviderId: uuid(base + 51), callerId: uuid(base + 52) };
 }
 
 await scenario('MK-PROVIDER-ranked-public-columns', async () => {
@@ -107,7 +109,7 @@ await scenario('MK-PROVIDER-ranked-public-columns', async () => {
 
   const row = await one(
     `select * from public.list_top_rated_public($1::text, $2::int) where id = $3::uuid`,
-    ['Mysuru', 50, fixture.leaveProviderId],
+    [fixture.city, 50, fixture.leaveProviderId],
   );
   const profile = await one(
     `select public.get_provider_public_profile($1::uuid) as profile`,
@@ -158,19 +160,19 @@ await scenario('MK-PROVIDER-ranked-eligibility-city-self', async () => {
     fixture.callerId,
     'authenticated',
     `select * from public.list_top_rated_public($1::text, $2::int)`,
-    [' mysuru ', 100],
+    [` ${fixture.city.toLowerCase()} `, 100],
   );
   const limited = await as(
     fixture.callerId,
     'authenticated',
     `select id from public.list_top_rated_public($1::text, $2::int)`,
-    ['Mysuru', 1],
+    [fixture.city, 1],
   );
   const zeroLimit = await as(
     fixture.callerId,
     'authenticated',
     `select id from public.list_top_rated_public($1::text, $2::int)`,
-    ['Mysuru', 0],
+    [fixture.city, 0],
   );
   const missingCity = await as(
     fixture.callerId,
@@ -200,30 +202,30 @@ await scenario('MK-PROVIDER-ranked-eligibility-city-self', async () => {
     null,
     'anon',
     `select * from public.list_top_rated_public($1::text, $2::int)`,
-    ['Mysuru', 10],
+    [fixture.city, 10],
   );
   await db.query(`update public.feature_flags set enabled = false where key = 'guest_browse'`);
   const anonymousWithFlagOff = await as(
     null,
     'anon',
     `select * from public.list_top_rated_public($1::text, $2::int)`,
-    ['Mysuru', 10],
+    [fixture.city, 10],
   );
   const authenticatedWithFlagOff = await as(
     fixture.callerId,
     'authenticated',
     `select * from public.list_top_rated_public($1::text, $2::int)`,
-    ['Mysuru', 10],
+    [fixture.city, 10],
   );
 
   check(
     ranked.length === 50
       && !ranked.some((row) => row.id === fixture.callerId)
       && ranked.every((row) => row.rating_count > 0)
-      && ranked.every((row) => row.city.trim().toLowerCase() === 'mysuru')
+      && ranked.every((row) => row.city.trim().toLowerCase() === fixture.city.toLowerCase())
       && ranked[0]?.rating_count === 51,
     'normalized city, self exclusion, rating eligibility/order, and bounded maximum are enforced',
-    { count: ranked.length, selfIncluded: ranked.some((row) => row.id === fixture.callerId), first: ranked[0], cities: [...new Set(ranked.map((row) => row.city))] },
+    { count: ranked.length, selfIncluded: ranked.some((row) => row.id === fixture.callerId), first: ranked[0], selectedCity: fixture.city, cities: [...new Set(ranked.map((row) => row.city))] },
   );
   check(
     limited.length === 1 && zeroLimit.length === 1 && missingCity.length === 0,
