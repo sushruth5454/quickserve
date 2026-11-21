@@ -1,0 +1,146 @@
+{
+  "stageId": "O14-MK13",
+  "workPackage": "O14",
+  "sourceTask": "MK-T13",
+  "finding": "MK-F15",
+  "dependency": {
+    "task": "O00",
+    "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "status": "DONE"
+  },
+  "base": {
+    "branch": "integrate/oorva-base-1",
+    "commit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "currentMainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "approvals": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "implementation": {
+    "files": [
+      "app/src/features/catalogue/api.ts",
+      "app/src/features/catalogue/ArchetypeCategory.tsx",
+      "app/src/features/catalogue/__tests__/api.test.ts"
+    ],
+    "behavior": [
+      "Require selected city for catalogue package listing; filter through providers!inner with escaped exact case-insensitive city matching.",
+      "Return provider city in CataloguePackage and hide stale package results immediately when category or selected city changes.",
+      "Preserve active package/service and category filters, existing public RLS, demo behavior, and public-only provider projection."
+    ],
+    "databaseChanges": {
+      "migrations": 0,
+      "sqlFunctions": 0,
+      "featureFlags": 0
+    }
+  },
+  "verification": {
+    "red": {
+      "codespaceSnapshot": "468fa372",
+      "result": "Expected failure: package API lacked selected-city filtering and city context."
+    },
+    "green": {
+      "command": "pwsh -NoProfile -File <current-main cs-test helper> -Suite app -Filter 'src.features.catalogue.__tests__.api[.]test[.]ts$'",
+      "codespaceSnapshot": "db8ccff9",
+      "result": "PASS",
+      "appliesTo": "Earlier pre-seeded-city-alias implementation only; this PASS predates the Vijayawada and Sangareddy canonical-city corrections and does not validate them.",
+      "cases": [
+        "MK-PACKAGE-city-inner-filter",
+        "MK-PACKAGE-city-escaping",
+        "MK-PACKAGE-public-projection"
+      ]
+    },
+    "laneCI": {
+      "runId": "44921188314",
+      "headSha": "db586f0081112a28d3b1241db1bc3e7b14003565",
+      "result": "PASS",
+      "appTypecheck": "PASS",
+      "appUnitTests": "PASS"
+    },
+    "gitDiffCheck": "PASS"
+  },
+  "correction": {
+    "sourceE2eRun": "44914793015",
+    "sourceBatchHead": "43887c0f32d63dda52955e109fa059b1478180f8",
+    "failedSteps": [
+      "archetype-fixed-package-browse",
+      "archetype-fixed-package-book-mocked-payment",
+      "provider-detail-fixed-service-routes-to-packages"
+    ],
+    "failedPasses": [
+      "A",
+      "B"
+    ],
+    "rootCause": "Pass B has no selected-city mismatch: the saved address label is Sangareddy (demo), but its stored city is Sangareddy; the route and PostgREST city filter use Sangareddy, matching the seeded providers. The seeded packages are hidden by RLS because the post-migration Sangareddy provider inserts omit admin_review_status and therefore retain its pending default, while _provider_is_live requires approved.",
+    "routeAndPostgrestTrace": {
+      "savedAddressLabel": "Sangareddy (demo)",
+      "savedAddressCity": "Sangareddy",
+      "fromSavedAddress": "Returns city: a.city",
+      "locationPicker": "Passes fromSavedAddress(a) to setLocation",
+      "categoryCaller": "Calls listCataloguePackages(category.slug, location.city)",
+      "resolvedSelectedCity": "Sangareddy (category_cities has a live Sangareddy row, so resolve_service_city keeps p_city)",
+      "providerCityFilter": "provider_services.providers.city ILIKE 'Sangareddy'",
+      "queryFilters": [
+        "service_packages.active = true",
+        "provider_services.active = true",
+        "provider_services.categories.slug = house-cleaning",
+        "provider_services.providers.city ILIKE Sangareddy"
+      ],
+      "seededProviderCity": "Sangareddy",
+      "observedClientResult": "No packages live yet; E2E reports zero HTTP 403 responses"
+    },
+    "publicVisibilityRootCause": {
+      "migration": "0064 adds providers.admin_review_status with default pending and approves verified rows present at migration time.",
+      "seedOrder": "local-supabase.sh applies migrations before running seed-all-services.sql and seed-sangareddy.sql.",
+      "sangareddySeed": "The provider INSERT omits admin_review_status; the later ON CONFLICT update also omits it. The Pass B reseed deletes and recreates the Sangareddy demo providers after migrations.",
+      "livePredicate": "_provider_is_live requires admin_review_status = approved.",
+      "packageReadPolicy": "Authenticated and guest service_packages read policies require _provider_is_live; RLS filters the rows from PostgREST.",
+      "reseedCounts": {
+        "providers": 17,
+        "services": 17,
+        "packages": 17
+      },
+      "countsAre": "Seed/owner-side row counts, not proof that the customer JWT can read the rows.",
+      "observedHttp403": 0,
+      "result": "PostgREST returns an empty rowset under RLS; there is no query error to surface."
+    },
+    "followupE2eRun": "44919267460",
+    "followupBatchHead": "07263ba77975abff2983b879521609769993a763",
+    "followupFailedCase": "MK-PACKAGE-two-city-visible-result",
+    "followupFailure": {
+      "pass": "B",
+      "addressLabel": "Sangareddy (demo)",
+      "expectedProvider": "Laxmi Home Cleaning",
+      "excludedProvider": "Durga Demo Home Care",
+      "observed": "No packages live yet"
+    },
+    "latestE2eRun": "44922063391",
+    "latestE2eHead": "e0e8dd0153d4b10bf4fb55db38b92736a795a803",
+    "latestE2eResult": {
+      "passA": "PASS",
+      "passB": "FAIL only MK-PACKAGE-two-city-visible-result",
+      "reseed": "PASS, 17 providers / 17 services / 17 packages",
+      "cleanupAndFlagRestoration": "PASS"
+    },
+    "fix": "The earlier Sangareddy (demo) display-label normalization was based on the wrong input assumption; the saved-address route passes Sangareddy. Keep only the configured Vijayawada Demo seed-city normalization. No client-side workaround can safely expose rows filtered by RLS.",
+    "regressionCases": [
+      "MK-PACKAGE-city-seeded-fixed-query: Vijayawada Demo -> Vijayawada",
+      "MK-PACKAGE-city-seeded-fixed-query: Sangareddy -> Sangareddy"
+    ],
+    "coordinatorActionRequired": "Update the demo-only Sangareddy seed provider INSERT and ON CONFLICT update to set admin_review_status = approved; then rerun the Pass B public package query as the customer JWT and report the provider status/_provider_is_live result if it is still empty. Do not loosen RLS.",
+    "codespace": {
+      "selector": "src.features.catalogue.__tests__.api[.]test[.]ts$",
+      "snapshot": "1f966fc0",
+      "status": "UNAVAILABLE_NO_PASS",
+      "phase": "before_test_selection",
+      "testsSelected": false,
+      "reason": "The remote Codespace could not fetch the WIP snapshot because Git HTTPS authentication was unavailable. Credentials were not changed; lane CI is the validation fallback."
+    }
+  },
+  "sharedE2E": {
+    "case": "MK-PACKAGE-two-city-visible-result",
+    "owner": "coordinator",
+    "status": "not-dispatched"
+  }
+}
