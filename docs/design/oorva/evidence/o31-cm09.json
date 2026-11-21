@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O31-CM09",
   "workPackage": "O31",
-  "status": "IMPLEMENTED_LANE_CI_PASS_AWAITING_COORDINATOR",
+  "status": "CONCURRENCY_CORRECTION_AWAITING_LANE_CI",
   "base": {
     "implementationSha": "a48938ed9bdec7b41148a03c79cdd255de2aa5b3",
     "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -65,7 +65,8 @@
     "CM_FLAGS_FAILURE_RETAINS_STATE": "Implemented; final validation is Lane CI fallback because Codespace WIP fetch was unavailable.",
     "CM_FLAGS_REMOTE": "Implemented; final validation is Lane CI fallback because Codespace WIP fetch was unavailable.",
     "CM_FLAGS_REMOTE_OORVA_OFF": "Implemented; final validation is Lane CI fallback because Codespace WIP fetch was unavailable.",
-    "CM_FLAGS_PARENT_CONTRACT": "Implemented; final validation is Lane CI fallback because Codespace WIP fetch was unavailable."
+    "CM_FLAGS_PARENT_CONTRACT": "Implemented; final validation is Lane CI fallback because Codespace WIP fetch was unavailable.",
+    "CM_FLAGS_LOAD_WRITE_ORDER": "Added a deferred pre-write focus-load regression test; correction awaits Lane CI."
   },
   "validation": {
     "gitDiffCheck": "PASS",
@@ -79,7 +80,7 @@
       "credentialsChanged": false
     },
     "laneCiFallback": {
-      "status": "PASS_ON_IMPLEMENTATION_AND_FINAL_EVIDENCE_HEAD",
+      "status": "PRIOR_HEADS_PASSED; CONCURRENCY_CORRECTION_PENDING",
       "attempts": [
         {
           "runId": 44923544328,
@@ -120,11 +121,23 @@
           "deno": "success",
           "sql": "success"
         }
+      },
+      "concurrencyCorrection": {
+        "finding": "A focus load started before a write could complete afterward and overwrite the canonical feature response.",
+        "fix": "Sequence focus loads, invalidate prior generations when a write starts, and ignore stale results/errors or loads while a write is pending.",
+        "regressionTest": "CM_FLAGS_LOAD_WRITE_ORDER",
+        "codespace": {
+          "status": "UNAVAILABLE",
+          "selectedCount": 0,
+          "passClaimed": false,
+          "reason": "GitHub HTTPS WIP fetch failed before selection; credentials were not changed."
+        },
+        "laneCi": "PENDING"
       }
     }
   },
   "review": {
-    "concurrency": "REQUIRED; coordinator handoff pending."
+    "concurrency": "Correction implemented; same-reviewer re-review after exact-head Lane CI."
   },
   "scope": {
     "newCapability": false,

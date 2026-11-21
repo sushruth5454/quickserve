@@ -12,6 +12,7 @@ const mockGetAppFeatures = jest.fn();
 const mockListFeatures = jest.fn();
 const mockSetFeature = jest.fn();
 const mockRefresh = jest.fn();
+const mockUseFocusEffect = jest.fn();
 let mockControlFeatures: Record<string, unknown> = {};
 
 jest.mock('react', () => {
@@ -39,7 +40,7 @@ jest.mock('react', () => {
   };
 });
 
-jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
+jest.mock('expo-router', () => ({ useFocusEffect: mockUseFocusEffect }));
 jest.mock('react-native', () => ({ Switch: 'Switch', View: 'View' }));
 jest.mock('../../components/ui', () => ({
   Card: 'Card',
@@ -113,6 +114,11 @@ function renderScreen() {
   return AdminFeaturesScreen();
 }
 
+function runFocusedLoad() {
+  const call = mockUseFocusEffect.mock.calls[mockUseFocusEffect.mock.calls.length - 1];
+  if (typeof call?.[0] === 'function') (call[0] as () => void)();
+}
+
 function findElements(node: unknown, type: string): Array<React.ReactElement<Record<string, unknown>>> {
   if (Array.isArray(node)) return node.flatMap((child) => findElements(child, type));
   if (!ReactRuntime.isValidElement(node)) return [];
@@ -176,6 +182,7 @@ beforeEach(() => {
   mockListFeatures.mockReset().mockResolvedValue(featureRows);
   mockSetFeature.mockReset().mockResolvedValue(featureState());
   mockRefresh.mockReset().mockResolvedValue(undefined);
+  mockUseFocusEffect.mockReset();
 });
 
 describe('AdminFeaturesScreen serialized feature writes', () => {
@@ -232,6 +239,34 @@ describe('AdminFeaturesScreen serialized feature writes', () => {
       disabled: false,
       toast: [[{ message: 'RPC denied by policy', tone: 'error' }]],
       refreshCalls: 0,
+    });
+  });
+
+  it('CM_FLAGS_LOAD_WRITE_ORDER ignores a focus load that resolves after the canonical write', async () => {
+    const staleFeatures = deferred<AdminFeatures>();
+    const staleRows = deferred<AdminFeature[]>();
+    mockGetAppFeatures.mockReturnValueOnce(staleFeatures.promise);
+    mockListFeatures.mockReturnValueOnce(staleRows.promise);
+    mockSetFeature.mockResolvedValueOnce(featureState({ sports: false }));
+
+    const tree = renderScreen();
+    runFocusedLoad();
+    changeSwitch(tree, 'Sports', false);
+    await drainMicrotasks();
+
+    staleFeatures.resolve(featureState({ sports: true }));
+    staleRows.resolve(featureRows);
+    await drainMicrotasks();
+
+    const settledTree = renderScreen();
+    expectExact({
+      sports: switchForLabel(settledTree, 'Sports')?.props.value,
+      setFeatureCalls: mockSetFeature.mock.calls,
+      refreshCalls: mockRefresh.mock.calls.length,
+    }, {
+      sports: false,
+      setFeatureCalls: [['sports', false]],
+      refreshCalls: 1,
     });
   });
 

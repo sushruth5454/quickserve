@@ -23,21 +23,29 @@ function useAdminFeaturesController() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const writeInFlight = useRef(false);
+  const loadGeneration = useRef(0);
 
   const load = useCallback(() => {
+    if (writeInFlight.current) return;
+    const generation = ++loadGeneration.current;
     setError(null);
     void Promise.all([getAppFeatures(), listFeatures()])
       .then(([nextFeatures, nextRows]) => {
+        if (writeInFlight.current || generation !== loadGeneration.current) return;
         setFeatures(nextFeatures);
         setFeatureRows(nextRows);
       })
-      .catch((e: Error) => setError(e.message));
+      .catch((e: Error) => {
+        if (writeInFlight.current || generation !== loadGeneration.current) return;
+        setError(e.message);
+      });
   }, []);
   useFocusEffect(load);
 
   const change = useCallback(async (key: string, enabled: boolean) => {
     if (writeInFlight.current) return;
     writeInFlight.current = true;
+    loadGeneration.current += 1;
     setSaving(true);
     try {
       let canonicalFeatures: AdminFeatures;
