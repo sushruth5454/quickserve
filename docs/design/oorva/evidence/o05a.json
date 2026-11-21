@@ -70,7 +70,38 @@
       "selected": "NOT_REACHED"
     },
     "laneCi": {
-      "status": "PENDING"
+      "status": "SUCCESS",
+      "attempts": [
+        {
+          "runId": 44927771132,
+          "headSha": "a54de885700c97e27b325c0cb1fcfb0bc053c188",
+          "status": "FAILURE",
+          "failure": "UI lint rejected three hard-coded legacy palette literals in the new appearance test."
+        },
+        {
+          "runId": 44928388845,
+          "headSha": "fcbaae488bab816f7b1c5bc6b8e41954399496d3",
+          "status": "FAILURE",
+          "failure": "Unit tests could not resolve undeclared react-test-renderer."
+        },
+        {
+          "runId": 44929149024,
+          "headSha": "6da38ea63f470cc553f40dbe94c8681e50988486",
+          "status": "FAILURE",
+          "failure": "The jsdom test environment conflicted with the React Native preset's window setup."
+        },
+        {
+          "runId": 44929993147,
+          "headSha": "4be6b54fc44b44080a7908f8626ec1f50f8e6e3c",
+          "status": "FAILURE",
+          "failure": "Two TypeScript errors accessed unknown provider props; the test's requireActual React Native mock also resolved a private ReactFabric module."
+        }
+      ],
+      "success": {
+        "runId": 44930699497,
+        "headSha": "25ac12aa5c80376eb5f2f55b7a644a3ef5f29076",
+        "status": "SUCCESS"
+      }
     },
     "privateE2e": "NOT_RUN_OPTIONAL_ON_LANE; coordinator owns mandatory integration-batch E2E",
     "runtimeDeviceEvidence": "NOT_VERIFIED",
