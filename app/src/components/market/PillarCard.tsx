@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { JSX } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { useTheme } from '../../theme';
 import { Card } from '../ui/Card';
 import { Text } from '../ui/Text';
@@ -19,27 +19,31 @@ export function PillarCard({
   title,
   subtitle,
   onPress,
+  fullWidth = false,
   testID,
 }: {
   pillar: Pillar;
   title: string;
   subtitle: string;
   onPress: () => void;
+  fullWidth?: boolean;
   testID?: string;
 }): JSX.Element {
   const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const stacked = width < 600;
   const accent = pillarAccent(pillar, theme.colors);
 
   return (
     <Card
       variant="outlined"
-      style={{ width: '48%', minHeight: 132, justifyContent: 'center' }}
+      style={{ width: fullWidth ? '100%' : '48%', minHeight: 132, justifyContent: 'center' }}
       onPress={onPress}
       accessibilityLabel={`${title}. ${subtitle}`}
     >
       <View
         testID={testID}
-        style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}
+        style={{ flexDirection: stacked ? 'column' : 'row', alignItems: 'center', gap: theme.spacing.md }}
       >
         <View
           style={{
@@ -53,8 +57,8 @@ export function PillarCard({
         >
           <Ionicons name={PILLAR_ICONS[pillar]} size={theme.iconSize.lg} color={accent.fg} />
         </View>
-        <View style={{ flex: 1, gap: theme.spacing.xs }}>
-          <Text variant="calloutStrong" numberOfLines={2}>
+        <View style={{ flex: 1, width: stacked ? '100%' : undefined, gap: theme.spacing.xs }}>
+          <Text variant="calloutStrong" maxFontSizeMultiplier={2}>
             {title}
           </Text>
           <Text variant="caption" color="muted" numberOfLines={2}>
