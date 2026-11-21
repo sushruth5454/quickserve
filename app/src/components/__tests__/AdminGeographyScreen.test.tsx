@@ -23,7 +23,7 @@ jest.mock('react', () => {
         slot.value,
         (next: unknown) => {
           slot!.value = typeof next === 'function'
-            ? (next as (current: unknown) => unknown)(slot!.value)
+            ? (next as (mockCurrent: unknown) => unknown)(slot!.value)
             : next;
         },
       ];
