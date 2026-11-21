@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O31-CM09",
   "workPackage": "O31",
-  "status": "IMPLEMENTED_AWAITING_LANE_CI",
+  "status": "IMPLEMENTED_LANE_CI_PASS_AWAITING_COORDINATOR",
   "base": {
     "implementationSha": "a48938ed9bdec7b41148a03c79cdd255de2aa5b3",
     "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -79,7 +79,7 @@
       "credentialsChanged": false
     },
     "laneCiFallback": {
-      "status": "RETRY_AFTER_FIX",
+      "status": "PASS_ON_IMPLEMENTATION_HEAD",
       "attempts": [
         {
           "runId": 44923544328,
@@ -87,9 +87,28 @@
           "conclusion": "FAILURE",
           "failedCheck": "The app unit-test suite failed to load because Jest rejected the mock factory's callback parameter named current; typecheck and all other lane jobs passed.",
           "fix": "Renamed the callback parameter with the mock prefix required by Jest's mock-hoist guard."
+        },
+        {
+          "runId": 44924396722,
+          "headSha": "9c8cefc3ef5adedead77941895f02f4cbc4f5029",
+          "conclusion": "SUCCESS",
+          "jobs": {
+            "changes": "success",
+            "app": "success",
+            "tooling": "success",
+            "private-postgres": "success",
+            "deno": "success",
+            "sql": "success"
+          },
+          "appTests": {
+            "suite": "src/components/__tests__/AdminFeaturesScreen.test.tsx",
+            "result": "PASS",
+            "totalSuitesPassed": 84,
+            "totalTestsPassed": 551
+          }
         }
       ],
-      "requirement": "Verify Lane CI on the exact pushed head after the correction."
+      "finalEvidenceCommitCi": "The evidence-only update requires a final exact-head Lane CI run."
     }
   },
   "review": {
