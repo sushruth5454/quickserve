@@ -47,7 +47,13 @@
         "headSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
         "status": "success"
       },
-      "correctionHead": "pending"
+      "attemptedHead": {
+        "runId": 44914446136,
+        "headSha": "4282579336fcee39916d9c449545718826a7241f",
+        "status": "failure",
+        "failedCheck": "featureControl.test.tsx required a React Native AppState mock under the CI Jest resolver"
+      },
+      "rerun": "pending"
     },
     "authReview": "required"
   },

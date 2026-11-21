@@ -2,6 +2,12 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 jest.mock('../../lib/adminApi', () => ({ getAppFeatures: jest.fn() }));
+jest.mock('react-native', () => ({
+  AppState: {
+    currentState: 'active',
+    addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+  },
+}));
 
 import type { AppFeatures } from '../../lib/featureFlags';
 import { canGuestBrowse } from '../../lib/authGate';
