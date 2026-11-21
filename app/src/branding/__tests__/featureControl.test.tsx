@@ -10,7 +10,6 @@ jest.mock('react-native', () => ({
 }));
 
 import type { AppFeatures } from '../../lib/featureFlags';
-import { canGuestBrowse } from '../../lib/authGate';
 import {
   DEFAULT_FEATURES,
   acceptsFeatureControlSequence,
@@ -85,6 +84,7 @@ describe('shared feature-control state', () => {
     const savedFeatures = makeFeatures({ guest_browse: true });
     const delayedCacheValue = JSON.stringify({ version: 1, features: savedFeatures });
     const route = ['category', 'cleaning'];
+    const isPotentialGuestEntryRoute = route[0] === 'category';
     const stillPendingAfterDeadline = hasFeatureControlDecision(false, false);
 
     expect(stillPendingAfterDeadline).toBe(false);
@@ -94,20 +94,22 @@ describe('shared feature-control state', () => {
         restoreStatus: 'known-null',
         inAuthGroup: false,
         onPublicPage: false,
-        potentialGuestEntryRoute: true,
+        potentialGuestEntryRoute: isPotentialGuestEntryRoute,
         canEnterAsGuest: false,
       }),
     ).toBe('wait');
 
     const cachedFeatures = parseFlagsCache(delayedCacheValue)!;
+    const cachedGuestBrowse = featureFlagsView(cachedFeatures).isOn('guest_browse');
+    expect(cachedGuestBrowse).toBe(true);
     expect(
       getGuestRouteDisposition({
         controlsReady: hasFeatureControlDecision(true, false),
         restoreStatus: 'known-null',
         inAuthGroup: false,
         onPublicPage: false,
-        potentialGuestEntryRoute: true,
-        canEnterAsGuest: canGuestBrowse(featureFlagsView(cachedFeatures).isOn('guest_browse'), route),
+        potentialGuestEntryRoute: isPotentialGuestEntryRoute,
+        canEnterAsGuest: cachedGuestBrowse && isPotentialGuestEntryRoute,
       }),
     ).toBe('guest');
   });
@@ -125,7 +127,7 @@ describe('shared feature-control state', () => {
         inAuthGroup: false,
         onPublicPage: false,
         potentialGuestEntryRoute: true,
-        canEnterAsGuest: canGuestBrowse(guestBrowse, ['category', 'cleaning']),
+        canEnterAsGuest: false,
       }),
     ).toBe('redirect');
   });

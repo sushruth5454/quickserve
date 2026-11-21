@@ -47,12 +47,20 @@
         "headSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
         "status": "success"
       },
-      "attemptedHead": {
-        "runId": 44914446136,
-        "headSha": "4282579336fcee39916d9c449545718826a7241f",
-        "status": "failure",
-        "failedCheck": "featureControl.test.tsx required a React Native AppState mock under the CI Jest resolver"
-      },
+      "attempts": [
+        {
+          "runId": 44914446136,
+          "headSha": "4282579336fcee39916d9c449545718826a7241f",
+          "status": "failure",
+          "failedCheck": "featureControl.test.tsx required a React Native AppState mock under the CI Jest resolver"
+        },
+        {
+          "runId": 44915109822,
+          "headSha": "3200eb78a6ad42378179c6690dec945f4b716b5f",
+          "status": "failure",
+          "failedCheck": "featureControl.test.tsx imported authGate, which loaded Expo Router under Jest"
+        }
+      ],
       "rerun": "pending"
     },
     "authReview": "required"
