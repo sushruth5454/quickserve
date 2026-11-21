@@ -7,10 +7,10 @@ import {
   checkoutPurposeLabel,
   failedSportsPaymentAttempt,
   paymentBookingRef,
+  prepareSportsPaymentForAuthenticatedCustomer,
   recoverSportsCheckoutRace,
   resolveSportsPaymentRequest,
   sportsPaymentPreparation,
-  sportsPaymentsEnabled,
 } from "./logic.ts";
 
 Deno.test("checkout description uses the Nearo booking reference and purpose label", () => {
@@ -31,11 +31,60 @@ Deno.test("checkout URL builder requires a valid HTTPS URL and preserves query p
   await assertRejects(async () => buildCheckoutUrl("https://user:pass@checkout.example/checkout", {}));
 });
 
-Deno.test("sports checkout requires both the sports parent and online-payment switch", () => {
-  assertEquals(sportsPaymentsEnabled({ sports: true, sports_online_payments: true }), true);
-  assertEquals(sportsPaymentsEnabled({ sports: false, sports_online_payments: true }), false);
-  assertEquals(sportsPaymentsEnabled({ sports: true, sports_online_payments: false }), false);
-  assertEquals(sportsPaymentsEnabled(null), false);
+Deno.test("SP-LIVE-OBLIGATION-FLAGS-OFF: authenticated sports preparation bypasses availability flags", async () => {
+  const cases = [
+    { flags: { sports: false, sports_online_payments: true } },
+    { flags: { sports: true, sports_online_payments: false } },
+  ];
+  for (const { flags } of cases) {
+    const calls: { rpc: string; args: Record<string, unknown> }[] = [];
+    const admin = {
+      rpc(rpc: string, args: Record<string, unknown> = {}) {
+        calls.push({ rpc, args });
+        return {
+          single: async () => ({
+            data: rpc === "get_app_features"
+              ? flags
+              : {
+                  payment_id: "server-created-payment",
+                  amount: 20500,
+                  purpose: "fixed",
+                  url: "https://checkout.example/existing-obligation",
+                },
+            error: null,
+          }),
+        };
+      },
+    } as unknown as SupabaseClient;
+    const body = {
+      kind: "sports",
+      booking_id: "existing-customer-booking",
+      user_id: "untrusted-body-user",
+      amount: 1,
+    };
+    const result = await prepareSportsPaymentForAuthenticatedCustomer(
+      admin,
+      body,
+      "authenticated-customer",
+    );
+    assertEquals(flags.sports && flags.sports_online_payments, false);
+    assertEquals(result.kind, "prepared", JSON.stringify({ flags, result }));
+    if (result.kind === "prepared") {
+      assertEquals(result.sportsRequest, {
+        bookingId: "existing-customer-booking",
+        userId: "authenticated-customer",
+      }, JSON.stringify({ flags, request: result.sportsRequest }));
+      assertEquals(result.prepared?.amount, 20500, JSON.stringify({ flags, prepared: result.prepared }));
+      assertEquals(result.prepared?.short_url, "https://checkout.example/existing-obligation");
+    }
+    assertEquals(calls, [{
+      rpc: "prepare_sports_payment",
+      args: {
+        p_booking_id: "existing-customer-booking",
+        p_user_id: "authenticated-customer",
+      },
+    }], JSON.stringify({ flags, calls }));
+  }
 });
 
 Deno.test("sports payment preparation uses only the booking and authenticated user", () => {

@@ -24,9 +24,9 @@
     "productionOrLiveMoneyOperations": false
   },
   "implementation": {
-    "change": "Removed the sports and sports_online_payments availability lookup/rejection from create-payment's authenticated existing-sports-obligation preparation branch. The branch still invokes prepare_sports_payment with only booking_id and the authenticated user id; payment persistence, gateway-order, race-recovery, and response paths are unchanged.",
+    "change": "Moved authenticated sports request resolution and existing-obligation preparation into a testable helper used by create-payment. The helper invokes prepare_sports_payment with only the booking id and authenticated user id; no availability-flag lookup gates this existing-work path. Payment persistence, gateway-order, race-recovery, and response paths remain unchanged.",
     "newBookingAvailability": "Unchanged; book_sports_slot remains the creation gate.",
-    "validation": "Pending registration roundtrip; no tests or gateway calls performed."
+    "validation": "Full-chain SQL scenario and mocked handler assertions are authored; validation awaits registration. No tests or gateway calls performed."
   },
   "acceptance": {
     "serverPricedExistingObligationWithFlagsOff": "pending",

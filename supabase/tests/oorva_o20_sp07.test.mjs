@@ -37,7 +37,8 @@ create table auth.users (
   raw_app_meta_data jsonb default '{}', raw_user_meta_data jsonb default '{}', created_at timestamptz, updated_at timestamptz
 );
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-grant execute on function auth.uid() to anon, authenticated, service_role;
+create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.jwt.claim.role', true), '') $$;
+grant execute on function auth.uid(), auth.role() to anon, authenticated, service_role;
 create schema storage;
 grant usage on schema storage to anon, authenticated, service_role;
 create table storage.buckets (
@@ -54,7 +55,7 @@ alter default privileges in schema public grant execute on functions to anon, au
 `;
 
 const migrationFiles = fs.readdirSync(migrationDir)
-  .filter((file) => /^\d{4}[a-z]?_.*\.sql$/.test(file) && Number(file.slice(0, 4)) <= 80)
+  .filter((file) => /^\d{4}[a-z]?_.+\.sql$/.test(file))
   .sort();
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(prelude);
@@ -75,7 +76,12 @@ await db.query(`
 })]);
 
 async function as(uid, role, sql, params = []) {
-  await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${uid ?? ''}', false); set role ${role};`);
+  await db.exec(`
+    reset role;
+    select set_config('request.jwt.claim.sub', '${uid ?? ''}', false);
+    select set_config('request.jwt.claim.role', '${role}', false);
+    set role ${role};
+  `);
   try {
     return (await db.query(sql, params)).rows;
   } finally {
