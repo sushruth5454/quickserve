@@ -12,7 +12,7 @@
     "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
   },
   "migration": "supabase\\migrations\\0091_o14_mk12_oorva.sql",
-  "implementationStatus": "TESTED_DEPENDENCY_BASE_INTEGRATED; CODESPACE_PASS; MERGE_COMMIT_PENDING",
+  "implementationStatus": "TESTED_DEPENDENCY_BASE_INTEGRATED; CODESPACE_PASS; LANE_CI_PASS",
   "sourceDrift": {
     "scope": "Affected files/functions only; no repeat audit.",
     "baseDifferencesFromAuditedSha": [
@@ -102,7 +102,12 @@
       },
       "result": "All Lane CI jobs passed on the exact corrected implementation head."
     },
-    "laneCI": "PENDING_FOR_FINAL_INTEGRATION_HEAD",
+    "laneCI": {
+      "runId": "44943160938",
+      "head": "be356b45dc7c63b8ed043ed3e73bffe9089dee47",
+      "conclusion": "SUCCESS",
+      "result": "App, SQL, and Deno jobs passed on the exact integrated O14 head."
+    },
     "priorLaneCI": {
       "runId": "44934283636",
       "head": "1584e814abe243de90359c0cb1b8fd0fd687411e",
@@ -116,10 +121,10 @@
       "validity": "No O14 authorization/API behavior changed during integration; current-main session-error propagation remains and the O14 public RPC is unchanged, so no same-stage re-review is required."
     },
     "lanePush": {
-      "validatedImplementationHead": "f6d9a9ceaa02eda2e0795b22e63e9016be87f282",
-      "status": "NOT_YET_PUSHED; merge commit pending."
+      "validatedImplementationHead": "be356b45dc7c63b8ed043ed3e73bffe9089dee47",
+      "status": "PUSHED; exact-head Lane CI passed."
     },
-    "evidenceRefresh": "Updated only this JSON for tested dependency-base integration and current-main source preservation; final merge-head Lane CI remains pending."
+    "evidenceRefresh": "This follow-up records tested-base integration, all three current-main Codespace selector passes, and exact-head Lane CI 44943160938."
   },
   "scope": {
     "workerFilesOnly": true,
