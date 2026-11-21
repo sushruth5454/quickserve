@@ -81,15 +81,16 @@
   "validation": {
     "codespaceApp": {
       "result": "UNAVAILABLE",
+      "phase": "before_selection",
       "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.AdminGeographyScreen[.]test[.]tsx$'",
       "helper": "origin/main:scripts/cs-test.ps1",
       "snapshotBranch": "wip/qs-oorva-o31-cm10",
       "snapshotCommit": "e1de66d6",
       "testsExecuted": false,
-      "reason": "The Codespace could not authenticate to fetch the pushed WIP ref; the requested app suite did not start."
+      "reason": "The Codespace could not authenticate to fetch the pushed WIP ref; failure occurred before test selection, so no cases ran."
     },
     "laneCi": {
-      "result": "FIXED_PENDING_RETRY",
+      "result": "PASS",
       "priorRunId": 44914587502,
       "priorHeadSha": "7eeb88505f67be01fae77b7625a4a1b5aec56bc8",
       "priorConclusion": "FAILURE",
@@ -97,15 +98,18 @@
         "The AdminGeographyScreen test suite was rejected by the Jest mock hoister because its updater parameter name was not mock-prefixed; 78 suites and 519 tests passed, while this suite did not start."
       ],
       "priorFix": "Rename the updater parameter to mockCurrent.",
+      "priorFixStatus": "RESOLVED",
       "secondPriorRunId": 44915302525,
       "secondPriorHeadSha": "ae89e45bf9d80ce57804e6a7f5285e60dd40047c",
       "secondPriorConclusion": "FAILURE",
       "secondPriorFailures": [
         "All four new cases failed in afterEach because the fake hook-slot array is sparse and cleanup dereferenced an undefined slot; 78 suites and 519 tests passed."
       ],
+      "secondPriorFixStatus": "RESOLVED",
       "fix": "Use optional chaining for sparse hook-slot cleanup.",
-      "runId": 44916040837,
-      "headSha": "273d85f991d869079f88c3b21addba1c65c42138",
+      "fixStatus": "RESOLVED",
+      "runId": 44916760416,
+      "headSha": "333b1f56637747fcf0c80cba7bd79193623b05ce",
       "conclusion": "SUCCESS",
       "jobs": {
         "changes": "PASS",
