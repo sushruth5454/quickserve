@@ -3,7 +3,7 @@
   "workPackage": "O13",
   "sourceTask": "PF-T05",
   "sourceFinding": "PF-F06",
-  "status": "implementation-complete",
+  "status": "implementation-and-lane-ci-passed",
   "base": {
     "plan": "b40e3ac3da80dc7dba677457413180bca6070222",
     "implementation": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
@@ -46,6 +46,19 @@
       "result": "BLOCKED",
       "snapshot": "wip/qs-oorva-o13-byo @ a09e0bd912b8ace85568ce9613f6b87ba97546de",
       "detail": "The current-main helper could not fetch the WIP snapshot in the shared Codespace because its Git credential helper had no GITHUB_TOKEN. The targeted tsc/Jest selection did not start; lane CI is the fallback."
+    },
+    {
+      "suite": "lane-ci",
+      "runId": 44914674676,
+      "commit": "0e8a6bbc4f0a73a0af6e02df8962bd3942537a2c",
+      "result": "PASS",
+      "jobs": {
+        "app": "PASS",
+        "sql": "PASS",
+        "deno": "PASS",
+        "private-postgres": "PASS",
+        "tooling": "PASS"
+      }
     }
   ],
   "scope": {
