@@ -72,7 +72,31 @@
       "A",
       "B"
     ],
-    "rootCause": "The local E2E selected Vijayawada Demo, while provider-city normalization runs before seed-all-services.sql inserts that demo category city, so those providers can resolve to Vijayawada. The Sangareddy saved-address label is Sangareddy (demo), while its stored city and seeded providers use Sangareddy.",
+    "rootCause": "Pass B has no selected-city mismatch: the saved address label is Sangareddy (demo), but its stored city is Sangareddy; the route and PostgREST city filter use Sangareddy, matching the seeded providers. The seeded packages are hidden by RLS because the post-migration Sangareddy provider inserts omit admin_review_status and therefore retain its pending default, while _provider_is_live requires approved.",
+    "routeAndPostgrestTrace": {
+      "savedAddressLabel": "Sangareddy (demo)",
+      "savedAddressCity": "Sangareddy",
+      "fromSavedAddress": "Returns city: a.city",
+      "locationPicker": "Passes fromSavedAddress(a) to setLocation",
+      "categoryCaller": "Calls listCataloguePackages(category.slug, location.city)",
+      "resolvedSelectedCity": "Sangareddy (category_cities has a live Sangareddy row, so resolve_service_city keeps p_city)",
+      "providerCityFilter": "provider_services.providers.city ILIKE 'Sangareddy'",
+      "seededProviderCity": "Sangareddy",
+      "observedClientResult": "No packages live yet; E2E reports zero HTTP 403 responses"
+    },
+    "publicVisibilityRootCause": {
+      "migration": "0064 adds providers.admin_review_status with default pending and approves verified rows present at migration time.",
+      "seedOrder": "local-supabase.sh applies migrations before running seed-all-services.sql and seed-sangareddy.sql.",
+      "sangareddySeed": "The provider INSERT omits admin_review_status; the later ON CONFLICT update also omits it. The Pass B reseed deletes and recreates the Sangareddy demo providers after migrations.",
+      "livePredicate": "_provider_is_live requires admin_review_status = approved.",
+      "packageReadPolicy": "Authenticated and guest service_packages read policies require _provider_is_live; RLS filters the rows from PostgREST.",
+      "reseedCounts": {
+        "providers": 17,
+        "services": 17,
+        "packages": 17
+      },
+      "countsAre": "Seed/owner-side row counts, not proof that the customer JWT can read the rows."
+    },
     "followupE2eRun": "44919267460",
     "followupBatchHead": "07263ba77975abff2983b879521609769993a763",
     "followupFailedCase": "MK-PACKAGE-two-city-visible-result",
@@ -83,11 +107,20 @@
       "excludedProvider": "Durga Demo Home Care",
       "observed": "No packages live yet"
     },
-    "fix": "In seed-demo mode, normalize the configured trailing Demo alias and parenthesized (demo) display aliases to their canonical provider cities for filtering only; preserve selected city context and leave production matching unchanged.",
+    "latestE2eRun": "44922063391",
+    "latestE2eHead": "e0e8dd0153d4b10bf4fb55db38b92736a795a803",
+    "latestE2eResult": {
+      "passA": "PASS",
+      "passB": "FAIL only MK-PACKAGE-two-city-visible-result",
+      "reseed": "PASS, 17 providers / 17 services / 17 packages",
+      "cleanupAndFlagRestoration": "PASS"
+    },
+    "fix": "The earlier Sangareddy (demo) display-label normalization was based on the wrong input assumption; the saved-address route passes Sangareddy. Keep only the configured Vijayawada Demo seed-city normalization. No client-side workaround can safely expose rows filtered by RLS.",
     "regressionCases": [
       "MK-PACKAGE-city-seeded-fixed-query: Vijayawada Demo -> Vijayawada",
-      "MK-PACKAGE-city-seeded-fixed-query: Sangareddy (demo) -> Sangareddy"
+      "MK-PACKAGE-city-seeded-fixed-query: Sangareddy -> Sangareddy"
     ],
+    "coordinatorActionRequired": "Update the demo-only Sangareddy seed provider INSERT and ON CONFLICT update to set admin_review_status = approved; then rerun the Pass B public package query as the customer JWT and report the provider status/_provider_is_live result if it is still empty. Do not loosen RLS.",
     "codespace": {
       "selector": "src.features.catalogue.__tests__.api[.]test[.]ts$",
       "snapshot": "56d4141b",

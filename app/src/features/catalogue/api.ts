@@ -95,9 +95,7 @@ export async function listCataloguePackages(categorySlug: string, city: string):
   if (isDemoMode) return [];
   const selectedCity = city.trim();
   if (!selectedCity) return [];
-  const isSeedDemoAlias = isSeedDemoMode && (
-    selectedCity.toLowerCase() === demoSeedCity.toLowerCase() || /\s*\(demo\)$/i.test(selectedCity)
-  );
+  const isSeedDemoAlias = isSeedDemoMode && selectedCity.toLowerCase() === demoSeedCity.toLowerCase();
   const providerCity = isSeedDemoAlias
     ? selectedCity.replace(/\s*(?:\(demo\)|demo)$/i, '').trim()
     : selectedCity;
