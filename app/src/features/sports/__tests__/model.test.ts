@@ -8,6 +8,7 @@ import {
   getSportsBookingActionLabel,
   getSportsBookingStatusLabel,
   getSportsEstimatedTotal,
+  getSportsBookingActions,
   getUpcomingVenueBookings,
   formatSportsDuration,
   getSportsPaymentSummary,
@@ -32,6 +33,74 @@ if (!firstSlot || !secondSlot || !fourthSlot) {
 }
 
 describe('sports customer booking presentation', () => {
+  it('SP-CUSTOMER-OWNER-CUTOFF-DIFFERENCE: blocks customer cancellation at start while preserving owner cancellation', () => {
+    const now = new Date('2026-11-21T00:00:00.000Z');
+    const booking = {
+      status: 'accepted',
+      customer_id: 'customer',
+      owner_id: 'owner',
+      payment_mode: 'pay_at_venue' as const,
+      paid_at: null,
+      hold_expires_at: null,
+      pay_by: null,
+      expires_at: '2026-11-20T23:00:00.000Z',
+      starts_at: now.toISOString(),
+    };
+
+    const customer = getSportsBookingActions({ booking, viewerId: 'customer', now });
+    const owner = getSportsBookingActions({ booking, viewerId: 'owner', now });
+    expect(JSON.stringify({ customer: customer.canCancel, owner: owner.canCancel })).toBe(
+      JSON.stringify({ customer: false, owner: true }),
+    );
+  });
+
+  it('SP-ACTION-DEADLINE-BOUNDARIES: fails closed at, before, or without a valid action deadline', () => {
+    const now = new Date('2026-11-21T00:00:00.000Z');
+    const base = {
+      customer_id: 'customer',
+      owner_id: 'owner',
+      payment_mode: 'online' as const,
+      paid_at: null,
+      starts_at: '2026-11-22T00:00:00.000Z',
+      expires_at: '2026-11-21T00:00:00.000Z',
+      hold_expires_at: '2026-11-21T00:00:00.000Z',
+      pay_by: 'not-a-date',
+    };
+
+    const request = getSportsBookingActions({
+      booking: { ...base, status: 'requested' },
+      viewerId: 'owner',
+      now,
+    });
+    const hold = getSportsBookingActions({
+      booking: { ...base, status: 'pending_payment' },
+      viewerId: 'customer',
+      now,
+    });
+    const payByBoundary = getSportsBookingActions({
+      booking: { ...base, status: 'awaiting_payment', pay_by: now.toISOString() },
+      viewerId: 'customer',
+      now,
+    });
+    const missingPayBy = getSportsBookingActions({
+      booking: { ...base, status: 'awaiting_payment', pay_by: null },
+      viewerId: 'customer',
+      now,
+    });
+
+    expect(JSON.stringify({
+      request: { canDecide: request.canDecide, deadline: request.applicableDeadline },
+      hold: { canPay: hold.canPay, deadline: hold.applicableDeadline },
+      payByBoundary: { canPay: payByBoundary.canPay, deadline: payByBoundary.applicableDeadline },
+      missingPayBy: { canPay: missingPayBy.canPay, deadline: missingPayBy.applicableDeadline },
+    })).toBe(JSON.stringify({
+      request: { canDecide: false, deadline: '2026-11-21T00:00:00.000Z' },
+      hold: { canPay: false, deadline: '2026-11-21T00:00:00.000Z' },
+      payByBoundary: { canPay: false, deadline: '2026-11-21T00:00:00.000Z' },
+      missingPayBy: { canPay: false, deadline: null },
+    }));
+  });
+
   it('SP-01: offers only durations whose consecutive slots have enough remaining capacity', () => {
     expect(getAvailableSportsDurations(slots, firstSlot.starts_at, 2)).toEqual([1, 2]);
     expect(getAvailableSportsDurations(slots, firstSlot.starts_at, 3)).toEqual([1]);
