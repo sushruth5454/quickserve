@@ -19,6 +19,8 @@ export interface Palette {
   danger: string;
   /** Destructive button fill (white text passes AA). */
   dangerStrong: string;
+  dangerPressed: string;
+  onDanger: string;
   dangerSoft: string;
   dangerText: string;
   info: string;
@@ -74,6 +76,8 @@ export const lightPalette: Palette = {
   warningText: '#B54708',
   danger: '#F04438',
   dangerStrong: '#D92D20',
+  dangerPressed: '#B42318',
+  onDanger: '#FFFFFF',
   dangerSoft: '#FEF3F2',
   dangerText: '#B42318',
   info: '#0BA5EC',
@@ -126,6 +130,8 @@ export const darkPalette: Palette = {
   warningText: '#FEC84B',
   danger: '#F97066',
   dangerStrong: '#D92D20',
+  dangerPressed: '#B42318',
+  onDanger: '#FFFFFF',
   dangerSoft: '#3A1513',
   dangerText: '#FDA29B',
   info: '#36BFFA',
