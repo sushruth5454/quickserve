@@ -92,7 +92,7 @@
     "existingOrderRaceAndLateCapture": "PASS: Deno assertions passed for losing-order late-capture routing and checkout-race persistence/winner-read errors."
   },
   "checkpoint": {
-    "status": "PAUSED_FOR_MONEY_REVIEW_APPLICABILITY",
+    "status": "CODE_GREEN",
     "requiredRegistration": "supabase/tests/package.json",
     "registrationSha": "6fc8262285e3b93272c3d2334468f6fb12b272eb",
     "requiredFilter": "oorva_o20_sp07",
@@ -101,7 +101,12 @@
     "focusedReview": {
       "result": "PASS: NO BLOCKING FINDINGS",
       "reviewedImplementationHead": "ccb3f53b3e07487f3cee655c3d866735f7aedfb0",
-      "applicabilityToEvidenceOnlyHead": "pending coordinator confirmation"
+      "applicabilityToEvidenceOnlyHead": "PASS",
+      "reviewerFollowUp": {
+        "result": "PASS",
+        "head": "77b2ce692c06cc38422ac779b862b5fdfee55493",
+        "note": "Reviewer confirmed the revised evidence is accurate and introduces no implementation issue."
+      }
     },
     "laneCi": {
       "runId": 44889405178,
