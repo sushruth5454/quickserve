@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { ProviderCard } from '../../components/ProviderCard';
 import { Button, Card, EmptyState, ErrorState, Header, Screen, Section, Skeleton, SkeletonProviderCard, Text } from '../../components/ui';
@@ -14,14 +14,29 @@ import { listCataloguePackages, type CataloguePackage } from './api';
 
 export function ArchetypeCategory({ category }: { category: Category }) {
   const t = useTheme();
-  const [packages, setPackages] = useState<CataloguePackage[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { location } = useSelectedLocation();
+  const city = location.city;
+  const packageScope = JSON.stringify([category.slug, city]);
+  const [packageResult, setPackageResult] = useState<{ scope: string; packages: CataloguePackage[] } | null>(null);
+  const [packageError, setPackageError] = useState<{ scope: string; message: string } | null>(null);
+  const packageRequestId = useRef(0);
+  const packages = packageResult?.scope === packageScope ? packageResult.packages : null;
+  const error = packageError?.scope === packageScope ? packageError.message : null;
   const load = useCallback(() => {
-    setError(null);
-    listCataloguePackages(category.slug).then(setPackages).catch((caught: Error) => setError(caught.message));
-  }, [category.slug]);
+    const requestId = ++packageRequestId.current;
+    setPackageError(null);
+    setPackageResult(null);
+    void listCataloguePackages(category.slug, city)
+      .then((result) => {
+        if (requestId === packageRequestId.current) setPackageResult({ scope: packageScope, packages: result });
+      })
+      .catch((caught: Error) => {
+        if (requestId === packageRequestId.current) setPackageError({ scope: packageScope, message: caught.message });
+      });
+  }, [category.slug, city, packageScope]);
   useEffect(() => {
     if (category.archetype !== 'proposal') load();
+    return () => { packageRequestId.current += 1; };
   }, [category.archetype, load]);
 
   if (category.archetype === 'proposal') return <ProposalCategory category={category} />;
@@ -69,9 +84,13 @@ const CREATOR_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, s
 
 function ProposalCategory({ category }: { category: Category }) {
   const t = useTheme();
-  const { coords } = useSelectedLocation();
+  const { coords, location } = useSelectedLocation();
+  const city = location.city;
+  const packageScope = JSON.stringify([category.slug, city]);
   const [pros, setPros] = useState<ProviderSearchResult[] | null>(null);
-  const [packages, setPackages] = useState<CataloguePackage[] | null>(null);
+  const [packageResult, setPackageResult] = useState<{ scope: string; packages: CataloguePackage[] } | null>(null);
+  const packageRequestId = useRef(0);
+  const packages = packageResult?.scope === packageScope ? packageResult.packages : null;
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
     setError(null);
@@ -79,8 +98,17 @@ function ProposalCategory({ category }: { category: Category }) {
   }, [category.slug, coords]);
   useEffect(load, [load]);
   useEffect(() => {
-    listCataloguePackages(category.slug).then(setPackages).catch((caught: Error) => setError(caught.message));
-  }, [category.slug]);
+    const requestId = ++packageRequestId.current;
+    setPackageResult(null);
+    void listCataloguePackages(category.slug, city)
+      .then((result) => {
+        if (requestId === packageRequestId.current) setPackageResult({ scope: packageScope, packages: result });
+      })
+      .catch((caught: Error) => {
+        if (requestId === packageRequestId.current) setError(caught.message);
+      });
+    return () => { packageRequestId.current += 1; };
+  }, [category.slug, city, packageScope]);
 
   const requestFrom = (pro?: ProviderSearchResult) =>
     router.push({
