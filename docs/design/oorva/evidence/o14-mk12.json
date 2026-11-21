@@ -12,7 +12,7 @@
     "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
   },
   "migration": "supabase\\migrations\\0091_o14_mk12_oorva.sql",
-  "implementationStatus": "CORRECTED_FIXTURE_CODESPACE_PASS_READY_FOR_LANE_CI",
+  "implementationStatus": "IMPLEMENTATION_AND_FIXTURE_VALIDATED; EVIDENCE_ONLY_REFRESH_PENDING_FINAL_CI",
   "sourceDrift": {
     "scope": "Affected files/functions only; no repeat audit.",
     "baseDifferencesFromAuditedSha": [
@@ -56,49 +56,51 @@
       "app": {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.providerCardModel[.]test[.]ts$'",
         "status": "PASS",
-        "snapshot": "b86c8f9b",
         "result": "One selected suite; 6 tests passed; cs-test result: PASS."
       },
       "sqlTest": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o14_mk12'",
         "status": "PASS",
-        "snapshot": "6bc45d1e",
         "result": "One selected SQL file; 1/1 checks passed; cs-test result: PASS.",
         "previousAttempt": {
           "status": "FAIL",
-          "snapshot": "5e05fc8d",
           "cause": "Both fixtures used the same city, so the second scenario's rank query included the first scenario's higher-count providers. The fixture now uses a unique city per scenario."
         }
       },
       "migrationParser": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o14_mk12_oorva.sql'",
         "status": "PASS",
-        "snapshot": "bd49f9df",
         "result": "One selected migration parser; 3 top-level statements and 1 function body parsed with 0 errors; cs-test result: PASS."
       }
     },
     "laneCI": {
-      "runId": "44934283636",
-      "head": "1584e814abe243de90359c0cb1b8fd0fd687411e",
-      "conclusion": "FAILURE",
+      "runId": "44937659599",
+      "head": "f6d9a9ceaa02eda2e0795b22e63e9016be87f282",
+      "conclusion": "SUCCESS",
       "jobs": {
         "app": "PASS",
         "deno": "PASS",
-        "sql": "FAIL"
+        "sql": "PASS"
       },
-      "sqlSummary": "145/146 SQL checks passed. Both O14-MK12 scenarios failed before assertions because the fixture profile insert hit duplicate key profiles_pkey.",
-      "correction": "The CI duplicate-key fixture failure was fixed with ON CONFLICT DO UPDATE. A subsequent Codespace run found city contamination across scenarios; fixtures now use distinct cities and the SQL selector passes."
+      "result": "All Lane CI jobs passed on the exact corrected implementation head."
+    },
+    "priorLaneCI": {
+      "runId": "44934283636",
+      "head": "1584e814abe243de90359c0cb1b8fd0fd687411e",
+      "conclusion": "FAILURE",
+      "sqlSummary": "145/146 SQL checks passed; both O14-MK12 scenarios first failed on duplicate profile inserts. A later Codespace SQL attempt exposed fixture city overlap; both test-fixture defects were corrected."
     },
     "privateE2E": "Base-only pass 44929374348; no stage E2E dispatched.",
     "authReview": {
       "status": "PASS",
-      "reviewedHead": "1584e814abe243de90359c0cb1b8fd0fd687411e",
-      "validity": "Coordinator confirmed the prior PASS remains valid for test/evidence-only fixture corrections; no auth implementation changes."
+      "reviewedHead": "f6d9a9ceaa02eda2e0795b22e63e9016be87f282",
+      "validity": "Same-stage AUTH reviewer confirms PASS remains valid; no auth implementation changes."
     },
     "lanePush": {
-      "remoteHeadBeforeCorrection": "1584e814abe243de90359c0cb1b8fd0fd687411e",
-      "correction": "NOT_YET_PUSHED; current-main app, SQL, and parser selectors pass."
-    }
+      "validatedImplementationHead": "f6d9a9ceaa02eda2e0795b22e63e9016be87f282",
+      "status": "PUSHED; exact-head Lane CI passed."
+    },
+    "evidenceRefresh": "This follow-up updates only this JSON; all three current-main selectors were rerun and passed before the evidence-only lane push."
   },
   "scope": {
     "workerFilesOnly": true,
