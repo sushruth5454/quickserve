@@ -5,20 +5,18 @@ import { Platform, Pressable, ScrollView, TextInput, useWindowDimensions, View, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CategoryIcon, iconForCategory } from '../../components/CategoryIcon';
 import { ChipRow } from '../../components/market/ChipRow';
-import { ListingCard } from '../../components/market/ListingCard';
 import { PillarCard } from '../../components/market/PillarCard';
 import { SearchField } from '../../components/market/SearchField';
 import { TrustStrip } from '../../components/market/TrustStrip';
 import { visiblePillars, type Pillar } from '../../components/market/pillars';
 import { NotServedCard } from '../../components/NotServedCard';
-import { skillLabel } from '../../components/ProviderCard';
+import { TopRatedCard } from '../../components/TopRatedCard';
 import { StatusPill, activeStatuses, nextStepCopy } from '../../components/status';
 import { ProgressBar } from '../../components/StatusTimeline';
 import { Card, EmptyState, ErrorState, IconButton, InlineAlert, Screen, Section, Skeleton, Text } from '../../components/ui';
 import { useT } from '../../i18n';
 import { listMyBookings, listTopRated, type TopRatedProvider } from '../../lib/api';
 import { aiAssistantEnabled } from '../../lib/config';
-import { formatINR } from '../../lib/money';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { needsLocationPrompt } from '../../lib/locationModel';
 import { useUnread } from '../../lib/unreadContext';
@@ -394,8 +392,8 @@ export function HomeV2({ flags }: { flags: HomeFlagReader }) {
         <View style={{ gap: t.spacing.md }}>
           <View style={gutter}>
             <Section
-              title="Top rated near you"
-              subtitle="Verified pros with the best reviews"
+              title={location.city ? `Top rated in ${location.city}` : 'Top rated professionals'}
+              subtitle="Ranked by average rating, then review count"
               actionLabel="See all"
               onAction={() => router.push('/top-rated')}
             >
@@ -423,33 +421,14 @@ export function HomeV2({ flags }: { flags: HomeFlagReader }) {
                     </Card>
                   </View>
                 ))
-              : topRated.map((provider) => {
-                  const services = (provider.provider_services ?? []).filter((service) => service.active);
-                  const lead = [...services].sort((a, b) => a.visit_fee - b.visit_fee)[0] ?? null;
-                  const more = Math.max(0, services.length - 1);
-                  const category = lead?.categories?.name ? `${lead.categories.name}${more > 0 ? ` +${more}` : ''}` : null;
-                  const service = lead
-                    ? [category, skillLabel[lead.skill_level]].filter(Boolean).join(' · ')
-                    : `${provider.years_experience} yrs experience`;
-                  const title = provider.profiles?.full_name || 'Provider';
-
-                  return (
-                    <View key={provider.id} style={{ width: cardWidth }}>
-                      <ListingCard
-                        variant="provider"
-                        title={title}
-                        subtitle={[service, provider.city].filter(Boolean).join(' · ')}
-                        imageUrl={provider.profiles?.avatar_url}
-                        avatarName={title}
-                        rating={Number(provider.rating_avg)}
-                        ratingCount={provider.rating_count}
-                        verified
-                        priceLabel={lead ? translate('listing.from', { price: formatINR(lead.visit_fee) }) : null}
-                        onPress={() => router.push({ pathname: '/provider/[id]', params: { id: provider.id } })}
-                      />
-                    </View>
-                  );
-                })}
+              : topRated.map((provider) => (
+                  <TopRatedCard
+                    key={provider.id}
+                    provider={provider}
+                    width={cardWidth}
+                    onPress={() => router.push({ pathname: '/provider/[id]', params: { id: provider.id } })}
+                  />
+                ))}
           </ScrollView>
         </View>
       ) : null}

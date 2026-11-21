@@ -1,0 +1,75 @@
+{
+  "stage": "O14-MK12",
+  "sourceTask": "MK-T12",
+  "finding": "MK-F14",
+  "dispatchOrder": 17,
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "branch": "lane/oorva-o14-mk12",
+  "implementationBase": "962ad769b664e2f36c41198cd4a79d966d55cb53",
+  "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "dependencyHeads": {
+    "O05F": "f204e1a8c0652154260769e26cd24839cedd49c8",
+    "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
+  },
+  "migration": "supabase\\migrations\\0091_o14_mk12_oorva.sql",
+  "implementationStatus": "IMPLEMENTED_AWAITING_COORDINATOR_REGISTRATION",
+  "sourceDrift": {
+    "scope": "Affected files/functions only; no repeat audit.",
+    "baseDifferencesFromAuditedSha": [
+      {
+        "file": "app\\src\\features\\home\\HomeV2.tsx",
+        "preservedChange": "Narrow-viewport pillar layout."
+      },
+      {
+        "file": "app\\src\\lib\\apiTypes.ts",
+        "preservedChange": "updateMyProfile patch narrowed to full_name/avatar_url."
+      },
+      {
+        "file": "app\\src\\lib\\supabaseApi.ts",
+        "preservedChange": "Auth-session errors now throw in requireUserId/getSession."
+      }
+    ],
+    "existingSelectedCityArgument": "Home and top-rated route continue passing location.city; the new RPC applies trimmed, case-insensitive exact city equality.",
+    "canonicalHelpersRead": [
+      "public._provider_is_live",
+      "public._is_bookable",
+      "public._guest_browse_enabled"
+    ]
+  },
+  "implementation": {
+    "safeProjection": "Public identity, rating/trust counts, effective presence/current leave, active bookable services, category archetype, and explicitly selected active package price fields only.",
+    "ranking": "rating_avg descending, then rating_count descending; normalized selected city; exclude auth.uid(); rating_count > 0; limit clamped to 1..50.",
+    "cardPresentation": "Category sort_order then service id; package sort_order then id; archetype-specific price label; no cross-unit minimum; no-package state is No packages listed / View profile.",
+    "routeHost": "app/app/top-rated.tsx re-exports app/src/features/marketplaceScreens/TopRatedScreen.tsx.",
+    "demoEvidence": "Demo API matches the DTO shape but is not production evidence."
+  },
+  "validation": {
+    "registration": "PENDING_COORDINATOR",
+    "codespaceSelectors": {
+      "app": {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.providerCardModel[.]test[.]ts$'",
+        "status": "NOT_RUN"
+      },
+      "sqlTest": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o14_mk12'",
+        "status": "NOT_RUN"
+      },
+      "migrationParser": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o14_mk12_oorva.sql'",
+        "status": "NOT_RUN"
+      }
+    },
+    "laneCI": "NOT_RUN",
+    "privateE2E": "Base-only pass 44929374348; no stage E2E dispatched.",
+    "authReview": "PENDING",
+    "lanePush": "NOT_AUTHORIZED"
+  },
+  "scope": {
+    "workerFilesOnly": true,
+    "mainPush": false,
+    "deployment": false,
+    "productionFlagChange": false,
+    "liveMoneyOperation": false,
+    "dataRepair": false
+  }
+}
