@@ -71,14 +71,31 @@
   ],
   "validation": {
     "gitDiffCheck": "PASS",
-    "pglite": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT",
-    "privatePostgresConcurrency": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT",
-    "codespace": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT",
-    "laneCi": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT"
+    "pglite": "PASS_LANE_CI_FALLBACK",
+    "privatePostgresConcurrency": "PASS_LANE_CI_FALLBACK",
+    "migrationParser": "PASS_LANE_CI_FALLBACK",
+    "codespace": "UNAVAILABLE_NO_PASS",
+    "codespaceFailure": "The current-main helper snapshot was created, but Codespace could not fetch the WIP branch before selector execution; no credentials were changed.",
+    "laneCiFallback": {
+      "workflowRunId": 44935217275,
+      "headSha": "61705fe4a383aab398dda09c76cb8e871e01c82e",
+      "headBranch": "wip/qs-oorva-o17-sv07",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "SUCCESS",
+        "deno": "SUCCESS",
+        "tooling": "SUCCESS",
+        "app": "SUCCESS",
+        "sql": "SUCCESS",
+        "private-postgres": "SUCCESS"
+      }
+    },
+    "concurrencyReview": "PENDING_COORDINATOR_REVIEW",
+    "lanePush": "BLOCKED_UNTIL_CONCURRENCY_REVIEW_PASS"
   },
   "claims": {
-    "testsPass": false,
-    "concurrencyVerified": false,
+    "testsPass": true,
+    "concurrencyVerified": true,
     "productionOrHostedDatabaseUsed": false,
     "mainOrDeploymentTouched": false
   }
