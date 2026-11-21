@@ -1,0 +1,50 @@
+{
+  "stageId": "O21-MK24",
+  "workPackage": "O21",
+  "sourceTaskId": "MK-T24",
+  "findingId": "MK-F26",
+  "sourceReport": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t24",
+  "placementProjection": "docs/design/oorva/audit/marketplace.json",
+  "base": {
+    "dependency": {
+      "stageId": "O00",
+      "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "status": "DONE"
+    },
+    "testedBase": {
+      "branch": "integrate/oorva-base-1",
+      "commit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+      "mainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+    }
+  },
+  "changedFiles": [
+    "app/src/features/creators/CreatorsScreen.tsx",
+    "app/src/features/creators/__tests__/CreatorsScreen.test.tsx",
+    "docs/design/oorva/evidence/o21-mk24.json"
+  ],
+  "implementation": [
+    "Derive creator categories from the successfully loaded catalogue and show the existing EmptyState when none are available.",
+    "Include the current city and Change location (/location) and Browse services (/) actions.",
+    "Preserve loading skeletons, ErrorState Retry, feature-off Home fallback, and category drill-down.",
+    "Do not add fabricated creators, portfolios, follower data, or brief submission."
+  ],
+  "validation": {
+    "red": {
+      "result": "EXPECTED_FAILURE",
+      "failingCase": "MK-CREATORS-empty-city-recovery",
+      "summary": "The empty-state assertion failed before the implementation; the other three screen cases passed."
+    },
+    "green": {
+      "result": "PASS",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.creators.__tests__.CreatorsScreen[.]test[.]tsx$'",
+      "cases": [
+        "MK-CREATORS-empty-city-recovery",
+        "MK-CREATORS-error-not-empty",
+        "MK-CREATORS-off-fallback",
+        "MK-CREATORS-category-drilldown"
+      ],
+      "summary": "1 test suite passed; 4 tests passed."
+    },
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
