@@ -1,0 +1,82 @@
+{
+  "stageId": "O05A",
+  "sourceTaskIds": [],
+  "sourceFindingIds": [],
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "implementationBaseSha": "ba53396e0af564a8054a455d5637d9211ad98609",
+  "branch": "lane/oorva-o05a",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O02": "2ce8bc1c7500a1eb356978943bd630bbb1247548",
+    "O05F": "f204e1a8c0652154260769e26cd24839cedd49c8",
+    "O07A": "66e2ac82a7911524dca5d94f33ee4e0b8cf2c9ef",
+    "O01F": "b8b21479606934a8e48340d98b6a00364116e618"
+  },
+  "authorization": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "files": [
+    "app\\src\\theme\\tokens.ts",
+    "app\\src\\theme\\ThemeProvider.tsx",
+    "app\\src\\branding\\AppearanceProvider.tsx",
+    "app\\src\\branding\\api.ts",
+    "app\\src\\branding\\defaults.ts",
+    "app\\src\\branding\\__tests__\\appearance.test.tsx",
+    "app\\app\\_layout.tsx",
+    "docs\\design\\oorva\\evidence\\o05a.json"
+  ],
+  "implementation": {
+    "appearanceSource": "Uses O05F feature-control state and its appearanceCandidate/refresh. Adds no flags fetch, timer, or persistent cache; retains O05F's project-namespaced and separate feature/appearance caches.",
+    "brandGates": "oorva_brand is the parent. branding_runtime is effective only when oorva_brand is true. Parent OFF retains the legacy theme and leaves candidate copy unapplied; runtime OFF or unusable appearance uses the bundled Oorva candidate only when the parent is ON.",
+    "validationAndPreload": "Validates candidates with O02 strict schema/contrast checks, allowing only the locally bundled Manrope heading face in addition to Inter. Optional referenced image preload must complete before candidate publication; invalid schema or preload failure falls back without blocking feature controls.",
+    "theme": "Builds and deeply freezes a complete theme snapshot before context publication. OS light/dark wins; appearance defaultTheme applies when OS scheme is unavailable. Existing useTheme/makeStyles exports and typography variant names are retained.",
+    "fonts": "Registers the two bundled Manrope heading faces; Inter remains the body and unavailable-Manrope fallback. App startup proceeds after the configured font set loads/errors or a 1000ms readiness deadline.",
+    "nativeModules": "No native module added."
+  },
+  "acceptance": {
+    "testFile": "app\\src\\branding\\__tests__\\appearance.test.tsx",
+    "cases": [
+      "UI-CACHE-01 atomic preloaded theme publish, immutability, stable identity",
+      "UI-CACHE-02 provider-independent and parent-OFF legacy fallback; compatibility/offline candidate fallback",
+      "UI-CACHE-03 unknown schema and failed logo preload fall back without changing OFF controls or dirty drafts",
+      "UI-CACHE-04 OS-first mode precedence, dirty-draft preservation, Manrope-to-Inter fallback"
+    ],
+    "noNewCapabilityOrFlag": true,
+    "noMigrationsOrSqlFunctions": true,
+    "finalSvgOrTrademarkDependency": false
+  },
+  "driftCheck": {
+    "baseline": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "scope": "O05A affected files only; no repeat full audit",
+    "observedExistingChanges": [
+      "app\\app\\_layout.tsx",
+      "app\\src\\branding\\defaults.ts",
+      "app\\src\\theme\\fallback.ts",
+      "app\\src\\theme\\tokens.ts"
+    ],
+    "preserved": true
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "lockedPathCheck": "PASS",
+    "codespace": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.appearance[.]test[.]tsx$'",
+      "status": "UNAVAILABLE",
+      "helperMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "reason": "The helper could not fetch the WIP ref because the Codespace runner had no GitHub HTTPS username credential; failure occurred before test selection. No PASS claimed.",
+      "selected": "NOT_REACHED"
+    },
+    "laneCi": {
+      "status": "PENDING"
+    },
+    "privateE2e": "NOT_RUN_OPTIONAL_ON_LANE; coordinator owns mandatory integration-batch E2E",
+    "runtimeDeviceEvidence": "NOT_VERIFIED",
+    "productionEnablement": false,
+    "mainPromotion": false,
+    "publicNativeRelease": false
+  },
+  "reviewRequired": false
+}
