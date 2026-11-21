@@ -161,7 +161,7 @@ export default function AuthVerifyScreen() {
             hitSlop={12}
             style={{ minHeight: 44, justifyContent: 'center' }}
           >
-            <Text variant="callout" color="primaryText" style={{ fontFamily: t.fontFamily.semibold }}>
+            <Text variant="calloutStrong" color="primaryText">
               Edit
             </Text>
           </Pressable>
