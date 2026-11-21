@@ -16,7 +16,7 @@
     .mut { color: var(--mut); font-size: 14px; line-height: 1.5; }
     button { width: 100%; min-height: 52px; margin-top: 20px; border: 0; border-radius: 12px; background: var(--p); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
     button[disabled] { opacity: .6; }
-    .ok { color: var(--ok); } .err { color: var(--err); }
+    .ok { color: var(--ok); } .err { color: var(--err); } .warning { color: #b45309; }
     .badge { display: inline-block; margin-top: 16px; font-size: 12px; color: var(--mut); }
   </style>
 </head>
@@ -32,7 +32,9 @@
   </div>
 </main>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script>
+<script type="module">
+import { paymentStatus } from './payment-status.js';
+
 (function () {
   var q = new URLSearchParams(location.search);
   var order = q.get('o') || '', key = q.get('k') || '', amount = parseInt(q.get('a') || '0', 10);
@@ -42,6 +44,10 @@
   var $ = function (id) { return document.getElementById(id); };
   var status = function (text, cls) { var s = $('status'); s.textContent = text; s.className = 'mut ' + (cls || ''); };
   var payBtn = $('pay');
+  var showVerification = function (result) {
+    done = true;
+    status(result.message, result.tone === 'success' ? 'ok' : result.tone === 'warning' ? 'warning' : '');
+  };
 
   // Only our Supabase project's verify endpoint, a Razorpay order and key are accepted.
   var verifyOk = /^https:\/\/[a-z0-9]+\.supabase\.co\/functions\/v1\/verify-payment$/.test(verifyUrl);
@@ -58,22 +64,21 @@
     status('Confirming your payment…');
     payBtn.hidden = true;
     fetch(verifyUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(resp) })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (r) {
-        done = true;
-        if (r.ok && r.j && r.j.ok) status('Payment successful. You can close this page and return to QuickServe.', 'ok');
-        else status('Payment received. It will show in QuickServe within a minute. You can close this page.', 'ok');
+        return r.json().catch(function () { return null; }).then(function (body) {
+          return paymentStatus({ httpStatus: r.status, body: body });
+        });
       })
+      .then(showVerification)
       .catch(function () {
-        done = true;
-        status('Payment received. It will show in QuickServe within a minute. You can close this page.', 'ok');
+        showVerification(paymentStatus({ transportError: true }));
       });
   }
 
   function open() {
     if (done) return;
     payBtn.disabled = true;
-    var rzp = new Razorpay({
+    var rzp = new window.Razorpay({
       key: key,
       order_id: order,
       amount: amount,
@@ -98,7 +103,7 @@
   }
 
   payBtn.addEventListener('click', open);
-  if (typeof Razorpay === 'undefined') {
+  if (typeof window.Razorpay === 'undefined') {
     status('Could not load Razorpay. Check your connection and reload.', 'err');
     return;
   }

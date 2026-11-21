@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders, json, razorpay, razorpayRequest, RazorpayError, requireEnv } from "../_shared/razorpay.ts";
 import { recordGatewayPayment } from "../_shared/record-payment.ts";
-import { verifyCheckoutSignature } from "./logic.ts";
+import { verificationOutcome, verifyCheckoutSignature } from "./logic.ts";
 
 interface RazorpayPayment {
   id: string;
@@ -55,7 +55,11 @@ Deno.serve(async (req) => {
       console.error("verify-payment record failed", r.error);
       return json({ error: "could not record the payment yet; it will be applied automatically" }, 500);
     }
-    return json({ ok: true, status: "captured" });
+    return json({
+      ok: true,
+      status: "captured",
+      outcome: verificationOutcome(r.result),
+    });
   } catch (e) {
     console.error(e);
     return json({ error: "internal error" }, 500);
