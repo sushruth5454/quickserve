@@ -38,28 +38,33 @@
       "result": "Selected locationModel.test.ts; new owner-state cases failed before implementation as expected."
     },
     "postImplementationCodespace": {
-      "status": "BLOCKED_BEFORE_TEST_EXECUTION",
-      "reason": "The current-main helper could not fetch the pushed WIP ref from the shared Codespace: GitHub HTTPS authentication was unavailable there.",
+      "status": "UNAVAILABLE_BEFORE_SELECTION",
+      "reason": "The current-main helper could not fetch the pushed WIP ref because GitHub HTTPS authentication was unavailable inside the shared Codespace; no tests were selected and no Codespace PASS is claimed.",
       "commands": [
         {
           "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.locationModel[.]test[.]ts$'",
-          "result": "Attempted after implementation; blocked before selection or test execution by WIP fetch authentication."
+          "result": "Attempted after implementation; blocked before test selection by WIP fetch authentication. No PASS."
         },
         {
           "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.lib.__tests__.locationActorState[.]test[.]ts$'",
-          "result": "Not attempted after the shared Codespace Git authentication blocker was confirmed."
+          "result": "Not attempted after the same shared Codespace Git authentication blocker was confirmed. No PASS."
         }
       ],
       "fallback": "lane-ci"
     },
     "laneCi": {
       "status": "PASS",
-      "runId": 44914995050,
-      "commitSha": "a470fd8f2bb27ff6ec0b78a38883727ffa3235b7",
-      "exactHead": true
+      "runId": 44915621424,
+      "commitSha": "201a129ad0553a6083dc26f7c0356e1d4b694454",
+      "exactHead": true,
+      "verifiedCodeHead": true
     },
     "native320x200": "NOT_VERIFIED",
-    "authReview": "COORDINATOR_OWNED_PENDING",
+    "authReview": {
+      "status": "PASS",
+      "reviewedCodeHead": "201a129ad0553a6083dc26f7c0356e1d4b694454",
+      "codeUnchangedAfterReview": true
+    },
     "gateE1": "PENDING"
   }
 }
