@@ -26,19 +26,45 @@
   "implementation": {
     "change": "Moved authenticated sports request resolution and existing-obligation preparation into a testable helper used by create-payment. The helper invokes prepare_sports_payment with only the booking id and authenticated user id; no availability-flag lookup gates this existing-work path. Payment persistence, gateway-order, race-recovery, and response paths remain unchanged.",
     "newBookingAvailability": "Unchanged; book_sports_slot remains the creation gate.",
-    "validation": "Full-chain SQL scenario and mocked handler assertions are authored; validation awaits registration. No tests or gateway calls performed."
+    "validation": {
+      "registrationCommit": "6fc8262285e3b93272c3d2334468f6fb12b272eb",
+      "selection": "PASS: supabase/tests/oorva_o20_sp07.test.mjs selected for filter oorva_o20_sp07",
+      "sql": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp07'",
+        "result": "PASS",
+        "selectedTest": "supabase/tests/oorva_o20_sp07.test.mjs",
+        "summary": "1/1 SQL checks passed; parent-OFF and online-child-OFF scenarios asserted stored amount 20500 and rejected new booking creation."
+      },
+      "deno": {
+        "command": "pwsh -NoProfile -File $Helper -Suite deno",
+        "result": "PASS",
+        "summary": "145 passed, 0 failed; type checks completed for 13 functions.",
+        "selectedSportsAssertions": [
+          "SP-CREATION-VS-RESOLUTION passed",
+          "Existing losing-order late-capture recorder assertion passed",
+          "Sports checkout race persistence/winner-read error assertions passed"
+        ]
+      },
+      "resolvedDenoTypeErrors": [
+        "Added amount and purpose to the preparation helper result constraint.",
+        "Restored sportsPaymentPreparation import required by checkout-race recovery."
+      ],
+      "localTests": false,
+      "gatewayOrProductionOperations": false
+    }
   },
   "acceptance": {
-    "serverPricedExistingObligationWithFlagsOff": "pending",
-    "newOnlineBookingStillDenied": "pending",
+    "serverPricedExistingObligationWithFlagsOff": "PASS: exact 20500 paise stored total under parent-OFF and online-child-OFF scenarios",
+    "newOnlineBookingStillDenied": "PASS: book_sports_slot rejected creation under both flag-off scenarios",
     "wrongActorModeStateOrExpiredDeadlineDenied": "pending",
     "capturedAcceptedPaymentCannotBePreparedAgain": "pending",
     "rpcRemainsServiceRoleOnly": "pending",
-    "existingOrderRaceLateCaptureAndRefundAssertionsPreserved": "pending"
+    "existingOrderRaceLateCaptureAndRefundAssertionsPreserved": "Deno race and late-capture assertions passed; duplicate-refund SQL assertions were not selected by these checks"
   },
   "checkpoint": {
-    "status": "PAUSED_FOR_REGISTRATION",
+    "status": "PAUSED_FOR_MONEY_REVIEW",
     "requiredRegistration": "supabase/tests/package.json",
+    "registrationSha": "6fc8262285e3b93272c3d2334468f6fb12b272eb",
     "requiredFilter": "oorva_o20_sp07",
     "postRegistrationSqlSelector": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp07'",
     "postRegistrationDenoSelector": "pwsh -NoProfile -File $Helper -Suite deno",

@@ -89,7 +89,12 @@ export function resolveSportsPaymentRequest(
 }
 
 export async function prepareSportsPaymentForAuthenticatedCustomer<
-  TPrepared extends { url?: string | null; short_url?: string | null },
+  TPrepared extends {
+    amount: number;
+    purpose: string;
+    url?: string | null;
+    short_url?: string | null;
+  },
 >(
   admin: Pick<SupabaseClient, "rpc">,
   body: Record<string, unknown>,
