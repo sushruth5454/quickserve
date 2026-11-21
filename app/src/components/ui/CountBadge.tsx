@@ -25,18 +25,19 @@ export function CountBadge({ count, label = 'unread messages', overlay, style }:
       style={[
         {
           minWidth: 20,
-          height: 20,
+          minHeight: 20,
           borderRadius: 10,
           paddingHorizontal: 6,
+          paddingVertical: 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: t.colors.danger,
+          backgroundColor: t.colors.dangerStrong,
         },
         overlay ? { position: 'absolute', top: -4, right: -4, borderWidth: 2, borderColor: t.colors.surface } : null,
         style,
       ]}
     >
-      <Text variant="micro" style={{ color: '#FFFFFF' }} maxFontSizeMultiplier={1.2} numberOfLines={1}>
+      <Text variant="micro" style={{ color: t.colors.onDanger }} critical>
         {text}
       </Text>
     </View>

@@ -79,7 +79,8 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
               style={{
                 flex: 1,
                 maxWidth: maxBox,
-                height: 56,
+                minHeight: 56,
+                paddingVertical: 8,
                 borderRadius: t.radii.md,
                 borderWidth: isActive || error ? 2 : 1,
                 borderColor: error ? t.colors.danger : isActive ? t.colors.primary : t.colors.outline,
@@ -90,7 +91,7 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
               }}
             >
               {ch ? (
-                <Text variant="title1" tabular style={{ fontFamily: t.fontFamily.semibold }} maxFontSizeMultiplier={1.2}>
+                <Text variant="title1" tabular style={{ fontFamily: t.fontFamily.semibold }} critical>
                   {secure ? '•' : ch}
                 </Text>
               ) : isActive ? (
