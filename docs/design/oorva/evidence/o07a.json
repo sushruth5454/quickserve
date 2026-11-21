@@ -39,7 +39,7 @@
     "codespaceCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.layoutSafety[.]test[.]tsx$'",
     "codespaceResult": "PASS",
     "codespaceSnapshotRef": "wip/qs-oorva-o07a",
-    "codespaceSnapshotCommit": "a7794f8f1a37b2f730afcea40b81198a41602024",
+    "codespaceSnapshotCommit": "9ee9ed95aed31a86cd86c8ef5bd5aef0f84579bd",
     "tests": [
       "Disclosure/CTA/tab/toast bounds with a 320px viewport, large-footer geometry fixture and safe-area inset",
       "Semantic toast text, action and tone-accent roles",
