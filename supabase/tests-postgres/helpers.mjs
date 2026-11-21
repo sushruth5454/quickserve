@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomInt } from 'node:crypto';
-import pg from 'pg';
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-const { Client } = pg;
 
 export function assertPrivateTestStack({
   connectionString = process.env.LOCAL_DB_URL,
@@ -44,12 +42,15 @@ export function assertLoopbackHttpUrl(value) {
   return url;
 }
 
-export function createClient(options = {}) {
+export async function createClient(options = {}) {
   const connectionString = options.connectionString ?? process.env.LOCAL_DB_URL;
   assertPrivateTestStack({
     connectionString,
     privateTestStack: options.privateTestStack ?? process.env.PRIVATE_TEST_STACK,
   });
+  const pg = await import('pg');
+  const Client = pg.Client ?? pg.default?.Client;
+  if (!Client) throw new Error('pg does not export Client');
   return new Client({ connectionString, ...(options.clientOptions ?? {}) });
 }
 
@@ -62,7 +63,7 @@ async function closeClient(client) {
 }
 
 export async function withClient(callback, options = {}) {
-  const client = createClient(options);
+  const client = await createClient(options);
   try {
     await client.connect();
     return await callback(client);
@@ -72,8 +73,10 @@ export async function withClient(callback, options = {}) {
 }
 
 export async function withTwoClients(callback, options = {}) {
-  const clients = [createClient(options), createClient(options)];
+  const clients = [];
   try {
+    clients.push(await createClient(options));
+    clients.push(await createClient(options));
     await clients[0].connect();
     await clients[1].connect();
     return await callback(...clients);
