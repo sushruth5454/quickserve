@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O31-CM10",
+  "workPackage": "O31",
+  "sourceTaskIds": [
+    "CM-T10"
+  ],
+  "sourceFindingIds": [
+    "CM-F04",
+    "CM-F13"
+  ],
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t10",
+  "placementProjection": "docs/design/oorva/audit/communications.json",
+  "base": {
+    "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O38R",
+        "sha": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+        "state": "DONE"
+      }
+    ]
+  },
+  "workerOwnedFiles": [
+    "app/app/admin/geography.tsx",
+    "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+    "app/src/features/communicationScreens/AdminGeographyScreen.tsx",
+    "docs/design/oorva/evidence/o31-cm10.json"
+  ],
+  "changedFiles": [
+    "app/app/admin/geography.tsx",
+    "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+    "app/src/features/communicationScreens/AdminGeographyScreen.tsx",
+    "docs/design/oorva/evidence/o31-cm10.json"
+  ],
+  "implementation": [
+    "Extract the existing geography route body into the S22 host and leave the route as a thin default re-export.",
+    "Represent loading, initial error, loaded data, and stale loaded data explicitly; initial failure removes the skeleton and offers Retry.",
+    "Use the shared focus/foreground refresh only while the screen is clean, preserving active node and area drafts.",
+    "Bind place searches, resolves, and pending areas to city, query, Places session, and request generation; invalidate ownership on selection, query change, and unmount.",
+    "Require pendingArea.cityId to equal the selected city before save, persist its originating city and coordinates, ignore stale UI completions, and refetch after a successful write."
+  ],
+  "acceptance": [
+    {
+      "case": "CM_GEO_INITIAL_ERROR",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "IMPLEMENTED_NOT_RUN"
+    },
+    {
+      "case": "CM_GEO_STALE_PLACE",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "IMPLEMENTED_NOT_RUN"
+    },
+    {
+      "case": "CM_GEO_STALE_QUERY",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "IMPLEMENTED_NOT_RUN"
+    },
+    {
+      "case": "CM_GEO_SAVE_PARENT_MATCH",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "IMPLEMENTED_NOT_RUN"
+    }
+  ],
+  "sqlFunctions": [],
+  "sqlObjects": [],
+  "migrationClaims": [],
+  "allocatedMigrationFilenames": [],
+  "featureKeys": [],
+  "approvals": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "E1": "PENDING"
+  },
+  "validation": {
+    "codespaceApp": {
+      "result": "UNAVAILABLE",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.AdminGeographyScreen[.]test[.]tsx$'",
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "snapshotBranch": "wip/qs-oorva-o31-cm10",
+      "snapshotCommit": "e1de66d6",
+      "testsExecuted": false,
+      "reason": "The Codespace could not authenticate to fetch the pushed WIP ref; the requested app suite did not start."
+    },
+    "laneCi": {
+      "result": "PENDING"
+    },
+    "diffCheck": "PENDING"
+  },
+  "reviewRequired": "concurrency",
+  "reviewStatus": "pending_coordinator",
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "productionActions": "none",
+  "mainActions": "none"
+}
