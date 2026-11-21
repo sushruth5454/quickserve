@@ -18,7 +18,7 @@ import { isServiceBookingEnabled, type BookPrefill, type ServiceBookingEntry } f
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
-import { canPayInstantly, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, packageDuration, packageRepeatPlanRoute, packageTotal, timeBookingQuantity } from './packageModel';
+import { canPayInstantly, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, initialPackageAsap, packageDuration, packageRepeatPlanRoute, packageTotal, timeBookingQuantity } from './packageModel';
 
 export function PackageBookingScreen({
   packageId,
@@ -50,7 +50,7 @@ export function PackageBookingScreen({
   );
   const [intake, setIntake] = useState<Record<string, unknown>>(() => prefill.description ? { brief: prefill.description } : {});
   const [busy, setBusy] = useState(false);
-  const [asap, setAsap] = useState(prefill.mode === 'asap' ? true : prefill.mode === 'schedule' ? false : archetype === 'fixed');
+  const [asap, setAsap] = useState(() => initialPackageAsap(archetype, prefill));
   const [sched, setSched] = useState<ProviderSchedule | null>(null);
   const days = useMemo(() => nextDays(new Date(), 14), []);
   const familyEnabled = isServiceBookingEnabled(entry, flags.archetypes);

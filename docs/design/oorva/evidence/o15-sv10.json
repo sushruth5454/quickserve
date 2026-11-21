@@ -117,17 +117,27 @@
     "files": [
       "app/src/lib/assistant/prefill.ts",
       "app/src/features/booking/book/useBookScreenController.ts",
-      "app/src/lib/assistant/__tests__/prefill.test.ts"
+      "app/src/lib/assistant/__tests__/prefill.test.ts",
+      "app/src/features/booking/packages/PackageBookingScreen.tsx",
+      "app/src/features/booking/packages/packageModel.ts",
+      "app/src/features/booking/packages/__tests__/packageModel.test.ts"
     ],
-    "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; add only a true slotInvalid marker for invalid slots, use it to force schedule reselection, reconstruct safe route slot params in the controller, and narrow route-draft fields before use.",
+    "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; add only a true slotInvalid marker for invalid slots, use it to force schedule reselection, reconstruct safe route slot params in the controller, narrow route-draft fields before use, and prevent an invalid slot from defaulting to fixed-package ASAP.",
     "validation": "git diff --check only; no tests/builds run after correction."
+  },
+  "moneyReviewReReview": {
+    "reviewedHead": "f9d2d2ba6db9f2ea37b39201964ddc6cc0fe8f8f",
+    "result": "FAIL",
+    "finding": "An invalid prefilled slot with mode null could leave fixed-package ASAP selected by default, bypassing explicit slot reselection.",
+    "correction": "Package ASAP initialization now clears for slotInvalid; the owned package model/test covers this case.",
+    "status": "latest correction needs focused re-review"
   },
   "review": {
     "required": [
       "money"
     ],
-    "status": "re-review required for the local owner correction",
-    "lanePush": "blocked until coordinator confirms PASS on the correction head"
+    "status": "re-review required for the latest local correction",
+    "lanePush": "blocked until coordinator confirms PASS on the exact correction head"
   },
   "scopeBlockers": [
     {

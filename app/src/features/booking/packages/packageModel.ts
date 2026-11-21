@@ -66,6 +66,16 @@ export function packageDuration(servicePackage: ServicePackage, quantity: number
   return ['session', 'hour', 'day'].includes(servicePackage.unit) ? duration * quantity : duration;
 }
 
+export function initialPackageAsap(
+  archetype: 'fixed' | 'time_based',
+  prefill: { mode: 'asap' | 'schedule' | null; slotInvalid?: boolean },
+): boolean {
+  if (prefill.slotInvalid) return false;
+  if (prefill.mode === 'asap') return true;
+  if (prefill.mode === 'schedule') return false;
+  return archetype === 'fixed';
+}
+
 export function canPurchaseSessionPack(
   servicePackage: Pick<ServicePackage, 'unit' | 'price_type' | 'price' | 'qty_min' | 'qty_max'>,
 ): boolean {
