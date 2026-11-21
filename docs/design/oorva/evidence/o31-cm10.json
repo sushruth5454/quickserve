@@ -96,7 +96,14 @@
       "priorFailures": [
         "The AdminGeographyScreen test suite was rejected by the Jest mock hoister because its updater parameter name was not mock-prefixed; 78 suites and 519 tests passed, while this suite did not start."
       ],
-      "fix": "Rename the updater parameter to mockCurrent, then rerun the lane."
+      "priorFix": "Rename the updater parameter to mockCurrent.",
+      "secondPriorRunId": 44915302525,
+      "secondPriorHeadSha": "ae89e45bf9d80ce57804e6a7f5285e60dd40047c",
+      "secondPriorConclusion": "FAILURE",
+      "secondPriorFailures": [
+        "All four new cases failed in afterEach because the fake hook-slot array is sparse and cleanup dereferenced an undefined slot; 78 suites and 519 tests passed."
+      ],
+      "fix": "Use optional chaining for sparse hook-slot cleanup, then rerun the lane."
     },
     "diffCheck": "PENDING"
   },

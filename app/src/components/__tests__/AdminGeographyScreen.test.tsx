@@ -209,7 +209,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  for (const slot of mockRuntime.slots) slot.cleanup?.();
+  for (const slot of mockRuntime.slots) slot?.cleanup?.();
 });
 
 describe('AdminGeographyScreen', () => {
