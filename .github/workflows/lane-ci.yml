@@ -27,6 +27,8 @@ jobs:
     outputs:
       backend: ${{ steps.diff.outputs.backend }}
       app: ${{ steps.diff.outputs.app }}
+      tooling: ${{ steps.diff.outputs.tooling }}
+      private_postgres: ${{ steps.diff.outputs.private_postgres }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,10 +45,15 @@ jobs:
           all=false
           echo "$files" | grep -qE '^(\.github/workflows/lane-ci\.yml|scripts/ci/)' && all=true
           backend=$all; app=$all
+          tooling=$all; private_postgres=$all
           echo "$files" | grep -qE '^supabase/' && backend=true
           echo "$files" | grep -qE '^app/' && app=true
+          echo "$files" | grep -qE '^(scripts/brand/|docs/design/oorva/execution-plan\.json$|docs/design/oorva/audit/coverage\.json$)' && tooling=true
+          echo "$files" | grep -qE '^supabase/tests-postgres/' && private_postgres=true
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "tooling=$tooling" >> "$GITHUB_OUTPUT"
+          echo "private_postgres=$private_postgres" >> "$GITHUB_OUTPUT"
 
   deno:
     needs: changes
@@ -77,6 +84,50 @@ jobs:
           rm -f package-lock.json
           npm install --no-audit --no-fund --registry https://registry.npmjs.org/
           node run-all.mjs
+
+  tooling:
+    needs: changes
+    if: needs.changes.outputs.tooling == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned brand-tooling dependencies
+        working-directory: scripts/brand
+        run: npm ci
+      - name: Test brand tooling guards
+        working-directory: scripts/brand
+        run: node asset-tests.mjs --selftest
+      - name: Validate Oorva execution plan
+        run: node scripts/brand/validate-execution-plan.mjs --all
+
+  private-postgres:
+    needs: changes
+    if: needs.changes.outputs.private_postgres == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+      - name: Start disposable local Supabase stack
+        run: bash scripts/ci/local-supabase.sh
+      - name: Install private PostgreSQL harness dependencies
+        working-directory: supabase/tests-postgres
+        run: npm ci
+      - name: Verify private PostgreSQL harness
+        working-directory: supabase/tests-postgres
+        env:
+          LOCAL_DB_URL: ${{ env.LOCAL_DB_URL }}
+          PRIVATE_TEST_STACK: 'true'
+        run: node run.mjs --selftest
 
   app:
     needs: changes

@@ -1,0 +1,50 @@
+{
+  "stage": "O38R",
+  "workPackage": "O38",
+  "status": "implementation-and-targeted-tests-passed",
+  "base": {
+    "integrationCommit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "dependency": {
+      "stage": "O00",
+      "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "status": "DONE"
+    }
+  },
+  "files": [
+    "app\\src\\lib\\entityInvalidation.ts",
+    "app\\src\\lib\\useEntityRefresh.ts",
+    "app\\src\\lib\\__tests__\\entityInvalidation.test.ts",
+    "app\\src\\lib\\__tests__\\useEntityRefresh.test.tsx",
+    "docs\\design\\oorva\\evidence\\o38r.json"
+  ],
+  "implementation": [
+    "Opaque frozen request tokens; begin supersedes the prior token and invalidate rejects all pending tokens.",
+    "A focused, active, web-visible refresh hook with one nullable interval, microtask coalescing, latest callback/context, and guarded stale success/error completion.",
+    "Explicit refresh/context changes supersede in-flight reads without waiting for obsolete promises; only the newest run controls refreshing.",
+    "No feature flag, migration, SQL function, shared registration, or publication/store framework added."
+  ],
+  "validation": [
+    {
+      "suite": "app",
+      "filter": "src.lib.__tests__.entityInvalidation[.]test[.]ts$",
+      "selectedSuites": 1,
+      "selectedTests": 2,
+      "codespaceSnapshot": "wip/qs-oorva-o38r @ 86471304",
+      "result": "PASS"
+    },
+    {
+      "suite": "jest",
+      "filter": "src.lib.__tests__.useEntityRefresh[.]test[.]tsx$",
+      "selectedSuites": 1,
+      "selectedTests": 6,
+      "codespaceSnapshot": "wip/qs-oorva-o38r @ 582d7ccb",
+      "result": "PASS"
+    }
+  ],
+  "coverage": [
+    "Context/actor supersession, stale rejection, and immediate start of the replacement read.",
+    "Disabled manual refresh, focus/foreground/visibility resume and pause, interval cleanup, and periodic overlap skipping.",
+    "Same-turn double-refresh coalescing and protection against an obsolete finally clearing the latest spinner.",
+    "Caller-owned unsaved draft state remains untouched during a context switch."
+  ]
+}

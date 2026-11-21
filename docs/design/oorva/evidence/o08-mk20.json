@@ -1,0 +1,64 @@
+{
+  "stage": "O08-MK20",
+  "workPackage": "O08",
+  "sourceTask": "MK-T20",
+  "finding": "MK-F22",
+  "dependency": {
+    "stage": "O00",
+    "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "status": "DONE"
+  },
+  "base": {
+    "testedBaseCommit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "parentCommit": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+    "branch": "lane/oorva-o08-mk20"
+  },
+  "sourceEvidence": {
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md",
+    "projection": "docs/design/oorva/audit/marketplace.json",
+    "placement": "S06"
+  },
+  "changedFiles": [
+    "app/src/components/market/PillarCard.tsx",
+    "app/src/features/home/HomeV2.tsx",
+    "app/src/components/market/__tests__/PillarCard.test.tsx",
+    "docs/design/oorva/evidence/o08-mk20.json"
+  ],
+  "implementation": {
+    "pillarCard": "Stacks the icon and full title below 600 logical px, allows title wrapping to 200% font scale, and preserves the full accessibility label and press action.",
+    "homeV2": "Uses one full-width pillar column below 360 logical px and retains the existing two-column capacity at 360 px and above.",
+    "visibilityAndRoutes": "No changes to pillarInputs, visiblePillars, route predicates, or feature flags.",
+    "fallback": "The existing legacy-home fallback remains unchanged when home_v2 is OFF."
+  },
+  "approvalEvidence": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "validation": {
+    "codespaceAppFilter": {
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "filter": "src.components.market.__tests__.PillarCard[.]test[.]tsx$",
+      "expectedRed": {
+        "snapshotId": "7295d441",
+        "result": "FAIL",
+        "cases": [
+          "MK-PILLAR-narrow-readable",
+          "MK-PILLAR-large-text-route"
+        ]
+      },
+      "green": {
+        "snapshotId": "c57cea9a",
+        "result": "PASS",
+        "passed": 2
+      }
+    },
+    "gitDiffCheck": "PASS",
+    "sharedE2E": {
+      "case": "MK-PILLAR-portrait-before-after",
+      "owner": "coordinator",
+      "run": "private e2e-local only",
+      "status": "pending coordinator registration"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "quickserve-private-postgres-tests",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "node run.mjs",
+    "selftest": "node run.mjs --selftest",
+    "selftest:guards": "node run.mjs --selftest-guards"
+  },
+  "httpIntegrationTests": [],
+  "dependencies": {
+    "pg": "8.16.3"
+  }
+}

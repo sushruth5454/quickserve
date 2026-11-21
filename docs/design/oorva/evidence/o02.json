@@ -1,0 +1,71 @@
+{
+  "stageId": "O02",
+  "workPackage": "O02",
+  "sourceTaskId": "PF-T07",
+  "findingId": "PF-F09",
+  "status": "implemented",
+  "base": {
+    "branch": "integrate/oorva-base-1",
+    "commit": "4071e026cc857f69d7e8707e02decb13125e71cd"
+  },
+  "ownedFiles": [
+    "app\\src\\theme\\tokens.ts",
+    "app\\src\\branding\\colorContract.ts",
+    "app\\src\\branding\\defaults.ts",
+    "app\\src\\branding\\__tests__\\validation.test.ts",
+    "app\\src\\branding\\types.ts",
+    "app\\src\\branding\\validation.ts",
+    "app\\src\\branding\\fixtures\\appearance-valid.json",
+    "app\\src\\branding\\fixtures\\appearance-invalid.json",
+    "docs\\design\\oorva\\evidence\\o02.json"
+  ],
+  "semanticDangerRoles": {
+    "light": {
+      "onDanger": "#FFFFFF",
+      "dangerPressed": "#B42318"
+    },
+    "dark": {
+      "onDanger": "#FFFFFF",
+      "dangerPressed": "#B42318"
+    },
+    "primaryOnPrimaryAndSegmentThumb": "preserved",
+    "categoryGlyphTints": "preserved"
+  },
+  "contrast": {
+    "unsafePairsIndependentlyRejected": [
+      "Light unread: #FFFFFF on #F04438 (3.7574:1)",
+      "Dark unread: #FFFFFF on #F97066 (2.7861:1)",
+      "Dark destructive pressed: #FFFFFF on #FDA29B (1.9412:1)"
+    ],
+    "legacyAndCandidateActualUsePairs": "PASS at 4.5:1 or greater",
+    "classBRefinement": {
+      "token": "dark.textSecondary",
+      "value": "#D5DDD6",
+      "reason": "The proposed #CDD6CE on #486556 used by unselected counts was 4.31:1; the candidate foreground was refined to meet the 4.5:1 threshold."
+    }
+  },
+  "strictAppearanceV1": {
+    "sizeLimitBytes": 32768,
+    "rejectsUnknownFields": true,
+    "rejectsUnsafeTextAndUrls": true,
+    "rejectsUnbundledFonts": true,
+    "rejectsMalformedAssetIdsAndColors": true,
+    "validAndInvalidFixturesAreSeparateFromFeatureParsing": true
+  },
+  "validation": {
+    "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.validation[.]test[.]ts$'",
+    "environment": "GitHub Codespace",
+    "csTestResult": "PASS",
+    "jestSuitesSelected": 1,
+    "testsSelected": 14,
+    "testsPassed": 14,
+    "gitDiffCheck": "PASS"
+  },
+  "releaseStatus": {
+    "E0": "approved",
+    "E1": "pending",
+    "appearanceCandidateApplied": false,
+    "featureFlagsOrProductionOperations": "not performed",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}

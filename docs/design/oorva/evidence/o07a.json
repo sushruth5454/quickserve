@@ -1,0 +1,58 @@
+{
+  "stage": "O07A",
+  "workPackage": "O07",
+  "sourceTask": "PF-T09",
+  "finding": "PF-F11",
+  "status": "implemented-e1-pending",
+  "base": {
+    "testedBaseBranch": "integrate/oorva-base-1",
+    "testedBaseCommit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "currentMainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+    "o00DependencyCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "o00DependencyVerifiedAsAncestor": true
+  },
+  "scope": {
+    "workerFiles": [
+      "app/src/components/DemoDataIndicator.tsx",
+      "app/src/components/ui/Screen.tsx",
+      "app/src/components/ui/Toast.tsx",
+      "app/src/components/ui/BottomSheet.tsx",
+      "app/src/components/ui/Confirm.tsx",
+      "app/src/components/RouteErrorBoundary.tsx",
+      "app/src/theme/fallback.ts",
+      "app/src/components/ui/__tests__/layoutSafety.test.tsx",
+      "docs/design/oorva/evidence/o07a.json"
+    ],
+    "confirmComponentChanged": false,
+    "migrationsOrFeatureFlagsChanged": false,
+    "nativeSplashHookAdded": false
+  },
+  "implementation": {
+    "demoDisclosure": "The existing isSeedDemoMode check remains; the disclosure now occupies one noninteractive shell-flow slot with bottom safe area instead of overlaying navigation and actions.",
+    "screenLayout": "Screen retains measured footer and tab-bar offsets with the reserved slot accounted for; demo mode uses the slot as the bottom safe-area owner. Header top inset remains unchanged.",
+    "toast": "Text, action and tone accents use semantic theme roles; default toast placement accounts for the reserved disclosure slot.",
+    "modal": "BottomSheet uses keyboard avoidance, a viewport-relative maximum height, a shrinkable scroll body and static open/close/snap behavior when reduced motion is enabled.",
+    "crashFallback": "RouteErrorBoundary imports dependency-free local fallback palette and typography values directly, without the theme barrel/context or Reanimated.",
+    "confirmation": "Confirm.tsx and its confirmation policy were left unchanged."
+  },
+  "validation": {
+    "codespaceCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.layoutSafety[.]test[.]tsx$'",
+    "codespaceResult": "PASS",
+    "codespaceSnapshotRef": "wip/qs-oorva-o07a",
+    "codespaceSnapshotCommit": "9ee9ed95aed31a86cd86c8ef5bd5aef0f84579bd",
+    "tests": [
+      "Disclosure/CTA/tab/toast bounds with a 320px viewport, large-footer geometry fixture and safe-area inset",
+      "Semantic toast text, action and tone-accent roles",
+      "Keyboard avoidance, modal action placement and reduced-motion transitions",
+      "Readable retryable crash fallback without loading Reanimated"
+    ],
+    "diffCheck": "PASS",
+    "exactScopeCheck": "PASS",
+    "nativeDeviceOrSimulatorTest": "NOT RUN; required before a platform PASS"
+  },
+  "gates": {
+    "e1": "PENDING",
+    "mainMergeOrDeploymentAuthorized": false
+  },
+  "verifiedAt": "2026-11-21"
+}

@@ -116,21 +116,22 @@ select pg_temp.sg_sid('provider:' || key), phone, now() from sg_specs
 on conflict (user_id) do update set phone = excluded.phone, updated_at = now();
 
 insert into public.providers (
-  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status,
+  id, bio, city, service_radius_km, base_location, years_experience, languages, kyc_status, admin_review_status,
   suspended, is_online, rating_avg, rating_count, jobs_completed, commission_tier, razorpay_account_id,
   created_at, timezone, base_area, max_jobs_per_day, paused, onboarding_step, submitted_at,
   terms_version, terms_accepted_at, kyc_updated_at
 )
 select pg_temp.sg_sid('provider:' || s.key), s.bio, 'Sangareddy', 25,
        extensions.st_setsrid(extensions.st_makepoint(s.lng, s.lat), 4326)::extensions.geography,
-       s.years, array['Telugu','Hindi','English'], 'verified'::public.kyc_status,
+s.years, array['Telugu','Hindi','English'], 'verified'::public.kyc_status, 'approved',
        false, true, s.rating, s.rating_count, s.jobs, 10, 'acc_demo_only_never_payout_sg_' || s.key,
        now() - interval '150 days', 'Asia/Kolkata', s.area, 6, false, 7,
        now() - interval '140 days', 'demo-only-v1', now() - interval '140 days', now() - interval '140 days'
   from sg_specs s
 on conflict (id) do update
 set bio = excluded.bio, city = excluded.city, base_location = excluded.base_location, base_area = excluded.base_area,
-    kyc_status = excluded.kyc_status, suspended = false, is_online = true, paused = false,
+    kyc_status = excluded.kyc_status, admin_review_status = 'approved',
+    suspended = false, is_online = true, paused = false,
     rating_avg = excluded.rating_avg, rating_count = excluded.rating_count, jobs_completed = excluded.jobs_completed;
 
 insert into public.category_cities (category_id, city, live, launched_at)
@@ -195,6 +196,14 @@ select pg_temp.sg_sid('founder:sangareddy-home'), u.id, 'Sangareddy (demo)',
        'H.No 4-12, Sanjeeva Nagar', 'Sangareddy', 17.6255, 78.0890, false, now()
   from (select id from auth.users where phone in ('919999999999', '+919999999999') order by created_at limit 1) u
 on conflict (id) do update set line1 = excluded.line1, city = excluded.city, lat = excluded.lat, lng = excluded.lng;
+
+do $$
+begin
+  if not public._provider_is_live(pg_temp.sg_sid('provider:hc-1')) then
+    raise exception 'Sangareddy demo Laxmi Home Cleaning must be live for public package reads';
+  end if;
+end;
+$$;
 
 select 'DEMO ONLY' as dataset,
        (select count(*) from sg_specs) as specs,

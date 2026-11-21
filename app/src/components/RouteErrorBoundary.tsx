@@ -1,22 +1,22 @@
 import type { ErrorBoundaryProps } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { lightPalette, typography } from '../theme';
+import { fallbackPalette, fallbackTypography } from '../theme/fallback';
 
 /**
  * Shown by Expo Router when a screen throws while rendering. Without it a published build shows a blank screen.
- * Deliberately uses plain React Native views (no theme/context), so it still renders if those are what failed.
+ * Uses only plain React Native views and dependency-free fallback values so provider failures cannot hide it.
  */
 export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
-    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, gap: 12, backgroundColor: lightPalette.surface }}>
-      <Text style={{ fontSize: typography.title2.fontSize, fontWeight: '700', color: lightPalette.text }}>Something went wrong on this screen</Text>
-      <Text style={{ fontSize: typography.callout.fontSize, color: lightPalette.textSecondary }}>Please send a screenshot of this message to the QuickServe team.</Text>
-      <View style={{ padding: 12, borderRadius: 8, backgroundColor: lightPalette.surfaceAlt }}>
-        <Text selectable style={{ fontSize: typography.footnote.fontSize, color: lightPalette.dangerText }}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24, gap: 12, backgroundColor: fallbackPalette.surface }}>
+      <Text accessibilityRole="header" style={{ ...fallbackTypography.title2, color: fallbackPalette.text }}>Something went wrong on this screen</Text>
+      <Text style={{ ...fallbackTypography.callout, color: fallbackPalette.textSecondary }}>Please send a screenshot of this message to the QuickServe team.</Text>
+      <View style={{ padding: 12, borderRadius: 8, backgroundColor: fallbackPalette.surfaceAlt }}>
+        <Text selectable style={{ ...fallbackTypography.footnote, color: fallbackPalette.dangerText }}>
           {error?.message || String(error)}
         </Text>
         {error?.stack ? (
-          <Text selectable style={{ fontSize: typography.micro.fontSize, color: lightPalette.muted, marginTop: 8 }} numberOfLines={12}>
+          <Text selectable style={{ ...fallbackTypography.micro, color: fallbackPalette.muted, marginTop: 8 }} numberOfLines={12}>
             {error.stack}
           </Text>
         ) : null}
@@ -25,9 +25,9 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         accessibilityRole="button"
         accessibilityLabel="Try again"
         onPress={() => void retry()}
-        style={{ minHeight: 48, borderRadius: 12, backgroundColor: lightPalette.primary, alignItems: 'center', justifyContent: 'center' }}
+        style={{ minHeight: 48, borderRadius: 12, backgroundColor: fallbackPalette.primary, alignItems: 'center', justifyContent: 'center' }}
       >
-        <Text style={{ color: lightPalette.onPrimary, fontSize: typography.button.fontSize, fontWeight: '600' }}>Try again</Text>
+        <Text style={{ ...fallbackTypography.button, color: fallbackPalette.onPrimary }}>Try again</Text>
       </Pressable>
     </ScrollView>
   );

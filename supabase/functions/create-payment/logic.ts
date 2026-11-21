@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+
 export interface SportsPaymentRequest {
   bookingId: string;
   userId: string;
@@ -86,8 +88,32 @@ export function resolveSportsPaymentRequest(
   return { bookingId: body.booking_id, userId };
 }
 
-export function sportsPaymentsEnabled(features: unknown): boolean {
-  if (!features || typeof features !== "object") return false;
-  const flags = features as Record<string, unknown>;
-  return flags.sports === true && flags.sports_online_payments === true;
+export async function prepareSportsPaymentForAuthenticatedCustomer<
+  TPrepared extends {
+    amount: number;
+    purpose: string;
+    url?: string | null;
+    short_url?: string | null;
+  },
+>(
+  admin: Pick<SupabaseClient, "rpc">,
+  body: Record<string, unknown>,
+  authenticatedUserId: string,
+) {
+  const sportsRequest = resolveSportsPaymentRequest(body, authenticatedUserId);
+  if (!sportsRequest) return { kind: "not_sports" as const };
+  if ("error" in sportsRequest) {
+    return { kind: "invalid_request" as const, error: sportsRequest.error };
+  }
+
+  const preparation = sportsPaymentPreparation(sportsRequest);
+  const result = await admin.rpc(preparation.rpc, preparation.args).single<TPrepared>();
+  return {
+    kind: "prepared" as const,
+    sportsRequest,
+    prepared: result.data
+      ? { ...result.data, short_url: result.data.url ?? null }
+      : null,
+    prepError: result.error,
+  };
 }
