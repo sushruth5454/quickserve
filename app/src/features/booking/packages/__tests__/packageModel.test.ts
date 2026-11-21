@@ -1,4 +1,4 @@
-import { fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
+import { canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
 import { packageCheckoutTotal } from '../../../../lib/money';
 
 type EligibilityCategory = { recurrence_allowed?: boolean; allowed_frequencies?: string[] };
@@ -17,6 +17,14 @@ describe('package booking modes', () => {
   });
 
   describe('package booking units', () => {
+    it('doesNotOfferSessionPacksWithFractionalQuantityBounds', () => {
+      const pack = { unit: 'session' as const, price_type: 'fixed' as const, price: 5000, qty_min: 1, qty_max: 5 };
+
+      expect(canPurchaseSessionPack(pack)).toBe(true);
+      expect(canPurchaseSessionPack({ ...pack, qty_min: 1.5 })).toBe(false);
+      expect(canPurchaseSessionPack({ ...pack, qty_max: 4.5 })).toBe(false);
+    });
+
     it('singleSessionUnit keeps quantity as one unless purchasing a pack', () => {
       expect(timeBookingQuantity(false, 4)).toBe(1);
       expect(timeBookingQuantity(true, 4)).toBe(4);

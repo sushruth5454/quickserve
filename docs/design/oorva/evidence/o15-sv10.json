@@ -77,6 +77,17 @@
       "reason": "No lane push before coordinator money-review approval."
     }
   },
+  "moneyReviewCorrection": {
+    "status": "implemented; local re-review checkpoint",
+    "files": [
+      "app/src/features/booking/packages/PackageBookingScreen.tsx",
+      "app/src/features/booking/packages/packageModel.ts",
+      "app/src/features/booking/packages/__tests__/packageModel.test.ts"
+    ],
+    "behavior": "Session-pack eligibility now requires session unit, fixed positive price, integer qty_min and qty_max, and at least one purchasable whole pack count above one. The UI hides the pack choice for ineligible bounds, resets stale pack selection, and blocks pack submission if eligibility is false.",
+    "regression": "Added doesNotOfferSessionPacksWithFractionalQuantityBounds for fractional minimum and maximum bounds plus the valid integer case.",
+    "testExecution": "Not run. Codespace remains UNAVAILABLE_NO_PASS before selection; no Windows tests were run."
+  },
   "review": {
     "required": [
       "money"
@@ -87,14 +98,20 @@
   "scopeBlockers": [
     {
       "path": "app/app/book-fixed/[providerServiceId].tsx",
+      "status": "NOT VERIFIED",
+      "owner": "O15-SV15",
       "detail": "Excluded from the stage-owned write scope although the contract asks for fixedBookingDuration in both fixed routes; this direct fixed route remains unchanged."
     },
     {
       "path": "app/app/request/new.tsx",
+      "status": "NOT VERIFIED",
+      "owner": "O21-SV19",
       "detail": "Excluded from the stage-owned write scope. The resolver forwards assistant brief/slot/address params, but the existing proposal request screen does not consume those prefill fields; proposal-family draft preservation is therefore not verified."
     },
     {
       "path": "app/src/features/catalogue/ArchetypeCategory.tsx",
+      "status": "NOT VERIFIED",
+      "owner": "O12-MK16/O14C",
       "detail": "Excluded from the stage-owned write scope; its existing category entry points are not changed by this stage."
     }
   ]

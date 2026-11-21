@@ -18,7 +18,7 @@ import { isServiceBookingEnabled, type BookPrefill, type ServiceBookingEntry } f
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
-import { canPayInstantly, fixedBookingDuration, getTimeBookingModes, packageDuration, packageRepeatPlanRoute, packageTotal, timeBookingQuantity } from './packageModel';
+import { canPayInstantly, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, packageDuration, packageRepeatPlanRoute, packageTotal, timeBookingQuantity } from './packageModel';
 
 export function PackageBookingScreen({
   packageId,
@@ -59,10 +59,13 @@ export function PackageBookingScreen({
     flags.isOn('recurring_bookings') && flags.archetypes?.time_based === true,
     item?.category,
   );
-  const packAvailable = archetype === 'time_based'
-    && item?.package.unit === 'session'
-    && item.package.qty_max > 1
-    && item.package.qty_max >= Math.max(2, item.package.qty_min);
+  const packAvailable = archetype === 'time_based' && !!item && canPurchaseSessionPack(item.package);
+  useEffect(() => {
+    if (pack && !packAvailable) {
+      setPack(false);
+      setQuantity(1);
+    }
+  }, [pack, packAvailable]);
   const effectiveQuantity = archetype === 'time_based' ? timeBookingQuantity(pack, quantity) : quantity;
   const repeatPlanAvailable = timeBookingModes.includes('repeat') && !pack && effectiveQuantity === 1;
   const day = days[dayIndex] ?? days[0]!;
@@ -200,6 +203,8 @@ export function PackageBookingScreen({
   const addressReady = !!location.addressId;
   const blocker = !familyEnabled
     ? 'This booking type is not currently available'
+    : pack && !packAvailable
+    ? 'Session packs are not available for this package'
     : item.providerPaused
     ? 'This provider is on holiday and is not taking bookings'
     : !canPayInstantly(item.package)
@@ -213,7 +218,7 @@ export function PackageBookingScreen({
           : null;
 
   const book = async () => {
-    if (!familyEnabled || blocker || !location.addressId || !start || !end) return;
+    if (!familyEnabled || (pack && !packAvailable) || blocker || !location.addressId || !start || !end) return;
     setBusy(true);
     try {
       if (archetype === 'fixed') {

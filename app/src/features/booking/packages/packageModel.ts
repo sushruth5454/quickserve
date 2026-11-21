@@ -66,6 +66,18 @@ export function packageDuration(servicePackage: ServicePackage, quantity: number
   return ['session', 'hour', 'day'].includes(servicePackage.unit) ? duration * quantity : duration;
 }
 
+export function canPurchaseSessionPack(
+  servicePackage: Pick<ServicePackage, 'unit' | 'price_type' | 'price' | 'qty_min' | 'qty_max'>,
+): boolean {
+  return servicePackage.unit === 'session'
+    && servicePackage.price_type === 'fixed'
+    && servicePackage.price != null
+    && servicePackage.price > 0
+    && Number.isInteger(servicePackage.qty_min)
+    && Number.isInteger(servicePackage.qty_max)
+    && servicePackage.qty_max >= Math.max(2, servicePackage.qty_min);
+}
+
 export function fixedBookingDuration(
   servicePackage: Pick<ServicePackage, 'qty_min' | 'qty_max' | 'duration_min'>,
   quantity: number,
