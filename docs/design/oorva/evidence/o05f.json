@@ -1,0 +1,55 @@
+{
+  "stageId": "O05F",
+  "sourceTaskIds": ["PF-T01"],
+  "sourceFindingIds": ["PF-F01", "PF-F02"],
+  "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
+  },
+  "authorization": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "not-approved"
+  },
+  "files": [
+    "app/app/_layout.tsx",
+    "app/src/lib/auth.tsx",
+    "app/src/lib/supabaseApi.ts",
+    "app/src/lib/featureFlags.ts",
+    "app/src/branding/FeatureFlagsProvider.tsx",
+    "app/src/lib/authRestoreModel.ts",
+    "app/src/lib/__tests__/authRestoreModel.test.ts",
+    "app/src/branding/__tests__/featureControl.test.tsx",
+    "docs/design/oorva/evidence/o05f.json"
+  ],
+  "validation": {
+    "codespace": "PASS",
+    "selectors": [
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.authRestoreModel[.]test[.]ts$'",
+        "selectedFile": "app/src/lib/__tests__/authRestoreModel.test.ts",
+        "result": "PASS",
+        "typecheck": "PASS",
+        "testsPassed": 4
+      },
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.branding.__tests__.featureControl[.]test[.]tsx$'",
+        "selectedFile": "app/src/branding/__tests__/featureControl.test.tsx",
+        "result": "PASS",
+        "testsPassed": 5
+      }
+    ],
+    "laneCi": "pending",
+    "authReview": "required"
+  },
+  "scope": {
+    "sql": false,
+    "migrations": false,
+    "newFlags": false,
+    "backendAuthGrants": false,
+    "productionBranding": false,
+    "deployment": false,
+    "mainPromotion": false
+  }
+}

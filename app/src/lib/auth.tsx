@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { getSession, onAuthChange, type AuthSession } from './api';
+import {
+  initialAuthRestoreState,
+  reduceAuthRestoreState,
+} from './authRestoreModel';
 
 export type ActiveRole = 'customer' | 'provider';
 
@@ -8,6 +12,9 @@ interface AuthState {
   session: AuthSession | null;
   userId: string | null;
   loading: boolean;
+  restoreStatus: 'pending' | 'error' | 'known-null' | 'session';
+  restoreError: unknown | null;
+  retryRestore: () => Promise<void>;
   /** True between OTP verification and the role-selection step of a fresh login. */
   choosingRole: boolean;
   setChoosingRole: (v: boolean) => void;
@@ -20,21 +27,42 @@ const ROLE_KEY = 'quickserve.activeRole';
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [restoreState, dispatchRestore] = useReducer(
+    reduceAuthRestoreState,
+    initialAuthRestoreState,
+  );
+  const generationRef = useRef(0);
+  const mountedRef = useRef(false);
   const [choosingRole, setChoosingRole] = useState(false);
   const [activeRole, setRole] = useState<ActiveRole>('customer');
 
+  const restoreSession = useCallback(async () => {
+    const generation = ++generationRef.current;
+    dispatchRestore({ type: 'restore-started', generation });
+
+    void AsyncStorage.getItem(ROLE_KEY)
+      .then((role) => {
+        if (!mountedRef.current || generation !== generationRef.current) return;
+        if (role === 'provider' || role === 'customer') setRole(role);
+      })
+      .catch(() => undefined);
+
+    try {
+      const session = await getSession();
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      dispatchRestore({ type: 'restore-resolved', generation, session });
+    } catch (error) {
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      dispatchRestore({ type: 'restore-rejected', generation, error });
+    }
+  }, []);
+
   useEffect(() => {
-    let mounted = true;
-    Promise.all([getSession(), AsyncStorage.getItem(ROLE_KEY).catch(() => null)]).then(([s, role]) => {
-      if (!mounted) return;
-      setSession(s);
-      if (role === 'provider' || role === 'customer') setRole(role);
-      setLoading(false);
-    });
+    mountedRef.current = true;
+    const eventsBeforeSubscribe = generationRef.current;
     const unsubscribe = onAuthChange((next) => {
-      setSession(next);
+      const generation = ++generationRef.current;
+      dispatchRestore({ type: 'auth-event', generation, session: next });
       if (!next) {
         // Signed out: the next login starts fresh on the customer side.
         setChoosingRole(false);
@@ -42,11 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void AsyncStorage.removeItem(ROLE_KEY).catch(() => undefined);
       }
     });
+    if (generationRef.current === eventsBeforeSubscribe) void restoreSession();
+
     return () => {
-      mounted = false;
+      mountedRef.current = false;
+      generationRef.current += 1;
       unsubscribe();
     };
-  }, []);
+  }, [restoreSession]);
 
   const setActiveRole = useCallback((r: ActiveRole) => {
     setRole(r);
@@ -55,15 +86,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthState>(
     () => ({
-      session,
-      userId: session?.userId ?? null,
-      loading,
+      session: restoreState.session,
+      userId: restoreState.session?.userId ?? null,
+      loading: restoreState.status === 'pending',
+      restoreStatus: restoreState.status,
+      restoreError: restoreState.status === 'error' ? restoreState.error : null,
+      retryRestore: restoreSession,
       choosingRole,
       setChoosingRole,
       activeRole,
       setActiveRole,
     }),
-    [session, loading, choosingRole, activeRole, setActiveRole],
+    [restoreState, restoreSession, choosingRole, activeRole, setActiveRole],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
