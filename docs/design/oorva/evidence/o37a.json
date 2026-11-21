@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O37A",
   "workPackage": "O37",
-  "status": "CODESPACE_PASS_LANE_CI_PENDING",
+  "status": "CODESPACE_PASS_RETRY_LANE_CI_PENDING",
   "base": {
     "implementationSha": "4071e026cc857f69d7e8707e02decb13125e71cd",
     "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
@@ -147,6 +147,7 @@
       "suite": "app",
       "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
       "result": "cs-test result: PASS",
+      "snapshotCommit": "ae671ea0",
       "jestSuitesPassed": 1,
       "testsPassed": 5
     },
@@ -168,9 +169,25 @@
     "planSelection": "PASS",
     "planSelectionCommand": "node validate-execution-plan.mjs --all (working directory scripts\\brand)",
     "planSelectionCount": 140,
-    "privatePostgresSelftest": "PENDING_LANE_CI",
-    "laneCi": "PENDING",
-    "reason": "Push the validated lane head; lane CI runs the private PostgreSQL selftest in its disposable stack."
+    "priorLaneCiAttempt": {
+      "runId": 44888901049,
+      "headSha": "66074b78d70ee97aac06ca333a3e0aa994b21d5c",
+      "conclusion": "FAILURE",
+      "jobs": {
+        "changes": "PASS",
+        "deno": "PASS",
+        "sql": "PASS",
+        "tooling": "PASS",
+        "privatePostgres": "PASS",
+        "app": "FAIL"
+      },
+      "appResult": "72 suites passed, 1 failed; 487 tests passed, 2 failed.",
+      "rootCause": "The app CI job did not install the isolated pg package, while helpers.mjs imported pg at module load even for guard-only runner actions.",
+      "fix": "Load pg dynamically only when a private PostgreSQL client is actually created; guard-only app tests no longer need pg."
+    },
+    "privatePostgresSelftest": "PASS_ON_PRIOR_RUN; RETEST_ON_NEXT_LANE_CI",
+    "laneCi": "FAIL_FIXED_RETRY_PENDING",
+    "reason": "The first lane run exposed eager pg loading in the app-only guard tests. Fix is in the stage-owned helper; rerun the exact lane head after committing."
   },
   "remoteLockGeneration": {
     "runtime": "Node v22.16.0 / npm 10.9.2",
