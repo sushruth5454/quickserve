@@ -1,6 +1,6 @@
 import type { BrandingV1 } from './types';
 
-/** Class-B candidate values for validation only; they do not activate Oorva styling. */
+/** Bundled appearance used only when the Oorva identity parent flag is explicitly enabled. */
 export const OORVA_BRANDING_CANDIDATE: BrandingV1 = {
   schemaVersion: 1,
   displayName: 'Oorva',

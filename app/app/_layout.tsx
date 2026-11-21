@@ -6,7 +6,7 @@ import { useFonts } from 'expo-font';
 import { router, Stack, usePathname, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, View } from 'react-native';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConfirmProvider, FullScreenLoader, Text, ToastProvider } from '../src/components/ui';
@@ -27,6 +27,7 @@ import {
   useFeatureControlHydrationReady,
   useFeatureControlState,
 } from '../src/branding/FeatureFlagsProvider';
+import { AppearanceProvider } from '../src/branding/AppearanceProvider';
 
 export { RouteErrorBoundary as ErrorBoundary };
 
@@ -196,15 +197,33 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    Manrope_600SemiBold: require('../assets/fonts/Manrope-SemiBold.ttf'),
+    Manrope_700Bold: require('../assets/fonts/Manrope-Bold.ttf'),
   });
+  const [fontReadinessExpired, setFontReadinessExpired] = useState(false);
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      setFontReadinessExpired(true);
+      return;
+    }
+    const deadline = setTimeout(() => setFontReadinessExpired(true), 1000);
+    return () => clearTimeout(deadline);
+  }, [fontsLoaded, fontError]);
+
+  const appFontsReady = fontsLoaded || fontError || fontReadinessExpired;
+  const headingsUseManrope = fontsLoaded && !fontError;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>
-          <FeatureFlagsProvider>
-            {fontsLoaded || fontError ? <ThemedApp /> : <FullScreenLoader />}
-          </FeatureFlagsProvider>
-        </ThemeProvider>
+        <FeatureFlagsProvider>
+          <AppearanceProvider>
+            <ThemeProvider manropeReady={headingsUseManrope}>
+              {appFontsReady ? <ThemedApp /> : <FullScreenLoader />}
+            </ThemeProvider>
+          </AppearanceProvider>
+        </FeatureFlagsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
