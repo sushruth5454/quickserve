@@ -1,0 +1,60 @@
+{
+  "stageId": "O14-MK13",
+  "workPackage": "O14",
+  "sourceTask": "MK-T13",
+  "finding": "MK-F15",
+  "dependency": {
+    "task": "O00",
+    "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "status": "DONE"
+  },
+  "base": {
+    "branch": "integrate/oorva-base-1",
+    "commit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "currentMainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "approvals": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "implementation": {
+    "files": [
+      "app/src/features/catalogue/api.ts",
+      "app/src/features/catalogue/ArchetypeCategory.tsx",
+      "app/src/features/catalogue/__tests__/api.test.ts"
+    ],
+    "behavior": [
+      "Require selected city for catalogue package listing; filter through providers!inner with escaped exact case-insensitive city matching.",
+      "Return provider city in CataloguePackage and hide stale package results immediately when category or selected city changes.",
+      "Preserve active package/service and category filters, existing public RLS, demo behavior, and public-only provider projection."
+    ],
+    "databaseChanges": {
+      "migrations": 0,
+      "sqlFunctions": 0,
+      "featureFlags": 0
+    }
+  },
+  "verification": {
+    "red": {
+      "codespaceSnapshot": "468fa372",
+      "result": "Expected failure: package API lacked selected-city filtering and city context."
+    },
+    "green": {
+      "command": "pwsh -NoProfile -File <current-main cs-test helper> -Suite app -Filter 'src.features.catalogue.__tests__.api[.]test[.]ts$'",
+      "codespaceSnapshot": "db8ccff9",
+      "result": "PASS",
+      "cases": [
+        "MK-PACKAGE-city-inner-filter",
+        "MK-PACKAGE-city-escaping",
+        "MK-PACKAGE-public-projection"
+      ]
+    },
+    "gitDiffCheck": "PASS"
+  },
+  "sharedE2E": {
+    "case": "MK-PACKAGE-two-city-visible-result",
+    "owner": "coordinator",
+    "status": "not-dispatched"
+  }
+}
