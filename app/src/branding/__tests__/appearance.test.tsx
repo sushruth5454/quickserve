@@ -1,3 +1,5 @@
+/** @jest-environment jsdom */
+
 jest.mock('react-native-reanimated', () => ({
   Easing: { bezier: jest.fn(() => jest.fn()) },
 }));
@@ -15,8 +17,7 @@ jest.mock('../FeatureFlagsProvider', () => ({
   useFeatureControlState: jest.fn(),
 }));
 
-import React, { useState } from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import React, { act, useState } from 'react';
 import { Image, useColorScheme } from 'react-native';
 import validAppearance from '../fixtures/appearance-valid.json';
 import type { AppFeatures } from '../FeatureFlagsProvider';
@@ -28,6 +29,16 @@ import { ThemeProvider, useTheme, type Theme } from '../../theme/ThemeProvider';
 import { getContrastFailures } from '../colorContract';
 import { darkPalette, lightPalette } from '../../theme/tokens';
 
+declare const require: (moduleName: string) => unknown;
+
+type DomRoot = {
+  render: (node: React.ReactNode) => void;
+  unmount: () => void;
+};
+
+const { createRoot } = require('react-dom/client') as {
+  createRoot: (container: Element) => DomRoot;
+};
 const controls = useFeatureControlState as jest.MockedFunction<typeof useFeatureControlState>;
 const prefetch = Image.prefetch as jest.MockedFunction<typeof Image.prefetch>;
 const colorScheme = useColorScheme as jest.MockedFunction<typeof useColorScheme>;
@@ -97,6 +108,12 @@ function tree(manropeReady = false) {
   );
 }
 
+function mount(node: React.ReactNode): DomRoot {
+  const root = createRoot(document.createElement('div'));
+  root.render(node);
+  return root;
+}
+
 async function settleEffects(): Promise<void> {
   await act(async () => {
     await Promise.resolve();
@@ -105,7 +122,7 @@ async function settleEffects(): Promise<void> {
 }
 
 describe('O05A atomic appearance integration', () => {
-  let renderer: TestRenderer.ReactTestRenderer | null = null;
+  let renderer: DomRoot | null = null;
 
   beforeEach(() => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://quickserve.example.test';
@@ -146,7 +163,7 @@ describe('O05A atomic appearance integration', () => {
     });
 
     await act(async () => {
-      renderer = TestRenderer.create(tree());
+      renderer = mount(tree());
     });
     expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
 
@@ -162,7 +179,7 @@ describe('O05A atomic appearance integration', () => {
 
     const publishedTheme = observation?.theme;
     await act(async () => {
-      renderer?.update(tree());
+      renderer?.render(tree());
     });
     expect(observation?.theme).toBe(publishedTheme);
   });
@@ -172,11 +189,12 @@ describe('O05A atomic appearance integration', () => {
     expect(getContrastFailures(darkPalette)).toEqual([]);
     const candidate = copyAppearance();
     await act(async () => {
-      renderer = TestRenderer.create(<AppProbe />);
+      renderer = mount(<AppProbe />);
     });
     expect(observation?.config).toBeNull();
     expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
     act(() => renderer?.unmount());
+    renderer = null;
 
     controls.mockReturnValue({
       features: makeFeatures({ oorva_brand: false, branding_runtime: true }),
@@ -186,7 +204,7 @@ describe('O05A atomic appearance integration', () => {
     });
 
     await act(async () => {
-      renderer = TestRenderer.create(tree());
+      renderer = mount(tree());
     });
     expect(observation?.brandingEnabled).toBe(false);
     expect(observation?.runtimeEnabled).toBe(false);
@@ -201,7 +219,7 @@ describe('O05A atomic appearance integration', () => {
       refresh: jest.fn().mockResolvedValue(undefined),
     });
     await act(async () => {
-      renderer?.update(tree());
+      renderer?.render(tree());
     });
     expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
     expect(observation?.config).toBeNull();
@@ -213,7 +231,7 @@ describe('O05A atomic appearance integration', () => {
       refresh: jest.fn().mockResolvedValue(undefined),
     });
     await act(async () => {
-      renderer?.update(tree());
+      renderer?.render(tree());
     });
     expect(observation?.config).toBe(OORVA_BRANDING_CANDIDATE);
     expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
@@ -231,7 +249,7 @@ describe('O05A atomic appearance integration', () => {
       refresh: jest.fn().mockResolvedValue(undefined),
     });
     await act(async () => {
-      renderer = TestRenderer.create(tree());
+      renderer = mount(tree());
     });
     expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
     expect(prefetch).not.toHaveBeenCalled();
@@ -247,7 +265,7 @@ describe('O05A atomic appearance integration', () => {
     });
     await act(async () => {
       observation?.setDraft('dirty after failed logo');
-      renderer?.update(tree());
+      renderer?.render(tree());
     });
     await settleEffects();
     expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
@@ -270,7 +288,7 @@ describe('O05A atomic appearance integration', () => {
     colorScheme.mockReturnValue('dark');
 
     await act(async () => {
-      renderer = TestRenderer.create(tree(false));
+      renderer = mount(tree(false));
     });
     await settleEffects();
     expect(observation?.theme.dark).toBe(true);
@@ -279,7 +297,7 @@ describe('O05A atomic appearance integration', () => {
 
     await act(async () => {
       observation?.setDraft('unsaved form value');
-      renderer?.update(tree(true));
+      renderer?.render(tree(true));
     });
     expect(observation?.theme.typography.title1.fontFamily).toBe('Manrope_700Bold');
     expect(observation?.draft).toBe('unsaved form value');
@@ -287,7 +305,7 @@ describe('O05A atomic appearance integration', () => {
 
     colorScheme.mockReturnValue('light');
     await act(async () => {
-      renderer?.update(tree(true));
+      renderer?.render(tree(true));
     });
     expect(observation?.theme.dark).toBe(false);
     expect(observation?.draft).toBe('unsaved form value');
@@ -302,7 +320,7 @@ describe('O05A atomic appearance integration', () => {
       refresh: jest.fn().mockResolvedValue(undefined),
     });
     await act(async () => {
-      renderer?.update(tree(true));
+      renderer?.render(tree(true));
     });
     await settleEffects();
     expect(observation?.theme.dark).toBe(true);
