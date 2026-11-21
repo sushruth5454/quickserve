@@ -346,16 +346,20 @@ await scenario('SV-RESCHEDULE-ALLOW-02', async () => {
   ok(/only the provider manager can respond/i.test(selfAcceptError ?? '')
     && /only the provider manager can respond/i.test(staffAcceptError ?? ''),
   `customer cannot accept own request and staff cannot substitute for manager: ${JSON.stringify({ selfAcceptError, staffAcceptError })}`);
-  ok(!managerError && accepted.rows[0]?.id === fixture.booking.id
-    && new Date(accepted.rows[0].scheduled_at).toISOString() === new Date(newAt).toISOString()
-    && accepted.rows[0].duration_seconds === beforeBooking.duration_seconds
-    && beforeAccept.booking.status === accepted.rows[0].status
-    && acceptedOutcomes.length === 1 && outcome.kind === 'rescheduled'
+  const acceptedRow = accepted.rows[0];
+  ok(!managerError && acceptedRow?.id === fixture.booking.id
+    && new Date(acceptedRow.scheduled_at).toISOString() === new Date(newAt).toISOString()
+    && beforeAccept.booking.status === acceptedRow.status,
+  `manager Accept moves the same booking: ${JSON.stringify({ managerError, before: beforeBooking, after: acceptedRow })}`);
+  ok(acceptedRow?.duration_seconds === beforeBooking.duration_seconds,
+    `manager Accept preserves service duration: ${JSON.stringify({ beforeSeconds: beforeBooking.duration_seconds, afterSeconds: acceptedRow?.duration_seconds })}`);
+  const exactOutcome = acceptedOutcomes.length === 1 && outcome.kind === 'rescheduled'
     && outcome.schedule_id === fixture.schedule && outcome.booking_id === fixture.booking.id
-    && outcome.original_at === beforeAccept.booking.scheduled_at
+    && new Date(outcome.original_at).toISOString() === new Date(beforeBooking.scheduled_at).toISOString()
     && new Date(outcome.new_at).toISOString() === new Date(newAt).toISOString()
-    && outcome.actor_id === fixture.manager,
-  `manager Accept moves the same booking with original duration and one exact outcome: ${JSON.stringify({ managerError, beforeAccept, beforeBooking, accepted: accepted.rows, acceptedOutcomes })}`);
+    && outcome.actor_id === fixture.manager;
+  ok(exactOutcome,
+    `manager Accept records one outcome with exact identity: ${JSON.stringify({ outcomeCount: acceptedOutcomes.length, outcome, expected: { schedule: fixture.schedule, booking: fixture.booking.id, originalAt: beforeBooking.scheduled_at, newAt, actor: fixture.manager } })}`);
 
   for (const [index, legalStatus] of ['requested', 'accepted', 'confirmed'].entries()) {
     const legalFixture = await createFixture(`legal-${index}`);
