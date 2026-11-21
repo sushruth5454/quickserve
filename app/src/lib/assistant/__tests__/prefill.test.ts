@@ -88,6 +88,6 @@ describe('assistant booking handoff', () => {
       { from: 'assistant', description: 'Repair the tap', slot: '2026-11-20@10' },
       days,
       new Date('2026-11-21T00:00:00.000Z'),
-    )).toMatchObject({ mode: 'schedule', dayIndex: null, hour: null, slotInvalid: true });
+    )).toMatchObject({ mode: null, dayIndex: null, hour: null, slotInvalid: true });
   });
 });

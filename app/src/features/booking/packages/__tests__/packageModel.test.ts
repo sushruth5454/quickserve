@@ -1,4 +1,4 @@
-import { canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, initialPackageAsap, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
+import { canProceedAfterSlotPrefill, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, initialPackageAsap, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
 import { packageCheckoutTotal } from '../../../../lib/money';
 
 type EligibilityCategory = { recurrence_allowed?: boolean; allowed_frequencies?: string[] };
@@ -22,6 +22,9 @@ describe('package booking modes', () => {
       expect(initialPackageAsap('fixed', { mode: null })).toBe(true);
       expect(initialPackageAsap('fixed', { mode: 'asap' })).toBe(true);
       expect(initialPackageAsap('fixed', { mode: 'schedule' })).toBe(false);
+      expect(canProceedAfterSlotPrefill(true, false)).toBe(false);
+      expect(canProceedAfterSlotPrefill(true, true)).toBe(true);
+      expect(canProceedAfterSlotPrefill(false, false)).toBe(true);
     });
 
     it('doesNotOfferSessionPacksWithFractionalQuantityBounds', () => {

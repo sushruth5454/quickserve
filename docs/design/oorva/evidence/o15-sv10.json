@@ -122,14 +122,19 @@
       "app/src/features/booking/packages/packageModel.ts",
       "app/src/features/booking/packages/__tests__/packageModel.test.ts"
     ],
-    "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; add only a true slotInvalid marker for invalid slots, use it to force schedule reselection, reconstruct safe route slot params in the controller, narrow route-draft fields before use, and prevent an invalid slot from defaulting to fixed-package ASAP.",
+    "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; retain null mode for out-of-range dates while setting slotInvalid; use it to force schedule reselection, reconstruct safe route slot params in the controller, narrow route-draft fields before use, and require explicit valid selection before PackageBookingScreen can submit after an invalid prefill.",
     "validation": "git diff --check only; no tests/builds run after correction."
   },
   "moneyReviewReReview": {
     "reviewedHead": "f9d2d2ba6db9f2ea37b39201964ddc6cc0fe8f8f",
     "result": "FAIL",
     "finding": "An invalid prefilled slot with mode null could leave fixed-package ASAP selected by default, bypassing explicit slot reselection.",
-    "correction": "Package ASAP initialization now clears for slotInvalid; the owned package model/test covers this case.",
+    "subsequentReview": {
+      "head": "80739018ce686639582372427c48efc3f293b485",
+      "result": "PASS",
+      "note": "The latest correction request identified additional consistency and explicit-submission guard requirements; the current local head includes those changes and still requires review."
+    },
+    "correction": "Package ASAP initialization clears for slotInvalid, submission is blocked until an explicit valid time/mode selection, and the owned package model test covers the gate. Out-of-range readBookPrefill results retain mode null and set slotInvalid; the owned prefill test uses the same contract.",
     "status": "latest correction needs focused re-review"
   },
   "review": {

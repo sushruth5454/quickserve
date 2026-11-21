@@ -76,6 +76,10 @@ export function initialPackageAsap(
   return archetype === 'fixed';
 }
 
+export function canProceedAfterSlotPrefill(slotInvalid: boolean | undefined, explicitlyReselected: boolean): boolean {
+  return !slotInvalid || explicitlyReselected;
+}
+
 export function canPurchaseSessionPack(
   servicePackage: Pick<ServicePackage, 'unit' | 'price_type' | 'price' | 'qty_min' | 'qty_max'>,
 ): boolean {

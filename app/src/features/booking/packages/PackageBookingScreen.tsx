@@ -18,7 +18,7 @@ import { isServiceBookingEnabled, type BookPrefill, type ServiceBookingEntry } f
 import { SchemaForm } from '../../catalogue/SchemaForm';
 import { validateValues } from '../../catalogue/schema';
 import { PackageCard } from './PackageCard';
-import { canPayInstantly, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, initialPackageAsap, packageDuration, packageRepeatPlanRoute, packageTotal, timeBookingQuantity } from './packageModel';
+import { canPayInstantly, canProceedAfterSlotPrefill, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, initialPackageAsap, packageDuration, packageRepeatPlanRoute, packageTotal, timeBookingQuantity } from './packageModel';
 
 export function PackageBookingScreen({
   packageId,
@@ -48,6 +48,7 @@ export function PackageBookingScreen({
   const [hour, setHour] = useState<number | null>(
     prefill.slotInvalid || prefill.mode === 'asap' ? null : prefill.hour ?? 10,
   );
+  const [slotReselected, setSlotReselected] = useState(!prefill.slotInvalid);
   const [intake, setIntake] = useState<Record<string, unknown>>(() => prefill.description ? { brief: prefill.description } : {});
   const [busy, setBusy] = useState(false);
   const [asap, setAsap] = useState(() => initialPackageAsap(archetype, prefill));
@@ -60,6 +61,7 @@ export function PackageBookingScreen({
     item?.category,
   );
   const packAvailable = archetype === 'time_based' && !!item && canPurchaseSessionPack(item.package);
+  const slotSelectionReady = canProceedAfterSlotPrefill(prefill.slotInvalid, slotReselected);
   useEffect(() => {
     if (pack && !packAvailable) {
       setPack(false);
@@ -203,6 +205,8 @@ export function PackageBookingScreen({
   const addressReady = !!location.addressId;
   const blocker = !familyEnabled
     ? 'This booking type is not currently available'
+    : !slotSelectionReady
+    ? 'Choose a new time or booking mode to continue'
     : pack && !packAvailable
     ? 'Session packs are not available for this package'
     : item.providerPaused
@@ -218,7 +222,7 @@ export function PackageBookingScreen({
           : null;
 
   const book = async () => {
-    if (!familyEnabled || (pack && !packAvailable) || blocker || !location.addressId || !start || !end) return;
+    if (!familyEnabled || !slotSelectionReady || (pack && !packAvailable) || blocker || !location.addressId || !start || !end) return;
     setBusy(true);
     try {
       if (archetype === 'fixed') {
@@ -350,8 +354,23 @@ export function PackageBookingScreen({
             <Text variant="title3">When</Text>
             {archetype === 'fixed' && flags.isOn('fixed_asap') ? (
               <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                <Choice label={asapOk ? 'ASAP\nwithin ~1 hour' : 'ASAP\nnot available now'} selected={useAsap} onPress={() => asapOk && setAsap(true)} />
-                <Choice label={'Schedule\npick a time'} selected={!useAsap} onPress={() => setAsap(false)} />
+                <Choice
+                  label={asapOk ? 'ASAP\nwithin ~1 hour' : 'ASAP\nnot available now'}
+                  selected={useAsap}
+                  onPress={() => {
+                    if (!asapOk) return;
+                    setAsap(true);
+                    setSlotReselected(true);
+                  }}
+                />
+                <Choice
+                  label={'Schedule\npick a time'}
+                  selected={!useAsap}
+                  onPress={() => {
+                    setAsap(false);
+                    setSlotReselected(true);
+                  }}
+                />
               </View>
             ) : null}
             {useAsap ? (
@@ -362,11 +381,11 @@ export function PackageBookingScreen({
               <>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -t.spacing.lg }} contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}>
                   {days.slice(0, 7).map((dayOption, index) => (
-                    <Choice key={dayOption.key} label={`${dayOption.label}\n${dayLabel(dayOption.date)}`} selected={index === dayIndex} onPress={() => setDayIndex(index)} />
+                    <Choice key={dayOption.key} label={`${dayOption.label}\n${dayLabel(dayOption.date)}`} selected={index === dayIndex} onPress={() => { setDayIndex(index); setSlotReselected(true); }} />
                   ))}
                 </ScrollView>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -t.spacing.lg }} contentContainerStyle={{ paddingHorizontal: t.spacing.lg, gap: t.spacing.sm }}>
-                  {[8, 10, 12, 14, 16, 18].map((slot) => <Choice key={slot} label={windowLabel(slot)} selected={hour === slot} onPress={() => setHour(slot)} />)}
+                  {[8, 10, 12, 14, 16, 18].map((slot) => <Choice key={slot} label={windowLabel(slot)} selected={hour === slot} onPress={() => { setHour(slot); setSlotReselected(true); }} />)}
                 </ScrollView>
               </>
             )}
