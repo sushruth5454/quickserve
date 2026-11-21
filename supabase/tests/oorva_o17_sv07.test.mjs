@@ -95,6 +95,11 @@ await db.query(`
   update feature_flags set enabled = true
    where key in ('recurring_bookings', 'recurring_reschedule')
 `);
+await db.query(`
+  update app_config
+     set value = value || '{"time_based":true,"fixed":true}'::jsonb
+   where key = 'archetype_flags'
+`);
 
 let fixtureNumber = 0;
 const uuid = (prefix, number) => `${prefix}0000-0000-0000-${String(number).padStart(12, '0')}`;

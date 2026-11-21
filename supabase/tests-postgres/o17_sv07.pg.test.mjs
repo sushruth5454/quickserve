@@ -253,8 +253,16 @@ export async function run(context) {
     select key, enabled from feature_flags
      where key in ('recurring_bookings', 'recurring_reschedule')
   `)).rows);
+  const originalArchetypeFlags = await context.withClient(async (client) => (await client.query(`
+    select value from app_config where key = 'archetype_flags'
+  `)).rows[0]?.value);
   const failures = [];
   try {
+    await context.withClient((client) => client.query(`
+      update app_config
+         set value = value || '{"time_based":true,"fixed":true}'::jsonb
+       where key = 'archetype_flags'
+    `));
     for (const status of ['cancelled', 'expired', 'in_progress']) {
       try {
         await runRace(context, status);
@@ -268,6 +276,11 @@ export async function run(context) {
     await context.withClient(async (client) => {
       for (const flag of originalFlags) {
         await client.query(`update feature_flags set enabled = $2::boolean where key = $1::text`, [flag.key, flag.enabled]);
+      }
+      if (originalArchetypeFlags !== undefined) {
+        await client.query(`update app_config set value = $1::jsonb where key = 'archetype_flags'`, [
+          JSON.stringify(originalArchetypeFlags),
+        ]);
       }
     });
   }
