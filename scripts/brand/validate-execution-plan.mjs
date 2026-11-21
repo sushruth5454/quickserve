@@ -253,8 +253,8 @@ export function validatePlan(plan, coverage) {
     );
     if (stages.has(edge.before) && stages.has(edge.after)) {
       check(
-        stages.get(edge.before)?.locks?.includes(edge.resource)
-          && stages.get(edge.after)?.locks?.includes(edge.resource),
+        stages.get(edge.before)?.locks?.some((lock) => canonicalResource(lock) === canonicalResource(edge.resource))
+          && stages.get(edge.after)?.locks?.some((lock) => canonicalResource(lock) === canonicalResource(edge.resource)),
         `lock edge ${edge.before} -> ${edge.after} does not match ${edge.resource} locks`,
       );
       check(

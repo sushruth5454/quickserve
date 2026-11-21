@@ -1,5 +1,18 @@
-import { spawnSync } from 'node:child_process';
-import path from 'node:path';
+declare const __dirname: string;
+declare const require: (id: string) => unknown;
+
+type SpawnResult = { status: number | null; stdout: string | null; stderr: string | null };
+const path = require('path') as {
+  resolve: (...parts: string[]) => string;
+  join: (...parts: string[]) => string;
+};
+const { spawnSync } = require('child_process') as {
+  spawnSync: (
+    command: string,
+    args: string[],
+    options: { cwd: string; env: Record<string, string | undefined>; encoding: 'utf8' },
+  ) => SpawnResult;
+};
 
 const repoRoot = path.resolve(__dirname, '../../../../');
 const planValidator = path.join(repoRoot, 'scripts', 'brand', 'validate-execution-plan.mjs');

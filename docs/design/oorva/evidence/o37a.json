@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O37A",
   "workPackage": "O37",
-  "status": "PAUSED_FOR_REGISTRATION",
+  "status": "CODESPACE_PASS_LANE_CI_PENDING",
   "base": {
     "implementationSha": "4071e026cc857f69d7e8707e02decb13125e71cd",
     "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
@@ -47,7 +47,26 @@
     "e2e\\web-smoke.mjs"
   ],
   "registration": {
-    "state": "PENDING",
+    "state": "MERGED",
+    "sha": "43489d10d91d69c3012c0d170997689d202a47f7",
+    "branch": "reg/oorva-o37a-10685a6f",
+    "parentSha": "10685a6f592fc29c6cd28d27cf6bbc735563bc2f",
+    "selectionProof": "SELECTION PASS; registration made no test-success claim.",
+    "testsRunForRegistration": false,
+    "selectedFiles": {
+      "codespaceApp": [
+        "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts"
+      ],
+      "tooling": [
+        "scripts\\brand\\**",
+        "docs\\design\\oorva\\execution-plan.json",
+        "docs\\design\\oorva\\audit\\coverage.json"
+      ],
+      "privatePostgres": [
+        "supabase\\tests-postgres\\**"
+      ]
+    },
+    "helperInvocationSafety": "Before every cs-test.ps1 call, Push-Location to C:\\Users\\snizampuram\\source\\qs-oorva-o37a and verify the normalized Git root equals that path; stop on mismatch. Expected WIP snapshot: wip/qs-oorva-o37a.",
     "requestedChanges": {
       "scripts\\cs-test.ps1": [
         "No patch; retain current-main helper and do not add or invoke a Suite assets selector before TOOL-ASSETS-MAIN approval."
@@ -120,12 +139,38 @@
     "hostedE2eWebDispatch": "NOT_AUTHORIZED"
   },
   "validation": {
-    "codespaceApp": "NOT_RUN",
-    "assetSelftest": "NOT_RUN",
-    "planSelection": "NOT_RUN",
-    "privatePostgresSelftest": "NOT_RUN",
-    "laneCi": "NOT_RUN",
-    "reason": "Await exact worker-only checkpoint and coordinator shared-registration roundtrip."
+    "codespaceApp": "PASS",
+    "codespaceAppRun": {
+      "helper": "scripts\\cs-test.ps1 from current main",
+      "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-oorva-o37a",
+      "snapshotBranch": "wip/qs-oorva-o37a",
+      "suite": "app",
+      "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
+      "result": "cs-test result: PASS",
+      "jestSuitesPassed": 1,
+      "testsPassed": 5
+    },
+    "priorCodespaceAppAttempt": {
+      "result": "FAIL_FIXED",
+      "failures": [
+        "App TypeScript did not have Node module declarations or __dirname in its configured types.",
+        "Plan validator compared shared writer edge paths case-sensitively.",
+        "Codespace runner package did not have pg installed before guard tests."
+      ],
+      "resolutions": [
+        "Use local declarations for the CommonJS require and __dirname in the test without adding dependencies.",
+        "Compare lock-edge paths with canonical case-insensitive resource keys.",
+        "Run npm ci for the isolated packages in Codespace before retrying."
+      ]
+    },
+    "assetSelftest": "PASS",
+    "assetSelftestCommand": "node asset-tests.mjs --selftest (working directory scripts\\brand)",
+    "planSelection": "PASS",
+    "planSelectionCommand": "node validate-execution-plan.mjs --all (working directory scripts\\brand)",
+    "planSelectionCount": 140,
+    "privatePostgresSelftest": "PENDING_LANE_CI",
+    "laneCi": "PENDING",
+    "reason": "Push the validated lane head; lane CI runs the private PostgreSQL selftest in its disposable stack."
   },
   "remoteLockGeneration": {
     "runtime": "Node v22.16.0 / npm 10.9.2",
