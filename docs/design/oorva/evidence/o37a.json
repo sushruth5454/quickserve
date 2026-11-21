@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O37A",
   "workPackage": "O37",
-  "status": "CODESPACE_PASS_RETRY_LANE_CI_PENDING",
+  "status": "LANE_CI_PASS_AWAIT_COORDINATOR",
   "base": {
     "implementationSha": "4071e026cc857f69d7e8707e02decb13125e71cd",
     "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
@@ -185,9 +185,22 @@
       "rootCause": "The app CI job did not install the isolated pg package, while helpers.mjs imported pg at module load even for guard-only runner actions.",
       "fix": "Load pg dynamically only when a private PostgreSQL client is actually created; guard-only app tests no longer need pg."
     },
-    "privatePostgresSelftest": "PASS_ON_PRIOR_RUN; RETEST_ON_NEXT_LANE_CI",
-    "laneCi": "FAIL_FIXED_RETRY_PENDING",
-    "reason": "The first lane run exposed eager pg loading in the app-only guard tests. Fix is in the stage-owned helper; rerun the exact lane head after committing."
+    "privatePostgresSelftest": "PASS_ON_RUN_44889470574",
+    "laneCi": "PASS",
+    "laneCiRun": {
+      "runId": 44889470574,
+      "headSha": "327623911724a484b5132c6504686f84ea007b92",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "PASS",
+        "tooling": "PASS",
+        "deno": "PASS",
+        "sql": "PASS",
+        "privatePostgres": "PASS",
+        "app": "PASS"
+      }
+    },
+    "reason": "All jobs passed on the exact pushed code head; waiting for coordinator verification."
   },
   "remoteLockGeneration": {
     "runtime": "Node v22.16.0 / npm 10.9.2",
