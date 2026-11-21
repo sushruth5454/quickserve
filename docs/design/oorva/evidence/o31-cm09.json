@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O31-CM09",
   "workPackage": "O31",
-  "status": "CONCURRENCY_CORRECTION_AWAITING_LANE_CI",
+  "status": "CONCURRENCY_CORRECTION_CI_PASS_AWAITING_REVIEW",
   "base": {
     "implementationSha": "a48938ed9bdec7b41148a03c79cdd255de2aa5b3",
     "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -80,7 +80,7 @@
       "credentialsChanged": false
     },
     "laneCiFallback": {
-      "status": "PRIOR_HEADS_PASSED; CONCURRENCY_CORRECTION_PENDING",
+      "status": "PASS_ON_CORRECTION_CODE_HEAD",
       "attempts": [
         {
           "runId": 44923544328,
@@ -132,7 +132,25 @@
           "passClaimed": false,
           "reason": "GitHub HTTPS WIP fetch failed before selection; credentials were not changed."
         },
-        "laneCi": "PENDING"
+        "laneCi": {
+          "runId": 44926705838,
+          "headSha": "14ddff41e52b91ebf86218193f37d134a1ca37d8",
+          "conclusion": "SUCCESS",
+          "jobs": {
+            "changes": "success",
+            "app": "success",
+            "tooling": "success",
+            "private-postgres": "success",
+            "deno": "success",
+            "sql": "success"
+          },
+          "appTests": {
+            "suite": "src/components/__tests__/AdminFeaturesScreen.test.tsx",
+            "result": "PASS",
+            "totalSuitesPassed": 84,
+            "totalTestsPassed": 552
+          }
+        }
       }
     }
   },
