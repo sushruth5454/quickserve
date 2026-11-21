@@ -95,8 +95,11 @@ export async function listCataloguePackages(categorySlug: string, city: string):
   if (isDemoMode) return [];
   const selectedCity = city.trim();
   if (!selectedCity) return [];
-  const providerCity = isSeedDemoMode && selectedCity.toLowerCase() === demoSeedCity.toLowerCase()
-    ? selectedCity.replace(/\s+demo$/i, '').trim()
+  const isSeedDemoAlias = isSeedDemoMode && (
+    selectedCity.toLowerCase() === demoSeedCity.toLowerCase() || /\s*\(demo\)$/i.test(selectedCity)
+  );
+  const providerCity = isSeedDemoAlias
+    ? selectedCity.replace(/\s*(?:\(demo\)|demo)$/i, '').trim()
     : selectedCity;
   if (!providerCity) return [];
   const rows = unwrap(await supabase

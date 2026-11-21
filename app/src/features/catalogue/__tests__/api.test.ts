@@ -57,8 +57,8 @@ function packageRow(city: string) {
   };
 }
 
-function fixedSeedPackageRow() {
-  const row = packageRow('Vijayawada');
+function fixedSeedPackageRow(city: string, providerName: string) {
+  const row = packageRow(city);
   return {
     ...row,
     id: 'seed-package-house-cleaning',
@@ -72,6 +72,10 @@ function fixedSeedPackageRow() {
         name: 'House Cleaning',
         slug: 'house-cleaning',
         archetype: 'fixed',
+      },
+      providers: {
+        ...row.provider_services.providers,
+        profiles: { full_name: providerName },
       },
     },
   };
@@ -115,15 +119,18 @@ describe('catalogue package API', () => {
     ]);
   });
 
-  it('MK-PACKAGE-city-seeded-fixed-query: matches the seeded fixed package to its normalized provider city', async () => {
-    const query = arrangePackageQuery([fixedSeedPackageRow()]);
+  it.each([
+    { selectedCity: 'Vijayawada Demo', providerCity: 'Vijayawada', providerName: 'Durga Demo Home Care' },
+    { selectedCity: 'Sangareddy (demo)', providerCity: 'Sangareddy', providerName: 'Laxmi Home Cleaning' },
+  ])('MK-PACKAGE-city-seeded-fixed-query: maps $selectedCity to its seeded provider city', async ({ selectedCity, providerCity, providerName }) => {
+    const query = arrangePackageQuery([fixedSeedPackageRow(providerCity, providerName)]);
 
-    const packages = await listCataloguePackages('house-cleaning', 'Vijayawada Demo');
+    const packages = await listCataloguePackages('house-cleaning', selectedCity);
 
-    expect(query.ilike).toHaveBeenCalledWith('provider_services.providers.city', 'Vijayawada');
+    expect(query.ilike).toHaveBeenCalledWith('provider_services.providers.city', providerCity);
     expect(query.eq).toHaveBeenCalledWith('provider_services.categories.slug', 'house-cleaning');
     expect(packages).toMatchObject([
-      { city: 'Vijayawada', package: { title: 'Demo 2 BHK deep clean' } },
+      { city: providerCity, providerName, package: { title: 'Demo 2 BHK deep clean' } },
     ]);
   });
 });

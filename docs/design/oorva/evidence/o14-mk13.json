@@ -60,12 +60,18 @@
       "archetype-fixed-package-book-mocked-payment",
       "provider-detail-fixed-service-routes-to-packages"
     ],
-    "rootCause": "The local E2E selected city is Vijayawada Demo, while provider-city normalization runs before seed-all-services.sql inserts that demo category city. The providers can therefore resolve to the existing live canonical city, Vijayawada, while catalogue package lookup filtered for Vijayawada Demo.",
-    "fix": "When the selected city is the configured seed city, filter by its canonical provider city (remove the trailing Demo suffix); retain the selected city in the category and location context.",
-    "regressionCase": "MK-PACKAGE-city-seeded-fixed-query",
+    "rootCause": "The local E2E selected Vijayawada Demo, while provider-city normalization runs before seed-all-services.sql inserts that demo category city, so those providers can resolve to Vijayawada. The Sangareddy saved-address label is Sangareddy (demo), while its stored city and seeded providers use Sangareddy.",
+    "followupE2eRun": "44919267460",
+    "followupBatchHead": "07263ba77975abff2983b879521609769993a763",
+    "followupFailedCase": "MK-PACKAGE-two-city-visible-result",
+    "fix": "In seed-demo mode, normalize the configured trailing Demo alias and parenthesized (demo) display aliases to their canonical provider cities for filtering only; preserve selected city context and leave production matching unchanged.",
+    "regressionCases": [
+      "MK-PACKAGE-city-seeded-fixed-query: Vijayawada Demo -> Vijayawada",
+      "MK-PACKAGE-city-seeded-fixed-query: Sangareddy (demo) -> Sangareddy"
+    ],
     "codespace": {
       "selector": "src.features.catalogue.__tests__.api[.]test[.]ts$",
-      "snapshot": "41d2b439",
+      "snapshot": "56d4141b",
       "status": "UNAVAILABLE_NO_PASS",
       "reason": "The remote Codespace could not fetch the WIP snapshot because Git HTTPS authentication was unavailable. Credentials were not changed; lane CI is the validation fallback."
     }
