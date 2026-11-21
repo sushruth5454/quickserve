@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O09-SP01",
+  "workPackage": "O09",
+  "state": "CORRECTION_READY_FOR_LANE_CI",
+  "base": {
+    "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "planningSourceCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependency": {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "PRESENT_IN_BASE"
+    }
+  },
+  "sourceTaskIds": [
+    "SP-T01"
+  ],
+  "sourceFindingIds": [
+    "SP-F01",
+    "SP-F02"
+  ],
+  "sqlFunctions": [
+    "public.submit_sports_venue",
+    "public.admin_set_venue_status"
+  ],
+  "migrationClaims": [
+    "MIG-O09-SP01"
+  ],
+  "allocatedMigrationFilenames": [
+    "supabase\\migrations\\0090_o09_sp01_oorva.sql"
+  ],
+  "workerOwnedFiles": [
+    "supabase\\migrations\\0090_o09_sp01_oorva.sql",
+    "supabase\\tests\\oorva_venue_review.test.mjs",
+    "docs\\design\\oorva\\evidence\\o09-sp01.json"
+  ],
+  "sourceDrift": {
+    "scope": "Affected source references and locked function definitions only",
+    "auditedSourceToBase": "Only VenueEditorSections.tsx changed in the scoped paths: 9 additions and 1 replacement, adding accessibility labels/selected state. It was preserved and not edited.",
+    "targetFunctionHistory": "The audited 0048_sports.sql target function definitions are unchanged at the exact implementation base. The only definitions found in the complete migration chain are 0048 and this forward replacement.",
+    "latestRelevantRead": [
+      "0048_sports.sql target bodies and sports schema",
+      "0052_merchant_staff.sql actual owner/member semantics",
+      "0058_sports_payments.sql latest venue/resource columns",
+      "0087_ui_redesign_flags_guest_read.sql public venue policy and get_sports_venue projection"
+    ],
+    "fullChainLoader": "The test loader enumerates the complete numeric migration chain, including 0087, 0088a, 0088b, 0089, and allocated 0090."
+  },
+  "implementation": [
+    "submit_sports_venue requires an authenticated actor and sports enabled, then selects and locks only a row owned by that actor before status handling; suspended is denied, submitted/verified are unchanged, and draft/rejected retain existing resource/activity/hours/price checks and update behavior.",
+    "admin_set_venue_status requires sports enabled and admin authorization, locks the current row, denies draft, retains every previously permitted non-draft different-state edge, and returns on same-state before timestamp/audit writes.",
+    "No app file, 0048 migration, booking/money-safety path, shared registration file, or deployment file was edited."
+  ],
+  "testCases": [
+    "SP-REVIEW-01",
+    "SP-REVIEW-02",
+    "SP-REVIEW-03",
+    "SP-REVIEW-04",
+    "SP-REVIEW-05",
+    "SP-REVIEW-06",
+    "SP-REVIEW-07"
+  ],
+  "registration": {
+    "state": "MERGED",
+    "heldFile": "supabase\\tests\\package.json (O20-SP07 lock)",
+    "uniqueTestSelector": "oorva_venue_review",
+    "parserSelector": "o09_sp01_oorva.sql",
+    "testRegistration": "NOT_EDITED_BY_WORKER",
+    "parserRegistration": "NOT_EDITED_BY_WORKER",
+    "deployBackendRegistration": "DEFERRED_UNTIL_E1",
+    "sha": "ff0542eac5bfbab20f1979e66a731f4bdc96fe07",
+    "scope": "supabase/tests/package.json only; selectors registered by coordinator"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "PENDING",
+    "AUTHReview": "PASS_ON_EXACT_HEAD_F031D922F8CEB0523ED243C447EB951B744D9583"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS: working-tree and staged diff checks passed for the same-stage timestamp assertion correction",
+    "sqlTestSelector": "LANE_CI_RUN_44929161088_FAILED_ON_F031D922F8CEB0523ED243C447EB951B744D9583; 144/145 SQL checks passed; oorva_venue_review.test.mjs reported 15 assertion failures",
+    "migrationParserSelector": "PASS_IN_LANE_CI_RUN_44929161088_FULL_SQL_SUITE (84 parse checks; run overall failed only in the venue-review test file)",
+    "codespace": {
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "originMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "snapshot": "wip/qs-oorva-o09-sp01 @ f17f703e",
+      "outcome": "UNAVAILABLE_BEFORE_SELECTION",
+      "error": "fatal: could not read Username for https://github.com: No such device or address; cs-test cannot fetch wip/qs-oorva-o09-sp01",
+      "credentialsChanged": false
+    },
+    "laneCi": "RUN_44929161088_FAILURE; correction pending and a new exact-head lane run is required",
+    "initialLaneCiRun": {
+      "runId": "44929161088",
+      "headSha": "f031d922f8ceb0523ed243c447eb951b744d9583",
+      "conclusion": "FAILURE",
+      "failedJob": "sql",
+      "sqlSummary": "144/145 SQL checks passed; all 84 migration parse checks passed; oorva_venue_review.test.mjs exited 1 with 15 assertion failures",
+      "passingJobs": [
+        "changes",
+        "app",
+        "private-postgres",
+        "tooling",
+        "deno"
+      ],
+      "failureDistribution": "SP-REVIEW-01: 1; SP-REVIEW-02: 1; SP-REVIEW-04: 1; SP-REVIEW-05 missing-prerequisite assertions: 8; SP-REVIEW-06 timestamp-sensitive assertions: 4",
+      "rootCause": "All 15 failures mapped to strict timestamp equality assertions after repeated PGlite reads. The correction casts updated_at to text before comparison so equality is value-based and does not depend on driver object identity."
+    }
+  },
+  "checkpoint": {
+    "branch": "lane/oorva-o09-sp01",
+    "expectedFilesOnly": 3,
+    "push": "CORRECTION_COMMIT_AND_LANE_CI_PENDING",
+    "stopAt": "CORRECTION_READY_FOR_LANE_CI"
+  },
+  "reviewGate": {
+    "required": "AUTH",
+    "owner": "coordinator",
+    "status": "PASS",
+    "evidence": "Coordinator AUTH review PASS on exact head f031d922f8ceb0523ed243c447eb951b744d9583: owner/admin RPC checks and existing ACL boundary reviewed; live ACL and concurrency remain unverified.",
+    "reviewedHead": "f031d922f8ceb0523ed243c447eb951b744d9583",
+    "result": "Coordinator AUTH review PASS: owner/admin RPC checks and existing ACL boundary reviewed; live ACL and concurrency remain unverified."
+  }
+}
