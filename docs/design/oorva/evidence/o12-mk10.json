@@ -55,7 +55,7 @@
       "sourceCommit": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
       "result": "UNAVAILABLE_NO_PASS",
       "attemptedSelector": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.search.__tests__.SearchScreen[.]test[.]tsx$'",
-      "blocker": "Codespace SSH server failed to start because the container has no SSH server installed. No tests were selected or passed.",
+      "blocker": "Codespace SSH server failed to start before test selection because the container has no SSH server installed. No tests were selected and no PASS resulted.",
       "otherSelector": "Not run after the confirmed Codespace startup blocker; Lane CI is the fallback."
     },
     "laneCiFirstAttempt": {
@@ -66,7 +66,24 @@
         "SearchScreen.test.tsx referenced the AI screen render tree without declaring it in that test.",
         "A prior search test fixture included a sports activity while sports was disabled; the new effective-family filter correctly omitted the row."
       ],
-      "resolution": "Both causes fixed together in this follow-up O12-MK10 change; exact-head Lane CI revalidates it."
+      "resolution": "Both causes fixed together in this follow-up O12-MK10 change; final exact-head Lane CI passed."
+    },
+    "laneCiFinal": {
+      "runId": 44924856596,
+      "headSha": "dc12fa90e2b9902840386d18505ddf5078230d34",
+      "result": "PASS",
+      "jobs": {
+        "changes": "PASS",
+        "private-postgres": "PASS",
+        "app": {
+          "uiLint": "PASS",
+          "typecheck": "PASS",
+          "unitTests": "PASS"
+        },
+        "deno": "PASS",
+        "sql": "PASS",
+        "tooling": "PASS"
+      }
     },
     "gitDiffCheck": "PASS"
   },
