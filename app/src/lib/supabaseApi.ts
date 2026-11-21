@@ -71,7 +71,8 @@ function unwrap<T>(res: Result<T>): T {
 }
 
 async function requireUserId(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
   const id = data.session?.user.id;
   if (!id) throw new Error('Not signed in');
   return id;
@@ -79,7 +80,8 @@ async function requireUserId(): Promise<string> {
 
 // ---------- Auth & profile ----------
 export async function getSession(): Promise<AuthSession | null> {
-  const { data } = await supabase.auth.getSession();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw new Error(error.message);
   const user = data.session?.user;
   return user ? { userId: user.id, phone: user.phone ?? null } : null;
 }

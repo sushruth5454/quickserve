@@ -5,11 +5,11 @@ import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { useFonts } from 'expo-font';
 import { router, Stack, usePathname, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { AppState } from 'react-native';
-import { useEffect, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/components/ui';
+import { ConfirmProvider, FullScreenLoader, Text, ToastProvider } from '../src/components/ui';
 import { DemoDataIndicator } from '../src/components/DemoDataIndicator';
 import { AuthProvider, useAuth } from '../src/lib/auth';
 import { LocationProvider } from '../src/lib/locationContext';
@@ -20,8 +20,13 @@ import { LanguageProvider } from '../src/i18n';
 import { ThemeProvider, useTheme } from '../src/theme';
 import { RouteErrorBoundary } from '../src/components/RouteErrorBoundary';
 import { canGuestBrowse, isBrowseRoute, isGuestGatedCustomerTab, safeReturnTo } from '../src/lib/authGate';
-import { getAppFeatures } from '../src/lib/adminApi';
 import { isFeatureOn } from '../src/lib/featureFlagModel';
+import {
+  FeatureFlagsProvider,
+  getGuestRouteDisposition,
+  useFeatureControlHydrationReady,
+  useFeatureControlState,
+} from '../src/branding/FeatureFlagsProvider';
 
 export { RouteErrorBoundary as ErrorBoundary };
 
@@ -51,54 +56,78 @@ function NotificationsBridge({ ready }: { ready: boolean }) {
 }
 
 function RootNavigator() {
-  const { session, loading, choosingRole } = useAuth();
+  const { session, loading, restoreStatus, retryRestore, choosingRole } = useAuth();
   const t = useTheme();
   const segments = useSegments();
   const currentPath = usePathname();
-  const [guestBrowse, setGuestBrowse] = useState(false);
-  const [featureFlagsLoading, setFeatureFlagsLoading] = useState(true);
+  const { features } = useFeatureControlState();
+  const featureControlHydrated = useFeatureControlHydrationReady();
   const signedIn = !!session;
   const inAuthGroup = segments[0] === '(auth)';
   // Public pages (safety, terms, privacy) are linked from the login screen.
   const onPublicPage = segments[0] === 'info' || segments[0] === 'byo';
   const potentialGuestEntryRoute = isBrowseRoute(segments) || isGuestGatedCustomerTab(segments);
-  const awaitingGuestFlag =
-    featureFlagsLoading && !signedIn && !inAuthGroup && !onPublicPage && potentialGuestEntryRoute;
+  const guestBrowse = isFeatureOn(features, 'guest_browse');
   const canEnterAsGuest = canGuestBrowse(guestBrowse, segments);
+  const guestRouteDisposition = getGuestRouteDisposition({
+    controlsReady: featureControlHydrated,
+    restoreStatus,
+    inAuthGroup,
+    onPublicPage,
+    potentialGuestEntryRoute,
+    canEnterAsGuest,
+  });
+  const awaitingGuestFlag = guestRouteDisposition === 'wait';
   const returnTo = safeReturnTo(currentPath) ? currentPath : '/';
-
-  // Resolve the default-off flag before a guest browse deep link is redirected to login.
-  useEffect(() => {
-    let active = true;
-    const refresh = () => {
-      void getAppFeatures()
-        .then((features) => {
-          if (active) setGuestBrowse(isFeatureOn(features, 'guest_browse'));
-        })
-        .catch(() => {
-          if (active) setGuestBrowse(false);
-        })
-        .finally(() => {
-          if (active) setFeatureFlagsLoading(false);
-        });
-    };
-    refresh();
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') refresh();
-    });
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, []);
 
   // Signed out anywhere outside the auth screens (cold start on a deep link or "/", or right after logout):
   // the protected routes no longer match, so send the user to the login screen instead of "Unmatched Route".
   useEffect(() => {
-    if (!loading && !awaitingGuestFlag && !signedIn && !inAuthGroup && !onPublicPage && !canEnterAsGuest) {
+    if (
+      !loading &&
+      restoreStatus !== 'error' &&
+      guestRouteDisposition === 'redirect'
+    ) {
       router.replace({ pathname: '/login', params: { returnTo } });
     }
-  }, [loading, awaitingGuestFlag, signedIn, inAuthGroup, onPublicPage, canEnterAsGuest, returnTo]);
+  }, [loading, restoreStatus, guestRouteDisposition, returnTo]);
+
+  if (!loading && restoreStatus === 'error') {
+    return (
+      <View
+        accessibilityRole="alert"
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          backgroundColor: t.colors.bg,
+        }}
+      >
+        <Text variant="title3" style={{ marginBottom: 8 }}>
+          Your session could not be restored
+        </Text>
+        <Text variant="body" align="center" style={{ marginBottom: 20 }}>
+          We could not verify your session. Check your connection and try again.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void retryRestore()}
+          style={{
+            minHeight: 44,
+            minWidth: 120,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 10,
+            paddingHorizontal: 20,
+            backgroundColor: t.colors.primary,
+          }}
+        >
+          <Text variant="button" color="onPrimary">Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (loading || awaitingGuestFlag) return <FullScreenLoader />;
   return (
@@ -171,7 +200,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider>{fontsLoaded || fontError ? <ThemedApp /> : <FullScreenLoader />}</ThemeProvider>
+        <ThemeProvider>
+          <FeatureFlagsProvider>
+            {fontsLoaded || fontError ? <ThemedApp /> : <FullScreenLoader />}
+          </FeatureFlagsProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

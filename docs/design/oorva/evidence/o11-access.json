@@ -1,0 +1,57 @@
+{
+  "stage": "O11-ACCESS",
+  "workPackage": "O11",
+  "sourceTaskId": "PF-T04",
+  "findingId": "PF-F05",
+  "status": "implementation-and-targeted-tests-passed",
+  "base": {
+    "branch": "integrate/oorva-ui-batch-3",
+    "commit": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "dependencies": [
+      {
+        "stage": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE"
+      },
+      {
+        "stage": "O38R",
+        "commit": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+        "status": "DONE"
+      }
+    ]
+  },
+  "files": [
+    "app\\app\\(provider)\\_layout.tsx",
+    "app\\app\\admin\\_layout.tsx",
+    "app\\src\\lib\\accessPresentation.ts",
+    "app\\src\\lib\\__tests__\\accessPresentation.test.ts",
+    "docs\\design\\oorva\\evidence\\o11-access.json"
+  ],
+  "implementation": [
+    "Provider access checks show the existing full-screen loader and keep backend business-role data actor-bound; owner-only earnings/account navigation is unchanged.",
+    "Admin access distinguishes loading, RPC error with retry, known denial, and allow; stale or mismatched actor results do not authorize children.",
+    "Admin allow remains sourced only from am_i_admin; provider membership remains sourced only from get_provider_business_context. No grants, roles, or capabilities changed."
+  ],
+  "validation": [
+    {
+      "suite": "app",
+      "filter": "src.lib.__tests__.accessPresentation[.]test[.]ts$",
+      "selectedSuites": 1,
+      "selectedTests": 5,
+      "testsPassed": 5,
+      "codespaceSnapshot": "wip/qs-o11-access @ 9f147b2a",
+      "result": "PASS"
+    },
+    {
+      "suite": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "releaseStatus": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "not approved",
+    "productionActions": "not performed",
+    "authReview": "required before further progression"
+  }
+}
