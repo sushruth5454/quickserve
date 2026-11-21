@@ -31,7 +31,7 @@ Deno.test("checkout URL builder requires a valid HTTPS URL and preserves query p
   await assertRejects(async () => buildCheckoutUrl("https://user:pass@checkout.example/checkout", {}));
 });
 
-Deno.test("SP-LIVE-OBLIGATION-FLAGS-OFF: authenticated sports preparation bypasses availability flags", async () => {
+Deno.test("SP-CREATION-VS-RESOLUTION: rejects fresh booking payloads but prepares existing obligations with either flag OFF", async () => {
   const cases = [
     { flags: { sports: false, sports_online_payments: true } },
     { flags: { sports: true, sports_online_payments: false } },
@@ -56,6 +56,24 @@ Deno.test("SP-LIVE-OBLIGATION-FLAGS-OFF: authenticated sports preparation bypass
         };
       },
     } as unknown as SupabaseClient;
+    const freshBookingBody = {
+      kind: "sports",
+      resource_id: "new-resource",
+      starts_at: "2026-12-15T10:00:00+05:30",
+      payment_mode: "online",
+      idempotency_key: "new-booking-key",
+    };
+    const freshBooking = await prepareSportsPaymentForAuthenticatedCustomer(
+      admin,
+      freshBookingBody,
+      "authenticated-customer",
+    );
+    assertEquals(freshBooking.kind, "invalid_request", JSON.stringify({ flags, freshBookingBody, freshBooking }));
+    if (freshBooking.kind === "invalid_request") {
+      assertEquals(freshBooking.error, "sports booking_id is required", JSON.stringify({ flags, freshBooking }));
+    }
+    assertEquals(calls, [], JSON.stringify({ flags, freshBookingBody, calls }));
+
     const body = {
       kind: "sports",
       booking_id: "existing-customer-booking",
@@ -67,7 +85,7 @@ Deno.test("SP-LIVE-OBLIGATION-FLAGS-OFF: authenticated sports preparation bypass
       body,
       "authenticated-customer",
     );
-    assertEquals(flags.sports && flags.sports_online_payments, false);
+    assertEquals(flags.sports && flags.sports_online_payments, false, JSON.stringify({ flags }));
     assertEquals(result.kind, "prepared", JSON.stringify({ flags, result }));
     if (result.kind === "prepared") {
       assertEquals(result.sportsRequest, {
