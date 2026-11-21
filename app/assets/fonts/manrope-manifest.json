@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "family": "Manrope",
+  "role": "Latin headings",
+  "independentOfFinalLogo": true,
+  "loading": "Bundled assets only; no runtime font fetching",
+  "source": {
+    "repository": "https://github.com/aaronbell/manrope",
+    "commit": "6f81ebecdf65e4463b798cc07b16a4f8d5216917",
+    "googleFontsMetadata": {
+      "repository": "https://github.com/google/fonts",
+      "path": "ofl/manrope/METADATA.pb"
+    }
+  },
+  "license": {
+    "name": "SIL Open Font License",
+    "version": "1.1",
+    "file": "Manrope-OFL.txt",
+    "sha256": "e01b637272e0cbdfb240184dd98ea5cc671556d9894dae2668d92ab2c906787c"
+  },
+  "fonts": [
+    {
+      "file": "Manrope-SemiBold.ttf",
+      "sourcePath": "fonts/ttf/manrope-semibold.ttf",
+      "weight": 600,
+      "static": true,
+      "sha256": "e80a2c37e47ec09bff5a9960257bf9001e87d5fb7bf35719ef4958763a0c70ac"
+    },
+    {
+      "file": "Manrope-Bold.ttf",
+      "sourcePath": "fonts/ttf/manrope-bold.ttf",
+      "weight": 700,
+      "static": true,
+      "sha256": "2da33eb378d59e6314ed7afdfa837cdcb60e41ac8b1f5d3c4909471b95fcf7d9"
+    }
+  ],
+  "fallback": {
+    "bodyFamily": "Inter",
+    "scriptFamily": "system",
+    "teluguFamily": "system",
+    "teluguBehaviorValidation": "NOT_VERIFIED"
+  }
+}
