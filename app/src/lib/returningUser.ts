@@ -31,7 +31,7 @@ export function isSafeAuthReturnTo(path: unknown): path is string {
   try {
     const decoded = decodeURIComponent(path);
     const decodedPath = decoded.split('?', 1)[0];
-    if (decodedPath.startsWith('//') || decodedPath.includes('\\')) return false;
+    if (!decodedPath || decodedPath.startsWith('//') || decodedPath.includes('\\')) return false;
     if (decodedPath.split('/').some((segment) => segment === '.' || segment === '..')) return false;
     return new URL(path, 'https://quickserve.invalid').origin === 'https://quickserve.invalid';
   } catch {
