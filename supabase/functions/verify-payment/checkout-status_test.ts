@@ -64,3 +64,17 @@ Deno.test("checkout copy distinguishes applied, queued refund, and persisted exc
     },
   );
 });
+
+Deno.test("combined refund and review outcome displays both facts without success styling", () => {
+  const body = { ok: true, outcome: "captured_refund_queued_review_required" };
+  const actual = paymentStatus({ httpStatus: 200, body });
+  assertEquals(
+    actual,
+    {
+      outcome: "captured_refund_queued_review_required",
+      tone: "warning",
+      message: "Payment was captured; a refund is queued and this payment needs review. Return to your booking to check status.",
+    },
+    `body=${JSON.stringify(body)} display=${JSON.stringify(actual)}`,
+  );
+});

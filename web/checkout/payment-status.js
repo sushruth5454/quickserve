@@ -37,6 +37,12 @@ export function paymentStatus(options = {}) {
         tone: "warning",
         message: "Payment was captured; a refund is queued. Return to your booking to check status.",
       };
+    case "captured_refund_queued_review_required":
+      return {
+        outcome: "captured_refund_queued_review_required",
+        tone: "warning",
+        message: "Payment was captured; a refund is queued and this payment needs review. Return to your booking to check status.",
+      };
     case "review_required":
       return {
         outcome: "review_required",

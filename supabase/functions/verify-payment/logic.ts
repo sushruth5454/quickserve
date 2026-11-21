@@ -3,6 +3,7 @@ import { hmacSha256Hex, timingSafeEqual } from "../_shared/razorpay.ts";
 export type VerificationOutcome =
   | "captured_applied"
   | "captured_refund_queued"
+  | "captured_refund_queued_review_required"
   | "review_required"
   | "confirmation_pending";
 
@@ -23,8 +24,11 @@ export function verificationOutcome(result: unknown): VerificationOutcome {
   }
 
   const record = result as Record<string, unknown>;
-  if (record.exception === true) return "review_required";
+  if (record.refund === true && record.exception === true) {
+    return "captured_refund_queued_review_required";
+  }
   if (record.refund === true) return "captured_refund_queued";
+  if (record.exception === true) return "review_required";
   if (record.ok === true) return "captured_applied";
   return "confirmation_pending";
 }
