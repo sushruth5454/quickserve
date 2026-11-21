@@ -190,7 +190,7 @@ async function statusViews(fixture) {
      where v.id = $1::uuid
   `, [fixture.venueId]))[0] ?? null;
   const owner = (await as(fixture.ownerId, 'authenticated', `
-    select v.id, v.status, v.status_reason, v.updated_at
+    select v.id, v.status, v.status_reason, v.updated_at::text as updated_at
       from public.sports_venues as v
      where v.id = $1::uuid
   `, [fixture.venueId]))[0] ?? null;
