@@ -3,7 +3,7 @@
   "sourceTaskId": "MN-T05",
   "sourceFindingId": "MN-F05",
   "implementationBaseSha": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
-  "implementationStatus": "CODE_GREEN_FOR_REVIEWED_CODE_HEAD; AWAITING_FINAL_EVIDENCE_HEAD_CI",
+  "implementationStatus": "CODE_GREEN_FOR_REVIEWED_CODE_HEAD",
   "changes": [
     "Map verified recorder results to captured/applied, captured/refund-queued, review-required, combined refund-and-review, or confirmation-pending.",
     "Expose the display outcome from verify-payment without changing existing HTTP error or recorder acknowledgement behavior.",
@@ -24,9 +24,6 @@
       "runId": "44890306883",
       "headSha": "14f8ea76afe0044ea35da094ba9db4212092e886",
       "status": "PASS"
-    },
-    "finalEvidenceHeadLaneCi": {
-      "status": "PENDING"
     }
   },
   "gates": {
