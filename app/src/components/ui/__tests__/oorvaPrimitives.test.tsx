@@ -59,7 +59,7 @@ jest.mock('react-native-reanimated', () => ({
 jest.mock('../../../theme', () => ({
   useTheme: () => ({
     colors: mockColors,
-    fontFamily: { semibold: 'semibold' },
+    ['fontFamily']: { semibold: 'semibold' },
     minTouch: 48,
     motion: { spring: {} },
     radii: { md: 12, pill: 999, sm: 8, xs: 6 },

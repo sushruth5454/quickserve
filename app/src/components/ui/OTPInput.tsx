@@ -91,7 +91,7 @@ export function OTPInput({ length = 6, value, onChange, onComplete, error, autoF
               }}
             >
               {ch ? (
-                <Text variant="title1" tabular style={{ fontFamily: t.fontFamily.semibold }} critical>
+                <Text variant="title1" tabular critical>
                   {secure ? '•' : ch}
                 </Text>
               ) : isActive ? (
