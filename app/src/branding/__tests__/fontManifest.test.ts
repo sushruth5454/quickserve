@@ -111,7 +111,7 @@ describe('Manrope bundled font manifest', () => {
       name: 'SIL Open Font License',
       version: '1.1',
       file: 'Manrope-OFL.txt',
-      sha256: 'e01b637272e0cbdfb240184dd98ea5cc671556d9894dae2668d92ab2c906787c',
+      sha256: 'f612090fb72b6dca3e807e66fa0d2b5def163cef86f1a3209b5c897cba5ee4b7',
     });
 
     const licensePath = path.join(fontDirectory, manifest.license.file);
