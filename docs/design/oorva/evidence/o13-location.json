@@ -53,7 +53,10 @@
       "fallback": "lane-ci"
     },
     "laneCi": {
-      "status": "PENDING"
+      "status": "PASS",
+      "runId": 44914995050,
+      "commitSha": "a470fd8f2bb27ff6ec0b78a38883727ffa3235b7",
+      "exactHead": true
     },
     "native320x200": "NOT_VERIFIED",
     "authReview": "COORDINATOR_OWNED_PENDING",
