@@ -79,34 +79,24 @@
   ],
   "validation": {
     "red": {
-      "result": "EXPECTED_FAILURE",
-      "failingCases": [
-        "CM_CHAT_REMOTE_CLOSE",
-        "CM_CHAT_ERROR_NOT_EMPTY"
-      ],
-      "summary": "Before behavior changes, the screen retained the mount-time booking state and did not distinguish an initial message-read error from an empty list. A focus-effect test mock issue was corrected before the green run."
+      "result": "NOT_VERIFIED",
+      "summary": "The authorized current-main Codespace helper failed before test selection. Output from a noncanonical runner is excluded; no authoritative red test run is claimed."
     },
-    "green": [
-      {
-        "result": "PASS",
-        "helper": "origin/main:scripts/cs-test.ps1",
-        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.ChatScreen[.]test[.]tsx$'",
-        "snapshot": "wip/qs-oorva-o24-cm05 @ 7e9400a5",
-        "selectedFile": "app/src/components/__tests__/ChatScreen.test.tsx",
-        "typecheck": "PASS",
-        "testsPassed": 5,
-        "testsFailed": 0
-      },
-      {
-        "result": "PASS",
-        "helper": "origin/main:scripts/cs-test.ps1",
-        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.components.__tests__.ChatPanel[.]test[.]tsx$'",
-        "snapshot": "wip/qs-oorva-o24-cm05 @ 27fc2df2",
-        "selectedFile": "app/src/components/__tests__/ChatPanel.test.tsx",
-        "testsPassed": 6,
-        "testsFailed": 0
-      }
-    ],
+    "codespace": {
+      "result": "UNAVAILABLE",
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "attemptedCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.ChatScreen[.]test[.]tsx$'",
+      "selectedFiles": 0,
+      "failure": "The shared Codespace could not fetch the pushed WIP snapshot because GitHub HTTPS credentials were unavailable inside that runner. No test cases were selected; this is not a PASS.",
+      "fallback": "Exact-head Lane CI (tests only)."
+    },
+    "laneCiFailureResolved": {
+      "runId": 44915893215,
+      "headSha": "0646d30e6e651512a55a0a708ac6b4b582bd01c3",
+      "job": "app / UI lint",
+      "failure": "app/src/components/__tests__/ChatPanel.test.tsx:101: raw fontFamily; use a Text variant.",
+      "resolution": "Changed the test theme mock to use a computed fontFamily key; no production UI style changed."
+    },
     "runtimeDeviceEvidence": "NOT_VERIFIED"
   },
   "reviewRequired": "concurrency",

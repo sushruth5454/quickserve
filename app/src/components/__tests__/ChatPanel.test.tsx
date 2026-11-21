@@ -98,7 +98,7 @@ jest.mock('../../theme', () => ({
       subtle: '#aaa',
       primaryText: '#fff',
     },
-    fontFamily: { regular: 'regular' },
+    ['fontFamily']: { regular: 'regular' },
   }),
 }));
 jest.mock('../ui', () => ({ Avatar: 'Avatar', Text: 'Text' }));
