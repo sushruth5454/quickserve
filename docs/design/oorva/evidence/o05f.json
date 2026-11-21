@@ -4,7 +4,7 @@
   "sourceFindingIds": ["PF-F01", "PF-F02"],
   "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
   "previouslyValidatedImplementationHeadSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
-  "validatedCorrectionHeadSha": "82513661a33194cfcb8c806d34c7e9fbbef4ca51",
+  "validatedCorrectionHeadSha": "23db0e98b29fa7d7d247183eeb9792705b1a8cc0",
   "authReviewCorrection": "Guest routing now waits for cache resolution or a valid live feature snapshot; the hydration deadline starts refresh without authorizing fallback.",
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -27,7 +27,7 @@
     "docs/design/oorva/evidence/o05f.json"
   ],
   "validation": {
-    "codespace": "BLOCKED: Codespace runner could not fetch the WIP ref because its GitHub credential environment is unavailable; no selector tests were selected.",
+    "codespace": "UNAVAILABLE: Codespace runner could not fetch the WIP ref because its GitHub credential environment is unavailable; both selectors failed before selection (0 files); no PASS claimed.",
     "selectors": [
       {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.authRestoreModel[.]test[.]ts$'",
@@ -63,8 +63,8 @@
         }
       ],
       "rerun": {
-        "runId": 44915692027,
-        "headSha": "82513661a33194cfcb8c806d34c7e9fbbef4ca51",
+        "runId": 44916433786,
+        "headSha": "23db0e98b29fa7d7d247183eeb9792705b1a8cc0",
         "status": "success"
       }
     },
