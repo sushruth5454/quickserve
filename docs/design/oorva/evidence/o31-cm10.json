@@ -44,28 +44,39 @@
     "Represent loading, initial error, loaded data, and stale loaded data explicitly; initial failure removes the skeleton and offers Retry.",
     "Use the shared focus/foreground refresh only while the screen is clean, preserving active node and area drafts.",
     "Bind place searches, resolves, and pending areas to city, query, Places session, and request generation; invalidate ownership on selection, query change, and unmount.",
-    "Require pendingArea.cityId to equal the selected city before save, persist its originating city and coordinates, ignore stale UI completions, and refetch after a successful write."
+    "Require pendingArea.cityId to equal the selected city before save, persist its originating city and coordinates, ignore stale UI completions, and refetch after a successful write.",
+    "Bind node and area save completions to the exact submitted draft version so a late success or error cannot clear or overwrite newer edits."
   ],
   "acceptance": [
     {
       "case": "CM_GEO_INITIAL_ERROR",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PASS"
+      "result": "PENDING"
     },
     {
       "case": "CM_GEO_STALE_PLACE",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PASS"
+      "result": "PENDING"
     },
     {
       "case": "CM_GEO_STALE_QUERY",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PASS"
+      "result": "PENDING"
     },
     {
       "case": "CM_GEO_SAVE_PARENT_MATCH",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PASS"
+      "result": "PENDING"
+    },
+    {
+      "case": "CM_GEO_NODE_SAVE_VERSION",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PENDING"
+    },
+    {
+      "case": "CM_GEO_AREA_SAVE_VERSION",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PENDING"
     }
   ],
   "sqlFunctions": [],
@@ -85,12 +96,12 @@
       "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.AdminGeographyScreen[.]test[.]tsx$'",
       "helper": "origin/main:scripts/cs-test.ps1",
       "snapshotBranch": "wip/qs-oorva-o31-cm10",
-      "snapshotCommit": "e1de66d6",
+      "snapshotCommit": "133478a7",
       "testsExecuted": false,
       "reason": "The Codespace could not authenticate to fetch the pushed WIP ref; failure occurred before test selection, so no cases ran."
     },
     "laneCi": {
-      "result": "PASS",
+      "result": "PENDING",
       "priorRunId": 44914587502,
       "priorHeadSha": "7eeb88505f67be01fae77b7625a4a1b5aec56bc8",
       "priorConclusion": "FAILURE",
@@ -108,17 +119,9 @@
       "secondPriorFixStatus": "RESOLVED",
       "fix": "Use optional chaining for sparse hook-slot cleanup.",
       "fixStatus": "RESOLVED",
-      "runId": 44916760416,
-      "headSha": "333b1f56637747fcf0c80cba7bd79193623b05ce",
-      "conclusion": "SUCCESS",
-      "jobs": {
-        "changes": "PASS",
-        "app": "PASS (typecheck; 79 suites and 523 tests, including AdminGeographyScreen.test.tsx)",
-        "sql": "PASS",
-        "privatePostgres": "PASS",
-        "tooling": "PASS",
-        "deno": "PASS"
-      }
+      "previousSuccessfulRunId": 44916760416,
+      "previousSuccessfulHeadSha": "333b1f56637747fcf0c80cba7bd79193623b05ce",
+      "previousSuccessfulConclusion": "SUCCESS"
     },
     "diffCheck": "PASS"
   },

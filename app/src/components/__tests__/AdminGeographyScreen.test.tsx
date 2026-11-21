@@ -231,6 +231,29 @@ describe('AdminGeographyScreen', () => {
     expectJson(listGeography.mock.calls.length, 2);
   });
 
+  it('CM_GEO_NODE_SAVE_VERSION keeps a newer node draft when an earlier save completes', async () => {
+    let screen = await mountWithGeography();
+    invoke(findButton(screen, 'Add state'), 'onPress');
+    screen = renderScreen();
+    changeText(findInput(screen, 'New state'), 'Original State');
+    screen = renderScreen();
+
+    const pendingSave = deferred<string>();
+    upsertGeo.mockReturnValueOnce(pendingSave.promise);
+    invoke(findButton(screen, 'Save'), 'onPress');
+
+    invoke(findButton(renderScreen(), 'Cancel'), 'onPress');
+    screen = renderScreen();
+    invoke(findButton(screen, 'Add state'), 'onPress');
+    screen = renderScreen();
+    changeText(findInput(screen, 'New state'), 'Newer State');
+
+    pendingSave.resolve('state-new');
+    await settle();
+
+    expectJson(findInput(renderScreen(), 'New state')?.props.value, 'Newer State');
+  });
+
   it('CM_GEO_STALE_PLACE ignores City A resolve completion after opening City B', async () => {
     const tree = await mountWithGeography();
     openArea(tree, 'City A');
@@ -272,6 +295,42 @@ describe('AdminGeographyScreen', () => {
 
     const results = findElements(renderScreen(), 'ListItem').map(({ props }) => props.title);
     expectJson(results, ['New Result']);
+  });
+
+  it('CM_GEO_AREA_SAVE_VERSION ignores old success and error completions after the name changes', async () => {
+    let panel = await mountWithGeography();
+    panel = openArea(panel, 'City A');
+    panel = setQuery(panel, 'Original Park');
+    searchPlaces.mockResolvedValueOnce([{ placeId: 'place-a', title: 'Original Park', subtitle: 'City A' }]);
+    invoke(findButton(panel, 'Search places'), 'onPress');
+    await settle();
+    panel = renderScreen();
+    resolvePlace.mockResolvedValueOnce({ area: 'Original Park', lat: 12.34567, lng: 76.54321 });
+    invoke(findElements(panel, 'ListItem')[0], 'onPress');
+    await settle();
+    panel = renderScreen();
+
+    const pendingSuccess = deferred<string>();
+    upsertGeo.mockReturnValueOnce(pendingSuccess.promise);
+    invoke(findButton(panel, 'Save area'), 'onPress');
+    changeText(findInput(renderScreen(), 'Area name'), 'Updated Park');
+    pendingSuccess.resolve('area-a');
+    await settle();
+
+    panel = renderScreen();
+    expectJson(findInput(panel, 'Area name')?.props.value, 'Updated Park');
+    expectJson(findElements(panel, 'InlineAlert').map(({ props }) => props.message), []);
+
+    const pendingFailure = deferred<string>();
+    upsertGeo.mockReturnValueOnce(pendingFailure.promise);
+    invoke(findButton(panel, 'Save area'), 'onPress');
+    changeText(findInput(renderScreen(), 'Area name'), 'Newest Park');
+    pendingFailure.reject(new Error('stale save failure'));
+    await settle();
+
+    panel = renderScreen();
+    expectJson(findInput(panel, 'Area name')?.props.value, 'Newest Park');
+    expectJson(findElements(panel, 'InlineAlert').map(({ props }) => props.message), []);
   });
 
   it('CM_GEO_SAVE_PARENT_MATCH saves the resolved coordinates to their originating city', async () => {
