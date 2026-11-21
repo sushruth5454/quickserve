@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O09-SP01",
+  "workPackage": "O09",
+  "state": "PAUSED_FOR_REGISTRATION",
+  "base": {
+    "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "planningSourceCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependency": {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "PRESENT_IN_BASE"
+    }
+  },
+  "sourceTaskIds": [
+    "SP-T01"
+  ],
+  "sourceFindingIds": [
+    "SP-F01",
+    "SP-F02"
+  ],
+  "sqlFunctions": [
+    "public.submit_sports_venue",
+    "public.admin_set_venue_status"
+  ],
+  "migrationClaims": [
+    "MIG-O09-SP01"
+  ],
+  "allocatedMigrationFilenames": [
+    "supabase\\migrations\\0090_o09_sp01_oorva.sql"
+  ],
+  "workerOwnedFiles": [
+    "supabase\\migrations\\0090_o09_sp01_oorva.sql",
+    "supabase\\tests\\oorva_venue_review.test.mjs",
+    "docs\\design\\oorva\\evidence\\o09-sp01.json"
+  ],
+  "sourceDrift": {
+    "scope": "Affected source references and locked function definitions only",
+    "auditedSourceToBase": "Only VenueEditorSections.tsx changed in the scoped paths: 9 additions and 1 replacement, adding accessibility labels/selected state. It was preserved and not edited.",
+    "targetFunctionHistory": "The audited 0048_sports.sql target function definitions are unchanged at the exact implementation base. The only definitions found in the complete migration chain are 0048 and this forward replacement.",
+    "latestRelevantRead": [
+      "0048_sports.sql target bodies and sports schema",
+      "0052_merchant_staff.sql actual owner/member semantics",
+      "0058_sports_payments.sql latest venue/resource columns",
+      "0087_ui_redesign_flags_guest_read.sql public venue policy and get_sports_venue projection"
+    ],
+    "fullChainLoader": "The test loader enumerates the complete numeric migration chain, including 0087, 0088a, 0088b, 0089, and allocated 0090."
+  },
+  "implementation": [
+    "submit_sports_venue requires an authenticated actor and sports enabled, then selects and locks only a row owned by that actor before status handling; suspended is denied, submitted/verified are unchanged, and draft/rejected retain existing resource/activity/hours/price checks and update behavior.",
+    "admin_set_venue_status requires sports enabled and admin authorization, locks the current row, denies draft, retains every previously permitted non-draft different-state edge, and returns on same-state before timestamp/audit writes.",
+    "No app file, 0048 migration, booking/money-safety path, shared registration file, or deployment file was edited."
+  ],
+  "testCases": [
+    "SP-REVIEW-01",
+    "SP-REVIEW-02",
+    "SP-REVIEW-03",
+    "SP-REVIEW-04",
+    "SP-REVIEW-05",
+    "SP-REVIEW-06",
+    "SP-REVIEW-07"
+  ],
+  "registration": {
+    "state": "WAITING_FOR_COORDINATOR",
+    "heldFile": "supabase\\tests\\package.json (O20-SP07 lock)",
+    "uniqueTestSelector": "oorva_venue_review",
+    "parserSelector": "o09_sp01_oorva.sql",
+    "testRegistration": "NOT_EDITED_BY_WORKER",
+    "parserRegistration": "NOT_EDITED_BY_WORKER",
+    "deployBackendRegistration": "DEFERRED_UNTIL_E1"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "PENDING"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "sqlTestSelector": "NOT_RUN_WAITING_FOR_REGISTRATION",
+    "migrationParserSelector": "NOT_RUN_WAITING_FOR_REGISTRATION",
+    "codespace": "NOT_STARTED",
+    "laneCi": "NOT_STARTED"
+  },
+  "checkpoint": {
+    "branch": "lane/oorva-o09-sp01",
+    "expectedFilesOnly": 3,
+    "push": "NOT_AUTHORIZED_AT_WORKER_FILES_CHECKPOINT",
+    "stopAt": "PAUSED_FOR_REGISTRATION"
+  }
+}
