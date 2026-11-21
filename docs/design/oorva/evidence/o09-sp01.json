@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O09-SP01",
   "workPackage": "O09",
-  "state": "PAUSED_FOR_REGISTRATION",
+  "state": "AWAITING_COORDINATOR_AUTH_REVIEW",
   "base": {
     "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
     "planningSourceCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -62,29 +62,45 @@
     "SP-REVIEW-07"
   ],
   "registration": {
-    "state": "WAITING_FOR_COORDINATOR",
+    "state": "MERGED",
     "heldFile": "supabase\\tests\\package.json (O20-SP07 lock)",
     "uniqueTestSelector": "oorva_venue_review",
     "parserSelector": "o09_sp01_oorva.sql",
     "testRegistration": "NOT_EDITED_BY_WORKER",
     "parserRegistration": "NOT_EDITED_BY_WORKER",
-    "deployBackendRegistration": "DEFERRED_UNTIL_E1"
+    "deployBackendRegistration": "DEFERRED_UNTIL_E1",
+    "sha": "ff0542eac5bfbab20f1979e66a731f4bdc96fe07",
+    "scope": "supabase/tests/package.json only; selectors registered by coordinator"
   },
   "approvals": {
     "E0": "APPROVED",
-    "E1": "PENDING"
+    "E1": "PENDING",
+    "AUTHReview": "PENDING_COORDINATOR"
   },
   "validation": {
-    "gitDiffCheck": "PASS",
-    "sqlTestSelector": "NOT_RUN_WAITING_FOR_REGISTRATION",
-    "migrationParserSelector": "NOT_RUN_WAITING_FOR_REGISTRATION",
-    "codespace": "NOT_STARTED",
-    "laneCi": "NOT_STARTED"
+    "gitDiffCheck": "PASS on 14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e..ff0542eac5bfbab20f1979e66a731f4bdc96fe07",
+    "sqlTestSelector": "UNAVAILABLE_BEFORE_SELECTION; attempted via current-main Codespace helper; no PASS",
+    "migrationParserSelector": "NOT_ATTEMPTED_AFTER_CODESPACE_UNAVAILABLE; no PASS",
+    "codespace": {
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "originMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "snapshot": "wip/qs-oorva-o09-sp01 @ f17f703e",
+      "outcome": "UNAVAILABLE_BEFORE_SELECTION",
+      "error": "fatal: could not read Username for https://github.com: No such device or address; cs-test cannot fetch wip/qs-oorva-o09-sp01",
+      "credentialsChanged": false
+    },
+    "laneCi": "NOT_RUN; documented fallback pending coordinator-owned AUTH review and authorized lane push"
   },
   "checkpoint": {
     "branch": "lane/oorva-o09-sp01",
     "expectedFilesOnly": 3,
-    "push": "NOT_AUTHORIZED_AT_WORKER_FILES_CHECKPOINT",
-    "stopAt": "PAUSED_FOR_REGISTRATION"
+    "push": "HELD_PENDING_COORDINATOR_AUTH_REVIEW",
+    "stopAt": "AWAITING_COORDINATOR_AUTH_REVIEW"
+  },
+  "reviewGate": {
+    "required": "AUTH",
+    "owner": "coordinator",
+    "status": "PENDING",
+    "evidence": "No coordinator AUTH review result has been provided in this continuation."
   }
 }
