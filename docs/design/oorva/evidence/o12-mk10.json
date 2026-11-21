@@ -1,0 +1,70 @@
+{
+  "stageId": "O12-MK10",
+  "workPackage": "O12",
+  "sourceTaskId": "MK-T10",
+  "findingId": "MK-F12",
+  "sourceReport": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t10",
+  "base": {
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseCommit": "a48938ed9bdec7b41148a03c79cdd255de2aa5b3",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependenciesInTestedBase": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+      "O12-MK09": "da54283d66ddf943992ac62250b405b1f91290ae"
+    }
+  },
+  "scope": {
+    "branch": "lane/oorva-o12-mk10",
+    "changedFiles": [
+      "app/src/features/search/SearchScreen.tsx",
+      "app/app/products.tsx",
+      "app/app/merchant-shop.tsx",
+      "app/src/features/search/__tests__/SearchScreen.test.tsx",
+      "app/src/features/shops/manage/__tests__/shopManageModel.test.ts",
+      "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "app/src/features/marketplaceScreens/ProductsScreen.tsx",
+      "docs/design/oorva/evidence/o12-mk10.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "newFeatureFlags": []
+  },
+  "driftAnalysis": {
+    "scope": "Assigned files only",
+    "frozenSourceToImplementationBase": [
+      "app/src/features/search/SearchScreen.tsx (modified by prior O12 work; preserved)",
+      "app/src/features/search/__tests__/SearchScreen.test.tsx (added by prior O12 work; preserved)"
+    ],
+    "result": "PASS"
+  },
+  "implementation": [
+    "Search scopes are derived from effective products/sports availability; unavailable scopes reset to All and disabled-family rows are filtered while other search families remain available.",
+    "Product AI UI and handler require non-demo build availability, products, ai_assistant, and ai_product_search.",
+    "Merchant staff-management and supplier-RFQ links are gated independently by merchant_staff and the existing effective RFQ capability.",
+    "Product and merchant-shop screens are hosted under features/marketplaceScreens; the original Expo Router URLs and product query parameters remain unchanged."
+  ],
+  "tests": {
+    "assertions": [
+      "MK-GATE-scope-off-reset",
+      "MK-GATE-AI-parent-off",
+      "MK-GATE-staff-RFQ-links"
+    ],
+    "codespaceHelper": {
+      "source": "origin/main:scripts/cs-test.ps1",
+      "sourceCommit": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "result": "UNAVAILABLE_NO_PASS",
+      "attemptedSelector": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.search.__tests__.SearchScreen[.]test[.]tsx$'",
+      "blocker": "Codespace SSH server failed to start because the container has no SSH server installed. No tests were selected or passed.",
+      "otherSelector": "Not run after the confirmed Codespace startup blocker; Lane CI is the fallback."
+    },
+    "gitDiffCheck": "PASS"
+  },
+  "gates": {
+    "E0_D01": "APPROVED_FOR_DEVELOPMENT",
+    "E1": "PENDING",
+    "productionAction": false,
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "verifiedAt": "2026-11-21"
+}
