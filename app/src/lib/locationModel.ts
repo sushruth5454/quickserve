@@ -33,6 +33,32 @@ export interface ManagedArea {
   sort_order: number;
 }
 
+export interface LocationAddressState {
+  actorId: string | null;
+  requestId: number;
+  loading: boolean;
+  addresses: SavedAddress[] | null;
+  error: string | null;
+}
+
+export type LocationAddressAction =
+  | { type: 'actor-change'; actorId: string | null; requestId: number }
+  | { type: 'load-start'; actorId: string; requestId: number }
+  | { type: 'load-success'; actorId: string; requestId: number; addresses: SavedAddress[] }
+  | { type: 'load-error'; actorId: string; requestId: number; error: string }
+  | { type: 'delete'; actorId: string; addressId: string; requestId: number }
+  | { type: 'address-added'; actorId: string; address: SavedAddress };
+
+export const initialLocationAddressState: LocationAddressState = {
+  actorId: null,
+  requestId: 0,
+  loading: false,
+  addresses: null,
+  error: null,
+};
+
+const STORED_LOCATION_VERSION = 2;
+
 export const LAUNCH_CITY = demoSeedCity || 'Vijayawada';
 
 /**
@@ -105,6 +131,53 @@ export function sortAddresses(list: SavedAddress[]): SavedAddress[] {
   return [...list].sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.created_at.localeCompare(b.created_at));
 }
 
+export function confirmedLocationActor(authLoading: boolean, userId: string | null): string | null {
+  return authLoading ? null : userId;
+}
+
+export function locationAddressReducer(state: LocationAddressState, action: LocationAddressAction): LocationAddressState {
+  if (action.type === 'actor-change') {
+    return {
+      actorId: action.actorId,
+      requestId: action.requestId,
+      loading: false,
+      addresses: null,
+      error: null,
+    };
+  }
+  if (action.type === 'load-start') {
+    if (state.actorId !== action.actorId || action.requestId <= state.requestId) return state;
+    return { ...state, requestId: action.requestId, loading: true, error: null };
+  }
+  if (action.type === 'load-success') {
+    if (state.actorId !== action.actorId || state.requestId !== action.requestId) return state;
+    return { ...state, loading: false, addresses: sortAddresses(action.addresses), error: null };
+  }
+  if (action.type === 'load-error') {
+    if (state.actorId !== action.actorId || state.requestId !== action.requestId) return state;
+    return { ...state, loading: false, error: action.error };
+  }
+  if (action.type === 'delete') {
+    if (state.actorId !== action.actorId || action.requestId <= state.requestId) return state;
+    return {
+      ...state,
+      requestId: action.requestId,
+      loading: false,
+      addresses: state.addresses?.filter((address) => address.id !== action.addressId) ?? null,
+      error: null,
+    };
+  }
+  if (state.actorId !== action.actorId || !state.addresses) return state;
+  return {
+    ...state,
+    addresses: sortAddresses([...state.addresses.filter((address) => address.id !== action.address.id), action.address]),
+  };
+}
+
+export function formatSavedAddress(address: SavedAddress): string {
+  return `${address.line1}, ${address.city}`;
+}
+
 const SOURCES: LocationSource[] = ['default', 'gps', 'saved', 'area', 'search'];
 const str = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
 const num = (v: unknown, min: number, max: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
@@ -131,6 +204,59 @@ export function parseStoredLocation(raw: string | null | undefined): SelectedLoc
     line1: str(o.line1) ? o.line1 : null,
     addressId: str(o.addressId) ? o.addressId : null,
     label: str(o.label) ? o.label : null,
+  };
+}
+
+export type StoredLocationResolution =
+  | { status: 'pending' | 'empty' | 'discard' }
+  | { status: 'restore'; location: SelectedLocation; ownerUserId: string | null; needsMigration: boolean };
+
+export function serializeStoredLocation(location: SelectedLocation, ownerUserId: string | null): string {
+  const owner = location.source === 'saved' && str(ownerUserId) ? ownerUserId.trim() : null;
+  return JSON.stringify({ version: STORED_LOCATION_VERSION, ownerUserId: owner, location });
+}
+
+export function resolveStoredLocation(
+  raw: string | null | undefined,
+  authLoading: boolean,
+  userId: string | null,
+): StoredLocationResolution {
+  if (authLoading) return { status: 'pending' };
+  if (!raw) return { status: 'empty' };
+
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return { status: 'discard' };
+  }
+  if (!value || typeof value !== 'object') return { status: 'discard' };
+
+  const record = value as Record<string, unknown>;
+  const isVersioned = Object.prototype.hasOwnProperty.call(record, 'version');
+  let location: SelectedLocation | null;
+  let ownerUserId: string | null = null;
+  let needsMigration = true;
+
+  if (isVersioned) {
+    if (record.version !== STORED_LOCATION_VERSION || !record.location || typeof record.location !== 'object') {
+      return { status: 'discard' };
+    }
+    if (record.ownerUserId !== null && !str(record.ownerUserId)) return { status: 'discard' };
+    ownerUserId = str(record.ownerUserId) ? record.ownerUserId.trim() : null;
+    location = parseStoredLocation(JSON.stringify(record.location));
+    needsMigration = false;
+  } else {
+    location = parseStoredLocation(raw);
+  }
+
+  if (!location) return { status: 'discard' };
+  if (location.source === 'saved' && (!userId || ownerUserId !== userId)) return { status: 'discard' };
+  return {
+    status: 'restore',
+    location,
+    ownerUserId: location.source === 'saved' ? ownerUserId : null,
+    needsMigration,
   };
 }
 

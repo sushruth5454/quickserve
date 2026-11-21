@@ -1,4 +1,15 @@
-import { DEFAULT_LOCATION, areaFromLine, fromSavedAddress, geocodeQuery, needsLocationPrompt, parseStoredLocation, sameLocation, sortAddresses } from '../locationModel';
+import {
+  DEFAULT_LOCATION,
+  areaFromLine,
+  fromSavedAddress,
+  geocodeQuery,
+  needsLocationPrompt,
+  parseStoredLocation,
+  resolveStoredLocation,
+  sameLocation,
+  serializeStoredLocation,
+  sortAddresses,
+} from '../locationModel';
 import { bookingRef, firstAvailableDay, nextDays, relativeTimeLabel, scheduleLabel, urgentStartOptions, windowAvailable, windowLabel, windowStart } from '../schedule';
 import type { SavedAddress } from '../types';
 
@@ -39,6 +50,35 @@ describe('parseStoredLocation', () => {
     JSON.stringify({ ...DEFAULT_LOCATION, area: '  ' }),
   ])('rejects malformed input %p', (raw) => {
     expect(parseStoredLocation(raw)).toBeNull();
+  });
+});
+
+describe('saved-location ownership', () => {
+  it('defers saved hydration until auth resolves and restores only for its owner', () => {
+    const saved = fromSavedAddress(addr({ id: 'owner-a-address' }));
+    const raw = serializeStoredLocation(saved, 'owner-a');
+
+    expect(resolveStoredLocation(raw, true, null)).toEqual({ status: 'pending' });
+    expect(resolveStoredLocation(raw, false, 'owner-a')).toMatchObject({
+      status: 'restore',
+      location: saved,
+      ownerUserId: 'owner-a',
+      needsMigration: false,
+    });
+    expect(resolveStoredLocation(raw, false, 'owner-b')).toEqual({ status: 'discard' });
+  });
+
+  it('drops unknown-owner legacy saved selections but retains public selections', () => {
+    const legacySaved = JSON.stringify(fromSavedAddress(addr({})));
+    const publicChoice = { ...DEFAULT_LOCATION, source: 'gps' as const };
+
+    expect(resolveStoredLocation(legacySaved, false, 'owner-a')).toEqual({ status: 'discard' });
+    expect(resolveStoredLocation(JSON.stringify(publicChoice), false, null)).toMatchObject({
+      status: 'restore',
+      location: publicChoice,
+      ownerUserId: null,
+      needsMigration: true,
+    });
   });
 });
 
