@@ -164,27 +164,12 @@ export async function searchProviders(
 }
 
 export async function listTopRated(limit = 10, city?: string | null): Promise<TopRatedProvider[]> {
-  const { data: auth } = await supabase.auth.getSession();
-  let query = supabase
-    .from('providers')
-    .select(
-      'id, city, rating_avg, rating_count, jobs_completed, years_experience, is_online, profiles(full_name, avatar_url), provider_services(visit_fee, skill_level, active, categories(name, slug))',
-    )
-    .eq('kyc_status', 'verified')
-    .eq('suspended', false)
-    .eq('paused', false)
-    .gt('rating_count', 0);
-  // Like search_providers, never suggest the signed-in user's own provider profile.
-  if (auth.session) query = query.neq('id', auth.session.user.id);
-  // Case-insensitive exact city match; LIKE wildcards in the name are escaped.
-  if (city?.trim()) query = query.ilike('city', city.trim().replace(/[\\%_]/g, (c) => `\\${c}`));
   return unwrap(
-    await query
-      .order('rating_avg', { ascending: false })
-      .order('rating_count', { ascending: false })
-      .limit(limit)
-      .overrideTypes<TopRatedProvider[], { merge: false }>(),
-  );
+    await supabase.rpc('list_top_rated_public', {
+      p_city: city?.trim() || null,
+      p_limit: limit,
+    }),
+  ) as TopRatedProvider[];
 }
 
 export async function listLiveCities(): Promise<LiveCity[]> {
