@@ -1,0 +1,66 @@
+{
+  "stageId": "O27-MK02",
+  "workPackage": "O27",
+  "sourceTaskId": "MK-T02",
+  "findingId": "MK-F02",
+  "sourceReport": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t02",
+  "placementProjection": "docs/design/oorva/audit/marketplace.json",
+  "base": {
+    "dependency": {
+      "stageId": "O00",
+      "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "status": "DONE"
+    },
+    "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "planningSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "migrationClaim": {
+    "id": "MIG-O27-MK02",
+    "version": "0110",
+    "path": "supabase/migrations/0110_o27_mk02_oorva.sql"
+  },
+  "functionLock": "public.submit_shop",
+  "sourceDrift": {
+    "comparedReferences": [
+      "supabase/migrations/0049_shops_catalogue.sql:399-449",
+      "app/app/merchant-shop.tsx:353-411",
+      "supabase/migrations/0069_ws3_shop_product_remediation.sql:3-88",
+      "supabase/migrations/0087_ui_redesign_flags_guest_read.sql:38-47"
+    ],
+    "result": "No relevant source drift from the frozen source SHA to the implementation base. The full migration-chain search finds submit_shop only in 0049; 0087 supplies the current effective-products helper used by the forward replacement."
+  },
+  "implementation": [
+    "Forward-replaced submit_shop; after locking the row by both shop ID and actual auth.uid owner, only draft and rejected states may submit.",
+    "Retained effective-products, completeness, category, reason-clear, and authenticated execution behavior.",
+    "Did not modify save_shop, migration 0069, or any unrelated function."
+  ],
+  "changedFiles": [
+    "supabase/migrations/0110_o27_mk02_oorva.sql",
+    "supabase/tests/oorva_o27_mk02.test.mjs",
+    "docs/design/oorva/evidence/o27-mk02.json"
+  ],
+  "testCoverageAuthored": [
+    "Complete owner draft/rejected submission and reason clear.",
+    "Verified/submitted/under_review/suspended rejection with unchanged row.",
+    "Manager/staff/other-owner rejection despite fabricated owner claims.",
+    "Verified description-only save and identity-edit regression behavior.",
+    "Products OFF rejection with authorized existing admin-list read.",
+    "Completeness/category validation and retained authenticated execution grant with anon denial."
+  ],
+  "validation": {
+    "status": "PAUSED_FOR_REGISTRATION",
+    "gitDiffCheck": "PASS",
+    "tests": "NOT_RUN_BY_INSTRUCTION",
+    "sqlSelector": "oorva_o27_mk02",
+    "migrationParserSelector": "o27_mk02_oorva.sql",
+    "requiredRegistration": "Coordinator-owned supabase/tests/package.json parser/full-chain registration commit"
+  },
+  "releaseStatus": {
+    "E0": "authorized",
+    "D01": "authorized",
+    "E1": "pending",
+    "mainMerge": "not performed",
+    "productionActions": "none"
+  }
+}
