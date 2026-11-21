@@ -1,0 +1,50 @@
+{
+  "stageId": "O06A",
+  "workPackage": "O06",
+  "sourceTaskId": "PF-T08",
+  "findingIds": [
+    "PF-F09",
+    "PF-F10"
+  ],
+  "status": "implemented",
+  "base": {
+    "branch": "integrate/oorva-ui-batch-3",
+    "commit": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e"
+  },
+  "ownedFiles": [
+    "app\\src\\components\\ui\\Button.tsx",
+    "app\\src\\components\\ui\\Badge.tsx",
+    "app\\src\\components\\ui\\CountBadge.tsx",
+    "app\\src\\components\\ui\\IconButton.tsx",
+    "app\\src\\components\\ui\\Text.tsx",
+    "app\\src\\components\\ui\\Input.tsx",
+    "app\\src\\components\\ui\\OTPInput.tsx",
+    "app\\src\\components\\ui\\SegmentedControl.tsx",
+    "app\\src\\components\\ui\\Stepper.tsx",
+    "app\\src\\components\\ui\\__tests__\\oorvaPrimitives.test.tsx",
+    "docs\\design\\oorva\\evidence\\o06a.json"
+  ],
+  "repairs": {
+    "danger": "Destructive buttons use dangerStrong/onDanger and dangerPressed/onDanger; unread badges use dangerStrong/onDanger; IconButton numeric overlays reuse CountBadge.",
+    "primaryCounts": "Chip, step and segment counts use onPrimary; existing primary/onPrimary and segmentThumb roles are retained.",
+    "criticalText": "Critical Text instances can scale to 200%; essential labels wrap and action, status, OTP and quantity containers grow.",
+    "progress": "StepIndicator switches to a compact current/total layout for seven steps or insufficient width; reduced-motion rail updates are static.",
+    "semantics": "Native input value/submit and OTP behavior and Stepper quantity actions remain covered by tests."
+  },
+  "validation": {
+    "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.oorvaPrimitives[.]test[.]tsx$'",
+    "environment": "GitHub Codespace",
+    "selectedTestFiles": 1,
+    "selectedTests": 6,
+    "passedTests": 6,
+    "csTestResult": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "releaseStatus": {
+    "E0": "approved",
+    "E1": "not approved",
+    "featureFlagsAddedOrChanged": false,
+    "productionOrDeploymentActions": "not performed"
+  }
+}

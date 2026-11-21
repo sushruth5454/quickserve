@@ -29,13 +29,14 @@ export const Input = forwardRef<ComponentRef<typeof TextInput>, InputProps>(func
   return (
     <View style={[{ gap: 6 }, containerStyle]}>
       {label ? (
-        <Text variant="subhead" color="textSecondary">
+        <Text variant="subhead" color="textSecondary" critical>
           {label}
         </Text>
       ) : null}
       <View
         style={{
           flexDirection: 'row',
+          flexWrap: 'wrap',
           alignItems: multiline ? 'flex-start' : 'center',
           minHeight: multiline ? 96 : size === 'lg' ? 56 : 52,
           borderRadius: t.radii.md,
@@ -57,7 +58,7 @@ export const Input = forwardRef<ComponentRef<typeof TextInput>, InputProps>(func
         ) : null}
         {prefix ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-            <Text variant={size === 'lg' ? 'title3' : 'bodyStrong'} color="textSecondary">
+            <Text variant={size === 'lg' ? 'title3' : 'bodyStrong'} color="textSecondary" critical>
               {prefix}
             </Text>
             <View style={{ width: 1, height: 22, backgroundColor: t.colors.borderStrong }} />
@@ -76,10 +77,11 @@ export const Input = forwardRef<ComponentRef<typeof TextInput>, InputProps>(func
             setFocused(false);
             onBlur?.(e);
           }}
-          maxFontSizeMultiplier={1.4}
+          maxFontSizeMultiplier={2}
           style={[
             {
               flex: 1,
+              minWidth: 0,
               color: t.colors.text,
               fontFamily: size === 'lg' ? t.fontFamily.semibold : t.fontFamily.regular,
               fontSize: size === 'lg' ? 18 : 16,
@@ -101,17 +103,17 @@ export const Input = forwardRef<ComponentRef<typeof TextInput>, InputProps>(func
           {error ? (
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }} accessibilityRole="alert">
               <Ionicons name="alert-circle" size={14} color={t.colors.dangerText} />
-              <Text variant="footnote" color="dangerText" style={{ flex: 1 }}>
+              <Text variant="footnote" color="dangerText" style={{ flex: 1 }} critical>
                 {error}
               </Text>
             </View>
           ) : (
-            <Text variant="footnote" color="muted" style={{ flex: 1 }}>
+            <Text variant="footnote" color="muted" style={{ flex: 1 }} critical>
               {helper ?? ''}
             </Text>
           )}
           {counter ? (
-            <Text variant="caption" color="muted" tabular>
+            <Text variant="caption" color="muted" tabular critical>
               {counter}
             </Text>
           ) : null}

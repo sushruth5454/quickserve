@@ -49,6 +49,7 @@ export function Badge({ label, tone = 'neutral', icon, dot, size = 'sm', style }
           flexDirection: 'row',
           alignItems: 'center',
           alignSelf: 'flex-start',
+          maxWidth: '100%',
           gap: 5,
           minHeight: size === 'sm' ? 22 : 26,
           backgroundColor: c.bg,
@@ -60,7 +61,7 @@ export function Badge({ label, tone = 'neutral', icon, dot, size = 'sm', style }
     >
       {dot ? <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: c.solid }} /> : null}
       {icon ? <Ionicons name={icon} size={size === 'sm' ? 12 : 14} color={c.fg} /> : null}
-      <Text variant="captionStrong" style={{ color: c.fg }} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+      <Text variant="captionStrong" style={{ color: c.fg, flexShrink: 1, minWidth: 0 }} critical>
         {label}
       </Text>
     </View>
@@ -114,10 +115,13 @@ export function Chip({
       style={({ pressed }) => [
         {
           flexDirection: 'row',
+          flexWrap: 'wrap',
           alignItems: 'center',
           gap: 6,
           minHeight: 36,
+          maxWidth: '100%',
           paddingHorizontal: t.spacing.md,
+          paddingVertical: 6,
           borderRadius: t.radii.pill,
           borderWidth: 1,
           borderColor: selected ? t.colors.primary : t.colors.borderStrong,
@@ -134,22 +138,23 @@ export function Chip({
       ) : icon ? (
         <Ionicons name={icon} size={16} color={t.colors.muted} />
       ) : null}
-      <Text variant="subhead" style={{ color: fg }} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+      <Text variant="subhead" style={{ color: fg, flexShrink: 1, minWidth: 0 }} critical>
         {label}
       </Text>
       {count ? (
         <View
           style={{
             minWidth: 18,
-            height: 18,
+            minHeight: 18,
             borderRadius: 9,
             paddingHorizontal: 5,
+            paddingVertical: 2,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: t.colors.primary,
           }}
         >
-          <Text variant="micro" style={{ color: '#FFFFFF' }}>
+          <Text variant="micro" style={{ color: t.colors.onPrimary }} critical>
             {count}
           </Text>
         </View>
