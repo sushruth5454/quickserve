@@ -5,10 +5,9 @@ import {
   checkoutDescription,
   checkoutPurposeLabel,
   paymentBookingRef,
+  prepareSportsPaymentForAuthenticatedCustomer,
   recoverSportsCheckoutRace,
-  resolveSportsPaymentRequest,
   sportsPaymentPreparation,
-  sportsPaymentsEnabled,
 } from "./logic.ts";
 
 interface PreparedPayment {
@@ -53,20 +52,22 @@ Deno.serve(async (req) => {
     const bookingId = typeof body.booking_id === "string" ? body.booking_id : null;
     const packId = typeof body.pack_id === "string" ? body.pack_id : null;
     const scheduleId = typeof body.schedule_id === "string" ? body.schedule_id : null;
-    const sportsRequest = resolveSportsPaymentRequest(body, user.id);
-    if (sportsRequest && "error" in sportsRequest) return json({ error: sportsRequest.error }, 400);
+    const sportsPreparation = await prepareSportsPaymentForAuthenticatedCustomer<PreparedPayment>(
+      admin,
+      body,
+      user.id,
+    );
+    if (sportsPreparation.kind === "invalid_request") {
+      return json({ error: sportsPreparation.error }, 400);
+    }
+    const sportsRequest = sportsPreparation.kind === "prepared" ? sportsPreparation.sportsRequest : null;
     if (!sportsRequest && !bookingId && !packId) return json({ error: "booking_id or pack_id is required" }, 400);
 
     let prepared: PreparedPayment | null = null;
     let prepError: { message: string } | null = null;
-    if (sportsRequest) {
-      const { data: features, error: featureError } = await admin.rpc("get_app_features");
-      if (featureError) return json({ error: "sports payment availability could not be checked" }, 503);
-      if (!sportsPaymentsEnabled(features)) return json({ error: "Sports online payments are turned off right now." }, 403);
-      const preparation = sportsPaymentPreparation(sportsRequest);
-      const result = await admin.rpc(preparation.rpc, preparation.args).single<PreparedPayment>();
-      prepared = result.data ? { ...result.data, short_url: result.data.url ?? null } : null;
-      prepError = result.error;
+    if (sportsPreparation.kind === "prepared") {
+      prepared = sportsPreparation.prepared;
+      prepError = sportsPreparation.prepError;
     } else if (packId) {
       const result = await admin.rpc("prepare_pack_payment", { p_pack_id: packId, p_user_id: user.id })
         .single<PreparedPayment>();

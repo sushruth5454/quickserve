@@ -1,0 +1,119 @@
+{
+  "stage": "O20-SP07",
+  "workPackage": "O20",
+  "sourceTask": "SP-T07",
+  "finding": "SP-F11",
+  "base": {
+    "dependency": "O00",
+    "dependencyCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "dependencyStatus": "DONE",
+    "testedBaseBranch": "integrate/oorva-base-1",
+    "testedBaseCommit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "currentMainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "scope": {
+    "workerFiles": [
+      "supabase/functions/create-payment/index.ts",
+      "supabase/functions/create-payment/logic.ts",
+      "supabase/functions/create-payment/logic_test.ts",
+      "supabase/tests/oorva_o20_sp07.test.mjs",
+      "docs/design/oorva/evidence/o20-sp07.json"
+    ],
+    "migration": null,
+    "deployBackendListEdit": false,
+    "productionOrLiveMoneyOperations": false
+  },
+  "implementation": {
+    "change": "Moved authenticated sports request resolution and existing-obligation preparation into a testable helper used by create-payment. The helper invokes prepare_sports_payment with only the booking id and authenticated user id; no availability-flag lookup gates this existing-work path. Payment persistence, gateway-order, race-recovery, and response paths remain unchanged.",
+    "newBookingAvailability": "Unchanged; book_sports_slot remains the creation gate.",
+    "validation": {
+      "registrationCommit": "6fc8262285e3b93272c3d2334468f6fb12b272eb",
+      "selection": "PASS: supabase/tests/oorva_o20_sp07.test.mjs selected for filter oorva_o20_sp07",
+      "sql": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp07'",
+        "result": "PASS",
+        "selectedTest": "supabase/tests/oorva_o20_sp07.test.mjs",
+        "summary": "1/1 SQL checks passed; parent-OFF and online-child-OFF scenarios asserted stored amount 20500 and rejected new booking creation."
+      },
+      "deno": {
+        "command": "pwsh -NoProfile -File $Helper -Suite deno",
+        "result": "PASS",
+        "summary": "145 passed, 0 failed; type checks completed for 13 functions.",
+        "selectedSportsAssertions": [
+          "SP-CREATION-VS-RESOLUTION passed",
+          "Existing losing-order late-capture recorder assertion passed",
+          "Sports checkout race persistence/winner-read error assertions passed"
+        ]
+      },
+      "resolvedDenoTypeErrors": [
+        "Added amount and purpose to the preparation helper result constraint.",
+        "Restored sportsPaymentPreparation import required by checkout-race recovery."
+      ],
+      "localTests": false,
+      "gatewayOrProductionOperations": false
+    }
+  },
+  "acceptance": {
+    "serverPricedExistingObligationWithFlagsOff": "PASS: exact 20500 paise stored total under parent-OFF and online-child-OFF scenarios",
+    "newOnlineBookingStillDenied": "PASS: book_sports_slot rejected creation under both flag-off scenarios",
+    "wrongActorModeStateOrExpiredDeadline": {
+      "sourceVerified": {
+        "source": "supabase/migrations/0058_sports_payments.sql:1284-1300",
+        "guards": [
+          "The booking lookup is scoped by p_booking_id and p_user_id; a missing customer-owned row fails with 'only the customer can pay'.",
+          "payment_mode must be online.",
+          "Payable state is limited to pending_payment with hold_expires_at > now() or awaiting_payment with pay_by > now(); otherwise the function fails with 'booking is not payable'.",
+          "total_paise must be non-null and positive."
+        ],
+        "capturedState": "A captured booking in accepted state is outside the guard's two payable states, so the guard rejects another preparation."
+      },
+      "explicitTestAssertions": {
+        "wrongOwner": "sports_payments.test.mjs:419-421 explicitly asserts that customer2 cannot prepare customer1's booking.",
+        "mode": "sports_payments.test.mjs [SP-07, SP-15] explicitly asserts pay-at-venue creates no payment row when online payments are off; it does not call prepare_sports_payment on that booking.",
+        "deadline": "sports_payments.test.mjs [SP-12, SP-15] at 709-729 asserts expired hold/pay-by lifecycle and attempt retirement; it does not call prepare_sports_payment after expiry.",
+        "capturedState": "sports_payments.test.mjs [SP-10, SP-11] at 632-637 asserts a valid capture changes the booking to accepted and duplicate capture recording is idempotent; it does not call prepare_sports_payment afterward."
+      },
+      "boundary": "Only the wrong-owner rejection is a direct negative prepare assertion in these cases. Mode, elapsed-deadline, and captured-state rejection are source-verified from the guard; the cited tests separately assert related payment-mode, expiry, and captured-state behavior."
+    },
+    "rpcRemainsServiceRoleOnly": {
+      "status": "source-verified",
+      "source": "supabase/migrations/0058_sports_payments.sql:1870-1902",
+      "evidence": "prepare_sports_payment(uuid, uuid) is revoked from public, anon, and authenticated, then granted to service_role; this was not a direct assertion in the O20-SP07 selected test."
+    },
+    "duplicateCaptureAndRefundPreservation": {
+      "status": "PASS",
+      "explicitTestAssertions": [
+        "sports_payments.test.mjs [SP-11] at 623-628 asserts a mismatched captured amount is queued for a full refund.",
+        "sports_payments.test.mjs [SP-11] at 635-637 asserts recording the same gateway payment twice is idempotent.",
+        "sports_payments.test.mjs [SP-11] at 661-679 asserts a second captured payment is refunded without increasing the booking refund basis."
+      ],
+      "ciEvidence": "The unfiltered SQL job in lane CI run 44889405178 completed successfully."
+    },
+    "existingOrderRaceAndLateCapture": "PASS: Deno assertions passed for losing-order late-capture routing and checkout-race persistence/winner-read errors."
+  },
+  "checkpoint": {
+    "status": "CODE_GREEN",
+    "requiredRegistration": "supabase/tests/package.json",
+    "registrationSha": "6fc8262285e3b93272c3d2334468f6fb12b272eb",
+    "requiredFilter": "oorva_o20_sp07",
+    "postRegistrationSqlSelector": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp07'",
+    "postRegistrationDenoSelector": "pwsh -NoProfile -File $Helper -Suite deno",
+    "focusedReview": {
+      "result": "PASS: NO BLOCKING FINDINGS",
+      "reviewedImplementationHead": "ccb3f53b3e07487f3cee655c3d866735f7aedfb0",
+      "applicabilityToEvidenceOnlyHead": "PASS",
+      "reviewerFollowUp": {
+        "result": "PASS",
+        "head": "77b2ce692c06cc38422ac779b862b5fdfee55493",
+        "note": "Reviewer confirmed the revised evidence is accurate and introduces no implementation issue."
+      }
+    },
+    "laneCi": {
+      "runId": 44889405178,
+      "head": "ccb3f53b3e07487f3cee655c3d866735f7aedfb0",
+      "status": "completed",
+      "conclusion": "success",
+      "fullUnfilteredSqlJob": "passed"
+    }
+  }
+}
