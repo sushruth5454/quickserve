@@ -325,6 +325,11 @@ await scenario('SV-RESCHEDULE-ALLOW-02', async () => {
     [changeId],
   ));
   const beforeAccept = await state(fixture.booking.id);
+  const beforeBooking = (await db.query(`
+    select id, status::text status, scheduled_at,
+           extract(epoch from upper(service_window) - lower(service_window))::int duration_seconds
+      from bookings where id = $1::uuid
+  `, [fixture.booking.id])).rows[0];
   const managerError = await failureOf(() => as(
     fixture.manager,
     'authenticated',
@@ -343,14 +348,14 @@ await scenario('SV-RESCHEDULE-ALLOW-02', async () => {
   `customer cannot accept own request and staff cannot substitute for manager: ${JSON.stringify({ selfAcceptError, staffAcceptError })}`);
   ok(!managerError && accepted.rows[0]?.id === fixture.booking.id
     && new Date(accepted.rows[0].scheduled_at).toISOString() === new Date(newAt).toISOString()
-    && accepted.rows[0].duration_seconds === 3600
+    && accepted.rows[0].duration_seconds === beforeBooking.duration_seconds
     && beforeAccept.booking.status === accepted.rows[0].status
     && acceptedOutcomes.length === 1 && outcome.kind === 'rescheduled'
     && outcome.schedule_id === fixture.schedule && outcome.booking_id === fixture.booking.id
     && outcome.original_at === beforeAccept.booking.scheduled_at
     && new Date(outcome.new_at).toISOString() === new Date(newAt).toISOString()
     && outcome.actor_id === fixture.manager,
-  `manager Accept moves the same booking with original duration and one exact outcome: ${JSON.stringify({ managerError, beforeAccept, accepted: accepted.rows, acceptedOutcomes })}`);
+  `manager Accept moves the same booking with original duration and one exact outcome: ${JSON.stringify({ managerError, beforeAccept, beforeBooking, accepted: accepted.rows, acceptedOutcomes })}`);
 
   for (const [index, legalStatus] of ['requested', 'accepted', 'confirmed'].entries()) {
     const legalFixture = await createFixture(`legal-${index}`);
@@ -408,6 +413,7 @@ await scenario('SV-RESCHEDULE-ALLOW-02', async () => {
   const pausedFixture = await createFixture('paused');
   const pausedChangeId = await request(pausedFixture);
   await db.query(`update providers set paused = true where id = $1::uuid`, [pausedFixture.provider]);
+  const beforePausedAccept = await state(pausedFixture.booking.id);
   const pausedError = await failureOf(() => as(
     pausedFixture.manager,
     'authenticated',
@@ -415,9 +421,9 @@ await scenario('SV-RESCHEDULE-ALLOW-02', async () => {
     [pausedChangeId],
   ));
   const afterPausedAccept = await state(pausedFixture.booking.id);
-  ok(!!pausedError && afterPausedAccept.booking.scheduled_at === pausedFixture.booking.scheduled_at
+  ok(!!pausedError && JSON.stringify(beforePausedAccept) === JSON.stringify(afterPausedAccept)
     && (await outcomes(pausedFixture.booking.id)).length === 0,
-  `paused provider cannot accept a reschedule: ${JSON.stringify({ pausedError, afterPausedAccept })}`);
+  `paused provider cannot accept a reschedule: ${JSON.stringify({ pausedError, beforePausedAccept, afterPausedAccept })}`);
 
   const cutoffFixture = await createFixture('cutoff');
   const cutoffChangeId = await request(cutoffFixture);

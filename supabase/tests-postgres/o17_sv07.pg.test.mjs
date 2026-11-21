@@ -153,23 +153,26 @@ async function state(client, bookingId) {
   `, [bookingId])).rows[0].value;
 }
 
-async function waitForResponseLock(observer, pid, responseResult, timeoutMs = 10000) {
+async function waitForResponseLock(observer, pid, blockerPid, responseResult, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
+  let lastActivity = null;
   while (Date.now() < deadline) {
-    const activity = (await observer.query(`
-      select wait_event_type, wait_event, query
+    lastActivity = (await observer.query(`
+      select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
         from pg_stat_activity where pid = $1::int
     `, [pid])).rows[0];
-    if (activity?.wait_event_type === 'Lock'
-        && String(activity.query).includes('respond_visit_reschedule')) {
-      return activity;
+    const blockingPids = (lastActivity?.blocking_pids ?? []).map(Number);
+    if (lastActivity?.wait_event_type === 'Lock'
+        && blockingPids.includes(Number(blockerPid))
+        && String(lastActivity.query).includes('respond_visit_reschedule')) {
+      return lastActivity;
     }
     if (responseResult.settled) {
       throw new Error(`response finished before the row-lock barrier: ${JSON.stringify({ response: responseResult.value, activity })}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error(`response did not reach a PostgreSQL lock wait: ${JSON.stringify({ pid })}`);
+  throw new Error(`response did not reach the booking row-lock barrier: ${JSON.stringify({ pid, blockerPid, lastActivity, response: responseResult.value })}`);
 }
 
 async function runRace(context, status) {
@@ -201,7 +204,7 @@ async function runRace(context, status) {
             return responseResult;
           },
         );
-        const wait = await waitForResponseLock(first, secondPid, responseResult);
+        const wait = await waitForResponseLock(first, secondPid, firstPid, responseResult);
         await first.query(`
           select public._set_status(
             $1::uuid, $2::booking_status, $3::uuid, $4::text
