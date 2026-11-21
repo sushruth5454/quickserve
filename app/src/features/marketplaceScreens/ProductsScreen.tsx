@@ -1,0 +1,171 @@
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
+import { Button, Chip, EmptyState, Header, InlineAlert, Input, Screen, Skeleton, Text } from '../../components/ui';
+import { listProductCategories, searchProducts, signedProductImage, type ProductCategory, type SearchProduct } from '../shops/api';
+import { searchProductsWithAi } from '../ai/productSearch';
+import { FeatureUnavailable, ShopProductCard, useShopFeatureFlags } from '../shops/components';
+import { useRfqFeatureFlags } from '../rfq/components';
+import { isDemoMode } from '../../lib/config';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
+import { parseRupees } from '../../lib/onboarding/validation';
+import { useSelectedLocation } from '../../lib/locationContext';
+import { useTheme } from '../../theme';
+
+export default function ProductsScreen() {
+  const t = useTheme();
+  const features = useShopFeatureFlags();
+  const appFeatures = useAppFeatureFlags();
+  const aiProductSearch = !isDemoMode
+    && features.products
+    && appFeatures.isOn('ai_assistant')
+    && appFeatures.isOn('ai_product_search');
+  const { rfq: rfqEnabled } = useRfqFeatureFlags();
+  const { location } = useSelectedLocation();
+  const params = useLocalSearchParams<{ q?: string; category?: string }>();
+  const initialQuery = useMemo(() => typeof params.q === 'string' ? params.q : '', [params.q]);
+  const [query, setQuery] = useState(initialQuery);
+  const [category, setCategory] = useState(typeof params.category === 'string' ? params.category : '');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [products, setProducts] = useState<SearchProduct[]>([]);
+  const [images, setImages] = useState<Record<string, string | null>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const askAiToSearch = useCallback(async () => {
+    if (!aiProductSearch) return;
+    if (aiQuery.trim().length < 2) {
+      setError('Describe the product you need.');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const result = await searchProductsWithAi({
+        query: aiQuery,
+        lat: location.lat,
+        lng: location.lng,
+      });
+      setQuery(result.filters.query ?? '');
+      setCategory(result.filters.category_slug ?? '');
+      setMaxPrice(result.filters.max_price_paise == null
+        ? ''
+        : (result.filters.max_price_paise / 100).toFixed(2).replace(/\.?0+$/, ''));
+      setInStockOnly(result.filters.in_stock_only);
+      setProducts(result.products);
+      const nextImages = await Promise.all(result.products.map(async (product) => [
+        product.id,
+        await signedProductImage(product.image_paths[0]).catch(() => null),
+      ] as const));
+      setImages(Object.fromEntries(nextImages));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [aiProductSearch, aiQuery, location.lat, location.lng]);
+
+  const load = useCallback(async () => {
+    if (!features.products) return;
+    const price = maxPrice.trim() ? parseRupees(maxPrice) : null;
+    if (maxPrice.trim() && (price == null || price < 0)) {
+      setError('Enter a valid maximum price in rupees.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const [nextCategories, nextProducts] = await Promise.all([
+        listProductCategories(),
+        searchProducts({
+          query,
+          categorySlug: category || null,
+          lat: location.lat,
+          lng: location.lng,
+          radiusKm: 15,
+          maxPricePaise: price,
+          inStockOnly,
+        }),
+      ]);
+      const nextImages = await Promise.all(nextProducts.map(async (product) => [
+        product.id,
+        await signedProductImage(product.image_paths[0]).catch(() => null),
+      ] as const));
+      setCategories(nextCategories);
+      setProducts(nextProducts);
+      setImages(Object.fromEntries(nextImages));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [features.products, query, category, location.lat, location.lng, maxPrice, inStockOnly]);
+
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useFocusEffect(useCallback(() => { void loadRef.current(); }, [features.products]));
+
+  if (!features.products) {
+    return <Screen header={<Header title="Products" />}><FeatureUnavailable /></Screen>;
+  }
+
+  return (
+    <Screen
+      header={<Header title="Products" subtitle={`Verified shops near ${location.city}`} />}
+      gap={t.spacing.md}
+      refreshing={loading}
+      onRefresh={() => void load()}
+    >
+      <InlineAlert message={error} />
+      {aiProductSearch ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Input
+            label="Ask in your words"
+            value={aiQuery}
+            onChangeText={setAiQuery}
+            placeholder="e.g. waterproof tiles under ₹500 per box"
+            helper="Do not enter contact or address details; recognizable address-like searches are declined."
+            multiline
+            maxLength={500}
+          />
+          <Button
+            title="Search with AI"
+            variant="outline"
+            loading={aiLoading}
+            disabled={aiQuery.trim().length < 2}
+            onPress={() => void askAiToSearch()}
+          />
+          <Text variant="caption" color="muted">Review and edit the filters below before searching again.</Text>
+        </View>
+      ) : null}
+      <Input label="Search products" value={query} onChangeText={setQuery} placeholder="Name, brand or model" returnKeyType="search" onSubmitEditing={() => void load()} />
+      <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-end' }}>
+        <View style={{ flex: 1 }}>
+          <Input label="Maximum price (₹)" value={maxPrice} onChangeText={setMaxPrice} keyboardType="decimal-pad" placeholder="Any price" />
+        </View>
+        <Chip label="In stock only" selected={inStockOnly} onPress={() => setInStockOnly((value) => !value)} />
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+        <Chip label="All categories" selected={!category} onPress={() => setCategory('')} />
+        {categories.map((item) => (
+          <Chip key={item.id} label={item.name} selected={category === item.slug} onPress={() => setCategory(category === item.slug ? '' : item.slug)} />
+        ))}
+      </View>
+      <Button title="Apply search and filters" variant="outline" onPress={() => void load()} />
+      {rfqEnabled ? (
+        <Button title="Request quotes from multiple shops" variant="outline" onPress={() => router.push('/rfq/new')} />
+      ) : null}
+      {loading ? <Skeleton height={100} radius={t.radii.lg} /> : products.length ? products.map((product) => (
+        <ShopProductCard key={product.id} product={product} imageUrl={images[product.id] ?? null} onPress={() => router.push(`/product/${product.id}`)} />
+      )) : (
+        <EmptyState title="No products found" message="Try a different product name, category, price or location." />
+      )}
+      {!loading && products.length ? <Text variant="caption" color="muted">Showing verified shops, ordered by distance.</Text> : null}
+    </Screen>
+  );
+}
