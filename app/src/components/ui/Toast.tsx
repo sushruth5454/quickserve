@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp, FadeOut, FadeOutDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getDemoDisclosureSlotHeight } from '../DemoDataIndicator';
+import { isSeedDemoMode } from '../../lib/config';
 import { haptics } from '../../lib/haptics';
 import { useTheme } from '../../theme';
 import type { IconName } from './Button';
@@ -65,10 +67,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [dismiss],
   );
 
-  const accent = useMemo(
-    () => ({ default: '#8FB0FF', success: '#32D583', error: '#F97066', warning: '#FDB022' }),
-    [],
-  );
+  const accent: Record<ToastTone, string> = {
+    default: t.colors.info,
+    success: t.colors.success,
+    error: t.colors.danger,
+    warning: t.colors.warning,
+  };
 
   return (
     <ToastOffsetContext.Provider value={setOffset}>
@@ -77,7 +81,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]}>
           <View
             pointerEvents="box-none"
-            style={{ paddingHorizontal: 16, paddingBottom: offset ?? insets.bottom + 16, gap: 8, alignItems: 'center' }}
+            style={{
+              paddingHorizontal: 16,
+              paddingBottom: offset ?? getDemoDisclosureSlotHeight(insets.bottom) + (isSeedDemoMode ? 0 : insets.bottom) + 16,
+              gap: 8,
+              alignItems: 'center',
+            }}
           >
             {items.map((item) => {
               const tone = item.tone ?? 'default';
@@ -109,7 +118,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ]}
                 >
                   <Ionicons name={item.icon ?? ICONS[tone]} size={20} color={accent[tone]} />
-                  <Text variant="callout" style={{ color: '#FFFFFF', flex: 1 }}>
+                  <Text variant="callout" color="onPrimary" style={{ flex: 1 }}>
                     {item.message}
                   </Text>
                   {item.actionLabel ? (
@@ -121,7 +130,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                       }}
                       style={{ minHeight: 40, paddingHorizontal: 10, justifyContent: 'center' }}
                     >
-                      <Text variant="subheadStrong" style={{ color: '#8FB0FF' }}>
+                      <Text variant="subheadStrong" color="info">
                         {item.actionLabel}
                       </Text>
                     </Pressable>
