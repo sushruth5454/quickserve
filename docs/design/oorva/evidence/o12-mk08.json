@@ -1,0 +1,44 @@
+{
+  "stage": "O12-MK08",
+  "workPackage": "O12",
+  "sourceTask": "MK-T08",
+  "finding": "MK-F10",
+  "placement": "S07",
+  "dependency": {
+    "stage": "O00",
+    "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "status": "DONE"
+  },
+  "base": {
+    "branch": "integrate/oorva-base-1",
+    "commit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "parentMain": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "approvals": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "changedFiles": [
+    "app/src/features/search/searchModel.ts",
+    "app/src/features/search/__tests__/searchModel.test.ts",
+    "docs/design/oorva/evidence/o12-mk08.json"
+  ],
+  "behavior": [
+    "Preserve server-returned product membership and ordering without re-filtering by product name.",
+    "Continue normalized, case-insensitive local name matching for result kinds fetched without full-text search.",
+    "Exclude catalogue categories whose archetype is null before routing and grouping."
+  ],
+  "testCases": [
+    "MK-SEARCH-preserve-server-product-match",
+    "MK-SEARCH-no-group-parent",
+    "MK-SEARCH-scope-cap-order"
+  ],
+  "codespaceValidation": {
+    "command": "pwsh -NoProfile -File scripts/cs-test.ps1 -Suite app -Filter 'src.features.search.__tests__.searchModel[.]test[.]ts$'",
+    "snapshotCommit": "4637e87d",
+    "selected": 6,
+    "passed": 6,
+    "result": "PASS"
+  }
+}
