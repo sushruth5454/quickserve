@@ -19,6 +19,8 @@ Before calling a feature complete, verify the admin control, server enforcement,
 
 For implementation plans that define parallel tasks, use one background agent and isolated worktree per ready task. Launch all independent ready tasks concurrently; keep shared CI registration, integration and ordered database migration merges with the coordinating agent. Never let parallel agents edit the same shared file.
 
+Do not impose a fixed numeric worktree cap. Create isolated worktrees for every READY stage and the coordinator's required registration/integration work, subject to available machine resources. Preserve dirty or untracked work; remove a stage worktree after its changes are integrated while retaining its lane and batch branches.
+
 ## Fast validation loop (CI plus Codespace testing)
 
 Installs never run on the owner's Windows machine (no public npm there). Targeted tests run in the shared GitHub Codespace (rule 16, seconds per run); full validation runs in GitHub Actions, where each round takes minutes, so minimise the number of CI rounds.
