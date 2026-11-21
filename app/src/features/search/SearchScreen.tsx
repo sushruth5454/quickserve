@@ -6,10 +6,11 @@ import { ListingCard } from '../../components/market/ListingCard';
 import { normalizeQuery, isSearchable } from '../../components/market/searchQuery';
 import { SearchField } from '../../components/market/SearchField';
 import { Button, EmptyState, Header, InlineAlert, Screen, Section, Skeleton } from '../../components/ui';
+import { signedProductImage } from '../shops/api';
+import { ShopProductCard } from '../shops/components';
 import { useT } from '../../i18n';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useSelectedLocation } from '../../lib/locationContext';
-import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
 import { searchEverything, type SearchResponse } from './api';
 import { groupResults, type SearchGroupKey, type SearchResult, type SearchScope } from './searchModel';
@@ -27,6 +28,16 @@ const GROUPS_BY_SCOPE: Record<SearchScope, SearchGroupKey[]> = {
   creators: ['creators'],
 };
 
+interface SearchSnapshot {
+  query: string;
+  response: SearchResponse;
+}
+
+interface ProductImageSnapshot {
+  query: string;
+  urls: Record<string, string | null>;
+}
+
 export function SearchScreen() {
   const theme = useTheme();
   const t = useT();
@@ -38,14 +49,27 @@ export function SearchScreen() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
-  const [response, setResponse] = useState<SearchResponse>(EMPTY_RESPONSE);
+  const [snapshot, setSnapshot] = useState<SearchSnapshot>({ query: '', response: EMPTY_RESPONSE });
   const [loading, setLoading] = useState(false);
   const normalizedQuery = normalizeQuery(query);
   const searchable = isSearchable(normalizedQuery);
-  const groups = useMemo(
-    () => groupResults(response.raw, debouncedQuery, scope),
-    [response.raw, debouncedQuery, scope],
+  const response = snapshot.query === debouncedQuery ? snapshot.response : EMPTY_RESPONSE;
+  const resultRaw = useMemo(
+    () => productsOn ? response.raw : { ...response.raw, products: [], shops: [] },
+    [productsOn, response.raw],
   );
+  const groups = useMemo(
+    () => groupResults(resultRaw, debouncedQuery, scope),
+    [resultRaw, debouncedQuery, scope],
+  );
+  const productResults = useMemo(
+    () => enabled && productsOn
+      ? groups.flatMap((group) => group.results)
+        .filter((result): result is Extract<SearchResult, { kind: 'product' }> => result.kind === 'product')
+      : [],
+    [enabled, groups, productsOn],
+  );
+  const [productImages, setProductImages] = useState<ProductImageSnapshot>({ query: '', urls: {} });
   const isPending = searchable && normalizedQuery !== debouncedQuery;
   const isLoading = loading || isPending;
   const visibleGroupKeys = GROUPS_BY_SCOPE[scope];
@@ -62,11 +86,12 @@ export function SearchScreen() {
 
   useEffect(() => {
     if (!enabled || !isSearchable(debouncedQuery)) {
-      setResponse(EMPTY_RESPONSE);
+      setSnapshot({ query: '', response: EMPTY_RESPONSE });
       setLoading(false);
       return;
     }
     let active = true;
+    setSnapshot({ query: debouncedQuery, response: EMPTY_RESPONSE });
     setLoading(true);
     void searchEverything(debouncedQuery, {
       city: location.city,
@@ -76,13 +101,16 @@ export function SearchScreen() {
       productsOn,
     })
       .then((next) => {
-        if (active) setResponse(next);
+        if (active) setSnapshot({ query: debouncedQuery, response: next });
       })
       .catch(() => {
         if (active) {
-          setResponse({
-            raw: { catalogue: null, activities: [], products: [], shops: [] },
-            errors: { services: true, shops: true, sports: true, creators: true },
+          setSnapshot({
+            query: debouncedQuery,
+            response: {
+              raw: { catalogue: null, activities: [], products: [], shops: [] },
+              errors: { services: true, shops: true, sports: true, creators: true },
+            },
           });
         }
       })
@@ -93,6 +121,27 @@ export function SearchScreen() {
       active = false;
     };
   }, [coords.lat, coords.lng, debouncedQuery, enabled, location.city, productsOn, sportsOn]);
+
+  useEffect(() => {
+    let active = true;
+    const queryForImages = debouncedQuery;
+    const requests = productResults.map(async ({ product }) => {
+      const path = product.image_paths[0];
+      if (!path) return [productImageKey(product.id, path), null] as const;
+      try {
+        return [productImageKey(product.id, path), await signedProductImage(path)] as const;
+      } catch {
+        return [productImageKey(product.id, path), null] as const;
+      }
+    });
+    setProductImages({ query: queryForImages, urls: {} });
+    void Promise.all(requests).then((entries) => {
+      if (active) setProductImages({ query: queryForImages, urls: Object.fromEntries(entries) });
+    });
+    return () => {
+      active = false;
+    };
+  }, [debouncedQuery, productResults]);
 
   if (!enabled) {
     return (
@@ -150,7 +199,13 @@ export function SearchScreen() {
             return (
               <Section key={key} title={groupTitles[key]}>
                 {response.errors[key] ? <InlineAlert message={t('error.generic')} /> : null}
-                {group?.results.map((result) => renderResult(result, t))}
+                {group?.results.map((result) => renderResult(
+                  result,
+                  t,
+                  result.kind === 'product' && productImages.query === debouncedQuery
+                    ? productImages.urls[productImageKey(result.product.id, result.product.image_paths[0])] ?? null
+                    : null,
+                ))}
               </Section>
             );
           })}
@@ -163,7 +218,11 @@ export function SearchScreen() {
   );
 }
 
-function renderResult(result: SearchResult, t: ReturnType<typeof useT>) {
+function productImageKey(productId: string, imagePath: string | undefined) {
+  return JSON.stringify([productId, imagePath ?? '']);
+}
+
+function renderResult(result: SearchResult, t: ReturnType<typeof useT>, imageUrl: string | null) {
   switch (result.kind) {
     case 'category':
       return (
@@ -188,19 +247,11 @@ function renderResult(result: SearchResult, t: ReturnType<typeof useT>) {
       );
     case 'product': {
       const { product } = result;
-      const area = [product.area, product.city].filter(Boolean).join(', ');
-      const distance = product.distance_km == null
-        ? null
-        : t('listing.kmAway', { km: product.distance_km.toFixed(1) });
       return (
-        <ListingCard
+        <ShopProductCard
           key={`${result.kind}-${result.id}`}
-          variant="product"
-          title={result.name}
-          subtitle={[product.shop_name, area, distance].filter(Boolean).join(' · ')}
-          priceLabel={product.indicative_price_paise == null
-            ? null
-            : t('listing.from', { price: formatINR(product.indicative_price_paise) })}
+          product={product}
+          imageUrl={imageUrl}
           onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } } as Href)}
         />
       );

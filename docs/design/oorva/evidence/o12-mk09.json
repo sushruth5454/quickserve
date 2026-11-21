@@ -1,0 +1,54 @@
+{
+  "stage": "O12-MK09",
+  "workPackage": "O12",
+  "sourceTask": "MK-T09",
+  "finding": "MK-F11",
+  "status": "implementation-and-targeted-tests-passed",
+  "base": {
+    "integrationCommit": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "dependencies": [
+      {
+        "stage": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE"
+      },
+      {
+        "stage": "O38R",
+        "commit": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+        "status": "DONE"
+      }
+    ]
+  },
+  "files": [
+    "app\\src\\features\\search\\SearchScreen.tsx",
+    "app\\src\\features\\search\\__tests__\\SearchScreen.test.tsx",
+    "docs\\design\\oorva\\evidence\\o12-mk09.json"
+  ],
+  "implementation": [
+    "Product search results render the unchanged SearchProduct through ShopProductCard, preserving the existing unit-price, updated-date, and stock contract.",
+    "The first image path is signed through signedProductImage in a cleanup-guarded effect; signing failures resolve to the card fallback without dropping the result.",
+    "Search responses and signed images are query-scoped so prior-query results and late image completions cannot populate the current query.",
+    "Non-product result branches remain independent. Products-off suppresses product/shop results and image signing; the existing searchEverything productsOn guard remains responsible for product API requests.",
+    "No money formatter, feature flag, SQL, RLS, checkout, or money-policy changes."
+  ],
+  "validation": [
+    {
+      "suite": "app",
+      "filter": "src.features.search.__tests__.SearchScreen[.]test[.]tsx$",
+      "selectedSuites": 1,
+      "selectedTests": 4,
+      "codespaceSnapshot": "wip/qs-o12-mk09 @ 812a71006438e9ec2332e3b7de91a24aac4e1b0a",
+      "result": "PASS"
+    }
+  ],
+  "coverage": [
+    "Same product primary key and original product object retain zero versus null price, box versus sqft unit, updated timestamp, and out-of-stock truth.",
+    "Signing failure retains the product row and supplies the real no-image fallback.",
+    "Typing a different query hides old results, and a late old-image completion cannot replace the new product image.",
+    "Category, activity, and shop rendering remain present; products-off passes the disabled capability and renders no product or signed-image result."
+  ],
+  "featureOffBehavior": [
+    "No additional feature switch was introduced.",
+    "The existing products flag remains the gate for product/shop requests and results."
+  ]
+}
