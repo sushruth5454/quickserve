@@ -46,12 +46,13 @@
       "commit": "f6cd932994811ba041d86f61395a7b856f3eccc7",
       "changedFile": "supabase/tests/package.json"
     },
-    "execution": "UNAVAILABLE_NO_PASS",
+    "execution": "LANE_CI_FAILURE",
     "requiredSelectors": [
       "oorva_o32_mn02",
       "o32_mn02_oorva.sql"
     ],
     "codespace": {
+      "result": "UNAVAILABLE_NO_PASS",
       "helperSource": "origin/main:scripts/cs-test.ps1",
       "originMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
       "name": "qs-tests-g67pgv4xqj639gx5",
@@ -67,9 +68,28 @@
         "reason": "Stopped after the same pre-selection Codespace fetch failure; no credentials changed."
       }
     },
-    "laneCiFallback": "pending coordinator MONEY review; no lane push"
+    "laneCi": {
+      "runId": "44932441341",
+      "headSha": "bd2525e08cf71109141fa80a3493c46957ff08bb",
+      "conclusion": "failure",
+      "failedJob": "sql",
+      "failures": [
+        "MN-DEMO-SESSION-ONESHOT: category_not_bookable",
+        "MN-DEMO-PACK-SESSION: category_not_bookable",
+        "MN-LIVE-SESSION-PAISE: category_not_bookable",
+        "MN-OFF-SAFETY: category_not_bookable"
+      ]
+    },
+    "fixtureFollowUp": {
+      "changes": [
+        "seed a live category-city row",
+        "enable the time_based archetype in app_config",
+        "use unique future slots within the category lead-time window"
+      ],
+      "status": "unverified; awaiting coordinator MONEY review and a new lane push"
+    }
   },
-  "checkpoint": "PAUSED_FOR_COORDINATOR_MONEY_REVIEW",
+  "checkpoint": "PAUSED_FOR_COORDINATOR_REVIEW",
   "reviewRequired": "money",
   "reviewStatus": "pending",
   "e1Status": "pending",

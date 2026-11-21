@@ -149,6 +149,16 @@ async function createActors(seed) {
     )
   `, [category, `o32-mn02-${seed}`, `O32 MN02 session ${seed}`]);
   await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, true, now())
+  `, [category, city]);
+  await db.query(`
+    insert into public.app_config (key, value)
+    values ('archetype_flags', '{"time_based":true}'::jsonb)
+    on conflict (key) do update
+      set value = public.app_config.value || excluded.value
+  `);
+  await db.query(`
     insert into public.provider_services (id, provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, $3::uuid, 0, 10000, true)
   `, [service, provider, category]);
@@ -174,7 +184,7 @@ async function createSession(fixture, suffix, { demo, pack = false }) {
   const booking = uuid(fixture.seed * 1000 + 100 + suffix);
   const packId = uuid(fixture.seed * 1000 + 200 + suffix);
   const packSession = uuid(fixture.seed * 1000 + 300 + suffix);
-  const slot = `2034-01-${String(fixture.seed * 2 + suffix).padStart(2, '0')}T10:00:00Z`;
+  const slot = `2027-02-${String(fixture.seed * 2 + suffix).padStart(2, '0')}T10:00:00Z`;
   const paymentRef = `${demo ? 'pay_demo_o32_' : 'pay_o32_live_'}${fixture.seed}_${suffix}`;
 
   if (pack) {
