@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { useFeatureControlState } from './FeatureFlagsProvider';
 import { validateAppearanceCandidate, preloadAppearanceAssets } from './api';
 import { OORVA_BRANDING_CANDIDATE } from './defaults';
@@ -21,18 +29,44 @@ const DEFAULT_APPEARANCE_STATE: AppearanceState = {
 
 const AppearanceContext = createContext<AppearanceState>(DEFAULT_APPEARANCE_STATE);
 
+export interface PreloadedAppearance {
+  key: string;
+  config: BrandingV1 | null;
+}
+
+export function resolveAppearanceConfig(input: {
+  brandingEnabled: boolean;
+  runtimeFlag: boolean;
+  candidate: BrandingV1 | null;
+  candidateKey: string;
+  preloaded: PreloadedAppearance | null;
+}): BrandingV1 | null {
+  if (!input.brandingEnabled) return null;
+  if (!input.runtimeFlag || !input.candidate) return OORVA_BRANDING_CANDIDATE;
+  if (input.preloaded?.key === input.candidateKey) {
+    return input.preloaded.config ?? OORVA_BRANDING_CANDIDATE;
+  }
+  return input.preloaded?.config ?? OORVA_BRANDING_CANDIDATE;
+}
+
+export function createAppearanceProviderElement(
+  value: AppearanceState,
+  children: ReactNode,
+): ReactElement {
+  return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
+}
+
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const { features, appearanceCandidate, refresh } = useFeatureControlState();
   const brandingEnabled = features.oorva_brand === true;
-  const runtimeEnabled = brandingEnabled && features.branding_runtime === true;
+  const runtimeFlag = features.branding_runtime === true;
+  const runtimeEnabled = brandingEnabled && runtimeFlag;
   const candidate = useMemo(
     () => validateAppearanceCandidate(appearanceCandidate),
     [appearanceCandidate],
   );
   const candidateKey = candidate ? JSON.stringify(candidate) : '';
-  const [preloaded, setPreloaded] = useState<{ key: string; config: BrandingV1 | null } | null>(
-    null,
-  );
+  const [preloaded, setPreloaded] = useState<PreloadedAppearance | null>(null);
 
   useEffect(() => {
     if (!runtimeEnabled || !candidate || !candidateKey) {
@@ -51,18 +85,21 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [runtimeEnabled, candidate, candidateKey, preloaded]);
 
   const config = useMemo(() => {
-    if (!brandingEnabled) return null;
-    if (!runtimeEnabled || !candidate) return OORVA_BRANDING_CANDIDATE;
-    if (preloaded?.key === candidateKey) return preloaded.config ?? OORVA_BRANDING_CANDIDATE;
-    return preloaded?.config ?? OORVA_BRANDING_CANDIDATE;
-  }, [brandingEnabled, runtimeEnabled, candidate, candidateKey, preloaded]);
+    return resolveAppearanceConfig({
+      brandingEnabled,
+      runtimeFlag,
+      candidate,
+      candidateKey,
+      preloaded,
+    });
+  }, [brandingEnabled, runtimeFlag, candidate, candidateKey, preloaded]);
 
   const value = useMemo<AppearanceState>(
     () => ({ brandingEnabled, runtimeEnabled, config, refresh }),
     [brandingEnabled, runtimeEnabled, config, refresh],
   );
 
-  return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
+  return createAppearanceProviderElement(value, children);
 }
 
 export function useAppearance(): AppearanceState {

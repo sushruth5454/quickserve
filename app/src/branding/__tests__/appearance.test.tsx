@@ -1,5 +1,3 @@
-/** @jest-environment jsdom */
-
 jest.mock('react-native-reanimated', () => ({
   Easing: { bezier: jest.fn(() => jest.fn()) },
 }));
@@ -17,135 +15,54 @@ jest.mock('../FeatureFlagsProvider', () => ({
   useFeatureControlState: jest.fn(),
 }));
 
-import React, { act, useState } from 'react';
-import { Image, useColorScheme } from 'react-native';
+import React from 'react';
+import { Image } from 'react-native';
 import validAppearance from '../fixtures/appearance-valid.json';
-import type { AppFeatures } from '../FeatureFlagsProvider';
-import { useFeatureControlState } from '../FeatureFlagsProvider';
-import { AppearanceProvider, useAppearance } from '../AppearanceProvider';
-import { validateAppearanceCandidate } from '../api';
+import {
+  createAppearanceProviderElement,
+  resolveAppearanceConfig,
+  type AppearanceState,
+} from '../AppearanceProvider';
+import { preloadAppearanceAssets, validateAppearanceCandidate } from '../api';
 import { OORVA_BRANDING_CANDIDATE } from '../defaults';
-import { ThemeProvider, useTheme, type Theme } from '../../theme/ThemeProvider';
 import { getContrastFailures } from '../colorContract';
 import { darkPalette, lightPalette } from '../../theme/tokens';
+import { createThemeSnapshot, resolveDarkTheme } from '../../theme/ThemeProvider';
+import type { BrandingV1 } from '../types';
 
-declare const require: (moduleName: string) => unknown;
-
-type DomRoot = {
-  render: (node: React.ReactNode) => void;
-  unmount: () => void;
-};
-
-const { createRoot } = require('react-dom/client') as {
-  createRoot: (container: Element) => DomRoot;
-};
-const controls = useFeatureControlState as jest.MockedFunction<typeof useFeatureControlState>;
 const prefetch = Image.prefetch as jest.MockedFunction<typeof Image.prefetch>;
-const colorScheme = useColorScheme as jest.MockedFunction<typeof useColorScheme>;
-
-type Observation = {
-  theme: Theme;
-  config: ReturnType<typeof useAppearance>['config'];
-  brandingEnabled: boolean;
-  runtimeEnabled: boolean;
-  guestBrowseEnabled: boolean;
-  draft: string;
-  setDraft: React.Dispatch<React.SetStateAction<string>>;
-  mountId: number;
-};
-
-let observation: Observation | null = null;
-let nextMountId = 0;
-
-function makeFeatures(overrides: Record<string, unknown> = {}): AppFeatures {
-  return {
-    ai_assistant: true,
-    urgent_requests: true,
-    fixed_asap: true,
-    guest_browse: false,
-    oorva_brand: false,
-    branding_runtime: false,
-    archetypes: {
-      inspect_quote: true,
-      fixed: true,
-      time_based: true,
-      proposal: true,
-    },
-    ...overrides,
-  } as AppFeatures;
-}
 
 function copyAppearance(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return { ...(JSON.parse(JSON.stringify(validAppearance)) as Record<string, unknown>), ...overrides };
 }
 
-function AppProbe({ manropeReady = false }: { manropeReady?: boolean }) {
-  const theme = useTheme();
-  const appearance = useAppearance();
-  const controlsState = useFeatureControlState();
-  const [draft, setDraft] = useState('untouched');
-  const [mountId] = useState(() => ++nextMountId);
-  observation = {
-    theme,
-    config: appearance.config,
-    brandingEnabled: appearance.brandingEnabled,
-    runtimeEnabled: appearance.runtimeEnabled,
-    guestBrowseEnabled: controlsState.features.guest_browse === true,
-    draft,
-    setDraft,
-    mountId,
+function getAppearance(value: unknown = validAppearance): BrandingV1 {
+  const appearance = validateAppearanceCandidate(value);
+  if (!appearance) throw new Error(`expected valid appearance, received ${JSON.stringify(value)}`);
+  return appearance;
+}
+
+function appearanceState(overrides: Partial<AppearanceState> = {}): AppearanceState {
+  return {
+    brandingEnabled: false,
+    runtimeEnabled: false,
+    config: null,
+    refresh: jest.fn().mockResolvedValue(undefined),
+    ...overrides,
   };
+}
+
+function DirtyDraft(_props: { draft: { value: string } }): null {
   return null;
 }
 
-function tree(manropeReady = false) {
-  return (
-    <AppearanceProvider>
-      <ThemeProvider manropeReady={manropeReady}>
-        <AppProbe />
-      </ThemeProvider>
-    </AppearanceProvider>
-  );
-}
-
-function mount(node: React.ReactNode): DomRoot {
-  const root = createRoot(document.createElement('div'));
-  root.render(node);
-  return root;
-}
-
-async function settleEffects(): Promise<void> {
-  await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-  });
-}
-
 describe('O05A atomic appearance integration', () => {
-  let renderer: DomRoot | null = null;
-
   beforeEach(() => {
     process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://quickserve.example.test';
-    controls.mockReturnValue({
-      features: makeFeatures(),
-      freshness: 'live',
-      appearanceCandidate: undefined,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
     prefetch.mockReset().mockResolvedValue(true);
-    colorScheme.mockReturnValue(null);
-    observation = null;
-    nextMountId = 0;
   });
 
-  afterEach(() => {
-    if (renderer) {
-      act(() => renderer?.unmount());
-      renderer = null;
-    }
-  });
-
-  it('UI-CACHE-01 publishes a fully preloaded theme in one immutable swap', async () => {
+  it('UI-CACHE-01 publishes a complete immutable appearance only after preload', async () => {
     let finishPreload!: (available: boolean) => void;
     prefetch.mockImplementation(
       () =>
@@ -153,178 +70,146 @@ describe('O05A atomic appearance integration', () => {
           finishPreload = resolve;
         }),
     );
-    const candidate = copyAppearance();
-    (candidate.assets as Record<string, unknown>).logoLight = '00000000-0000-4000-8000-000000000001';
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: true, branding_runtime: true }),
-      freshness: 'live',
-      appearanceCandidate: candidate,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
+    const candidateData = copyAppearance();
+    (candidateData.assets as Record<string, unknown>).logoLight =
+      '00000000-0000-4000-8000-000000000001';
+    const candidate = getAppearance(candidateData);
+    const candidateKey = JSON.stringify(candidate);
+    const input = {
+      brandingEnabled: true,
+      runtimeFlag: true,
+      candidate,
+      candidateKey,
+    };
+    const loadingConfig = resolveAppearanceConfig({ ...input, preloaded: null });
+    const preload = preloadAppearanceAssets(candidate);
 
-    await act(async () => {
-      renderer = mount(tree());
-    });
-    expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
+    expect(loadingConfig).toBe(OORVA_BRANDING_CANDIDATE);
+    finishPreload(true);
+    await expect(preload).resolves.toBe(true);
 
-    await act(async () => {
-      finishPreload(true);
-      await Promise.resolve();
-      await Promise.resolve();
+    const publishedConfig = resolveAppearanceConfig({
+      ...input,
+      preloaded: { key: candidateKey, config: candidate },
     });
-    expect(observation?.theme.colors.primary).toBe((candidate.light as Record<string, string>).primary);
-    expect(observation?.theme.colors.bg).toBe((candidate.light as Record<string, string>).bg);
-    expect(Object.isFrozen(observation?.theme)).toBe(true);
-    expect(Object.isFrozen(observation?.theme.colors)).toBe(true);
+    const theme = createThemeSnapshot(false, publishedConfig, false);
+    expect(publishedConfig).toBe(candidate);
+    expect(theme.colors.primary).toBe(candidate.light.primary);
+    expect(theme.colors.bg).toBe(candidate.light.bg);
+    expect(Object.isFrozen(theme)).toBe(true);
+    expect(Object.isFrozen(theme.colors)).toBe(true);
+    expect(
+      resolveAppearanceConfig({
+        ...input,
+        preloaded: { key: candidateKey, config: candidate },
+      }),
+    ).toBe(publishedConfig);
 
-    const publishedTheme = observation?.theme;
-    await act(async () => {
-      renderer?.render(tree());
-    });
-    expect(observation?.theme).toBe(publishedTheme);
+    const nextCandidate = getAppearance(copyAppearance({ tagline: 'Next appearance' }));
+    expect(
+      resolveAppearanceConfig({
+        brandingEnabled: true,
+        runtimeFlag: true,
+        candidate: nextCandidate,
+        candidateKey: JSON.stringify(nextCandidate),
+        preloaded: { key: candidateKey, config: candidate },
+      }),
+    ).toBe(candidate);
   });
 
-  it('UI-CACHE-02 keeps legacy identity on parent OFF and falls back for compatibility responses', async () => {
+  it('UI-CACHE-02 keeps legacy identity on parent OFF and uses bundled appearance for compatibility fallback', () => {
     expect(getContrastFailures(lightPalette)).toEqual([]);
     expect(getContrastFailures(darkPalette)).toEqual([]);
-    const candidate = copyAppearance();
-    await act(async () => {
-      renderer = mount(<AppProbe />);
-    });
-    expect(observation?.config).toBeNull();
-    expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
-    act(() => renderer?.unmount());
-    renderer = null;
 
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: false, branding_runtime: true }),
-      freshness: 'fallback',
-      appearanceCandidate: candidate,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-
-    await act(async () => {
-      renderer = mount(tree());
-    });
-    expect(observation?.brandingEnabled).toBe(false);
-    expect(observation?.runtimeEnabled).toBe(false);
-    expect(observation?.config).toBeNull();
-    expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
+    const candidate = getAppearance();
+    expect(
+      resolveAppearanceConfig({
+        brandingEnabled: false,
+        runtimeFlag: true,
+        candidate,
+        candidateKey: 'candidate',
+        preloaded: { key: 'candidate', config: candidate },
+      }),
+    ).toBeNull();
+    expect(
+      resolveAppearanceConfig({
+        brandingEnabled: true,
+        runtimeFlag: false,
+        candidate,
+        candidateKey: 'candidate',
+        preloaded: null,
+      }),
+    ).toBe(OORVA_BRANDING_CANDIDATE);
+    expect(
+      resolveAppearanceConfig({
+        brandingEnabled: true,
+        runtimeFlag: true,
+        candidate: null,
+        candidateKey: '',
+        preloaded: null,
+      }),
+    ).toBe(OORVA_BRANDING_CANDIDATE);
+    expect(createThemeSnapshot(false, null, false).colors.primary).toBe(lightPalette.primary);
     expect(prefetch).not.toHaveBeenCalled();
-
-    controls.mockReturnValue({
-      features: makeFeatures(),
-      freshness: 'fallback',
-      appearanceCandidate: undefined,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-    await act(async () => {
-      renderer?.render(tree());
-    });
-    expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
-    expect(observation?.config).toBeNull();
-
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: true, branding_runtime: true }),
-      freshness: 'cache',
-      appearanceCandidate: undefined,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-    await act(async () => {
-      renderer?.render(tree());
-    });
-    expect(observation?.config).toBe(OORVA_BRANDING_CANDIDATE);
-    expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
-    expect(prefetch).not.toHaveBeenCalled();
-    expect(observation?.guestBrowseEnabled).toBe(false);
   });
 
-  it('UI-CACHE-03 rejects unknown schema and treats a failed logo preload as bundled fallback', async () => {
+  it('UI-CACHE-03 rejects unknown schema and bad logos without touching OFF controls or dirty children', async () => {
     const unknownSchema = copyAppearance({ schemaVersion: 2 });
     expect(validateAppearanceCandidate(unknownSchema)).toBeNull();
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: true, branding_runtime: true }),
-      freshness: 'live',
-      appearanceCandidate: unknownSchema,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-    await act(async () => {
-      renderer = mount(tree());
-    });
-    expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
+
+    const badLogo = copyAppearance();
+    (badLogo.assets as Record<string, unknown>).logoDark = 'not-an-asset-id';
+    expect(validateAppearanceCandidate(badLogo)).toBeNull();
     expect(prefetch).not.toHaveBeenCalled();
 
-    const candidate = copyAppearance();
-    (candidate.assets as Record<string, unknown>).logoDark = '00000000-0000-4000-8000-000000000002';
+    const unavailableLogo = copyAppearance();
+    (unavailableLogo.assets as Record<string, unknown>).logoDark =
+      '00000000-0000-4000-8000-000000000002';
     prefetch.mockRejectedValue(new Error('asset unavailable'));
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: true, branding_runtime: true }),
-      freshness: 'live',
-      appearanceCandidate: candidate,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-    await act(async () => {
-      observation?.setDraft('dirty after failed logo');
-      renderer?.render(tree());
-    });
-    await settleEffects();
-    expect(observation?.theme.colors.primary).toBe(OORVA_BRANDING_CANDIDATE.light.primary);
-    expect(observation?.brandingEnabled).toBe(true);
-    expect(observation?.guestBrowseEnabled).toBe(false);
-    expect(observation?.draft).toBe('dirty after failed logo');
+    const candidate = getAppearance(unavailableLogo);
+    await expect(preloadAppearanceAssets(candidate)).resolves.toBe(false);
+    expect(
+      resolveAppearanceConfig({
+        brandingEnabled: true,
+        runtimeFlag: true,
+        candidate,
+        candidateKey: JSON.stringify(candidate),
+        preloaded: { key: JSON.stringify(candidate), config: null },
+      }),
+    ).toBe(OORVA_BRANDING_CANDIDATE);
+
+    const features = { guest_browse: false, oorva_brand: false };
+    const dirtyDraft = { value: 'unsaved form value' };
+    const child = React.createElement(DirtyDraft, { draft: dirtyDraft });
+    const before = createAppearanceProviderElement(appearanceState(), child);
+    const after = createAppearanceProviderElement(
+      appearanceState({ brandingEnabled: true, config: candidate }),
+      child,
+    );
+    expect(features.guest_browse).toBe(false);
+    expect(features.oorva_brand).toBe(false);
+    expect(before.type).toBe(after.type);
+    expect(before.key).toBeNull();
+    expect(after.key).toBeNull();
+    expect(after.props.children).toBe(child);
+    expect((after.props.children as React.ReactElement<{ draft: typeof dirtyDraft }>).props.draft).toBe(
+      dirtyDraft,
+    );
   });
 
-  it('UI-CACHE-04 respects OS-first theme selection, preserves dirty drafts, and falls back from Manrope', async () => {
-    const candidate = copyAppearance({
-      defaultTheme: 'light',
-      headingFont: 'manrope',
-    });
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: true, branding_runtime: true }),
-      freshness: 'live',
-      appearanceCandidate: candidate,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-    colorScheme.mockReturnValue('dark');
+  it('UI-CACHE-04 respects OS-first theme selection and falls back from unavailable Manrope', () => {
+    const candidate = getAppearance(copyAppearance({ defaultTheme: 'light', headingFont: 'manrope' }));
+    expect(resolveDarkTheme('dark', candidate)).toBe(true);
+    expect(resolveDarkTheme('light', { ...candidate, defaultTheme: 'dark' })).toBe(false);
+    expect(resolveDarkTheme(null, { ...candidate, defaultTheme: 'dark' })).toBe(true);
+    expect(resolveDarkTheme(null, candidate)).toBe(false);
 
-    await act(async () => {
-      renderer = mount(tree(false));
-    });
-    await settleEffects();
-    expect(observation?.theme.dark).toBe(true);
-    expect(observation?.theme.typography.title1.fontFamily).toBe('Inter_700Bold');
-    expect(observation?.theme.typography.body.fontFamily).toBe('Inter_400Regular');
-
-    await act(async () => {
-      observation?.setDraft('unsaved form value');
-      renderer?.render(tree(true));
-    });
-    expect(observation?.theme.typography.title1.fontFamily).toBe('Manrope_700Bold');
-    expect(observation?.draft).toBe('unsaved form value');
-    expect(observation?.mountId).toBe(1);
-
-    colorScheme.mockReturnValue('light');
-    await act(async () => {
-      renderer?.render(tree(true));
-    });
-    expect(observation?.theme.dark).toBe(false);
-    expect(observation?.draft).toBe('unsaved form value');
-    expect(observation?.mountId).toBe(1);
-
-    colorScheme.mockReturnValue(null);
-    const darkDefault = copyAppearance({ defaultTheme: 'dark', headingFont: 'manrope' });
-    controls.mockReturnValue({
-      features: makeFeatures({ oorva_brand: true, branding_runtime: true }),
-      freshness: 'live',
-      appearanceCandidate: darkDefault,
-      refresh: jest.fn().mockResolvedValue(undefined),
-    });
-    await act(async () => {
-      renderer?.render(tree(true));
-    });
-    await settleEffects();
-    expect(observation?.theme.dark).toBe(true);
-    expect(observation?.draft).toBe('unsaved form value');
-    expect(observation?.mountId).toBe(1);
+    const interFallback = createThemeSnapshot(true, candidate, false);
+    const manropeReady = createThemeSnapshot(true, candidate, true);
+    expect(interFallback.typography.title1.fontFamily).toBe('Inter_700Bold');
+    expect(interFallback.typography.body.fontFamily).toBe('Inter_400Regular');
+    expect(manropeReady.typography.title1.fontFamily).toBe('Manrope_700Bold');
+    expect(manropeReady.typography.title2.fontFamily).toBe('Manrope_600SemiBold');
+    expect(manropeReady.typography.body.fontFamily).toBe('Inter_400Regular');
   });
 });

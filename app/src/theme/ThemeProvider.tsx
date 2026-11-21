@@ -37,13 +37,20 @@ function freezeDeep<T>(value: T): T {
   return value;
 }
 
-function isDarkTheme(scheme: 'light' | 'dark' | null, appearance: BrandingV1 | null): boolean {
+export function resolveDarkTheme(
+  scheme: 'light' | 'dark' | null,
+  appearance: BrandingV1 | null,
+): boolean {
   if (scheme === 'dark') return true;
   if (scheme === 'light') return false;
   return appearance?.defaultTheme === 'dark';
 }
 
-function buildTheme(dark: boolean, appearance: BrandingV1 | null, manropeReady: boolean): Theme {
+export function createThemeSnapshot(
+  dark: boolean,
+  appearance: BrandingV1 | null,
+  manropeReady: boolean,
+): Theme {
   const colors: Palette = {
     ...(dark ? darkPalette : lightPalette),
     ...(appearance ? (dark ? appearance.dark : appearance.light) : {}),
@@ -74,8 +81,8 @@ function buildTheme(dark: boolean, appearance: BrandingV1 | null, manropeReady: 
   });
 }
 
-const lightTheme = buildTheme(false, null, false);
-const darkTheme = buildTheme(true, null, false);
+const lightTheme = createThemeSnapshot(false, null, false);
+const darkTheme = createThemeSnapshot(true, null, false);
 
 const ThemeContext = createContext<Theme>(lightTheme);
 
@@ -88,11 +95,11 @@ export function ThemeProvider({
 }) {
   const scheme = useColorScheme();
   const { config } = useAppearance();
-  const dark = isDarkTheme(scheme, config);
+  const dark = resolveDarkTheme(scheme, config);
   const useManrope = config?.headingFont === 'manrope' && manropeReady;
   const theme = useMemo(() => {
     if (!config && !useManrope) return dark ? darkTheme : lightTheme;
-    return buildTheme(dark, config, useManrope);
+    return createThemeSnapshot(dark, config, useManrope);
   }, [dark, config, useManrope]);
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
