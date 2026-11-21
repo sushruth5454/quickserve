@@ -1,0 +1,2350 @@
+{
+  "schemaVersion": 1,
+  "stream": "platform",
+  "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "screens": [
+    {
+      "id": "S01",
+      "route": "app\\app\\(auth)\\login.tsx",
+      "bodyPaths": [
+        "app\\app\\(auth)\\login.tsx"
+      ],
+      "purpose": "Authenticate with a normalized Indian mobile number and preserve the requested destination.",
+      "currentHierarchy": [
+        "Legacy hero",
+        "Phone and error",
+        "Send OTP",
+        "Demo/benefits",
+        "Legal/help"
+      ],
+      "targetHierarchy": [
+        "Compact approved identity",
+        "Phone/error/Send OTP",
+        "Real demo notice",
+        "Secondary legal/help/benefits"
+      ],
+      "primaryAction": "Send OTP",
+      "placement": [
+        {
+          "element": "Identity hero",
+          "current": "Gradient, hammer icon and QuickServe before phone field.",
+          "problemOrRetain": "Requested Oorva identity; old hero remains OFF.",
+          "target": "Compact real selected logo/tagline; one phone action remains first task.",
+          "reason": "Do not bury sign-in under decoration.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\login.tsx",
+              "startLine": 70,
+              "endLine": 109,
+              "symbol": "<LinearGradient"
+            }
+          ],
+          "findingIds": [
+            "PF-F12"
+          ],
+          "testCase": "Brand/UX ON/OFF at320 and large text."
+        },
+        {
+          "element": "Phone/action",
+          "current": "Normalized phone input, validation, Send OTP immediately after error.",
+          "problemOrRetain": "Retain valid flow and server Auth call.",
+          "target": "Keep input/error/action contiguous and keyboard reachable.",
+          "reason": "Authentication purpose is already clear.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\login.tsx",
+              "startLine": 30,
+              "endLine": 44,
+              "symbol": "const e164 = normalizeIndianPhone"
+            },
+            {
+              "path": "app\\app\\(auth)\\login.tsx",
+              "startLine": 126,
+              "endLine": 157,
+              "symbol": "label={tr('login.phone.label')}"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Valid/invalid normalized numbers, submit failure/loading, no lost text."
+        },
+        {
+          "element": "Legal/help",
+          "current": "Secondary links below benefits; help may require scroll.",
+          "problemOrRetain": "Keep discoverable legal/help, no new policy promise.",
+          "target": "Secondary compact links after primary form, reachable by keyboard/scroll.",
+          "reason": "Keep operational support and existing legal topics.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\login.tsx",
+              "startLine": 63,
+              "endLine": 67,
+              "symbol": "const link = (topic:"
+            },
+            {
+              "path": "app\\app\\(auth)\\login.tsx",
+              "startLine": 188,
+              "endLine": 192,
+              "symbol": "Need help signing in?"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Terms/privacy/help open existing routes; return intent preserved."
+        },
+        {
+          "element": "Demo/CTA region",
+          "current": "Global demo badge overlays lower-right screen.",
+          "problemOrRetain": "Confirmed overlap risk in shared shell.",
+          "target": "Reserved disclosure slot, not over form/footer/help.",
+          "reason": "Visible disclosure must not obstruct action.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\src\\components\\DemoDataIndicator.tsx",
+              "startLine": 15,
+              "endLine": 28,
+              "symbol": "position: 'absolute'"
+            }
+          ],
+          "findingIds": [
+            "PF-F11"
+          ],
+          "testCase": "No demo rectangle intersects help/CTA bounds."
+        }
+      ],
+      "findingIds": [
+        "PF-F11",
+        "PF-F12"
+      ],
+      "roleStateCases": [
+        "Signed out: send OTP; busy/error: keep form/retry.",
+        "Already authenticated navigation remains the existing protected-tree behavior."
+      ],
+      "retain": [
+        "Phone normalization/India scope, legal routes and actual demo mode remain; no new OTP provider/test-account dependency."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    },
+    {
+      "id": "S02",
+      "route": "app\\app\\(auth)\\role.tsx",
+      "bodyPaths": [
+        "app\\app\\(auth)\\role.tsx"
+      ],
+      "purpose": "Choose the existing customer/provider persona and continue safely after profile save.",
+      "currentHierarchy": [
+        "Welcome/name",
+        "Customer/provider cards",
+        "Error",
+        "Sticky Continue"
+      ],
+      "targetHierarchy": [
+        "Compact welcome/name",
+        "Two existing role choices",
+        "Current benefits/terms",
+        "Error and Continue"
+      ],
+      "primaryAction": "Continue",
+      "placement": [
+        {
+          "element": "Welcome/role terms",
+          "current": "QuickServe headings and two existing persona cards.",
+          "problemOrRetain": "Brand change only; do not create merchant/creator auth enums.",
+          "target": "Contextual Oorva welcome; retain same two choices and membership-driven secondary workspaces.",
+          "reason": "Personas are not new server permissions.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\role.tsx",
+              "startLine": 12,
+              "endLine": 32,
+              "symbol": "const ROLES:"
+            },
+            {
+              "path": "app\\app\\(auth)\\role.tsx",
+              "startLine": 88,
+              "endLine": 96,
+              "symbol": "Welcome to QuickServe"
+            }
+          ],
+          "findingIds": [
+            "PF-F12"
+          ],
+          "testCase": "Only existing role booleans written."
+        },
+        {
+          "element": "Name/state",
+          "current": "Current name loaded opportunistically; updates trim optional name.",
+          "problemOrRetain": "Retain existing profile schema and validation policy.",
+          "target": "Keep name before choice and preserve entered value on refresh/theme changes.",
+          "reason": "No new mandatory identity/policy implied by redesign.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\role.tsx",
+              "startLine": 41,
+              "endLine": 51,
+              "symbol": "getMyProfile()"
+            },
+            {
+              "path": "app\\app\\(auth)\\role.tsx",
+              "startLine": 56,
+              "endLine": 63,
+              "symbol": "await updateMyProfile({"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Draft name survives error/theme/role selection."
+        },
+        {
+          "element": "Continue/intent",
+          "current": "Sticky action; provider default ignores safePath.",
+          "problemOrRetain": "Completed role choice can discard original destination.",
+          "target": "Invite then safe return intent then existing role default; grow long action labels.",
+          "reason": "Continuation must match user's original action.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\role.tsx",
+              "startLine": 61,
+              "endLine": 73,
+              "symbol": "const target = role === 'provider'"
+            }
+          ],
+          "findingIds": [
+            "PF-F03",
+            "PF-F10"
+          ],
+          "testCase": "Provider/customer/invite return matrix."
+        },
+        {
+          "element": "Benefits",
+          "current": "Existing commercial benefit strings inside role cards.",
+          "problemOrRetain": "Retain current policy unless verified/approved outward-copy change.",
+          "target": "Subordinate to role/action, no invented payout guarantees or new pricing.",
+          "reason": "Marketing text must not change actual policy.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\role.tsx",
+              "startLine": 12,
+              "endLine": 32,
+              "symbol": "const ROLES:"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Existing commission terms loading and save-failure retry preserved."
+        }
+      ],
+      "findingIds": [
+        "PF-F03",
+        "PF-F10",
+        "PF-F12"
+      ],
+      "roleStateCases": [
+        "Customer and provider choices retain current updateMyProfile fields.",
+        "Failed mandatory continuation reads stay retryable, not a fake new account."
+      ],
+      "retain": [
+        "No role-system redesign; provider default/onboarding behavior remains except explicit return intent."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    },
+    {
+      "id": "S03",
+      "route": "app\\app\\(auth)\\verify.tsx",
+      "bodyPaths": [
+        "app\\app\\(auth)\\verify.tsx"
+      ],
+      "purpose": "Verify one OTP, then resolve real profile/role and original intent.",
+      "currentHierarchy": [
+        "Back",
+        "Number/Edit",
+        "OTP",
+        "Error/resend",
+        "Sticky Verify"
+      ],
+      "targetHierarchy": [
+        "Back and destination",
+        "OTP/error/resend",
+        "Explicit post-auth lookup/retry",
+        "Verify/continue"
+      ],
+      "primaryAction": "Verify and continue",
+      "placement": [
+        {
+          "element": "OTP destination",
+          "current": "Full formatted number and Edit before OTP.",
+          "problemOrRetain": "Retain; do not infer identity from display text.",
+          "target": "Keep number/Edit/OTP adjacent and readable.",
+          "reason": "User must know where code went.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\verify.tsx",
+              "startLine": 105,
+              "endLine": 124,
+              "symbol": "Enter the code sent to"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Edit returns safely; six-digit autofill retains existing behavior."
+        },
+        {
+          "element": "OTP/error/resend",
+          "current": "60-second local countdown, InlineAlert and explicit resend.",
+          "problemOrRetain": "Retain approved cooldown/auth calls, not a new server throttle.",
+          "target": "Keep next to OTP with truthful busy/error.",
+          "reason": "No undocumented SMS configuration assumption.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\verify.tsx",
+              "startLine": 14,
+              "endLine": 30,
+              "symbol": "const RESEND_SECONDS"
+            },
+            {
+              "path": "app\\app\\(auth)\\verify.tsx",
+              "startLine": 77,
+              "endLine": 91,
+              "symbol": "const resend = async"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Error/resend/countdown/disabled and retry cases."
+        },
+        {
+          "element": "Post-auth continuation",
+          "current": "Read errors collapse to null; provider ignores safe return.",
+          "problemOrRetain": "Unknown is not a missing profile/provider.",
+          "target": "Explicit loading/error/retry after one successful verification; preserve intended destination.",
+          "reason": "Prevents contradictory role state.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\verify.tsx",
+              "startLine": 44,
+              "endLine": 68,
+              "symbol": "const profile = await getMyProfile().catch(() => null);"
+            }
+          ],
+          "findingIds": [
+            "PF-F03"
+          ],
+          "testCase": "OTP-called-once profile/provider retry and returnTo matrix."
+        },
+        {
+          "element": "Primary footer/demo",
+          "current": "Single footer Verify action plus floating demo indicator.",
+          "problemOrRetain": "Essential action must grow and not be obscured.",
+          "target": "Auto-height full label above reserved demo strip.",
+          "reason": "Readable action and real disclosure at narrow/large text.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\(auth)\\verify.tsx",
+              "startLine": 96,
+              "endLine": 100,
+              "symbol": "title=\"Verify & continue\""
+            }
+          ],
+          "findingIds": [
+            "PF-F10",
+            "PF-F11"
+          ],
+          "testCase": "320width/200%, keyboard and demo bounds."
+        }
+      ],
+      "findingIds": [
+        "PF-F03",
+        "PF-F10",
+        "PF-F11"
+      ],
+      "roleStateCases": [
+        "Pending OTP is not authenticated completion.",
+        "Known profile/provider results select current role; transport error never silently selects it."
+      ],
+      "retain": [
+        "Same Supabase SMS verification and current protected-route sequencing."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    },
+    {
+      "id": "S34",
+      "route": "app\\app\\assistant-history.tsx",
+      "bodyPaths": [
+        "app\\app\\assistant-history.tsx"
+      ],
+      "purpose": "Read/resume the current user's existing assistant conversations.",
+      "currentHierarchy": [
+        "History header",
+        "Loading/error/empty or owner list",
+        "Conversation row time/open"
+      ],
+      "targetHierarchy": [
+        "Contextual Oorva history",
+        "Actual load/error/empty",
+        "Dated owner conversation list"
+      ],
+      "primaryAction": "Open conversation; Start a chat only in empty state",
+      "placement": [
+        {
+          "element": "Header",
+          "current": "Past conversations plus last20 QuickServe subtitle.",
+          "problemOrRetain": "Identity-only change.",
+          "target": "Contextual Oorva name; preserve real history limit.",
+          "reason": "Do not invent unlimited storage.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant-history.tsx",
+              "startLine": 33,
+              "endLine": 37,
+              "symbol": "Your last ${HISTORY_LIMIT}"
+            }
+          ],
+          "findingIds": [
+            "PF-F12"
+          ],
+          "testCase": "Brand OFF exact legacy subtitle; same limit."
+        },
+        {
+          "element": "List state",
+          "current": "Explicit error, skeleton and true empty branches.",
+          "problemOrRetain": "Retain existing distinctions.",
+          "target": "Continue showing error/retry separately from no conversations.",
+          "reason": "A request failure is not empty history.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant-history.tsx",
+              "startLine": 34,
+              "endLine": 47,
+              "symbol": "{error ? ("
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Error/skeleton/empty/populated branches."
+        },
+        {
+          "element": "Conversation row",
+          "current": "Owner summaries, accessible full title/time and open route.",
+          "problemOrRetain": "Retain existing owner-read scope; no new delete.",
+          "target": "Date/title remain scannable with explicit open behavior.",
+          "reason": "Preview truncation is secondary; complete accessible title remains.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant-history.tsx",
+              "startLine": 45,
+              "endLine": 58,
+              "symbol": "accessibilityLabel={`${c.title}"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Open correct conversation; no new history delete action."
+        },
+        {
+          "element": "Destination load",
+          "current": "Target assistant can silently return from empty/failed resume or restore an old load.",
+          "problemOrRetain": "Target state needs generation/error truth.",
+          "target": "Explicit target load/retry/unavailable; no false successful empty chat.",
+          "reason": "Selecting a row must resolve that row.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 144,
+              "endLine": 168,
+              "symbol": "const openConversation = useCallback("
+            }
+          ],
+          "findingIds": [
+            "PF-F08"
+          ],
+          "testCase": "A/B selection race and explicit unavailable/empty."
+        }
+      ],
+      "findingIds": [
+        "PF-F08",
+        "PF-F12"
+      ],
+      "roleStateCases": [
+        "Only owner history via existing RLS; backend policy unchanged.",
+        "No delete/membership action is introduced."
+      ],
+      "retain": [
+        "Existing history loading/error UI and owner-only SELECT policies."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    },
+    {
+      "id": "S35",
+      "route": "app\\app\\assistant.tsx",
+      "bodyPaths": [
+        "app\\app\\assistant.tsx"
+      ],
+      "purpose": "Use the existing advisory assistant, inspect real structured cards and review before any booking.",
+      "currentHierarchy": [
+        "AI header/history/new chat",
+        "Location/greeting",
+        "Starter/messages/cards/progress",
+        "Footer quick replies/voice/text/privacy"
+      ],
+      "targetHierarchy": [
+        "Compact AI header/location",
+        "Actual load/current conversation",
+        "Readable structured cards",
+        "Keyboard-safe current action/composer and compact privacy context"
+      ],
+      "primaryAction": "Send, Stop while busy, or review a specific draft; never automatic booking",
+      "placement": [
+        {
+          "element": "Capability state",
+          "current": "Off screen hides UI, but auto-send and handlers still run.",
+          "problemOrRetain": "Known OFF is not enforced at UI side-effect boundary.",
+          "target": "No new request on known OFF, while preserving server rejection.",
+          "reason": "Visibility alone is not action availability.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 421,
+              "endLine": 429,
+              "symbol": "if (!aiOn) {"
+            },
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 282,
+              "endLine": 286,
+              "symbol": "if (autoSent.current || !params.q?.trim())"
+            }
+          ],
+          "findingIds": [
+            "PF-F07"
+          ],
+          "testCase": "Known OFF+q sends zero requests; later OFF aborts pending request."
+        },
+        {
+          "element": "History/new chat",
+          "current": "Header actions load/reset asynchronous conversations.",
+          "problemOrRetain": "Late resume/voice/photo can restore obsolete context.",
+          "target": "Generation-keyed current thread with explicit load/error/retry; full transient reset.",
+          "reason": "Same conversation identity must own all callbacks.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 399,
+              "endLine": 407,
+              "symbol": "const newChat = () =>"
+            },
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 144,
+              "endLine": 168,
+              "symbol": "const openConversation = useCallback("
+            }
+          ],
+          "findingIds": [
+            "PF-F08"
+          ],
+          "testCase": "New-chat vs late load/photo/voice and selected-thread errors."
+        },
+        {
+          "element": "Cards/messages",
+          "current": "Existing safety/diagnosis/estimate/provider/draft renderers; review-and-pay draft is explicitly not booked.",
+          "problemOrRetain": "Retain advisory authority, adapt essential text and semantic foregrounds.",
+          "target": "Entity-specific readable cards with actual estimates and explicit review CTA; no fabricated availability/ratings.",
+          "reason": "AI output is not authorization or payment truth.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 602,
+              "endLine": 630,
+              "symbol": "switch (c.type)"
+            },
+            {
+              "path": "app\\src\\components\\assistant\\AssistantCards.tsx",
+              "startLine": 287,
+              "endLine": 293,
+              "symbol": "label=\"Not booked yet\""
+            }
+          ],
+          "findingIds": [
+            "PF-F10"
+          ],
+          "testCase": "Long provider/amount/draft labels; no booking write until existing review flow."
+        },
+        {
+          "element": "Composer/progress",
+          "current": "Screen footer provides quick replies, transcription preview, text/voice Stop, photo privacy notice.",
+          "problemOrRetain": "Keep keyboard-safe footer; onPrimary replaces hardcoded white before new theme.",
+          "target": "One current primary action; compact but retained privacy disclosure; semantic send/mic colors.",
+          "reason": "Avoid lost messages/unsafe photo enablement.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\src\\components\\assistant\\TextComposer.tsx",
+              "startLine": 24,
+              "endLine": 50,
+              "symbol": "export function TextComposer("
+            },
+            {
+              "path": "app\\src\\components\\assistant\\Composer.tsx",
+              "startLine": 139,
+              "endLine": 143,
+              "symbol": "name=\"arrow-up\""
+            }
+          ],
+          "findingIds": [
+            "PF-F09",
+            "PF-F12"
+          ],
+          "testCase": "Send/Stop/voice-review transitions, keyboard/large-text, photo lock and OFF."
+        },
+        {
+          "element": "Header/location",
+          "current": "QuickServe AI title, current location pill, optional greeting.",
+          "problemOrRetain": "Requested Oorva identity; do not duplicate global AI buttons inside chat.",
+          "target": "Shared identity and one location-change action; secondary greeting.",
+          "reason": "Chat's primary content must remain visible.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 447,
+              "endLine": 457,
+              "symbol": "subtitle=\"Describe the problem. I'll find the right pro.\""
+            },
+            {
+              "path": "app\\app\\assistant.tsx",
+              "startLine": 534,
+              "endLine": 549,
+              "symbol": "accessibilityLabel={`Service location:"
+            }
+          ],
+          "findingIds": [
+            "PF-F12"
+          ],
+          "testCase": "Long place/title and unchanged /location/history destinations."
+        }
+      ],
+      "findingIds": [
+        "PF-F07",
+        "PF-F08",
+        "PF-F09",
+        "PF-F10",
+        "PF-F12"
+      ],
+      "roleStateCases": [
+        "Known capability OFF rejects new work; server remains authoritative.",
+        "Pending/success/stopped/error/transcription-review remain distinct.",
+        "Draft stays Not booked yet until user follows current booking/payment flow."
+      ],
+      "retain": [
+        "Existing visual-PII photo lock and server feature/JWT validation; no AI expansion into checkout authority."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    },
+    {
+      "id": "S39",
+      "route": "app\\app\\byo\\[token].tsx",
+      "bodyPaths": [
+        "app\\app\\byo\\[token].tsx"
+      ],
+      "purpose": "Preview a token-scoped protected booking and continue one committed claim into existing payment.",
+      "currentHierarchy": [
+        "Invite header",
+        "Preview/loading/unavailable",
+        "Scope/parties/server amounts",
+        "Protection context/address",
+        "Claim or sign-in footer"
+      ],
+      "targetHierarchy": [
+        "Invite scope/state",
+        "Canonical preview/error/expiry",
+        "Complete parties/server amount/fee",
+        "Address and one current claim or recovery action"
+      ],
+      "primaryAction": "Sign in, Claim once, then View booking/existing payment recovery",
+      "placement": [
+        {
+          "element": "Preview state",
+          "current": "Undefined/null/preview; rejection sets null and false invalid/expired text.",
+          "problemOrRetain": "Transport error and successful unavailable are conflated.",
+          "target": "Token-keyed loading/available/unavailable/error with Retry.",
+          "reason": "An outage is not an expired invite.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\byo\\[token].tsx",
+              "startLine": 28,
+              "endLine": 38,
+              "symbol": "previewByoInvite(token)"
+            }
+          ],
+          "findingIds": [
+            "PF-F06"
+          ],
+          "testCase": "Null/error/old-token race cases."
+        },
+        {
+          "element": "Scope/price",
+          "current": "Provider/client/schedule and canonical amount/fee/total; fee_bp CHECK300 currently matches3% label.",
+          "problemOrRetain": "Retain server amounts/policy, grow long party/price rows.",
+          "target": "Complete decisive names/scope and exact preview totals; no client fee calculation.",
+          "reason": "Never silently change money/policy during rebranding.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\byo\\[token].tsx",
+              "startLine": 102,
+              "endLine": 126,
+              "symbol": "<PriceRow label=\"Provider\""
+            },
+            {
+              "path": "supabase\\migrations\\0016_leakage_programme.sql",
+              "startLine": 135,
+              "endLine": 138,
+              "symbol": "fee_bp int not null default 300 check (fee_bp = 300)"
+            }
+          ],
+          "findingIds": [
+            "PF-F10"
+          ],
+          "testCase": "Full long names and exact server amounts; no fee-policy change."
+        },
+        {
+          "element": "Address/sign-in",
+          "current": "Public preview; authenticated address form and contextual login footer.",
+          "problemOrRetain": "Retain existing token/public vs claim/auth boundary.",
+          "target": "Same guarded form and role continuation; no new public write.",
+          "reason": "Preview is not permission to claim.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\byo\\[token].tsx",
+              "startLine": 81,
+              "endLine": 88,
+              "symbol": "title=\"Log in to accept this booking\""
+            },
+            {
+              "path": "supabase\\migrations\\0016_leakage_programme.sql",
+              "startLine": 239,
+              "endLine": 262,
+              "symbol": "create or replace function public.claim_byo_invite("
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Guest login+invite return, server self-claim/expired/address rejection."
+        },
+        {
+          "element": "Completed claim/payment",
+          "current": "Booking id local; payment error leaves Accept & pay.",
+          "problemOrRetain": "A committed claim must not stay actionable as unclaimed.",
+          "target": "Retain known bookingId and replace claim with existing booking/payment recovery.",
+          "reason": "Do not retry claim to recover payment.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\byo\\[token].tsx",
+              "startLine": 45,
+              "endLine": 63,
+              "symbol": "const bookingId = await claimByoInvite"
+            },
+            {
+              "path": "supabase\\migrations\\0016_leakage_programme.sql",
+              "startLine": 310,
+              "endLine": 315,
+              "symbol": "set status = 'claimed'"
+            }
+          ],
+          "findingIds": [
+            "PF-F06"
+          ],
+          "testCase": "Claim committed+pay canceled/error -> no second claim, View booking persists."
+        }
+      ],
+      "findingIds": [
+        "PF-F06",
+        "PF-F10"
+      ],
+      "roleStateCases": [
+        "Anonymous: preview/login only.",
+        "Authenticated non-owner: one valid open claim.",
+        "Claimed: existing booking/payment continuation; invalid/expired: no claim."
+      ],
+      "retain": [
+        "Hashed token, server actor/expiry/row lock/price and current3% fee; no backend money mutation change."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    },
+    {
+      "id": "S48",
+      "route": "app\\app\\location.tsx",
+      "bodyPaths": [
+        "app\\app\\location.tsx"
+      ],
+      "purpose": "Select an actual service location, with private saved addresses only for their confirmed owner.",
+      "currentHierarchy": [
+        "Header/search",
+        "Place state/results",
+        "GPS/permission feedback",
+        "Saved addresses/add",
+        "Managed areas",
+        "Address sheet"
+      ],
+      "targetHierarchy": [
+        "Header/search/GPS",
+        "Truthful public result/error",
+        "Actor-correct saved section or contextual sign-in",
+        "Existing managed areas",
+        "Keyboard-safe address editor"
+      ],
+      "primaryAction": "Choose public location or the current user's saved address",
+      "placement": [
+        {
+          "element": "Public search/GPS",
+          "current": "Debounced search, stale callback cleanup and explicit GPS/permission fallback.",
+          "problemOrRetain": "Retain existing public selection and actual geocoder behavior.",
+          "target": "Keep search/GPS first with errors and explicit Settings when denied.",
+          "reason": "Guest browsing must not require private address read.",
+          "classification": "retain",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\location.tsx",
+              "startLine": 100,
+              "endLine": 129,
+              "symbol": "// Debounced place search"
+            },
+            {
+              "path": "app\\app\\location.tsx",
+              "startLine": 148,
+              "endLine": 156,
+              "symbol": "const useGps = async"
+            }
+          ],
+          "findingIds": [],
+          "testCase": "Short/long query, search fail/no-results, GPS denied/settings; selected public location remains usable."
+        },
+        {
+          "element": "Saved addresses",
+          "current": "Always loaded without auth binding; private API rejects guest.",
+          "problemOrRetain": "Guest gets auth error and actor-local state may persist.",
+          "target": "Actor-scoped private section or sign-in entry; no guest private request.",
+          "reason": "Role-specific content must match authenticated owner.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\location.tsx",
+              "startLine": 46,
+              "endLine": 70,
+              "symbol": "const loadAddresses = useCallback"
+            },
+            {
+              "path": "app\\src\\lib\\supabaseApi.ts",
+              "startLine": 431,
+              "endLine": 444,
+              "symbol": "export async function listMyAddresses()"
+            }
+          ],
+          "findingIds": [
+            "PF-F04"
+          ],
+          "testCase": "Guest zero calls; actor change/late result cleared."
+        },
+        {
+          "element": "Saved selection",
+          "current": "Context clears saved on !userId, including pending auth; cache has no owner.",
+          "problemOrRetain": "Unknown auth is not confirmed sign-out or ownership.",
+          "target": "Owner-bound saved cache and confirmed-auth hydration/reset.",
+          "reason": "Avoid false loss and cross-actor restoration.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\src\\lib\\locationContext.tsx",
+              "startLine": 148,
+              "endLine": 158,
+              "symbol": "// A saved address belongs"
+            },
+            {
+              "path": "app\\src\\lib\\locationModel.ts",
+              "startLine": 8,
+              "endLine": 28,
+              "symbol": "export const LOCATION_STORAGE_KEY"
+            }
+          ],
+          "findingIds": [
+            "PF-F04"
+          ],
+          "testCase": "Delayed restore same owner, actual logout, A->B and legacy cache."
+        },
+        {
+          "element": "Delete/details",
+          "current": "Confirmed delete reloads; errors hidden when old list exists; row subtitle capped2lines.",
+          "problemOrRetain": "Known deleted/stale row and decisive address can mislead.",
+          "target": "Remove confirmed deleted row, disclose reload error and show full saved address.",
+          "reason": "Completed action must disappear without an error-to-fresh claim.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\app\\location.tsx",
+              "startLine": 65,
+              "endLine": 74,
+              "symbol": "await deleteAddress(address.id);"
+            },
+            {
+              "path": "app\\app\\location.tsx",
+              "startLine": 255,
+              "endLine": 267,
+              "symbol": "{addrError && !addresses ?"
+            }
+          ],
+          "findingIds": [
+            "PF-F04",
+            "PF-F10"
+          ],
+          "testCase": "Delete-success/reload-failure and long address cases."
+        },
+        {
+          "element": "Editor/footer",
+          "current": "Existing address sheet validates line/city and snapshots map pin.",
+          "problemOrRetain": "Retain server ownership and validation; close private draft on actor loss.",
+          "target": "Current-actor editor with visible keyboard-safe Save and retained pin.",
+          "reason": "No private draft or completed save should cross actor boundaries.",
+          "classification": "source-backed-change",
+          "sourceRefs": [
+            {
+              "path": "app\\src\\components\\AddressEditor.tsx",
+              "startLine": 68,
+              "endLine": 84,
+              "symbol": "const save = async"
+            }
+          ],
+          "findingIds": [
+            "PF-F04"
+          ],
+          "testCase": "Actor switch closes editor; successful save chooses current owned record; keyboard native evidence."
+        }
+      ],
+      "findingIds": [
+        "PF-F04",
+        "PF-F10"
+      ],
+      "roleStateCases": [
+        "Guest uses public search/GPS, not private address CRUD.",
+        "Pending auth does not classify ownership.",
+        "Current user sees only own saved rows; backend owner filters remain."
+      ],
+      "retain": [
+        "Existing location permission/settings/geocoder fallback and saved-address SQL owner checks; no new geography policy."
+      ],
+      "runtimeEvidence": "Source audit; referenced existing web capture only, no new app/device run"
+    }
+  ],
+  "entities": [
+    {
+      "key": "byoInvite",
+      "applicability": "present",
+      "identityKeys": [
+        "byo_invites.id PK",
+        "unique token_hash",
+        "booking_id unique relation"
+      ],
+      "canonicalFields": [
+        "provider_id",
+        "provider_service_id",
+        "status",
+        "expires_at",
+        "claimed_by",
+        "booking_id",
+        "amount_paise",
+        "fee_bp"
+      ],
+      "states": [
+        "Stored: open,claimed,cancelled; expired is derived from open+expires_at<=now, not another stored CHECK value."
+      ],
+      "compositeRules": [
+        "Public preview requires matching hashed token, status=open and expires_at>now.",
+        "Claimable requires authenticated non-provider actor, open/unexpired row under FOR UPDATE, valid address/location and currently active KYC-verified unsuspended provider service.",
+        "Current fee_bp CHECK=300; preview/claim calculate the same integer-paise fee. Do not replace this distinct private-invite rule with a guessed marketplace-live predicate."
+      ],
+      "transitions": [
+        "create_byo_invite: eligible owning provider/service -> open.",
+        "claim_byo_invite: authenticated non-owner, open/unexpired -> claimed plus pending_payment booking and approved quote in one transaction.",
+        "cancel_byo_invite: owning provider and stored status=open -> cancelled; its current predicate does not additionally test expires_at. Repeat/other-provider/claimed fails.",
+        "list_my_byo_invites: owning provider only, latest100 by created_at; stored open with elapsed expires_at is projected as expired without changing its stored status."
+      ],
+      "roleStateCases": [
+        "Anonymous: safe token preview and contextual sign-in, never claim.",
+        "Authenticated recipient: claim once when server-valid.",
+        "Provider-self/expired/already-used: server rejects.",
+        "Claim success + payment failure: claim remains complete; recover existing booking, never repeat mutation."
+      ],
+      "viewsAndRefresh": [
+        "S39 token-keyed preview/retry and known claimed booking recovery; provider invite history S08 must reflect current claimed state."
+      ],
+      "sourceRefs": [
+        {
+          "path": "supabase\\migrations\\0016_leakage_programme.sql",
+          "startLine": 205,
+          "endLine": 237,
+          "symbol": "create or replace function public.preview_byo_invite"
+        },
+        {
+          "path": "supabase\\migrations\\0016_leakage_programme.sql",
+          "startLine": 239,
+          "endLine": 330,
+          "symbol": "create or replace function public.claim_byo_invite"
+        },
+        {
+          "path": "supabase\\migrations\\0016_leakage_programme.sql",
+          "startLine": 316,
+          "endLine": 354,
+          "symbol": "create or replace function public.list_my_byo_invites()"
+        },
+        {
+          "path": "supabase\\migrations\\0016_leakage_programme.sql",
+          "startLine": 351,
+          "endLine": 363,
+          "symbol": "create or replace function public.cancel_byo_invite("
+        }
+      ],
+      "unknownBehavior": "No claim action from failed/unknown/stale preview; no false invalid/expired diagnosis from transport error.",
+      "blockers": []
+    }
+  ],
+  "cardTemplates": [],
+  "findings": [
+    {
+      "id": "PF-F01",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "Guest controls have independent, uncached and contradictory refresh paths",
+      "actual": "RootNavigator fetches getAppFeatures separately, waits without a local deadline on first guest entry, and converts any foreground fetch failure to guestBrowse=false. Each useAppFeatureFlags call independently fetches and silently retains its own prior state. There is no shared current flag snapshot/cache.",
+      "target": "One independently validated, cache-first control provider feeds RootNavigator and every flag consumer; a transport/appearance failure must not invent a successful OFF result.",
+      "exactChange": [
+        "Preserve complete existing flags including archetypes and legacy defaults.",
+        "Replace the root fetch/loading-to-false state and per-hook network ownership with one provider.",
+        "Keep valid OFF independent of appearance schema/assets and preserve G-01 route/return guards."
+      ],
+      "wpOwner": "O05A",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\_layout.tsx",
+          "startLine": 58,
+          "endLine": 97,
+          "symbol": "const [guestBrowse, setGuestBrowse]"
+        },
+        {
+          "path": "app\\src\\lib\\featureFlags.ts",
+          "startLine": 18,
+          "endLine": 41,
+          "symbol": "export function useAppFeatureFlags()"
+        },
+        {
+          "path": "supabase\\migrations\\0042_feature_registry.sql",
+          "startLine": 38,
+          "endLine": 53,
+          "symbol": "create or replace function public.get_app_features()"
+        }
+      ],
+      "screenIds": [],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\_layout.tsx",
+        "app\\src\\branding\\FeatureFlagsProvider.tsx",
+        "app\\src\\lib\\__tests__\\authRestoreModel.test.ts",
+        "app\\src\\lib\\auth.tsx",
+        "app\\src\\lib\\authRestoreModel.ts",
+        "app\\src\\lib\\featureFlags.ts",
+        "app\\src\\lib\\supabaseApi.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "UI-CACHE-01..04; authRestoreModel: reject/retry, known-null, late-initial-after-signout, latest-login-event",
+        "Existing authGate/GuestGate and parent-feature tests; exact legacy/archetypes parity"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F02",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "Auth restoration has no explicit failure state or protection against a late initial result",
+      "actual": "AuthProvider's Promise.all has no catch/finally. Its initial then can overwrite a later onAuthChange session, and onAuthChange does not settle loading. getSession in supabaseApi discards the SDK error field.",
+      "target": "Loading, known signed-out, authenticated and restore-error are distinct; a newer auth event outranks an older startup result, with a usable retry instead of permanent loader or false signed-out.",
+      "exactChange": [
+        "Surface SDK errors through getSession/requireUserId while retaining legitimate null-session behavior.",
+        "Use an initialization generation/event sequence and explicit restore error/retry.",
+        "Render a safe non-authorizing retry surface; never manufacture an authenticated session or OTP success."
+      ],
+      "wpOwner": "O05A",
+      "sourceRefs": [
+        {
+          "path": "app\\src\\lib\\auth.tsx",
+          "startLine": 30,
+          "endLine": 54,
+          "symbol": "Promise.all([getSession()"
+        },
+        {
+          "path": "app\\src\\lib\\supabaseApi.ts",
+          "startLine": 81,
+          "endLine": 92,
+          "symbol": "export async function getSession()"
+        },
+        {
+          "path": "app\\app\\_layout.tsx",
+          "startLine": 103,
+          "endLine": 106,
+          "symbol": "if (loading || awaitingGuestFlag)"
+        }
+      ],
+      "screenIds": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\_layout.tsx",
+        "app\\src\\branding\\FeatureFlagsProvider.tsx",
+        "app\\src\\lib\\__tests__\\authRestoreModel.test.ts",
+        "app\\src\\lib\\auth.tsx",
+        "app\\src\\lib\\authRestoreModel.ts",
+        "app\\src\\lib\\featureFlags.ts",
+        "app\\src\\lib\\supabaseApi.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "UI-CACHE-01..04; authRestoreModel: reject/retry, known-null, late-initial-after-signout, latest-login-event",
+        "Existing authGate/GuestGate and parent-feature tests; exact legacy/archetypes parity"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F03",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "Post-OTP reads silently become new-user/customer state and provider defaults discard return intent",
+      "actual": "VerifyScreen catches profile and provider read errors as null, then classifies/routes them as missing records. The returning-provider route chooses dashboard before safe returnTo; RoleScreen also ignores safePath for a selected provider.",
+      "target": "After OTP succeeds, retry failed profile/provider reads without re-verifying the consumed OTP. A valid invite wins, then explicit safe return intent, then the existing role default.",
+      "exactChange": [
+        "Remove error-to-null classification from mandatory post-auth reads.",
+        "Keep known-missing records distinct from read failure and preserve the existing returningUserRole rule for genuinely missing rows.",
+        "Use one pure destination resolver in verify/role; preserve setChoosingRole and static protected-tree sequencing."
+      ],
+      "wpOwner": "O13",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\(auth)\\verify.tsx",
+          "startLine": 44,
+          "endLine": 67,
+          "symbol": "const profile = await getMyProfile().catch(() => null);"
+        },
+        {
+          "path": "app\\app\\(auth)\\role.tsx",
+          "startLine": 61,
+          "endLine": 74,
+          "symbol": "const target = role === 'provider'"
+        },
+        {
+          "path": "app\\src\\lib\\returningUser.ts",
+          "startLine": 7,
+          "endLine": 9,
+          "symbol": "export function returningUserRole"
+        }
+      ],
+      "screenIds": [
+        "S02",
+        "S03"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\(auth)\\role.tsx",
+        "app\\app\\(auth)\\verify.tsx",
+        "app\\src\\lib\\__tests__\\authContinuation.test.ts",
+        "app\\src\\lib\\returningUser.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "authContinuation: profile error, provider error, OTP-called-once retry, customer/provider returnTo, invite precedence, known-null rows"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F04",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "Public location queries private addresses and the local address list is not identity-scoped",
+      "actual": "LocationPicker always invokes listMyAddresses, which requires a session, even though location is a guest-browse route. Its address list/effect is not keyed by userId. LocationProvider correctly clears saved selection on known sign-out, but does so while auth can still be loading and does not bind persisted saved selections to an owner. Refresh failure is hidden once addresses already exist.",
+      "target": "Public location selection works without private queries. Saved list/editor and saved selection belong to the confirmed current actor, with explicit stale/error state and no late cross-actor restore.",
+      "exactChange": [
+        "Read auth userId/loading; skip/clear private list and close editor when unauthenticated or actor changes.",
+        "Bind saved-selection cache metadata to the owning user under the existing storage key; defer private hydration until auth resolves; discard unknown-owner legacy saved selections, retaining public GPS/search/area choices.",
+        "Invalidate late address loads, expose refresh error alongside permissible current-actor rows, and remove a confirmed-deleted row even if follow-up reload fails.",
+        "Render complete saved-address details without decisive truncation."
+      ],
+      "wpOwner": "O13",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\location.tsx",
+          "startLine": 46,
+          "endLine": 76,
+          "symbol": "const loadAddresses = useCallback"
+        },
+        {
+          "path": "app\\src\\lib\\supabaseApi.ts",
+          "startLine": 431,
+          "endLine": 444,
+          "symbol": "export async function listMyAddresses()"
+        },
+        {
+          "path": "app\\src\\lib\\locationContext.tsx",
+          "startLine": 148,
+          "endLine": 158,
+          "symbol": "// A saved address belongs"
+        },
+        {
+          "path": "app\\src\\lib\\locationModel.ts",
+          "startLine": 113,
+          "endLine": 141,
+          "symbol": "export function parseStoredLocation("
+        }
+      ],
+      "screenIds": [
+        "S48"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\location.tsx",
+        "app\\src\\components\\AddressEditor.tsx",
+        "app\\src\\lib\\__tests__\\locationActorState.test.ts",
+        "app\\src\\lib\\__tests__\\locationModel.test.ts",
+        "app\\src\\lib\\locationContext.tsx",
+        "app\\src\\lib\\locationModel.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "locationActorState: guest, loading->same-owner, A->B, logout, stale promise, legacy cache, delete/reload error",
+        "Existing locationModel/geocoding/address owner tests; no new public grants"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F05",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "Provider access loading is blank and admin transport errors are presented as denial",
+      "actual": "ProviderTabs returns null while checking access. AdminLayout collapses amIAdmin errors to false and redirects home, so an unavailable permission check appears equivalent to a known non-admin. Admin effect is mount-only.",
+      "target": "Show bounded readable loading; keep denied distinct from error/retry and bind permission checks to actor identity without mounting protected children prematurely.",
+      "exactChange": [
+        "Use existing FullScreenLoader/InlineAlert/Button instead of null.",
+        "Keep admin allowed/denied/error/loading separately, clear stale results on actor change and retry only the failed lookup.",
+        "Preserve actual backend membership checks and owner-only navigation; do not turn hidden tabs into authorization."
+      ],
+      "wpOwner": "O11",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\(provider)\\_layout.tsx",
+          "startLine": 42,
+          "endLine": 60,
+          "symbol": "if (checkingAccess) return null;"
+        },
+        {
+          "path": "app\\app\\admin\\_layout.tsx",
+          "startLine": 9,
+          "endLine": 14,
+          "symbol": "void amIAdmin().then(setAllowed)"
+        },
+        {
+          "path": "app\\src\\lib\\adminApi.ts",
+          "startLine": 319,
+          "endLine": 328,
+          "symbol": "async function rpc<T>"
+        }
+      ],
+      "screenIds": [],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\(provider)\\_layout.tsx",
+        "app\\app\\admin\\_layout.tsx",
+        "app\\src\\lib\\__tests__\\accessPresentation.test.ts",
+        "app\\src\\lib\\accessPresentation.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "accessPresentation: loading/error/retry/deny/allow/actor-switch; existing navigation role tests"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F06",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "BYO preview failures and committed claims do not have truthful recoverable UI states",
+      "actual": "Preview rejection sets both an error and preview=null, rendering 'invalid, expired or already used' even on transport failure; old token results are not invalidated. After claim commits, bookingId is local to the try and payment error leaves Accept & pay visible, but server has changed invite to claimed and rejects another claim.",
+      "target": "Token-keyed loading/available/unavailable/error and known-claimed states; after commit, retain bookingId and replace Claim with the existing booking/payment recovery route.",
+      "exactChange": [
+        "Add request sequence/cancellation and a retryable preview-error state distinct from successful null.",
+        "Persist the returned bookingId before entering payment flow; never repeat claim to retry payment.",
+        "Keep server preview amounts, expiry/claim guard and fee_bp=300 policy unchanged; the 3% label is currently source-correct, not an admin-config drift finding."
+      ],
+      "wpOwner": "O13",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\byo\\[token].tsx",
+          "startLine": 28,
+          "endLine": 37,
+          "symbol": "previewByoInvite(token)"
+        },
+        {
+          "path": "app\\app\\byo\\[token].tsx",
+          "startLine": 45,
+          "endLine": 62,
+          "symbol": "const bookingId = await claimByoInvite"
+        },
+        {
+          "path": "supabase\\migrations\\0016_leakage_programme.sql",
+          "startLine": 239,
+          "endLine": 330,
+          "symbol": "create or replace function public.claim_byo_invite("
+        },
+        {
+          "path": "supabase\\migrations\\0016_leakage_programme.sql",
+          "startLine": 135,
+          "endLine": 139,
+          "symbol": "fee_bp int not null default 300 check (fee_bp = 300)"
+        }
+      ],
+      "screenIds": [
+        "S39"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\byo\\[token].tsx",
+        "app\\src\\lib\\__tests__\\byoInvitePresentation.test.ts",
+        "app\\src\\lib\\byoInvitePresentation.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "byoInvitePresentation: preview-null/error/stale-token, claim-success/payment-error/cancel, completed-action replacement",
+        "Existing BYO SQL guard/amount tests retained; targeted money/auth review"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F07",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "AI disabled UI still permits the query auto-send effect and handlers to issue a request",
+      "actual": "aiOn only selects the rendered off view. The q auto-send effect and send callback do not check it. The server independently rejects a disabled feature, so this is not a server authorization bypass.",
+      "target": "Known disabled controls prevent new chat/transcription requests and cancel pending client generation; server checks remain unchanged and authoritative.",
+      "exactChange": [
+        "Gate auto-send and explicit send/transcribe entry points on effective capability, not just component visibility.",
+        "Abort/ignore pending generation when capability turns OFF; do not replay a queued question when late flags change unless the user initiates again.",
+        "Retain existing photo privacy gate, server config/feature/JWT checks, and user review before booking."
+      ],
+      "wpOwner": "O36",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\assistant.tsx",
+          "startLine": 99,
+          "endLine": 102,
+          "symbol": "const aiOn = aiAssistantEnabled"
+        },
+        {
+          "path": "app\\app\\assistant.tsx",
+          "startLine": 182,
+          "endLine": 192,
+          "symbol": "const send = useCallback("
+        },
+        {
+          "path": "app\\app\\assistant.tsx",
+          "startLine": 282,
+          "endLine": 286,
+          "symbol": "if (autoSent.current || !params.q?.trim())"
+        },
+        {
+          "path": "supabase\\functions\\ai-assistant\\index.ts",
+          "startLine": 1246,
+          "endLine": 1257,
+          "symbol": "const feature = await admin.rpc(\"_feature_enabled\""
+        }
+      ],
+      "screenIds": [
+        "S35"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\assistant-history.tsx",
+        "app\\app\\assistant.tsx",
+        "app\\src\\lib\\assistant\\__tests__\\conversationState.test.ts",
+        "app\\src\\lib\\assistant\\conversationState.ts",
+        "app\\src\\lib\\assistant\\history.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "conversationState: OFF auto-send, live OFF abort, A/B load race, new-chat resume race, stale photo/voice, selected-load error/empty"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F08",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "AI history and new-chat callbacks can restore an obsolete conversation",
+      "actual": "openConversation has no request generation/cancellation; explicit empty turns silently return. newChat aborts chat but does not invalidate history/photo/voice callbacks or clear voice/photo state. A late resume can repopulate the new conversation.",
+      "target": "Conversation loads and all async results belong to a current conversation generation; new chat truly resets transient context and an explicit load failure/empty result is shown truthfully.",
+      "exactChange": [
+        "Track conversation generation in open/resume/new-chat and ignore old turn/photo/transcription callbacks.",
+        "Reset/abort chat and voice plus temporary photo/menu/progress when starting a new chat.",
+        "Use retryable conversation loading/error/unavailable/empty states without inventing access or a successful empty conversation."
+      ],
+      "wpOwner": "O36",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\assistant.tsx",
+          "startLine": 144,
+          "endLine": 167,
+          "symbol": "const openConversation = useCallback("
+        },
+        {
+          "path": "app\\app\\assistant.tsx",
+          "startLine": 399,
+          "endLine": 408,
+          "symbol": "const newChat = () =>"
+        },
+        {
+          "path": "app\\src\\lib\\assistant\\history.ts",
+          "startLine": 82,
+          "endLine": 105,
+          "symbol": "export async function loadConversation("
+        }
+      ],
+      "screenIds": [
+        "S34",
+        "S35"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\app\\assistant-history.tsx",
+        "app\\app\\assistant.tsx",
+        "app\\src\\lib\\assistant\\__tests__\\conversationState.test.ts",
+        "app\\src\\lib\\assistant\\conversationState.ts",
+        "app\\src\\lib\\assistant\\history.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "conversationState: OFF auto-send, live OFF abort, A/B load race, new-chat resume race, stale photo/voice, selected-load error/empty"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F09",
+      "severity": "P1",
+      "classification": "confirmed-current-defect",
+      "title": "Actual unread and pressed-destructive color pairs fail normal-text contrast",
+      "actual": "Independent measurements from current tokens: white/unread danger is3.7574 light and2.7861 dark; dark pressed destructive uses white on dangerText #FDA29B,1.9412. Primary/onPrimary and selected segmentThumb are already semantic/correct and must not be reported as current failures.",
+      "target": "Unread, destructive default/pressed and new palette primary states use explicit semantic foreground/fill pairs that pass >=4.5:1.",
+      "exactChange": [
+        "Add onDanger and dangerPressed semantic roles; set legacy dangerPressed=#B42318 and onDanger=#FFFFFF, retaining unrelated palette values.",
+        "Use dangerStrong/onDanger for CountBadge, IconButton numeric badges and both tab-badge styles; reuse CountBadge where appropriate.",
+        "Use onPrimary for chip/step/segment counts and assistant send/mic icons before applying a different Oorva dark primary.",
+        "Retain segmentThumb and ordinary Button primary/onPrimary; do not replace them with a literal fill."
+      ],
+      "wpOwner": "O02/O06/O11/O36",
+      "sourceRefs": [
+        {
+          "path": "app\\src\\components\\ui\\CountBadge.tsx",
+          "startLine": 33,
+          "endLine": 43,
+          "symbol": "backgroundColor: t.colors.danger,"
+        },
+        {
+          "path": "app\\src\\components\\ui\\Button.tsx",
+          "startLine": 63,
+          "endLine": 65,
+          "symbol": "destructive: {"
+        },
+        {
+          "path": "app\\src\\components\\ui\\IconButton.tsx",
+          "startLine": 87,
+          "endLine": 104,
+          "symbol": "minWidth: 20,\n            height: 20,"
+        },
+        {
+          "path": "app\\src\\theme\\tokens.ts",
+          "startLine": 114,
+          "endLine": 145,
+          "symbol": "export const darkPalette"
+        }
+      ],
+      "screenIds": [],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\src\\branding\\__tests__\\validation.test.ts",
+        "app\\src\\branding\\colorContract.ts",
+        "app\\src\\branding\\defaults.ts",
+        "app\\src\\components\\ui\\Badge.tsx",
+        "app\\src\\components\\ui\\Button.tsx",
+        "app\\src\\components\\ui\\CountBadge.tsx",
+        "app\\src\\components\\ui\\IconButton.tsx",
+        "app\\src\\components\\ui\\Input.tsx",
+        "app\\src\\components\\ui\\OTPInput.tsx",
+        "app\\src\\components\\ui\\SegmentedControl.tsx",
+        "app\\src\\components\\ui\\Stepper.tsx",
+        "app\\src\\components\\ui\\Text.tsx",
+        "app\\src\\theme\\tokens.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "Color fixtures: current failing unread/dark-pressed pairs rejected; chosen safe replacements and all Oorva/default pairs pass",
+        "Primitive component tests: unread0/99+, dark destructive pressed, long action/full amount, long chip/status and narrow progress, reduced motion"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F10",
+      "severity": "P2",
+      "classification": "confirmed-current-defect",
+      "title": "Essential actions and text are capped/truncated rather than reliably reflowing",
+      "actual": "Button forces one line and font scale1.3. Badge/chip/segment/step labels also force one line; StepIndicator uses fixed72-wide step items. Text's variant caps are below2.0. This source behavior cannot demonstrate the plan's requested large-text/full-essential-label acceptance.",
+      "target": "Essential action/title/amount/status text remains complete at320logical width and200% font scale; controls grow or stack instead of silently truncating.",
+      "exactChange": [
+        "Allow critical variants to reach at least2.0 scale and remove tighter critical-control overrides.",
+        "Use minHeight plus padding/auto-height for action/status/count containers and wrap decisive labels.",
+        "Make StepIndicator adapt to actual available width/step count; keep all steps accessible, with compact current/total layout where a horizontal rail cannot fit.",
+        "Keep nondecisive previews bounded only when the full text is available through the supported detail/accessibility path."
+      ],
+      "wpOwner": "O06",
+      "sourceRefs": [
+        {
+          "path": "app\\src\\components\\ui\\Button.tsx",
+          "startLine": 115,
+          "endLine": 118,
+          "symbol": "numberOfLines={1}"
+        },
+        {
+          "path": "app\\src\\components\\ui\\Stepper.tsx",
+          "startLine": 87,
+          "endLine": 90,
+          "symbol": "width: 72"
+        },
+        {
+          "path": "app\\src\\theme\\tokens.ts",
+          "startLine": 251,
+          "endLine": 274,
+          "symbol": "export const maxFontScale"
+        }
+      ],
+      "screenIds": [],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\src\\components\\ui\\Badge.tsx",
+        "app\\src\\components\\ui\\Button.tsx",
+        "app\\src\\components\\ui\\CountBadge.tsx",
+        "app\\src\\components\\ui\\IconButton.tsx",
+        "app\\src\\components\\ui\\Input.tsx",
+        "app\\src\\components\\ui\\OTPInput.tsx",
+        "app\\src\\components\\ui\\SegmentedControl.tsx",
+        "app\\src\\components\\ui\\Stepper.tsx",
+        "app\\src\\components\\ui\\Text.tsx"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "Primitive component tests: unread0/99+, dark destructive pressed, long action/full amount, long chip/status and narrow progress, reduced motion"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F11",
+      "severity": "P2",
+      "classification": "confirmed-current-defect",
+      "title": "Demo disclosure is an absolute overlay on tabs and sticky actions",
+      "actual": "DemoDataIndicator is absolute at bottom spacing.xl with zIndex100. Current-code web images show it occupying the tab/footer region, including verification and provider navigation. pointerEvents=none prevents interception but not visual obstruction.",
+      "target": "Keep clear demo disclosure while reserving layout space outside primary actions/tab labels and toast layers.",
+      "exactChange": [
+        "Move disclosure into a measured noninteractive safe-area strip or reserved shell slot, not a floating lower-right badge.",
+        "Coordinate Screen footer, tab bar and toast offsets once; do not hide demo disclosure or repeatedly pad every screen."
+      ],
+      "wpOwner": "O07",
+      "sourceRefs": [
+        {
+          "path": "app\\src\\components\\DemoDataIndicator.tsx",
+          "startLine": 15,
+          "endLine": 28,
+          "symbol": "position: 'absolute'"
+        },
+        {
+          "path": "app\\src\\components\\ui\\Screen.tsx",
+          "startLine": 81,
+          "endLine": 89,
+          "symbol": "const toastOffset ="
+        }
+      ],
+      "screenIds": [
+        "S01",
+        "S02",
+        "S03",
+        "S39"
+      ],
+      "flagClass": "A",
+      "writeFiles": [
+        "app\\src\\components\\DemoDataIndicator.tsx",
+        "app\\src\\components\\RouteErrorBoundary.tsx",
+        "app\\src\\components\\ui\\BottomSheet.tsx",
+        "app\\src\\components\\ui\\Confirm.tsx",
+        "app\\src\\components\\ui\\Screen.tsx",
+        "app\\src\\components\\ui\\Toast.tsx"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "Shell/overlay bounds at320/large-text, keyboard/footer/toast/demo; reduced-motion sheet/progress; crash fallback"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F12",
+      "severity": "P2",
+      "classification": "required-design-change",
+      "title": "Identity text and native identity still use context-specific legacy sources",
+      "actual": "Login/role/assistant/BYO/native permission/build strings are QuickServe; other receipt/checkout contexts intentionally use Nearo. No current Oorva runtime appearance system or integrated approved vector/native identity exists in this snapshot.",
+      "target": "Apply the proposed approved Oorva identity through a contextual resolver and strict runtime contract without rewriting historical/technical identifiers.",
+      "exactChange": [
+        "Use the already specified brand/runtime/family switches and preserve each context's exact OFF identity.",
+        "Keep final SVG selection/public rights/native distribution gates distinct from reversible implementation.",
+        "Do not blindly rename package IDs, scheme, AsyncStorage keys, receipt prefixes or financial snapshots."
+      ],
+      "wpOwner": "O05B/O13/O33/O35/O36",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\(auth)\\login.tsx",
+          "startLine": 97,
+          "endLine": 102,
+          "symbol": "QuickServe"
+        },
+        {
+          "path": "app\\app\\(auth)\\role.tsx",
+          "startLine": 88,
+          "endLine": 95,
+          "symbol": "Welcome to QuickServe"
+        },
+        {
+          "path": "app\\app\\assistant.tsx",
+          "startLine": 421,
+          "endLine": 428,
+          "symbol": "if (!aiOn) {"
+        },
+        {
+          "path": "app\\app.json",
+          "startLine": 3,
+          "endLine": 16,
+          "symbol": "\"name\": \"QuickServe\""
+        }
+      ],
+      "screenIds": [
+        "S01",
+        "S02",
+        "S34",
+        "S35",
+        "S39"
+      ],
+      "flagClass": "B",
+      "writeFiles": [
+        "app\\src\\branding\\BrandLogo.tsx",
+        "app\\src\\branding\\defaults.ts",
+        "app\\src\\branding\\identity.ts"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "Identity context matrix: mixed legacy names, brand/runtime OFF, asset failure, selected assets, invalid schema"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F13",
+      "severity": "P1",
+      "classification": "required-design-change",
+      "title": "Current native publishing cannot safely double as isolated Oorva candidate delivery",
+      "actual": "publish-app automatically publishes main app changes to preview and hardcoded apk-1/apk; build-apk separately declares APK_RUNTIME=apk-1 and channel apk. app.json has no expo-splash-screen plugin. No iOS-specific candidate path is supplied by these workflows.",
+      "target": "One approved runtime/capability/channel source, isolated reviewed candidate updates and real supported-platform evidence before native cutover.",
+      "exactChange": [
+        "Implement the exact A.4.1/A.4.5 export/config/delivery contract under O33.",
+        "Keep native-changing work on candidate branches until D07b; E1 alone never authorizes an incompatible OTA.",
+        "Record native/runtime/channel/update/source identity and use D07a's approved device-reachable non-production backend."
+      ],
+      "wpOwner": "O33",
+      "sourceRefs": [
+        {
+          "path": ".github\\workflows\\publish-app.yml",
+          "startLine": 109,
+          "endLine": 116,
+          "symbol": "cfg.expo.runtimeVersion = \"apk-1\";"
+        },
+        {
+          "path": ".github\\workflows\\build-apk.yml",
+          "startLine": 12,
+          "endLine": 16,
+          "symbol": "APK_RUNTIME: apk-1"
+        },
+        {
+          "path": "app\\app.json",
+          "startLine": 38,
+          "endLine": 64,
+          "symbol": "\"plugins\": ["
+        }
+      ],
+      "screenIds": [],
+      "flagClass": "B",
+      "writeFiles": [
+        ".github\\workflows\\build-apk.yml",
+        ".github\\workflows\\publish-app.yml",
+        "app\\app.json",
+        "app\\eas.json",
+        "app\\native-release.json"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "NATIVE-IDENTITY and actual supported-platform matrix; no main/native promotion before E1+D07b"
+      ],
+      "risks": []
+    },
+    {
+      "id": "PF-F14",
+      "severity": "P1",
+      "classification": "required-design-change",
+      "title": "There is no current launch controller implementing the required bounded, actual-destination reveal",
+      "actual": "Root waits for fonts and auth/guest loading, while notification launch lookup runs asynchronously after readiness. There is no implemented Oorva frame/geometry/motion/watchdog controller. This is a new requested feature, not evidence an existing native animation was tested.",
+      "target": "Implement the fixed A.4.4 bootstrap and scaled native-identical reveal on capable candidates, with safe error/zero/reduced/OFF/deep-link behavior.",
+      "exactChange": [
+        "Use independent bounded cache/control hydration and font readiness, capability boundary before native adapter evaluation, and idempotent native release/watchdog.",
+        "Settle actual auth/URL/notification intent without an animation-owned home navigation.",
+        "Never call a missing native module in old/Expo-Go/web paths; never claim iOS or real push evidence from local/web tests."
+      ],
+      "wpOwner": "O34",
+      "sourceRefs": [
+        {
+          "path": "app\\app\\_layout.tsx",
+          "startLine": 164,
+          "endLine": 178,
+          "symbol": "export default function RootLayout()"
+        },
+        {
+          "path": "app\\src\\lib\\push.ts",
+          "startLine": 125,
+          "endLine": 129,
+          "symbol": "void N.getLastNotificationResponseAsync()"
+        }
+      ],
+      "screenIds": [],
+      "flagClass": "C",
+      "writeFiles": [
+        "app\\app\\_layout.tsx",
+        "app\\assets\\brand\\launch-geometry.json",
+        "app\\src\\branding\\LaunchExperience.tsx",
+        "app\\src\\branding\\launchBootstrap.ts",
+        "app\\src\\branding\\launchModel.ts",
+        "app\\src\\components\\RouteErrorBoundary.tsx"
+      ],
+      "sqlFunctions": [],
+      "tests": [
+        "LAUNCH-01..15 unit/frame/device/intent cases; local notification proves route intent only, not remote X2"
+      ],
+      "risks": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PF-T01",
+      "title": "Unify flags and make auth restoration truthful",
+      "findingIds": [
+        "PF-F01",
+        "PF-F02"
+      ],
+      "wpOwner": "O05A",
+      "files": [
+        "app\\app\\_layout.tsx",
+        "app\\src\\lib\\auth.tsx",
+        "app\\src\\lib\\supabaseApi.ts",
+        "app\\src\\lib\\featureFlags.ts",
+        "app\\src\\branding\\FeatureFlagsProvider.tsx",
+        "app\\src\\lib\\authRestoreModel.ts",
+        "app\\src\\lib\\__tests__\\authRestoreModel.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Implement A.3.4's one control provider without losing get_app_features.archetypes or legacy defaults.",
+        "Propagate SDK session errors and distinguish restore pending/error/known null/session; add retry and latest-event-wins initialization.",
+        "Replace only the root duplicate fetch/loading-to-false state, keeping merged G-01 allowlists/protected tree/return intent.",
+        "Render restore error without exposing protected children; a valid later auth event settles loading and invalidates late initial results."
+      ],
+      "acceptance": [
+        "Offline foreground preserves last valid guest controls.",
+        "Invalid appearance plus valid brand/UX OFF applies OFF immediately.",
+        "getSession rejection has retry, not permanent spinner or invented sign-out.",
+        "Sign-out/sign-in events outrank a stale initial promise."
+      ],
+      "testFilesAndCases": [
+        "UI-CACHE-01..04; authRestoreModel: reject/retry, known-null, late-initial-after-signout, latest-login-event",
+        "Existing authGate/GuestGate and parent-feature tests; exact legacy/archetypes parity"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "auth"
+    },
+    {
+      "id": "PF-T02",
+      "title": "Preserve post-OTP truth and intent",
+      "findingIds": [
+        "PF-F03"
+      ],
+      "wpOwner": "O13",
+      "files": [
+        "app\\app\\(auth)\\verify.tsx",
+        "app\\app\\(auth)\\role.tsx",
+        "app\\src\\lib\\returningUser.ts",
+        "app\\src\\lib\\__tests__\\authContinuation.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Separate successful OTP verification from mandatory profile/provider lookup so Retry never consumes the OTP again.",
+        "Keep failed lookup distinct from null row, with readable retry and no role/profile write on failure.",
+        "Add a pure shared destination resolver: invite first, safe returnTo second, existing role default last. Keep actual role selection and protected-tree timing."
+      ],
+      "acceptance": [
+        "Returning provider plus valid venue/booking intent returns to that destination rather than dashboard.",
+        "Known-missing provider preserves the existing returningUserRole fallback, but provider lookup error does not impersonate a missing row.",
+        "Invite continuation remains customer-oriented; malformed/external returnTo is not followed."
+      ],
+      "testFilesAndCases": [
+        "authContinuation: profile error, provider error, OTP-called-once retry, customer/provider returnTo, invite precedence, known-null rows"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "auth"
+    },
+    {
+      "id": "PF-T03",
+      "title": "Scope private location state to confirmed identity",
+      "findingIds": [
+        "PF-F04"
+      ],
+      "wpOwner": "O13",
+      "files": [
+        "app\\app\\location.tsx",
+        "app\\src\\lib\\locationContext.tsx",
+        "app\\src\\lib\\locationModel.ts",
+        "app\\src\\components\\AddressEditor.tsx",
+        "app\\src\\lib\\__tests__\\locationModel.test.ts",
+        "app\\src\\lib\\__tests__\\locationActorState.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Skip listMyAddresses and private editor while signed out; offer contextual sign-in without blocking existing public search/GPS/areas.",
+        "Key list/editor loads to confirmed userId, cancel/ignore late loads, clear on actor change and expose reload failure.",
+        "Under the existing storage key, add versioned saved-selection owner metadata. Do not treat auth-loading null as confirmed logout; accept saved private cache only for its owner. Drop unknown-owner legacy saved selections, not public GPS/search/area choices.",
+        "After confirmed delete remove that row immediately; a reload failure may show stale remaining current-actor data with an error, never a successful fresh state.",
+        "Let saved-address rows show complete decisive address information."
+      ],
+      "acceptance": [
+        "Guest selection makes zero private address API calls.",
+        "A->logout/B clears private list/editor/selection; a late A response cannot restore them.",
+        "Delayed auth restore for owner A does not prematurely erase A's saved selection.",
+        "Delete-success/reload-failure does not leave the deleted action row.",
+        "Long address remains understandable at320width/200%."
+      ],
+      "testFilesAndCases": [
+        "locationActorState: guest, loading->same-owner, A->B, logout, stale promise, legacy cache, delete/reload error",
+        "Existing locationModel/geocoding/address owner tests; no new public grants"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "auth"
+    },
+    {
+      "id": "PF-T04",
+      "title": "Separate access loading, denial and retry",
+      "findingIds": [
+        "PF-F05"
+      ],
+      "wpOwner": "O11",
+      "files": [
+        "app\\app\\(provider)\\_layout.tsx",
+        "app\\app\\admin\\_layout.tsx",
+        "app\\src\\lib\\accessPresentation.ts",
+        "app\\src\\lib\\__tests__\\accessPresentation.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Replace provider checkingAccess=null render with an existing readable loader.",
+        "Use actor-keyed admin lookup with explicit transport error/retry and genuine denial redirect; reject stale actor results.",
+        "Keep actual owner/staff/admin backend permission and navigation distinctions; no broad client privilege inference."
+      ],
+      "acceptance": [
+        "No blank access-check frame.",
+        "RPC error offers Retry without admin children or false denial.",
+        "Known false denies; true allows only current actor; actor switch rechecks."
+      ],
+      "testFilesAndCases": [
+        "accessPresentation: loading/error/retry/deny/allow/actor-switch; existing navigation role tests"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "auth"
+    },
+    {
+      "id": "PF-T05",
+      "title": "Make BYO claim/payment continuation recoverable",
+      "findingIds": [
+        "PF-F06"
+      ],
+      "wpOwner": "O13",
+      "files": [
+        "app\\app\\byo\\[token].tsx",
+        "app\\src\\lib\\byoInvitePresentation.ts",
+        "app\\src\\lib\\__tests__\\byoInvitePresentation.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Use token/request-keyed loading/available/unavailable/error state; a failed fetch is not invalid/expired.",
+        "Store known claimed bookingId before invoking payment. Once claim commits, remove Claim and route recovery through existing booking/payment UI without re-claim.",
+        "Invalidate prior token callbacks and use canonical preview amounts, existing fee policy and backend state rejection.",
+        "Use auto-height participant/price rows and contextual sign-in; preserve technical invite token and URL scheme."
+      ],
+      "acceptance": [
+        "Network failure has Retry and no false invalid-link claim.",
+        "Old-token response cannot enable a new token's action.",
+        "Claim success + payment cancellation/error never calls claim twice and retains a View booking/payment recovery path.",
+        "Expired/used null remains unavailable; self-claim/server invalid state still rejects."
+      ],
+      "testFilesAndCases": [
+        "byoInvitePresentation: preview-null/error/stale-token, claim-success/payment-error/cancel, completed-action replacement",
+        "Existing BYO SQL guard/amount tests retained; targeted money/auth review"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "money"
+    },
+    {
+      "id": "PF-T06",
+      "title": "Gate AI effects and isolate conversation generations",
+      "findingIds": [
+        "PF-F07",
+        "PF-F08"
+      ],
+      "wpOwner": "O36",
+      "files": [
+        "app\\app\\assistant.tsx",
+        "app\\app\\assistant-history.tsx",
+        "app\\src\\lib\\assistant\\history.ts",
+        "app\\src\\lib\\assistant\\conversationState.ts",
+        "app\\src\\lib\\assistant\\__tests__\\conversationState.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Check effective ai capability in auto-send/send/transcribe entry points and invalidate pending work on OFF.",
+        "Use a conversation generation key for history, auto-resume, photo and voice callbacks; New chat aborts/reset transient state.",
+        "Show explicit selected-conversation loading/error/unavailable/empty without pretending it opened successfully.",
+        "Keep existing server feature/JWT gates, photo privacy lock, owner-only history RLS, stop/retry and review-before-book semantics."
+      ],
+      "acceptance": [
+        "Known ai OFF + q invokes zero transport calls.",
+        "Late A resume cannot replace B or a new chat.",
+        "New chat cannot inherit old voice/photo/draft callbacks.",
+        "Explicit failed/empty conversation is visible and retryable; no unauthorized history read is introduced."
+      ],
+      "testFilesAndCases": [
+        "conversationState: OFF auto-send, live OFF abort, A/B load race, new-chat resume race, stale photo/voice, selected-load error/empty"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "auth"
+    },
+    {
+      "id": "PF-T07",
+      "title": "Add semantic danger states and preserve correct existing roles",
+      "findingIds": [
+        "PF-F09"
+      ],
+      "wpOwner": "O02",
+      "files": [
+        "app\\src\\theme\\tokens.ts",
+        "app\\src\\branding\\colorContract.ts",
+        "app\\src\\branding\\defaults.ts",
+        "app\\src\\branding\\__tests__\\validation.test.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Add onDanger and dangerPressed to strict planned color/default contracts; legacy onDanger=#FFFFFF and dangerPressed=#B42318 both themes.",
+        "Include destructive default/pressed, unread numeric, selected counts and assistant send controls in actual-used-pair validation.",
+        "Keep ordinary onPrimary/segmentThumb and unrelated legacy colors; new Oorva colors remain class B."
+      ],
+      "acceptance": [
+        "Every normal text foreground/fill pair passes4.5, including dark pressed.",
+        "Unknown/malformed contrast-breaking runtime overrides reject appearance, not valid flags."
+      ],
+      "testFilesAndCases": [
+        "Color fixtures: current failing unread/dark-pressed pairs rejected; chosen safe replacements and all Oorva/default pairs pass"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "none"
+    },
+    {
+      "id": "PF-T08",
+      "title": "Apply semantic colors and essential text reflow in primitives",
+      "findingIds": [
+        "PF-F09",
+        "PF-F10"
+      ],
+      "wpOwner": "O06",
+      "files": [
+        "app\\src\\components\\ui\\Button.tsx",
+        "app\\src\\components\\ui\\Badge.tsx",
+        "app\\src\\components\\ui\\CountBadge.tsx",
+        "app\\src\\components\\ui\\IconButton.tsx",
+        "app\\src\\components\\ui\\Text.tsx",
+        "app\\src\\components\\ui\\Input.tsx",
+        "app\\src\\components\\ui\\OTPInput.tsx",
+        "app\\src\\components\\ui\\SegmentedControl.tsx",
+        "app\\src\\components\\ui\\Stepper.tsx"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [
+        "PF-T07"
+      ],
+      "steps": [
+        "Use onDanger/dangerPressed for destructive and dangerStrong/onDanger for unread counts; reuse CountBadge for IconButton numeric overlays.",
+        "Replace literal white on theme primary with onPrimary for chip/step/segment counts; O36 applies the same stable roles to assistant mic/send.",
+        "Remove one-line/tight-scaling constraints on decisive labels/actions/amounts; auto-height containers and critical type variants support200%.",
+        "Adapt step progress to width/count; reduced-motion rail updates are static. Keep native value/submit/quantity semantics."
+      ],
+      "acceptance": [
+        "Actual rendered used-pair checks pass both themes and all Oorva OFF.",
+        "320width/200% critical labels, counts and amounts remain complete and tappable.",
+        "Seven-step/long-label progress never overflows available width; selection/value behavior unchanged."
+      ],
+      "testFilesAndCases": [
+        "Primitive component tests: unread0/99+, dark destructive pressed, long action/full amount, long chip/status and narrow progress, reduced motion"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "none"
+    },
+    {
+      "id": "PF-T09",
+      "title": "Reserve disclosure space and retain safe layout infrastructure",
+      "findingIds": [
+        "PF-F11"
+      ],
+      "wpOwner": "O07",
+      "files": [
+        "app\\src\\components\\DemoDataIndicator.tsx",
+        "app\\src\\components\\ui\\Screen.tsx",
+        "app\\src\\components\\ui\\Toast.tsx",
+        "app\\src\\components\\ui\\BottomSheet.tsx",
+        "app\\src\\components\\ui\\Confirm.tsx",
+        "app\\src\\components\\RouteErrorBoundary.tsx"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Place demo disclosure in one reserved shell slot, leaving primary footer/tab/toast regions free; keep actual demo detection/disclosure.",
+        "Retain Screen's measured footer/toast offsets and single header top inset; do not add arbitrary per-screen spacers.",
+        "Keep provider-independent crash fallback free of Reanimated/theme context imports; add native release hook only in O34.",
+        "Use semantic toast text/action/accent roles and explicit keyboard/reduced-motion acceptance for modal footers; preserve confirmation policy."
+      ],
+      "acceptance": [
+        "Demo marker is visible but intersects no CTA/tab/toast bounds.",
+        "Footer moves with keyboard without double safe area; native tests required before platform PASS.",
+        "Crash-before-provider stays readable; destructive confirmation keeps real backend reason/policy."
+      ],
+      "testFilesAndCases": [
+        "Shell/overlay bounds at320/large-text, keyboard/footer/toast/demo; reduced-motion sheet/progress; crash fallback"
+      ],
+      "flagClass": "A",
+      "featureOffBehavior": "Correctness/accessibility remains active with every Oorva flag OFF.",
+      "reviewRequired": "none"
+    },
+    {
+      "id": "PF-T10",
+      "title": "Bind contextual identity without technical/history rewrites",
+      "findingIds": [
+        "PF-F12"
+      ],
+      "wpOwner": "O05B",
+      "files": [
+        "app\\src\\branding\\BrandLogo.tsx",
+        "app\\src\\branding\\identity.ts",
+        "app\\src\\branding\\defaults.ts"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Implement pure context-keyed identity selection for legacy/Oorva/published supported display fields.",
+        "Supply explicit legacy labels for login, AI, support, BYO and the separately owned Nearo receipt/checkout contexts.",
+        "Bind only selected genuine vector/export assets; expose stable identity API for screen owners, not a global string replacement."
+      ],
+      "acceptance": [
+        "Brand OFF keeps each legacy context; unsupported appearance cannot freeze OFF.",
+        "Historical financial snapshots, references, IDs and scheme unchanged."
+      ],
+      "testFilesAndCases": [
+        "Identity context matrix: mixed legacy names, brand/runtime OFF, asset failure, selected assets, invalid schema"
+      ],
+      "flagClass": "B",
+      "featureOffBehavior": "Existing per-context identity/composition remains when its effective brand/family switch is OFF.",
+      "reviewRequired": "none"
+    },
+    {
+      "id": "PF-T11",
+      "title": "Build isolated compatible native identity candidates",
+      "findingIds": [
+        "PF-F13"
+      ],
+      "wpOwner": "O33",
+      "files": [
+        "app\\app.json",
+        "app\\eas.json",
+        "app\\native-release.json",
+        ".github\\workflows\\publish-app.yml",
+        ".github\\workflows\\build-apk.yml"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [],
+      "steps": [
+        "Follow exact A.4.1 assets and A.4.5 canonical runtime/channel/capability manifest.",
+        "Coordinator applies shared workflow/profile edits after active owner locks; old apk-1 does not receive new native imports.",
+        "Use a reviewed candidate branch/runtime/channel and approved device-reachable non-production backend; record all running/native source identities.",
+        "Keep final public rights/native cutover/signing/iOS limitations as explicit real gates, not future source-audit questions."
+      ],
+      "acceptance": [
+        "Three cold starts after unrelated main publish retain reviewed code.",
+        "Correct old-runtime/Expo-Go/web behavior; installed name/icon/splash/notification actual evidence.",
+        "No iOS/public/native completion claim without its real build/device/gate."
+      ],
+      "testFilesAndCases": [
+        "NATIVE-IDENTITY and actual supported-platform matrix; no main/native promotion before E1+D07b"
+      ],
+      "flagClass": "B",
+      "featureOffBehavior": "Existing per-context identity/composition remains when its effective brand/family switch is OFF.",
+      "reviewRequired": "auth"
+    },
+    {
+      "id": "PF-T12",
+      "title": "Implement bounded native-identical destination-aware reveal",
+      "findingIds": [
+        "PF-F14"
+      ],
+      "wpOwner": "O34",
+      "files": [
+        "app\\app\\_layout.tsx",
+        "app\\src\\branding\\launchBootstrap.ts",
+        "app\\src\\branding\\LaunchExperience.tsx",
+        "app\\src\\branding\\launchModel.ts",
+        "app\\assets\\brand\\launch-geometry.json",
+        "app\\src\\components\\RouteErrorBoundary.tsx"
+      ],
+      "sqlFunctions": [],
+      "dependsOnTasks": [
+        "PF-T01",
+        "PF-T02",
+        "PF-T11"
+      ],
+      "steps": [
+        "Implement A.4.4 exactly: binary eligibility before native adapter,250ms cache/800ms first-live-controls/1000ms font bound and2500ms native watchdog.",
+        "Use native-identical bundled OS-themed frame0 with symbol already visible; freeze supported cached/bundled duration and scale phases, zero/reduced static path.",
+        "Settle protected auth/URL/notification intent; never route home as an animation side effect. OFF cancels without asset/schema dependency.",
+        "Use the required O33 GREEN candidate stack before D07b; record real geometry/routes/errors and delivery identities."
+      ],
+      "acceptance": [
+        "No symbol disappearance, unbounded native splash, unwanted resume replay or home-first deep-link flash.",
+        "Web/Expo-Go/old binaries never evaluate missing module.",
+        "All15 launch cases have truthful platform evidence or explicit resource gate, not a made-up success."
+      ],
+      "testFilesAndCases": [
+        "LAUNCH-01..15 unit/frame/device/intent cases; local notification proves route intent only, not remote X2"
+      ],
+      "flagClass": "C",
+      "featureOffBehavior": "Existing per-context identity/composition remains when its effective brand/family switch is OFF.",
+      "reviewRequired": "auth"
+    }
+  ],
+  "layouts": [
+    {
+      "path": "app\\app\\_layout.tsx",
+      "result": "PF-F01/F02/F14; preserve merged G-01 static guards and route intent."
+    },
+    {
+      "path": "app\\app\\(auth)\\_layout.tsx",
+      "result": "Retain explicit login/verify/role stack and disabled role-back gesture; style follows shared theme."
+    },
+    {
+      "path": "app\\app\\(customer)\\_layout.tsx",
+      "result": "Retain provider redirect, conditional Search and guest tab intent; shared flags and unread semantic colors change."
+    },
+    {
+      "path": "app\\app\\(provider)\\_layout.tsx",
+      "result": "PF-F05 loader; retain business access error/retry and owner-only earnings/account nav; numeric badge pair corrected."
+    },
+    {
+      "path": "app\\app\\admin\\_layout.tsx",
+      "result": "PF-F05 separates lookup failure/denial and actor reset; no backend permission expansion."
+    }
+  ],
+  "measurements": [
+    {
+      "theme": "light",
+      "usage": "CountBadge/IconButton/tab unread",
+      "foreground": "#FFFFFF",
+      "background": "#F04438",
+      "contrast": 3.7574
+    },
+    {
+      "theme": "light",
+      "usage": "Destructive default",
+      "foreground": "#FFFFFF",
+      "background": "#D92D20",
+      "contrast": 4.8314
+    },
+    {
+      "theme": "light",
+      "usage": "Destructive pressed",
+      "foreground": "#FFFFFF",
+      "background": "#B42318",
+      "contrast": 6.5743
+    },
+    {
+      "theme": "light",
+      "usage": "Chip/step/segment active count",
+      "foreground": "#FFFFFF",
+      "background": "#1F4FD1",
+      "contrast": 6.78
+    },
+    {
+      "theme": "dark",
+      "usage": "CountBadge/IconButton/tab unread",
+      "foreground": "#FFFFFF",
+      "background": "#F97066",
+      "contrast": 2.7861
+    },
+    {
+      "theme": "dark",
+      "usage": "Destructive default",
+      "foreground": "#FFFFFF",
+      "background": "#D92D20",
+      "contrast": 4.8314
+    },
+    {
+      "theme": "dark",
+      "usage": "Destructive pressed",
+      "foreground": "#FFFFFF",
+      "background": "#FDA29B",
+      "contrast": 1.9412
+    },
+    {
+      "theme": "dark",
+      "usage": "Chip/step/segment active count",
+      "foreground": "#FFFFFF",
+      "background": "#2A62EA",
+      "contrast": 5.2062
+    }
+  ],
+  "visualEvidence": {
+    "run": "44696642603",
+    "headSha": "229995fe3194de39684f12ef348d3e37930ae5f2",
+    "sourceParity": "git diff to audit SHA changes docs/14 only; application source identical.",
+    "inspectedContactSheets": [
+      "contact-01.jpg",
+      "contact-08.jpg"
+    ],
+    "observations": [
+      "01-login-help-link is an actual login view;02-login is Verify and03-verify is provider dashboard, not the named screen.",
+      "148-logout-login-screen/149-after-logout-deep-link show login;150-new-pro-login shows role selection.",
+      "Global demo marker occupies lower-right CTA/tab region in multiple actual views."
+    ],
+    "limitations": [
+      "Run failed3Home assertions due existing flag-state coverage; not a new current audit test PASS.",
+      "Scenario filename is not state/role/backend PK proof. Native/keyboard/large-text/device behavior was not run."
+    ]
+  },
+  "filesRead": [
+    ".github\\workflows\\build-apk.yml",
+    ".github\\workflows\\publish-app.yml",
+    "app\\app.json",
+    "app\\app\\(auth)\\_layout.tsx",
+    "app\\app\\(auth)\\login.tsx",
+    "app\\app\\(auth)\\role.tsx",
+    "app\\app\\(auth)\\verify.tsx",
+    "app\\app\\(customer)\\_layout.tsx",
+    "app\\app\\(provider)\\_layout.tsx",
+    "app\\app\\_layout.tsx",
+    "app\\app\\admin\\_layout.tsx",
+    "app\\app\\assistant-history.tsx",
+    "app\\app\\assistant.tsx",
+    "app\\app\\byo\\[token].tsx",
+    "app\\app\\location.tsx",
+    "app\\src\\components\\AddressEditor.tsx",
+    "app\\src\\components\\DemoDataIndicator.tsx",
+    "app\\src\\components\\RouteErrorBoundary.tsx",
+    "app\\src\\components\\assistant\\AssistantCards.tsx",
+    "app\\src\\components\\assistant\\Composer.tsx",
+    "app\\src\\components\\assistant\\TextComposer.tsx",
+    "app\\src\\components\\tabOptions.tsx",
+    "app\\src\\components\\ui\\BottomSheet.tsx",
+    "app\\src\\components\\ui\\Button.tsx",
+    "app\\src\\components\\ui\\Confirm.tsx",
+    "app\\src\\components\\ui\\CountBadge.tsx",
+    "app\\src\\components\\ui\\IconButton.tsx",
+    "app\\src\\components\\ui\\Input.tsx",
+    "app\\src\\components\\ui\\OTPInput.tsx",
+    "app\\src\\components\\ui\\Screen.tsx",
+    "app\\src\\components\\ui\\SegmentedControl.tsx",
+    "app\\src\\components\\ui\\Stepper.tsx",
+    "app\\src\\components\\ui\\Text.tsx",
+    "app\\src\\components\\ui\\Toast.tsx",
+    "app\\src\\lib\\adminApi.ts",
+    "app\\src\\lib\\assistant\\client.ts",
+    "app\\src\\lib\\assistant\\history.ts",
+    "app\\src\\lib\\auth.tsx",
+    "app\\src\\lib\\authGate.ts",
+    "app\\src\\lib\\featureFlags.ts",
+    "app\\src\\lib\\locationContext.tsx",
+    "app\\src\\lib\\locationModel.ts",
+    "app\\src\\lib\\phone.ts",
+    "app\\src\\lib\\providerBusiness.ts",
+    "app\\src\\lib\\push.ts",
+    "app\\src\\lib\\returningUser.ts",
+    "app\\src\\lib\\supabaseApi.ts",
+    "app\\src\\theme\\tokens.ts",
+    "supabase\\functions\\ai-assistant\\index.ts",
+    "supabase\\migrations\\0004_ai_assistant.sql",
+    "supabase\\migrations\\0016_leakage_programme.sql",
+    "supabase\\migrations\\0042_feature_registry.sql"
+  ],
+  "notVerified": [
+    "No new app/runtime/native/production test run was performed; source and existing-web evidence only.",
+    "Native launch, keyboard and large-text proposed changes require their named implementation acceptance tests.",
+    "Current fee_bp=300 is verified; this audit does not authorize fee/payout/guarantee/legal policy changes."
+  ],
+  "publication": {
+    "sourceAuditInputSha256": "AF7E47AD9D2AB54057F6F670AF2CDA567B159744182D5CC35AA11744188161F1",
+    "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "scope": "Completed source audit and existing-web evidence; not runtime implementation verification.",
+    "implementationAuthority": "docs\\18-Oorva-Transformation-Implementation-Plan.md and docs\\design\\oorva\\execution-plan.json",
+    "allocationRule": "Source proposal migration names and aggregate WP labels are not execution allocations. Use the canonical stage files, claims and dependencies before editing."
+  }
+}
