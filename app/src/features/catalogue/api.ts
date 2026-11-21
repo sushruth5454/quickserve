@@ -1,4 +1,4 @@
-import { isDemoMode } from '../../lib/config';
+import { demoSeedCity, isDemoMode, isSeedDemoMode } from '../../lib/config';
 import { demoApi } from '../../lib/demo/demoApi';
 import { supabase } from '../../lib/supabase';
 import { invokeFunction } from '../../lib/invokeFunction';
@@ -18,6 +18,7 @@ export interface CataloguePackage {
   providerServiceId: string;
   providerId: string;
   providerName: string;
+  city: string;
   providerOnline: boolean;
   providerPaused: boolean;
   rating: number;
@@ -90,20 +91,27 @@ export async function getCatalogueCategoryById(id: string, city: string): Promis
   return catalogue.categories.find((category) => category.id === id) ?? null;
 }
 
-export async function listCataloguePackages(categorySlug: string): Promise<CataloguePackage[]> {
+export async function listCataloguePackages(categorySlug: string, city: string): Promise<CataloguePackage[]> {
   if (isDemoMode) return [];
+  const selectedCity = city.trim();
+  if (!selectedCity) return [];
+  const providerCity = isSeedDemoMode && selectedCity.toLowerCase() === demoSeedCity.toLowerCase()
+    ? selectedCity.replace(/\s+demo$/i, '').trim()
+    : selectedCity;
+  if (!providerCity) return [];
   const rows = unwrap(await supabase
     .from('service_packages')
-    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)))')
+    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers!inner(city, rating_avg, rating_count, is_online, paused, profiles(full_name)))')
     .eq('active', true)
     .eq('provider_services.active', true)
     .eq('provider_services.categories.slug', categorySlug)
+    .ilike('provider_services.providers.city', providerCity.replace(/[\\%_]/g, (character) => `\\${character}`))
     .order('sort_order')) as Array<ServicePackage & {
     provider_services: {
       id: string;
       provider_id: string;
       categories: Category;
-      providers: { rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
+      providers: { city: string; rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
     };
   }>;
   return rows.map((row) => {
@@ -113,6 +121,7 @@ export async function listCataloguePackages(categorySlug: string): Promise<Catal
       providerServiceId: service.id,
       providerId: service.provider_id,
       providerName: service.providers?.profiles?.full_name ?? 'Provider',
+      city: service.providers?.city ?? '',
       providerOnline: service.providers?.is_online ?? false,
       providerPaused: service.providers?.paused ?? false,
       rating: Number(service.providers?.rating_avg ?? 0),
@@ -125,21 +134,21 @@ export async function listCataloguePackages(categorySlug: string): Promise<Catal
 export async function getCataloguePackage(packageId: string): Promise<CataloguePackage> {
   const rows = unwrap(await supabase
     .from('service_packages')
-    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(rating_avg, rating_count, is_online, paused, profiles(full_name)))')
+    .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers(city, rating_avg, rating_count, is_online, paused, profiles(full_name)))')
     .eq('id', packageId)
     .single<ServicePackage & {
       provider_services: {
         id: string;
         provider_id: string;
         categories: Category;
-        providers: { rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
+        providers: { city: string; rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
       };
     }>()) as ServicePackage & {
       provider_services: {
         id: string;
         provider_id: string;
         categories: Category;
-        providers: { rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
+        providers: { city: string; rating_avg: number; rating_count: number; is_online: boolean; paused: boolean; profiles: { full_name: string } | null } | null;
       };
     };
   const service = rows.provider_services;
@@ -148,6 +157,7 @@ export async function getCataloguePackage(packageId: string): Promise<CatalogueP
     providerServiceId: service.id,
     providerId: service.provider_id,
     providerName: service.providers?.profiles?.full_name ?? 'Provider',
+    city: service.providers?.city ?? '',
     providerOnline: service.providers?.is_online ?? false,
     providerPaused: service.providers?.paused ?? false,
     rating: Number(service.providers?.rating_avg ?? 0),
