@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-const newAt = '2032-03-16T10:00:00+05:30';
+const newAt = '2027-10-16T10:00:00+05:30';
 
 async function as(client, uid, sql, params = []) {
   await client.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [uid ?? '']);
@@ -75,13 +75,13 @@ async function createFixture(client, label, startAccepted = false) {
     ) values (
       $1::uuid, $2::uuid, $3::uuid, 'custom', array[]::smallint[], time '10:00',
       'Asia/Kolkata', 60, 'per_session', 'SV07 address', $4::text, 16.50, 80.60,
-      $5::text, date '2032-03-15', date '2032-03-15', 'active',
-      array[date '2032-03-15'], 1, 'time_based', 'accepted', 'occurrence',
+      $5::text, date '2027-10-15', date '2027-10-15', 'active',
+      array[date '2027-10-15'], 1, 'time_based', 'accepted', 'occurrence',
       'per_visit', 'v2'
     ) returning id
   `, [customer, provider, service, city, `SV07 ${label}`])).rows[0].id;
   const materialized = (await client.query(
-    `select materialize_recurring_schedule($1::uuid, date '2032-03-15') created`,
+    `select materialize_recurring_schedule($1::uuid, date '2027-10-15') created`,
     [schedule],
   )).rows[0].created;
   const bookingRows = (await client.query(`

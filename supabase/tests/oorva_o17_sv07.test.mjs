@@ -103,7 +103,7 @@ await db.query(`
 
 let fixtureNumber = 0;
 const uuid = (prefix, number) => `${prefix}0000-0000-0000-${String(number).padStart(12, '0')}`;
-const newAt = '2032-03-16T10:00:00+05:30';
+const newAt = '2027-10-16T10:00:00+05:30';
 
 async function as(uid, role, sql, params = []) {
   await db.exec('reset role');
@@ -181,13 +181,13 @@ async function createFixture(label) {
     ) values (
       $1::uuid, $2::uuid, $3::uuid, 'custom', array[]::smallint[], time '10:00',
       'Asia/Kolkata', 60, 'per_session', 'SV07 address', $4::text, 16.50, 80.60,
-      $5::text, date '2032-03-15', date '2032-03-15', 'active',
-      array[date '2032-03-15'], 1, 'time_based', 'accepted', 'occurrence',
+      $5::text, date '2027-10-15', date '2027-10-15', 'active',
+      array[date '2027-10-15'], 1, 'time_based', 'accepted', 'occurrence',
       'per_visit', 'v2'
     ) returning id
   `, [customer, provider, service, `SV07 ${label}`, `SV07 ${label}`])).rows[0].id;
   const materialized = (await db.query(
-    `select materialize_recurring_schedule($1::uuid, date '2032-03-15') created`,
+    `select materialize_recurring_schedule($1::uuid, date '2027-10-15') created`,
     [schedule],
   )).rows[0].created;
   const bookingRows = (await db.query(`
@@ -465,7 +465,7 @@ await scenario('SV-RESCHEDULE-RACE-04', async () => {
        set scheduled_at = $2::timestamptz,
            service_window = tstzrange($2::timestamptz, $2::timestamptz + interval '60 minutes', '[)')
      where id = $1::uuid
-  `, [fixture.booking.id, '2032-03-17T10:00:00+05:30']);
+  `, [fixture.booking.id, '2027-10-17T10:00:00+05:30']);
   const beforeAccept = await state(fixture.booking.id);
   const acceptError = await failureOf(() => as(
     fixture.manager,
