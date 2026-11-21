@@ -7,7 +7,12 @@ const mockRuntime = {
   enabled: true,
   sportsOn: false,
   productsOn: true,
+  aiAssistantOn: true,
+  aiProductSearchOn: true,
+  staffEnabled: true,
+  rfqEnabled: true,
   city: 'Hyderabad',
+  routeParams: {} as Record<string, string>,
   states: [] as unknown[],
   hookIndex: 0,
   effects: [] as Array<{
@@ -53,25 +58,49 @@ jest.mock('react', () => {
         },
       ];
     },
+    useCallback: <T,>(callback: T) => {
+      mockRuntime.hookIndex++;
+      return callback;
+    },
+    useRef: (initial: unknown) => {
+      const index = mockRuntime.hookIndex++;
+      if (mockRuntime.states[index] === undefined) mockRuntime.states[index] = { current: initial };
+      return mockRuntime.states[index] as { current: unknown };
+    },
   };
 });
 
 jest.mock('react-native', () => ({ View: 'View' }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), replace: jest.fn() },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: () => mockRuntime.routeParams,
+}));
 jest.mock('../../../components/market/ChipRow', () => ({ ChipRow: 'ChipRow' }));
 jest.mock('../../../components/market/ListingCard', () => ({ ListingCard: 'ListingCard' }));
 jest.mock('../../../components/market/SearchField', () => ({ SearchField: 'SearchField' }));
 jest.mock('../../../components/ui', () => ({
   Button: 'Button',
+  Chip: 'Chip',
   EmptyState: 'EmptyState',
   Header: 'Header',
   InlineAlert: 'InlineAlert',
+  Input: 'Input',
   Screen: 'Screen',
   Section: 'Section',
   Skeleton: 'Skeleton',
+  Text: 'Text',
 }));
-jest.mock('../../shops/api', () => ({ signedProductImage: jest.fn() }));
-jest.mock('../../shops/components', () => ({ ShopProductCard: 'ShopProductCard' }));
+jest.mock('../../shops/api', () => ({
+  listProductCategories: jest.fn(),
+  searchProducts: jest.fn(),
+  signedProductImage: jest.fn(),
+}));
+jest.mock('../../shops/components', () => ({
+  FeatureUnavailable: 'FeatureUnavailable',
+  ShopProductCard: 'ShopProductCard',
+  useShopFeatureFlags: () => ({ products: mockRuntime.productsOn, enquiries: false }),
+}));
 jest.mock('../../../i18n', () => ({ useT: () => (key: string) => key }));
 jest.mock('../../../lib/featureFlags', () => ({
   useAppFeatureFlags: () => ({
@@ -79,13 +108,19 @@ jest.mock('../../../lib/featureFlags', () => ({
       if (key === 'unified_search') return mockRuntime.enabled;
       if (key === 'sports') return mockRuntime.sportsOn;
       if (key === 'products') return mockRuntime.productsOn;
+      if (key === 'ai_assistant') return mockRuntime.aiAssistantOn;
+      if (key === 'ai_product_search') return mockRuntime.aiProductSearchOn;
+      if (key === 'merchant_staff') return mockRuntime.staffEnabled;
+      if (key === 'product_rfq') return mockRuntime.rfqEnabled;
       return false;
     },
   }),
 }));
+jest.mock('../../../lib/config', () => ({ isDemoMode: false }));
+jest.mock('../../ai/productSearch', () => ({ searchProductsWithAi: jest.fn() }));
 jest.mock('../../../lib/locationContext', () => ({
   useSelectedLocation: () => ({
-    location: { city: mockRuntime.city },
+    location: { city: mockRuntime.city, lat: null, lng: null },
     coords: { lat: null, lng: null },
   }),
 }));
@@ -97,8 +132,15 @@ jest.mock('../api', () => ({ searchEverything: jest.fn() }));
 const ReactRuntime = require('react') as typeof import('react');
 const { router } = require('expo-router') as { router: { push: jest.Mock; replace: jest.Mock } };
 const { searchEverything } = require('../api') as { searchEverything: jest.Mock };
-const { signedProductImage } = require('../../shops/api') as { signedProductImage: jest.Mock };
+const { listProductCategories, searchProducts, signedProductImage } = require('../../shops/api') as {
+  listProductCategories: jest.Mock;
+  searchProducts: jest.Mock;
+  signedProductImage: jest.Mock;
+};
+const { searchProductsWithAi } = require('../../ai/productSearch') as { searchProductsWithAi: jest.Mock };
 const { SearchScreen } = require('../SearchScreen') as typeof import('../SearchScreen');
+const ProductsScreen = require('../../marketplaceScreens/ProductsScreen').default as
+  typeof import('../../marketplaceScreens/ProductsScreen').default;
 
 function product(overrides: Partial<SearchProduct> = {}): SearchProduct {
   return {
@@ -145,6 +187,11 @@ function renderScreen() {
   return SearchScreen();
 }
 
+function renderProductsScreen() {
+  mockRuntime.hookIndex = 0;
+  return ProductsScreen();
+}
+
 function findElements(node: unknown, type: string): Array<React.ReactElement<Record<string, unknown>>> {
   if (Array.isArray(node)) return node.flatMap((child) => findElements(child, type));
   if (!ReactRuntime.isValidElement(node)) return [];
@@ -185,7 +232,12 @@ beforeEach(() => {
   mockRuntime.enabled = true;
   mockRuntime.sportsOn = false;
   mockRuntime.productsOn = true;
+  mockRuntime.aiAssistantOn = true;
+  mockRuntime.aiProductSearchOn = true;
+  mockRuntime.staffEnabled = true;
+  mockRuntime.rfqEnabled = true;
   mockRuntime.city = 'Hyderabad';
+  mockRuntime.routeParams = {};
   mockRuntime.states = [];
   mockRuntime.hookIndex = 0;
   mockRuntime.effects = [];
@@ -193,8 +245,11 @@ beforeEach(() => {
   mockRuntime.cleanups = [];
   mockRuntime.memo = [];
   searchEverything.mockReset();
+  listProductCategories.mockReset();
+  searchProducts.mockReset();
   signedProductImage.mockReset();
   signedProductImage.mockResolvedValue('https://signed.example/cement.jpg');
+  searchProductsWithAi.mockReset();
   router.push.mockReset();
   router.replace.mockReset();
 });
@@ -231,6 +286,7 @@ describe('SearchScreen product results', () => {
       distance_km: null,
       category_slugs: [],
     };
+    mockRuntime.sportsOn = true;
     const tree = await loadProducts('cement', response([boxProduct, askProduct], {
       catalogue,
       activities: [{ id: 'activity-result', slug: 'cement-tennis', name: 'Cement tennis' }],
@@ -317,5 +373,82 @@ describe('SearchScreen product results', () => {
     expect(searchEverything).toHaveBeenCalledWith('cement', expect.objectContaining({ productsOn: false }));
     expect(findElements(tree, 'ShopProductCard')).toHaveLength(0);
     expect(signedProductImage).not.toHaveBeenCalled();
+  });
+
+  it('MK-GATE-scope-off-reset removes unavailable scopes and resets the selected scope', async () => {
+    mockRuntime.sportsOn = true;
+    const shop: ShopResult = {
+      id: 'shop-result',
+      name: 'Cement outlet',
+      description: '',
+      city: 'Hyderabad',
+      area: 'Madhapur',
+      offers_delivery: false,
+      offers_pickup: true,
+      distance_km: null,
+      category_slugs: [],
+    };
+    const tree = await loadProducts('cement', response([product()], { shops: [shop] }));
+    const initialChipRow = findElements(tree, 'ChipRow')[0];
+    expect((initialChipRow?.props.options as Array<{ value: string }>).map(({ value }) => value))
+      .toEqual(['all', 'services', 'shops', 'sports', 'creators']);
+    (initialChipRow?.props.onChange as ((value: string) => void) | undefined)?.('shops');
+    let updatedTree = renderScreen();
+    expect(findElements(updatedTree, 'ChipRow')[0]?.props.value).toBe('shops');
+
+    mockRuntime.productsOn = false;
+    updatedTree = renderScreen();
+    await flushEffects();
+    updatedTree = renderScreen();
+
+    const chipRow = findElements(updatedTree, 'ChipRow')[0];
+    const options = chipRow?.props.options as Array<{ value: string }>;
+    expect(options.map(({ value }) => value)).toEqual(['all', 'services', 'sports', 'creators']);
+    expect(chipRow?.props.value).toBe('all');
+    expect(findElements(updatedTree, 'SearchField')).toHaveLength(1);
+    expect(findElements(updatedTree, 'ShopProductCard')).toHaveLength(0);
+    expect(searchEverything).toHaveBeenLastCalledWith('cement', expect.objectContaining({
+      productsOn: false,
+      sportsOn: true,
+    }));
+  });
+
+  it('MK-GATE-AI-parent-off keeps manual product search usable without invoking AI', async () => {
+    mockRuntime.aiAssistantOn = false;
+    mockRuntime.aiProductSearchOn = true;
+    mockRuntime.productsOn = true;
+    listProductCategories.mockResolvedValue([]);
+    searchProducts.mockResolvedValue([]);
+
+    let tree = renderProductsScreen();
+    const aiButtons = findElements(tree, 'Button').filter(({ props }) => props.title === 'Search with AI');
+    expect(aiButtons).toHaveLength(0);
+    const productSearch = findElements(tree, 'Input').find(({ props }) => props.label === 'Search products');
+    expect(productSearch).toBeDefined();
+    (productSearch?.props.onChangeText as ((value: string) => void) | undefined)?.('cement');
+    tree = renderProductsScreen();
+    const applyButton = findElements(tree, 'Button').find(({ props }) => props.title === 'Apply search and filters');
+    (applyButton?.props.onPress as (() => void) | undefined)?.();
+    await drainMicrotasks();
+
+    expect(searchProducts).toHaveBeenCalledWith(expect.objectContaining({ query: 'cement' }));
+    expect(searchProductsWithAi).not.toHaveBeenCalled();
+  });
+
+  it('keeps AI product search available when every gate is enabled', async () => {
+    searchProductsWithAi.mockResolvedValue({
+      filters: { query: 'cement', category_slug: null, max_price_paise: null, in_stock_only: false },
+      products: [],
+    });
+    let tree = renderProductsScreen();
+    const aiInput = findElements(tree, 'Input').find(({ props }) => props.label === 'Ask in your words');
+    expect(aiInput).toBeDefined();
+    (aiInput?.props.onChangeText as ((value: string) => void) | undefined)?.('cement');
+    tree = renderProductsScreen();
+    const aiButton = findElements(tree, 'Button').find(({ props }) => props.title === 'Search with AI');
+    (aiButton?.props.onPress as (() => void) | undefined)?.();
+    await drainMicrotasks();
+
+    expect(searchProductsWithAi).toHaveBeenCalledWith({ query: 'cement', lat: null, lng: null });
   });
 });

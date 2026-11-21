@@ -49,18 +49,24 @@ export function SearchScreen() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [scope, setScope] = useState<SearchScope>('all');
+  const effectiveScope = isSearchScopeAvailable(scope, productsOn, sportsOn) ? scope : 'all';
   const [snapshot, setSnapshot] = useState<SearchSnapshot>({ query: '', response: EMPTY_RESPONSE });
   const [loading, setLoading] = useState(false);
   const normalizedQuery = normalizeQuery(query);
   const searchable = isSearchable(normalizedQuery);
   const response = snapshot.query === debouncedQuery ? snapshot.response : EMPTY_RESPONSE;
   const resultRaw = useMemo(
-    () => productsOn ? response.raw : { ...response.raw, products: [], shops: [] },
-    [productsOn, response.raw],
+    () => ({
+      ...response.raw,
+      activities: sportsOn ? response.raw.activities : [],
+      products: productsOn ? response.raw.products : [],
+      shops: productsOn ? response.raw.shops : [],
+    }),
+    [productsOn, response.raw, sportsOn],
   );
   const groups = useMemo(
-    () => groupResults(resultRaw, debouncedQuery, scope),
-    [resultRaw, debouncedQuery, scope],
+    () => groupResults(resultRaw, debouncedQuery, effectiveScope),
+    [effectiveScope, resultRaw, debouncedQuery],
   );
   const productResults = useMemo(
     () => enabled && productsOn
@@ -72,8 +78,12 @@ export function SearchScreen() {
   const [productImages, setProductImages] = useState<ProductImageSnapshot>({ query: '', urls: {} });
   const isPending = searchable && normalizedQuery !== debouncedQuery;
   const isLoading = loading || isPending;
-  const visibleGroupKeys = GROUPS_BY_SCOPE[scope];
+  const visibleGroupKeys = GROUPS_BY_SCOPE[effectiveScope];
   const hasVisibleError = visibleGroupKeys.some((key) => response.errors[key]);
+
+  useEffect(() => {
+    if (!isSearchScopeAvailable(scope, productsOn, sportsOn)) setScope('all');
+  }, [productsOn, scope, sportsOn]);
 
   useEffect(() => {
     if (!enabled || !searchable) {
@@ -161,8 +171,8 @@ export function SearchScreen() {
   const scopeOptions: { value: SearchScope; label: string }[] = [
     { value: 'all', label: t('search.scope.all') },
     { value: 'services', label: t('search.scope.services') },
-    { value: 'shops', label: t('search.scope.shops') },
-    { value: 'sports', label: t('search.scope.sports') },
+    ...(productsOn ? [{ value: 'shops' as const, label: t('search.scope.shops') }] : []),
+    ...(sportsOn ? [{ value: 'sports' as const, label: t('search.scope.sports') }] : []),
     { value: 'creators', label: t('search.scope.creators') },
   ];
   const groupTitles: Record<SearchGroupKey, string> = {
@@ -182,7 +192,7 @@ export function SearchScreen() {
         placeholder={t('search.placeholder')}
         autoFocus
       />
-      <ChipRow options={scopeOptions} value={scope} onChange={setScope} accessibilityLabel={t('search.title')} />
+      <ChipRow options={scopeOptions} value={effectiveScope} onChange={setScope} accessibilityLabel={t('search.title')} />
       {!searchable ? (
         <InlineAlert tone="neutral" message={t('search.minChars')} />
       ) : isLoading ? (
@@ -216,6 +226,12 @@ export function SearchScreen() {
       )}
     </Screen>
   );
+}
+
+function isSearchScopeAvailable(scope: SearchScope, productsOn: boolean, sportsOn: boolean) {
+  if (scope === 'shops') return productsOn;
+  if (scope === 'sports') return sportsOn;
+  return true;
 }
 
 function productImageKey(productId: string, imagePath: string | undefined) {
