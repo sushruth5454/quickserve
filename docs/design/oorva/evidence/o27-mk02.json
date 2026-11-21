@@ -13,7 +13,8 @@
     },
     "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
     "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
-    "planningSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222"
+    "planningSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "testRegistrationCommit": "aafdcbff406f24a38bfa2c1f7312e9607745b2dd"
   },
   "migrationClaim": {
     "id": "MIG-O27-MK02",
@@ -49,13 +50,31 @@
     "Completeness/category validation and retained authenticated execution grant with anon denial."
   ],
   "validation": {
-    "status": "PAUSED_FOR_REGISTRATION",
+    "status": "UNAVAILABLE_NO_PASS",
     "gitDiffCheck": "PASS",
-    "tests": "NOT_RUN_BY_INSTRUCTION",
-    "sqlSelector": "oorva_o27_mk02",
-    "migrationParserSelector": "o27_mk02_oorva.sql",
-    "requiredRegistration": "Coordinator-owned supabase/tests/package.json parser/full-chain registration commit"
+    "helper": "origin/main:scripts/cs-test.ps1",
+    "helperOriginMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+    "codespace": "qs-tests-g67pgv4xqj639gx5",
+    "selectors": [
+      {
+        "selector": "oorva_o27_mk02",
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o27_mk02'",
+        "outcome": "UNAVAILABLE_NO_PASS",
+        "selectionReached": false
+      },
+      {
+        "selector": "o27_mk02_oorva.sql",
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o27_mk02_oorva.sql'",
+        "outcome": "UNAVAILABLE_NO_PASS",
+        "selectionReached": false
+      }
+    ],
+    "failure": "Git HTTPS authentication failed before selection: could not read Username for 'https://github.com'; cs-test could not fetch the WIP snapshot.",
+    "credentialChanges": "none",
+    "laneCiFallback": "NOT_STARTED_PENDING_AUTH_REVIEW_AND_COORDINATOR_RELEASE"
   },
+  "reviewRequired": "AUTH",
+  "reviewStatus": "pending coordinator review",
   "releaseStatus": {
     "E0": "authorized",
     "D01": "authorized",
