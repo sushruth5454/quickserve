@@ -40,7 +40,15 @@
         "testsPassed": 5
       }
     ],
-    "laneCi": "pending",
+    "laneCi": {
+      "initialAttempt": {
+        "runId": 44895348898,
+        "headSha": "393866a1fec34d324c307f3e06813e9ce3b57d75",
+        "status": "failure",
+        "failedCheck": "app UI lint: app/app/_layout.tsx used raw fontSize instead of a Text variant"
+      },
+      "rerun": "pending"
+    },
     "authReview": "required"
   },
   "scope": {

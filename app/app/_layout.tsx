@@ -5,11 +5,11 @@ import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { useFonts } from 'expo-font';
 import { router, Stack, usePathname, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, Text as NativeText, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ConfirmProvider, FullScreenLoader, ToastProvider } from '../src/components/ui';
+import { ConfirmProvider, FullScreenLoader, Text, ToastProvider } from '../src/components/ui';
 import { DemoDataIndicator } from '../src/components/DemoDataIndicator';
 import { AuthProvider, useAuth } from '../src/lib/auth';
 import { LocationProvider } from '../src/lib/locationContext';
@@ -100,12 +100,12 @@ function RootNavigator() {
           backgroundColor: t.colors.bg,
         }}
       >
-        <NativeText style={{ color: t.colors.text, fontSize: 18, fontWeight: '600', marginBottom: 8 }}>
+        <Text variant="title3" style={{ marginBottom: 8 }}>
           Your session could not be restored
-        </NativeText>
-        <NativeText style={{ color: t.colors.text, marginBottom: 20, textAlign: 'center' }}>
+        </Text>
+        <Text variant="body" align="center" style={{ marginBottom: 20 }}>
           We could not verify your session. Check your connection and try again.
-        </NativeText>
+        </Text>
         <Pressable
           accessibilityRole="button"
           onPress={() => void retryRestore()}
@@ -119,7 +119,7 @@ function RootNavigator() {
             backgroundColor: t.colors.primary,
           }}
         >
-          <NativeText style={{ color: t.colors.onPrimary, fontWeight: '600' }}>Retry</NativeText>
+          <Text variant="button" color="onPrimary">Retry</Text>
         </Pressable>
       </View>
     );
