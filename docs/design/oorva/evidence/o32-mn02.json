@@ -41,14 +41,35 @@
       "file": "supabase/tests/demo_payouts.test.mjs",
       "status": "retained-unmodified"
     },
-    "registration": "pending-coordinator",
-    "execution": "not-run-before-registration",
+    "registration": {
+      "status": "complete",
+      "commit": "f6cd932994811ba041d86f61395a7b856f3eccc7",
+      "changedFile": "supabase/tests/package.json"
+    },
+    "execution": "UNAVAILABLE_NO_PASS",
     "requiredSelectors": [
       "oorva_o32_mn02",
       "o32_mn02_oorva.sql"
-    ]
+    ],
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "originMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "name": "qs-tests-g67pgv4xqj639gx5",
+      "firstSelector": {
+        "selector": "oorva_o32_mn02",
+        "result": "UNAVAILABLE_NO_PASS",
+        "selected": false,
+        "reason": "Codespace could not fetch the WIP snapshot before selection; remote Git reported missing HTTPS username."
+      },
+      "secondSelector": {
+        "selector": "o32_mn02_oorva.sql",
+        "result": "not-run",
+        "reason": "Stopped after the same pre-selection Codespace fetch failure; no credentials changed."
+      }
+    },
+    "laneCiFallback": "pending coordinator MONEY review; no lane push"
   },
-  "checkpoint": "PAUSED_FOR_REGISTRATION",
+  "checkpoint": "PAUSED_FOR_COORDINATOR_MONEY_REVIEW",
   "reviewRequired": "money",
   "reviewStatus": "pending",
   "e1Status": "pending",
