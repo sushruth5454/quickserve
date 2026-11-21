@@ -3,6 +3,7 @@
   "sourceTaskIds": ["PF-T01"],
   "sourceFindingIds": ["PF-F01", "PF-F02"],
   "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "validatedImplementationHeadSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
     "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
@@ -31,23 +32,23 @@
         "selectedFile": "app/src/lib/__tests__/authRestoreModel.test.ts",
         "result": "PASS",
         "typecheck": "PASS",
-        "testsPassed": 4
+        "selectedCount": 1,
+        "testsPassed": 4,
+        "testsTotal": 4
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.branding.__tests__.featureControl[.]test[.]tsx$'",
         "selectedFile": "app/src/branding/__tests__/featureControl.test.tsx",
         "result": "PASS",
-        "testsPassed": 5
+        "selectedCount": 1,
+        "testsPassed": 5,
+        "testsTotal": 5
       }
     ],
     "laneCi": {
-      "initialAttempt": {
-        "runId": 44895348898,
-        "headSha": "393866a1fec34d324c307f3e06813e9ce3b57d75",
-        "status": "failure",
-        "failedCheck": "app UI lint: app/app/_layout.tsx used raw fontSize instead of a Text variant"
-      },
-      "rerun": "pending"
+      "runId": 44895855521,
+      "headSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
+      "status": "success"
     },
     "authReview": "required"
   },
