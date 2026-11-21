@@ -7,7 +7,7 @@
     "CM-F04",
     "CM-F05"
   ],
-  "status": "PAUSED_FOR_REGISTRATION",
+  "status": "PAUSED_FOR_AUTH_REVIEW",
   "base": {
     "plan": "b40e3ac3da80dc7dba677457413180bca6070222",
     "tested": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
@@ -26,7 +26,16 @@
     "migrationClaims": [],
     "sqlFunctions": [],
     "productionActions": false,
-    "sharedRegistration": "Coordinator-owned registration in supabase/tests/package.json is pending; deploy-backend.yml remains untouched."
+    "sharedRegistration": {
+      "owner": "coordinator",
+      "file": "supabase/tests/package.json",
+      "commit": "01d5aafdafb46da731bc86ab7c642520b6732f5c",
+      "selector": "node oorva_o24_cm03.test.mjs",
+      "status": "complete"
+    },
+    "deployBackendWorkflow": "untouched",
+    "credentialsChanged": false,
+    "fallback": "Documented Lane-CI fallback only; not triggered pending coordinator AUTH review and push authorization."
   },
   "implementation": [
     "Personal support list now requires the authenticated actor id and filters support_threads.user_id explicitly.",
@@ -34,7 +43,7 @@
     "The three route bodies are hosted in the canonical communicationScreens files; routes are thin re-exports.",
     "Personal/admin inboxes distinguish loading, error with Retry, successful empty, and populated states; actor/filter/request generations suppress stale data and load failures clear rows.",
     "The participant conversation clears draft/action state on actor or thread change and labels a message You only when sender_id matches the authenticated actor.",
-    "Focused app and SQL cases were added; none have been run because coordinator registration is still pending."
+    "Focused app and SQL cases were added. The first current-main Codespace selector failed fetching its WIP snapshot before selection; no tests were selected or passed. The other selectors were not attempted."
   ],
   "tests": [
     {
@@ -43,7 +52,7 @@
         "CM_SUPPORT_PERSONAL_LIST_SCOPE",
         "CM_SUPPORT_PERSONAL_DETAIL_SCOPE"
       ],
-      "result": "not-run-registration-pending"
+      "result": "no-tests-selected"
     },
     {
       "path": "app\\src\\components\\__tests__\\SupportInboxes.test.tsx",
@@ -52,30 +61,33 @@
         "CM_SUPPORT_ERROR_RECOVERY",
         "CM_ADMIN_SUPPORT_FILTER_ORDER"
       ],
-      "result": "not-run-registration-pending"
+      "result": "not-attempted-codespace-unavailable"
     },
     {
       "path": "supabase\\tests\\oorva_o24_cm03.test.mjs",
       "cases": [
         "CM_SQL_SUPPORT_OTHER_DENIED"
       ],
-      "result": "not-run-registration-pending"
+      "result": "not-attempted-codespace-unavailable"
     },
     {
       "suite": "app",
       "filter": "src.lib.__tests__.supportApi[.]test[.]ts$",
-      "result": "not-run-registration-pending"
+      "result": "UNAVAILABLE_NO_PASS",
+      "selected": 0,
+      "passed": 0,
+      "detail": "Codespace failed fetching the WIP snapshot before test selection: fatal: could not read Username for 'https://github.com': No such device or address. No credentials were changed."
     },
     {
       "suite": "jest",
       "filter": "src.components.__tests__.SupportInboxes[.]test[.]tsx$",
-      "result": "not-run-registration-pending"
+      "result": "not-attempted-codespace-unavailable"
     },
     {
       "suite": "sql",
       "filter": "oorva_o24_cm03",
-      "result": "not-run-registration-pending"
+      "result": "not-attempted-codespace-unavailable"
     }
   ],
-  "pending": "Wait for coordinator registration commit; then fast-forward it and run the exact current-main Codespace selectors before the lane push."
+  "pending": "Coordinator to run the required AUTH review on this evidence head and authorize only the documented Lane-CI fallback push. No Codespace PASS is claimed."
 }
