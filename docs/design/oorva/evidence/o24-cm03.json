@@ -1,0 +1,141 @@
+{
+  "stage": "O24-CM03",
+  "sourceTaskIds": [
+    "CM-T03"
+  ],
+  "sourceFindingIds": [
+    "CM-F04",
+    "CM-F05"
+  ],
+  "status": "TESTED_READY_FOR_BATCH",
+  "base": {
+    "plan": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "tested": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "sourceBaseline": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependencies": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
+    }
+  },
+  "gates": {
+    "D01": "approved",
+    "E0": "approved",
+    "E1": "pending",
+    "AUTH": {
+      "status": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "source": "coordinator confirmation"
+    }
+  },
+  "scope": {
+    "migrationClaims": [],
+    "sqlFunctions": [],
+    "productionActions": false,
+    "sharedRegistration": {
+      "owner": "coordinator",
+      "file": "supabase/tests/package.json",
+      "commit": "01d5aafdafb46da731bc86ab7c642520b6732f5c",
+      "selector": "node oorva_o24_cm03.test.mjs",
+      "status": "complete"
+    },
+    "deployBackendWorkflow": "untouched",
+    "credentialsChanged": false,
+    "fallback": "Codespace selectors passed on the correction head; Lane-CI fallback run 44937467778 passed on that exact head.",
+    "mainPromotion": "deferred until the stage joins a tested batch"
+  },
+  "implementation": [
+    "Personal support list now requires the authenticated actor id and filters support_threads.user_id explicitly.",
+    "Scoped conversation loading checks participant ownership before fetching messages; admin scope keeps the existing RLS-filtered thread lookup.",
+    "The three route bodies are hosted in the canonical communicationScreens files; routes are thin re-exports.",
+    "Personal/admin inboxes distinguish loading, error with Retry, successful empty, and populated states; actor/filter/request generations suppress stale data and load failures clear rows.",
+    "The participant conversation clears draft/action state on actor or thread change and labels a message You only when sender_id matches the authenticated actor.",
+    "The post-correction current-main Codespace selectors passed on the reviewed correction head; the earlier unavailable attempt and failed pre-correction Lane CI are superseded by these later results."
+  ],
+  "tests": [
+    {
+      "path": "app\\src\\lib\\__tests__\\supportApi.test.ts",
+      "cases": [
+        "CM_SUPPORT_PERSONAL_LIST_SCOPE",
+        "CM_SUPPORT_PERSONAL_DETAIL_SCOPE"
+      ],
+      "result": "PASS: current-main Codespace app selector (1 suite, 2 tests) and Lane CI on 20c8c5a7d1325cc937f43a8cbc5067e6eea9e282."
+    },
+    {
+      "path": "app\\src\\components\\__tests__\\SupportInboxes.test.tsx",
+      "cases": [
+        "CM_ADMIN_SUPPORT_FAILURE_NOT_CLEAR",
+        "CM_SUPPORT_ERROR_RECOVERY",
+        "CM_ADMIN_SUPPORT_FILTER_ORDER"
+      ],
+      "result": "PASS: current-main Codespace Jest selector (1 suite, 3 tests) and Lane CI on 20c8c5a7d1325cc937f43a8cbc5067e6eea9e282."
+    },
+    {
+      "path": "supabase\\tests\\oorva_o24_cm03.test.mjs",
+      "cases": [
+        "CM_SQL_SUPPORT_OTHER_DENIED"
+      ],
+      "result": "PASS: current-main Codespace SQL selector (1 file) and Lane CI on 20c8c5a7d1325cc937f43a8cbc5067e6eea9e282."
+    },
+    {
+      "suite": "app",
+      "filter": "src.lib.__tests__.supportApi[.]test[.]ts$",
+      "result": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "selectedSuites": 1,
+      "passedSuites": 1,
+      "selectedTests": 2,
+      "passedTests": 2,
+      "codespaceSnapshot": "wip/qs-oorva-o24-cm03 @ 0ca7f1a0"
+    },
+    {
+      "suite": "jest",
+      "filter": "src.components.__tests__.SupportInboxes[.]test[.]tsx$",
+      "result": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "selectedSuites": 1,
+      "passedSuites": 1,
+      "selectedTests": 3,
+      "passedTests": 3,
+      "codespaceSnapshot": "wip/qs-oorva-o24-cm03 @ c0b4e675"
+    },
+    {
+      "suite": "sql",
+      "filter": "oorva_o24_cm03",
+      "result": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "selectedFiles": 1,
+      "passedFiles": 1,
+      "codespaceSnapshot": "wip/qs-oorva-o24-cm03 @ 3f5da37b"
+    }
+  ],
+  "laneCI": {
+    "runId": 44937467778,
+    "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "job": "app",
+        "conclusion": "success"
+      },
+      {
+        "job": "sql",
+        "conclusion": "success"
+      },
+      {
+        "job": "deno",
+        "conclusion": "success"
+      },
+      {
+        "job": "changes",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "previousLaneCI": {
+    "runId": 44934399079,
+    "head": "35d66326422f7606c79e21ac2d9cfd1d8504042d",
+    "conclusion": "failure",
+    "supersededBy": 44937467778
+  },
+  "pending": "No main push; wait until O24-CM03 joins a tested batch."
+}
