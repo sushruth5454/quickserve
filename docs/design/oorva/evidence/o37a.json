@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O37A",
+  "workPackage": "O37",
+  "status": "PAUSED_FOR_REGISTRATION",
+  "base": {
+    "implementationSha": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependency": {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE"
+    }
+  },
+  "sourceTaskIds": [],
+  "sourceFindingIds": [],
+  "sqlFunctions": [],
+  "sqlObjects": [],
+  "migrationClaims": [],
+  "allocatedMigrationFilenames": [],
+  "workerOwnedFiles": [
+    "scripts\\brand\\package.json",
+    "scripts\\brand\\package-lock.json",
+    "scripts\\brand\\export.mjs",
+    "scripts\\brand\\validate.mjs",
+    "scripts\\brand\\asset-tests.mjs",
+    "scripts\\brand\\validate-execution-plan.mjs",
+    "scripts\\brand\\capture-manifest.mjs",
+    "scripts\\brand\\fixtures\\export-selftest.svg",
+    "supabase\\tests-postgres\\package.json",
+    "supabase\\tests-postgres\\package-lock.json",
+    "supabase\\tests-postgres\\run.mjs",
+    "supabase\\tests-postgres\\helpers.mjs",
+    "supabase\\tests-postgres\\harness.selftest.mjs",
+    "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts",
+    "docs\\design\\oorva\\evidence\\o37a.json"
+  ],
+  "existingWorkerOwnedFilesAtBase": [],
+  "coordinatorOwnedFiles": [
+    "scripts\\cs-test.ps1",
+    "scripts\\cs\\run.sh",
+    "scripts\\ci\\local-supabase.sh",
+    ".github\\workflows\\lane-ci.yml",
+    ".github\\workflows\\e2e-local.yml",
+    ".github\\workflows\\e2e-web.yml",
+    "e2e\\e2e-flags.json",
+    "e2e\\web-smoke.mjs"
+  ],
+  "registration": {
+    "state": "PENDING",
+    "requestedChanges": {
+      "scripts\\cs-test.ps1": [
+        "No patch; retain current-main helper and do not add or invoke a Suite assets selector before TOOL-ASSETS-MAIN approval."
+      ],
+      "scripts\\cs\\run.sh": [
+        "Install scripts/brand and supabase/tests-postgres from their pinned package.json/package-lock.json using npm ci in the Codespace so the exact app selector can run their dependency-free guard checks.",
+        "Do not add an assets suite."
+      ],
+      "scripts\\ci\\local-supabase.sh": [
+        "No patch; the private stack already exports LOCAL_DB_URL through GITHUB_ENV. Set PRIVATE_TEST_STACK=true only in the private CI job."
+      ],
+      ".github\\workflows\\lane-ci.yml": [
+        "Add changed-path selection for scripts/brand/**, supabase/tests-postgres/**, and the Oorva execution-plan inputs.",
+        "Add a Node 22 tooling job: npm ci in scripts/brand; run node asset-tests.mjs --selftest and node validate-execution-plan.mjs --all.",
+        "Add a private PostgreSQL job using the existing disposable local-supabase stack, LOCAL_DB_URL, and PRIVATE_TEST_STACK=true; run node run.mjs --selftest. Discover only existing *.pg.test.mjs plus explicitly listed HTTP tests; never register them in PGlite."
+      ],
+      ".github\\workflows\\e2e-local.yml": [
+        "Keep all section-0.5 Oorva switches OFF for its legacy pass; any future positive brand/family pass must be private-only and use real assertions after those features exist. No hosted dispatch."
+      ],
+      ".github\\workflows\\e2e-web.yml": [
+        "No new positive Oorva pass or dispatch. Preserve hosted snapshot/pin/restore/verify flow; section-0.5 Oorva switches remain OFF for hosted passes."
+      ],
+      "e2e\\e2e-flags.json": {
+        "allSection05Keys": [
+          "oorva_brand",
+          "branding_runtime",
+          "branding_editor",
+          "oorva_launch_animation",
+          "oorva_home_ux",
+          "oorva_auth_ux",
+          "oorva_catalogue_ux",
+          "oorva_booking_ux",
+          "oorva_recurring_ux",
+          "oorva_shops_ux",
+          "oorva_rfq_ux",
+          "oorva_sports_ux",
+          "oorva_creators_ux",
+          "oorva_account_ux",
+          "oorva_comms_ux",
+          "oorva_provider_ux",
+          "oorva_onboarding_ux",
+          "oorva_merchant_shop_ux",
+          "oorva_business_staff_ux",
+          "oorva_venue_ops_ux",
+          "oorva_admin_ops_ux",
+          "oorva_admin_config_ux",
+          "oorva_admin_money_ux",
+          "oorva_ai_ux",
+          "oorva_external_brand"
+        ],
+        "requiredValueForEveryKey": false
+      },
+      "e2e\\web-smoke.mjs": [
+        "No patch required for console filtering: preserve the existing pageerror and console-error collection without blanket filters. The worker capture-manifest helper validates exact route/state/actor/flag evidence and rejects broad filters."
+      ]
+    }
+  },
+  "selectors": {
+    "codespaceApp": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+    "assetSelftest": "node asset-tests.mjs --selftest (working directory scripts\\brand)",
+    "planSelection": "node validate-execution-plan.mjs --all (working directory scripts\\brand)",
+    "privatePostgresSelftest": "node run.mjs --selftest (working directory supabase\\tests-postgres)",
+    "assetsSuite": "NOT_APPROVED; do not invoke"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "NOT_GRANTED",
+    "TOOL-ASSETS-MAIN": "NOT_GRANTED",
+    "nativeOrPublic": "NOT_GRANTED",
+    "hostedE2eWebDispatch": "NOT_AUTHORIZED"
+  },
+  "validation": {
+    "codespaceApp": "NOT_RUN",
+    "assetSelftest": "NOT_RUN",
+    "planSelection": "NOT_RUN",
+    "privatePostgresSelftest": "NOT_RUN",
+    "laneCi": "NOT_RUN",
+    "reason": "Await exact worker-only checkpoint and coordinator shared-registration roundtrip."
+  },
+  "remoteLockGeneration": {
+    "runtime": "Node v22.16.0 / npm 10.9.2",
+    "command": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org/",
+    "brandLock": "GENERATED_IN_CODESPACE",
+    "postgresLock": "GENERATED_IN_CODESPACE"
+  },
+  "claims": {
+    "assetsSuiteSuccess": false,
+    "nativeBuildOrRelease": false,
+    "hostedE2eWebDispatched": false
+  }
+}
