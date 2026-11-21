@@ -79,8 +79,17 @@
       "credentialsChanged": false
     },
     "laneCiFallback": {
-      "status": "PENDING",
-      "requirement": "Verify Lane CI on the exact pushed head."
+      "status": "RETRY_AFTER_FIX",
+      "attempts": [
+        {
+          "runId": 44923544328,
+          "headSha": "eb91e3b8c0651ed0f0f9768f10c3189b147f85bb",
+          "conclusion": "FAILURE",
+          "failedCheck": "The app unit-test suite failed to load because Jest rejected the mock factory's callback parameter named current; typecheck and all other lane jobs passed.",
+          "fix": "Renamed the callback parameter with the mock prefix required by Jest's mock-hoist guard."
+        }
+      ],
+      "requirement": "Verify Lane CI on the exact pushed head after the correction."
     }
   },
   "review": {
