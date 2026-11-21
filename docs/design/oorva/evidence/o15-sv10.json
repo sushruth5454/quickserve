@@ -26,7 +26,7 @@
     "otherComparedStageOwnedFiles": "No audited-source-to-base drift reported."
   },
   "implementation": {
-    "status": "worker implementation checkpoint; not pushed",
+    "status": "owner correction checkpoint; not pushed",
     "files": [
       "app/app/assistant.tsx",
       "app/src/features/platformScreens/AssistantScreen.tsx",
@@ -73,8 +73,31 @@
       "reason": "The helper's Codespace SSH runner could not fetch the WIP snapshot because Git HTTPS authentication was unavailable. No tests were selected; credentials were not changed."
     },
     "laneCI": {
-      "status": "not run",
-      "reason": "No lane push before coordinator money-review approval."
+      "runId": 44934953028,
+      "headSha": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
+      "status": "completed",
+      "conclusion": "failure",
+      "failedJobs": [
+        {
+          "job": "app / Typecheck",
+          "errors": [
+            "TS2339: draftPrefill union did not narrow DraftCard before reading from.",
+            "TS2339: draftPrefill union did not narrow DraftCard before reading fromAssistant.",
+            "TS2339: draftPrefill union did not narrow DraftCard before reading addressId (three diagnostics)."
+          ]
+        },
+        {
+          "job": "app / Unit tests",
+          "failedSuite": "src/lib/__tests__/assistant.test.ts",
+          "failedCases": [
+            "reads params back into the Book screen state (day + window): exact BookPrefill comparison rejected extra slot and slotInvalid properties.",
+            "keeps the day but drops a window that is no longer bookable; ignores bad slots: expected mode null for an out-of-range date, received schedule."
+          ],
+          "summary": "1 suite failed, 80 passed; 2 tests failed, 535 passed."
+        }
+      ],
+      "uncaughtErrors": [],
+      "otherAffectedJobs": "changes passed; remaining lane jobs were skipped by path filtering."
     }
   },
   "moneyReviewCorrection": {
@@ -86,14 +109,25 @@
     ],
     "behavior": "Session-pack eligibility now requires session unit, fixed positive price, integer qty_min and qty_max, and at least one purchasable whole pack count above one. The UI hides the pack choice for ineligible bounds, resets stale pack selection, and blocks pack submission if eligibility is false.",
     "regression": "Added doesNotOfferSessionPacksWithFractionalQuantityBounds for fractional minimum and maximum bounds plus the valid integer case.",
-    "testExecution": "Not run. Codespace remains UNAVAILABLE_NO_PASS before selection; no Windows tests were run."
+    "testExecution": "Not run after correction. Codespace remains UNAVAILABLE_NO_PASS before selection; no Windows tests were run."
+  },
+  "laneCiOwnerCorrection": {
+    "sourceHead": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
+    "failureRootCause": "The original BookPrefill fields were made enumerable for every result and an out-of-range slot changed from mode null to schedule; draftPrefill also accessed route-only properties on the DraftCard union.",
+    "files": [
+      "app/src/lib/assistant/prefill.ts",
+      "app/src/features/booking/book/useBookScreenController.ts",
+      "app/src/lib/assistant/__tests__/prefill.test.ts"
+    ],
+    "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; add only a true slotInvalid marker for invalid slots, use it to force schedule reselection, reconstruct safe route slot params in the controller, and narrow route-draft fields before use.",
+    "validation": "git diff --check only; no tests/builds run after correction."
   },
   "review": {
     "required": [
       "money"
     ],
-    "status": "pending",
-    "lanePush": "blocked until coordinator confirms PASS"
+    "status": "re-review required for the local owner correction",
+    "lanePush": "blocked until coordinator confirms PASS on the correction head"
   },
   "scopeBlockers": [
     {

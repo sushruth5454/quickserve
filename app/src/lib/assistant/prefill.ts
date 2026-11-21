@@ -26,21 +26,23 @@ export interface BookPrefill {
   dayIndex: number | null;
   hour: number | null;
   addressId: string | null;
-  slot: string | null;
-  slotInvalid: boolean;
+  slotInvalid?: true;
 }
 
-type BookingEntryDraft =
-  | DraftCard
-  | {
-      from?: string;
-      fromAssistant?: boolean;
-      description?: string | null;
-      slot?: string | null;
-      addressId?: string | null;
-      archetype?: unknown;
-    }
-  | null;
+type RouteBookingDraft = {
+  from?: string;
+  fromAssistant?: boolean;
+  description?: string | null;
+  slot?: string | null;
+  addressId?: string | null;
+  archetype?: unknown;
+};
+
+type BookingEntryDraft = DraftCard | RouteBookingDraft | null;
+
+function isAssistantDraft(draft: BookingEntryDraft): draft is DraftCard {
+  return draft !== null && 'type' in draft && draft.type === 'draft';
+}
 
 type BookingService = {
   id: string;
@@ -86,7 +88,7 @@ export function isServiceBookingEnabled(
 
 function draftPrefill(draft: BookingEntryDraft): Omit<BookingEntryParams, 'providerServiceId' | 'archetype' | 'categoryId' | 'name' | 'providerId' | 'providerName'> {
   if (!draft) return {};
-  if ('type' in draft && draft.type === 'draft') {
+  if (isAssistantDraft(draft)) {
     return {
       from: 'assistant',
       description: composeDescription(draft),
@@ -94,11 +96,12 @@ function draftPrefill(draft: BookingEntryDraft): Omit<BookingEntryParams, 'provi
       ...(draft.address.address_id ? { addressId: draft.address.address_id } : {}),
     };
   }
+  const routeDraft = draft as RouteBookingDraft;
   return {
-    ...(draft.from === 'assistant' || draft.fromAssistant ? { from: 'assistant' } : {}),
-    ...(typeof draft.description === 'string' && draft.description ? { description: draft.description.slice(0, DESCRIPTION_MAX) } : {}),
-    ...(typeof draft.slot === 'string' && draft.slot ? { slot: draft.slot } : {}),
-    ...(typeof draft.addressId === 'string' && draft.addressId ? { addressId: draft.addressId } : {}),
+    ...(routeDraft.from === 'assistant' || routeDraft.fromAssistant ? { from: 'assistant' } : {}),
+    ...(typeof routeDraft.description === 'string' && routeDraft.description ? { description: routeDraft.description.slice(0, DESCRIPTION_MAX) } : {}),
+    ...(typeof routeDraft.slot === 'string' && routeDraft.slot ? { slot: routeDraft.slot } : {}),
+    ...(typeof routeDraft.addressId === 'string' && routeDraft.addressId ? { addressId: routeDraft.addressId } : {}),
   };
 }
 
@@ -229,16 +232,20 @@ export function readBookPrefill(params: Record<string, string | string[] | undef
     dayIndex: null,
     hour: null,
     addressId,
-    slot: slot ?? null,
-    slotInvalid: false,
   };
   if (slot === 'asap') return { ...out, mode: 'asap' };
   const m = slot ? /^(\d{4})-(\d{2})-(\d{2})@(\d{1,2})$/.exec(slot) : null;
   if (!slot) return out;
-  if (!m) return { ...out, mode: 'schedule', slotInvalid: true };
+  if (!m) return { ...out, slotInvalid: true };
   const [h] = [Number(m[4])];
   const dayIndex = days.findIndex((x) => istDateKey(x.date) === `${m[1]}-${m[2]}-${m[3]}`);
-  if (dayIndex < 0) return { ...out, mode: 'schedule', slotInvalid: true };
+  if (dayIndex < 0) return { ...out, slotInvalid: true };
   const hourOk = (WINDOW_START_HOURS as readonly number[]).includes(h) && windowAvailable(days[dayIndex]!.date, h, now);
-  return { ...out, mode: 'schedule', dayIndex, hour: hourOk ? h : null, slotInvalid: !hourOk };
+  return {
+    ...out,
+    mode: 'schedule',
+    dayIndex,
+    hour: hourOk ? h : null,
+    ...(!hourOk ? { slotInvalid: true as const } : {}),
+  };
 }

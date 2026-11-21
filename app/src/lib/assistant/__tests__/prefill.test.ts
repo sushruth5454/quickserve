@@ -9,6 +9,37 @@ const service = (archetype: string) => ({
 });
 
 describe('assistant booking handoff', () => {
+  it('preserves the Book prefill object shape for valid and absent slots', () => {
+    const days: DayOption[] = [{
+      date: new Date('2027-01-15T00:00:00+05:30'),
+      key: '2027-01-15',
+      label: 'Fri',
+      dayOfMonth: '15',
+    }];
+    const now = new Date('2026-11-21T00:00:00.000Z');
+
+    expect(readBookPrefill(
+      { from: 'assistant', description: 'Repair the tap', slot: '2027-01-15@10' },
+      days,
+      now,
+    )).toEqual({
+      fromAssistant: true,
+      description: 'Repair the tap',
+      mode: 'schedule',
+      dayIndex: 0,
+      hour: 10,
+      addressId: null,
+    });
+    expect(readBookPrefill({}, days, now)).toEqual({
+      fromAssistant: false,
+      description: null,
+      mode: null,
+      dayIndex: null,
+      hour: null,
+      addressId: null,
+    });
+  });
+
   it('nonInspectDestination resolves package and proposal families to their real bodies', () => {
     expect(resolveServiceBookingEntry(service('time_based'), {
       from: 'assistant',

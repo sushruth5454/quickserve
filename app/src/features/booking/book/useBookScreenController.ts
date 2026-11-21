@@ -10,7 +10,7 @@ import { fromSavedAddress } from '../../../lib/locationModel';
 import { usePayment } from '../../../lib/payments';
 import { supabase } from '../../../lib/supabase';
 import { useAppFeatureFlags, useFeature } from '../../../lib/featureFlags';
-import { firstAvailableDay, nextDays, WINDOW_START_HOURS, windowAvailable, windowStart } from '../../../lib/schedule';
+import { firstAvailableDay, istDateKey, nextDays, WINDOW_START_HOURS, windowAvailable, windowStart } from '../../../lib/schedule';
 import { useTheme } from '../../../theme';
 import { onboardingApi, type ProviderSchedule } from '../../../lib/onboarding';
 import { asapAvailable, windowFits } from '../../../lib/onboarding/availability';
@@ -42,17 +42,27 @@ export function useBookScreenController() {
   const days = useMemo(() => nextDays(now, 7), [now]);
   // Draft hand-off from QuickServe AI (src/lib/assistant/prefill.ts); read once so the user's edits stick.
   const [prefill] = useState(() => readBookPrefill(prefillParams, days, now));
-  const bookingEntry = useMemo(() => service
-    ? resolveServiceBookingEntry(service, {
-        fromAssistant: prefill.fromAssistant,
-        description: prefill.description,
-        slot: prefill.slot,
-        addressId: prefill.addressId,
-      })
-    : null, [service, prefill]);
+  const bookingEntry = useMemo(() => {
+    if (!service) return null;
+    const slot = prefill.slotInvalid
+      ? 'invalid'
+      : prefill.mode === 'asap'
+        ? 'asap'
+        : prefill.mode === 'schedule' && prefill.dayIndex !== null && prefill.hour !== null
+          ? `${istDateKey(days[prefill.dayIndex]!.date)}@${prefill.hour}`
+          : undefined;
+    return resolveServiceBookingEntry(service, {
+      fromAssistant: prefill.fromAssistant,
+      description: prefill.description,
+      slot,
+      addressId: prefill.addressId,
+    });
+  }, [service, prefill, days]);
   const [description, setDescription] = useState(prefill.description ?? '');
   const [photos, setPhotos] = useState<{ uri: string; mimeType: string }[]>([]);
-  const [mode, setMode] = useState<'asap' | 'schedule'>(prefill.mode ?? 'asap');
+  const [mode, setMode] = useState<'asap' | 'schedule'>(() => (
+    prefill.slotInvalid ? 'schedule' : prefill.mode ?? 'asap'
+  ));
   const [dayIndex, setDayIndex] = useState(() => prefill.dayIndex ?? firstAvailableDay(days, now));
   const [hour, setHour] = useState<number | null>(prefill.hour);
   const [editorOpen, setEditorOpen] = useState(false);
