@@ -286,6 +286,7 @@ describe('SearchScreen product results', () => {
       distance_km: null,
       category_slugs: [],
     };
+    mockRuntime.sportsOn = true;
     const tree = await loadProducts('cement', response([boxProduct, askProduct], {
       catalogue,
       activities: [{ id: 'activity-result', slug: 'cement-tennis', name: 'Cement tennis' }],
@@ -439,7 +440,7 @@ describe('SearchScreen product results', () => {
       filters: { query: 'cement', category_slug: null, max_price_paise: null, in_stock_only: false },
       products: [],
     });
-    tree = renderProductsScreen();
+    let tree = renderProductsScreen();
     const aiInput = findElements(tree, 'Input').find(({ props }) => props.label === 'Ask in your words');
     expect(aiInput).toBeDefined();
     (aiInput?.props.onChangeText as ((value: string) => void) | undefined)?.('cement');

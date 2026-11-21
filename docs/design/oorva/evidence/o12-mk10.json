@@ -58,6 +58,16 @@
       "blocker": "Codespace SSH server failed to start because the container has no SSH server installed. No tests were selected or passed.",
       "otherSelector": "Not run after the confirmed Codespace startup blocker; Lane CI is the fallback."
     },
+    "laneCiFirstAttempt": {
+      "runId": 44923995036,
+      "headSha": "3a646e06de9b4cc261c688516b61c68820b8f008",
+      "result": "FAIL",
+      "causes": [
+        "SearchScreen.test.tsx referenced the AI screen render tree without declaring it in that test.",
+        "A prior search test fixture included a sports activity while sports was disabled; the new effective-family filter correctly omitted the row."
+      ],
+      "resolution": "Both causes fixed together in this follow-up O12-MK10 change; exact-head Lane CI revalidates it."
+    },
     "gitDiffCheck": "PASS"
   },
   "gates": {
