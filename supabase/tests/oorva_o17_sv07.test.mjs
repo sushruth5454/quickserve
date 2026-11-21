@@ -93,7 +93,7 @@ await db.exec("set timezone = 'UTC'");
 const { ok, scenario, finish } = createHarness();
 await db.query(`
   update feature_flags set enabled = true
-   where key in ('recurring_bookings', 'recurring_reschedule')
+   where key in ('recurring_bookings', 'recurring_reschedule', 'merchant_staff')
 `);
 await db.query(`
   update app_config

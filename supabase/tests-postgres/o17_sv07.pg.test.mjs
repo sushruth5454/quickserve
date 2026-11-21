@@ -27,7 +27,7 @@ async function createFixture(client, label, startAccepted = false) {
   );
   await client.query(`
     update feature_flags set enabled = true
-     where key in ('recurring_bookings', 'recurring_reschedule')
+     where key in ('recurring_bookings', 'recurring_reschedule', 'merchant_staff')
   `);
   await client.query(`
     insert into providers (
@@ -251,7 +251,7 @@ async function runRace(context, status) {
 export async function run(context) {
   const originalFlags = await context.withClient(async (client) => (await client.query(`
     select key, enabled from feature_flags
-     where key in ('recurring_bookings', 'recurring_reschedule')
+     where key in ('recurring_bookings', 'recurring_reschedule', 'merchant_staff')
   `)).rows);
   const originalArchetypeFlags = await context.withClient(async (client) => (await client.query(`
     select value from app_config where key = 'archetype_flags'
