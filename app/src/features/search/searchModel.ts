@@ -84,6 +84,8 @@ export function groupResults(raw: SearchRawResults, q: string, scope: SearchScop
   };
 
   for (const category of categories) {
+    if (category.archetype === null) continue;
+
     const isCreator = category.vertical != null && creatorVerticals.has(category.vertical);
     const group = isCreator ? 'creators' : 'services';
     grouped[group].push({
@@ -123,7 +125,7 @@ export function groupResults(raw: SearchRawResults, q: string, scope: SearchScop
 
   return scopes[scope].flatMap((key) => {
     const results = grouped[key]
-      .filter((result) => normalizeQuery(result.name).toLowerCase().includes(query))
+      .filter((result) => result.kind === 'product' || normalizeQuery(result.name).toLowerCase().includes(query))
       .slice(0, 5);
     return results.length > 0 ? [{ key, results }] : [];
   });
