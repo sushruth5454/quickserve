@@ -1,0 +1,48 @@
+{
+  "stage": "O31-CM11",
+  "sourceTask": "CM-T11",
+  "finding": "CM-F14",
+  "testedBase": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "dependencies": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
+  },
+  "acceptance": {
+    "CM_RULES_DIRTY_FOCUS": {
+      "test": "app/src/components/__tests__/AdminRulesScreen.test.tsx",
+      "status": "implemented"
+    },
+    "CM_RULES_OFF_ROUTE": {
+      "test": "app/src/components/__tests__/AdminRulesScreen.test.tsx",
+      "status": "implemented"
+    },
+    "CM_RULES_PARTIAL_SAVE": {
+      "test": "app/src/components/__tests__/AdminRulesScreen.test.tsx",
+      "status": "implemented"
+    },
+    "exact-unit API boundaries": {
+      "test": "app/src/lib/__tests__/adminRulesApi.test.ts",
+      "status": "retained unchanged"
+    }
+  },
+  "codespaceValidation": [
+    {
+      "suite": "app",
+      "filter": "src.components.__tests__.AdminRulesScreen[.]test[.]tsx$",
+      "status": "blocked",
+      "reason": "Codespace runner could not fetch the WIP snapshot: HTTPS Git authentication failed."
+    },
+    {
+      "suite": "jest",
+      "filter": "src.lib.__tests__.adminRulesApi[.]test[.]ts$",
+      "status": "blocked",
+      "reason": "Codespace runner could not fetch the WIP snapshot: HTTPS Git authentication failed."
+    }
+  ],
+  "scope": {
+    "migrations": false,
+    "featureFlags": false,
+    "deployment": false,
+    "mainActions": false
+  }
+}
