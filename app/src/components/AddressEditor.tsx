@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { addAddress } from '../lib/api';
 import { locateWithGps } from '../lib/locationContext';
@@ -28,11 +28,15 @@ interface Props {
   pin: SelectedLocation;
   onSaved: (a: SavedAddress) => void;
   title?: string;
+  ownerId?: string | null;
 }
 
 /** "Add address" sheet: label chips, house/street line, city, and the pin used for distance matching. */
-export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved, title = 'Add address' }: Props) {
+export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved, title = 'Add address', ownerId }: Props) {
   const t = useTheme();
+  const ownerIdRef = useRef(ownerId);
+  const editorEpochRef = useRef(0);
+  ownerIdRef.current = ownerId;
   const [label, setLabel] = useState<string>('Home');
   const [line1, setLine1] = useState('');
   const [city, setCity] = useState('');
@@ -43,17 +47,31 @@ export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved,
   const [touched, setTouched] = useState(false);
 
   useEffect(() => {
-    if (!visible) return;
+    editorEpochRef.current += 1;
+    if (!visible) {
+      if (ownerId !== undefined) {
+        setBusy(false);
+        setLocating(false);
+      }
+      return;
+    }
     setPin(initialPin);
+    if (ownerId !== undefined) setLabel('Home');
     setLine1(initialPin.line1 ?? '');
     setCity(initialPin.city);
     setError(null);
     setTouched(false);
-  }, [visible, initialPin]);
+    return () => {
+      if (ownerId !== undefined) editorEpochRef.current += 1;
+    };
+  }, [visible, initialPin, ownerId]);
 
   const repin = async () => {
+    const epoch = editorEpochRef.current;
+    const requestedOwner = ownerId;
     setLocating(true);
     const r = await locateWithGps();
+    if (requestedOwner !== undefined && (epoch !== editorEpochRef.current || ownerIdRef.current !== requestedOwner)) return;
     setLocating(false);
     if (r.ok) {
       setPin(r.location);
@@ -67,15 +85,25 @@ export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved,
 
   const save = async () => {
     setTouched(true);
-    if (!line1.trim() || !city.trim()) return;
+    if (!line1.trim() || !city.trim() || ownerId === null) return;
+    const epoch = editorEpochRef.current;
+    const requestedOwner = ownerId;
     setBusy(true);
     setError(null);
     try {
-      onSaved(await addAddress({ label, line1, city, lat: pin.lat, lng: pin.lng }));
+      const saved = await addAddress({ label, line1, city, lat: pin.lat, lng: pin.lng });
+      if (requestedOwner !== undefined && (epoch !== editorEpochRef.current || ownerIdRef.current !== requestedOwner)) return;
+      onSaved(saved);
     } catch (e) {
-      setError((e as Error).message);
+      if (
+        epoch === editorEpochRef.current &&
+        (requestedOwner === undefined || ownerIdRef.current === requestedOwner)
+      ) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (
+        epoch === editorEpochRef.current &&
+        (requestedOwner === undefined || ownerIdRef.current === requestedOwner)
+      ) setBusy(false);
     }
   };
 

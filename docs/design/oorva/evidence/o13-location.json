@@ -1,0 +1,62 @@
+{
+  "stageId": "O13-LOCATION",
+  "workPackage": "O13",
+  "sourceTaskId": "PF-T03",
+  "sourceFindingId": "PF-F04",
+  "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "sourceBaselineSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
+  },
+  "routeHost": {
+    "screenId": "S48",
+    "route": "app\\app\\location.tsx",
+    "host": "app\\src\\features\\platformScreens\\LocationScreen.tsx",
+    "controller": "one useLocationController"
+  },
+  "implemented": [
+    "Private address reads are skipped unless auth has resolved to a non-empty userId; guest search, GPS, and managed areas remain available.",
+    "Address state, retries, deletes, editor visibility, and save callbacks are actor-bound; stale prior-actor responses are ignored.",
+    "The existing location storage key now stores versioned owner metadata; auth-loading defers restore without deleting the cache, only the matching owner exposes/restores saved selections, legacy saved selections are discarded, and public selections remain restorable.",
+    "Confirmed deletes are removed locally before reload; reload errors remain visible with the current actor's remaining rows.",
+    "Saved-address details render without a line-count cap and retain the full line plus city."
+  ],
+  "preserved": [
+    "O07A Skeleton GPS loading affordance from the implementation base.",
+    "Read-only supabaseApi.ts behavior and its newer profile update allowlist."
+  ],
+  "scope": {
+    "migrations": [],
+    "featureFlags": [],
+    "publicGrantsOrPolicies": [],
+    "sharedRegistrations": []
+  },
+  "validation": {
+    "tddRed": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.locationModel[.]test[.]ts$'",
+      "result": "Selected locationModel.test.ts; new owner-state cases failed before implementation as expected."
+    },
+    "postImplementationCodespace": {
+      "status": "BLOCKED_BEFORE_TEST_EXECUTION",
+      "reason": "The current-main helper could not fetch the pushed WIP ref from the shared Codespace: GitHub HTTPS authentication was unavailable there.",
+      "commands": [
+        {
+          "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.locationModel[.]test[.]ts$'",
+          "result": "Attempted after implementation; blocked before selection or test execution by WIP fetch authentication."
+        },
+        {
+          "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.lib.__tests__.locationActorState[.]test[.]ts$'",
+          "result": "Not attempted after the shared Codespace Git authentication blocker was confirmed."
+        }
+      ],
+      "fallback": "lane-ci"
+    },
+    "laneCi": {
+      "status": "PENDING"
+    },
+    "native320x200": "NOT_VERIFIED",
+    "authReview": "COORDINATOR_OWNED_PENDING",
+    "gateE1": "PENDING"
+  }
+}
