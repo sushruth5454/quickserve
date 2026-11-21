@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { CategoryIcon, iconForCategory } from '../../components/CategoryIcon';
-import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
+import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
 import { getCatalogue } from '../catalogue/api';
 import type { Catalogue } from '../catalogue/model';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
@@ -36,6 +36,8 @@ export function CreatorsScreen() {
     void load();
   }, [load]);
 
+  const categories = catalogue == null ? [] : creatorCategories(catalogue);
+
   return (
     <Screen header={<Header title={t('creators.title')} />}>
       {!enabled ? (
@@ -54,7 +56,17 @@ export function CreatorsScreen() {
             </View>
           ) : (
             <View style={{ gap: theme.spacing.md }}>
-              {creatorCategories(catalogue).map((category) => (
+              {categories.length === 0 ? (
+                <EmptyState
+                  icon="location-outline"
+                  title={`No creator categories are available in ${location.city}`}
+                  message="Try another location or browse all services."
+                  actionLabel="Change location"
+                  onAction={() => router.push('/location')}
+                  secondaryLabel="Browse services"
+                  onSecondary={() => router.push('/')}
+                />
+              ) : categories.map((category) => (
                 <Card
                   key={category.id}
                   accessibilityLabel={category.name}
