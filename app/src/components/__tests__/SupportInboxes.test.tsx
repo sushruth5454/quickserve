@@ -26,7 +26,7 @@ jest.mock('react', () => {
         mockRuntime.states[index],
         (next: unknown) => {
           mockRuntime.states[index] = typeof next === 'function'
-            ? (next as (value: unknown) => unknown)(mockRuntime.states[index])
+            ? (next as (mockValue: unknown) => unknown)(mockRuntime.states[index])
             : next;
         },
       ];

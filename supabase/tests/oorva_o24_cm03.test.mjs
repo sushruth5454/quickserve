@@ -65,7 +65,7 @@ await scenario('CM_SQL_SUPPORT_OTHER_DENIED', async () => {
     await db.exec(policyBlock);
     await db.exec(supportSend);
 
-    const as = async (actor: string, query: string, params: unknown[] = []) => {
+    const as = async (actor, query, params = []) => {
       await db.exec('reset role');
       await db.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [actor]);
       await db.exec('set role authenticated');
