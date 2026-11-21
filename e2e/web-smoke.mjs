@@ -1,5 +1,5 @@
-// Web smoke test: logs in with the Supabase test OTP and visits every screen against the live dev project.
-// Run by .github/workflows/e2e-web.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR,
+// Web smoke test: logs in with the Supabase test OTP and visits every screen against the configured E2E project.
+// Run by .github/workflows/e2e-web.yml and e2e-local.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR,
 // E2E_CUSTOMER_PHONE, NEW_PRO_PHONE, GUEST_E2E_PHONE (required when E2E_FLAGS=on).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium, devices } from 'playwright';
@@ -11,6 +11,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON = process.env.SUPABASE_ANON_KEY;
 const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
 const E2E_FLAGS_ON = process.env.E2E_FLAGS === 'on';
+const PRIVATE_LOCAL_E2E = process.env.PROJECT_REF === 'local'
+  && process.env.SUPABASE_MGMT_URL === 'http://127.0.0.1:54399';
 const PHONE = process.env.E2E_CUSTOMER_PHONE ?? '9999999999';
 const OTP = '123456';
 const ADMIN_E2E_PHONE = process.env.ADMIN_E2E_PHONE;
@@ -617,6 +619,42 @@ await step('home', async () => {
     await page.getByRole('button', { name: /^(Home & vehicle services|Home services)$/ }).first().waitFor({ state: 'visible' });
   }
 });
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('MK-PILLAR-portrait-before-after', async () => {
+    const originalViewport = page.viewportSize();
+    if (!originalViewport) {
+      throw new Error(`Expected a measurable browser viewport: ${JSON.stringify({ url: page.url() })}`);
+    }
+
+    const labels = ['Home services', 'Shops & products', 'Sports & venues', 'Creators & freelancers'];
+    try {
+      for (const width of [320, 393]) {
+        await page.setViewportSize({ width, height: 844 });
+        await go('/');
+        const labelResults = await Promise.all(labels.map(async (label) => ({
+          label,
+          visible: await page.getByText(label, { exact: true }).first().isVisible().catch(() => false),
+        })));
+        const layout = await page.evaluate(() => ({
+          viewportWidth: document.documentElement.clientWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+        }));
+        const result = {
+          width,
+          labels: labelResults,
+          layout,
+          body: (await page.locator('body').innerText()).slice(0, 1200),
+        };
+        if (labelResults.some((item) => !item.visible) || layout.scrollWidth > layout.viewportWidth + 1) {
+          throw new Error(`Pillar titles did not remain visible and within the portrait viewport: ${JSON.stringify(result)}`);
+        }
+        await snap(`mk-pillar-portrait-${width}`);
+      }
+    } finally {
+      await page.setViewportSize(originalViewport);
+    }
+  });
+}
 await step('unified-search-flag', async () => {
   const searchTabVisible = await page.getByText('Search', { exact: true }).first().isVisible().catch(() => false);
   if (searchTabVisible !== E2E_FLAGS_ON) {
@@ -777,6 +815,58 @@ for (const c of categories) {
   await step(`category-${c.slug}`, async () => {
     await go(`/category/${c.slug}?name=${encodeURIComponent(c.name)}`);
     await page.getByText(LANDING[c.archetype] ?? LANDING.inspect_quote).first().waitFor();
+  });
+}
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('MK-PACKAGE-two-city-visible-result', async () => {
+    const verifyCityPackages = async (addressLabel, expectedProvider, excludedProvider) => {
+      await go('/location');
+      const addresses = page.getByText(addressLabel, { exact: true });
+      const address = addresses.first();
+      const addressCount = await addresses.count();
+      if (addressCount === 0) {
+        throw new Error(`Expected saved city address was absent: ${JSON.stringify({
+          addressLabel,
+          addressCount,
+          body: (await page.locator('body').innerText()).slice(0, 1200),
+        })}`);
+      }
+
+      await address.click();
+      await page.waitForURL((url) => new URL(url).pathname === '/', { timeout: 10000 }).catch(() => undefined);
+      const selectedPath = new URL(page.url()).pathname;
+      if (selectedPath !== '/') {
+        throw new Error(`Selecting ${addressLabel} did not return home: ${JSON.stringify({
+          addressLabel,
+          expectedPath: '/',
+          actualPath: selectedPath,
+          body: (await page.locator('body').innerText()).slice(0, 1200),
+        })}`);
+      }
+
+      await go('/category/house-cleaning?name=House%20Cleaning');
+      await page.waitForFunction(
+        () => /Laxmi Home Cleaning|Durga Demo Home Care|No packages live yet/.test(document.body.innerText),
+        null,
+        { timeout: 15000 },
+      ).catch(() => undefined);
+      const body = await page.locator('body').innerText();
+      const result = {
+        addressLabel,
+        expectedProvider,
+        excludedProvider,
+        expectedVisible: body.includes(expectedProvider),
+        excludedVisible: body.includes(excludedProvider),
+        body: body.slice(0, 1600),
+      };
+      if (!result.expectedVisible || result.excludedVisible) {
+        throw new Error(`Package results did not match the selected city: ${JSON.stringify(result)}`);
+      }
+      await snap(`mk-package-${expectedProvider.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`);
+    };
+
+    await verifyCityPackages('Sangareddy (demo)', 'Laxmi Home Cleaning', 'Durga Demo Home Care');
+    await verifyCityPackages('Demo home', 'Durga Demo Home Care', 'Laxmi Home Cleaning');
   });
 }
 
@@ -1655,11 +1745,13 @@ await step('admin-feature-registry', async () => {
     { key: 'e2e_registry_probe', enabled: false, label: 'E2E registry probe', description: 'Proves admin switches are data-driven.', group_name: 'E2E', sort_order: 999, updated_at: new Date().toISOString() },
   ];
   let probeEnabled = false;
+  const featureSetCalls = [];
   await page.route('**/rest/v1/rpc/admin_list_features', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) }),
   );
   await page.route('**/rest/v1/rpc/admin_set_feature', async (route) => {
     const body = route.request().postDataJSON();
+    featureSetCalls.push(body);
     if (body.p_key === 'e2e_registry_probe') probeEnabled = body.p_enabled;
     await route.fulfill({
       status: 200,
@@ -1677,9 +1769,28 @@ await step('admin-feature-registry', async () => {
   await page.waitForURL((u) => new URL(u).pathname === '/admin/features');
   await visible('E2E registry probe');
   const switches = page.getByRole('switch');
-  if (await switches.count() !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${await switches.count()}`);
+  const switchCount = await switches.count();
+  if (switchCount !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${JSON.stringify({ switchCount })}`);
+  const probeResponse = page.waitForResponse((response) => {
+    if (new URL(response.url()).pathname !== '/rest/v1/rpc/admin_set_feature') return false;
+    try {
+      return response.request().postDataJSON()?.p_key === 'e2e_registry_probe';
+    } catch {
+      return false;
+    }
+  }, { timeout: 10000 }).catch(() => null);
   await switches.nth(3).click();
-  if (!probeEnabled) throw new Error('admin UI did not send the dynamic registry key to admin_set_feature');
+  const response = await probeResponse;
+  const result = {
+    probeEnabled,
+    probeCalls: featureSetCalls.filter((call) => call.p_key === 'e2e_registry_probe'),
+    responseStatus: response?.status() ?? null,
+    switchCount,
+    body: (await page.locator('body').innerText()).slice(0, 1200),
+  };
+  if (!response || !probeEnabled || result.probeCalls.length !== 1 || result.probeCalls[0].p_enabled !== true) {
+    throw new Error(`admin UI did not send and apply the dynamic registry key: ${JSON.stringify(result)}`);
+  }
 });
 
 await browser.close();
