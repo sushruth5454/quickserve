@@ -40,7 +40,7 @@
       "assetPath": "app/assets/fonts/Manrope-OFL.txt",
       "name": "SIL Open Font License",
       "version": "1.1",
-      "sha256": "e01b637272e0cbdfb240184dd98ea5cc671556d9894dae2668d92ab2c906787c"
+      "sha256": "f612090fb72b6dca3e807e66fa0d2b5def163cef86f1a3209b5c897cba5ee4b7"
     },
     "verificationReference": {
       "repository": "https://github.com/google/fonts",
@@ -69,7 +69,7 @@
   "validation": {
     "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.fontManifest[.]test[.]ts$'",
     "helper": "origin/main:scripts/cs-test.ps1",
-    "codespaceSnapshot": "wip/qs-o01f @ 36b398cc",
+    "codespaceSnapshot": "wip/qs-o01f @ ca5d6092",
     "selection": {
       "suite": "app",
       "matchedFiles": [
