@@ -1,0 +1,116 @@
+{
+  "stageId": "O24-CM05",
+  "workPackage": "O24",
+  "sourceTaskId": "CM-T05",
+  "findingId": "CM-F07",
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t05",
+  "placementProjection": "docs/design/oorva/audit/communications.json",
+  "sourceAuditSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "status": "DONE"
+    },
+    {
+      "stageId": "O38R",
+      "commit": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+      "status": "DONE"
+    }
+  ],
+  "gates": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "E1": "PENDING"
+  },
+  "changedFiles": [
+    "app/app/chat/[bookingId].tsx",
+    "app/src/components/ChatPanel.tsx",
+    "app/src/components/__tests__/ChatScreen.test.tsx",
+    "app/src/components/__tests__/ChatPanel.test.tsx",
+    "app/src/features/communicationScreens/ChatDetailScreen.tsx",
+    "docs/design/oorva/evidence/o24-cm05.json"
+  ],
+  "implementation": [
+    "Extracted S41 into ChatDetailScreen.tsx with one useChatDetailController and retained the existing thin route and return intent.",
+    "Keyed booking and message state by booking plus actor, reused subscribeToBooking, and refreshed canonical booking and message reads on focus and foreground resume.",
+    "Added loading/ready/error/retry chat phases, id-based realtime/snapshot reconciliation sorted by created_at then id, and canonical readback after send while preserving the RPC nudge and failed-send draft.",
+    "Restricted read-state initialization and heartbeat writes to a loaded current chat; kept the opened-read timestamp and unread divider fixed across reloads.",
+    "Kept the original four-status closed predicate and unchanged server RPC enforcement; made no migration, registration, or shared API edits."
+  ],
+  "acceptance": [
+    {
+      "case": "CM_CHAT_REMOTE_CLOSE",
+      "result": "PASS",
+      "evidence": "Subscription readback removed the composer for cancelled, declined, expired and pending_payment. The direct-send rejection path remains the existing server RPC guard."
+    },
+    {
+      "case": "CM_CHAT_ACK_WITHOUT_REALTIME",
+      "result": "PASS",
+      "evidence": "A successful send performs a canonical listMessages readback and reconciles the accepted row once without a subscription event."
+    },
+    {
+      "case": "CM_CHAT_SNAPSHOT_EVENT_MERGE",
+      "result": "PASS",
+      "evidence": "A delayed initial snapshot merged with an intervening subscription event by message ID and sorted by created_at then ID."
+    },
+    {
+      "case": "CM_CHAT_ERROR_NOT_EMPTY",
+      "result": "PASS",
+      "evidence": "An initial list failure stays in error phase with Retry; it does not produce an empty-chat greeting."
+    },
+    {
+      "case": "CM_CHAT_CLOSED_SERVER_RETAIN",
+      "result": "PASS",
+      "evidence": "completed, closed and closed_no_work retain the pre-existing composer behavior; only the original four statuses are closed in the UI."
+    },
+    {
+      "case": "CM_CHAT_UNREAD_RETAIN",
+      "result": "PASS",
+      "evidence": "The divider remains anchored to the first unread message from the opening read snapshot after later messages arrive."
+    },
+    {
+      "case": "booking_actor_state_reset",
+      "result": "PASS",
+      "evidence": "Switching booking or actor immediately presents a loading/null state instead of prior chat rows."
+    }
+  ],
+  "validation": {
+    "red": {
+      "result": "EXPECTED_FAILURE",
+      "failingCases": [
+        "CM_CHAT_REMOTE_CLOSE",
+        "CM_CHAT_ERROR_NOT_EMPTY"
+      ],
+      "summary": "Before behavior changes, the screen retained the mount-time booking state and did not distinguish an initial message-read error from an empty list. A focus-effect test mock issue was corrected before the green run."
+    },
+    "green": [
+      {
+        "result": "PASS",
+        "helper": "origin/main:scripts/cs-test.ps1",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.ChatScreen[.]test[.]tsx$'",
+        "snapshot": "wip/qs-oorva-o24-cm05 @ 7e9400a5",
+        "selectedFile": "app/src/components/__tests__/ChatScreen.test.tsx",
+        "typecheck": "PASS",
+        "testsPassed": 5,
+        "testsFailed": 0
+      },
+      {
+        "result": "PASS",
+        "helper": "origin/main:scripts/cs-test.ps1",
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.components.__tests__.ChatPanel[.]test[.]tsx$'",
+        "snapshot": "wip/qs-oorva-o24-cm05 @ 27fc2df2",
+        "selectedFile": "app/src/components/__tests__/ChatPanel.test.tsx",
+        "testsPassed": 6,
+        "testsFailed": 0
+      }
+    ],
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "reviewRequired": "concurrency",
+  "reviewStatus": "pending",
+  "e1Status": "pending",
+  "productionActions": "none"
+}
