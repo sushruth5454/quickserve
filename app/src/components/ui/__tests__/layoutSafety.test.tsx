@@ -75,25 +75,25 @@ jest.mock('../../../theme', () => ({
   useTheme: () => ({
     dark: false,
     colors: {
-      bg: '#F6F7F9',
-      border: '#EAECF0',
-      borderStrong: '#D0D5DD',
-      danger: '#F04438',
-      dangerSoft: '#FEF3F2',
-      dangerText: '#B42318',
-      info: '#0BA5EC',
-      onPrimary: '#FFFFFF',
-      overlay: 'rgba(16,24,40,0.45)',
-      primary: '#1F4FD1',
-      surfaceAlt: '#F2F4F7',
-      surfaceOverlay: '#FFFFFF',
-      success: '#12B76A',
-      textSecondary: '#344054',
-      toastBg: '#101828',
-      toastBorder: '#101828',
-      warning: '#F79009',
-      warningSoft: '#FFFAEB',
-      warningText: '#B54708',
+      bg: 'bg-token',
+      border: 'border-token',
+      borderStrong: 'border-strong-token',
+      danger: 'danger-token',
+      dangerSoft: 'danger-soft-token',
+      dangerText: 'danger-text-token',
+      info: 'info-token',
+      onPrimary: 'on-primary-token',
+      overlay: 'overlay-token',
+      primary: 'primary-token',
+      surfaceAlt: 'surface-alt-token',
+      surfaceOverlay: 'surface-overlay-token',
+      success: 'success-token',
+      textSecondary: 'text-secondary-token',
+      toastBg: 'toast-bg-token',
+      toastBorder: 'toast-border-token',
+      warning: 'warning-token',
+      warningSoft: 'warning-soft-token',
+      warningText: 'warning-text-token',
     },
     motion: { base: 220, fast: 150, easing: { exit: {} } },
     radii: { md: 12, pill: 999, xl: 24 },
@@ -189,7 +189,7 @@ describe('layout safety', () => {
 
     expect(textNodes.find((node) => node.props.children === 'Your request was saved')?.props.color).toBe('onPrimary');
     expect(textNodes.find((node) => node.props.children === 'Undo')?.props.color).toBe('info');
-    expect(icon?.props.color).toBe('#12B76A');
+    expect(icon?.props.color).toBe('success-token');
   });
 
   it('configures keyboard avoidance for modal actions and removes reduced-motion transitions', () => {
