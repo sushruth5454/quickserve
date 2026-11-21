@@ -1,0 +1,61 @@
+{
+  "brand": "Oorva",
+  "wordmark": "oorva",
+  "tagline": "Your world, closer.",
+  "concept": "Connected O",
+  "status": "draft-awaiting-owner-approval",
+  "source": "original AI-generated logo concept; cleaned PNG exports",
+  "source_sha256": "2f5a1715ba203a97d05680f93f945addf27a45715c53ac9fb590682f1dbba52b",
+  "colors": {
+    "forest": "#173D39",
+    "ivory": "#F7F5EF",
+    "slate": "#344B65"
+  },
+  "vector_master_available": false,
+  "native_assets_integrated": false,
+  "production_ready": false,
+  "assets": [
+    {
+      "file": "oorva-logo-concept.png",
+      "width": 1536,
+      "height": 1024,
+      "has_transparency": false,
+      "sha256": "2f3bbf288c14e8bec8271f0ff029b7205df84dff162b4b8b1535761cf50a9b24"
+    },
+    {
+      "file": "oorva-logo-light.png",
+      "width": 1007,
+      "height": 322,
+      "has_transparency": false,
+      "sha256": "4fae9ecb3019efaf0bc1b641728a338408660b649138af922bf66e6ba4179150"
+    },
+    {
+      "file": "oorva-logo-dark.png",
+      "width": 1007,
+      "height": 322,
+      "has_transparency": false,
+      "sha256": "b9273d665beb928349ea885cbb0dd75fd79e995c588ebaa6d51b8c94d9b8f156"
+    },
+    {
+      "file": "oorva-logo-transparent.png",
+      "width": 1007,
+      "height": 322,
+      "has_transparency": true,
+      "sha256": "4938f150553258f32b54ef00bea42a9e8e7e79c4def4553aa826f999e10d8cdd"
+    },
+    {
+      "file": "oorva-logo-monochrome.png",
+      "width": 1007,
+      "height": 322,
+      "has_transparency": true,
+      "sha256": "12284ca712f3e747e2c522f9b8af56c93168a24298c665e04d5a03ec2e32147e"
+    },
+    {
+      "file": "oorva-symbol.png",
+      "width": 295,
+      "height": 306,
+      "has_transparency": true,
+      "sha256": "ae711a5aba6fc72ef432a0164063e1a1128fed0fcd9fc2a93d1e059e09d06d60"
+    }
+  ]
+}
