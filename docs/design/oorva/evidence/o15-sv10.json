@@ -61,16 +61,31 @@
   "verification": {
     "gitDiffCheck": "PASS",
     "codespace": {
-      "status": "UNAVAILABLE_NO_PASS",
-      "phase": "before_test_selection",
-      "testsSelected": false,
-      "helperSource": "origin/main scripts/cs-test.ps1 at ee97c5462efbddd31b7b03cc8864295a21d6012d",
-      "attemptedSelector": "pwsh -NoProfile -File <helper> -Suite app -Filter 'src.features.booking.book.__tests__.model[.]test[.]ts$'",
-      "unattemptedSelectors": [
-        "pwsh -NoProfile -File <helper> -Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
-        "pwsh -NoProfile -File <helper> -Suite jest -Filter 'src.lib.assistant.__tests__.prefill[.]test[.]ts$'"
+      "status": "PASS",
+      "phase": "selected_and_completed",
+      "testsSelected": true,
+      "helperSource": "origin/main scripts/cs-test.ps1 at 00a234e529f2edeaca62aabd44cc41d5127635d7",
+      "selectors": [
+        {
+          "command": "-Suite app -Filter 'src.features.booking.book.__tests__.model[.]test[.]ts$'",
+          "snapshot": "baf09bdc",
+          "result": "PASS",
+          "tests": "25 passed"
+        },
+        {
+          "command": "-Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
+          "snapshot": "fbe00210",
+          "result": "PASS",
+          "tests": "13 passed"
+        },
+        {
+          "command": "-Suite jest -Filter 'src.lib.assistant.__tests__.prefill[.]test[.]ts$'",
+          "snapshot": "5a0814c9",
+          "result": "PASS",
+          "tests": "3 passed"
+        }
       ],
-      "reason": "The helper's Codespace SSH runner could not fetch the WIP snapshot because Git HTTPS authentication was unavailable. No tests were selected; credentials were not changed."
+      "reason": ""
     },
     "laneCI": {
       "runId": 44934953028,
@@ -109,7 +124,7 @@
     ],
     "behavior": "Session-pack eligibility now requires session unit, fixed positive price, integer qty_min and qty_max, and at least one purchasable whole pack count above one. The UI hides the pack choice for ineligible bounds, resets stale pack selection, and blocks pack submission if eligibility is false.",
     "regression": "Added doesNotOfferSessionPacksWithFractionalQuantityBounds for fractional minimum and maximum bounds plus the valid integer case.",
-    "testExecution": "Not run after correction. Codespace remains UNAVAILABLE_NO_PASS before selection; no Windows tests were run."
+    "testExecution": "Codespace packageModel selector PASS (13 tests), including fractional-bound and invalid-prefill selection regressions; no Windows tests were run."
   },
   "laneCiOwnerCorrection": {
     "sourceHead": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
@@ -123,17 +138,17 @@
       "app/src/features/booking/packages/__tests__/packageModel.test.ts"
     ],
     "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; retain null mode for out-of-range dates while setting slotInvalid; use it to force schedule reselection, reconstruct safe route slot params in the controller, narrow route-draft fields before use, and require explicit valid selection before PackageBookingScreen can submit after an invalid prefill.",
-    "validation": "git diff --check only; no tests/builds run after correction."
+    "validation": "All three exact current-main Codespace selectors PASS on the corrected code tree; no Windows tests/builds run."
   },
   "moneyReviewReReview": {
-    "reviewedHead": "f9d2d2ba6db9f2ea37b39201964ddc6cc0fe8f8f",
-    "result": "FAIL",
-    "finding": "An invalid prefilled slot with mode null could leave fixed-package ASAP selected by default, bypassing explicit slot reselection.",
-    "subsequentReview": {
-      "head": "80739018ce686639582372427c48efc3f293b485",
-      "result": "PASS",
-      "note": "The latest correction request identified additional consistency and explicit-submission guard requirements; the current local head includes those changes and still requires review."
+    "previousReview": {
+      "head": "f9d2d2ba6db9f2ea37b39201964ddc6cc0fe8f8f",
+      "result": "FAIL",
+      "finding": "An invalid prefilled slot with mode null could leave fixed-package ASAP selected by default, bypassing explicit slot reselection."
     },
+    "reviewedHead": "704f46898e3cb65b0d5db74cfd6bc679e834ea64",
+    "result": "PASS",
+    "finding": "No remaining findings on that exact head; the subsequent explicit reselection and prefill-contract changes are recorded below.",
     "correction": "Package ASAP initialization clears for slotInvalid, submission is blocked until an explicit valid time/mode selection, and the owned package model test covers the gate. Out-of-range readBookPrefill results retain mode null and set slotInvalid; the owned prefill test uses the same contract.",
     "status": "latest correction needs focused re-review"
   },
@@ -141,8 +156,8 @@
     "required": [
       "money"
     ],
-    "status": "re-review required for the latest local correction",
-    "lanePush": "blocked until coordinator confirms PASS on the exact correction head"
+    "status": "MONEY PASS on 704f468; evidence-only update requires exact-head re-review",
+    "lanePush": "blocked until coordinator confirms PASS on the evidence-updated head"
   },
   "scopeBlockers": [
     {
