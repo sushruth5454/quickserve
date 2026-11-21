@@ -1,0 +1,56 @@
+{
+  "stageId": "O32-MN02",
+  "sourceTaskId": "MN-T02",
+  "findingId": "MN-F02",
+  "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "planningSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "dependency": {
+    "stageId": "O00",
+    "sourceSha": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "migrationClaim": "MIG-O32-MN02",
+  "migrationPath": "supabase/migrations/0118_o32_mn02_oorva.sql",
+  "changedFiles": [
+    "supabase/migrations/0118_o32_mn02_oorva.sql",
+    "supabase/tests/oorva_o32_mn02.test.mjs",
+    "docs/design/oorva/evidence/o32-mn02.json"
+  ],
+  "functionDriftCheck": {
+    "symbol": "public._finalize_session_completion(uuid, uuid)",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "result": "NO_DRIFT"
+  },
+  "implementation": {
+    "status": "worker-files-only",
+    "classification": "selected payment razorpay_payment_id pay_demo_ prefix",
+    "syntheticPayoutStatus": "demo",
+    "livePayoutStatus": "pending",
+    "syntheticTransferCreation": "skipped",
+    "completionUpdatesAndPayoutFormulas": "copied from latest 0075 finalizer"
+  },
+  "tests": {
+    "file": "supabase/tests/oorva_o32_mn02.test.mjs",
+    "cases": [
+      "MN-DEMO-SESSION-ONESHOT",
+      "MN-DEMO-PACK-SESSION",
+      "MN-LIVE-SESSION-PAISE",
+      "MN-OFF-SAFETY"
+    ],
+    "existingRegression": {
+      "file": "supabase/tests/demo_payouts.test.mjs",
+      "status": "retained-unmodified"
+    },
+    "registration": "pending-coordinator",
+    "execution": "not-run-before-registration",
+    "requiredSelectors": [
+      "oorva_o32_mn02",
+      "o32_mn02_oorva.sql"
+    ]
+  },
+  "checkpoint": "PAUSED_FOR_REGISTRATION",
+  "reviewRequired": "money",
+  "reviewStatus": "pending",
+  "e1Status": "pending",
+  "productionActions": "none"
+}
