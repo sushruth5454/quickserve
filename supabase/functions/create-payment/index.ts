@@ -8,7 +8,6 @@ import {
   recoverSportsCheckoutRace,
   resolveSportsPaymentRequest,
   sportsPaymentPreparation,
-  sportsPaymentsEnabled,
 } from "./logic.ts";
 
 interface PreparedPayment {
@@ -60,9 +59,6 @@ Deno.serve(async (req) => {
     let prepared: PreparedPayment | null = null;
     let prepError: { message: string } | null = null;
     if (sportsRequest) {
-      const { data: features, error: featureError } = await admin.rpc("get_app_features");
-      if (featureError) return json({ error: "sports payment availability could not be checked" }, 503);
-      if (!sportsPaymentsEnabled(features)) return json({ error: "Sports online payments are turned off right now." }, 403);
       const preparation = sportsPaymentPreparation(sportsRequest);
       const result = await admin.rpc(preparation.rpc, preparation.args).single<PreparedPayment>();
       prepared = result.data ? { ...result.data, short_url: result.data.url ?? null } : null;

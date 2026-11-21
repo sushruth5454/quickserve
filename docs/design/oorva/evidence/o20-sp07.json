@@ -1,0 +1,47 @@
+{
+  "stage": "O20-SP07",
+  "workPackage": "O20",
+  "sourceTask": "SP-T07",
+  "finding": "SP-F11",
+  "base": {
+    "dependency": "O00",
+    "dependencyCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "dependencyStatus": "DONE",
+    "testedBaseBranch": "integrate/oorva-base-1",
+    "testedBaseCommit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "currentMainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "scope": {
+    "workerFiles": [
+      "supabase/functions/create-payment/index.ts",
+      "supabase/functions/create-payment/logic.ts",
+      "supabase/functions/create-payment/logic_test.ts",
+      "supabase/tests/oorva_o20_sp07.test.mjs",
+      "docs/design/oorva/evidence/o20-sp07.json"
+    ],
+    "migration": null,
+    "deployBackendListEdit": false,
+    "productionOrLiveMoneyOperations": false
+  },
+  "implementation": {
+    "change": "Removed the sports and sports_online_payments availability lookup/rejection from create-payment's authenticated existing-sports-obligation preparation branch. The branch still invokes prepare_sports_payment with only booking_id and the authenticated user id; payment persistence, gateway-order, race-recovery, and response paths are unchanged.",
+    "newBookingAvailability": "Unchanged; book_sports_slot remains the creation gate.",
+    "validation": "Pending registration roundtrip; no tests or gateway calls performed."
+  },
+  "acceptance": {
+    "serverPricedExistingObligationWithFlagsOff": "pending",
+    "newOnlineBookingStillDenied": "pending",
+    "wrongActorModeStateOrExpiredDeadlineDenied": "pending",
+    "capturedAcceptedPaymentCannotBePreparedAgain": "pending",
+    "rpcRemainsServiceRoleOnly": "pending",
+    "existingOrderRaceLateCaptureAndRefundAssertionsPreserved": "pending"
+  },
+  "checkpoint": {
+    "status": "PAUSED_FOR_REGISTRATION",
+    "requiredRegistration": "supabase/tests/package.json",
+    "requiredFilter": "oorva_o20_sp07",
+    "postRegistrationSqlSelector": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp07'",
+    "postRegistrationDenoSelector": "pwsh -NoProfile -File $Helper -Suite deno",
+    "focusedReview": "money review pending"
+  }
+}
