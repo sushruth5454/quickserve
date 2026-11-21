@@ -51,32 +51,32 @@
     {
       "case": "CM_GEO_INITIAL_ERROR",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PENDING"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_STALE_PLACE",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PENDING"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_STALE_QUERY",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PENDING"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_SAVE_PARENT_MATCH",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PENDING"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_NODE_SAVE_VERSION",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PENDING"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_AREA_SAVE_VERSION",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "PENDING"
+      "result": "PASS"
     }
   ],
   "sqlFunctions": [],
@@ -101,7 +101,7 @@
       "reason": "The Codespace could not authenticate to fetch the pushed WIP ref; failure occurred before test selection, so no cases ran."
     },
     "laneCi": {
-      "result": "PENDING",
+      "result": "PASS",
       "priorRunId": 44914587502,
       "priorHeadSha": "7eeb88505f67be01fae77b7625a4a1b5aec56bc8",
       "priorConclusion": "FAILURE",
@@ -121,7 +121,18 @@
       "fixStatus": "RESOLVED",
       "previousSuccessfulRunId": 44916760416,
       "previousSuccessfulHeadSha": "333b1f56637747fcf0c80cba7bd79193623b05ce",
-      "previousSuccessfulConclusion": "SUCCESS"
+      "previousSuccessfulConclusion": "SUCCESS",
+      "runId": 44919576948,
+      "headSha": "4be2527fa5a1047ea79d4e2a864f4ea494c4f937",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "PASS",
+        "app": "PASS (typecheck; 79 suites and 525 tests, including both save-version tests)",
+        "sql": "PASS",
+        "privatePostgres": "PASS",
+        "tooling": "PASS",
+        "deno": "PASS"
+      }
     },
     "diffCheck": "PASS"
   },
