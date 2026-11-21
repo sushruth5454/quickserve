@@ -7,7 +7,7 @@
     "CM-F04",
     "CM-F05"
   ],
-  "status": "PAUSED_FOR_AUTH_REVIEW",
+  "status": "TESTED_READY_FOR_BATCH",
   "base": {
     "plan": "b40e3ac3da80dc7dba677457413180bca6070222",
     "tested": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
@@ -20,7 +20,12 @@
   "gates": {
     "D01": "approved",
     "E0": "approved",
-    "E1": "pending"
+    "E1": "pending",
+    "AUTH": {
+      "status": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "source": "coordinator confirmation"
+    }
   },
   "scope": {
     "migrationClaims": [],
@@ -35,7 +40,8 @@
     },
     "deployBackendWorkflow": "untouched",
     "credentialsChanged": false,
-    "fallback": "Documented Lane-CI fallback only; run 44934399079 failed on the reviewed head. No further push pending review of the local test-only corrections."
+    "fallback": "Codespace selectors passed on the correction head; Lane-CI fallback run 44937467778 passed on that exact head.",
+    "mainPromotion": "deferred until the stage joins a tested batch"
   },
   "implementation": [
     "Personal support list now requires the authenticated actor id and filters support_threads.user_id explicitly.",
@@ -43,7 +49,7 @@
     "The three route bodies are hosted in the canonical communicationScreens files; routes are thin re-exports.",
     "Personal/admin inboxes distinguish loading, error with Retry, successful empty, and populated states; actor/filter/request generations suppress stale data and load failures clear rows.",
     "The participant conversation clears draft/action state on actor or thread change and labels a message You only when sender_id matches the authenticated actor.",
-    "Focused app and SQL cases were added. The first current-main Codespace selector failed fetching its WIP snapshot before selection; no tests were selected or passed. The other selectors were not attempted."
+    "The post-correction current-main Codespace selectors passed on the reviewed correction head; the earlier unavailable attempt and failed pre-correction Lane CI are superseded by these later results."
   ],
   "tests": [
     {
@@ -52,7 +58,7 @@
         "CM_SUPPORT_PERSONAL_LIST_SCOPE",
         "CM_SUPPORT_PERSONAL_DETAIL_SCOPE"
       ],
-      "result": "Codespace UNAVAILABLE_NO_PASS before selection; Lane CI supportApi.test.ts passed on the recorded head."
+      "result": "PASS: current-main Codespace app selector (1 suite, 2 tests) and Lane CI on 20c8c5a7d1325cc937f43a8cbc5067e6eea9e282."
     },
     {
       "path": "app\\src\\components\\__tests__\\SupportInboxes.test.tsx",
@@ -61,57 +67,59 @@
         "CM_SUPPORT_ERROR_RECOVERY",
         "CM_ADMIN_SUPPORT_FILTER_ORDER"
       ],
-      "result": "Codespace not attempted; Lane CI failed before this suite ran due to Jest mock-factory transform error. Local test fixture correction is unvalidated."
+      "result": "PASS: current-main Codespace Jest selector (1 suite, 3 tests) and Lane CI on 20c8c5a7d1325cc937f43a8cbc5067e6eea9e282."
     },
     {
       "path": "supabase\\tests\\oorva_o24_cm03.test.mjs",
       "cases": [
         "CM_SQL_SUPPORT_OTHER_DENIED"
       ],
-      "result": "Codespace not attempted; Lane CI failed parsing this .mjs test. Local JavaScript syntax correction is unvalidated."
+      "result": "PASS: current-main Codespace SQL selector (1 file) and Lane CI on 20c8c5a7d1325cc937f43a8cbc5067e6eea9e282."
     },
     {
       "suite": "app",
       "filter": "src.lib.__tests__.supportApi[.]test[.]ts$",
-      "result": "UNAVAILABLE_NO_PASS",
-      "selected": 0,
-      "passed": 0,
-      "detail": "Codespace failed fetching the WIP snapshot before test selection: fatal: could not read Username for 'https://github.com': No such device or address. No credentials were changed."
+      "result": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "selectedSuites": 1,
+      "passedSuites": 1,
+      "selectedTests": 2,
+      "passedTests": 2,
+      "codespaceSnapshot": "wip/qs-oorva-o24-cm03 @ e418e23d"
     },
     {
       "suite": "jest",
       "filter": "src.components.__tests__.SupportInboxes[.]test[.]tsx$",
-      "result": "not-attempted-codespace-unavailable"
+      "result": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "selectedSuites": 1,
+      "passedSuites": 1,
+      "selectedTests": 3,
+      "passedTests": 3,
+      "codespaceSnapshot": "wip/qs-oorva-o24-cm03 @ 98313b3c"
     },
     {
       "suite": "sql",
       "filter": "oorva_o24_cm03",
-      "result": "not-attempted-codespace-unavailable"
+      "result": "PASS",
+      "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+      "selectedFiles": 1,
+      "passedFiles": 1,
+      "codespaceSnapshot": "wip/qs-oorva-o24-cm03 @ 6f0b4d15"
     }
   ],
   "laneCI": {
-    "runId": 44934399079,
-    "head": "35d66326422f7606c79e21ac2d9cfd1d8504042d",
-    "conclusion": "failure",
+    "runId": 44937467778,
+    "head": "20c8c5a7d1325cc937f43a8cbc5067e6eea9e282",
+    "conclusion": "success",
     "jobs": [
       {
         "job": "app",
-        "conclusion": "failure",
-        "findings": [
-          "Typecheck passed.",
-          "app/src/lib/__tests__/supportApi.test.ts passed.",
-          "app/src/components/__tests__/SupportInboxes.test.tsx failed in Jest module-factory validation: out-of-scope type parameter `value`."
-        ],
-        "localCorrection": "Renamed the type parameter to mockValue; not yet validated."
+        "conclusion": "success"
       },
       {
         "job": "sql",
-        "conclusion": "failure",
-        "findings": [
-          "143/144 SQL checks passed.",
-          "supabase/tests/oorva_o24_cm03.test.mjs failed to parse because its helper declaration used TypeScript annotations in a JavaScript .mjs file."
-        ],
-        "localCorrection": "Removed the TypeScript annotations; not yet validated."
+        "conclusion": "success"
       },
       {
         "job": "deno",
@@ -123,5 +131,11 @@
       }
     ]
   },
-  "pending": "Coordinator AUTH review is required on the resulting clean local head before any follow-up lane push; validate only through the documented Lane-CI fallback. No Codespace PASS is claimed."
+  "previousLaneCI": {
+    "runId": 44934399079,
+    "head": "35d66326422f7606c79e21ac2d9cfd1d8504042d",
+    "conclusion": "failure",
+    "supersededBy": 44937467778
+  },
+  "pending": "No main push; wait until O24-CM03 joins a tested batch."
 }
