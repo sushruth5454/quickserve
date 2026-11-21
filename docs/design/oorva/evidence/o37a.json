@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O37A",
+  "workPackage": "O37",
+  "status": "LANE_CI_PASS_AWAIT_COORDINATOR",
+  "base": {
+    "implementationSha": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependency": {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE"
+    }
+  },
+  "sourceTaskIds": [],
+  "sourceFindingIds": [],
+  "sqlFunctions": [],
+  "sqlObjects": [],
+  "migrationClaims": [],
+  "allocatedMigrationFilenames": [],
+  "workerOwnedFiles": [
+    "scripts\\brand\\package.json",
+    "scripts\\brand\\package-lock.json",
+    "scripts\\brand\\export.mjs",
+    "scripts\\brand\\validate.mjs",
+    "scripts\\brand\\asset-tests.mjs",
+    "scripts\\brand\\validate-execution-plan.mjs",
+    "scripts\\brand\\capture-manifest.mjs",
+    "scripts\\brand\\fixtures\\export-selftest.svg",
+    "supabase\\tests-postgres\\package.json",
+    "supabase\\tests-postgres\\package-lock.json",
+    "supabase\\tests-postgres\\run.mjs",
+    "supabase\\tests-postgres\\helpers.mjs",
+    "supabase\\tests-postgres\\harness.selftest.mjs",
+    "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts",
+    "docs\\design\\oorva\\evidence\\o37a.json"
+  ],
+  "existingWorkerOwnedFilesAtBase": [],
+  "coordinatorOwnedFiles": [
+    "scripts\\cs-test.ps1",
+    "scripts\\cs\\run.sh",
+    "scripts\\ci\\local-supabase.sh",
+    ".github\\workflows\\lane-ci.yml",
+    ".github\\workflows\\e2e-local.yml",
+    ".github\\workflows\\e2e-web.yml",
+    "e2e\\e2e-flags.json",
+    "e2e\\web-smoke.mjs"
+  ],
+  "registration": {
+    "state": "MERGED",
+    "sha": "43489d10d91d69c3012c0d170997689d202a47f7",
+    "branch": "reg/oorva-o37a-10685a6f",
+    "parentSha": "10685a6f592fc29c6cd28d27cf6bbc735563bc2f",
+    "selectionProof": "SELECTION PASS; registration made no test-success claim.",
+    "testsRunForRegistration": false,
+    "selectedFiles": {
+      "codespaceApp": [
+        "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts"
+      ],
+      "tooling": [
+        "scripts\\brand\\**",
+        "docs\\design\\oorva\\execution-plan.json",
+        "docs\\design\\oorva\\audit\\coverage.json"
+      ],
+      "privatePostgres": [
+        "supabase\\tests-postgres\\**"
+      ]
+    },
+    "helperInvocationSafety": "Before every cs-test.ps1 call, Push-Location to C:\\Users\\snizampuram\\source\\qs-oorva-o37a and verify the normalized Git root equals that path; stop on mismatch. Expected WIP snapshot: wip/qs-oorva-o37a.",
+    "requestedChanges": {
+      "scripts\\cs-test.ps1": [
+        "No patch; retain current-main helper and do not add or invoke a Suite assets selector before TOOL-ASSETS-MAIN approval."
+      ],
+      "scripts\\cs\\run.sh": [
+        "Install scripts/brand and supabase/tests-postgres from their pinned package.json/package-lock.json using npm ci in the Codespace so the exact app selector can run their dependency-free guard checks.",
+        "Do not add an assets suite."
+      ],
+      "scripts\\ci\\local-supabase.sh": [
+        "No patch; the private stack already exports LOCAL_DB_URL through GITHUB_ENV. Set PRIVATE_TEST_STACK=true only in the private CI job."
+      ],
+      ".github\\workflows\\lane-ci.yml": [
+        "Add changed-path selection for scripts/brand/**, supabase/tests-postgres/**, and the Oorva execution-plan inputs.",
+        "Add a Node 22 tooling job: npm ci in scripts/brand; run node asset-tests.mjs --selftest and node validate-execution-plan.mjs --all.",
+        "Add a private PostgreSQL job using the existing disposable local-supabase stack, LOCAL_DB_URL, and PRIVATE_TEST_STACK=true; run node run.mjs --selftest. Discover only existing *.pg.test.mjs plus explicitly listed HTTP tests; never register them in PGlite."
+      ],
+      ".github\\workflows\\e2e-local.yml": [
+        "Keep all section-0.5 Oorva switches OFF for its legacy pass; any future positive brand/family pass must be private-only and use real assertions after those features exist. No hosted dispatch."
+      ],
+      ".github\\workflows\\e2e-web.yml": [
+        "No new positive Oorva pass or dispatch. Preserve hosted snapshot/pin/restore/verify flow; section-0.5 Oorva switches remain OFF for hosted passes."
+      ],
+      "e2e\\e2e-flags.json": {
+        "allSection05Keys": [
+          "oorva_brand",
+          "branding_runtime",
+          "branding_editor",
+          "oorva_launch_animation",
+          "oorva_home_ux",
+          "oorva_auth_ux",
+          "oorva_catalogue_ux",
+          "oorva_booking_ux",
+          "oorva_recurring_ux",
+          "oorva_shops_ux",
+          "oorva_rfq_ux",
+          "oorva_sports_ux",
+          "oorva_creators_ux",
+          "oorva_account_ux",
+          "oorva_comms_ux",
+          "oorva_provider_ux",
+          "oorva_onboarding_ux",
+          "oorva_merchant_shop_ux",
+          "oorva_business_staff_ux",
+          "oorva_venue_ops_ux",
+          "oorva_admin_ops_ux",
+          "oorva_admin_config_ux",
+          "oorva_admin_money_ux",
+          "oorva_ai_ux",
+          "oorva_external_brand"
+        ],
+        "requiredValueForEveryKey": false
+      },
+      "e2e\\web-smoke.mjs": [
+        "No patch required for console filtering: preserve the existing pageerror and console-error collection without blanket filters. The worker capture-manifest helper validates exact route/state/actor/flag evidence and rejects broad filters."
+      ]
+    }
+  },
+  "selectors": {
+    "codespaceApp": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+    "assetSelftest": "node asset-tests.mjs --selftest (working directory scripts\\brand)",
+    "planSelection": "node validate-execution-plan.mjs --all (working directory scripts\\brand)",
+    "privatePostgresSelftest": "node run.mjs --selftest (working directory supabase\\tests-postgres)",
+    "assetsSuite": "NOT_APPROVED; do not invoke"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "NOT_GRANTED",
+    "TOOL-ASSETS-MAIN": "NOT_GRANTED",
+    "nativeOrPublic": "NOT_GRANTED",
+    "hostedE2eWebDispatch": "NOT_AUTHORIZED"
+  },
+  "validation": {
+    "codespaceApp": "PASS",
+    "codespaceAppRun": {
+      "helper": "scripts\\cs-test.ps1 from current main",
+      "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-oorva-o37a",
+      "snapshotBranch": "wip/qs-oorva-o37a",
+      "suite": "app",
+      "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
+      "result": "cs-test result: PASS",
+      "snapshotCommit": "ae671ea0",
+      "jestSuitesPassed": 1,
+      "testsPassed": 5
+    },
+    "priorCodespaceAppAttempt": {
+      "result": "FAIL_FIXED",
+      "failures": [
+        "App TypeScript did not have Node module declarations or __dirname in its configured types.",
+        "Plan validator compared shared writer edge paths case-sensitively.",
+        "Codespace runner package did not have pg installed before guard tests."
+      ],
+      "resolutions": [
+        "Use local declarations for the CommonJS require and __dirname in the test without adding dependencies.",
+        "Compare lock-edge paths with canonical case-insensitive resource keys.",
+        "Run npm ci for the isolated packages in Codespace before retrying."
+      ]
+    },
+    "assetSelftest": "PASS",
+    "assetSelftestCommand": "node asset-tests.mjs --selftest (working directory scripts\\brand)",
+    "planSelection": "PASS",
+    "planSelectionCommand": "node validate-execution-plan.mjs --all (working directory scripts\\brand)",
+    "planSelectionCount": 140,
+    "priorLaneCiAttempt": {
+      "runId": 44888901049,
+      "headSha": "66074b78d70ee97aac06ca333a3e0aa994b21d5c",
+      "conclusion": "FAILURE",
+      "jobs": {
+        "changes": "PASS",
+        "deno": "PASS",
+        "sql": "PASS",
+        "tooling": "PASS",
+        "privatePostgres": "PASS",
+        "app": "FAIL"
+      },
+      "appResult": "72 suites passed, 1 failed; 487 tests passed, 2 failed.",
+      "rootCause": "The app CI job did not install the isolated pg package, while helpers.mjs imported pg at module load even for guard-only runner actions.",
+      "fix": "Load pg dynamically only when a private PostgreSQL client is actually created; guard-only app tests no longer need pg."
+    },
+    "privatePostgresSelftest": "PASS_ON_RUN_44889470574",
+    "laneCi": "PASS",
+    "laneCiRun": {
+      "runId": 44889470574,
+      "headSha": "327623911724a484b5132c6504686f84ea007b92",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "PASS",
+        "tooling": "PASS",
+        "deno": "PASS",
+        "sql": "PASS",
+        "privatePostgres": "PASS",
+        "app": "PASS"
+      }
+    },
+    "reason": "All jobs passed on the exact pushed code head; waiting for coordinator verification."
+  },
+  "remoteLockGeneration": {
+    "runtime": "Node v22.16.0 / npm 10.9.2",
+    "command": "npm install --package-lock-only --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org/",
+    "brandLock": "GENERATED_IN_CODESPACE",
+    "postgresLock": "GENERATED_IN_CODESPACE"
+  },
+  "claims": {
+    "assetsSuiteSuccess": false,
+    "nativeBuildOrRelease": false,
+    "hostedE2eWebDispatched": false
+  }
+}

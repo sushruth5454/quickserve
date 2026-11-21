@@ -1,0 +1,16 @@
+{
+  "name": "@quickserve/brand-tooling",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "export": "node export.mjs",
+    "validate": "node validate.mjs",
+    "test": "node asset-tests.mjs --selftest"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2"
+  }
+}

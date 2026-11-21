@@ -41,6 +41,18 @@ install_deps() {
     (cd supabase/tests && rm -f package-lock.json && npm install --no-audit --no-fund --registry https://registry.npmjs.org/) \
       && echo "$h" > /tmp/qs-deps/sql || return 1
   fi
+  h="$(pkg_hash scripts/brand/package.json)-$(pkg_hash scripts/brand/package-lock.json)"
+  if [ "$h" != "$(cat /tmp/qs-deps/brand 2>/dev/null)" ] || [ ! -d scripts/brand/node_modules ]; then
+    echo "== installing pinned brand tooling dependencies"
+    (cd scripts/brand && npm ci --no-audit --no-fund --registry https://registry.npmjs.org/) \
+      && echo "$h" > /tmp/qs-deps/brand || return 1
+  fi
+  h="$(pkg_hash supabase/tests-postgres/package.json)-$(pkg_hash supabase/tests-postgres/package-lock.json)"
+  if [ "$h" != "$(cat /tmp/qs-deps/private-postgres 2>/dev/null)" ] || [ ! -d supabase/tests-postgres/node_modules ]; then
+    echo "== installing pinned private PostgreSQL test dependencies"
+    (cd supabase/tests-postgres && npm ci --no-audit --no-fund --registry https://registry.npmjs.org/) \
+      && echo "$h" > /tmp/qs-deps/private-postgres || return 1
+  fi
 }
 install_deps >/tmp/qs-setup.log 2>&1 || { tail -40 /tmp/qs-setup.log; exit 2; }
 # install-app.sh rewrites tracked files; restore them so the next branch switch is clean.
