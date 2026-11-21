@@ -26,7 +26,7 @@
     "otherComparedStageOwnedFiles": "No audited-source-to-base drift reported."
   },
   "implementation": {
-    "status": "owner correction checkpoint; not pushed",
+    "status": "stage code head bd15dc6 pushed; evidence-only update",
     "files": [
       "app/app/assistant.tsx",
       "app/src/features/platformScreens/AssistantScreen.tsx",
@@ -68,19 +68,19 @@
       "selectors": [
         {
           "command": "-Suite app -Filter 'src.features.booking.book.__tests__.model[.]test[.]ts$'",
-          "snapshot": "baf09bdc",
+          "snapshot": "ba0ffb17",
           "result": "PASS",
           "tests": "25 passed"
         },
         {
           "command": "-Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
-          "snapshot": "fbe00210",
+          "snapshot": "1c038078",
           "result": "PASS",
           "tests": "13 passed"
         },
         {
           "command": "-Suite jest -Filter 'src.lib.assistant.__tests__.prefill[.]test[.]ts$'",
-          "snapshot": "5a0814c9",
+          "snapshot": "2fc6cfe4",
           "result": "PASS",
           "tests": "3 passed"
         }
@@ -88,31 +88,25 @@
       "reason": ""
     },
     "laneCI": {
+      "runId": 44938584651,
+      "headSha": "bd15dc62997d4547d860034be8442810f31d612d",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": {
+        "changes": "success",
+        "appTypecheck": "success",
+        "appUnitTests": "success",
+        "tooling": "skipped by path filtering",
+        "sql": "skipped by path filtering",
+        "deno": "skipped by path filtering",
+        "privatePostgres": "skipped by path filtering"
+      }
+    },
+    "priorLaneCI": {
       "runId": 44934953028,
       "headSha": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
-      "status": "completed",
       "conclusion": "failure",
-      "failedJobs": [
-        {
-          "job": "app / Typecheck",
-          "errors": [
-            "TS2339: draftPrefill union did not narrow DraftCard before reading from.",
-            "TS2339: draftPrefill union did not narrow DraftCard before reading fromAssistant.",
-            "TS2339: draftPrefill union did not narrow DraftCard before reading addressId (three diagnostics)."
-          ]
-        },
-        {
-          "job": "app / Unit tests",
-          "failedSuite": "src/lib/__tests__/assistant.test.ts",
-          "failedCases": [
-            "reads params back into the Book screen state (day + window): exact BookPrefill comparison rejected extra slot and slotInvalid properties.",
-            "keeps the day but drops a window that is no longer bookable; ignores bad slots: expected mode null for an out-of-range date, received schedule."
-          ],
-          "summary": "1 suite failed, 80 passed; 2 tests failed, 535 passed."
-        }
-      ],
-      "uncaughtErrors": [],
-      "otherAffectedJobs": "changes passed; remaining lane jobs were skipped by path filtering."
+      "resolution": "Corrected the reported TypeScript union access and BookPrefill compatibility failures before the successful bd15dc6 run."
     }
   },
   "moneyReviewCorrection": {
@@ -124,7 +118,7 @@
     ],
     "behavior": "Session-pack eligibility now requires session unit, fixed positive price, integer qty_min and qty_max, and at least one purchasable whole pack count above one. The UI hides the pack choice for ineligible bounds, resets stale pack selection, and blocks pack submission if eligibility is false.",
     "regression": "Added doesNotOfferSessionPacksWithFractionalQuantityBounds for fractional minimum and maximum bounds plus the valid integer case.",
-    "testExecution": "Codespace packageModel selector PASS (13 tests), including fractional-bound and invalid-prefill selection regressions; no Windows tests were run."
+    "testExecution": "All three exact current-main Codespace selectors PASS on bd15dc6 content: booking model 25 (ba0ffb17), package model 13 (1c038078), assistant prefill 3 (2fc6cfe4); no Windows tests were run."
   },
   "laneCiOwnerCorrection": {
     "sourceHead": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
@@ -138,7 +132,7 @@
       "app/src/features/booking/packages/__tests__/packageModel.test.ts"
     ],
     "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; retain null mode for out-of-range dates while setting slotInvalid; use it to force schedule reselection, reconstruct safe route slot params in the controller, narrow route-draft fields before use, and require explicit valid selection before PackageBookingScreen can submit after an invalid prefill.",
-    "validation": "All three exact current-main Codespace selectors PASS on the corrected code tree; no Windows tests/builds run."
+    "validation": "All three exact current-main Codespace selectors PASS on bd15dc6 content; Lane CI 44938584651 PASS on bd15dc6; no Windows tests/builds run."
   },
   "moneyReviewReReview": {
     "previousReview": {
@@ -146,18 +140,18 @@
       "result": "FAIL",
       "finding": "An invalid prefilled slot with mode null could leave fixed-package ASAP selected by default, bypassing explicit slot reselection."
     },
-    "reviewedHead": "704f46898e3cb65b0d5db74cfd6bc679e834ea64",
+    "reviewedHead": "bd15dc62997d4547d860034be8442810f31d612d",
     "result": "PASS",
-    "finding": "No remaining findings on that exact head; the subsequent explicit reselection and prefill-contract changes are recorded below.",
+    "finding": "No remaining findings on the exact stage code head.",
     "correction": "Package ASAP initialization clears for slotInvalid, submission is blocked until an explicit valid time/mode selection, and the owned package model test covers the gate. Out-of-range readBookPrefill results retain mode null and set slotInvalid; the owned prefill test uses the same contract.",
-    "status": "latest correction needs focused re-review"
+    "status": "PASS on bd15dc6"
   },
   "review": {
     "required": [
       "money"
     ],
-    "status": "MONEY PASS on 704f468; evidence-only update requires exact-head re-review",
-    "lanePush": "blocked until coordinator confirms PASS on the evidence-updated head"
+    "status": "MONEY PASS on bd15dc6; evidence-only update",
+    "lanePush": "bd15dc6 pushed after review and verification"
   },
   "scopeBlockers": [
     {
