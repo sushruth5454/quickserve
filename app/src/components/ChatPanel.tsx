@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { listMessages, subscribeToMessages } from '../lib/api';
@@ -23,55 +23,147 @@ function dayOf(iso: string) {
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-/** Loads a booking's messages, subscribes to new ones and exposes `send`. */
-export function useChat(bookingId: string | undefined) {
-  const [messages, setMessages] = useState<Message[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [nudge, setNudge] = useState(false);
+type ChatPhase = 'loading' | 'ready' | 'error';
+
+interface ChatState {
+  key: string;
+  phase: ChatPhase;
+  messages: Message[] | null;
+  error: string | null;
+}
+
+function reconcileMessages(current: Message[], incoming: Message[]): Message[] {
+  const byId = new Map(current.map((message) => [message.id, message]));
+  for (const message of incoming) byId.set(message.id, message);
+  return [...byId.values()].sort(
+    (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id),
+  );
+}
+
+/** Loads a booking's messages, reconciles realtime with canonical reads, and exposes `send`. */
+export function useChat(bookingId: string | undefined, actorId?: string | null) {
+  const key = `${bookingId ?? ''}:${actorId ?? ''}`;
+  const [state, setState] = useState<ChatState | null>(null);
+  const [sendingState, setSendingState] = useState<{ key: string; sending: boolean } | null>(null);
+  const [nudgeState, setNudgeState] = useState<{ key: string; nudge: boolean } | null>(null);
+  const activeKey = useRef(key);
+  const requestId = useRef(0);
+  activeKey.current = key;
+
+  const reload = useCallback(async () => {
+    if (!bookingId) return;
+    const request = ++requestId.current;
+    const currentKey = key;
+    setState((previous) => {
+      const current = previous?.key === currentKey ? previous : null;
+      return {
+        key: currentKey,
+        phase: current?.phase === 'ready' ? 'ready' : 'loading',
+        messages: current?.messages ?? null,
+        error: null,
+      };
+    });
+    try {
+      const snapshot = await listMessages(bookingId);
+      if (request !== requestId.current || activeKey.current !== currentKey) return;
+      setState((previous) => {
+        const current = previous?.key === currentKey ? previous : null;
+        return {
+          key: currentKey,
+          phase: 'ready',
+          messages: reconcileMessages(current?.messages ?? [], snapshot),
+          error: null,
+        };
+      });
+    } catch (e) {
+      if (request !== requestId.current || activeKey.current !== currentKey) return;
+      setState((previous) => {
+        const current = previous?.key === currentKey ? previous : null;
+        return {
+          key: currentKey,
+          phase: current?.phase === 'ready' ? 'ready' : 'error',
+          messages: current?.messages ?? null,
+          error: (e as Error).message,
+        };
+      });
+    }
+  }, [bookingId, key]);
 
   useEffect(() => {
     if (!bookingId) return;
+    const currentKey = key;
     let active = true;
-    listMessages(bookingId)
-      .then((m) => active && setMessages(m))
-      .catch((e: Error) => {
-        if (!active) return;
-        setMessages([]);
-        setError(e.message);
+    void reload();
+    const unsubscribe = subscribeToMessages(bookingId, (message) => {
+      if (!active || activeKey.current !== currentKey) return;
+      setState((previous) => {
+        const current = previous?.key === currentKey ? previous : null;
+        return {
+          key: currentKey,
+          phase: current?.phase ?? 'loading',
+          messages: reconcileMessages(current?.messages ?? [], [message]),
+          error: current?.error ?? null,
+        };
       });
-    const unsubscribe = subscribeToMessages(bookingId, (m) =>
-      setMessages((prev) => ((prev ?? []).some((x) => x.id === m.id) ? prev : [...(prev ?? []), m])),
-    );
+    });
     return () => {
       active = false;
+      if (activeKey.current === currentKey) requestId.current += 1;
       unsubscribe();
     };
-  }, [bookingId]);
+  }, [bookingId, key, reload]);
 
   const send = useCallback(
     async (body: string) => {
       const text = body.trim();
-      if (!text || !bookingId) return false;
-      setSending(true);
-      setError(null);
-      setNudge(false);
+      const currentKey = key;
+      if (!text || !bookingId || activeKey.current !== currentKey) return false;
+      setSendingState({ key: currentKey, sending: true });
+      setState((previous) =>
+        previous?.key === currentKey ? { ...previous, error: null } : previous,
+      );
+      setNudgeState({ key: currentKey, nudge: false });
       try {
         const result = await sendProtectedBookingMessage(bookingId, text);
-        setNudge(result.nudge);
+        if (activeKey.current !== currentKey) return false;
+        setNudgeState({ key: currentKey, nudge: result.nudge });
         haptics.tap();
+        await reload();
         return true;
       } catch (e) {
-        setError((e as Error).message);
+        const message = (e as Error).message;
+        if (activeKey.current === currentKey) {
+          await reload();
+          setState((previous) => {
+            const current = previous?.key === currentKey ? previous : null;
+            return {
+              key: currentKey,
+              phase: current?.phase === 'ready' ? 'ready' : 'error',
+              messages: current?.messages ?? null,
+              error: message,
+            };
+          });
+        }
         return false;
       } finally {
-        setSending(false);
+        setSendingState((previous) =>
+          previous?.key === currentKey ? { key: currentKey, sending: false } : previous,
+        );
       }
     },
-    [bookingId],
+    [bookingId, key, reload],
   );
 
-  return { messages, error, sending, nudge, send };
+  const current = state?.key === key ? state : null;
+  return {
+    phase: current?.phase ?? 'loading',
+    messages: current?.messages ?? null,
+    error: current?.error ?? null,
+    sending: sendingState?.key === key ? sendingState.sending : false,
+    nudge: nudgeState?.key === key ? nudgeState.nudge : false,
+    reload,
+    send,
+  };
 }
 
 export function MessageList({

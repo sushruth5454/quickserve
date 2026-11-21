@@ -1,0 +1,78 @@
+{
+  "stageId": "O13-AUTH",
+  "workPackage": "O13",
+  "sourceTaskId": "PF-T02",
+  "findingId": "PF-F03",
+  "status": "implemented-codespace-unavailable-lane-ci-fallback",
+  "base": {
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBase": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "dependencies": [
+      {
+        "stage": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE"
+      },
+      {
+        "stage": "O38R",
+        "commit": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+        "status": "DONE"
+      }
+    ]
+  },
+  "ownedFiles": [
+    "app\\app\\(auth)\\verify.tsx",
+    "app\\app\\(auth)\\role.tsx",
+    "app\\src\\lib\\returningUser.ts",
+    "app\\src\\lib\\__tests__\\authContinuation.test.ts",
+    "app\\src\\features\\platformScreens\\AuthRoleScreen.tsx",
+    "app\\src\\features\\platformScreens\\AuthVerifyScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o13-auth.json"
+  ],
+  "implementation": [
+    "Extracted both auth route bodies into their allocated platform screens and left thin route exports with the existing URLs.",
+    "Added one AuthRole controller and one AuthVerify controller; post-OTP profile/provider lookup errors now remain retryable after a single successful OTP verification.",
+    "Provider lookup precedes the allowlisted roleProfilePatch full_name update, so a failed provider read performs no profile write.",
+    "Added a shared pure destination resolver with invite, safe internal returnTo, then existing role default precedence; unsafe and malformed returnTo values fall back safely.",
+    "Preserved returningUserRole behavior for a known-missing provider and customer-oriented invite activation.",
+    "Added focused continuation tests for profile/provider lookup retries, OTP-called-once behavior, known-null fallback, invite/customer/provider routing, and invalid returnTo handling."
+  ],
+  "scope": {
+    "migrations": [],
+    "sqlChanges": [],
+    "featureFlags": [],
+    "sharedRegistration": "none",
+    "deploymentOrProductionActions": "not performed"
+  },
+  "validation": {
+    "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.authContinuation[.]test[.]ts$'",
+    "helperSource": "origin/main:scripts/cs-test.ps1 at ee97c5462efbddd31b7b03cc8864295a21d6012d",
+    "codespace": "qs-tests-g67pgv4xqj639gx5",
+    "snapshot": {
+      "ref": "wip/qs-oorva-o13-auth",
+      "commit": "f950f87bbc0011f0b8d0f61464066815e4e34028"
+    },
+    "snapshotRefExistsRemotely": true,
+    "snapshotRefRemoteCommit": "f950f87bbc0011f0b8d0f61464066815e4e34028",
+    "result": "CODESPACE_UNAVAILABLE",
+    "testSelection": "NOT REACHED; no tests selected and no Codespace PASS.",
+    "failure": {
+      "codespaceAvailable": true,
+      "cause": "Codespace-side Git HTTPS fetch had no usable noninteractive credential; the snapshot ref exists remotely.",
+      "fetchCommand": "git fetch -q origin +wip/qs-oorva-o13-auth:refs/cs/run-<pid>",
+      "fetchError": "fatal: could not read Username for 'https://github.com': No such device or address",
+      "runnerMessage": "cs-test: cannot fetch wip/qs-oorva-o13-auth",
+      "runnerExitCode": 2,
+      "helperReportedRemoteShellExitCode": 2,
+      "powershellToolExitCode": 1
+    },
+    "fallback": "Lane CI per repository rule 16; exact-head result is verified in the delivery handoff.",
+    "gitDiffCheck": "PASS"
+  },
+  "releaseStatus": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
