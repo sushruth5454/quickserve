@@ -97,7 +97,7 @@ await db.query(`
 `);
 
 let fixtureNumber = 0;
-const uuid = (prefix, number) => `${prefix}0000-0000-0000-0000-${String(number).padStart(12, '0')}`;
+const uuid = (prefix, number) => `${prefix}0000-0000-0000-${String(number).padStart(12, '0')}`;
 const newAt = '2032-03-16T10:00:00+05:30';
 
 async function as(uid, role, sql, params = []) {
@@ -189,8 +189,12 @@ async function createFixture(label) {
     select id, status::text status, scheduled_at, service_window
       from bookings where recurring_schedule_id = $1::uuid
   `, [schedule])).rows;
+  const unavailableRows = (await db.query(`
+    select kind, reason from recurring_occurrence_changes
+     where schedule_id = $1::uuid order by created_at, id
+  `, [schedule])).rows;
   if (materialized !== 1 || bookingRows.length !== 1) {
-    throw new Error(`expected one isolated recurring booking: ${JSON.stringify({ materialized, bookingRows })}`);
+    throw new Error(`expected one isolated recurring booking: ${JSON.stringify({ materialized, bookingRows, unavailableRows })}`);
   }
   return { customer, provider, manager, staff, otherCustomer, service, schedule, booking: bookingRows[0] };
 }

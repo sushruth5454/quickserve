@@ -31,11 +31,12 @@ async function createFixture(client, label, startAccepted = false) {
   `);
   await client.query(`
     insert into providers (
-      id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended
+      id, city, base_location, kyc_status, admin_review_status,
+      submitted_at, is_online, paused, suspended
     ) values (
       $1::uuid, $2::text,
       extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
-      'verified', now(), true, false, false
+      'verified', 'approved', now(), true, false, false
     )
   `, [provider, city]);
   await client.query(`
@@ -86,8 +87,18 @@ async function createFixture(client, label, startAccepted = false) {
   const bookingRows = (await client.query(`
     select id, scheduled_at from bookings where recurring_schedule_id = $1::uuid
   `, [schedule])).rows;
-  assert.equal(materialized, 1, `materialize fixture must create one visit: ${JSON.stringify({ label, schedule, materialized })}`);
-  assert.equal(bookingRows.length, 1, `fixture must have one booking: ${JSON.stringify({ label, bookingRows })}`);
+  const materializationDetails = (await client.query(`
+    select p.admin_review_status, public._provider_is_live(p.id) provider_live,
+           coalesce((
+             select jsonb_agg(jsonb_build_object('kind', c.kind, 'reason', c.reason) order by c.created_at)
+               from recurring_occurrence_changes c where c.schedule_id = $2::uuid
+           ), '[]'::jsonb) occurrence_changes
+      from providers p where p.id = $1::uuid
+  `, [provider, schedule])).rows[0];
+  assert.equal(materialized, 1,
+    `materialize fixture must create one visit: ${JSON.stringify({ label, schedule, materialized, materializationDetails })}`);
+  assert.equal(bookingRows.length, 1,
+    `fixture must have one booking: ${JSON.stringify({ label, bookingRows, materializationDetails })}`);
   const booking = bookingRows[0];
   if (startAccepted) {
     await client.query(`update bookings set status = 'accepted' where id = $1::uuid`, [booking.id]);
