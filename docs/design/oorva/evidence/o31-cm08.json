@@ -1,0 +1,116 @@
+{
+  "stage": "O31-CM08",
+  "workPackage": "O31",
+  "sourceTask": "CM-T08",
+  "finding": "CM-F10",
+  "placements": [
+    {
+      "id": "S16",
+      "route": "app\\app\\admin\\category\\[id].tsx",
+      "host": "app\\src\\features\\communicationScreens\\AdminCategoryDetailScreen.tsx"
+    },
+    {
+      "id": "S29",
+      "route": "app\\app\\admin\\services.tsx",
+      "host": "app\\src\\features\\communicationScreens\\AdminServicesScreen.tsx"
+    }
+  ],
+  "sourceReferences": {
+    "auditReport": "docs\\audit\\18-WS7-Communications-Admin.md",
+    "taskFindingProjection": "docs\\design\\oorva\\audit\\communications.json"
+  },
+  "dependency": {
+    "task": "O00",
+    "status": "DONE",
+    "checkpoint": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "testedBase": {
+    "branch": "integrate/oorva-base-1",
+    "commit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "currentMainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "routeHostExtraction": {
+    "categoryDetail": "Thin default-export route; one useAdminCategoryDetailController in the host.",
+    "services": "Thin default-export route; one useAdminServicesController in the host."
+  },
+  "assertions": [
+    {
+      "id": "CM_CATEGORY_ORDER_READBACK",
+      "status": "PASS",
+      "evidence": "Reorder readback retains server 10/20 positions; later save uses the canonical sort_order."
+    },
+    {
+      "id": "CM_CATEGORY_CANONICAL_READBACK",
+      "status": "PASS",
+      "evidence": "Canonical list projection replaces submitted/default fields; dirty fields edited after save remain in the draft."
+    },
+    {
+      "id": "CM_CATEGORY_AVAILABILITY_READBACK",
+      "status": "PASS",
+      "evidence": "Legacy active/city writes refetch; failed readback is a visible stale state and is distinct from write rejection."
+    },
+    {
+      "id": "CM_CATEGORY_INACTIVE_CREATE",
+      "status": "PASS",
+      "evidence": "Committed create ID and draft survive readback failure/unmount; refresh never repeats the create and canonical inactive state is retained."
+    },
+    {
+      "id": "CM_SERVICES_EDITOR_OFF",
+      "status": "PASS",
+      "evidence": "Editor/create/reorder controls remain hidden while legacy active/city controls remain available."
+    }
+  ],
+  "concurrency": {
+    "serialization": "A shared registry serializes category mutations across both hosts until canonical readback completes.",
+    "staleResponses": "Generation checks invalidate list reads that overlap a mutation; a focused Services screen refetches after a foreign mutation settles.",
+    "sessionRecovery": "Editor draft, category ID, city input, dirty-field versions, stale/readback/write errors, and pending operation are retained by route and authenticated user.",
+    "outcomeReporting": "Services shows a dismissible per-user outcome notice; writes and readback failures remain distinct.",
+    "boundedLimitation": "If an RPC promise never settles, the category lock fails closed. After 60 seconds the UI says the outcome is unknown, advises not to retry, and directs the administrator to restart, verify the Services list, and only then retry. Reads and writes remain blocked until settlement or restart."
+  },
+  "validation": [
+    {
+      "environment": "Codespace",
+      "suite": "app",
+      "filter": "src.components.__tests__.AdminCategoriesScreen[.]test[.]tsx$",
+      "selected": 16,
+      "passed": 16,
+      "failed": 0,
+      "result": "PASS",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.AdminCategoriesScreen[.]test[.]tsx$'"
+    },
+    {
+      "environment": "Codespace",
+      "suite": "jest",
+      "filter": "src.lib.__tests__.adminCategoryApi[.]test[.]ts$",
+      "selected": 4,
+      "passed": 4,
+      "failed": 0,
+      "result": "PASS",
+      "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.lib.__tests__.adminCategoryApi[.]test[.]ts$'"
+    },
+    {
+      "check": "git diff --check",
+      "result": "PASS"
+    },
+    {
+      "check": "Allowed-path review",
+      "result": "PASS"
+    }
+  ],
+  "focusedConcurrencyReview": {
+    "reviewer": "code-review",
+    "model": "claude-haiku-5.5",
+    "result": "No blocking findings; recommended for merge from concurrency, stale-response, and dirty-draft perspective."
+  },
+  "scope": {
+    "migrations": [],
+    "sqlFunctions": [],
+    "newFeatureFlags": [],
+    "sharedEdits": [],
+    "retainedApiTest": "app\\src\\lib\\__tests__\\adminCategoryApi.test.ts"
+  },
+  "gateStatus": {
+    "E0_D01": "approved",
+    "E1": "pending"
+  }
+}
