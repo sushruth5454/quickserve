@@ -1,4 +1,4 @@
-import { getTimeBookingModes, hasSupportedRecurringFrequency, packageRepeatPlanRoute } from '../packageModel';
+import { fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
 import { packageCheckoutTotal } from '../../../../lib/money';
 
 type EligibilityCategory = { recurrence_allowed?: boolean; allowed_frequencies?: string[] };
@@ -14,6 +14,20 @@ describe('package booking modes', () => {
 
   it.each(unavailableCases)('keeps one-time and pack choices when %s', (_reason, recurringEnabled, category) => {
     expect(getTimeBookingModes(recurringEnabled, category)).toEqual(['one-time', 'session-pack']);
+  });
+
+  describe('package booking units', () => {
+    it('singleSessionUnit keeps quantity as one unless purchasing a pack', () => {
+      expect(timeBookingQuantity(false, 4)).toBe(1);
+      expect(timeBookingQuantity(true, 4)).toBe(4);
+    });
+
+    it('fixedQuantityDuration follows package bounds and the SQL ceil duration rule', () => {
+      expect(fixedBookingDuration({ qty_min: 1, qty_max: 4, duration_min: 60 }, 2)).toBe(120);
+      expect(fixedBookingDuration({ qty_min: 1, qty_max: 1, duration_min: 30 }, 1)).toBe(30);
+      expect(fixedBookingDuration({ qty_min: 1, qty_max: 4, duration_min: 60 }, 1.2)).toBe(120);
+      expect(() => fixedBookingDuration({ qty_min: 1, qty_max: 4, duration_min: 60 }, 5)).toThrow('Quantity is outside the package bounds');
+    });
   });
 
   it('offers repeat plans only when enabled by both feature and category', () => {

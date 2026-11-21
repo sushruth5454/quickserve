@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useToast } from '../../../components/ui';
 import { createBooking, createTravelRequest, getProviderService, inspectTravelRequest, listMyAddresses, uploadJobPhoto, type ProviderServiceWithProvider } from '../../../lib/api';
 import { track } from '../../../lib/analytics';
-import { readBookPrefill, selectedChips, toggleChip } from '../../../lib/assistant/prefill';
+import { isServiceBookingEnabled, readBookPrefill, resolveServiceBookingEntry, selectedChips, toggleChip } from '../../../lib/assistant/prefill';
 import { useSelectedLocation } from '../../../lib/locationContext';
 import { fromSavedAddress } from '../../../lib/locationModel';
 import { usePayment } from '../../../lib/payments';
@@ -42,6 +42,14 @@ export function useBookScreenController() {
   const days = useMemo(() => nextDays(now, 7), [now]);
   // Draft hand-off from QuickServe AI (src/lib/assistant/prefill.ts); read once so the user's edits stick.
   const [prefill] = useState(() => readBookPrefill(prefillParams, days, now));
+  const bookingEntry = useMemo(() => service
+    ? resolveServiceBookingEntry(service, {
+        fromAssistant: prefill.fromAssistant,
+        description: prefill.description,
+        slot: prefill.slot,
+        addressId: prefill.addressId,
+      })
+    : null, [service, prefill]);
   const [description, setDescription] = useState(prefill.description ?? '');
   const [photos, setPhotos] = useState<{ uri: string; mimeType: string }[]>([]);
   const [mode, setMode] = useState<'asap' | 'schedule'>(prefill.mode ?? 'asap');
@@ -70,7 +78,12 @@ export function useBookScreenController() {
   };
   useEffect(load, [providerServiceId]);
   useEffect(() => {
-    if (!service || packageId) return;
+    if (!service) return;
+    if (bookingEntry?.kind !== 'inspect') {
+      setPricePreview(null);
+      setPriceError(null);
+      return;
+    }
     let active = true;
     setPricePreview(null);
     setPriceError(null);
@@ -98,7 +111,7 @@ export function useBookScreenController() {
     return () => {
       active = false;
     };
-  }, [service?.id, packageId, priceAttempt]);
+  }, [service?.id, bookingEntry?.kind, priceAttempt]);
 
   // The draft used a saved address that is not the current selection (e.g. changed since): switch to it.
   useEffect(() => {
@@ -200,7 +213,14 @@ export function useBookScreenController() {
         : null;
 
   const submit = async () => {
-    if (!service || blocker || !location.line1 || scheduledAt === undefined) return;
+    if (
+      !service ||
+      bookingEntry?.kind !== 'inspect' ||
+      !isServiceBookingEnabled(bookingEntry, featureFlags.archetypes) ||
+      blocker ||
+      !location.line1 ||
+      scheduledAt === undefined
+    ) return;
     setBusy(true);
     setError(null);
     try {
@@ -245,7 +265,7 @@ export function useBookScreenController() {
   };
 
   return {
-    t, toast, recurringEnabled, featureFlags, packageId, archetype,
+    t, toast, recurringEnabled, featureFlags, packageId, archetype, bookingEntry,
     location, setLocation, service, loadError, pricePreview, priceError, setPriceAttempt,
     days, day, prefill, description, setDescription, photos, setPhotos, mode, setMode,
     dayIndex, setDayIndex, hour, setHour, editorOpen, setEditorOpen, busy, error,

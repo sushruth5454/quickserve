@@ -66,6 +66,28 @@ export function packageDuration(servicePackage: ServicePackage, quantity: number
   return ['session', 'hour', 'day'].includes(servicePackage.unit) ? duration * quantity : duration;
 }
 
+export function fixedBookingDuration(
+  servicePackage: Pick<ServicePackage, 'qty_min' | 'qty_max' | 'duration_min'>,
+  quantity: number,
+): number {
+  const min = Number(servicePackage.qty_min);
+  const max = Number(servicePackage.qty_max);
+  if (
+    !Number.isFinite(quantity) ||
+    quantity < min ||
+    quantity > max ||
+    (!Number.isInteger(quantity) && max <= 1)
+  ) {
+    throw new Error('Quantity is outside the package bounds');
+  }
+  const duration = servicePackage.duration_min ?? 60;
+  return min === 1 && max === 1 ? duration : duration * Math.ceil(quantity);
+}
+
+export function timeBookingQuantity(pack: boolean, quantity: number): number {
+  return pack ? quantity : 1;
+}
+
 export function canPayInstantly(servicePackage: ServicePackage): boolean {
   return servicePackage.price_type === 'fixed' && servicePackage.price != null && servicePackage.price > 0;
 }

@@ -1,0 +1,101 @@
+{
+  "stageId": "O15-SV10",
+  "sourceTask": "SV-T10",
+  "finding": "SV-F09",
+  "dispatchOrder": 21,
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "base": {
+    "branch": "lane/oorva-o15-sv10",
+    "commit": "8c96625fda96e040a1d5348ae98ed5f2dc2dc8ad",
+    "wasNotModified": true
+  },
+  "approvals": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "sourceDrift": {
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "chosenBase": "8c96625fda96e040a1d5348ae98ed5f2dc2dc8ad",
+    "changedStageOwnedFiles": [
+      {
+        "path": "app/src/features/catalogue/api.ts",
+        "reason": "O14-MK13 adds selected-city filtering and returns provider city for catalogue packages; preserved without modification to that behavior."
+      }
+    ],
+    "otherComparedStageOwnedFiles": "No audited-source-to-base drift reported."
+  },
+  "implementation": {
+    "status": "worker implementation checkpoint; not pushed",
+    "files": [
+      "app/app/assistant.tsx",
+      "app/src/features/platformScreens/AssistantScreen.tsx",
+      "app/src/features/booking/book/useBookScreenController.ts",
+      "app/src/features/booking/book/BookScreenContent.tsx",
+      "app/src/features/booking/packages/PackageBookingScreen.tsx",
+      "app/src/features/booking/packages/packageModel.ts",
+      "app/src/features/catalogue/api.ts",
+      "app/src/lib/assistant/prefill.ts",
+      "app/src/features/booking/book/__tests__/model.test.ts",
+      "app/src/features/booking/packages/__tests__/packageModel.test.ts",
+      "app/src/lib/assistant/__tests__/prefill.test.ts",
+      "docs/design/oorva/evidence/o15-sv10.json"
+    ],
+    "behavior": [
+      "Added category-authoritative entry resolution for inspect, fixed-package, time-package, and proposal-request families; route archetype hints do not select the family.",
+      "Assistant reviewDraft/bookPro load the selected service before choosing a destination; booking controller avoids non-inspect price previews and inspect submission for other families.",
+      "Added provider-scoped package selection for fixed/time routes; package identity and actual category family are checked before checkout.",
+      "Non-pack time booking quantity is one; pack quantity is sent only to purchase_session_pack; session duration passed to create_session_booking follows the selected package.",
+      "Fixed-package duration in PackageBookingScreen follows create_fixed_booking quantity bounds and ceil duration calculation.",
+      "Invalid or unsupported assistant slots require a new selection; brief, slot, and address are forwarded through supported booking handoffs.",
+      "Family switches hide package submission controls and block assistant/controller submissions when the effective family switch is off.",
+      "Moved the assistant screen body to AssistantScreen.tsx and left app/app/assistant.tsx as a thin route export."
+    ],
+    "databaseChanges": {
+      "migrations": 0,
+      "sqlFunctions": 0,
+      "featureFlags": 0,
+      "moneyPolicyChanges": 0
+    }
+  },
+  "verification": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "UNAVAILABLE_NO_PASS",
+      "phase": "before_test_selection",
+      "testsSelected": false,
+      "helperSource": "origin/main scripts/cs-test.ps1 at ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "attemptedSelector": "pwsh -NoProfile -File <helper> -Suite app -Filter 'src.features.booking.book.__tests__.model[.]test[.]ts$'",
+      "unattemptedSelectors": [
+        "pwsh -NoProfile -File <helper> -Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
+        "pwsh -NoProfile -File <helper> -Suite jest -Filter 'src.lib.assistant.__tests__.prefill[.]test[.]ts$'"
+      ],
+      "reason": "The helper's Codespace SSH runner could not fetch the WIP snapshot because Git HTTPS authentication was unavailable. No tests were selected; credentials were not changed."
+    },
+    "laneCI": {
+      "status": "not run",
+      "reason": "No lane push before coordinator money-review approval."
+    }
+  },
+  "review": {
+    "required": [
+      "money"
+    ],
+    "status": "pending",
+    "lanePush": "blocked until coordinator confirms PASS"
+  },
+  "scopeBlockers": [
+    {
+      "path": "app/app/book-fixed/[providerServiceId].tsx",
+      "detail": "Excluded from the stage-owned write scope although the contract asks for fixedBookingDuration in both fixed routes; this direct fixed route remains unchanged."
+    },
+    {
+      "path": "app/app/request/new.tsx",
+      "detail": "Excluded from the stage-owned write scope. The resolver forwards assistant brief/slot/address params, but the existing proposal request screen does not consume those prefill fields; proposal-family draft preservation is therefore not verified."
+    },
+    {
+      "path": "app/src/features/catalogue/ArchetypeCategory.tsx",
+      "detail": "Excluded from the stage-owned write scope; its existing category entry points are not changed by this stage."
+    }
+  ]
+}
