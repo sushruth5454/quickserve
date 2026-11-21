@@ -1,7 +1,11 @@
 // WP F6; tests: daily reconciliation pagination, mismatch detection, and clean report behavior.
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { collectGatewayRecords, compareGatewayAndLocal } from "./logic.ts";
+import {
+  collectGatewayRecords,
+  compareGatewayAndLocal,
+  localGatewayRecord,
+} from "./logic.ts";
 
 Deno.test("daily reconciliation fetches every gateway page and reports exact mismatches", async () => {
   const calls: Array<{ url: string; authorization: string | null }> = [];
@@ -132,5 +136,118 @@ Deno.test("daily reconciliation returns no issues when gateway and database agre
     compareGatewayAndLocal("2026-11-18", snapshot, local),
     [],
     `clean gateway rows must produce an empty daily mismatch report; actual=${JSON.stringify({ snapshot, local })}`,
+  );
+});
+
+Deno.test("MN-RECONCILE-NETTED-AMOUNT compares transferred cash, not gross tranches", () => {
+  const transfer = {
+    id: "transfer-local-uuid",
+    razorpay_transfer_id: "pout_partial",
+    amount: 10_000,
+    recovered_amount: 1_000,
+  };
+  const localTransfer = localGatewayRecord("payout", transfer);
+  assertEquals(
+    localTransfer,
+    { local_id: "transfer-local-uuid", gateway_id: "pout_partial", amount: 9_000 },
+    `partial recovery must preserve identity and compare net dispatched cash; actual=${JSON.stringify(localTransfer)}`,
+  );
+
+  const gateway = {
+    payments: [],
+    refunds: [],
+    payouts: [{ id: "pout_partial", amount: 9_000, reference_id: "transfer-local-uuid" }],
+  };
+  const local = { payments: [], refunds: [], payouts: localTransfer ? [localTransfer] : [] };
+  assertEquals(
+    compareGatewayAndLocal("2026-11-18", gateway, local),
+    [],
+    `a gateway transfer matching tranche less recovered amount must be clean; actual=${JSON.stringify({ gateway, local })}`,
+  );
+
+  const offByOneGateway = {
+    ...gateway,
+    payouts: [{ id: "pout_partial", amount: 8_999, reference_id: "transfer-local-uuid" }],
+  };
+  assertEquals(
+    compareGatewayAndLocal("2026-11-18", offByOneGateway, local).map((row) => ({
+      issue: row.issue,
+      local_id: row.local_id,
+      gateway_id: row.gateway_id,
+      expected_amount: row.expected_amount,
+      actual_amount: row.actual_amount,
+    })),
+    [{
+      issue: "amount_mismatch",
+      local_id: "transfer-local-uuid",
+      gateway_id: "pout_partial",
+      expected_amount: 9_000,
+      actual_amount: 8_999,
+    }],
+    `a one-paise difference must produce exactly one net-cash mismatch; actual=${JSON.stringify(compareGatewayAndLocal("2026-11-18", offByOneGateway, local))}`,
+  );
+
+  const nettedTransfer = {
+    id: "netted-local-uuid",
+    razorpay_transfer_id: "netted_recovery_complete",
+    amount: 10_000,
+    recovered_amount: 10_000,
+  };
+  const before = JSON.stringify(nettedTransfer);
+  const nettedRecord = localGatewayRecord("payout", nettedTransfer);
+  assertEquals(
+    nettedRecord,
+    null,
+    `explicit netted references are not gateway payouts; actual=${JSON.stringify(nettedRecord)}`,
+  );
+  assertEquals(
+    compareGatewayAndLocal("2026-11-18", { payments: [], refunds: [], payouts: [] }, {
+      payments: [],
+      refunds: [],
+      payouts: nettedRecord ? [nettedRecord] : [],
+    }),
+    [],
+    `a wholly netted transfer must not produce missing_gateway; actual=${JSON.stringify(nettedRecord)}`,
+  );
+  assertEquals(
+    JSON.stringify(nettedTransfer),
+    before,
+    `netted reconciliation input must remain unchanged; actual=${JSON.stringify(nettedTransfer)}`,
+  );
+});
+
+Deno.test("local gateway adapter excludes only kind-specific explicit synthetic references", () => {
+  assertEquals(
+    localGatewayRecord("payment", {
+      id: "payment-local-uuid",
+      razorpay_payment_id: "pay_demo_capture",
+      amount: 5_000,
+    }),
+    null,
+    "explicit demo captures are excluded",
+  );
+  assertEquals(
+    localGatewayRecord("refund", {
+      id: "refund-local-uuid",
+      razorpay_refund_id: "rfnd_demo_refund",
+      amount: 2_000,
+    }),
+    null,
+    "explicit demo refunds are excluded",
+  );
+  assertEquals(
+    localGatewayRecord("payment", { id: "payment-real", razorpay_payment_id: null, amount: 1_000 }),
+    { local_id: "payment-real", gateway_id: null, amount: 1_000 },
+    "ordinary missing gateway ids remain available for missing_gateway reporting",
+  );
+  assertEquals(
+    localGatewayRecord("payment", { id: "payment-real", razorpay_payment_id: "rfnd_demo_other_kind", amount: 1_000 }),
+    { local_id: "payment-real", gateway_id: "rfnd_demo_other_kind", amount: 1_000 },
+    "synthetic prefixes from another kind are not excluded",
+  );
+  assertEquals(
+    localGatewayRecord("refund", { id: "refund-real", razorpay_refund_id: "pay_demo_other_kind", amount: 1_000 }),
+    { local_id: "refund-real", gateway_id: "pay_demo_other_kind", amount: 1_000 },
+    "synthetic prefixes from another kind are not excluded",
   );
 });
