@@ -10,6 +10,7 @@
   },
   "migrationClaim": "MIG-O32-MN02",
   "migrationPath": "supabase/migrations/0118_o32_mn02_oorva.sql",
+  "migrationClaimStatus": "ACKNOWLEDGED/APPROVED",
   "changedFiles": [
     "supabase/migrations/0118_o32_mn02_oorva.sql",
     "supabase/tests/oorva_o32_mn02.test.mjs",
@@ -73,6 +74,8 @@
       "headSha": "bd2525e08cf71109141fa80a3493c46957ff08bb",
       "conclusion": "failure",
       "failedJob": "sql",
+      "sqlChecksPassed": 144,
+      "sqlChecksTotal": 145,
       "failures": [
         "MN-DEMO-SESSION-ONESHOT: category_not_bookable",
         "MN-DEMO-PACK-SESSION: category_not_bookable",
@@ -86,12 +89,14 @@
         "enable the time_based archetype in app_config",
         "use unique future slots within the category lead-time window"
       ],
-      "status": "unverified; awaiting coordinator MONEY review and a new lane push"
+      "status": "coordinator-reviewed; awaiting lane CI verification"
     }
   },
-  "checkpoint": "PAUSED_FOR_COORDINATOR_REVIEW",
+  "checkpoint": "READY_FOR_LANE_CI_FALLBACK",
   "reviewRequired": "money",
-  "reviewStatus": "pending",
+  "reviewStatus": "PASS",
+  "reviewer": "Coordinator",
+  "reviewedHead": "27becf5d77f592412a9fbc35e66d79333a4480fe",
   "e1Status": "pending",
   "productionActions": "none"
 }
