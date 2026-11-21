@@ -50,22 +50,22 @@
     {
       "case": "CM_GEO_INITIAL_ERROR",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "IMPLEMENTED_NOT_RUN"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_STALE_PLACE",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "IMPLEMENTED_NOT_RUN"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_STALE_QUERY",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "IMPLEMENTED_NOT_RUN"
+      "result": "PASS"
     },
     {
       "case": "CM_GEO_SAVE_PARENT_MATCH",
       "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
-      "result": "IMPLEMENTED_NOT_RUN"
+      "result": "PASS"
     }
   ],
   "sqlFunctions": [],
@@ -103,9 +103,20 @@
       "secondPriorFailures": [
         "All four new cases failed in afterEach because the fake hook-slot array is sparse and cleanup dereferenced an undefined slot; 78 suites and 519 tests passed."
       ],
-      "fix": "Use optional chaining for sparse hook-slot cleanup, then rerun the lane."
+      "fix": "Use optional chaining for sparse hook-slot cleanup.",
+      "runId": 44916040837,
+      "headSha": "273d85f991d869079f88c3b21addba1c65c42138",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "PASS",
+        "app": "PASS (typecheck; 79 suites and 523 tests, including AdminGeographyScreen.test.tsx)",
+        "sql": "PASS",
+        "privatePostgres": "PASS",
+        "tooling": "PASS",
+        "deno": "PASS"
+      }
     },
-    "diffCheck": "PENDING"
+    "diffCheck": "PASS"
   },
   "reviewRequired": "concurrency",
   "reviewStatus": "pending_coordinator",
