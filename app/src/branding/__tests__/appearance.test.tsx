@@ -3,10 +3,9 @@ jest.mock('react-native-reanimated', () => ({
 }));
 
 jest.mock('react-native', () => {
-  const native = jest.requireActual('react-native');
   return {
-    ...native,
-    Image: Object.assign(native.Image, { prefetch: jest.fn() }),
+    Image: { prefetch: jest.fn() },
+    StyleSheet: { create: jest.fn((styles: unknown) => styles) },
     useColorScheme: jest.fn(() => null),
   };
 });
@@ -191,8 +190,9 @@ describe('O05A atomic appearance integration', () => {
     expect(before.type).toBe(after.type);
     expect(before.key).toBeNull();
     expect(after.key).toBeNull();
-    expect(after.props.children).toBe(child);
-    expect((after.props.children as React.ReactElement<{ draft: typeof dirtyDraft }>).props.draft).toBe(
+    const afterChildren = (after as React.ReactElement<{ children: React.ReactNode }>).props.children;
+    expect(afterChildren).toBe(child);
+    expect((afterChildren as React.ReactElement<{ draft: typeof dirtyDraft }>).props.draft).toBe(
       dirtyDraft,
     );
   });
