@@ -144,6 +144,8 @@ export function HomeV2({ flags }: { flags: HomeFlagReader }) {
   ) : null;
   const gutter = { paddingHorizontal: t.spacing.lg };
   const cardWidth = Math.min(300, Math.round(windowWidth * 0.72));
+  const singleColumnPillars = windowWidth < 360;
+  const pillarCardWidth = singleColumnPillars ? '100%' : '48%';
   const searchInputTypography: TextStyle = { ...t.typography.body, lineHeight: undefined };
   const city = location.city || location.area;
 
@@ -309,10 +311,16 @@ export function HomeV2({ flags }: { flags: HomeFlagReader }) {
         </View>
       ) : (
         <View style={[gutter, { gap: t.spacing.section }]}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.md }}>
+          <View
+            style={{
+              flexDirection: singleColumnPillars ? 'column' : 'row',
+              flexWrap: 'wrap',
+              gap: t.spacing.md,
+            }}
+          >
             {!catalogue
               ? Array.from({ length: 4 }).map((_, index) => (
-                  <Card key={index} variant="outlined" style={{ width: '48%', minHeight: 132 }}>
+                  <Card key={index} variant="outlined" style={{ width: pillarCardWidth, minHeight: 132 }}>
                     <View style={{ gap: t.spacing.sm }}>
                       <Skeleton width={44} height={44} radius={t.radii.pill} />
                       <Skeleton width={120} height={14} />
@@ -327,6 +335,7 @@ export function HomeV2({ flags }: { flags: HomeFlagReader }) {
                     title={translate(PILLAR_COPY[pillar].title)}
                     subtitle={translate(PILLAR_COPY[pillar].subtitle)}
                     onPress={() => onPillarPress(pillar)}
+                    fullWidth={singleColumnPillars}
                   />
                 ))}
           </View>
