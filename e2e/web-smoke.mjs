@@ -1761,16 +1761,26 @@ await step('admin-feature-registry', async () => {
         urgent_requests: true,
         fixed_asap: true,
         e2e_registry_probe: probeEnabled,
-        archetypes: { inspect_quote: true, fixed: true, time_based: true, proposal: true },
+        archetypes: { inspect_quote: true, fixed: true, time_based: true, proposal: true, remote: false },
       }),
     });
   });
   await page.getByText('Features', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin/features');
-  await visible('E2E registry probe');
+  for (const label of [
+    'AI assistant',
+    'Urgent creator requests',
+    'ASAP for fixed-price services',
+    'E2E registry probe',
+    'Repair & inspection',
+    'Fixed-price packages',
+    'Time-based sessions',
+    'Creators & events',
+    'Remote services',
+  ]) await visible(label);
   const switches = page.getByRole('switch');
   const switchCount = await switches.count();
-  if (switchCount !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${JSON.stringify({ switchCount })}`);
+  if (switchCount !== 9) throw new Error(`expected 4 registry + 5 archetype switches, got ${JSON.stringify({ switchCount })}`);
   const probeResponse = page.waitForResponse((response) => {
     if (new URL(response.url()).pathname !== '/rest/v1/rpc/admin_set_feature') return false;
     try {
