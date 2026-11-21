@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O17-SV07",
+  "workPackage": "O17",
+  "status": "PAUSED_FOR_REGISTRATION",
+  "base": {
+    "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "sourceAuditSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "assignedFunctionSha256AtAuditAndBase": "0315a9af6ec31ef056c318f2579f76e009749191de69a2ca4ad42b87ce9133b9",
+    "assignedFunctionAuditComparison": "MATCH"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "PRESENT_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O37A",
+      "sha": "5b2b026ab825100d461ae2db276d6eb42f4497ec",
+      "state": "PRESENT_IN_IMPLEMENTATION_BASE"
+    }
+  ],
+  "sourceTaskIds": [
+    "SV-T07"
+  ],
+  "sourceFindingIds": [
+    "SV-F06"
+  ],
+  "sqlFunctions": [
+    "public.respond_visit_reschedule"
+  ],
+  "sqlObjects": [],
+  "migrationClaims": [
+    "MIG-O17-SV07"
+  ],
+  "allocatedMigrationFilenames": [
+    "supabase\\migrations\\0094_o17_sv07_oorva.sql"
+  ],
+  "workerOwnedFiles": [
+    "supabase\\migrations\\0094_o17_sv07_oorva.sql",
+    "supabase\\tests-postgres\\o17_sv07.pg.test.mjs",
+    "supabase\\tests\\oorva_o17_sv07.test.mjs",
+    "docs\\design\\oorva\\evidence\\o17-sv07.json"
+  ],
+  "coordinatorOwnedRegistrationFiles": [
+    "supabase\\tests\\package.json",
+    ".github\\workflows\\lane-ci.yml",
+    ".github\\workflows\\deploy-backend.yml"
+  ],
+  "approvals": {
+    "E0": "AUTHORIZED",
+    "D01": "AUTHORIZED",
+    "E1": "PENDING"
+  },
+  "registration": {
+    "state": "PENDING_COORDINATOR_REGISTRATION_ROUNDTRIP",
+    "blockedBy": "O20-SP07 current lock",
+    "pgliteSelector": "oorva_o17_sv07",
+    "migrationSelector": "o17_sv07_oorva.sql",
+    "privatePostgresStep": "node run.mjs --filter o17_sv07.pg.test.mjs",
+    "privatePostgresStackRequired": true,
+    "registrationHasTestSuccessClaim": false
+  },
+  "requiredCases": [
+    "SV-RESCHEDULE-TERMINAL-01",
+    "SV-RESCHEDULE-ALLOW-02",
+    "SV-RESCHEDULE-IDEMPOTENT-03",
+    "SV-RESCHEDULE-RACE-04"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "pglite": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT",
+    "privatePostgresConcurrency": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT",
+    "codespace": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT",
+    "laneCi": "NOT_RUN_AT_WORKER_FILES_CHECKPOINT"
+  },
+  "claims": {
+    "testsPass": false,
+    "concurrencyVerified": false,
+    "productionOrHostedDatabaseUsed": false,
+    "mainOrDeploymentTouched": false
+  }
+}
