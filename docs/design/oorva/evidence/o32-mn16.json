@@ -1,0 +1,48 @@
+{
+  "stageId": "O32-MN16",
+  "sourceTaskId": "MN-T16",
+  "findingId": "MN-F15",
+  "implementationBaseSha": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+  "changedFiles": [
+    "supabase/functions/reconcile-payments/index.ts",
+    "supabase/functions/reconcile-payments/logic.ts",
+    "supabase/functions/reconcile-payments/logic_test.ts",
+    "docs/design/oorva/evidence/o32-mn16.json"
+  ],
+  "acceptance": [
+    {
+      "case": "10,000 tranche less 1,000 recovered matches a 9,000 gateway payout",
+      "result": "PASS"
+    },
+    {
+      "case": "8,999 gateway payout produces one mismatch expected 9,000 actual 8,999",
+      "result": "PASS"
+    },
+    {
+      "case": "fully netted transfer is excluded without mutating its local row",
+      "result": "PASS"
+    },
+    {
+      "case": "kind-specific synthetic payment/refund references are excluded and ordinary missing rows remain reportable",
+      "result": "PASS"
+    }
+  ],
+  "validation": {
+    "command": "pwsh -NoProfile -File $Helper -Suite deno",
+    "helper": "origin/main:scripts/cs-test.ps1",
+    "codespaceSnapshot": "wip/qs-o32-mn16 @ ab66dfc8",
+    "selection": {
+      "denoTestDirectories": 12,
+      "denoPassed": 147,
+      "denoFailed": 0,
+      "reconcilePaymentsTestsPassed": 4,
+      "denoCheckFunctions": 13,
+      "reconcilePaymentsIndexChecked": true
+    },
+    "result": "PASS"
+  },
+  "reviewRequired": "money",
+  "reviewStatus": "pending",
+  "e1Status": "pending",
+  "productionActions": "none"
+}

@@ -5,7 +5,7 @@ import { json, requireEnv, timingSafeEqual } from "../_shared/razorpay.ts";
 import {
   collectGatewayRecords,
   compareGatewayAndLocal,
-  type LocalRecord,
+  localGatewayRecord,
   type LocalSnapshot,
 } from "./logic.ts";
 
@@ -27,6 +27,7 @@ interface TransferRow {
   id: string;
   razorpay_transfer_id: string | null;
   amount: number;
+  recovered_amount: number | null;
 }
 
 function previousUtcDay(now: Date): { date: string; from: number; to: number; start: string; end: string } {
@@ -114,7 +115,7 @@ async function loadLocalSnapshot(
       .range(from, to)),
     fetchByValues(gateway.payouts.map((row) => row.id), (values, from, to) => admin
       .from("payout_transfers")
-      .select("id,razorpay_transfer_id,amount")
+      .select("id,razorpay_transfer_id,amount,recovered_amount")
       .eq("rail", "payouts")
       .in("razorpay_transfer_id", values)
       .range(from, to)),
@@ -122,14 +123,14 @@ async function loadLocalSnapshot(
       gateway.payouts.flatMap((row) => row.reference_id ? [row.reference_id] : []),
       (values, from, to) => admin
         .from("payout_transfers")
-        .select("id,razorpay_transfer_id,amount")
+        .select("id,razorpay_transfer_id,amount,recovered_amount")
         .eq("rail", "payouts")
         .in("id", values)
         .range(from, to),
     ),
     fetchPages<TransferRow>((from, to) => admin
       .from("payout_transfers")
-      .select("id,razorpay_transfer_id,amount")
+      .select("id,razorpay_transfer_id,amount,recovered_amount")
       .eq("rail", "payouts")
       .in("status", ["transferred", "failed"])
       .gte("transferred_at", start)
@@ -144,19 +145,23 @@ async function loadLocalSnapshot(
     transfersByTransferredAt,
   );
 
-  const records = <T extends { id: string; amount: number }>(
-    rows: T[],
-    getGatewayId: (row: T) => string | null,
-  ): LocalRecord[] => rows.map((row) => ({
-    local_id: row.id,
-    gateway_id: getGatewayId(row),
-    amount: row.amount,
-  }));
+  const paymentRecords = payments.flatMap((row) => {
+    const record = localGatewayRecord("payment", row);
+    return record ? [record] : [];
+  });
+  const refundRecords = refunds.flatMap((row) => {
+    const record = localGatewayRecord("refund", row);
+    return record ? [record] : [];
+  });
+  const payoutRecords = transfers.flatMap((row) => {
+    const record = localGatewayRecord("payout", row);
+    return record ? [record] : [];
+  });
 
   return {
-    payments: records(payments, (row) => row.razorpay_payment_id),
-    refunds: records(refunds, (row) => row.razorpay_refund_id),
-    payouts: records(transfers, (row) => row.razorpay_transfer_id),
+    payments: paymentRecords,
+    refunds: refundRecords,
+    payouts: payoutRecords,
   };
 }
 

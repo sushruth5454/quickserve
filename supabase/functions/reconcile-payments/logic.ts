@@ -24,6 +24,17 @@ export interface LocalRecord {
   amount: number;
 }
 
+export type LocalGatewayKind = "payment" | "refund" | "payout";
+
+interface LocalGatewayRow {
+  id: string;
+  amount: number;
+  recovered_amount?: number | null;
+  razorpay_payment_id?: string | null;
+  razorpay_refund_id?: string | null;
+  razorpay_transfer_id?: string | null;
+}
+
 export interface LocalSnapshot {
   payments: LocalRecord[];
   refunds: LocalRecord[];
@@ -43,6 +54,29 @@ export interface ReconciliationIssue {
   expected_amount: number | null;
   actual_amount: number | null;
   details: Record<string, unknown>;
+}
+
+export function localGatewayRecord(
+  kind: LocalGatewayKind,
+  row: LocalGatewayRow,
+): LocalRecord | null {
+  const gatewayId = kind === "payment"
+    ? row.razorpay_payment_id
+    : kind === "refund"
+    ? row.razorpay_refund_id
+    : row.razorpay_transfer_id;
+  const syntheticPrefix = kind === "payment"
+    ? "pay_demo_"
+    : kind === "refund"
+    ? "rfnd_demo_"
+    : "netted_";
+  if (gatewayId?.startsWith(syntheticPrefix)) return null;
+
+  return {
+    local_id: row.id,
+    gateway_id: gatewayId ?? null,
+    amount: kind === "payout" ? row.amount - (row.recovered_amount ?? 0) : row.amount,
+  };
 }
 
 async function collectCollection(
