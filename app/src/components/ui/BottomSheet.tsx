@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ interface Props {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
-  /** Max height as a fraction of the window height. */
+  /** Max height as a fraction of the available modal viewport. */
   maxHeight?: number;
 }
 
@@ -34,16 +34,18 @@ export function BottomSheet({ visible, onClose, title, subtitle, children, foote
       setMounted(true);
       translateY.value = reduceMotion ? 0 : height;
       if (!reduceMotion) translateY.value = withSpring(0, { damping: 28, stiffness: 280, mass: 0.9 });
-      backdrop.value = withTiming(1, { duration: t.motion.base });
+      backdrop.value = reduceMotion ? 1 : withTiming(1, { duration: t.motion.base });
     } else if (mounted) {
-      backdrop.value = withTiming(0, { duration: t.motion.fast });
-      translateY.value = withTiming(
-        reduceMotion ? 0 : height,
-        { duration: reduceMotion ? 1 : t.motion.base, easing: t.motion.easing.exit },
-        (done) => {
+      if (reduceMotion) {
+        backdrop.value = 0;
+        translateY.value = 0;
+        setMounted(false);
+      } else {
+        backdrop.value = withTiming(0, { duration: t.motion.fast });
+        translateY.value = withTiming(height, { duration: t.motion.base, easing: t.motion.easing.exit }, (done) => {
           if (done) scheduleOnRN(setMounted, false);
-        },
-      );
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -56,7 +58,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, children, foote
       if (e.translationY > 120 || e.velocityY > 900) {
         scheduleOnRN(onClose);
       } else {
-        translateY.value = withSpring(0, { damping: 28, stiffness: 280 });
+        translateY.value = reduceMotion ? 0 : withSpring(0, { damping: 28, stiffness: 280 });
       }
     });
 
@@ -66,74 +68,80 @@ export function BottomSheet({ visible, onClose, title, subtitle, children, foote
   if (!mounted) return null;
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <GestureHandlerRootView style={styles.flex}>
-        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: t.colors.overlay }, backdropStyle]}>
-          <Pressable style={styles.flex} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close sheet" />
-        </Animated.View>
-        <Animated.View
-          accessibilityViewIsModal
-          style={[
-            styles.sheet,
-            {
-              maxHeight: height * maxHeight,
-              backgroundColor: t.colors.surfaceOverlay,
-              borderTopLeftRadius: t.radii.xl,
-              borderTopRightRadius: t.radii.xl,
-              borderWidth: t.dark ? 1 : 0,
-              borderBottomWidth: 0,
-              borderColor: t.colors.border,
-              paddingBottom: Math.max(insets.bottom, t.spacing.lg),
-            },
-            t.shadows.lg,
-            sheetStyle,
-          ]}
-        >
-          <GestureDetector gesture={pan}>
-            <View style={{ paddingTop: t.spacing.sm }}>
-              <View style={[styles.handle, { backgroundColor: t.colors.borderStrong }]} />
-              {title ? (
-                <View style={[styles.header, { paddingHorizontal: t.spacing.xl }]}>
-                  <View style={styles.flex}>
-                    <Text variant="title2" accessibilityRole="header">
-                      {title}
-                    </Text>
-                    {subtitle ? (
-                      <Text variant="footnote" color="muted">
-                        {subtitle}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <IconButton icon="close" accessibilityLabel="Close" onPress={onClose} variant="neutral" visualSize={32} size={18} />
-                </View>
-              ) : null}
-            </View>
-          </GestureDetector>
-          <ScrollView
-            style={styles.body}
-            contentContainerStyle={{ paddingHorizontal: t.spacing.xl, paddingBottom: t.spacing.lg, paddingTop: t.spacing.xs, gap: t.spacing.xl }}
-            keyboardShouldPersistTaps="handled"
-            bounces={false}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 0}
+      >
+        <GestureHandlerRootView style={styles.flex}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: t.colors.overlay }, backdropStyle]}>
+            <Pressable style={styles.flex} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close sheet" />
+          </Animated.View>
+          <Animated.View
+            accessibilityViewIsModal
+            style={[
+              styles.sheet,
+              {
+                maxHeight: `${maxHeight * 100}%`,
+                backgroundColor: t.colors.surfaceOverlay,
+                borderTopLeftRadius: t.radii.xl,
+                borderTopRightRadius: t.radii.xl,
+                borderWidth: t.dark ? 1 : 0,
+                borderBottomWidth: 0,
+                borderColor: t.colors.border,
+                paddingBottom: Math.max(insets.bottom, t.spacing.lg),
+              },
+              t.shadows.lg,
+              sheetStyle,
+            ]}
           >
-            {children}
-          </ScrollView>
-          {footer ? (
-            <View
-              style={[
-                {
-                  paddingHorizontal: t.spacing.xl,
-                  paddingTop: t.spacing.md,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: t.colors.borderStrong,
-                  backgroundColor: t.colors.surfaceOverlay,
-                },
-                t.shadows.footer,
-              ]}
+            <GestureDetector gesture={pan}>
+              <View style={{ paddingTop: t.spacing.sm }}>
+                <View style={[styles.handle, { backgroundColor: t.colors.borderStrong }]} />
+                {title ? (
+                  <View style={[styles.header, { paddingHorizontal: t.spacing.xl }]}>
+                    <View style={styles.flex}>
+                      <Text variant="title2" accessibilityRole="header">
+                        {title}
+                      </Text>
+                      {subtitle ? (
+                        <Text variant="footnote" color="muted">
+                          {subtitle}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <IconButton icon="close" accessibilityLabel="Close" onPress={onClose} variant="neutral" visualSize={32} size={18} />
+                  </View>
+                ) : null}
+              </View>
+            </GestureDetector>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={{ paddingHorizontal: t.spacing.xl, paddingBottom: t.spacing.lg, paddingTop: t.spacing.xs, gap: t.spacing.xl }}
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
             >
-              {footer}
-            </View>
-          ) : null}
-        </Animated.View>
-      </GestureHandlerRootView>
+              {children}
+            </ScrollView>
+            {footer ? (
+              <View
+                style={[
+                  {
+                    paddingHorizontal: t.spacing.xl,
+                    paddingTop: t.spacing.md,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: t.colors.borderStrong,
+                    backgroundColor: t.colors.surfaceOverlay,
+                  },
+                  t.shadows.footer,
+                ]}
+              >
+                {footer}
+              </View>
+            ) : null}
+          </Animated.View>
+        </GestureHandlerRootView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -143,5 +151,5 @@ const styles = StyleSheet.create({
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   handle: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, marginBottom: 8 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 8, minHeight: 44 },
-  body: { flexGrow: 0 },
+  body: { flexGrow: 0, flexShrink: 1 },
 });

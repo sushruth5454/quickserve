@@ -17,7 +17,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets, type EdgeInsets } from 'react-native-safe-area-context';
+import { isSeedDemoMode } from '../../lib/config';
 import { useTheme } from '../../theme';
+import { getDemoDisclosureSlotHeight } from '../DemoDataIndicator';
 import { IconButton } from './IconButton';
 import { Text } from './Text';
 import { useToastOffset } from './Toast';
@@ -26,6 +28,25 @@ import { useToastOffset } from './Toast';
 export function tabBarHeight(insets: EdgeInsets): number {
   const base = Platform.OS === 'ios' ? 49 : Platform.OS === 'android' ? 64 : 64;
   return base + insets.bottom;
+}
+
+export function screenToastOffset({
+  hasFooter,
+  footerHeight,
+  inTabs,
+  bottomInset,
+  demoDisclosureEnabled = isSeedDemoMode,
+}: {
+  hasFooter: boolean;
+  footerHeight: number;
+  inTabs: boolean;
+  bottomInset: number;
+  demoDisclosureEnabled?: boolean;
+}): number {
+  const disclosureSlotHeight = getDemoDisclosureSlotHeight(bottomInset, demoDisclosureEnabled);
+  if (hasFooter && footerHeight > 0) return disclosureSlotHeight + footerHeight + 8;
+  if (inTabs) return disclosureSlotHeight + tabBarHeight({ top: 0, right: 0, bottom: bottomInset, left: 0 }) + 8;
+  return disclosureSlotHeight + (demoDisclosureEnabled ? 0 : bottomInset) + 16;
 }
 
 const ScrollEdgeContext = createContext(false);
@@ -78,14 +99,20 @@ export function Screen({
   const [footerHeight, setFooterHeight] = useState(0);
   const g = gutter ?? t.spacing.lg;
 
-  const toastOffset = footer && footerHeight > 0 ? footerHeight + 8 : inTabs ? tabBarHeight(insets) + 8 : insets.bottom + 16;
+  const toastOffset = screenToastOffset({
+    hasFooter: !!footer,
+    footerHeight,
+    inTabs: !!inTabs,
+    bottomInset: insets.bottom,
+  });
   useFocusEffect(
     useCallback(() => {
       setToastOffset(toastOffset);
     }, [setToastOffset, toastOffset]),
   );
 
-  const bottomPad = footer ? t.spacing.xxl : inTabs ? t.spacing.xxxl : Math.max(insets.bottom, t.spacing.lg) + t.spacing.xl;
+  const bottomInset = isSeedDemoMode ? 0 : insets.bottom;
+  const bottomPad = footer ? t.spacing.xxl : inTabs ? t.spacing.xxxl : Math.max(bottomInset, t.spacing.lg) + t.spacing.xl;
   const content: StyleProp<ViewStyle> = [
     { gap: gap ?? t.spacing.xxl, paddingBottom: bottomPad },
     padded && { paddingHorizontal: g, paddingTop: t.spacing.lg },
@@ -157,7 +184,7 @@ export function StickyFooter({
         {
           paddingHorizontal: gutter ?? t.spacing.lg,
           paddingTop: t.spacing.md,
-          paddingBottom: inTabs ? t.spacing.md : Math.max(insets.bottom, t.spacing.md),
+          paddingBottom: inTabs || isSeedDemoMode ? t.spacing.md : Math.max(insets.bottom, t.spacing.md),
           backgroundColor: t.colors.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: t.colors.borderStrong,
