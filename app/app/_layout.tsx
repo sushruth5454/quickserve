@@ -23,6 +23,7 @@ import { canGuestBrowse, isBrowseRoute, isGuestGatedCustomerTab, safeReturnTo } 
 import { isFeatureOn } from '../src/lib/featureFlagModel';
 import {
   FeatureFlagsProvider,
+  getGuestRouteDisposition,
   useFeatureControlHydrationReady,
   useFeatureControlState,
 } from '../src/branding/FeatureFlagsProvider';
@@ -66,10 +67,17 @@ function RootNavigator() {
   // Public pages (safety, terms, privacy) are linked from the login screen.
   const onPublicPage = segments[0] === 'info' || segments[0] === 'byo';
   const potentialGuestEntryRoute = isBrowseRoute(segments) || isGuestGatedCustomerTab(segments);
-  const awaitingGuestFlag =
-    !featureControlHydrated && !signedIn && !inAuthGroup && !onPublicPage && potentialGuestEntryRoute;
   const guestBrowse = isFeatureOn(features, 'guest_browse');
   const canEnterAsGuest = canGuestBrowse(guestBrowse, segments);
+  const guestRouteDisposition = getGuestRouteDisposition({
+    controlsReady: featureControlHydrated,
+    restoreStatus,
+    inAuthGroup,
+    onPublicPage,
+    potentialGuestEntryRoute,
+    canEnterAsGuest,
+  });
+  const awaitingGuestFlag = guestRouteDisposition === 'wait';
   const returnTo = safeReturnTo(currentPath) ? currentPath : '/';
 
   // Signed out anywhere outside the auth screens (cold start on a deep link or "/", or right after logout):
@@ -78,15 +86,11 @@ function RootNavigator() {
     if (
       !loading &&
       restoreStatus !== 'error' &&
-      !awaitingGuestFlag &&
-      !signedIn &&
-      !inAuthGroup &&
-      !onPublicPage &&
-      !canEnterAsGuest
+      guestRouteDisposition === 'redirect'
     ) {
       router.replace({ pathname: '/login', params: { returnTo } });
     }
-  }, [loading, restoreStatus, awaitingGuestFlag, signedIn, inAuthGroup, onPublicPage, canEnterAsGuest, returnTo]);
+  }, [loading, restoreStatus, guestRouteDisposition, returnTo]);
 
   if (!loading && restoreStatus === 'error') {
     return (

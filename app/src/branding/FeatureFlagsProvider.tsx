@@ -13,6 +13,8 @@ export interface FeatureControlDataState {
   appearanceCandidate: unknown;
 }
 
+export type GuestRouteDisposition = 'wait' | 'guest' | 'redirect' | 'continue';
+
 export const DEFAULT_FEATURES: AppFeatures = {
   ai_assistant: true,
   urgent_requests: true,
@@ -114,6 +116,23 @@ export function featureControlAfterRefreshError(
   return { ...current, freshness: hasValidFeatures ? 'error' : 'fallback' };
 }
 
+export function hasFeatureControlDecision(cacheReadSettled: boolean, hasValidLiveSnapshot: boolean): boolean {
+  return cacheReadSettled || hasValidLiveSnapshot;
+}
+
+export function getGuestRouteDisposition(input: {
+  controlsReady: boolean;
+  restoreStatus: 'pending' | 'error' | 'known-null' | 'session';
+  inAuthGroup: boolean;
+  onPublicPage: boolean;
+  potentialGuestEntryRoute: boolean;
+  canEnterAsGuest: boolean;
+}): GuestRouteDisposition {
+  if (input.restoreStatus !== 'known-null' || input.inAuthGroup || input.onPublicPage) return 'continue';
+  if (input.potentialGuestEntryRoute && !input.controlsReady) return 'wait';
+  return input.canEnterAsGuest ? 'guest' : 'redirect';
+}
+
 export function featureFlagsView(features: AppFeatures) {
   return { ...features, isOn: (key: string) => isFeatureOn(features, key) };
 }
@@ -139,6 +158,7 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const latestAppearanceSequence = useRef(0);
   const latestErrorSequence = useRef(0);
   const hasValidFeatures = useRef(false);
+  const cacheReadSettled = useRef(false);
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -152,6 +172,7 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
       latestSettledSequence.current = sequence;
       latestSuccessfulSequence.current = sequence;
       hasValidFeatures.current = true;
+      setHydrationReady(hasFeatureControlDecision(cacheReadSettled.current, true));
       setSnapshot((current) => ({
         features: response.features,
         freshness: 'live',
@@ -182,13 +203,29 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
     let refreshStarted = false;
     let cacheDeadline: ReturnType<typeof setTimeout>;
 
-    const finishLocalHydration = () => {
+    const startRefreshOnce = () => {
       if (!mounted.current) return;
-      setHydrationReady(true);
       if (!refreshStarted) {
         refreshStarted = true;
         void refresh();
       }
+    };
+
+    const finishLocalHydration = () => {
+      if (!mounted.current) return;
+      cacheReadSettled.current = true;
+      setHydrationReady(
+        hasFeatureControlDecision(cacheReadSettled.current, latestSuccessfulSequence.current > 0),
+      );
+      startRefreshOnce();
+    };
+
+    const handleCacheDeadline = () => {
+      if (!mounted.current) return;
+      setHydrationReady(
+        hasFeatureControlDecision(cacheReadSettled.current, latestSuccessfulSequence.current > 0),
+      );
+      startRefreshOnce();
     };
 
     const hydrateCache = async () => {
@@ -221,7 +258,7 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
       finishLocalHydration();
     };
 
-    cacheDeadline = setTimeout(finishLocalHydration, CACHE_HYDRATION_DEADLINE_MS);
+    cacheDeadline = setTimeout(handleCacheDeadline, CACHE_HYDRATION_DEADLINE_MS);
     void hydrateCache().catch(() => {
       if (!mounted.current) return;
       clearTimeout(cacheDeadline);

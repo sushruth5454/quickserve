@@ -4,11 +4,14 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 jest.mock('../../lib/adminApi', () => ({ getAppFeatures: jest.fn() }));
 
 import type { AppFeatures } from '../../lib/featureFlags';
+import { canGuestBrowse } from '../../lib/authGate';
 import {
   DEFAULT_FEATURES,
   acceptsFeatureControlSequence,
   featureControlAfterRefreshError,
   featureFlagsView,
+  getGuestRouteDisposition,
+  hasFeatureControlDecision,
   parseAppearanceCache,
   parseFeatureResponse,
   parseFlagsCache,
@@ -70,6 +73,55 @@ describe('shared feature-control state', () => {
     expect(featureFlagsView(fallback.features).isOn('ai_assistant')).toBe(true);
     expect(featureFlagsView(fallback.features).isOn('guest_browse')).toBe(false);
     expect(fallback.features.archetypes).toEqual(DEFAULT_FEATURES.archetypes);
+  });
+
+  it('waits for delayed saved guest flags after the 250ms deadline, then allows the cached guest', () => {
+    const savedFeatures = makeFeatures({ guest_browse: true });
+    const delayedCacheValue = JSON.stringify({ version: 1, features: savedFeatures });
+    const route = ['category', 'cleaning'];
+    const stillPendingAfterDeadline = hasFeatureControlDecision(false, false);
+
+    expect(stillPendingAfterDeadline).toBe(false);
+    expect(
+      getGuestRouteDisposition({
+        controlsReady: stillPendingAfterDeadline,
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: false,
+      }),
+    ).toBe('wait');
+
+    const cachedFeatures = parseFlagsCache(delayedCacheValue)!;
+    expect(
+      getGuestRouteDisposition({
+        controlsReady: hasFeatureControlDecision(true, false),
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: canGuestBrowse(featureFlagsView(cachedFeatures).isOn('guest_browse'), route),
+      }),
+    ).toBe('guest');
+  });
+
+  it('fails closed once cache resolution confirms there is no valid guest snapshot', () => {
+    const controlsReady = hasFeatureControlDecision(true, false);
+    const guestBrowse = featureFlagsView(DEFAULT_FEATURES).isOn('guest_browse');
+
+    expect(controlsReady).toBe(true);
+    expect(guestBrowse).toBe(false);
+    expect(
+      getGuestRouteDisposition({
+        controlsReady,
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: canGuestBrowse(guestBrowse, ['category', 'cleaning']),
+      }),
+    ).toBe('redirect');
   });
 
   it('keeps flag and appearance caches separate and ignores invalid cache encodings', () => {

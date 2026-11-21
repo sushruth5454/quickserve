@@ -3,7 +3,8 @@
   "sourceTaskIds": ["PF-T01"],
   "sourceFindingIds": ["PF-F01", "PF-F02"],
   "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
-  "validatedImplementationHeadSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
+  "previouslyValidatedImplementationHeadSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
+  "authReviewCorrection": "Guest routing now waits for cache resolution or a valid live feature snapshot; the hydration deadline starts refresh without authorizing fallback.",
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
     "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
@@ -25,30 +26,28 @@
     "docs/design/oorva/evidence/o05f.json"
   ],
   "validation": {
-    "codespace": "PASS",
+    "codespace": "BLOCKED: Codespace runner could not fetch the WIP ref because its GitHub credential environment is unavailable; no selector tests were selected.",
     "selectors": [
       {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.authRestoreModel[.]test[.]ts$'",
         "selectedFile": "app/src/lib/__tests__/authRestoreModel.test.ts",
-        "result": "PASS",
-        "typecheck": "PASS",
-        "selectedCount": 1,
-        "testsPassed": 4,
-        "testsTotal": 4
+        "result": "BLOCKED",
+        "selectedCount": 0
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.branding.__tests__.featureControl[.]test[.]tsx$'",
         "selectedFile": "app/src/branding/__tests__/featureControl.test.tsx",
-        "result": "PASS",
-        "selectedCount": 1,
-        "testsPassed": 5,
-        "testsTotal": 5
+        "result": "BLOCKED",
+        "selectedCount": 0
       }
     ],
     "laneCi": {
-      "runId": 44895855521,
-      "headSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
-      "status": "success"
+      "priorRun": {
+        "runId": 44895855521,
+        "headSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
+        "status": "success"
+      },
+      "correctionHead": "pending"
     },
     "authReview": "required"
   },
