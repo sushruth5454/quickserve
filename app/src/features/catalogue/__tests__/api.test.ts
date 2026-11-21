@@ -1,4 +1,8 @@
-jest.mock('../../../lib/config', () => ({ isDemoMode: false }));
+jest.mock('../../../lib/config', () => ({
+  isDemoMode: false,
+  isSeedDemoMode: true,
+  demoSeedCity: 'Vijayawada Demo',
+}));
 jest.mock('../../../lib/demo/demoApi', () => ({ demoApi: {} }));
 jest.mock('../../../lib/supabase', () => ({
   supabase: { from: jest.fn() },
@@ -53,6 +57,26 @@ function packageRow(city: string) {
   };
 }
 
+function fixedSeedPackageRow() {
+  const row = packageRow('Vijayawada');
+  return {
+    ...row,
+    id: 'seed-package-house-cleaning',
+    title: 'Demo 2 BHK deep clean',
+    provider_services: {
+      ...row.provider_services,
+      id: 'seed-service-house-cleaning',
+      provider_id: 'seed-provider-house-cleaning',
+      categories: {
+        ...row.provider_services.categories,
+        name: 'House Cleaning',
+        slug: 'house-cleaning',
+        archetype: 'fixed',
+      },
+    },
+  };
+}
+
 describe('catalogue package API', () => {
   beforeEach(() => jest.resetAllMocks());
 
@@ -88,6 +112,18 @@ describe('catalogue package API', () => {
       ['active', true],
       ['provider_services.active', true],
       ['provider_services.categories.slug', 'photography'],
+    ]);
+  });
+
+  it('MK-PACKAGE-city-seeded-fixed-query: matches the seeded fixed package to its normalized provider city', async () => {
+    const query = arrangePackageQuery([fixedSeedPackageRow()]);
+
+    const packages = await listCataloguePackages('house-cleaning', 'Vijayawada Demo');
+
+    expect(query.ilike).toHaveBeenCalledWith('provider_services.providers.city', 'Vijayawada');
+    expect(query.eq).toHaveBeenCalledWith('provider_services.categories.slug', 'house-cleaning');
+    expect(packages).toMatchObject([
+      { city: 'Vijayawada', package: { title: 'Demo 2 BHK deep clean' } },
     ]);
   });
 });

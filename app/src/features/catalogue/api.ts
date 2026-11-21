@@ -1,4 +1,4 @@
-import { isDemoMode } from '../../lib/config';
+import { demoSeedCity, isDemoMode, isSeedDemoMode } from '../../lib/config';
 import { demoApi } from '../../lib/demo/demoApi';
 import { supabase } from '../../lib/supabase';
 import { invokeFunction } from '../../lib/invokeFunction';
@@ -95,13 +95,17 @@ export async function listCataloguePackages(categorySlug: string, city: string):
   if (isDemoMode) return [];
   const selectedCity = city.trim();
   if (!selectedCity) return [];
+  const providerCity = isSeedDemoMode && selectedCity.toLowerCase() === demoSeedCity.toLowerCase()
+    ? selectedCity.replace(/\s+demo$/i, '').trim()
+    : selectedCity;
+  if (!providerCity) return [];
   const rows = unwrap(await supabase
     .from('service_packages')
     .select('*, provider_services!inner(id, provider_id, active, categories!inner(*), providers!inner(city, rating_avg, rating_count, is_online, paused, profiles(full_name)))')
     .eq('active', true)
     .eq('provider_services.active', true)
     .eq('provider_services.categories.slug', categorySlug)
-    .ilike('provider_services.providers.city', selectedCity.replace(/[\\%_]/g, (character) => `\\${character}`))
+    .ilike('provider_services.providers.city', providerCity.replace(/[\\%_]/g, (character) => `\\${character}`))
     .order('sort_order')) as Array<ServicePackage & {
     provider_services: {
       id: string;
