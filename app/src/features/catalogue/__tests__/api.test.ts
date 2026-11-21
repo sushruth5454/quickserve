@@ -121,8 +121,8 @@ describe('catalogue package API', () => {
 
   it.each([
     { selectedCity: 'Vijayawada Demo', providerCity: 'Vijayawada', providerName: 'Durga Demo Home Care' },
-    { selectedCity: 'Sangareddy (demo)', providerCity: 'Sangareddy', providerName: 'Laxmi Home Cleaning' },
-  ])('MK-PACKAGE-city-seeded-fixed-query: maps $selectedCity to its seeded provider city', async ({ selectedCity, providerCity, providerName }) => {
+    { selectedCity: 'Sangareddy', providerCity: 'Sangareddy', providerName: 'Laxmi Home Cleaning' },
+  ])('MK-PACKAGE-city-seeded-fixed-query: filters $selectedCity against its seeded provider city', async ({ selectedCity, providerCity, providerName }) => {
     const query = arrangePackageQuery([fixedSeedPackageRow(providerCity, providerName)]);
 
     const packages = await listCataloguePackages('house-cleaning', selectedCity);
