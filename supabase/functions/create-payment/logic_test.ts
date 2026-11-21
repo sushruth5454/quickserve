@@ -7,10 +7,10 @@ import {
   checkoutPurposeLabel,
   failedSportsPaymentAttempt,
   paymentBookingRef,
+  prepareSportsPaymentForAuthenticatedCustomer,
   recoverSportsCheckoutRace,
   resolveSportsPaymentRequest,
   sportsPaymentPreparation,
-  sportsPaymentsEnabled,
 } from "./logic.ts";
 
 Deno.test("checkout description uses the Nearo booking reference and purpose label", () => {
@@ -31,11 +31,78 @@ Deno.test("checkout URL builder requires a valid HTTPS URL and preserves query p
   await assertRejects(async () => buildCheckoutUrl("https://user:pass@checkout.example/checkout", {}));
 });
 
-Deno.test("sports checkout requires both the sports parent and online-payment switch", () => {
-  assertEquals(sportsPaymentsEnabled({ sports: true, sports_online_payments: true }), true);
-  assertEquals(sportsPaymentsEnabled({ sports: false, sports_online_payments: true }), false);
-  assertEquals(sportsPaymentsEnabled({ sports: true, sports_online_payments: false }), false);
-  assertEquals(sportsPaymentsEnabled(null), false);
+Deno.test("SP-CREATION-VS-RESOLUTION: rejects fresh booking payloads but prepares existing obligations with either flag OFF", async () => {
+  const cases = [
+    { flags: { sports: false, sports_online_payments: true } },
+    { flags: { sports: true, sports_online_payments: false } },
+  ];
+  for (const { flags } of cases) {
+    const calls: { rpc: string; args: Record<string, unknown> }[] = [];
+    const admin = {
+      rpc(rpc: string, args: Record<string, unknown> = {}) {
+        calls.push({ rpc, args });
+        return {
+          single: async () => ({
+            data: rpc === "get_app_features"
+              ? flags
+              : {
+                  payment_id: "server-created-payment",
+                  amount: 20500,
+                  purpose: "fixed",
+                  url: "https://checkout.example/existing-obligation",
+                },
+            error: null,
+          }),
+        };
+      },
+    } as unknown as SupabaseClient;
+    const freshBookingBody = {
+      kind: "sports",
+      resource_id: "new-resource",
+      starts_at: "2026-12-15T10:00:00+05:30",
+      payment_mode: "online",
+      idempotency_key: "new-booking-key",
+    };
+    const freshBooking = await prepareSportsPaymentForAuthenticatedCustomer(
+      admin,
+      freshBookingBody,
+      "authenticated-customer",
+    );
+    assertEquals(freshBooking.kind, "invalid_request", JSON.stringify({ flags, freshBookingBody, freshBooking }));
+    if (freshBooking.kind === "invalid_request") {
+      assertEquals(freshBooking.error, "sports booking_id is required", JSON.stringify({ flags, freshBooking }));
+    }
+    assertEquals(calls, [], JSON.stringify({ flags, freshBookingBody, calls }));
+
+    const body = {
+      kind: "sports",
+      booking_id: "existing-customer-booking",
+      user_id: "untrusted-body-user",
+      amount: 1,
+    };
+    const result = await prepareSportsPaymentForAuthenticatedCustomer(
+      admin,
+      body,
+      "authenticated-customer",
+    );
+    assertEquals(flags.sports && flags.sports_online_payments, false, JSON.stringify({ flags }));
+    assertEquals(result.kind, "prepared", JSON.stringify({ flags, result }));
+    if (result.kind === "prepared") {
+      assertEquals(result.sportsRequest, {
+        bookingId: "existing-customer-booking",
+        userId: "authenticated-customer",
+      }, JSON.stringify({ flags, request: result.sportsRequest }));
+      assertEquals(result.prepared?.amount, 20500, JSON.stringify({ flags, prepared: result.prepared }));
+      assertEquals(result.prepared?.short_url, "https://checkout.example/existing-obligation");
+    }
+    assertEquals(calls, [{
+      rpc: "prepare_sports_payment",
+      args: {
+        p_booking_id: "existing-customer-booking",
+        p_user_id: "authenticated-customer",
+      },
+    }], JSON.stringify({ flags, calls }));
+  }
 });
 
 Deno.test("sports payment preparation uses only the booking and authenticated user", () => {
