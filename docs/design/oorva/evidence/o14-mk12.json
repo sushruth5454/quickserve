@@ -12,7 +12,7 @@
     "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
   },
   "migration": "supabase\\migrations\\0091_o14_mk12_oorva.sql",
-  "implementationStatus": "IMPLEMENTED_AWAITING_COORDINATOR_REGISTRATION",
+  "implementationStatus": "CHECKPOINTED_AWAITING_AUTH_REVIEW_AND_LANE_CI_FALLBACK",
   "sourceDrift": {
     "scope": "Affected files/functions only; no repeat audit.",
     "baseDifferencesFromAuditedSha": [
@@ -44,22 +44,30 @@
     "demoEvidence": "Demo API matches the DTO shape but is not production evidence."
   },
   "validation": {
-    "registration": "PENDING_COORDINATOR",
+    "registration": {
+      "status": "MERGED",
+      "commit": "6644f902669941af6768bb51f3db98b19536afa2",
+      "changedFiles": [
+        "supabase\\tests\\package.json"
+      ]
+    },
+    "currentMainHelperFetched": true,
     "codespaceSelectors": {
       "app": {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.providerCardModel[.]test[.]ts$'",
-        "status": "NOT_RUN"
+        "status": "UNAVAILABLE_NO_PASS",
+        "result": "Codespace could not fetch the WIP snapshot because GitHub credentials were unavailable; failure occurred before selector results, so no tests ran."
       },
       "sqlTest": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o14_mk12'",
-        "status": "NOT_RUN"
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE_BEFORE_SELECTION"
       },
       "migrationParser": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o14_mk12_oorva.sql'",
-        "status": "NOT_RUN"
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE_BEFORE_SELECTION"
       }
     },
-    "laneCI": "NOT_RUN",
+    "laneCI": "BLOCKED_PENDING_AUTH_REVIEW_PASS; the documented fallback requires a lane push.",
     "privateE2E": "Base-only pass 44929374348; no stage E2E dispatched.",
     "authReview": "PENDING",
     "lanePush": "NOT_AUTHORIZED"
