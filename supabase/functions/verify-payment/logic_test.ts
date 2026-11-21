@@ -22,3 +22,13 @@ Deno.test("MN-CHECKOUT-CAPTURE-VS-BOOKED maps recorder results without treating 
   assertEquals(verificationOutcome(null), "confirmation_pending");
   assertEquals(verificationOutcome(undefined), "confirmation_pending");
 });
+
+Deno.test("MN-CHECKOUT-REFUND-REVIEW retains both facts from a combined recorder result", () => {
+  const recorderResult = { ok: true, refund: true, exception: true };
+  const actual = verificationOutcome(recorderResult);
+  assertEquals(
+    actual,
+    "captured_refund_queued_review_required",
+    `recorderResult=${JSON.stringify(recorderResult)} outcome=${JSON.stringify(actual)}`,
+  );
+});

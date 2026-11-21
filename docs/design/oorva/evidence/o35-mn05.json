@@ -3,22 +3,22 @@
   "sourceTaskId": "MN-T05",
   "sourceFindingId": "MN-F05",
   "implementationBaseSha": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
-  "implementationStatus": "AWAITING_EXACT_HEAD_CI_AND_MONEY_REVIEW",
+  "implementationStatus": "AWAITING_EXACT_HEAD_CI_AND_FOLLOWUP_MONEY_REVIEW",
   "changes": [
-    "Map verified recorder results to captured/applied, captured/refund-queued, review-required, or confirmation-pending.",
+    "Map verified recorder results to captured/applied, captured/refund-queued, review-required, combined refund-and-review, or confirmation-pending.",
     "Expose the display outcome from verify-payment without changing existing HTTP error or recorder acknowledgement behavior.",
     "Render success only for an explicitly applied outcome; render refund/review as warnings and unknown/failure as confirmation pending."
   ],
   "validation": {
     "suite": "deno",
     "status": "PASS",
-    "codespaceSnapshot": "wip/qs-o35-mn05 @ 319dca36",
+    "codespaceSnapshot": "wip/qs-o35-mn05 @ acc0b2f8",
     "selectedTestFiles": [
       "supabase/functions/_shared/record-payment_test.ts",
       "supabase/functions/verify-payment/checkout-status_test.ts",
       "supabase/functions/verify-payment/logic_test.ts"
     ],
-    "testsPassed": 148,
+    "testsPassed": 150,
     "testsFailed": 0
   },
   "gates": {
