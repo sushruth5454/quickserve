@@ -79,7 +79,7 @@
       "credentialsChanged": false
     },
     "laneCiFallback": {
-      "status": "PASS_ON_IMPLEMENTATION_HEAD",
+      "status": "PASS_ON_IMPLEMENTATION_AND_FINAL_EVIDENCE_HEAD",
       "attempts": [
         {
           "runId": 44923544328,
@@ -108,7 +108,19 @@
           }
         }
       ],
-      "finalEvidenceCommitCi": "The evidence-only update requires a final exact-head Lane CI run."
+      "finalEvidenceCommitCi": {
+        "runId": 44925200376,
+        "headSha": "80ef1fa56266a353e026bac461182e66a636bfe5",
+        "conclusion": "SUCCESS",
+        "jobs": {
+          "changes": "success",
+          "app": "success",
+          "tooling": "success",
+          "private-postgres": "success",
+          "deno": "success",
+          "sql": "success"
+        }
+      }
     }
   },
   "review": {
