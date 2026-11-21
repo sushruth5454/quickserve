@@ -203,7 +203,18 @@ function useAdminGeographyController() {
   const treeRef = useRef<GeographyTree | null>(null);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraftState] = useState<Draft | null>(null);
+  const draftRef = useRef<Draft | null>(null);
+  const draftVersionRef = useRef(0);
+  const nodeSaveSequenceRef = useRef(0);
+  const setDraft = useCallback((next: Draft | null) => {
+    draftVersionRef.current += 1;
+    draftRef.current = next;
+    setDraftState(next);
+  }, []);
+  const updateDraftName = useCallback((expectedDraft: Draft, name: string) => {
+    if (draftRef.current === expectedDraft) setDraft({ ...expectedDraft, name });
+  }, [setDraft]);
   const [saving, setSaving] = useState<string | null>(null);
   const [areaCityId, setAreaCityId] = useState<string | null>(null);
   const areaCityIdRef = useRef<string | null>(null);
@@ -212,7 +223,13 @@ function useAdminGeographyController() {
   const [placeResults, setPlaceResults] = useState<PlaceSearch | null>(null);
   const [placeBusy, setPlaceBusy] = useState(false);
   const [areaError, setAreaError] = useState<string | null>(null);
-  const [pendingArea, setPendingArea] = useState<PendingArea | null>(null);
+  const [pendingArea, setPendingAreaState] = useState<PendingArea | null>(null);
+  const pendingAreaRef = useRef<PendingArea | null>(null);
+  const areaSaveSequenceRef = useRef(0);
+  const setPendingArea = useCallback((next: PendingArea | null) => {
+    pendingAreaRef.current = next;
+    setPendingAreaState(next);
+  }, []);
   const sessionRef = useRef(newPlacesSession());
   const requestGenerationRef = useRef(0);
   const loadGenerationRef = useRef(0);
@@ -248,6 +265,9 @@ function useAdminGeographyController() {
       loadGenerationRef.current += 1;
       requestGenerationRef.current += 1;
       areaCityIdRef.current = null;
+      draftVersionRef.current += 1;
+      draftRef.current = null;
+      pendingAreaRef.current = null;
     };
   }, []);
 
@@ -264,6 +284,7 @@ function useAdminGeographyController() {
     && area.cityId === areaCityIdRef.current
     && area.query === areaQueryRef.current
     && area.requestGeneration === requestGenerationRef.current
+    && pendingAreaRef.current === area
     && Boolean(area.sessionToken), []);
 
   const isCurrentSearch = useCallback((search: PlaceSearch | null, cityId: string) =>
@@ -272,17 +293,31 @@ function useAdminGeographyController() {
     && isCurrentAreaRequest(search), [isCurrentAreaRequest]);
 
   const addNode = async () => {
-    if (!draft?.name.trim()) return;
-    const key = `new:${draft.kind}:${draft.parentId ?? 'root'}`;
+    const submittedDraft = draft;
+    if (!submittedDraft?.name.trim() || draftRef.current !== submittedDraft) return;
+    const submittedVersion = draftVersionRef.current;
+    const saveRequest = ++nodeSaveSequenceRef.current;
+    const key = `new:${submittedDraft.kind}:${submittedDraft.parentId ?? 'root'}`;
     setSaving(key);
     try {
-      await upsertGeo({ kind: draft.kind, parentId: draft.parentId, name: draft.name.trim(), active: true });
-      setDraft(null);
+      await upsertGeo({
+        kind: submittedDraft.kind,
+        parentId: submittedDraft.parentId,
+        name: submittedDraft.name.trim(),
+        active: true,
+      });
+      if (draftRef.current === submittedDraft && draftVersionRef.current === submittedVersion) {
+        setDraft(null);
+      }
       await load();
     } catch (cause) {
-      toast({ message: cause instanceof Error ? cause.message : String(cause), tone: 'error' });
+      if (draftRef.current === submittedDraft && draftVersionRef.current === submittedVersion) {
+        toast({ message: cause instanceof Error ? cause.message : String(cause), tone: 'error' });
+      }
     } finally {
-      setSaving(null);
+      if (mountedRef.current && nodeSaveSequenceRef.current === saveRequest) {
+        setSaving((current) => current === key ? null : current);
+      }
     }
   };
 
@@ -382,16 +417,14 @@ function useAdminGeographyController() {
   };
 
   const updatePendingAreaName = (cityId: string, area: PendingArea, name: string) => {
-    setPendingArea((current) =>
-      isCurrentPendingArea(current, cityId) && current?.requestGeneration === area.requestGeneration
-        ? { ...current, name }
-        : current,
-    );
+    if (!isCurrentPendingArea(area, cityId)) return;
+    setPendingArea({ ...area, name });
   };
 
   const addArea = async (cityId: string, area: PendingArea) => {
     if (!area.name.trim() || !isCurrentPendingArea(area, cityId)) return;
     const key = `new:area:${area.cityId}`;
+    const saveRequest = ++areaSaveSequenceRef.current;
     setSaving(key);
     try {
       await upsertGeo({
@@ -413,15 +446,17 @@ function useAdminGeographyController() {
         setPlaceBusy(false);
         setAreaError(null);
         setPendingArea(null);
+        toast({ message: 'Area added', tone: 'success' });
       }
       await load();
-      toast({ message: 'Area added', tone: 'success' });
     } catch (cause) {
       if (isCurrentPendingArea(area, cityId)) {
         setAreaError(cause instanceof Error ? cause.message : String(cause));
       }
     } finally {
-      setSaving((current) => current === key ? null : current);
+      if (mountedRef.current && areaSaveSequenceRef.current === saveRequest) {
+        setSaving((current) => current === key ? null : current);
+      }
     }
   };
 
@@ -433,7 +468,7 @@ function useAdminGeographyController() {
         <Input
           label={`New ${kind}`}
           value={draft.name}
-          onChangeText={(name) => setDraft((current) => current ? { ...current, name } : current)}
+          onChangeText={(name) => updateDraftName(draft, name)}
           maxLength={80}
         />
         <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
