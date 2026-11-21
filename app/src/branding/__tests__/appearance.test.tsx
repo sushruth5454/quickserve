@@ -175,7 +175,7 @@ describe('O05A atomic appearance integration', () => {
       renderer = TestRenderer.create(<AppProbe />);
     });
     expect(observation?.config).toBeNull();
-    expect(observation?.theme.colors.primary).toBe('#1F4FD1');
+    expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
     act(() => renderer?.unmount());
 
     controls.mockReturnValue({
@@ -191,7 +191,7 @@ describe('O05A atomic appearance integration', () => {
     expect(observation?.brandingEnabled).toBe(false);
     expect(observation?.runtimeEnabled).toBe(false);
     expect(observation?.config).toBeNull();
-    expect(observation?.theme.colors.primary).toBe('#1F4FD1');
+    expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
     expect(prefetch).not.toHaveBeenCalled();
 
     controls.mockReturnValue({
@@ -203,7 +203,7 @@ describe('O05A atomic appearance integration', () => {
     await act(async () => {
       renderer?.update(tree());
     });
-    expect(observation?.theme.colors.primary).toBe('#1F4FD1');
+    expect(observation?.theme.colors.primary).toBe(lightPalette.primary);
     expect(observation?.config).toBeNull();
 
     controls.mockReturnValue({
