@@ -28,11 +28,29 @@ function paymentLabel(purpose?: string | null): string {
   }
 }
 
+function currentPaymentStatusLabel(status: Payment['status']): string {
+  switch (status) {
+    case 'refund_pending':
+      return 'Refund pending';
+    case 'refund_processing':
+      return 'Refund processing';
+    default:
+      return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+}
+
 export function shouldShowPaymentReceipt(
   enabled: boolean,
   payment: Pick<Payment, 'status' | 'funding_source'>,
 ): boolean {
-  return enabled && payment.status === 'paid' && payment.funding_source === 'customer';
+  return enabled
+    && (
+      payment.status === 'paid'
+      || payment.status === 'refund_pending'
+      || payment.status === 'refund_processing'
+      || payment.status === 'refunded'
+    )
+    && payment.funding_source === 'customer';
 }
 
 export function activityReceiptLabel(isDone: boolean, receiptsEnabled: boolean): 'Receipt' | 'Details' {
@@ -44,7 +62,7 @@ export function formatReceipt(receipt: PaymentReceipt) {
   return {
     receiptNumber: receipt.receipt_no,
     issuedAt: formatReceiptDate(snapshot.issued_at),
-    status: snapshot.status,
+    statusAtIssue: snapshot.status,
     bookingRef: snapshot.booking_ref,
     category: snapshot.category,
     providerDisplayName: snapshot.provider_display_name,
@@ -78,12 +96,23 @@ export function formatReceipt(receipt: PaymentReceipt) {
     paidNowMethod: snapshot.this_payment.method ?? 'Online payment',
     paidNowGatewayRef: snapshot.this_payment.gateway_ref,
     paidAt: formatReceiptDate(snapshot.this_payment.paid_at),
-    balanceDue: formatINR(snapshot.balance_due),
-    refunds: snapshot.refunds.map((refund) => ({
+    balanceDueAtIssue: formatINR(snapshot.balance_due),
+    refundsAtIssue: snapshot.refunds.map((refund) => ({
       amount: formatINR(refund.amount),
       status: refund.status.replace(/_/g, ' '),
       processedAt: formatReceiptDate(refund.processed_at),
     })),
+    currentPaymentStatus: currentPaymentStatusLabel(receipt.current_payment_status),
+    currentRefunds: receipt.current_refunds.map((refund) => ({
+      id: refund.id,
+      paymentId: refund.payment_id,
+      amount: formatINR(refund.amount),
+      status: refund.status.replace(/_/g, ' '),
+      createdAt: formatReceiptDate(refund.created_at),
+      processedAt: formatReceiptDate(refund.processed_at),
+    })),
+    isDemoPayment: receipt.current_payment_is_demo,
+    readAt: formatReceiptDate(receipt.read_at),
     disputeLink: snapshot.dispute_link,
     taxInvoiceLabel: snapshot.tax_invoice_url ? 'View tax invoice' : 'Not issued',
     taxInvoiceUrl: snapshot.tax_invoice_url,
