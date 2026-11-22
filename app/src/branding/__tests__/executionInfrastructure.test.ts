@@ -100,6 +100,7 @@ describe('isolated execution infrastructure', () => {
     test('runs the pinned O37A transform selftest in Codespace', () => {
       const result = runNode(assetTests, ['--selftest']);
       expectCommand(result, { status: 0, stdout: '"invalidCasesRejected":8' });
+      expectCommand(result, { stdout: '"profileCrcVerified":true' });
     });
   } else {
     test.skip('runs the pinned O37A transform selftest in Codespace; lane tooling job runs it', () => undefined);
