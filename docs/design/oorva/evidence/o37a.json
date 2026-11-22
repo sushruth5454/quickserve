@@ -500,6 +500,49 @@
         "O01X": "BLOCKED"
       }
     },
+    "faviconFitFixForward": {
+      "state": "CODESPACE_PASS_LANE_CI_PENDING",
+      "branch": "lane/oorva-o37a-favicon-fit",
+      "baseSha": "4a5eb144ee1570f1db131e5b116fd82af83af2f6",
+      "reportedMismatch": "O01X's 48x48 favicon candidate had 38px visible ink with 6/5/6/5px clear space, below the unchanged 10px A.4.1 minimum.",
+      "safeAreaContract": {
+        "token": "favicon-10",
+        "sourceGeometry": "256-square Oorva symbol viewBox with the existing central 208-square ink safe box.",
+        "target": "Fit that 208-square safe box to a centered 28x28 area in the 48x48 canvas, leaving 10px minimum margin on each side.",
+        "validator": "Keep asset-tests quarter-symbol-clear-space logic and all validator thresholds unchanged."
+      },
+      "selftest": "Render a synthetic 256-square symbol with the pinned exporter to 48x48, compute alpha bounds, report actual four margins in assertion failure output, require each >=10px and visible width/height >=20px.",
+      "validation": {
+        "helperSource": "origin/main:scripts/cs-test.ps1 at 4a5eb144ee1570f1db131e5b116fd82af83af2f6",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+        "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-o37a-favicon-fit",
+        "wipSnapshotBranch": "wip/qs-o37a-favicon-fit",
+        "wipSnapshotSha": "b8244301a395aa7f5c2b39540052901b34fca0f8",
+        "selectedJestSuites": 1,
+        "testsPassed": 8,
+        "typescript": "PASS",
+        "favicon48pxGeometry": {
+          "bounds": { "left": 10, "top": 10, "right": 37, "bottom": 37 },
+          "visiblePixels": 608,
+          "clearSpace": { "left": 10, "top": 10, "right": 10, "bottom": 10 },
+          "visibleSize": { "width": 28, "height": 28 }
+        },
+        "result": "cs-test result: PASS",
+        "assetsSuiteInvoked": false,
+        "lanePushed": false,
+        "laneCi": "PENDING"
+      },
+      "scope": {
+        "workerFilesOnly": true,
+        "O01XOutputOrManifestEdited": false,
+        "O01LSvgEdited": false,
+        "validate.mjsEdited": false,
+        "D03b": "PENDING",
+        "D03c": "UNAPPROVED",
+        "TOOL-ASSETS-MAIN": "PENDING",
+        "O01X": "BLOCKED"
+      }
+    },
     "coordinatorRegistrationRequest": {
       "scripts\\cs-test.ps1": "Add 'assets' to the Suite ValidateSet only; keep all existing suites unchanged.",
       "scripts\\cs\\run.sh": "Add an assets) branch that requires exactly one filter, oorva; reject any other/empty filter with exit 2. In scripts/brand working directory invoke `node asset-tests.mjs --check-oorva`. Do not add a generic assets bypass or call --selftest for this filter.",
