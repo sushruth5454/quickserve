@@ -1736,21 +1736,45 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       }
 
       await go('/bookings');
-      await page.getByTestId('activity-segment-shop').click();
-      const rfqPanel = page.getByTestId('my-activity-panel-shop');
+      const activityNavigationActual = async () => page.evaluate(() => {
+        const describeElement = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return {
+            role: element.getAttribute('role'),
+            label: element.getAttribute('aria-label'),
+            testId: element.getAttribute('data-testid'),
+            text: (element.innerText ?? '').replace(/\s+/g, ' ').slice(0, 500),
+            visible: style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0,
+            backgroundColor: style.backgroundColor,
+            color: style.color,
+          };
+        };
+        return {
+          url: window.location.href,
+          tablists: Array.from(document.querySelectorAll('[role="tablist"]')).map(describeElement),
+          tabs: Array.from(document.querySelectorAll('[role="tab"]')).map(describeElement),
+          panels: Array.from(document.querySelectorAll('[data-testid^="my-activity-panel-"]')).map(describeElement),
+          body: (document.body?.innerText ?? '').slice(0, 2400),
+        };
+      });
+      const activityTabList = page.getByRole('tablist', { name: 'Activity segments' });
+      const shopTab = activityTabList.getByRole('tab', { name: /^Shop/ });
+      const productRfqsHeading = page.getByText('Product RFQs', { exact: true }).filter({ visible: true }).first();
+      let rfqCard;
       try {
-        await rfqPanel.waitFor({ state: 'visible' });
+        await activityTabList.waitFor({ state: 'visible' });
+        await shopTab.waitFor({ state: 'visible' });
+        await shopTab.click();
+        await productRfqsHeading.waitFor({ state: 'visible' });
+        rfqCard = page.getByText(rfqTitle, { exact: true }).filter({ visible: true }).first();
+        await rfqCard.waitFor({ state: 'visible' });
       } catch (error) {
-        const panelVisible = await rfqPanel.isVisible();
-        throw new Error(`Shop activity panel was not visible before RFQ lookup: ${JSON.stringify({
-          panelVisible,
-          panel: panelVisible ? await rfqPanel.innerText() : null,
-          body: (await page.locator('body').innerText()).slice(0, 2400),
+        throw new Error(`Accessible Shop tab did not show the RFQ history: ${JSON.stringify({
+          actual: await activityNavigationActual(),
           waitError: String(error?.message ?? error),
         })}`);
       }
-      const rfqCard = rfqPanel.getByText(rfqTitle, { exact: true });
-      await rfqCard.waitFor({ state: 'visible' });
       await rfqCard.click();
       await page.waitForURL((url) => new URL(url).pathname === `/rfq/${rfqId}`);
       await visible(rfqTitle);
