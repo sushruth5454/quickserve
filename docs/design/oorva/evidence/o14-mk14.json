@@ -1,0 +1,57 @@
+{
+  "stageId": "O14-MK14",
+  "sourceTaskId": "MK-T14",
+  "sourceFindingId": "MK-F16",
+  "frozenPlanningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+  "dependencyHeads": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O12-MK16": "f34c127e322fd7475de4239751335b2ac2f9e8bd"
+  },
+  "gate": {
+    "E0": "APPROVED",
+    "migrationClaims": [],
+    "newFeatureFlags": [],
+    "mainPromotion": "SEPARATE"
+  },
+  "sourceDrift": {
+    "comparisonBase": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "changedFromPlanningCommit": [
+      "app/src/features/providerProfile/ProviderProfileScreen.tsx"
+    ],
+    "preservedDependencyChanges": [
+      "O12-MK16 provider profile changes already present at the implementation base"
+    ]
+  },
+  "implementation": {
+    "ownedFiles": [
+      "app/src/features/providerProfile/ProviderProfileScreen.tsx",
+      "app/src/features/providerProfile/ProviderServicesSection.tsx",
+      "app/src/features/providerProfile/model.ts",
+      "app/src/features/providerProfile/__tests__/model.test.ts",
+      "docs/design/oorva/evidence/o14-mk14.json"
+    ],
+    "summary": [
+      "Track service and package selection together and retain only selections still valid for the current provider readback.",
+      "Render active provider-owned packages using PackageCard, packageDisplayPrice, and canPayInstantly.",
+      "Route fixed instant-pay packages to the exact provider service and package; route nonfixed packages to the exact provider/category/package request.",
+      "Keep the generic service-book action unavailable for package archetypes when no valid package is selected."
+    ],
+    "serverMoneyOrBookingChanges": false,
+    "featureFlagChanges": false
+  },
+  "tests": {
+    "codespaceSelector": "src.features.providerProfile.__tests__.model[.]test[.]ts$",
+    "requiredCases": [
+      "MK-PROFILE-package-exact-route",
+      "MK-PROFILE-nonfixed-targeted-brief",
+      "MK-PROFILE-selection-reset"
+    ]
+  },
+  "validation": {
+    "sourceScope": "PASS",
+    "gitDiffCheck": "PASS",
+    "codespace": "IN_PROGRESS",
+    "laneCi": "PENDING"
+  }
+}

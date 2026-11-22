@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, type Href, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Linking from 'expo-linking';
 import { Share, View } from 'react-native';
@@ -10,6 +10,7 @@ import { useSelectedLocation } from '../../lib/locationContext';
 import { useEntityRefresh } from '../../lib/useEntityRefresh';
 import { haptics } from '../../lib/haptics';
 import { formatINR } from '../../lib/money';
+import { packageDisplayPrice } from '../booking/packages/packageModel';
 import { onboardingApi, type PublicProfile } from '../../lib/onboarding';
 import { summarizeHours, todayLabel } from '../../lib/onboarding/availability';
 import { useTheme } from '../../theme';
@@ -19,7 +20,14 @@ import { ProviderProfileOverview } from './ProviderProfileOverview';
 import { ProviderPortfolioSection } from './ProviderPortfolioSection';
 import { ProviderReviewsSection } from './ProviderReviewsSection';
 import { ProviderServicesSection } from './ProviderServicesSection';
-import { avg } from './model';
+import {
+  avg,
+  providerProfilePackageRoute,
+  reconcileProviderProfileSelection,
+  selectProviderProfilePackage,
+  selectProviderProfileService,
+  type ProviderProfileSelection,
+} from './model';
 
 export default function ProviderDetailScreen() {
   const t = useTheme();
@@ -34,12 +42,13 @@ export default function ProviderDetailScreen() {
     { scope: string; status: 'error'; message: string }
   ) | null>(null);
   const [detailFailure, setDetailFailure] = useState<{ scope: string; message: string } | null>(null);
-  const [selectedResult, setSelectedResult] = useState<{ scope: string; serviceId: string | null } | null>(null);
+  const [selectionResult, setSelectionResult] = useState<{ scope: string; value: ProviderProfileSelection } | null>(null);
   const detail = detailResult?.scope === scope ? detailResult.value : null;
   const availability = availabilityResult?.scope === scope ? availabilityResult : { scope, status: 'loading' as const };
   const pub = availability.status === 'ready' ? availability.value : null;
   const availabilityError = availability.status === 'error' ? availability.message : null;
-  const selected = selectedResult?.scope === scope ? selectedResult.serviceId : null;
+  const selection = selectionResult?.scope === scope ? selectionResult.value : null;
+  const selected = selection?.serviceId ?? null;
   const error = detailFailure?.scope === scope ? detailFailure.message : null;
   const [showAll, setShowAll] = useState(false);
   const { location, setLocation } = useSelectedLocation();
@@ -92,13 +101,12 @@ export default function ProviderDetailScreen() {
           if (!guard.isCurrent()) return;
           setDetailResult({ scope: requestScope, value });
           setDetailFailure(null);
-          setSelectedResult((current) => {
-            const previous = current?.scope === requestScope ? current.serviceId : null;
-            const retained = previous && value.services.some((serviceItem) => serviceItem.id === previous)
-              ? previous
-              : null;
-            const requested = value.services.find((serviceItem) => serviceItem.categories?.slug === requestedCategory)?.id;
-            return { scope: requestScope, serviceId: retained ?? requested ?? value.services[0]?.id ?? null };
+          setSelectionResult((current) => {
+            const previous = current?.scope === requestScope ? current.value : null;
+            return {
+              scope: requestScope,
+              value: reconcileProviderProfileSelection(previous, providerId, value.services, requestedCategory),
+            };
           });
         })
         .catch((caught: Error) => {
@@ -158,11 +166,11 @@ export default function ProviderDetailScreen() {
   const service = services.find((s) => s.id === selected) ?? services[0];
   const proposalService = service?.categories?.archetype === 'proposal';
   const pkgArchetype = service?.categories?.archetype === 'fixed' || service?.categories?.archetype === 'time_based';
-  const packagePrices = (service?.service_packages ?? [])
-    .filter((item) => item.active && item.price_type !== 'quote')
-    .map((item) => item.price_type === 'fixed' ? item.price : item.price_min)
-    .filter((price): price is number => typeof price === 'number' && Number.isFinite(price));
-  const minPackagePrice = packagePrices.length ? Math.min(...packagePrices) : null;
+  const selectedPackageId = selection && selection.serviceId === service?.id ? selection.packageId : null;
+  const selectedPackage = service
+    ? service.service_packages?.find((item) =>
+        item.id === selectedPackageId && item.provider_service_id === service.id && item.active)
+    : undefined;
   const hasInspectQuoteService = services.some((item) => item.categories?.archetype === 'inspect_quote');
   const subs = [
     ['Punctuality', avg(reviews, 'punctuality')],
@@ -175,6 +183,13 @@ export default function ProviderDetailScreen() {
   const today = pub ? todayLabel(pub.hours, now, { onLeaveUntil: pub.on_leave_until }) : null;
   const hours = pub ? summarizeHours(pub.hours) : [];
   const unavailable = provider.paused || availability.status !== 'ready' || !!pub?.paused || !!pub?.on_leave_until;
+  const packageRoute = providerProfilePackageRoute({
+    providerId: provider.id,
+    providerName: first,
+    service,
+    packageId: selectedPackageId,
+    canCommit: !isPreview && !unavailable,
+  });
   // "Vijayawada Demo" is the test city overlapping Vijayawada; the server routes targeted requests by distance.
   const cityKey = (c: string | null | undefined) => (c ?? '').trim().toLowerCase().replace(/\s+demo$/, '');
   const otherCity = !!provider.city && cityKey(provider.city) !== cityKey(location.city);
@@ -199,12 +214,23 @@ export default function ProviderDetailScreen() {
       return;
     }
     if (pkgArchetype) {
-      const category = service.categories;
-      if (!category?.slug) return;
-      router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } });
       return;
     }
     router.push({ pathname: '/book/[providerServiceId]', params: { providerServiceId: service.id } });
+  };
+  const commitSelectedPackage = () => {
+    if (otherCity) {
+      void switchToCity(provider.city);
+      return;
+    }
+    const route = providerProfilePackageRoute({
+      providerId: provider.id,
+      providerName: first,
+      service,
+      packageId: selectedPackageId,
+      canCommit: !isPreview && !unavailable,
+    });
+    if (route) router.push(route as Href);
   };
   const gutter = { paddingHorizontal: t.spacing.lg };
 
@@ -215,31 +241,33 @@ export default function ProviderDetailScreen() {
       refreshing={refreshing}
       onRefresh={() => void refresh()}
       footer={
-        service && !isPreview ? (
+        service && !isPreview && (!pkgArchetype || packageRoute) ? (
           <PriceFooter
-            caption={`${service.categories?.name} · ${proposalService ? 'price' : pkgArchetype ? 'packages' : 'visit fee'}`}
+            caption={`${service.categories?.name} · ${proposalService ? 'price' : pkgArchetype ? 'package' : 'visit fee'}`}
             amountLabel={
               proposalService
                 ? 'Fixed quote per brief'
                 : pkgArchetype
-                  ? minPackagePrice == null
-                    ? 'Packages available'
-                    : `From ${formatINR(minPackagePrice)}`
+                  ? packageDisplayPrice(selectedPackage!)
                   : formatINR(service.visit_fee)
             }
             amountVariant={proposalService ? 'text' : 'amount'}
             cta={{
-              title: otherCity && !unavailable ? `Switch to ${provider.city}` : proposalService ? 'Request proposal' : `Book ${first}`,
+              title: otherCity && !unavailable
+                ? `Switch to ${provider.city}`
+                : pkgArchetype
+                  ? packageRoute?.pathname === '/book/[providerServiceId]' ? 'Book package' : 'Request proposal'
+                  : proposalService ? 'Request proposal' : `Book ${first}`,
               leftIcon: otherCity && !unavailable ? 'location-outline' : undefined,
-              disabled: unavailable,
+              disabled: unavailable || (pkgArchetype && !packageRoute),
               loading: switching,
-              onPress: bookSelectedService,
+              onPress: pkgArchetype ? commitSelectedPackage : bookSelectedService,
             }}
             above={
               otherCity && !unavailable ? (
                 <Text variant="footnote" color="textSecondary" accessibilityLiveRegion="polite">
                   {first} works in {provider.city}. Your location is {location.city}, so switch to {provider.city} to{' '}
-                  {proposalService ? 'request a proposal' : 'book'}.
+                  {proposalService ? 'request a proposal' : pkgArchetype ? 'continue with this package' : 'book'}.
                 </Text>
               ) : undefined
             }
@@ -271,9 +299,21 @@ export default function ProviderDetailScreen() {
       <ProviderServicesSection
         services={services}
         service={service}
+        providerName={name}
+        rating={rating}
+        ratingCount={provider.rating_count}
+        selectedPackageId={selectedPackageId}
+        canSelectPackages={!isPreview && !unavailable}
         pub={pub}
         hasInspectQuoteService={hasInspectQuoteService}
-        onSelect={(serviceId) => setSelectedResult({ scope, serviceId })}
+        onSelect={(serviceId) => setSelectionResult((current) => ({
+          scope,
+          value: selectProviderProfileService(current?.scope === scope ? current.value : null, provider.id, serviceId),
+        }))}
+        onSelectPackage={(serviceId, packageId) => setSelectionResult({
+          scope,
+          value: selectProviderProfilePackage(provider.id, serviceId, packageId),
+        })}
         theme={t}
         gutter={gutter}
       />
