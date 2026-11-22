@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { Badge, Button, Card, Input, Text, TextArea } from '../../../components/ui';
+import { Badge, Button, Card, Input, Text, TextArea, useConfirm } from '../../../components/ui';
 import type { SportsVenueManagementActions } from './actions';
 import type { useSportsVenueManagementState } from './useSportsVenueManagementState';
+import { getVenueReviewPresentation } from '../venueReviewPresentation';
 
 type ManagementState = ReturnType<typeof useSportsVenueManagementState>;
 type Spacing = { sm: number; xs: number; md: number };
@@ -51,7 +52,21 @@ export function renderVenueSwitcher(state: ManagementState, spacing: Spacing) {
 }
 
 export function renderVenueDetails(state: ManagementState, actions: SportsVenueManagementActions, spacing: Spacing) {
+  return <VenueDetailsEditor state={state} actions={actions} spacing={spacing} />;
+}
+
+function VenueDetailsEditor({ state, actions, spacing }: {
+  state: ManagementState;
+  actions: SportsVenueManagementActions;
+  spacing: Spacing;
+}) {
+  const confirm = useConfirm();
   const { selected, paymentModes, settingsVisibility, busy, name } = state;
+  const isOwner = selected?.venue.owner_id === state.userId;
+  const review = selected
+    ? getVenueReviewPresentation(selected.venue.status, isOwner ? 'owner' : selected.venue.business_role ?? 'member')
+    : null;
+  const canEditDetails = !selected || review?.canEditDetails === true;
   return (
     <Card gap={spacing.sm}>
       <Text variant="title3">{selected ? 'Venue details' : 'Create a venue'}</Text>
@@ -61,7 +76,7 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
             Status:
           </Text>
           <Badge
-            label={selected.venue.status.toUpperCase()}
+            label={review?.statusLabel ?? selected.venue.status.toUpperCase()}
             tone={selected.venue.status === 'verified' ? 'success' : 'neutral'}
           />
           {selected.venue.status_reason ? (
@@ -71,26 +86,27 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
           ) : null}
         </View>
       ) : null}
-      <Input label="Venue name" value={state.name} onChangeText={state.setName} maxLength={120} />
-      <TextArea label="Description" value={state.description} onChangeText={state.setDescription} maxLength={2000} />
-      <Input label="Address" value={state.address} onChangeText={state.setAddress} maxLength={300} />
+      <Input label="Venue name" value={state.name} onChangeText={state.setName} maxLength={120} editable={canEditDetails} />
+      <TextArea label="Description" value={state.description} onChangeText={state.setDescription} maxLength={2000} editable={canEditDetails} />
+      <Input label="Address" value={state.address} onChangeText={state.setAddress} maxLength={300} editable={canEditDetails} />
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Input label="City" value={state.city} onChangeText={state.setCity} maxLength={80} containerStyle={{ flex: 1 }} />
-        <Input label="Area" value={state.area} onChangeText={state.setArea} maxLength={80} containerStyle={{ flex: 1 }} />
+        <Input label="City" value={state.city} onChangeText={state.setCity} maxLength={80} editable={canEditDetails} containerStyle={{ flex: 1 }} />
+        <Input label="Area" value={state.area} onChangeText={state.setArea} maxLength={80} editable={canEditDetails} containerStyle={{ flex: 1 }} />
       </View>
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Input label="Latitude" value={state.lat} onChangeText={state.setLat} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
-        <Input label="Longitude" value={state.lng} onChangeText={state.setLng} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
+        <Input label="Latitude" value={state.lat} onChangeText={state.setLat} keyboardType="decimal-pad" editable={canEditDetails} containerStyle={{ flex: 1 }} />
+        <Input label="Longitude" value={state.lng} onChangeText={state.setLng} keyboardType="decimal-pad" editable={canEditDetails} containerStyle={{ flex: 1 }} />
       </View>
-      <Input label="Amenities (comma separated)" value={state.amenities} onChangeText={state.setAmenities} placeholder="Parking, changing room" />
-      <TextArea label="Photo URLs (one HTTPS URL per line)" value={state.photos} onChangeText={state.setPhotos} maxLength={3000} />
+      <Input label="Amenities (comma separated)" value={state.amenities} onChangeText={state.setAmenities} placeholder="Parking, changing room" editable={canEditDetails} />
+      <TextArea label="Photo URLs (one HTTPS URL per line)" value={state.photos} onChangeText={state.setPhotos} maxLength={3000} editable={canEditDetails} />
       {selected && settingsVisibility.showPaymentModes ? (
         <View style={{ gap: spacing.sm }}>
           <Text variant="subheadStrong">Accepted payment modes</Text>
           <Pressable
             accessibilityRole="checkbox"
             accessibilityLabel="Pay at venue"
-            accessibilityState={{ checked: paymentModes.includes('pay_at_venue') }}
+            accessibilityState={{ checked: paymentModes.includes('pay_at_venue'), disabled: !canEditDetails }}
+            disabled={!canEditDetails}
             onPress={() => actions.togglePaymentMode('pay_at_venue')}
           >
             <Card padding={spacing.md} variant={paymentModes.includes('pay_at_venue') ? 'tinted' : 'outlined'}>
@@ -112,7 +128,7 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
               accessibilityRole="checkbox"
               accessibilityLabel="Pay online"
               accessibilityState={{ checked: paymentModes.includes('online'), disabled: !settingsVisibility.canSelectOnlinePayment }}
-              disabled={!settingsVisibility.canSelectOnlinePayment}
+              disabled={!canEditDetails || !settingsVisibility.canSelectOnlinePayment}
               onPress={() => actions.togglePaymentMode('online')}
             >
               <Card padding={spacing.md} variant={paymentModes.includes('online') ? 'tinted' : 'outlined'}>
@@ -143,14 +159,22 @@ export function renderVenueDetails(state: ManagementState, actions: SportsVenueM
           ) : null}
         </View>
       ) : null}
-      <Button
-        title={selected && settingsVisibility.showPaymentModes ? 'Save venue & payment settings' : 'Save venue details'}
-        onPress={() => void actions.saveVenue()}
-        loading={busy}
-        disabled={busy || name.trim().length < 2}
-      />
-      {selected && selected.venue.status !== 'suspended' ? (
-        <Button title="Submit for verification" variant="outline" onPress={() => void actions.submitVenue()} loading={busy} disabled={busy} />
+      {canEditDetails ? (
+        <Button
+          title={selected && settingsVisibility.showPaymentModes ? 'Save venue & payment settings' : 'Save venue details'}
+          onPress={() => void actions.saveVenue(confirm)}
+          loading={busy}
+          disabled={busy || name.trim().length < 2}
+        />
+      ) : null}
+      {review?.actions.some((action) => action.kind === 'submit') ? (
+        <Button
+          title="Submit for verification"
+          variant="outline"
+          onPress={() => void actions.submitVenue()}
+          loading={busy}
+          disabled={busy}
+        />
       ) : null}
     </Card>
   );

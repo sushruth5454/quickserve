@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O09-SP02",
+  "workPackage": "O09",
+  "sourceTaskIds": [
+    "SP-T02"
+  ],
+  "sourceFindingIds": [
+    "SP-F01",
+    "SP-F02",
+    "SP-F03",
+    "SP-F20"
+  ],
+  "state": "READY_FOR_LANE_CI",
+  "base": {
+    "implementationSha": "e1bb5441a9e9a9b7f1140dd5a5db95255b363557",
+    "planningSourceCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O09-SP01",
+        "sha": "af9b80bec96419db76427d41ed82a09fb6f08192",
+        "state": "DONE_IN_BASE"
+      }
+    ]
+  },
+  "sourceDrift": {
+    "scope": "Affected source references and locked function definitions only",
+    "auditedSourceToBase": "VenueEditorSections.tsx contains the preserved accessibility-label/selected-state additions from the current integration base. No other scoped presentation/action source drift was found.",
+    "reviewRpcBehavior": "The current 0090_o09_sp01_oorva.sql definitions were read. Owner submission keeps submitted/verified unchanged, denies suspended and non-owner callers, and retains draft/rejected prerequisites. Admin transitions deny draft and return without writes for same-state requests.",
+    "saveSportsVenueBehavior": "The current 0058_sports_payments.sql body was read. Suspended and non-owner detail saves are rejected. Only name, description, address_line, city, area, lat, lng, amenities, and photos reset status to draft and clear status_reason; payment_modes is excluded."
+  },
+  "implementation": [
+    "Added state/actor descriptors with no same-state actions, verified status without Verify/Submit, under-review labeling, and explicit Restore / Re-verify admin actions.",
+    "Added a comparator for the exact nine detail fields used by save_sports_venue; payment-only edits do not warn.",
+    "Confirmed review-affecting owner saves and admin status transitions before RPCs; cancellation sends no RPC.",
+    "Made suspended/non-owner venue details non-editable and preserved post-mutation load calls."
+  ],
+  "changedFiles": [
+    "app/src/features/sports/venueReviewPresentation.ts",
+    "app/src/features/sports/__tests__/venueReviewPresentation.test.ts",
+    "app/app/admin/sports.tsx",
+    "app/src/features/sports/manage/VenueEditorSections.tsx",
+    "app/src/features/sports/manage/actions.ts",
+    "app/src/features/sports/manage/__tests__/actions.test.ts",
+    "docs/design/oorva/evidence/o09-sp02.json"
+  ],
+  "migrationClaims": [],
+  "validation": {
+    "codespaceHelper": "origin/main:scripts/cs-test.ps1",
+    "worktreeRootAssertion": "PASS",
+    "commands": [
+      {
+        "suite": "app",
+        "filter": "src.features.sports.__tests__.venueReviewPresentation[.]test[.]ts$",
+        "selectedSuites": 1,
+        "selectedTests": 13,
+        "result": "PASS",
+        "snapshot": "wip/qs-oorva-o09-sp02 @ b885114e"
+      },
+      {
+        "suite": "jest",
+        "filter": "src.features.sports.manage.__tests__.actions[.]test[.]ts$",
+        "selectedSuites": 1,
+        "selectedTests": 4,
+        "result": "PASS",
+        "snapshot": "wip/qs-oorva-o09-sp02 @ bb0d501f"
+      }
+    ],
+    "laneCi": {
+      "status": "REQUIRED_AFTER_PUSH",
+      "exactHeadRun": "to be recorded in final handoff"
+    }
+  },
+  "reviewGate": {
+    "required": "none",
+    "status": "not-required-by-stage"
+  }
+}

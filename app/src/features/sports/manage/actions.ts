@@ -5,6 +5,7 @@ import {
   resolveSportsResourceSettings,
   resolveSportsVenuePaymentModesForSave,
 } from '../model';
+import { getVenueReviewPresentation, hasSportsVenueReviewChanges } from '../venueReviewPresentation';
 import { rupeesToPaise } from '../../../lib/money';
 import { supabase } from '../../../lib/supabase';
 import { toInstant } from './model';
@@ -12,11 +13,47 @@ import type { useSportsVenueManagementState } from './useSportsVenueManagementSt
 
 type ManagementState = ReturnType<typeof useSportsVenueManagementState>;
 type Toast = (options: { message: string; tone: 'success' }) => void;
+type Confirm = (options: {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  destructive?: boolean;
+}) => Promise<boolean>;
 
 export type SportsVenueManagementActions = ReturnType<typeof createSportsVenueManagementActions>;
 
 export function createSportsVenueManagementActions(state: ManagementState, toast: Toast) {
-  const saveVenue = async () => {
+  const saveVenue = async (confirm: Confirm) => {
+    const selected = state.selected;
+    const isOwner = selected?.venue.owner_id === state.userId;
+    if (selected && !getVenueReviewPresentation(selected.venue.status, isOwner ? 'owner' : selected.venue.business_role ?? 'member').canEditDetails) {
+      return;
+    }
+
+    const normalizedDetails = {
+      name: state.name.trim(),
+      description: state.description.trim(),
+      address_line: state.address.trim(),
+      city: state.city.trim(),
+      area: state.area.trim(),
+      lat: Number(state.lat),
+      lng: Number(state.lng),
+      amenities: state.amenities.split(',').map((item) => item.trim()).filter(Boolean),
+      photos: state.photos.split('\n').map((item) => item.trim()).filter(Boolean),
+    };
+    if (
+      selected
+      && selected.venue.status !== 'draft'
+      && hasSportsVenueReviewChanges(selected.venue, normalizedDetails)
+      && !await confirm({
+        title: 'Save venue changes and restart review?',
+        message: 'Changing venue details will return this venue to draft and clear its current review status. You will need to submit it again. Payment-setting changes alone do not restart review.',
+        confirmLabel: 'Save and restart review',
+      })
+    ) {
+      return;
+    }
+
     const modesToSave = resolveSportsVenuePaymentModesForSave(
       state.selected?.venue.payment_modes,
       state.paymentModes,
@@ -33,8 +70,8 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
       p_area: state.area.trim(),
       p_lat: Number(state.lat),
       p_lng: Number(state.lng),
-      p_amenities: state.amenities.split(',').map((item) => item.trim()).filter(Boolean),
-      p_photos: state.photos.split('\n').map((item) => item.trim()).filter(Boolean),
+      p_amenities: normalizedDetails.amenities,
+      p_photos: normalizedDetails.photos,
       p_payment_modes: modesToSave,
     });
     state.setBusy(false);
