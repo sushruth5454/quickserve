@@ -1187,10 +1187,23 @@ await step('provider-detail-fixed-service-routes-to-packages', async () => {
   if (await page.getByText(/^(Visit fee|Labour per )/).count()) {
     throw new Error('fixed service profile still shows visit-fee pricing');
   }
-  await page.getByText(/^From ₹/).first().waitFor();
-  await page.getByRole('button', { name: /^Book / }).last().click();
-  await page.waitForURL(new RegExp(`/category/${fixedService.categories.slug}(?:\\?|$)`));
-  await page.locator('text="Demo 2 BHK deep clean" >> visible=true').first().waitFor();
+  const packageTitle = 'Demo 2 BHK deep clean';
+  await page.getByRole('button', { name: `Select package: ${packageTitle}`, exact: true }).click();
+  await page.getByRole('button', { name: 'Book package', exact: true }).click();
+  await page.waitForURL((url) => url.pathname.startsWith('/book/'));
+  const actualRoute = new URL(page.url());
+  const actual = {
+    providerServiceId: actualRoute.pathname.split('/').pop(),
+    packageId: actualRoute.searchParams.get('packageId'),
+  };
+  const expected = {
+    providerServiceId: fixedService.id,
+    packageId: DEMO_IDS.fixedPackage,
+  };
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`fixed package did not route to the exact service/package; actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`);
+  }
+  await page.locator(`text="${packageTitle}" >> visible=true`).first().waitFor();
 });
 await step('book-screen', async () => {
   const raviServices = await asPro(
