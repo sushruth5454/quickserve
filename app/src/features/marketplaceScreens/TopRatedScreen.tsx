@@ -1,48 +1,55 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { TopRatedRow } from '../../components/TopRatedCard';
-import { EmptyState, ErrorState, Header, Screen, SkeletonProviderCard } from '../../components/ui';
+import { EmptyState, ErrorState, Header, InlineAlert, Screen, SkeletonProviderCard } from '../../components/ui';
 import { listTopRated, type TopRatedProvider } from '../../lib/api';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { useTheme } from '../../theme';
 import { topRatedHeaderModel } from '../../components/providerCardModel';
+import { useEntityRefresh } from '../../lib/useEntityRefresh';
 
 export default function TopRatedScreen() {
   const t = useTheme();
   const { location } = useSelectedLocation();
-  const [list, setList] = useState<TopRatedProvider[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const city = location.city;
+  const scope = JSON.stringify([city]);
+  const [result, setResult] = useState<{ scope: string; value: TopRatedProvider[] } | null>(null);
+  const [failure, setFailure] = useState<{ scope: string; message: string } | null>(null);
+  const list = result?.scope === scope ? result.value : null;
+  const error = failure?.scope === scope ? failure.message : null;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    const requestScope = scope;
+    const requestCity = city;
+    setFailure((current) => current?.scope === requestScope ? null : current);
     try {
-      setList(await listTopRated(50, location.city));
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
+      const value = await listTopRated(50, requestCity);
+      if (guard.isCurrent()) {
+        setResult({ scope: requestScope, value });
+        setFailure(null);
+      }
+    } catch (caught) {
+      if (guard.isCurrent()) setFailure({ scope: requestScope, message: (caught as Error).message });
     }
-  }, [location.city]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  }, [city, scope]);
+  const { refresh, refreshing } = useEntityRefresh(load, {
+    contextKey: scope,
+    enabled: true,
+    intervalMs: null,
+  });
   const header = topRatedHeaderModel(location.city, list?.length ?? null);
 
   return (
     <Screen
       header={<Header title={header.title} subtitle={header.subtitle} />}
       refreshing={refreshing}
-      onRefresh={refresh}
+      onRefresh={() => void refresh()}
       gap={t.spacing.md}
     >
       {error && !list ? (
-        <ErrorState message={error} onRetry={() => void load()} />
+        <ErrorState message={error} onRetry={() => void refresh()} />
+      ) : error ? (
+        <InlineAlert message={error} actionLabel="Retry" onAction={() => void refresh()} />
       ) : !list ? (
         [0, 1, 2].map((i) => <SkeletonProviderCard key={i} />)
       ) : list.length === 0 ? (
