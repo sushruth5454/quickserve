@@ -1,0 +1,48 @@
+{
+  "stageId": "O36-SAFETY",
+  "sourceTaskId": "PF-T06",
+  "sourceFindings": [
+    "PF-F07",
+    "PF-F08"
+  ],
+  "gate": "E0 APPROVED",
+  "branch": "lane/oorva-o36-safety",
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+  "dependencyHeads": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+    "O15-SV10": "647de989d3dee3cf81507b52b2501278284b9eab"
+  },
+  "sourceDriftCheck": {
+    "status": "PASS",
+    "auditSource": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "originMain": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+    "findings": "The audited assistant route had already been extracted by O15-SV10 into AssistantScreen.tsx; that host is the implementation target. The current assistant-history route remained inline at the implementation base and is extracted in this stage. No other affected-source drift from the audit snapshot was found."
+  },
+  "scope": {
+    "migrations": [],
+    "newFeatureFlags": [],
+    "serverFeatureOrJwtGatesChanged": false,
+    "historyRlsChanged": false
+  },
+  "acceptance": {
+    "aiOffAutoSendAndEntryGuards": "IMPLEMENTED; TEST NOT RUN",
+    "offInvalidationAndGenerationGuards": "IMPLEMENTED; TEST NOT RUN",
+    "selectedConversationLoadingErrorUnavailableEmptyRetry": "IMPLEMENTED; TEST NOT RUN",
+    "ownerOnlyHistoryAndPhotoPrivacy": "Existing query and privacy gates unchanged; runtime NOT VERIFIED",
+    "stopRetryAndReviewBeforeBook": "Existing flows retained; runtime NOT VERIFIED"
+  },
+  "validation": {
+    "codespaceSelector": "src.lib.assistant.__tests__.conversationState[.]test[.]ts$",
+    "codespace": "NOT RUN",
+    "laneCi": "NOT RUN",
+    "authReview": {
+      "required": true,
+      "status": "NOT RUN"
+    }
+  },
+  "unverified": [
+    "Native/device runtime proof is NOT VERIFIED."
+  ]
+}
