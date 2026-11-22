@@ -1694,12 +1694,18 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       await applyFlags(featureOff);
       await refreshFeatureState(featureOff);
 
-      const ownerEnquiry = requireRpcSuccess(
-        'get_product_enquiry owner history read',
+      const ownerEnquiryRows = requireRpcSuccess(
+        'get_product_enquiry owner same-ID read',
         await rpc(ownerToken, 'get_product_enquiry', { p_enquiry_id: enquiryId }),
       );
-      if (!JSON.stringify(ownerEnquiry).includes(ownerReplyText)) {
-        throw new Error(`Shop owner did not read the same enquiry thread: ${JSON.stringify({ enquiryId, actual: ownerEnquiry })}`);
+      const ownerEnquiry = Array.isArray(ownerEnquiryRows)
+        ? ownerEnquiryRows.find((row) => row?.id === enquiryId)
+        : ownerEnquiryRows?.id === enquiryId ? ownerEnquiryRows : null;
+      if (!ownerEnquiry || ownerEnquiry.business_role !== 'owner') {
+        throw new Error(`Shop owner did not read the same enquiry ID with owner context: ${JSON.stringify({
+          expected: { enquiryId, business_role: 'owner' },
+          actual: ownerEnquiryRows,
+        })}`);
       }
       const customerRfq = requireRpcSuccess(
         'get_rfq customer history read',
