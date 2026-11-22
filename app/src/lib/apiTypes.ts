@@ -181,6 +181,15 @@ export interface PaymentReceiptPayment {
 }
 
 export interface PaymentReceiptRefund {
+  id: string;
+  payment_id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  processed_at: string | null;
+}
+
+export interface PaymentReceiptSnapshotRefund {
   amount: number;
   status: string;
   processed_at: string | null;
@@ -204,7 +213,7 @@ export interface PaymentReceiptSnapshot {
   prior_payments: PaymentReceiptPayment[];
   this_payment: PaymentReceiptPayment;
   balance_due: number;
-  refunds: PaymentReceiptRefund[];
+  refunds: PaymentReceiptSnapshotRefund[];
   dispute_link: string | null;
   tax_invoice_url: string | null;
 }
@@ -216,6 +225,10 @@ export interface PaymentReceipt {
   booking_id: string;
   issued_at: string;
   snapshot: PaymentReceiptSnapshot;
+  current_payment_status: Payment['status'];
+  current_refunds: PaymentReceiptRefund[];
+  current_payment_is_demo: boolean;
+  read_at: string;
 }
 
 export interface ProviderProfileInput {

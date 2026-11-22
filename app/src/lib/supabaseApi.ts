@@ -536,7 +536,13 @@ export async function getReceipt(paymentId: string): Promise<PaymentReceipt | nu
   const rows = unwrap(
     await supabase.rpc('get_receipt', { p_payment_id: paymentId }),
   ) as PaymentReceipt[];
-  return rows[0] ?? null;
+  const receipt = rows[0];
+  if (!receipt) return null;
+  return {
+    ...receipt,
+    current_refunds: Array.isArray(receipt.current_refunds) ? receipt.current_refunds : [],
+    current_payment_is_demo: receipt.current_payment_is_demo === true,
+  };
 }
 
 export async function getEvents(bookingId: string): Promise<BookingEvent[]> {

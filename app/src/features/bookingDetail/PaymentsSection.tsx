@@ -91,7 +91,7 @@ export function PaymentsSection({
       <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-start', paddingHorizontal: t.spacing.xs }}>
         <Ionicons name="shield-checkmark-outline" size={16} color={t.colors.successText} style={{ marginTop: 1 }} />
         <Text variant="footnote" color="muted" style={{ flex: 1 }}>
-          Held by QuickServe and released to the pro 24 hours after completion.
+          Release timing follows the terms stored for this booking.
         </Text>
       </View>
     </Section>

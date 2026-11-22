@@ -1,0 +1,99 @@
+{
+  "stage": "O16-MN06",
+  "sourceTask": "MN-T06",
+  "finding": "MN-F06",
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "branch": "lane/oorva-o16-mn06",
+  "implementationBase": "e1bb5441a9e9a9b7f1140dd5a5db95255b363557",
+  "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "dependencyHeads": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O14-MK12": "2a214c37e909fcc7a93cd7b313db6c095bfc126f"
+  },
+  "migration": "supabase\\migrations\\0092_o16_mn06_oorva.sql",
+  "implementationStatus": "CODESPACE_PASS; READY_FOR_PUSH_AND_LANE_CI",
+  "sourceDrift": {
+    "scope": "Affected files/functions only; no repeated audit.",
+    "latestGetReceiptDefinition": "0084_b2_receipts.sql; no later replacement found in the migrations through the tested base.",
+    "latestReceiptTrigger": "0088b_b6_money_notifications.sql retains the booking_id IS NOT NULL guard for customer-funded paid payments.",
+    "allocationAuthority": "Dispatch packet supplied the acknowledged numeric 0092 migration claim; coordinator-owned execution-plan and shared registration files were not edited."
+  },
+  "implementation": {
+    "receiptRead": "Transactionally replaces get_receipt with the original receipt columns plus current payment status, same-payment safe refund rows, demo-source provenance, and read time; receipt feature OFF returns no rows.",
+    "snapshot": "No payment_receipts rows, receipt numbers, issue timestamps, or historical snapshots are updated, renumbered, or backfilled.",
+    "presentation": "Original status/refunds/balance are labelled as issue-time facts; current status/refunds and demo provenance are separate.",
+    "receiptEntry": "Captured customer payment states retain the receipt CTA; created, failed, coins, and capability-OFF states do not.",
+    "releaseCopy": "Universal 24-hour claims are replaced with stored-booking-terms guidance.",
+    "routeHost": "The existing receipt URL is retained as a thin export to ReceiptDetailScreen, which owns useReceiptDetailController."
+  },
+  "workerFiles": [
+    "app\\src\\lib\\apiTypes.ts",
+    "app\\src\\lib\\supabaseApi.ts",
+    "app\\src\\lib\\demo\\demoApi.ts",
+    "app\\src\\features\\receipts\\formatReceipt.ts",
+    "app\\src\\features\\receipts\\__tests__\\formatReceipt.test.ts",
+    "app\\app\\receipt\\[paymentId].tsx",
+    "app\\src\\features\\bookingDetail\\PaymentsSection.tsx",
+    "supabase\\migrations\\0092_o16_mn06_oorva.sql",
+    "supabase\\tests\\oorva_o16_mn06.test.mjs",
+    "app\\src\\features\\moneyScreens\\ReceiptDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o16-mn06.json"
+  ],
+  "validation": {
+    "registration": {
+      "status": "WAITING_FOR_COORDINATOR",
+      "file": "supabase\\tests\\package.json",
+      "coordinatorOwned": true
+    },
+    "codespace": {
+      "status": "PASS",
+      "app": {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.receipts.__tests__.formatReceipt[.]test[.]ts$'",
+        "result": "1 suite selected; 3 tests passed; cs-test result: PASS.",
+        "codespaceSnapshot": "d82f4937"
+      },
+      "sqlTest": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o16_mn06'",
+        "result": "1 SQL file selected; 1/1 checks passed; cs-test result: PASS.",
+        "codespaceSnapshot": "56c6551f",
+        "priorAttempts": [
+          "The receipt-preservation assertion initially compared serialized timestamptz strings and reported a false mismatch. Diagnostic checks isolated issued_at string equality while database timestamps and JSONB snapshots were unchanged.",
+          "Replaced representation-sensitive comparisons with SQL timestamptz and JSONB equality; rerun passed all cases."
+        ]
+      },
+      "migrationParser": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o16_mn06_oorva.sql'",
+        "result": "1 migration parser selected; 6 top-level statements and 1 function body parsed; 0 errors; cs-test result: PASS.",
+        "codespaceSnapshot": "3852704a",
+        "registeredOrder": [
+          "0090",
+          "0091",
+          "0092"
+        ]
+      }
+    },
+    "registration": {
+      "status": "MERGED",
+      "commit": "1f3f50e17166c7d691df6cee0e01eab217531ef4",
+      "changedFiles": [
+        "supabase\\tests\\package.json"
+      ],
+      "selectionProof": [
+        "node parse.cjs ../migrations/0092_o16_mn06_oorva.sql",
+        "node oorva_o16_mn06.test.mjs"
+      ]
+    },
+    "focusedReview": {
+      "required": "AUTH",
+      "status": "PENDING_COORDINATOR_AFTER_LANE_CI_GREEN"
+    }
+  },
+  "scope": {
+    "workerFilesOnly": true,
+    "mainPush": false,
+    "deployment": false,
+    "productionFlagChange": false,
+    "liveMoneyOperation": false,
+    "dataRepair": false
+  }
+}
