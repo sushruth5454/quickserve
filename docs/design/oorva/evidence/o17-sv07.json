@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O17-SV07",
+  "workPackage": "O17",
+  "status": "RUNNING",
+  "base": {
+    "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "sourceAuditSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "assignedFunctionSha256AtAuditAndBase": "0315a9af6ec31ef056c318f2579f76e009749191de69a2ca4ad42b87ce9133b9",
+    "assignedFunctionAuditComparison": "MATCH"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "PRESENT_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O37A",
+      "sha": "5b2b026ab825100d461ae2db276d6eb42f4497ec",
+      "state": "PRESENT_IN_IMPLEMENTATION_BASE"
+    }
+  ],
+  "sourceTaskIds": [
+    "SV-T07"
+  ],
+  "sourceFindingIds": [
+    "SV-F06"
+  ],
+  "sqlFunctions": [
+    "public.respond_visit_reschedule"
+  ],
+  "sqlObjects": [],
+  "migrationClaims": [
+    "MIG-O17-SV07"
+  ],
+  "allocatedMigrationFilenames": [
+    "supabase\\migrations\\0094_o17_sv07_oorva.sql"
+  ],
+  "workerOwnedFiles": [
+    "supabase\\migrations\\0094_o17_sv07_oorva.sql",
+    "supabase\\tests-postgres\\o17_sv07.pg.test.mjs",
+    "supabase\\tests\\oorva_o17_sv07.test.mjs",
+    "docs\\design\\oorva\\evidence\\o17-sv07.json"
+  ],
+  "coordinatorOwnedRegistrationFiles": [
+    "supabase\\tests\\package.json",
+    ".github\\workflows\\lane-ci.yml",
+    ".github\\workflows\\deploy-backend.yml"
+  ],
+  "approvals": {
+    "E0": "AUTHORIZED",
+    "D01": "AUTHORIZED",
+    "E1": "PENDING"
+  },
+  "registration": {
+    "state": "REGISTERED",
+    "registrationCommit": "6deba86b4739efb4d78d18cf1cdb8d090c7083d2",
+    "pgliteSelector": "oorva_o17_sv07",
+    "migrationSelector": "o17_sv07_oorva.sql",
+    "privatePostgresStep": "node run.mjs --filter o17_sv07.pg.test.mjs",
+    "privatePostgresStackRequired": true,
+    "registrationHasTestSuccessClaim": false
+  },
+  "requiredCases": [
+    "SV-RESCHEDULE-TERMINAL-01",
+    "SV-RESCHEDULE-ALLOW-02",
+    "SV-RESCHEDULE-IDEMPOTENT-03",
+    "SV-RESCHEDULE-RACE-04",
+    "SV-RESCHEDULE-PAUSE-RACE-05",
+    "SV-RESCHEDULE-BOOKING-FIRST-RACE-06"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "pglite": "PASS_CURRENT_CORRECTION_CODESPACE",
+    "privatePostgresConcurrency": "PASS_CURRENT_CORRECTION_LANE_CI",
+    "bookingFirstRetryableContention": "PASS_CURRENT_CORRECTION_LANE_CI_PRIVATE_POSTGRES",
+    "migrationParser": "PASS_CURRENT_CORRECTION_CODESPACE",
+    "codespace": "PASS_CURRENT_CORRECTION_SELECTORS",
+    "codespaceFailure": "The original exact-green-head attempt was UNAVAILABLE_NO_PASS; the corrected rebase selectors and current same-stage correction selectors passed on the WIP snapshots recorded below.",
+    "rebaseCodespaceSelectors": {
+      "pglite": {
+        "filter": "oorva_o17_sv07",
+        "wipSnapshotSha": "a14619e13745b8fd50e9d073ba92f55c449922d5",
+        "testFiles": 1,
+        "parseChecks": 0,
+        "checksPassed": 1,
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "filter": "o17_sv07_oorva.sql",
+        "wipSnapshotSha": "be17a6857d985a9cd8fc32e25724cb9b2de1f897",
+        "testFiles": 0,
+        "parseChecks": 1,
+        "checksPassed": 1,
+        "result": "PASS"
+      }
+    },
+    "sameStageCorrectionSelectors": {
+      "pglite": {
+        "filter": "oorva_o17_sv07",
+        "wipSnapshotSha": "1b860c1ecd9439ecd437d8eb69fcf516d65f6f62",
+        "testFiles": 1,
+        "parseChecks": 0,
+        "checksPassed": 1,
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "filter": "o17_sv07_oorva.sql",
+        "wipSnapshotSha": "9e720fa02a8e984be6e18a580af84a8b57a26aef",
+        "testFiles": 0,
+        "parseChecks": 1,
+        "checksPassed": 1,
+        "result": "PASS"
+      }
+    },
+    "laneCiFallback": {
+      "workflowRunId": 44935217275,
+      "headSha": "61705fe4a383aab398dda09c76cb8e871e01c82e",
+      "headBranch": "wip/qs-oorva-o17-sv07",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "SUCCESS",
+        "deno": "SUCCESS",
+        "tooling": "SUCCESS",
+        "app": "SUCCESS",
+        "sql": "SUCCESS",
+        "private-postgres": "SUCCESS"
+      }
+    },
+    "sameStageCorrectionLaneCi": {
+      "workflowRunId": 45025078127,
+      "headSha": "0e714bf2ae578639d918c583b5cba3e0be451e31",
+      "headBranch": "lane/oorva-o17-sv07-rebase-0093",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "SUCCESS",
+        "deno": "SUCCESS",
+        "tooling": "SUCCESS",
+        "app": "SUCCESS",
+        "sql": "SUCCESS",
+        "private-postgres": "SUCCESS"
+      }
+    },
+    "concurrencyReview": "PENDING_COORDINATOR_REVIEW_ON_FINAL_HEAD",
+    "lanePush": "PUSH_ALLOWED_FOR_VALIDATION; CODE_GREEN_BLOCKED_UNTIL_CONCURRENCY_REVIEW_PASS"
+  },
+  "claims": {
+    "testsPass": true,
+    "concurrencyVerified": false,
+    "productionOrHostedDatabaseUsed": false,
+    "mainOrDeploymentTouched": false
+  }
+}
