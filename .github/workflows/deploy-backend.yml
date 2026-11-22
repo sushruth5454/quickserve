@@ -430,6 +430,7 @@ jobs:
              ("0089", "0089_r1_provider_request_view_projection.sql"),
              ("0090", "0090_o09_sp01_oorva.sql"),
              ("0091", "0091_o14_mk12_oorva.sql"),
+             ("0092", "0092_o16_mn06_oorva.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")

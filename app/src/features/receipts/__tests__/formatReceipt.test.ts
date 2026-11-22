@@ -33,31 +33,95 @@ const receipt: PaymentReceipt = {
     dispute_link: '/booking/booking-id',
     tax_invoice_url: null,
   },
+  current_payment_status: 'paid',
+  current_refunds: [],
+  current_payment_is_demo: false,
+  read_at: '2026-11-20T10:00:00.000Z',
 };
+
+function check(condition: boolean, label: string, actual: unknown) {
+  if (!condition) throw new Error(`${label}; actual=${JSON.stringify(actual)}`);
+}
 
 describe('customer non-tax payment receipt formatting', () => {
   it('formats the receipt and exact integer-paise amounts without presenting it as a tax invoice', () => {
     const formatted = formatReceipt(receipt);
 
-    expect(formatted).toMatchObject({
-      receiptNumber: 'NR-2026-000456',
-      total: '₹2,129',
-      paidNow: '₹1,930',
-      balanceDue: '₹0',
-      taxInvoiceLabel: 'Not issued',
-      items: [{ description: 'AC repair', amount: '₹2,150' }],
-      priorPayments: [{ amount: '₹199' }],
-    });
+    check(
+      formatted.receiptNumber === 'NR-2026-000456'
+        && formatted.total === '₹2,129'
+        && formatted.paidNow === '₹1,930'
+        && formatted.statusAtIssue === 'Paid'
+        && formatted.balanceDueAtIssue === '₹0'
+        && formatted.taxInvoiceLabel === 'Not issued'
+        && formatted.items[0]?.description === 'AC repair'
+        && formatted.items[0]?.amount === '₹2,150'
+        && formatted.priorPayments[0]?.amount === '₹199',
+      'formats the original receipt amounts and non-tax disclaimer',
+      formatted,
+    );
   });
 
-  it('shows receipt entry points only for enabled customer-funded paid payments', () => {
-    const paidCustomerPayment = { status: 'paid' as const, funding_source: 'customer' as const };
+  it('MN-RECEIPT-REFUNDED-LINK keeps captured refund states but hides non-captured, coin and OFF links', () => {
+    const capturedStates = ['paid', 'refund_pending', 'refund_processing', 'refunded'] as const;
+    const capturedResults = capturedStates.map((status) =>
+      shouldShowPaymentReceipt(true, { status, funding_source: 'customer' }));
+    const unavailableResults = [
+      shouldShowPaymentReceipt(false, { status: 'paid', funding_source: 'customer' }),
+      shouldShowPaymentReceipt(true, { status: 'created', funding_source: 'customer' }),
+      shouldShowPaymentReceipt(true, { status: 'failed', funding_source: 'customer' }),
+      shouldShowPaymentReceipt(true, { status: 'refunded', funding_source: 'coins' }),
+    ];
+    const activityLabels = [activityReceiptLabel(true, false), activityReceiptLabel(true, true)];
 
-    expect(shouldShowPaymentReceipt(true, paidCustomerPayment)).toBe(true);
-    expect(shouldShowPaymentReceipt(false, paidCustomerPayment)).toBe(false);
-    expect(shouldShowPaymentReceipt(true, { status: 'failed', funding_source: 'customer' })).toBe(false);
-    expect(shouldShowPaymentReceipt(true, { status: 'paid', funding_source: 'coins' })).toBe(false);
-    expect(activityReceiptLabel(true, false)).toBe('Details');
-    expect(activityReceiptLabel(true, true)).toBe('Receipt');
+    check(capturedResults.every(Boolean), 'retains receipt links for captured payment and refund states', {
+      capturedStates,
+      capturedResults,
+    });
+    check(unavailableResults.every((visible) => !visible), 'hides receipt links when OFF or not customer-captured', {
+      unavailableResults,
+    });
+    check(
+      JSON.stringify(activityLabels) === JSON.stringify(['Details', 'Receipt']),
+      'preserves existing activity receipt labels',
+      activityLabels,
+    );
+  });
+
+  it('MN-RECEIPT-POST-ISSUE-REFUND keeps the immutable issue snapshot separate from the current refund overlay', () => {
+    const originalSnapshot = JSON.stringify(receipt.snapshot);
+    const refundedReceipt: PaymentReceipt = {
+      ...receipt,
+      current_payment_status: 'refund_pending',
+      current_refunds: [{
+        id: 'refund-current',
+        payment_id: receipt.payment_id,
+        amount: 2500,
+        status: 'pending',
+        created_at: '2026-11-20T11:00:00.000Z',
+        processed_at: null,
+      }],
+      current_payment_is_demo: true,
+      read_at: '2026-11-20T11:05:00.000Z',
+    };
+    const formatted = formatReceipt(refundedReceipt);
+
+    check(
+      JSON.stringify(refundedReceipt.snapshot) === originalSnapshot
+        && formatted.receiptNumber === 'NR-2026-000456'
+        && formatted.balanceDueAtIssue === '₹0',
+      'keeps receipt identity and balance explicitly historical after a later refund',
+      { originalSnapshot, receipt: refundedReceipt, formatted },
+    );
+    check(
+      formatted.currentPaymentStatus === 'Refund pending'
+        && formatted.currentRefunds.length === 1
+        && formatted.currentRefunds[0]?.amount === '₹25'
+        && formatted.currentRefunds[0]?.status === 'pending'
+        && formatted.isDemoPayment
+        && formatted.readAt !== null,
+      'formats the current refund overlay and actual demo provenance separately',
+      { formatted },
+    );
   });
 });

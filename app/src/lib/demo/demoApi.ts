@@ -71,6 +71,7 @@ let bookingSeq = 1046;
 let idSeq = 1;
 let demoCoinBalance = 12500;
 let demoReceiptSeq = 1;
+const demoReceipts = new Map<string, PaymentReceipt>();
 let travelRequests: TravelRequest[] = [];
 let serviceRequests: ServiceRequest[] = [];
 let proposals: Proposal[] = [];
@@ -91,6 +92,19 @@ const demoCoinHistory: CoinLedgerEntry[] = [
     created_at: new Date().toISOString(),
   },
 ];
+
+function stampDemoPaymentReferences() {
+  for (const payment of db.payments) {
+    if (payment.funding_source == null) {
+      Object.assign(payment, { funding_source: 'customer' as const });
+    }
+    if (payment.paid_at && payment.funding_source !== 'coins') {
+      Object.assign(payment, { razorpay_payment_id: `pay_demo_${payment.id}` });
+    }
+  }
+}
+
+stampDemoPaymentReferences();
 const authListeners = new Set<(s: AuthSession | null) => void>();
 const bookingListeners = new Map<string, Set<() => void>>();
 const messageListeners = new Map<string, Set<(m: Message) => void>>();
@@ -410,6 +424,7 @@ function preparePayment(b: DemoBooking): Payment {
     purpose,
     amount,
     status: 'created',
+    funding_source: 'customer',
     created_at: nowIso(),
     paid_at: null,
   };
@@ -431,11 +446,13 @@ function recordPaid(b: DemoBooking) {
   const accept = required != null && paidTotal(b.id) + p.amount <= required;
   p.status = 'paid';
   p.paid_at = nowIso();
+  Object.assign(p, { razorpay_payment_id: `pay_demo_${p.id}` });
   if (!accept) {
     p.status = 'refunded';
     logEvent(b, 'payment not owed; refunded');
     return;
   }
+  demoReceipts.set(p.id, buildDemoReceipt(p, b));
   if (p.purpose === 'visit_fee') {
     setStatus(b, 'requested', 'visit fee paid');
     simulateProviderAfterVisitFee(b);
@@ -446,6 +463,111 @@ function recordPaid(b: DemoBooking) {
       simulateProviderAfterBalance(b);
     } else logEvent(b, `change order v${q.version} paid`);
   }
+}
+
+function buildDemoReceipt(payment: Payment, booking: DemoBooking): PaymentReceipt {
+  const issuedAt = payment.paid_at ?? payment.created_at;
+  const prior = db.payments
+    .filter((item) =>
+      item.booking_id === booking.id
+      && item.id !== payment.id
+      && item.status === 'paid'
+      && item.funding_source !== 'coins'
+      && Date.parse(item.paid_at ?? item.created_at) <= Date.parse(issuedAt),
+    )
+    .sort((a, b) => (a.paid_at ?? a.created_at).localeCompare(b.paid_at ?? b.created_at));
+  const quote = db.quotes.find((item) => item.id === payment.quote_id)
+    ?? db.quotes.filter((item) => item.booking_id === booking.id).sort((a, b) => b.version - a.version)[0];
+  const items = (quote?.quote_items ?? []).map((item) => {
+    const amount = Math.round(item.qty * item.unit_price) * (item.kind === 'discount' ? -1 : 1);
+    return {
+      description: item.title,
+      kind: item.kind,
+      qty: item.qty,
+      unit_price: item.unit_price,
+      amount,
+    };
+  });
+  const subtotal = quote?.total ?? payment.amount;
+  const platformFee = payment.purpose === 'visit_fee' && booking.total_amount == null
+    ? 0
+    : booking.platform_fee;
+  const coinsDiscount = booking.coin_discount ?? 0;
+  const priorTotal = prior.reduce((sum, item) => sum + item.amount, 0);
+  const grossTotal = booking.total_amount ?? (
+    payment.purpose === 'visit_fee' && !quote
+      ? priorTotal + payment.amount
+      : requiredTotal(quote?.total ?? subtotal, booking.visit_fee, booking.platform_fee)
+  );
+  const total = Math.max(grossTotal - coinsDiscount, 0);
+  const sequence = db.payments
+    .filter((item) => (item.paid_at || item.status === 'paid') && item.funding_source !== 'coins')
+    .findIndex((item) => item.id === payment.id) + 1;
+  const receiptNo = `NR-${new Date(issuedAt).getFullYear()}-${String(sequence || demoReceiptSeq++).padStart(6, '0')}`;
+  const sourceRef = (payment as Payment & { razorpay_payment_id?: string | null }).razorpay_payment_id;
+  const refunds = (payment.refunds ?? []).map((refund, index) => ({
+    id: `demo-refund-${payment.id}-${index + 1}`,
+    payment_id: payment.id,
+    amount: refund.amount,
+    status: refund.status,
+    created_at: refund.created_at ?? issuedAt,
+    processed_at: refund.processed_at ?? null,
+  }));
+
+  return {
+    id: `demo-receipt-${payment.id}`,
+    receipt_no: receiptNo,
+    payment_id: payment.id,
+    booking_id: booking.id,
+    issued_at: issuedAt,
+    snapshot: {
+      receipt_no: receiptNo,
+      issued_at: issuedAt,
+      status: 'Paid',
+      booking_ref: bookingRef(booking.id),
+      category: categoryOf(booking.category_id)?.name ?? 'Service',
+      provider_display_name: nameOf(booking.provider_id),
+      customer_name: nameOf(booking.customer_id),
+      customer_locality: booking.address.area,
+      items: items.length > 0 ? items : [{
+        description: payment.purpose === 'visit_fee' ? 'Visit fee' : 'Service payment',
+        kind: payment.purpose,
+        qty: 1,
+        unit_price: payment.amount,
+        amount: payment.amount,
+      }],
+      subtotal,
+      platform_fee: platformFee,
+      tax_lines: [],
+      coins_discount: coinsDiscount,
+      total,
+      prior_payments: prior.map((item) => ({
+        amount: item.amount,
+        purpose: item.purpose,
+        method: 'Online payment',
+        gateway_ref: null,
+        paid_at: item.paid_at,
+      })),
+      this_payment: {
+        amount: payment.amount,
+        method: 'Online payment',
+        gateway_ref: sourceRef ?? null,
+        paid_at: payment.paid_at,
+      },
+      balance_due: Math.max(total - priorTotal - payment.amount, 0),
+      refunds: (payment.refunds ?? []).map((refund) => ({
+        amount: refund.amount,
+        status: refund.status,
+        processed_at: refund.processed_at ?? null,
+      })),
+      dispute_link: `/booking/${booking.id}`,
+      tax_invoice_url: null,
+    },
+    current_payment_status: payment.status,
+    current_refunds: refunds,
+    current_payment_is_demo: sourceRef?.startsWith('pay_demo_') === true,
+    read_at: nowIso(),
+  };
 }
 
 // ---------- simulated counterpart ("autopilot") ----------
@@ -1203,100 +1325,34 @@ export const demoApi: Api = {
     if ((features as unknown as Record<string, unknown> | null)?.payment_receipts !== true) return null;
 
     const payment = db.payments.find((item) => item.id === paymentId);
-    if (!payment || (!payment.paid_at && payment.status !== 'paid') || payment.funding_source === 'coins') return null;
+    if (!payment || !(
+      payment.status === 'paid'
+      || payment.status === 'refund_pending'
+      || payment.status === 'refund_processing'
+      || payment.status === 'refunded'
+    )
+      || payment.funding_source === 'coins') return null;
     const booking = db.bookings.find((item) => item.id === payment.booking_id);
     const me = uid();
     if (!booking || (booking.customer_id !== me && booking.provider_id !== me)) return null;
 
-    const issuedAt = payment.paid_at ?? payment.created_at;
-    const prior = db.payments
-      .filter((item) =>
-        item.booking_id === booking.id
-        && item.id !== payment.id
-        && item.status === 'paid'
-        && item.funding_source !== 'coins'
-        && Date.parse(item.paid_at ?? item.created_at) <= Date.parse(issuedAt),
-      )
-      .sort((a, b) => (a.paid_at ?? a.created_at).localeCompare(b.paid_at ?? b.created_at));
-    const quote = db.quotes.find((item) => item.id === payment.quote_id)
-      ?? db.quotes.filter((item) => item.booking_id === booking.id).sort((a, b) => b.version - a.version)[0];
-    const items = (quote?.quote_items ?? []).map((item) => {
-      const amount = Math.round(item.qty * item.unit_price) * (item.kind === 'discount' ? -1 : 1);
-      return {
-        description: item.title,
-        kind: item.kind,
-        qty: item.qty,
-        unit_price: item.unit_price,
-        amount,
-      };
+    const stored = demoReceipts.get(paymentId) ?? buildDemoReceipt(payment, booking);
+    if (!demoReceipts.has(paymentId)) demoReceipts.set(paymentId, stored);
+    const sourceRef = (payment as Payment & { razorpay_payment_id?: string | null }).razorpay_payment_id;
+    return clone({
+      ...stored,
+      current_payment_status: payment.status,
+      current_refunds: (payment.refunds ?? []).map((refund, index) => ({
+        id: `demo-refund-${payment.id}-${index + 1}`,
+        payment_id: payment.id,
+        amount: refund.amount,
+        status: refund.status,
+        created_at: refund.created_at ?? stored.issued_at,
+        processed_at: refund.processed_at ?? null,
+      })),
+      current_payment_is_demo: sourceRef?.startsWith('pay_demo_') === true,
+      read_at: nowIso(),
     });
-    const subtotal = quote?.total ?? payment.amount;
-    const platformFee = payment.purpose === 'visit_fee' && booking.total_amount == null
-      ? 0
-      : booking.platform_fee;
-    const coinsDiscount = booking.coin_discount ?? 0;
-    const priorTotal = prior.reduce((sum, item) => sum + item.amount, 0);
-    const grossTotal = booking.total_amount ?? (
-      payment.purpose === 'visit_fee' && !quote
-        ? priorTotal + payment.amount
-        : requiredTotal(quote?.total ?? subtotal, booking.visit_fee, booking.platform_fee)
-    );
-    const total = Math.max(grossTotal - coinsDiscount, 0);
-    const sequence = db.payments
-      .filter((item) => (item.paid_at || item.status === 'paid') && item.funding_source !== 'coins')
-      .findIndex((item) => item.id === payment.id) + 1;
-    const receiptNo = `NR-${new Date(issuedAt).getFullYear()}-${String(sequence || demoReceiptSeq++).padStart(6, '0')}`;
-
-    return {
-      id: `demo-receipt-${payment.id}`,
-      receipt_no: receiptNo,
-      payment_id: payment.id,
-      booking_id: booking.id,
-      issued_at: issuedAt,
-      snapshot: {
-        receipt_no: receiptNo,
-        issued_at: issuedAt,
-        status: 'Paid',
-        booking_ref: bookingRef(booking.id),
-        category: categoryOf(booking.category_id)?.name ?? 'Service',
-        provider_display_name: nameOf(booking.provider_id),
-        customer_name: nameOf(booking.customer_id),
-        customer_locality: booking.address.area,
-        items: items.length > 0 ? items : [{
-          description: payment.purpose === 'visit_fee' ? 'Visit fee' : 'Service payment',
-          kind: payment.purpose,
-          qty: 1,
-          unit_price: payment.amount,
-          amount: payment.amount,
-        }],
-        subtotal,
-        platform_fee: platformFee,
-        tax_lines: [],
-        coins_discount: coinsDiscount,
-        total,
-        prior_payments: prior.map((item) => ({
-          amount: item.amount,
-          purpose: item.purpose,
-          method: 'Online payment',
-          gateway_ref: null,
-          paid_at: item.paid_at,
-        })),
-        this_payment: {
-          amount: payment.amount,
-          method: 'Online payment',
-          gateway_ref: null,
-          paid_at: payment.paid_at,
-        },
-        balance_due: Math.max(total - priorTotal - payment.amount, 0),
-        refunds: (payment.refunds ?? []).map((refund) => ({
-          amount: refund.amount,
-          status: refund.status,
-          processed_at: null,
-        })),
-        dispute_link: `/booking/${booking.id}`,
-        tax_invoice_url: null,
-      },
-    } satisfies PaymentReceipt;
   },
 
   async getEvents(bookingId) {
@@ -1963,11 +2019,13 @@ export const demoControls = {
   reset(now?: number) {
     clearTimers();
     db = buildSeed(now);
+    stampDemoPaymentReferences();
     chatReads = {};
     session = null;
     sessionLoaded = true;
     bookingSeq = 1046;
     demoReceiptSeq = 1;
+    demoReceipts.clear();
     addressBook = {};
     pendingDeletionRequests.clear();
   },

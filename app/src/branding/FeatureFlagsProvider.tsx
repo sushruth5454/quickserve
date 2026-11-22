@@ -116,8 +116,12 @@ export function featureControlAfterRefreshError(
   return { ...current, freshness: hasValidFeatures ? 'error' : 'fallback' };
 }
 
-export function hasFeatureControlDecision(cacheReadSettled: boolean, hasValidLiveSnapshot: boolean): boolean {
-  return cacheReadSettled || hasValidLiveSnapshot;
+export function hasFeatureControlDecision(input: {
+  hasValidSnapshot: boolean;
+  cacheReadSettled: boolean;
+  latestLiveFetchFailed: boolean;
+}): boolean {
+  return input.hasValidSnapshot || (input.cacheReadSettled && input.latestLiveFetchFailed);
 }
 
 export function getGuestRouteDisposition(input: {
@@ -172,7 +176,13 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
       latestSettledSequence.current = sequence;
       latestSuccessfulSequence.current = sequence;
       hasValidFeatures.current = true;
-      setHydrationReady(hasFeatureControlDecision(cacheReadSettled.current, true));
+      setHydrationReady(
+        hasFeatureControlDecision({
+          hasValidSnapshot: true,
+          cacheReadSettled: cacheReadSettled.current,
+          latestLiveFetchFailed: false,
+        }),
+      );
       setSnapshot((current) => ({
         features: response.features,
         freshness: 'live',
@@ -194,6 +204,13 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
       latestSettledSequence.current = sequence;
       latestErrorSequence.current = sequence;
       setSnapshot((current) => featureControlAfterRefreshError(current, hasValidFeatures.current));
+      setHydrationReady(
+        hasFeatureControlDecision({
+          hasValidSnapshot: hasValidFeatures.current,
+          cacheReadSettled: cacheReadSettled.current,
+          latestLiveFetchFailed: sequence === requestSequence.current,
+        }),
+      );
     }
   }, []);
 
@@ -215,7 +232,14 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
       if (!mounted.current) return;
       cacheReadSettled.current = true;
       setHydrationReady(
-        hasFeatureControlDecision(cacheReadSettled.current, latestSuccessfulSequence.current > 0),
+        hasFeatureControlDecision({
+          hasValidSnapshot: hasValidFeatures.current,
+          cacheReadSettled: cacheReadSettled.current,
+          latestLiveFetchFailed:
+            requestSequence.current > 0 &&
+            latestSettledSequence.current === requestSequence.current &&
+            latestErrorSequence.current === requestSequence.current,
+        }),
       );
       startRefreshOnce();
     };
@@ -223,7 +247,14 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
     const handleCacheDeadline = () => {
       if (!mounted.current) return;
       setHydrationReady(
-        hasFeatureControlDecision(cacheReadSettled.current, latestSuccessfulSequence.current > 0),
+        hasFeatureControlDecision({
+          hasValidSnapshot: hasValidFeatures.current,
+          cacheReadSettled: cacheReadSettled.current,
+          latestLiveFetchFailed:
+            requestSequence.current > 0 &&
+            latestSettledSequence.current === requestSequence.current &&
+            latestErrorSequence.current === requestSequence.current,
+        }),
       );
       startRefreshOnce();
     };
