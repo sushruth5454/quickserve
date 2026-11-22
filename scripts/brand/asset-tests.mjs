@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstat, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Resvg } from '@resvg/resvg-js';
-import { exportSvg, renderSvg } from './export.mjs';
+import { exportSvg, renderSvg, solidBackgroundSvg } from './export.mjs';
 import { inspectAssetPng, validatePng } from './validate.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +36,28 @@ const expectedFiles = [
   { path: 'app/assets/brand/native/notification-icon.png', width: 96, height: 96, density: 'native', alpha: 'transparent', safeRule: 'white-on-transparent' },
   { path: 'app/assets/brand/native/favicon.png', width: 48, height: 48, density: 'native', alpha: 'transparent', safeRule: 'quarter-symbol-clear-space' },
 ];
+const approvedSvgSources = new Set([
+  'app/assets/brand/oorva-symbol.svg',
+  'app/assets/brand/oorva-wordmark-light.svg',
+  'app/assets/brand/oorva-wordmark-dark.svg',
+  'app/assets/brand/logo-horizontal-light.svg',
+  'app/assets/brand/logo-horizontal-dark.svg',
+  'app/assets/brand/logo-stacked-light.svg',
+  'app/assets/brand/logo-stacked-dark.svg',
+  'app/assets/brand/logo-horizontal-mono-black.svg',
+  'app/assets/brand/logo-horizontal-mono-ivory.svg',
+]);
+const approvedSvgViewBoxes = new Map([
+  ['app/assets/brand/oorva-symbol.svg', [0, 0, 256, 256]],
+  ['app/assets/brand/oorva-wordmark-light.svg', [0, 0, 1024, 256]],
+  ['app/assets/brand/oorva-wordmark-dark.svg', [0, 0, 1024, 256]],
+  ['app/assets/brand/logo-horizontal-light.svg', [0, 0, 1440, 400]],
+  ['app/assets/brand/logo-horizontal-dark.svg', [0, 0, 1440, 400]],
+  ['app/assets/brand/logo-stacked-light.svg', [0, 0, 720, 720]],
+  ['app/assets/brand/logo-stacked-dark.svg', [0, 0, 720, 720]],
+  ['app/assets/brand/logo-horizontal-mono-black.svg', [0, 0, 1440, 400]],
+  ['app/assets/brand/logo-horizontal-mono-ivory.svg', [0, 0, 1440, 400]],
+]);
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const PROFILE_KINDS = new Set(['sRGB', 'iCCP']);
@@ -53,6 +75,19 @@ function expectedRole(filePath) {
   if (filePath.endsWith('/native/notification-icon.png')) return 'notification-small-icon';
   if (filePath.endsWith('/native/favicon.png')) return 'favicon';
   return 'unknown';
+}
+
+function expectedSourceKind(filePath) {
+  return filePath.endsWith('/native/android-icon-background.png') ? 'solid-background' : 'svg';
+}
+
+function expectedSourcePath(filePath) {
+  const horizontal = filePath.match(/logo-horizontal-(light|dark)(?:@(?:2|3)x)?\.png$/);
+  if (horizontal) return `app/assets/brand/logo-horizontal-${horizontal[1]}.svg`;
+  const wordmark = filePath.match(/oorva-wordmark-(light|dark)(?:@(?:2|3)x)?\.png$/);
+  if (wordmark) return `app/assets/brand/oorva-wordmark-${wordmark[1]}.svg`;
+  if (filePath.includes('/logo-compact-') || filePath.includes('/native/')) return 'app/assets/brand/oorva-symbol.svg';
+  return null;
 }
 
 function sha256(buffer) {
@@ -368,9 +403,28 @@ async function runOorvaCheck() {
     expectValue(errors, `${label} canvas.width`, entry.export?.canvas?.width, definition.width);
     expectValue(errors, `${label} canvas.height`, entry.export?.canvas?.height, definition.height);
     expectValue(errors, `${label} density`, entry.export?.density, definition.density);
+    const transform = entry.export?.transform;
+    const expectedMode = expectedSourceKind(label) === 'solid-background' ? 'solid-background' : 'svg';
+    expectValue(errors, `${label} transform.mode`, transform?.mode, expectedMode);
+    expectValue(errors, `${label} transform.canvas.width`, transform?.canvas?.width, definition.width);
+    expectValue(errors, `${label} transform.canvas.height`, transform?.canvas?.height, definition.height);
+    expectValue(errors, `${label} transform.density`, transform?.density, definition.density);
+    const expectedBackground = ['app/assets/brand/native/icon.png', 'app/assets/brand/native/android-icon-background.png'].includes(label)
+      ? '#173d39'
+      : undefined;
+    const actualBackground = typeof transform?.background === 'string' ? transform.background.toLowerCase() : transform?.background;
+    expectValue(errors, `${label} transform.background`, actualBackground, expectedBackground);
+    const expectedSafeArea = [
+      'app/assets/brand/native/android-icon-foreground.png',
+      'app/assets/brand/native/android-icon-monochrome.png',
+      'app/assets/brand/native/splash-icon.png',
+      'app/assets/brand/native/splash-icon-dark.png',
+    ].includes(label) ? 'symbol-624' : undefined;
+    expectValue(errors, `${label} transform.safeArea`, transform?.safeArea, expectedSafeArea);
     expectValue(errors, `${label} alpha mode`, entry.alpha, definition.alpha);
     expect(errors, `${label} export sha256 format`, typeof entry.export?.sha256 === 'string' && HASH_PATTERN.test(entry.export.sha256), entry.export?.sha256, '64 lowercase hexadecimal characters');
     expect(errors, `${label} source sha256 format`, typeof entry.source?.sha256 === 'string' && HASH_PATTERN.test(entry.source.sha256), entry.source?.sha256, '64 lowercase hexadecimal characters');
+    expectValue(errors, `${label} source.kind`, entry.source?.kind, expectedSourceKind(label));
     expectValue(errors, `${label} approval.designSelection`, entry.approval?.designSelection, 'pending');
     expectValue(errors, `${label} approval.publicRights`, entry.approval?.publicRights, 'pending');
     expectValue(errors, `${label} selected`, entry.selected, false);
@@ -379,20 +433,31 @@ async function runOorvaCheck() {
     expect(errors, `${label} license.reference`, typeof entry.license?.reference === 'string' &&
       entry.license.reference.trim().length > 0 && !/^<.*>$/.test(entry.license.reference.trim()), entry.license?.reference, 'non-empty provenance/license reference; clearance remains pending');
 
-    let sourcePath;
+    let sourcePath = null;
+    let sourceRelativePath = null;
     let sourceBytes;
+    let sourceText;
     let outputBytes;
     try {
-      sourcePath = resolveBrandPath(entry.source?.path, `${label} source`);
-      if (!sourcePath.toLowerCase().endsWith('.svg')) {
-        throw new Error(`${label} source extension: actual=${JSON.stringify(entry.source?.path)} expected=.svg`);
+      if (expectedSourceKind(label) === 'solid-background') {
+        expectValue(errors, `${label} source.color`, entry.source?.color?.toLowerCase(), '#173d39');
+        sourceText = solidBackgroundSvg(entry.export.canvas, entry.source?.color);
+        sourceBytes = Buffer.from(sourceText, 'utf8');
+      } else {
+        sourceRelativePath = typeof entry.source?.path === 'string' ? entry.source.path.replaceAll('\\', '/') : null;
+        const expectedSource = expectedSourcePath(label);
+        expectValue(errors, `${label} source.path`, sourceRelativePath, expectedSource);
+        expect(errors, `${label} source allowlist`, Boolean(sourceRelativePath && approvedSvgSources.has(sourceRelativePath)), sourceRelativePath, [...approvedSvgSources]);
+        sourcePath = resolveBrandPath(sourceRelativePath, `${label} source`);
+        if (!sourcePath.toLowerCase().endsWith('.svg')) {
+          throw new Error(`${label} source extension: actual=${JSON.stringify(entry.source?.path)} expected=.svg`);
+        }
+        sourceBytes = await readRegularFile(sourcePath, `${label} source`);
+        sourceText = sourceBytes.toString('utf8');
       }
-      [sourceBytes, outputBytes] = await Promise.all([
-        readRegularFile(sourcePath, `${label} source`),
-        readRegularFile(path.join(repoRoot, ...label.split('/')), label),
-      ]);
+      outputBytes = await readRegularFile(path.join(repoRoot, ...label.split('/')), label);
     } catch (error) {
-      errors.push(`${label} files: actual=${JSON.stringify(error.message)} expected=present regular source SVG and PNG below app/assets/brand`);
+      errors.push(`${label} source/export files: actual=${JSON.stringify(error.message)} expected=approved regular SVG source or deterministic solid-background recipe, plus PNG below app/assets/brand`);
       continue;
     }
 
@@ -400,28 +465,32 @@ async function runOorvaCheck() {
     const outputHash = sha256(outputBytes);
     expectValue(errors, `${label} source.sha256`, entry.source?.sha256, sourceHash);
     expectValue(errors, `${label} export.sha256`, entry.export?.sha256, outputHash);
-    const sourceText = sourceBytes.toString('utf8');
-    const hrefValues = [...sourceText.matchAll(/(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi)].map((match) => match[1]);
-    const cssUrlValues = [...sourceText.matchAll(/url\(\s*["']?([^)"']+)["']?\s*\)/gi)].map((match) => match[1].trim());
-    const sourceSafety = {
-      hasSvgRoot: /<svg\b/i.test(sourceText),
-      usesTextOrFonts: /<(?:text|textPath|font)\b|font-family\s*=|@font-face/i.test(sourceText),
-      usesEmbeddedOrRasterImage: /<(?:image|feImage|script|foreignObject)\b/i.test(sourceText),
-      usesExternalXmlOrCss: /<!DOCTYPE\b|<!ENTITY\b|@import\b/i.test(sourceText),
-      externalReferences: [
-        ...hrefValues.filter((value) => !value.startsWith('#')),
-        ...cssUrlValues.filter((value) => !value.startsWith('#')),
-      ],
-    };
-    expect(errors, `${label} source SVG safety`, sourceSafety.hasSvgRoot && !sourceSafety.usesTextOrFonts &&
-      !sourceSafety.usesEmbeddedOrRasterImage && !sourceSafety.usesExternalXmlOrCss &&
-      sourceSafety.externalReferences.length === 0, sourceSafety, {
-      hasSvgRoot: true,
-      usesTextOrFonts: false,
-      usesEmbeddedOrRasterImage: false,
-      usesExternalXmlOrCss: false,
-      externalReferences: [],
-    });
+    if (expectedSourceKind(label) === 'svg') {
+      const hrefValues = [...sourceText.matchAll(/(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi)].map((match) => match[1]);
+      const cssUrlValues = [...sourceText.matchAll(/url\(\s*["']?([^)"']+)["']?\s*\)/gi)].map((match) => match[1].trim());
+      const sourceSafety = {
+        hasSvgRoot: /<svg\b/i.test(sourceText),
+        usesTextOrFonts: /<(?:text|textPath|font)\b|font-family\s*=|@font-face/i.test(sourceText),
+        usesEmbeddedOrRasterImage: /<(?:image|feImage|script|foreignObject)\b/i.test(sourceText),
+        usesExternalXmlOrCss: /<!DOCTYPE\b|<!ENTITY\b|@import\b/i.test(sourceText),
+        externalReferences: [
+          ...hrefValues.filter((value) => !value.startsWith('#')),
+          ...cssUrlValues.filter((value) => !value.startsWith('#')),
+        ],
+      };
+      const viewBoxMatch = sourceText.match(/\bviewBox\s*=\s*(["'])([^"']+)\1/i);
+      const actualViewBox = viewBoxMatch ? viewBoxMatch[2].trim().split(/[,\s]+/).map(Number) : null;
+      expectValue(errors, `${label} source viewBox`, actualViewBox, approvedSvgViewBoxes.get(sourceRelativePath));
+      expect(errors, `${label} source SVG safety`, sourceSafety.hasSvgRoot && !sourceSafety.usesTextOrFonts &&
+        !sourceSafety.usesEmbeddedOrRasterImage && !sourceSafety.usesExternalXmlOrCss &&
+        sourceSafety.externalReferences.length === 0, sourceSafety, {
+        hasSvgRoot: true,
+        usesTextOrFonts: false,
+        usesEmbeddedOrRasterImage: false,
+        usesExternalXmlOrCss: false,
+        externalReferences: [],
+      });
+    }
 
     let png;
     try {
@@ -449,16 +518,17 @@ async function runOorvaCheck() {
 
     let deterministic = false;
     try {
-      const regenerated = renderSvg(sourceText);
+      const regenerated = renderSvg(expectedSourceKind(label) === 'solid-background' ? null : sourceText, transform);
       deterministic = regenerated.equals(outputBytes);
       expect(errors, `${label} deterministic source/export`, deterministic, {
-        source: entry.source?.path,
+        source: entry.source?.path ?? { kind: entry.source?.kind, color: entry.source?.color },
+        transform,
         sourceSha256: sourceHash,
         renderedSha256: sha256(regenerated),
         exportedSha256: outputHash,
         renderedBytes: regenerated.length,
         exportedBytes: outputBytes.length,
-      }, 'renderSvg(source) byte-for-byte equals exported PNG');
+      }, 'pinned Resvg regeneration from declared source+transform byte-for-byte equals PNG');
     } catch (error) {
       errors.push(`${label} deterministic render: actual=${JSON.stringify(error.message)} expected=successful pinned @resvg render`);
     }
@@ -466,7 +536,7 @@ async function runOorvaCheck() {
     const summary = {
       export: label,
       role: expectedRole(label),
-      source: entry.source?.path,
+      source: entry.source?.path ?? { kind: entry.source?.kind, color: entry.source?.color },
       sourceSha256: sourceHash,
       sha256: outputHash,
       width: png.width,
@@ -480,7 +550,7 @@ async function runOorvaCheck() {
       approval: { designSelection: 'pending', publicRights: 'pending' },
     };
     summaries.push(summary);
-    if (label.includes('logo-compact-')) compact.set(label, { png, sourcePath: entry.source.path, sourceText });
+    if (label.includes('logo-compact-')) compact.set(label, { png, sourcePath: entry.source.path, sourceText, transform });
   }
 
   const inspections = [];
@@ -496,12 +566,13 @@ async function runOorvaCheck() {
     for (const size of [20, 32, 48]) {
       let rendered;
       try {
-        rendered = new Resvg(base.sourceText, {
-          fitTo: { mode: 'width', value: size },
-          font: { loadSystemFonts: false },
-        }).render().asPng();
+        rendered = renderSvg(base.sourceText, {
+          ...base.transform,
+          canvas: { width: size, height: size },
+          density: 1,
+        });
       } catch (error) {
-        errors.push(`compact ${theme} ${size}px source render NOT VERIFIED: actual=${JSON.stringify(error.message)} expected=pinned @resvg render`);
+        errors.push(`compact ${theme} ${size}px source render NOT VERIFIED: actual=${JSON.stringify(error.message)} expected=pinned O37A transform render`);
         continue;
       }
       let inspectionPng;
@@ -548,6 +619,109 @@ async function runOorvaCheck() {
   };
 }
 
+function runTransformSelftests() {
+  const svg = (width, height, contents) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${contents}</svg>`;
+  const transformCases = [
+    {
+      name: 'horizontal-density-1',
+      source: svg(1440, 400, '<rect width="1440" height="400" fill="#173D39"/>'),
+      transform: { mode: 'svg', canvas: { width: 360, height: 100 }, density: 1 },
+      canvas: { width: 360, height: 100 },
+    },
+    {
+      name: 'wordmark-density-1',
+      source: svg(1024, 256, '<rect width="1024" height="256" fill="#173D39"/>'),
+      transform: { mode: 'svg', canvas: { width: 256, height: 64 }, density: 1 },
+      canvas: { width: 256, height: 64 },
+    },
+    ...[32, 64, 96].map((size) => ({
+      name: `symbol-${size}`,
+      source: svg(256, 256, '<circle cx="128" cy="128" r="104" fill="#173D39"/>'),
+      transform: { mode: 'svg', canvas: { width: size, height: size }, density: size / 32 },
+      canvas: { width: size, height: size },
+    })),
+  ];
+
+  for (const testCase of transformCases) {
+    const first = renderSvg(testCase.source, testCase.transform);
+    const second = renderSvg(testCase.source, testCase.transform);
+    assert.deepEqual(first, second, `${testCase.name} deterministic bytes actual=${sha256(first)} expected=${sha256(second)}`);
+    const actual = validatePng(first);
+    assert.deepEqual(
+      { width: actual.width, height: actual.height },
+      testCase.canvas,
+      `${testCase.name} fitted canvas actual=${JSON.stringify({ width: actual.width, height: actual.height })} expected=${JSON.stringify(testCase.canvas)}`,
+    );
+  }
+
+  const composedSource = svg(32, 32, '<rect x="8" y="8" width="16" height="16" fill="#173D39"/>');
+  const composedTransform = {
+    mode: 'svg',
+    canvas: { width: 32, height: 32 },
+    density: 1,
+    recolor: { '#173D39': '#F7F5EF' },
+    background: '#173D39',
+  };
+  const composed = inspectAssetPng(renderSvg(composedSource, composedTransform));
+  const corner = composed.rgba.subarray(0, 3);
+  const centerOffset = (16 * composed.width + 16) * 4;
+  const center = composed.rgba.subarray(centerOffset, centerOffset + 3);
+  assert.deepEqual([...corner], [23, 61, 57], `background composition corner actual=${JSON.stringify([...corner])} expected=[23,61,57]`);
+  assert.deepEqual([...center], [247, 245, 239], `palette recolor center actual=${JSON.stringify([...center])} expected=[247,245,239]`);
+  assert.equal(composed.alpha.transparentPixels, 0, `background must make canvas opaque actual=${composed.alpha.transparentPixels} expected=0`);
+
+  const transparent = inspectAssetPng(renderSvg(transformCases[3].source, transformCases[3].transform));
+  assert.ok(transparent.alpha.transparentPixels > 0, `transparent symbol alpha actual=${transparent.alpha.transparentPixels} expected>0`);
+
+  const solidBackground = inspectAssetPng(renderSvg(null, {
+    mode: 'solid-background',
+    canvas: { width: 1024, height: 1024 },
+    density: 'native',
+    background: '#173D39',
+  }));
+  assert.deepEqual(
+    { width: solidBackground.width, height: solidBackground.height, transparentPixels: solidBackground.alpha.transparentPixels, uniformColor: solidBackground.uniformColor },
+    { width: 1024, height: 1024, transparentPixels: 0, uniformColor: true },
+    `solid native background actual=${JSON.stringify({ width: solidBackground.width, height: solidBackground.height, alpha: solidBackground.alpha, uniformColor: solidBackground.uniformColor })}`,
+  );
+
+  const safeFit = inspectAssetPng(renderSvg(svg(256, 256, '<circle cx="128" cy="128" r="100" fill="#173D39"/>'), {
+    mode: 'svg',
+    canvas: { width: 1024, height: 1024 },
+    density: 'native',
+    safeArea: 'symbol-624',
+  }));
+  const safeFitMetrics = countOutsideCenteredCircle(safeFit.rgba, safeFit.width, safeFit.height, 624);
+  assert.deepEqual(
+    { width: safeFit.width, height: safeFit.height, outsidePixels: safeFitMetrics.outsidePixels },
+    { width: 1024, height: 1024, outsidePixels: 0 },
+    `symbol-624 safe-area fit actual=${JSON.stringify({ width: safeFit.width, height: safeFit.height, outsidePixels: safeFitMetrics.outsidePixels })}`,
+  );
+
+  const invalidCases = [
+    ['invalid aspect ratio', () => renderSvg(transformCases[0].source, { mode: 'svg', canvas: { width: 360, height: 99 }, density: 1 }), /aspect ratio/],
+    ['invalid viewBox origin', () => renderSvg(svg(32, 32, '<rect width="32" height="32" fill="#173D39"/>').replace('viewBox="0 0 32 32"', 'viewBox="1 0 32 32"'), { mode: 'svg', canvas: { width: 32, height: 32 }, density: 1 }), /viewBox origin/],
+    ['invalid density', () => renderSvg(transformCases[0].source, { mode: 'svg', canvas: { width: 360, height: 100 }, density: 4 }), /density/],
+    ['unapproved recolor', () => renderSvg(composedSource, { ...composedTransform, recolor: { '#173D39': '#FF0000' } }), /palette/],
+    ['unsupported transform key', () => renderSvg(composedSource, { ...composedTransform, blur: 2 }), /unknown transform/],
+    ['unsupported safe area', () => renderSvg(composedSource, { ...composedTransform, safeArea: 'arbitrary-box' }), /safeArea/],
+    ['external SVG source', () => renderSvg(svg(32, 32, '<image href="https://invalid.example/image.png"/>'), { mode: 'svg', canvas: { width: 32, height: 32 }, density: 1 }), /external|embedded|font/],
+    ['system font SVG source', () => renderSvg(svg(32, 32, '<text x="0" y="16" font-family="Inter">x</text>'), { mode: 'svg', canvas: { width: 32, height: 32 }, density: 1 }), /external|embedded|font/],
+  ];
+  for (const [name, action, message] of invalidCases) {
+    let caught;
+    try {
+      action();
+    } catch (error) {
+      caught = error;
+    }
+    assert.ok(caught instanceof Error, `${name} must reject actual=${JSON.stringify(caught)} expected=Error`);
+    assert.match(caught.message, message, `${name} rejection actual=${JSON.stringify(caught.message)} expected=${JSON.stringify(message)}`);
+  }
+  return { fittedCanvases: transformCases.map(({ name, canvas }) => ({ name, ...canvas })), composed: true, solidBackground: true, safeArea: 'symbol-624', invalidCasesRejected: invalidCases.length };
+}
+
 export async function runSelftest() {
   const input = path.join(here, 'fixtures', 'export-selftest.svg');
   const fixture = await readFile(input, 'utf8');
@@ -563,17 +737,59 @@ export async function runSelftest() {
     { width: inspected.width, height: inspected.height, colorType: inspected.colorType, hasTransparentPixels: inspected.alpha.transparentPixels > 0, hasVisiblePixels: inspected.alpha.opaquePixels + inspected.alpha.partialAlphaPixels > 0 },
     { width: 64, height: 64, colorType: 6, hasTransparentPixels: true, hasVisiblePixels: true },
   );
+  const transforms = runTransformSelftests();
 
   const output = path.join(here, 'fixtures', `.export-selftest-${randomUUID()}.png`);
+  const transformedOutput = path.join(here, 'fixtures', `.export-transform-selftest-${randomUUID()}.png`);
+  const solidBackgroundOutput = path.join(here, 'fixtures', `.export-background-selftest-${randomUUID()}.png`);
+  const fitTransform = JSON.stringify({ mode: 'svg', canvas: { width: 32, height: 32 }, density: 1 });
+  const backgroundTransform = JSON.stringify({
+    mode: 'solid-background',
+    canvas: { width: 32, height: 32 },
+    density: 'native',
+    background: '#173D39',
+  });
+  const expectedSolidSourceHash = sha256(Buffer.from(solidBackgroundSvg({ width: 32, height: 32 }, '#173D39'), 'utf8'));
   try {
     await exportSvg({ input, output, mode: 'write' });
     await exportSvg({ input, output, mode: 'check' });
     await writeFile(output, Buffer.from('stale'));
     await assert.rejects(exportSvg({ input, output, mode: 'check' }), /Export is stale/);
+
+    for (const [name, args, expectedOutput, expectedSourceHash] of [
+      ['fitted CLI export', ['--write', '--input', input, '--output', transformedOutput, '--transform', fitTransform], transformedOutput, sha256(await readFile(input))],
+      ['solid-background CLI export', ['--write', '--output', solidBackgroundOutput, '--transform', backgroundTransform], solidBackgroundOutput, expectedSolidSourceHash],
+    ]) {
+      const written = spawnSync(process.execPath, [path.join(here, 'export.mjs'), ...args], { cwd: here, encoding: 'utf8' });
+      assert.equal(written.status, 0, `${name} write failed actual=${JSON.stringify({ status: written.status, stdout: written.stdout, stderr: written.stderr })} expected=status 0`);
+      const writeReport = JSON.parse(String(written.stdout ?? '').trim());
+      assert.equal(writeReport.sourceSha256, expectedSourceHash, `${name} source hash actual=${JSON.stringify(writeReport.sourceSha256)} expected=${JSON.stringify(expectedSourceHash)}`);
+      const checkArgs = ['--check'];
+      if (name === 'fitted CLI export') checkArgs.push('--input', input);
+      checkArgs.push('--output', expectedOutput, '--transform', name === 'fitted CLI export' ? fitTransform : backgroundTransform);
+      const checked = spawnSync(process.execPath, [path.join(here, 'export.mjs'), ...checkArgs], { cwd: here, encoding: 'utf8' });
+      assert.equal(checked.status, 0, `${name} check failed actual=${JSON.stringify({ status: checked.status, stdout: checked.stdout, stderr: checked.stderr })} expected=status 0`);
+      const checkReport = JSON.parse(String(checked.stdout ?? '').trim());
+      assert.deepEqual(
+        { sourceSha256: checkReport.sourceSha256, sha256: checkReport.sha256 },
+        { sourceSha256: expectedSourceHash, sha256: writeReport.sha256 },
+        `${name} check report actual=${JSON.stringify({ sourceSha256: checkReport.sourceSha256, sha256: checkReport.sha256 })}`,
+      );
+    }
+
+    const fittedMetadata = validatePng(await readFile(transformedOutput), { width: 32, height: 32 });
+    const solidMetadata = inspectAssetPng(await readFile(solidBackgroundOutput));
+    assert.deepEqual({ width: fittedMetadata.width, height: fittedMetadata.height }, { width: 32, height: 32 });
+    assert.deepEqual(
+      { width: solidMetadata.width, height: solidMetadata.height, transparentPixels: solidMetadata.alpha.transparentPixels, uniformColor: solidMetadata.uniformColor },
+      { width: 32, height: 32, transparentPixels: 0, uniformColor: true },
+    );
   } finally {
     await unlink(output).catch(() => undefined);
+    await unlink(transformedOutput).catch(() => undefined);
+    await unlink(solidBackgroundOutput).catch(() => undefined);
   }
-  return { fixture: 'export-selftest.svg', width: 64, height: 64, deterministic: true, writeCheck: true };
+  return { fixture: 'export-selftest.svg', width: 64, height: 64, deterministic: true, writeCheck: true, transformSelftest: transforms };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

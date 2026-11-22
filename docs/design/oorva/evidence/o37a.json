@@ -225,6 +225,75 @@
       "D03c": "PENDING",
       "TOOL-ASSETS-MAIN": "PENDING"
     },
+    "exportTransformFixForward": {
+      "canonicalStage": "O37A remains DONE; this is a TOOL-ASSETS-MAIN fix-forward, not a new product stage or WP alias.",
+      "baseSha": "21596936c6c6a300017a9d295e44d309b2746fc8",
+      "reportedMismatch": "The prior exporter rendered at intrinsic SVG dimensions while the O01X checker required byte-equality with those unscaled bytes for every density/native canvas.",
+      "contract": {
+        "svgMode": {
+          "mode": "svg",
+          "canvas": "Exact positive A.4.1 target canvas; must preserve source viewBox aspect ratio.",
+          "density": "1, 2, 3, or native; must match export.density.",
+          "recolor": "Optional six-digit hex map over fill/stroke/stop-color only; both ends must be from the approved Oorva palette.",
+          "background": "Optional approved solid color inserted behind source vector geometry.",
+          "safeArea": "Optional symbol-624 fit only for 1024-square Android foreground/monochrome and splash outputs; maps the source central 208-square ink safe box into a centered 624-square output box."
+        },
+        "solidBackgroundMode": {
+          "mode": "solid-background",
+          "source": {
+            "kind": "solid-background",
+            "color": "#173D39",
+            "sha256": "SHA-256 of deterministic in-memory SVG source generated from the declared canvas and color."
+          },
+          "output": "Only app/assets/brand/native/android-icon-background.png; no source file or app destination is created."
+        },
+        "cli": {
+          "svg": "node export.mjs --write --input <approved.svg> --output <candidate.png> --transform '<JSON transform>'",
+          "solidBackground": "node export.mjs --write --output <candidate.png> --transform '<JSON with mode solid-background, canvas, density, background>'",
+          "check": "Use the same arguments with --check; output must be byte-identical to regeneration."
+        },
+        "approvedColors": {
+          "forest": "#173D39",
+          "ivory": "#F7F5EF",
+          "black": "#000000",
+          "white": "#FFFFFF"
+        },
+        "approvedSvgSources": [
+          "app/assets/brand/oorva-symbol.svg",
+          "app/assets/brand/oorva-wordmark-light.svg",
+          "app/assets/brand/oorva-wordmark-dark.svg",
+          "app/assets/brand/logo-horizontal-light.svg",
+          "app/assets/brand/logo-horizontal-dark.svg",
+          "app/assets/brand/logo-stacked-light.svg",
+          "app/assets/brand/logo-stacked-dark.svg",
+          "app/assets/brand/logo-horizontal-mono-black.svg",
+          "app/assets/brand/logo-horizontal-mono-ivory.svg"
+        ],
+        "compatibility": "renderSvg(source) and exportSvg without transform retain intrinsic-size output; transformed paths use fitTo width, loadSystemFonts=false, exact canvas validation, and byte-for-byte regeneration."
+      },
+      "selftestCases": [
+        "1440x400 horizontal source -> 360x100",
+        "1024x256 wordmark source -> 256x64",
+        "256-square symbol -> 32x32, 64x64, and 96x96",
+        "Deterministic palette recolor, solid background composition, and transparent/opaque alpha assertions",
+        "1024-square solid forest background generated from an in-memory SVG source",
+        "256-square symbol safeArea fit into a centered 624-square 1024 canvas; Android alpha pixels are separately checked against the centered 624-diameter circle.",
+        "Reject mismatched aspect ratio, non-zero viewBox origin, invalid density, unapproved colors, unknown transform keys, external resources, and system-font SVG text",
+        "Exercise fitted and solid-background CLI --write/--check against byte-identical regeneration"
+      ],
+      "runtimeAndApproval": {
+        "newDependencies": false,
+        "systemFonts": false,
+        "externalAssets": false,
+        "sourceManifestEdited": false,
+        "O01XManifestOrPngsCreated": false,
+        "nativeOrRuntimeDestinationsEdited": false,
+        "D03b": "PENDING",
+        "D03c": "PENDING",
+        "TOOL-ASSETS-MAIN": "PENDING",
+        "O01X": "BLOCKED until actual assets selector and integration-batch private e2e-local pass."
+      }
+    },
     "driftFromFrozenPlan": {
       "workerFiles": {
         "scripts\\brand\\asset-tests.mjs": "Absent at P; present at base with --selftest only.",
@@ -240,6 +309,7 @@
       ]
     },
     "workerOwnedFiles": [
+      "scripts\\brand\\export.mjs",
       "scripts\\brand\\asset-tests.mjs",
       "scripts\\brand\\validate.mjs",
       "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts",
@@ -269,8 +339,10 @@
       },
       "fileEntryRequired": {
         "source": {
-          "path": "Existing regular SVG below app/assets/brand; exporter renders this file directly.",
-          "sha256": "<SHA-256 of exact SVG bytes>"
+          "kind": "svg or solid-background.",
+          "path": "For kind svg, exact approved A.4.1 master path under app/assets/brand.",
+          "color": "For solid-background only, exact approved forest color #173D39; no external source file.",
+          "sha256": "SHA-256 of exact approved SVG bytes, or canonical in-memory solid-background SVG bytes."
         },
         "export": {
           "path": "Exact app/assets/brand-relative allowlisted PNG path, slash-normalized.",
@@ -280,7 +352,15 @@
             "width": "Exact A.4.1 canvas width.",
             "height": "Exact A.4.1 canvas height."
           },
-          "density": "1, 2, 3 for density variants; native for native-source files."
+          "density": "1, 2, 3 for density variants; native for native-source files.",
+          "transform": {
+            "mode": "svg or solid-background",
+            "canvas": "Exact same width/height as export.canvas.",
+            "density": "Exact same density as export.density.",
+            "recolor": "Optional approved Oorva hex-color map.",
+            "background": "Optional approved solid fill; forest for native icon.",
+            "safeArea": "Optional exact token symbol-624 for A.4.1 safe-area-limited native outputs."
+          }
         },
         "alpha": "transparent or opaque, verified against decoded pixels.",
         "colorProfile": "Embedded sRGB chunk with renderingIntent, or valid iCCP chunk with name and profile SHA-256.",
@@ -308,6 +388,15 @@
         "app/assets/brand/native/splash-icon-dark.png": "splash-icon-dark",
         "app/assets/brand/native/notification-icon.png": "notification-small-icon",
         "app/assets/brand/native/favicon.png": "favicon"
+      },
+      "approvedColorHexes": ["#173D39", "#F7F5EF", "#000000", "#FFFFFF"],
+      "sourcePathByOutput": {
+        "logo-horizontal-light*.png": "logo-horizontal-light.svg",
+        "logo-horizontal-dark*.png": "logo-horizontal-dark.svg",
+        "oorva-wordmark-light*.png": "oorva-wordmark-light.svg",
+        "oorva-wordmark-dark*.png": "oorva-wordmark-dark.svg",
+        "logo-compact-* and native symbol candidates": "oorva-symbol.svg",
+        "native/android-icon-background.png": "solid-background recipe; canonical source hash, no SVG file."
       },
       "allowlist": [
         { "path": "app/assets/brand/logo-horizontal-light.png", "canvas": "360x100", "density": 1, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
@@ -337,9 +426,44 @@
         { "path": "app/assets/brand/native/notification-icon.png", "canvas": "96x96", "density": "native", "alpha": "transparent", "safeZone": "white-on-transparent" },
         { "path": "app/assets/brand/native/favicon.png", "canvas": "48x48", "density": "native", "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" }
       ],
-      "determinism": "For every entry, SHA-256 the SVG and PNG, then require renderSvg(source SVG) from pinned @resvg/resvg-js to equal the PNG byte-for-byte.",
+      "determinism": "For every entry, SHA-256 its declared SVG or canonical solid-background source and PNG, then require the pinned O37A transform to regenerate the PNG byte-for-byte. The transform canvas/density must exactly match export.canvas/export.density.",
       "notVerifiedBehavior": "Missing profile chunks or any unavailable evidence is reported NOT VERIFIED and fails; no success-shaped skip.",
-      "inspection20_32_48": "For each compact theme, the runner uses pinned @resvg/resvg-js with loadSystemFonts=false and fitTo width 20, 32, and 48 to render the declared SVG source directly; it reports visible-pixel bounds and rechecks the central 208-square safe zone."
+      "inspection20_32_48": "For each compact theme, the runner uses pinned O37A renderSvg with its declared recolor and loadSystemFonts=false, fit to width 20, 32, and 48; it reports visible-pixel bounds and rechecks the central 208-square safe zone."
+    },
+    "exportTransformFixForward": {
+      "state": "CODESPACE_PASS_LANE_CI_PENDING",
+      "branch": "lane/oorva-o37a-export-contract",
+      "baseSha": "21596936c6c6a300017a9d295e44d309b2746fc8",
+      "workerOwnedFiles": [
+        "scripts\\brand\\export.mjs",
+        "scripts\\brand\\asset-tests.mjs",
+        "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts",
+        "docs\\design\\oorva\\evidence\\o37a.json"
+      ],
+      "selftestExecution": "Codespace app test invokes node asset-tests.mjs --selftest when CS_EXPECT is present. The lane CI app job explicitly skips this renderer-dependent case; the existing lane tooling job installs the pinned @resvg tool and runs the same selftest.",
+      "validation": {
+        "helperSource": "origin/main:scripts/cs-test.ps1 at 21596936c6c6a300017a9d295e44d309b2746fc8",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter executionInfrastructure",
+        "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-o37a-export-contract",
+        "wipSnapshotBranch": "wip/qs-o37a-export-contract",
+        "wipSnapshotSha": "d16c9f88fc163b7c34f566a2d1d68c01da382ce2",
+        "selectedJestSuites": 1,
+        "testsPassed": 8,
+        "typescript": "PASS",
+        "transformSelftest": "PASS through executionInfrastructure.test.ts; renderer fit, palette/background, alpha, safe area, CLI write/check, source hashes and 8 invalid cases.",
+        "result": "cs-test result: PASS",
+        "assetsSuiteInvoked": false,
+        "lanePushed": false,
+        "laneCi": "PENDING"
+      },
+      "authorization": {
+        "E1": "APPROVED",
+        "D03a": "APPROVED",
+        "D03b": "PENDING",
+        "D03c": "PENDING",
+        "TOOL-ASSETS-MAIN": "PENDING",
+        "O01X": "BLOCKED"
+      }
     },
     "coordinatorRegistrationRequest": {
       "scripts\\cs-test.ps1": "Add 'assets' to the Suite ValidateSet only; keep all existing suites unchanged.",

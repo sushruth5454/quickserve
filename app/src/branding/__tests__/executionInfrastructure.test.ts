@@ -96,6 +96,15 @@ describe('isolated execution infrastructure', () => {
     }
   });
 
+  if (process.env.CS_EXPECT) {
+    test('runs the pinned O37A transform selftest in Codespace', () => {
+      const result = runNode(assetTests, ['--selftest']);
+      expectCommand(result, { status: 0, stdout: '"invalidCasesRejected":8' });
+    });
+  } else {
+    test.skip('runs the pinned O37A transform selftest in Codespace; lane tooling job runs it', () => undefined);
+  }
+
   test('guards the registered Oorva assets-suite helper route', () => {
     const helperText = readFileSync(codespaceHelper, 'utf8');
     const runnerText = readFileSync(codespaceRunner, 'utf8');
