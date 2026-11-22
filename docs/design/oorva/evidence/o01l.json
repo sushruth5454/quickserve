@@ -1,0 +1,85 @@
+{
+  "stage": "O01L",
+  "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "5c37fc2691adf5cedaf5826131caff234711af95",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "sourceTaskId": null,
+  "gates": {
+    "E0": "APPROVED",
+    "D03a": "APPROVED_AUTHORING_ONLY",
+    "D03b": "PENDING",
+    "D03c": "PENDING"
+  },
+  "sourceDrift": {
+    "comparison": "Exact O01L owned paths only: frozen plan P against implementation base 5c37fc2, then implementation base against origin/main.",
+    "changedPaths": [],
+    "currentMainChangedPaths": [],
+    "preservationRationale": "No O01L-owned path changed between frozen P and the implementation base or between the base and origin/main. Existing current-main work outside the exact O01L file set was preserved and left untouched. The existing PNGs and their manifest were read as unapproved direction only; no exploration asset, runtime file, app configuration, or shared registration was modified."
+  },
+  "authorship": {
+    "concept": "Connected O",
+    "wordmark": "Custom outlined lowercase oorva",
+    "authoringScope": "Original paths and lockup geometry only; no PNG export, native asset copy, or runtime integration."
+  },
+  "smallSizeEvidence": {
+    "sourceViewBoxWidth": 256,
+    "upperArcEndpoints": [
+      [49, 161],
+      [207, 161]
+    ],
+    "lowerArcEndpoints": [
+      [49, 89],
+      [207, 89]
+    ],
+    "strokeWidths": [28, 28],
+    "gapFormula": "abs(upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2, then multiply by logicalSizePx / 256",
+    "gapUnitsAtBothOpenings": 44,
+    "checks": [
+      {
+        "logicalSizePx": 20,
+        "leftGapPx": 3.4375,
+        "rightGapPx": 3.4375,
+        "status": "open"
+      },
+      {
+        "logicalSizePx": 32,
+        "leftGapPx": 5.5,
+        "rightGapPx": 5.5,
+        "status": "open"
+      },
+      {
+        "logicalSizePx": 48,
+        "leftGapPx": 8.25,
+        "rightGapPx": 8.25,
+        "status": "open"
+      }
+    ],
+    "limitation": "Reproducible vector-endpoint and stroke-cap measurement; no raster export, device rendering, or runtime use is claimed."
+  },
+  "taglineContrast": {
+    "text": "Your world, closer.",
+    "fontFamily": "Inter",
+    "fontWeight": 400,
+    "background": "#F7F5EF",
+    "textColor": "#344B65",
+    "channelLinearization": "cLinear = cSrgb / 12.92 when cSrgb <= 0.04045; otherwise ((cSrgb + 0.055) / 1.055) ^ 2.4",
+    "relativeLuminance": "L = 0.2126 * RLinear + 0.7152 * GLinear + 0.0722 * BLinear",
+    "contrastRatio": "(max(Lbackground, Ltext) + 0.05) / (min(Lbackground, Ltext) + 0.05)",
+    "backgroundLuminance": 0.913109675065,
+    "textLuminance": 0.067018036987,
+    "ratio": 8.230437801426,
+    "minimum": 4.5,
+    "result": "pass"
+  },
+  "approvalStatus": {
+    "candidateOnly": true,
+    "production_ready": false,
+    "D03a": "APPROVED_AUTHORING_ONLY",
+    "D03b": "PENDING",
+    "D03c": "PENDING",
+    "finalSelection": false,
+    "publicReleaseAllowed": false
+  }
+}
