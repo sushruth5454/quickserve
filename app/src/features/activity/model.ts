@@ -1,4 +1,5 @@
 import type { Frequency, PlanStatus } from '../recurring/types';
+import { nextRecurringOccurrence } from '../recurring/customerPresentation';
 
 export interface ActivityUnreadCounts {
   services: number;
@@ -68,6 +69,10 @@ export function planFrequencyLabel(plan: ActivityPlanSummary['plan']) {
     .filter(Boolean)
     .join(', ');
   return days ? `${frequency} · ${days}` : frequency;
+}
+
+export function nextActivityPlanOccurrence(plan: ActivityPlanSummary, now = Date.now()) {
+  return nextRecurringOccurrence(plan.occurrences, now);
 }
 
 export function fmtDate(iso: string) {

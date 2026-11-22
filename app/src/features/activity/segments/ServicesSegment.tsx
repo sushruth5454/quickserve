@@ -19,6 +19,7 @@ import { useTheme } from '../../../theme';
 import { activityReceiptLabel, shouldShowPaymentReceipt } from '../../receipts/formatReceipt';
 import { listMyRecurringPlans } from '../../recurring/api';
 import { shouldShowRepeatPlansFilter } from '../../recurring/customerPresentation';
+import { nextActivityPlanOccurrence } from '../model';
 import { bookAgainRoute, shouldShowBookAgain } from '../bookAgain';
 import { fmtDate, parseActivityPlans, planFrequencyLabel, type ActivityPlanSummary } from '../model';
 import type { MarkRead, RegisterRefresh } from './types';
@@ -148,9 +149,7 @@ export function ServicesSegment({ registerRefresh, markRead }: { registerRefresh
           <EmptyState icon="repeat-outline" title="No repeat plans yet" message="Repeat service requests you create will appear here." />
         ) : (
           plans.map((item) => {
-            const nextVisit = item.occurrences
-              .filter((visit) => new Date(visit.scheduled_at).getTime() >= Date.now())
-              .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0];
+            const nextVisit = nextActivityPlanOccurrence(item);
             return (
               <Card
                 key={item.plan.id}

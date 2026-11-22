@@ -1,6 +1,12 @@
 import { formatINR } from '../../lib/money';
 import { calculateRecurringDates } from './dates';
-import type { BillingFrequency, PlanStatus, RecurringPlanInput, RecurringQuote } from './types';
+import type {
+  BillingFrequency,
+  PlanStatus,
+  RecurringPlanCapabilities,
+  RecurringPlanInput,
+  RecurringQuote,
+} from './types';
 
 export type BookingModeOption = 'one-time' | 'repeat';
 export type FixedBookingModeOption = 'one-time' | 'repeat';
@@ -27,7 +33,21 @@ export function visibleBillingFrequencies(configured: readonly BillingFrequency[
 }
 
 export function getRecurringQuoteSummary(quote: RecurringQuote) {
-  return {
+  const summary: {
+    perVisitPaise: number;
+    visitsInFirstCycle: number;
+    visitsTotal: number | null;
+    discountPaise: number;
+    platformFeePaise: number;
+    gstPaise: number;
+    totalPaisePerCycle: number;
+    billingFrequency: BillingFrequency;
+    firstDates: string[];
+    acceptanceMode?: 'plan' | 'occurrence';
+    paymentDueHoursBefore?: number;
+    billingGraceHours?: number;
+    paymentReleaseCutoffMinutesBeforeVisit?: number;
+  } = {
     perVisitPaise: quote.per_visit_paise,
     visitsInFirstCycle: quote.visits_in_first_cycle,
     visitsTotal: quote.visits_total,
@@ -38,35 +58,68 @@ export function getRecurringQuoteSummary(quote: RecurringQuote) {
     billingFrequency: quote.billing_frequency,
     firstDates: quote.first_dates.slice(0, 5),
   };
+  if (quote.acceptance_mode === 'plan' || quote.acceptance_mode === 'occurrence') {
+    summary.acceptanceMode = quote.acceptance_mode;
+  }
+  const window = quote.payment_window;
+  if (
+    typeof window?.due_hours_before === 'number' &&
+    Number.isSafeInteger(window.due_hours_before) &&
+    window.due_hours_before >= 0
+  ) {
+    summary.paymentDueHoursBefore = window.due_hours_before;
+  }
+  if (
+    typeof window?.grace_hours === 'number' &&
+    Number.isSafeInteger(window.grace_hours) &&
+    window.grace_hours >= 0
+  ) {
+    summary.billingGraceHours = window.grace_hours;
+  }
+  if (
+    typeof window?.release_cutoff_minutes_before_visit === 'number' &&
+    Number.isSafeInteger(window.release_cutoff_minutes_before_visit) &&
+    window.release_cutoff_minutes_before_visit >= 0
+  ) {
+    summary.paymentReleaseCutoffMinutesBeforeVisit = window.release_cutoff_minutes_before_visit;
+  }
+  return summary;
 }
 
 export function visitPaymentLabel(visit: {
   status: string;
-  scheduled_at: string;
-  total_amount?: number | null;
+  remaining_due_paise?: number | null;
+  payment_due_at?: string | null;
+  payment_expires_at?: string | null;
+  can_pay?: boolean;
 }, timezone = 'Asia/Kolkata'): string | null {
   if (
-    visit.status !== 'pending_payment' ||
-    typeof visit.total_amount !== 'number' ||
-    !Number.isFinite(visit.total_amount)
+    visit.can_pay !== true ||
+    typeof visit.remaining_due_paise !== 'number' ||
+    !Number.isFinite(visit.remaining_due_paise) ||
+    visit.remaining_due_paise <= 0 ||
+    !visit.payment_due_at
   ) {
     return null;
   }
-  const scheduledAt = Date.parse(visit.scheduled_at);
-  if (!Number.isFinite(scheduledAt)) return null;
-  const deadline = new Date(scheduledAt - 24 * 60 * 60 * 1000);
+  const paymentDueAt = Date.parse(visit.payment_due_at);
+  if (!Number.isFinite(paymentDueAt)) return null;
   try {
-    const deadlineDate = deadline.toLocaleDateString('en-IN', {
+    const format = (instant: Date) => `${instant.toLocaleDateString('en-IN', {
       timeZone: timezone,
       day: 'numeric',
       month: 'short',
-    });
-    const deadlineTime = deadline.toLocaleTimeString('en-IN', {
+    })}, ${instant.toLocaleTimeString('en-IN', {
       timeZone: timezone,
       hour: 'numeric',
       minute: '2-digit',
-    });
-    return `Pay ${formatINR(visit.total_amount)} by ${deadlineDate}, ${deadlineTime}`;
+    })}`;
+    const due = format(new Date(paymentDueAt));
+    const paymentExpiresAt = visit.payment_expires_at ? Date.parse(visit.payment_expires_at) : Number.NaN;
+    const expires = Number.isFinite(paymentExpiresAt)
+      ? ` · visit released ${format(new Date(paymentExpiresAt))}`
+      : '';
+    return `Pay ${formatINR(visit.remaining_due_paise)} by ${due}${expires}`;
   } catch {
     return null;
   }
@@ -155,23 +208,231 @@ export function getRecurringEndDateOptions(
 
 export type RecurringPlanActionVisibility = {
   skip: boolean;
+  skipOccurrenceId: string | null;
   pause: boolean;
   resume: boolean;
   reschedule: boolean;
   cancel: boolean;
 };
+type LegacyRecurringPlanActionVisibility = Omit<RecurringPlanActionVisibility, 'skipOccurrenceId'>;
 
+export type RecurringOccurrenceLike = {
+  id: string;
+  scheduled_at: string;
+  status: string;
+};
+
+type OccurrenceStatusGroup<T> = {
+  actionable: T[];
+  resolving: T[];
+  completed: T[];
+  terminal: T[];
+  other: T[];
+};
+
+export type RecurringOccurrencePartition<T> = {
+  past: OccurrenceStatusGroup<T>;
+  future: OccurrenceStatusGroup<T>;
+  invalidTime: T[];
+};
+
+const ACTIONABLE_OCCURRENCE_STATUSES = new Set([
+  'pending_payment',
+  'requested',
+  'accepted',
+  'confirmed',
+]);
+const SKIP_OCCURRENCE_STATUSES = new Set(['pending_payment', 'requested', 'accepted']);
+const RESOLVING_OCCURRENCE_STATUSES = new Set([
+  'en_route',
+  'inspecting',
+  'quote_sent',
+  'awaiting_payment',
+  'in_progress',
+  'delivery_pending',
+  'completion_requested',
+  'disputed',
+]);
+const COMPLETED_OCCURRENCE_STATUSES = new Set(['completed', 'closed']);
+const TERMINAL_OCCURRENCE_STATUSES = new Set([
+  'cancelled',
+  'declined',
+  'expired',
+  'refunded',
+  'closed_no_work',
+]);
+
+function emptyOccurrenceGroup<T>(): OccurrenceStatusGroup<T> {
+  return { actionable: [], resolving: [], completed: [], terminal: [], other: [] };
+}
+
+export function partitionRecurringOccurrences<T extends RecurringOccurrenceLike>(
+  occurrences: readonly T[],
+  now = Date.now(),
+): RecurringOccurrencePartition<T> {
+  const partition: RecurringOccurrencePartition<T> = {
+    past: emptyOccurrenceGroup<T>(),
+    future: emptyOccurrenceGroup<T>(),
+    invalidTime: [],
+  };
+  for (const occurrence of occurrences) {
+    const scheduledAt = Date.parse(occurrence.scheduled_at);
+    if (!Number.isFinite(scheduledAt)) {
+      partition.invalidTime.push(occurrence);
+      continue;
+    }
+    const byTime = scheduledAt < now ? partition.past : partition.future;
+    const byStatus = ACTIONABLE_OCCURRENCE_STATUSES.has(occurrence.status)
+      ? byTime.actionable
+      : RESOLVING_OCCURRENCE_STATUSES.has(occurrence.status)
+        ? byTime.resolving
+        : COMPLETED_OCCURRENCE_STATUSES.has(occurrence.status)
+          ? byTime.completed
+          : TERMINAL_OCCURRENCE_STATUSES.has(occurrence.status)
+            ? byTime.terminal
+            : byTime.other;
+    byStatus.push(occurrence);
+  }
+  for (const group of [partition.past, partition.future]) {
+    for (const statusGroup of Object.values(group)) {
+      statusGroup.sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at) || a.id.localeCompare(b.id));
+    }
+  }
+  partition.invalidTime.sort((a, b) => a.id.localeCompare(b.id));
+  return partition;
+}
+
+export function nextRecurringOccurrence<T extends RecurringOccurrenceLike>(
+  occurrences: readonly T[],
+  now = Date.now(),
+): T | null {
+  const partition = partitionRecurringOccurrences(occurrences, now);
+  return [...partition.future.actionable, ...partition.future.resolving]
+    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at) || a.id.localeCompare(b.id))[0] ?? null;
+}
+
+export type RecurringRescheduleIdentity = {
+  id: string;
+  booking_id?: string | null;
+  occurrence_date?: string | null;
+  original_at?: string | null;
+  kind: string;
+  new_at?: string | null;
+  actor_id?: string | null;
+};
+
+export type RescheduleActorRole = 'customer' | 'provider_manager' | 'other';
+
+export function resolvePendingRescheduleChanges<T extends RecurringRescheduleIdentity>(
+  changes: readonly T[],
+  customerId: string,
+  actorId: string | null,
+  actorRole: RescheduleActorRole,
+): Array<{ change: T; requester: 'customer' | 'provider' | 'unknown'; canRespond: boolean }> {
+  return changes
+    .filter((change) => {
+      if (
+        change.kind !== 'reschedule_requested' ||
+        !change.booking_id ||
+        !change.occurrence_date ||
+        !change.original_at ||
+        !change.new_at
+      ) return false;
+      return !changes.some((outcome) =>
+        (outcome.kind === 'rescheduled' || outcome.kind === 'reschedule_declined') &&
+        outcome.booking_id === change.booking_id &&
+        outcome.occurrence_date === change.occurrence_date &&
+        outcome.original_at === change.original_at &&
+        outcome.new_at === change.new_at,
+      );
+    })
+    .map((change) => {
+      const requester = change.actor_id === customerId
+        ? 'customer'
+        : change.actor_id
+          ? 'provider'
+          : 'unknown';
+      const canRespond = !!actorId &&
+        change.actor_id !== actorId &&
+        ((actorRole === 'customer' && actorId === customerId && requester === 'provider') ||
+          (actorRole === 'provider_manager' && actorId !== customerId && requester === 'customer'));
+      return { change, requester, canRespond };
+    });
+}
+
+export type RecurringPlanActionInput = {
+  plan: {
+    customer_id: string;
+    status: PlanStatus;
+    provider_acceptance: string;
+    acceptance_mode?: string;
+    capabilities?: Partial<RecurringPlanCapabilities>;
+  };
+  actorId: string | null;
+  skipPauseEnabled: boolean;
+  rescheduleEnabled: boolean;
+  occurrences: readonly (RecurringOccurrenceLike & {
+    can_skip?: boolean;
+    skip_cutoff_at?: string | null;
+  })[];
+  changes: readonly RecurringRescheduleIdentity[];
+  now?: number;
+};
+
+export function getRecurringPlanActions(input: RecurringPlanActionInput): RecurringPlanActionVisibility;
 export function getRecurringPlanActions(
   status: PlanStatus,
   skipPauseEnabled: boolean,
   rescheduleEnabled: boolean,
-): RecurringPlanActionVisibility {
+): LegacyRecurringPlanActionVisibility;
+/** Status-only compatibility is retained for existing summaries; action screens use the actor-aware input. */
+export function getRecurringPlanActions(
+  input: RecurringPlanActionInput | PlanStatus,
+  skipPauseEnabled = false,
+  rescheduleEnabled = false,
+): RecurringPlanActionVisibility | LegacyRecurringPlanActionVisibility {
+  if (typeof input === 'string') {
+    return {
+      skip: input === 'active' && skipPauseEnabled,
+      pause: input === 'active' && skipPauseEnabled,
+      resume: input === 'paused' && skipPauseEnabled,
+      reschedule: input === 'active' && rescheduleEnabled,
+      cancel: input === 'active' || input === 'paused',
+    };
+  }
+  const { plan, actorId } = input;
+  skipPauseEnabled = input.skipPauseEnabled;
+  rescheduleEnabled = input.rescheduleEnabled;
+  const now = input.now ?? Date.now();
+  const isCustomer = !!actorId && actorId === plan.customer_id;
+  const capabilities = plan.capabilities ?? {};
+  const pendingPlan = plan.acceptance_mode === 'plan' && plan.provider_acceptance === 'pending';
+  const partition = partitionRecurringOccurrences(input.occurrences, now);
+  const skipOccurrenceId = isCustomer && skipPauseEnabled
+    ? partition.future.actionable.find((visit) => {
+        if (!SKIP_OCCURRENCE_STATUSES.has(visit.status) || visit.can_skip !== true || !visit.skip_cutoff_at) {
+          return false;
+        }
+        const cutoff = Date.parse(visit.skip_cutoff_at);
+        return Number.isFinite(cutoff) && cutoff > now;
+      })?.id ?? null
+    : null;
+  const canRespondToReschedule = resolvePendingRescheduleChanges(
+    input.changes,
+    plan.customer_id,
+    actorId,
+    'customer',
+  ).some((request) => request.canRespond);
   return {
-    skip: status === 'active' && skipPauseEnabled,
-    pause: status === 'active' && skipPauseEnabled,
-    resume: status === 'paused' && skipPauseEnabled,
-    reschedule: status === 'active' && rescheduleEnabled,
-    cancel: status === 'active' || status === 'paused',
+    skip: skipOccurrenceId !== null,
+    skipOccurrenceId,
+    pause: isCustomer && !pendingPlan && plan.status === 'active' &&
+      capabilities.can_pause === true && skipPauseEnabled,
+    resume: isCustomer && plan.status === 'paused' &&
+      capabilities.can_resume === true && skipPauseEnabled,
+    reschedule: isCustomer && capabilities.can_reschedule === true &&
+      rescheduleEnabled && canRespondToReschedule,
+    cancel: isCustomer && capabilities.can_cancel === true,
   };
 }
 

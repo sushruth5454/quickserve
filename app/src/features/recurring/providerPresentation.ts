@@ -3,6 +3,9 @@ import type { ProviderSchedule } from '../../lib/onboarding';
 import { formatINR } from '../../lib/money';
 import { calculateRecurringDates } from './dates';
 import type { RecurringPlanPayload } from './providerTypes';
+import { partitionRecurringOccurrences } from './customerPresentation';
+import type { RecurringOccurrenceLike } from './customerPresentation';
+export { partitionRecurringOccurrences as partitionProviderOccurrences } from './customerPresentation';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const OPEN_VISIT_STATUSES = new Set(['pending_payment', 'requested', 'accepted', 'confirmed']);
@@ -36,6 +39,55 @@ export function canUsePlanAcceptance(features: Record<string, unknown>): boolean
 
 export function canUseRecurringReschedule(features: Record<string, unknown>): boolean {
   return isFeatureOn(features, 'recurring_reschedule');
+}
+
+export function canManageRecurringPlanContext(
+  planProviderId: string,
+  routeProviderId: string | undefined,
+  contextProviderId: string | null,
+  businessRole: string | null,
+): boolean {
+  return (!routeProviderId || routeProviderId === planProviderId) &&
+    contextProviderId === planProviderId &&
+    (businessRole === 'owner' || businessRole === 'manager');
+}
+
+export function canRequestRecurringReschedule(
+  occurrence: { can_request_reschedule?: boolean; reschedule_cutoff_at?: string | null },
+  now = Date.now(),
+): boolean {
+  const cutoff = occurrence.reschedule_cutoff_at ? Date.parse(occurrence.reschedule_cutoff_at) : Number.NaN;
+  return occurrence.can_request_reschedule === true && Number.isFinite(cutoff) && cutoff > now;
+}
+
+export function providerVisitSections<T extends RecurringOccurrenceLike>(
+  occurrences: readonly T[],
+  now = Date.now(),
+) {
+  const partition = partitionRecurringOccurrences(occurrences, now);
+  const sortByTime = (visits: T[]) => visits.sort((a, b) => {
+    const aTime = Date.parse(a.scheduled_at);
+    const bTime = Date.parse(b.scheduled_at);
+    if (!Number.isFinite(aTime) || !Number.isFinite(bTime)) {
+      if (Number.isFinite(aTime)) return -1;
+      if (Number.isFinite(bTime)) return 1;
+      return a.id.localeCompare(b.id);
+    }
+    return aTime - bTime || a.id.localeCompare(b.id);
+  });
+  return {
+    upcoming: sortByTime([...partition.future.actionable, ...partition.future.resolving]),
+    completed: sortByTime([...partition.past.completed, ...partition.future.completed]),
+    otherHistory: sortByTime([
+      ...partition.past.actionable,
+      ...partition.past.resolving,
+      ...partition.past.terminal,
+      ...partition.past.other,
+      ...partition.future.terminal,
+      ...partition.future.other,
+      ...partition.invalidTime,
+    ]),
+  };
 }
 
 export function pendingProviderPlans(
