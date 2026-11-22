@@ -1,0 +1,45 @@
+{
+  "stage": "O24-CM04",
+  "sourceTaskId": "CM-T04",
+  "sourceFindingId": "CM-F06",
+  "implementationBaseSha": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+  "branch": "lane/oorva-o24-cm04",
+  "status": "worker-checkpoint-pending-registration",
+  "changes": [
+    "SupportConversation uses loadSupportConversation with actor/scope/thread-keyed state.",
+    "Support detail refresh uses the shared O38R active-focused refresh core at 60000 ms.",
+    "Send and status writes request scoped canonical readback through the shared active-focused refresh; reads use markSupportRead.",
+    "Screen is the sole keyboard-avoidance owner in the shared component."
+  ],
+  "scopeObservation": "The current participant route still exports SupportDetailScreen, outside this stage's writable-file allocation; no route file was changed.",
+  "tests": {
+    "app": [
+      "CM_SUPPORT_NOTFOUND_AND_SWITCH",
+      "CM_SUPPORT_PARTICIPANT_LOAD",
+      "CM_SUPPORT_CROSS_ROLE_REFRESH",
+      "CM_SUPPORT_REMOTE_REPLY",
+      "CM_SUPPORT_SINGLE_KEYBOARD_OWNER"
+    ],
+    "sql": [
+      "CM_SQL_SUPPORT_OWNER_LIFECYCLE",
+      "CM_SQL_SUPPORT_ADMIN_LIFECYCLE",
+      "CM_SQL_SUPPORT_ADMIN_OWNER_BRANCH",
+      "CM_SQL_SUPPORT_ROLE_NEUTRAL_START",
+      "CM_SQL_SUPPORT_LINKED_PARTICIPANT_ONLY"
+    ],
+    "execution": "NOT RUN: stop-before-Codespace registration roundtrip"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespaceApp": "NOT RUN",
+    "codespaceSql": "NOT RUN: awaiting coordinator registration",
+    "laneCi": "NOT RUN",
+    "concurrencyReview": "REQUIRED",
+    "nativeKeyboardAcceptance": "NOT VERIFIED"
+  },
+  "coordinatorRegistration": {
+    "path": "supabase/tests/package.json",
+    "sqlSelector": "oorva_o24_cm04",
+    "status": "PENDING"
+  }
+}

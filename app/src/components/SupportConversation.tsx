@@ -1,106 +1,334 @@
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { KeyboardAvoidingView, Platform, View } from 'react-native';
-import { getSupportThread, listSupportMessages, markSupportRead, sendSupport, setSupportStatus, type SupportMessage, type SupportThread } from '../lib/adminApi';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
+import {
+  loadSupportConversation,
+  markSupportRead,
+  sendSupport,
+  setSupportStatus,
+  type SupportMessage,
+  type SupportThread,
+} from '../lib/adminApi';
 import { useAuth } from '../lib/auth';
+import { useEntityRefresh } from '../lib/useEntityRefresh';
 import { useTheme } from '../theme';
-import { Button, Card, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useConfirm, useToast } from './ui';
+import { Button, Card, EmptyState, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useConfirm, useToast } from './ui';
+
+type SupportConversationState =
+  | { key: string; phase: 'error'; thread: null; messages: []; error: string }
+  | { key: string; phase: 'not-found'; thread: null; messages: []; error: null }
+  | { key: string; phase: 'ready'; thread: SupportThread; messages: SupportMessage[]; error: null };
+
+type KeyedText = { key: string; value: string } | null;
+
+const SUPPORT_REFRESH_INTERVAL_MS = 60_000;
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function SupportConversation({ threadId, admin = false }: { threadId: string; admin?: boolean }) {
-  const { userId } = useAuth();
+  const { userId, loading: authLoading } = useAuth();
   const t = useTheme();
   const toast = useToast();
   const confirm = useConfirm();
-  const [thread, setThread] = useState<SupportThread | null>(null);
-  const [messages, setMessages] = useState<SupportMessage[] | null>(null);
-  const [body, setBody] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const load = useCallback(async () => {
-    try {
-      const [nextThread, nextMessages] = await Promise.all([getSupportThread(threadId), listSupportMessages(threadId)]);
-      setThread(nextThread);
-      setMessages(nextMessages);
-      setError(null);
-      await markSupportRead(threadId);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [threadId]);
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  const scope = admin ? 'admin' : 'participant';
+  const contextKey = JSON.stringify([userId, scope, threadId]);
+  const identityRef = useRef(contextKey);
+  identityRef.current = contextKey;
 
-  const send = async () => {
-    if (!body.trim()) return;
-    setBusy(true);
+  const [state, setState] = useState<SupportConversationState | null>(null);
+  const [draftState, setDraftState] = useState<KeyedText>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
+  const [actionErrorState, setActionErrorState] = useState<KeyedText>(null);
+  const sendOperationRef = useRef<string | null>(null);
+  const statusOperationRef = useRef<string | null>(null);
+  const readbackRef = useRef<{ key: string; thread: SupportThread | null } | null>(null);
+
+  useEffect(() => {
+    setDraftState(null);
+    setActionErrorState(null);
+  }, [contextKey]);
+
+  const body = draftState?.key === contextKey ? draftState.value : '';
+  const busy = busyKey === contextKey;
+  const statusBusy = statusBusyKey === contextKey;
+  const actionError = actionErrorState?.key === contextKey ? actionErrorState.value : null;
+
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    const isCurrent = () => guard.isCurrent() && identityRef.current === contextKey;
+    if (!isCurrent() || !userId || !threadId) return;
+    setActionErrorState({ key: contextKey, value: '' });
     try {
-      await sendSupport(threadId, body);
-      setBody('');
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
+      let result = await loadSupportConversation(threadId, scope, userId);
+      if (!isCurrent()) return;
+      if (result.thread) {
+        try {
+          await markSupportRead(threadId);
+        } catch (error) {
+          if (isCurrent()) {
+            setActionErrorState({
+              key: contextKey,
+              value: errorMessage(error, 'The conversation could not be marked as read.'),
+            });
+          }
+        }
+        if (!isCurrent()) return;
+        result = await loadSupportConversation(threadId, scope, userId);
+        if (!isCurrent()) return;
+      }
+
+      readbackRef.current = { key: contextKey, thread: result.thread };
+      if (!result.thread) {
+        setState({ key: contextKey, phase: 'not-found', thread: null, messages: [], error: null });
+        return;
+      }
+      setState({
+        key: contextKey,
+        phase: 'ready',
+        thread: result.thread,
+        messages: result.messages,
+        error: null,
+      });
+    } catch (error) {
+      if (isCurrent()) {
+        readbackRef.current = null;
+        const message = errorMessage(error, 'The support conversation could not be loaded.');
+        setState({ key: contextKey, phase: 'error', thread: null, messages: [], error: message });
+      }
+      throw error;
     }
-  };
-  const close = async () => {
-    if (!thread) return;
-    const reopening = thread.status === 'closed';
-    const ok = await confirm({
-      title: reopening ? 'Reopen this conversation?' : 'Close this support conversation?',
-      message: reopening ? 'The user and support can message here again.' : 'You can reopen it later if needed.',
-      confirmLabel: reopening ? 'Reopen' : 'Close',
-    });
-    if (!ok) return;
+  }, [contextKey, scope, threadId, userId]);
+
+  const { refresh, refreshing } = useEntityRefresh(load, {
+    contextKey,
+    enabled: !authLoading && !!userId && !!threadId,
+    intervalMs: SUPPORT_REFRESH_INTERVAL_MS,
+  });
+
+  const send = useCallback(async () => {
+    const current = state?.key === contextKey && state.phase === 'ready' ? state : null;
+    const trimmedBody = body.trim();
+    if (
+      !current?.thread
+      || current.thread.status !== 'open'
+      || !trimmedBody
+      || !userId
+      || authLoading
+      || refreshing
+      || busy
+      || statusBusy
+      || sendOperationRef.current === contextKey
+    ) return;
+
+    sendOperationRef.current = contextKey;
+    setBusyKey(contextKey);
     try {
-      await setSupportStatus(threadId, reopening ? 'open' : 'closed');
-      await load();
-      toast({ message: reopening ? 'Conversation reopened' : 'Conversation closed', tone: 'success' });
-    } catch (e) { toast({ message: (e as Error).message, tone: 'error' }); }
-  };
+      await sendSupport(threadId, trimmedBody);
+      setDraftState((currentDraft) => (
+        currentDraft?.key === contextKey ? { key: contextKey, value: '' } : currentDraft
+      ));
+      if (identityRef.current !== contextKey) return;
+      readbackRef.current = null;
+      try {
+        await refresh();
+        if (identityRef.current !== contextKey) return;
+        if (readbackRef.current?.key !== contextKey || !readbackRef.current.thread) {
+          setActionErrorState({
+            key: contextKey,
+            value: 'Your reply was sent, but the latest conversation could not be confirmed. Retry to refresh it.',
+          });
+        }
+      } catch (error) {
+        if (identityRef.current === contextKey) {
+          setActionErrorState({
+            key: contextKey,
+            value: errorMessage(error, 'Your reply was sent, but the latest conversation could not be loaded.'),
+          });
+        }
+      }
+    } catch (error) {
+      if (identityRef.current === contextKey) {
+        setActionErrorState({
+          key: contextKey,
+          value: errorMessage(error, 'Your reply could not be sent.'),
+        });
+      }
+    } finally {
+      if (sendOperationRef.current === contextKey) sendOperationRef.current = null;
+      setBusyKey((currentKey) => currentKey === contextKey ? null : currentKey);
+    }
+  }, [authLoading, body, busy, contextKey, refresh, refreshing, state, statusBusy, threadId, userId]);
+
+  const close = useCallback(async () => {
+    const current = state?.key === contextKey && state.phase === 'ready' ? state : null;
+    if (
+      !current?.thread
+      || !userId
+      || authLoading
+      || refreshing
+      || busy
+      || statusBusy
+      || statusOperationRef.current === contextKey
+    ) return;
+
+    const actorId = userId;
+    const thread = current.thread;
+    const reopening = thread.status === 'closed';
+    const nextStatus = reopening ? 'open' : 'closed';
+    statusOperationRef.current = contextKey;
+    setStatusBusyKey(contextKey);
+    try {
+      const ok = await confirm({
+        title: reopening ? 'Reopen this conversation?' : 'Close this support conversation?',
+        message: reopening ? 'The user and support can message here again.' : 'You can reopen it later if needed.',
+        confirmLabel: reopening ? 'Reopen' : 'Close',
+      });
+      if (!ok || identityRef.current !== contextKey || userId !== actorId) return;
+      await setSupportStatus(threadId, nextStatus);
+      if (identityRef.current !== contextKey || userId !== actorId) return;
+      readbackRef.current = null;
+      try {
+        await refresh();
+        if (identityRef.current !== contextKey) return;
+        if (readbackRef.current?.key === contextKey && readbackRef.current.thread?.status === nextStatus) {
+          toast({ message: reopening ? 'Conversation reopened' : 'Conversation closed', tone: 'success' });
+        } else {
+          setActionErrorState({
+            key: contextKey,
+            value: 'The status was updated, but the latest conversation could not be confirmed. Retry to refresh it.',
+          });
+        }
+      } catch (error) {
+        if (identityRef.current === contextKey) {
+          setActionErrorState({
+            key: contextKey,
+            value: errorMessage(error, 'The status was updated, but the latest conversation could not be loaded.'),
+          });
+        }
+      }
+    } catch (error) {
+      if (identityRef.current === contextKey) {
+        setActionErrorState({
+          key: contextKey,
+          value: errorMessage(error, 'The conversation status could not be updated.'),
+        });
+      }
+    } finally {
+      if (statusOperationRef.current === contextKey) statusOperationRef.current = null;
+      setStatusBusyKey((currentKey) => currentKey === contextKey ? null : currentKey);
+    }
+  }, [authLoading, busy, confirm, contextKey, refresh, refreshing, state, statusBusy, threadId, toast, userId]);
+
+  const currentState = state?.key === contextKey ? state : null;
+  const phase = authLoading || (!currentState && userId && threadId) ? 'pending' : currentState?.phase;
+  const readyThread = currentState?.phase === 'ready' ? currentState.thread : null;
+  const readyMessages = currentState?.phase === 'ready' ? currentState.messages : [];
+
+  if (!authLoading && !userId) {
+    return (
+      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+        <EmptyState icon="alert-circle-outline" title="Support unavailable" message="Sign in to view this support conversation." />
+      </Screen>
+    );
+  }
+
+  if (!threadId || phase === 'not-found') {
+    return (
+      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+        <EmptyState icon="chatbubbles-outline" title="Conversation not found" message="This conversation is unavailable." />
+      </Screen>
+    );
+  }
+
+  if (currentState?.phase === 'error') {
+    return (
+      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Support unavailable"
+          message={currentState.error}
+          actionLabel="Retry"
+          onAction={() => void refresh().catch(() => undefined)}
+        />
+      </Screen>
+    );
+  }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <Screen
-        header={
-          <Header
-            title={thread?.subject ?? 'Support'}
-            subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'}
-            right={thread ? <Button title={thread.status === 'open' ? 'Close' : 'Reopen'} size="sm" variant="outline" onPress={() => void close()} /> : undefined}
-          />
-        }
-        gap={t.spacing.md}
-        footer={
-          <View style={{ gap: 8 }}>
-            {error ? <InlineAlert message={error} /> : null}
-            <TextArea
-              label={thread?.status === 'closed' ? 'Reopen to reply' : 'Message'}
-              placeholder="Type your message…"
-              value={body}
-              onChangeText={setBody}
-              editable={thread?.status !== 'closed'}
+    <Screen
+      header={
+        <Header
+          title={readyThread?.subject ?? 'Support'}
+          subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'}
+          right={readyThread ? (
+            <Button
+              title={readyThread.status === 'open' ? 'Close' : 'Reopen'}
+              size="sm"
+              variant="outline"
+              disabled={busy || statusBusy || refreshing}
+              onPress={() => void close()}
             />
-            <Button title="Send" fullWidth loading={busy} disabled={!body.trim() || thread?.status === 'closed'} onPress={() => void send()} />
-          </View>
-        }
-      >
-        {!messages ? <Skeleton height={300} radius={t.radii.lg} /> : messages.map((m) => {
-          const mine = admin ? m.from_admin : m.sender_id === userId;
-          return (
-            <Card
-              key={m.id}
-              style={{
-                alignSelf: mine ? 'flex-end' : 'flex-start',
-                width: '88%',
-                backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
-              }}
-            >
-              <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{m.from_admin ? 'QuickServe support' : admin ? 'User' : 'You'}</Text>
-              <Text>{m.body}</Text>
-              <Text variant="caption" color="muted" align="right">{new Date(m.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</Text>
-            </Card>
-          );
-        })}
-      </Screen>
-    </KeyboardAvoidingView>
+          ) : undefined}
+        />
+      }
+      gap={t.spacing.md}
+      footer={readyThread ? (
+        <View style={{ gap: 8 }}>
+          {actionError ? (
+            <>
+              <InlineAlert message={actionError} />
+              <Button
+                title="Retry"
+                size="sm"
+                variant="outline"
+                disabled={refreshing}
+                onPress={() => void refresh().catch(() => undefined)}
+              />
+            </>
+          ) : null}
+          <TextArea
+            label={readyThread.status === 'closed' ? 'Reopen to reply' : 'Message'}
+            placeholder="Type your message…"
+            value={body}
+            onChangeText={(value: string) => setDraftState({ key: contextKey, value })}
+            editable={readyThread.status === 'open' && !busy && !statusBusy && !refreshing}
+          />
+          <Button
+            title="Send"
+            fullWidth
+            loading={busy}
+            disabled={
+              !body.trim()
+              || readyThread.status === 'closed'
+              || busy
+              || statusBusy
+              || refreshing
+            }
+            onPress={() => void send()}
+          />
+        </View>
+      ) : undefined}
+    >
+      {phase === 'pending' || !readyThread ? (
+        <Skeleton height={300} radius={t.radii.lg} />
+      ) : readyMessages.map((m) => {
+        const mine = admin ? m.from_admin : m.sender_id === userId;
+        return (
+          <Card
+            key={m.id}
+            style={{
+              alignSelf: mine ? 'flex-end' : 'flex-start',
+              width: '88%',
+              backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
+            }}
+          >
+            <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{m.from_admin ? 'QuickServe support' : admin ? 'User' : 'You'}</Text>
+            <Text>{m.body}</Text>
+            <Text variant="caption" color="muted" align="right">{new Date(m.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</Text>
+          </Card>
+        );
+      })}
+    </Screen>
   );
 }
