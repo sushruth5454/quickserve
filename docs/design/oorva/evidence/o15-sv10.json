@@ -1,0 +1,176 @@
+{
+  "stageId": "O15-SV10",
+  "sourceTask": "SV-T10",
+  "finding": "SV-F09",
+  "dispatchOrder": 21,
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "base": {
+    "branch": "lane/oorva-o15-sv10",
+    "commit": "8c96625fda96e040a1d5348ae98ed5f2dc2dc8ad",
+    "wasNotModified": true
+  },
+  "approvals": {
+    "E0": "approved",
+    "D01": "approved",
+    "E1": "pending"
+  },
+  "sourceDrift": {
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "chosenBase": "8c96625fda96e040a1d5348ae98ed5f2dc2dc8ad",
+    "changedStageOwnedFiles": [
+      {
+        "path": "app/src/features/catalogue/api.ts",
+        "reason": "O14-MK13 adds selected-city filtering and returns provider city for catalogue packages; preserved without modification to that behavior."
+      }
+    ],
+    "otherComparedStageOwnedFiles": "No audited-source-to-base drift reported."
+  },
+  "implementation": {
+    "status": "stage code head bd15dc6 pushed; evidence-only update",
+    "files": [
+      "app/app/assistant.tsx",
+      "app/src/features/platformScreens/AssistantScreen.tsx",
+      "app/src/features/booking/book/useBookScreenController.ts",
+      "app/src/features/booking/book/BookScreenContent.tsx",
+      "app/src/features/booking/packages/PackageBookingScreen.tsx",
+      "app/src/features/booking/packages/packageModel.ts",
+      "app/src/features/catalogue/api.ts",
+      "app/src/lib/assistant/prefill.ts",
+      "app/src/features/booking/book/__tests__/model.test.ts",
+      "app/src/features/booking/packages/__tests__/packageModel.test.ts",
+      "app/src/lib/assistant/__tests__/prefill.test.ts",
+      "docs/design/oorva/evidence/o15-sv10.json"
+    ],
+    "behavior": [
+      "Added category-authoritative entry resolution for inspect, fixed-package, time-package, and proposal-request families; route archetype hints do not select the family.",
+      "Assistant reviewDraft/bookPro load the selected service before choosing a destination; booking controller avoids non-inspect price previews and inspect submission for other families.",
+      "Added provider-scoped package selection for fixed/time routes; package identity and actual category family are checked before checkout.",
+      "Non-pack time booking quantity is one; pack quantity is sent only to purchase_session_pack; session duration passed to create_session_booking follows the selected package.",
+      "Fixed-package duration in PackageBookingScreen follows create_fixed_booking quantity bounds and ceil duration calculation.",
+      "Invalid or unsupported assistant slots require a new selection; brief, slot, and address are forwarded through supported booking handoffs.",
+      "Family switches hide package submission controls and block assistant/controller submissions when the effective family switch is off.",
+      "Moved the assistant screen body to AssistantScreen.tsx and left app/app/assistant.tsx as a thin route export."
+    ],
+    "databaseChanges": {
+      "migrations": 0,
+      "sqlFunctions": 0,
+      "featureFlags": 0,
+      "moneyPolicyChanges": 0
+    }
+  },
+  "verification": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "PASS",
+      "phase": "selected_and_completed",
+      "testsSelected": true,
+      "helperSource": "origin/main scripts/cs-test.ps1 at 00a234e529f2edeaca62aabd44cc41d5127635d7",
+      "selectors": [
+        {
+          "command": "-Suite app -Filter 'src.features.booking.book.__tests__.model[.]test[.]ts$'",
+          "snapshot": "ba0ffb17",
+          "result": "PASS",
+          "tests": "25 passed"
+        },
+        {
+          "command": "-Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
+          "snapshot": "1c038078",
+          "result": "PASS",
+          "tests": "13 passed"
+        },
+        {
+          "command": "-Suite jest -Filter 'src.lib.assistant.__tests__.prefill[.]test[.]ts$'",
+          "snapshot": "2fc6cfe4",
+          "result": "PASS",
+          "tests": "3 passed"
+        }
+      ],
+      "reason": ""
+    },
+    "laneCI": {
+      "runId": 44938584651,
+      "headSha": "bd15dc62997d4547d860034be8442810f31d612d",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": {
+        "changes": "success",
+        "appTypecheck": "success",
+        "appUnitTests": "success",
+        "tooling": "skipped by path filtering",
+        "sql": "skipped by path filtering",
+        "deno": "skipped by path filtering",
+        "privatePostgres": "skipped by path filtering"
+      }
+    },
+    "priorLaneCI": {
+      "runId": 44934953028,
+      "headSha": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
+      "conclusion": "failure",
+      "resolution": "Corrected the reported TypeScript union access and BookPrefill compatibility failures before the successful bd15dc6 run."
+    }
+  },
+  "moneyReviewCorrection": {
+    "status": "implemented; local re-review checkpoint",
+    "files": [
+      "app/src/features/booking/packages/PackageBookingScreen.tsx",
+      "app/src/features/booking/packages/packageModel.ts",
+      "app/src/features/booking/packages/__tests__/packageModel.test.ts"
+    ],
+    "behavior": "Session-pack eligibility now requires session unit, fixed positive price, integer qty_min and qty_max, and at least one purchasable whole pack count above one. The UI hides the pack choice for ineligible bounds, resets stale pack selection, and blocks pack submission if eligibility is false.",
+    "regression": "Added doesNotOfferSessionPacksWithFractionalQuantityBounds for fractional minimum and maximum bounds plus the valid integer case.",
+    "testExecution": "All three exact current-main Codespace selectors PASS on bd15dc6 content: booking model 25 (ba0ffb17), package model 13 (1c038078), assistant prefill 3 (2fc6cfe4); no Windows tests were run."
+  },
+  "laneCiOwnerCorrection": {
+    "sourceHead": "aa990e49ef3da8fb5cefb6378052cc4f1ed507f5",
+    "failureRootCause": "The original BookPrefill fields were made enumerable for every result and an out-of-range slot changed from mode null to schedule; draftPrefill also accessed route-only properties on the DraftCard union.",
+    "files": [
+      "app/src/lib/assistant/prefill.ts",
+      "app/src/features/booking/book/useBookScreenController.ts",
+      "app/src/lib/assistant/__tests__/prefill.test.ts",
+      "app/src/features/booking/packages/PackageBookingScreen.tsx",
+      "app/src/features/booking/packages/packageModel.ts",
+      "app/src/features/booking/packages/__tests__/packageModel.test.ts"
+    ],
+    "fix": "Preserve the legacy BookPrefill object shape for valid and absent slots; retain null mode for out-of-range dates while setting slotInvalid; use it to force schedule reselection, reconstruct safe route slot params in the controller, narrow route-draft fields before use, and require explicit valid selection before PackageBookingScreen can submit after an invalid prefill.",
+    "validation": "All three exact current-main Codespace selectors PASS on bd15dc6 content; Lane CI 44938584651 PASS on bd15dc6; no Windows tests/builds run."
+  },
+  "moneyReviewReReview": {
+    "previousReview": {
+      "head": "f9d2d2ba6db9f2ea37b39201964ddc6cc0fe8f8f",
+      "result": "FAIL",
+      "finding": "An invalid prefilled slot with mode null could leave fixed-package ASAP selected by default, bypassing explicit slot reselection."
+    },
+    "reviewedHead": "bd15dc62997d4547d860034be8442810f31d612d",
+    "result": "PASS",
+    "finding": "No remaining findings on the exact stage code head.",
+    "correction": "Package ASAP initialization clears for slotInvalid, submission is blocked until an explicit valid time/mode selection, and the owned package model test covers the gate. Out-of-range readBookPrefill results retain mode null and set slotInvalid; the owned prefill test uses the same contract.",
+    "status": "PASS on bd15dc6"
+  },
+  "review": {
+    "required": [
+      "money"
+    ],
+    "status": "MONEY PASS on bd15dc6; evidence-only update",
+    "lanePush": "bd15dc6 pushed after review and verification"
+  },
+  "scopeBlockers": [
+    {
+      "path": "app/app/book-fixed/[providerServiceId].tsx",
+      "status": "NOT VERIFIED",
+      "owner": "O15-SV15",
+      "detail": "Excluded from the stage-owned write scope although the contract asks for fixedBookingDuration in both fixed routes; this direct fixed route remains unchanged."
+    },
+    {
+      "path": "app/app/request/new.tsx",
+      "status": "NOT VERIFIED",
+      "owner": "O21-SV19",
+      "detail": "Excluded from the stage-owned write scope. The resolver forwards assistant brief/slot/address params, but the existing proposal request screen does not consume those prefill fields; proposal-family draft preservation is therefore not verified."
+    },
+    {
+      "path": "app/src/features/catalogue/ArchetypeCategory.tsx",
+      "status": "NOT VERIFIED",
+      "owner": "O12-MK16/O14C",
+      "detail": "Excluded from the stage-owned write scope; its existing category entry points are not changed by this stage."
+    }
+  ]
+}

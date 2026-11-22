@@ -1,4 +1,4 @@
-import { getTimeBookingModes, hasSupportedRecurringFrequency, packageRepeatPlanRoute } from '../packageModel';
+import { canProceedAfterSlotPrefill, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, initialPackageAsap, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
 import { packageCheckoutTotal } from '../../../../lib/money';
 
 type EligibilityCategory = { recurrence_allowed?: boolean; allowed_frequencies?: string[] };
@@ -14,6 +14,38 @@ describe('package booking modes', () => {
 
   it.each(unavailableCases)('keeps one-time and pack choices when %s', (_reason, recurringEnabled, category) => {
     expect(getTimeBookingModes(recurringEnabled, category)).toEqual(['one-time', 'session-pack']);
+  });
+
+  describe('package booking units', () => {
+    it('doesNotDefaultToAsapForAnInvalidPrefilledSlot', () => {
+      expect(initialPackageAsap('fixed', { mode: null, slotInvalid: true })).toBe(false);
+      expect(initialPackageAsap('fixed', { mode: null })).toBe(true);
+      expect(initialPackageAsap('fixed', { mode: 'asap' })).toBe(true);
+      expect(initialPackageAsap('fixed', { mode: 'schedule' })).toBe(false);
+      expect(canProceedAfterSlotPrefill(true, false)).toBe(false);
+      expect(canProceedAfterSlotPrefill(true, true)).toBe(true);
+      expect(canProceedAfterSlotPrefill(false, false)).toBe(true);
+    });
+
+    it('doesNotOfferSessionPacksWithFractionalQuantityBounds', () => {
+      const pack = { unit: 'session' as const, price_type: 'fixed' as const, price: 5000, qty_min: 1, qty_max: 5 };
+
+      expect(canPurchaseSessionPack(pack)).toBe(true);
+      expect(canPurchaseSessionPack({ ...pack, qty_min: 1.5 })).toBe(false);
+      expect(canPurchaseSessionPack({ ...pack, qty_max: 4.5 })).toBe(false);
+    });
+
+    it('singleSessionUnit keeps quantity as one unless purchasing a pack', () => {
+      expect(timeBookingQuantity(false, 4)).toBe(1);
+      expect(timeBookingQuantity(true, 4)).toBe(4);
+    });
+
+    it('fixedQuantityDuration follows package bounds and the SQL ceil duration rule', () => {
+      expect(fixedBookingDuration({ qty_min: 1, qty_max: 4, duration_min: 60 }, 2)).toBe(120);
+      expect(fixedBookingDuration({ qty_min: 1, qty_max: 1, duration_min: 30 }, 1)).toBe(30);
+      expect(fixedBookingDuration({ qty_min: 1, qty_max: 4, duration_min: 60 }, 1.2)).toBe(120);
+      expect(() => fixedBookingDuration({ qty_min: 1, qty_max: 4, duration_min: 60 }, 5)).toThrow('Quantity is outside the package bounds');
+    });
   });
 
   it('offers repeat plans only when enabled by both feature and category', () => {

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { AddressEditorSheet } from '../../../components/AddressEditor';
 import { BookingStepLayout } from '../../../components/market/BookingStepLayout';
@@ -10,6 +11,7 @@ import { useT } from '../../../i18n';
 import { fromSavedAddress } from '../../../lib/locationModel';
 import { formatINR } from '../../../lib/money';
 import { typicalRange } from '../../../lib/pricing';
+import { isServiceBookingEnabled } from '../../../lib/assistant/prefill';
 import { getBookingModeOptions } from '../../recurring/customerPresentation';
 import { PackageBookingScreen } from '../packages/PackageBookingScreen';
 import { hasSupportedRecurringFrequency } from '../packages/packageModel';
@@ -23,9 +25,14 @@ export function BookScreenContent({ controller }: { controller: BookScreenContro
   const translate = useT();
   const {
     t, toast, location, setLocation, service, loadError, load, pricePreview, priceError,
-    setPriceAttempt, packageId, archetype, recurringEnabled, featureFlags, description,
-    editorOpen, setEditorOpen, travel, travelChecking, busy, blocker, submit, error,
+    setPriceAttempt, packageId, recurringEnabled, featureFlags, description,
+    editorOpen, setEditorOpen, travel, travelChecking, busy, blocker, submit, error, bookingEntry,
   } = controller;
+  useEffect(() => {
+    if (bookingEntry?.kind === 'proposal-request' && featureFlags.archetypes?.proposal === true) {
+      router.replace({ pathname: bookingEntry.pathname, params: bookingEntry.params } as Href);
+    }
+  }, [bookingEntry, featureFlags.archetypes?.proposal]);
   const stepKeys = getBookingStepKeys(featureFlags.isOn('booking_steps'), recurringEnabled);
   const steps = stepKeys?.map((key) => translate(key)) ?? null;
 
@@ -47,8 +54,24 @@ export function BookScreenContent({ controller }: { controller: BookScreenContro
   }
 
   const providerName = service.providers?.profiles?.full_name ?? 'Provider';
-  if (packageId && (archetype === 'fixed' || archetype === 'time_based')) {
-    return <PackageBookingScreen packageId={packageId} archetype={archetype} />;
+  if (bookingEntry?.kind === 'fixed-package' || bookingEntry?.kind === 'time-package') {
+    return <PackageBookingScreen packageId={packageId} entry={bookingEntry} prefill={controller.prefill} />;
+  }
+  if (bookingEntry?.kind === 'proposal-request') {
+    return (
+      <Screen header={<Header title="Request proposals" />}>
+        {featureFlags.archetypes?.proposal === true
+          ? <Skeleton height={180} radius={t.radii.lg} />
+          : <InlineAlert tone="warning" message="Proposal requests are not currently available." />}
+      </Screen>
+    );
+  }
+  if (bookingEntry?.kind === 'unavailable') {
+    return (
+      <Screen header={<Header title="Booking unavailable" />}>
+        <InlineAlert tone="warning" message="This service does not have a supported booking destination." />
+      </Screen>
+    );
   }
   if (!pricePreview) {
     const loadingContent = priceError ? (
@@ -77,6 +100,7 @@ export function BookScreenContent({ controller }: { controller: BookScreenContro
   const range = typicalRange(slug);
   const rating = Number(service.providers?.rating_avg ?? 0);
   const ratingCount = service.providers?.rating_count ?? 0;
+  const familyEnabled = bookingEntry?.kind === 'inspect' && isServiceBookingEnabled(bookingEntry, featureFlags.archetypes);
   const travelAction = travel?.needs_approval
     ? controller.travelPending
       ? 'Waiting for provider'
@@ -86,7 +110,7 @@ export function BookScreenContent({ controller }: { controller: BookScreenContro
     : `Pay ${formatINR(pricePreview.pay_now)} & book`;
 
   const title = `Book ${service.categories?.name ?? 'service'}`;
-  const footer = steps ? (
+  const footer = !familyEnabled ? null : steps ? (
     <PriceFooter
       caption="To pay now"
       amountLabel={formatINR(pricePreview.pay_now)}
@@ -132,6 +156,7 @@ export function BookScreenContent({ controller }: { controller: BookScreenContro
   );
   const content = (
     <>
+      {!familyEnabled ? <InlineAlert tone="warning" message="Inspect bookings are not currently available. Existing bookings remain accessible from Bookings." /> : null}
       {controller.prefill.fromAssistant ? (
         <View
           style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, padding: t.spacing.md, borderRadius: t.radii.md, backgroundColor: t.colors.primarySoft }}

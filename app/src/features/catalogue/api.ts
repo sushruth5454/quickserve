@@ -189,6 +189,7 @@ export async function createTimeBooking(input: {
   quantity: number;
   providerServiceId: string;
   startsAt: Date;
+  durationMin: number;
   addressId: string;
   addressLine: string;
   city: string;
@@ -206,7 +207,7 @@ export async function createTimeBooking(input: {
         p_provider_service_id: input.providerServiceId,
         p_service_package_id: input.packageId,
         p_scheduled_at: input.startsAt.toISOString(),
-        p_duration_min: 60,
+        p_duration_min: input.durationMin,
         p_address_line: input.addressLine,
         p_city: input.city,
         p_lat: input.lat,
