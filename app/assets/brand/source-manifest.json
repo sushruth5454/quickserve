@@ -1,0 +1,154 @@
+{
+  "brand": "Oorva",
+  "wordmark": "oorva",
+  "concept": "Connected O",
+  "conceptRationale": "The symbol interprets a welcoming O as two broad, opposing curved bands. The two open side gaps suggest connection and invitation without closing the mark at small sizes.",
+  "geometryRationale": "The symbol uses two original cubic Bézier arcs with rounded caps. Their deliberately separated side endpoints preserve two readable openings. The lowercase wordmark is custom filled vector geometry for o-o-r-v-a, not a font rendering or traced outline.",
+  "originalityProvenance": {
+    "authorship": "Original Bézier symbol and custom lowercase letter paths authored for this Oorva candidate. No third-party mark was copied or traced.",
+    "directionalInputs": [
+      "oorva-logo-concept.png",
+      "oorva-logo-light.png",
+      "oorva-logo-dark.png",
+      "oorva-logo-transparent.png",
+      "oorva-logo-monochrome.png",
+      "oorva-symbol.png"
+    ],
+    "inputManifest": "docs/design/oorva/logo/manifest.json",
+    "inputUse": "Unapproved PNG explorations were reviewed only for the Connected O direction and color intent; no raster was embedded or traced.",
+    "wordmarkConstruction": "Hand-authored lowercase vector paths; all master files contain no live text, font, or external resource."
+  },
+  "masters": [
+    {
+      "file": "oorva-symbol.svg",
+      "viewBox": "0 0 256 256",
+      "role": "symbol",
+      "inkSafeBox": "24 24 232 232"
+    },
+    {
+      "file": "oorva-wordmark-light.svg",
+      "viewBox": "0 0 1024 256",
+      "role": "wordmark",
+      "color": "#173D39"
+    },
+    {
+      "file": "oorva-wordmark-dark.svg",
+      "viewBox": "0 0 1024 256",
+      "role": "wordmark",
+      "color": "#F7F5EF"
+    },
+    {
+      "file": "logo-horizontal-light.svg",
+      "viewBox": "0 0 1440 400",
+      "role": "horizontal",
+      "color": "#173D39"
+    },
+    {
+      "file": "logo-horizontal-dark.svg",
+      "viewBox": "0 0 1440 400",
+      "role": "horizontal",
+      "color": "#F7F5EF"
+    },
+    {
+      "file": "logo-stacked-light.svg",
+      "viewBox": "0 0 720 720",
+      "role": "stacked",
+      "color": "#173D39"
+    },
+    {
+      "file": "logo-stacked-dark.svg",
+      "viewBox": "0 0 720 720",
+      "role": "stacked",
+      "color": "#F7F5EF"
+    },
+    {
+      "file": "logo-horizontal-mono-black.svg",
+      "viewBox": "0 0 1440 400",
+      "role": "horizontal-monochrome",
+      "color": "#000000"
+    },
+    {
+      "file": "logo-horizontal-mono-ivory.svg",
+      "viewBox": "0 0 1440 400",
+      "role": "horizontal-monochrome",
+      "color": "#F7F5EF"
+    }
+  ],
+  "smallSizeEvidence": {
+    "method": "The symbol SVG's two path endpoint pairs are measured from their actual M/C path data; rounded stroke caps are included by subtracting half of each path stroke width from endpoint separation. The resultant vector gap is scaled by logicalSize / 256.",
+    "sourceViewBoxWidth": 256,
+    "upperArcEndpoints": [
+      [49, 161],
+      [207, 161]
+    ],
+    "lowerArcEndpoints": [
+      [49, 89],
+      [207, 89]
+    ],
+    "upperStrokeWidth": 28,
+    "lowerStrokeWidth": 28,
+    "gapFormula": "gapUnits = abs(upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2; gapPx = gapUnits * logicalSizePx / sourceViewBoxWidth",
+    "gapUnitsAtBothOpenings": 44,
+    "logicalPixelChecks": [
+      {
+        "sizePx": 20,
+        "leftGapPx": 3.4375,
+        "rightGapPx": 3.4375,
+        "status": "open"
+      },
+      {
+        "sizePx": 32,
+        "leftGapPx": 5.5,
+        "rightGapPx": 5.5,
+        "status": "open"
+      },
+      {
+        "sizePx": 48,
+        "leftGapPx": 8.25,
+        "rightGapPx": 8.25,
+        "status": "open"
+      }
+    ],
+    "visualInspection": "Endpoint geometry remains separated at each requested size. The 20px test has a 3.4375px computed opening on both sides; no raster export or device rendering is claimed by this stage."
+  },
+  "tagline": {
+    "text": "Your world, closer.",
+    "placement": "Separate app text; not part of SVG wordmark geometry or any SVG master.",
+    "fontFamily": "Inter",
+    "fontWeight": 400,
+    "fontSource": "Bundled Inter 400 for separate tagline rendering; runtime font loading is not validated by O01L.",
+    "background": "#F7F5EF",
+    "color": "#344B65",
+    "contrastEvidence": {
+      "standard": "WCAG relative luminance and contrast ratio for sRGB colors",
+      "channelLinearization": "cLinear = cSrgb / 12.92 when cSrgb <= 0.04045; otherwise ((cSrgb + 0.055) / 1.055) ^ 2.4, where cSrgb is the 0-1 channel value.",
+      "relativeLuminance": "L = 0.2126 * RLinear + 0.7152 * GLinear + 0.0722 * BLinear",
+      "ratioFormula": "(max(Lbackground, Ltext) + 0.05) / (min(Lbackground, Ltext) + 0.05)",
+      "backgroundRelativeLuminance": 0.913109675065,
+      "textRelativeLuminance": 0.067018036987,
+      "ratio": 8.230437801426,
+      "minimum": 4.5,
+      "result": "pass"
+    }
+  },
+  "license": {
+    "customArtwork": "Original project candidate authored in this task; no third-party vector or raster paths were copied. Ownership, trademark, public-use and redistribution clearance are not asserted; D03c remains pending.",
+    "taglineFont": "Bundled Inter Regular 400 is referenced only as a separate app text recommendation; no font file is embedded in the SVG masters.",
+    "explorationPngs": "Existing unapproved exploration files are direction only and are not masters or licensed vector sources."
+  },
+  "approvalStatus": {
+    "status": "draft-candidate-only",
+    "candidateOnly": true,
+    "D03a": "APPROVED_AUTHORING_ONLY",
+    "D03b": "PENDING",
+    "D03c": "PENDING",
+    "finalSelection": false,
+    "production_ready": false,
+    "publicReleaseAllowed": false
+  },
+  "delivery": {
+    "taglineIncludedInSvgMasters": false,
+    "pngExportsCreated": false,
+    "nativeAssetsCopied": false
+  }
+}
