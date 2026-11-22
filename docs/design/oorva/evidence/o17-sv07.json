@@ -68,15 +68,17 @@
     "SV-RESCHEDULE-ALLOW-02",
     "SV-RESCHEDULE-IDEMPOTENT-03",
     "SV-RESCHEDULE-RACE-04",
-    "SV-RESCHEDULE-PAUSE-RACE-05"
+    "SV-RESCHEDULE-PAUSE-RACE-05",
+    "SV-RESCHEDULE-BOOKING-FIRST-RACE-06"
   ],
   "validation": {
     "gitDiffCheck": "PASS",
-    "pglite": "PASS_CURRENT_REBASE_CODESPACE",
-    "privatePostgresConcurrency": "PENDING_CORRECTED_HEAD_LANE_CI",
-    "migrationParser": "PASS_CURRENT_REBASE_CODESPACE",
-    "codespace": "PASS_CURRENT_REBASE_SELECTORS",
-    "codespaceFailure": "The original exact-green-head attempt was UNAVAILABLE_NO_PASS; the corrected rebase selectors passed on the WIP snapshots recorded below.",
+    "pglite": "PASS_CURRENT_CORRECTION_CODESPACE",
+    "privatePostgresConcurrency": "PENDING_CURRENT_CORRECTION_LANE_CI",
+    "bookingFirstRetryableContention": "PENDING_CURRENT_HEAD_LANE_CI_PRIVATE_POSTGRES",
+    "migrationParser": "PASS_CURRENT_CORRECTION_CODESPACE",
+    "codespace": "PASS_CURRENT_CORRECTION_SELECTORS",
+    "codespaceFailure": "The original exact-green-head attempt was UNAVAILABLE_NO_PASS; the corrected rebase selectors and current same-stage correction selectors passed on the WIP snapshots recorded below.",
     "rebaseCodespaceSelectors": {
       "pglite": {
         "filter": "oorva_o17_sv07",
@@ -89,6 +91,24 @@
       "migrationParser": {
         "filter": "o17_sv07_oorva.sql",
         "wipSnapshotSha": "be17a6857d985a9cd8fc32e25724cb9b2de1f897",
+        "testFiles": 0,
+        "parseChecks": 1,
+        "checksPassed": 1,
+        "result": "PASS"
+      }
+    },
+    "sameStageCorrectionSelectors": {
+      "pglite": {
+        "filter": "oorva_o17_sv07",
+        "wipSnapshotSha": "1b860c1ecd9439ecd437d8eb69fcf516d65f6f62",
+        "testFiles": 1,
+        "parseChecks": 0,
+        "checksPassed": 1,
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "filter": "o17_sv07_oorva.sql",
+        "wipSnapshotSha": "9e720fa02a8e984be6e18a580af84a8b57a26aef",
         "testFiles": 0,
         "parseChecks": 1,
         "checksPassed": 1,
