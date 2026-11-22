@@ -15,6 +15,7 @@ import { aiAssistantEnabled } from '../../lib/config';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { needsLocationPrompt } from '../../lib/locationModel';
 import { useUnread } from '../../lib/unreadContext';
+import { useEntityRefresh } from '../../lib/useEntityRefresh';
 import type { Booking, Category } from '../../lib/types';
 import { useTheme } from '../../theme';
 import { useT } from '../../i18n';
@@ -32,49 +33,77 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { location } = useSelectedLocation();
-  const [categories, setCategories] = useState<Category[] | null>(null);
-  const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
-  const [topRated, setTopRated] = useState<TopRatedProvider[]>([]);
-  const [active, setActive] = useState<Booking | null>(null);
+  const cityScope = JSON.stringify([location.city]);
+  const [catalogueResult, setCatalogueResult] = useState<{ scope: string; value: Catalogue } | null>(null);
+  const [topRatedResult, setTopRatedResult] = useState<{ scope: string; value: TopRatedProvider[] } | null>(null);
+  const [activeResult, setActiveResult] = useState<{ scope: string; value: Booking | null } | null>(null);
+  const [catalogueFailure, setCatalogueFailure] = useState<{ scope: string; message: string } | null>(null);
+  const [topRatedFailure, setTopRatedFailure] = useState<{ scope: string; message: string } | null>(null);
+  const [activeFailure, setActiveFailure] = useState<{ scope: string; message: string } | null>(null);
   const [firstName, setFirstName] = useState('');
   const [query, setQuery] = useState('');
   const [selectedFamilySlug, setSelectedFamilySlug] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const catalogue = catalogueResult?.scope === cityScope ? catalogueResult.value : null;
+  const categories: Category[] | null = catalogue?.categories ?? null;
+  const topRated = topRatedResult?.scope === cityScope ? topRatedResult.value : [];
+  const active = activeResult?.scope === 'active-work' ? activeResult.value : null;
+  const catalogueError = catalogueFailure?.scope === cityScope ? catalogueFailure.message : null;
+  const topRatedError = topRatedFailure?.scope === cityScope ? topRatedFailure.message : null;
+  const activeError = activeFailure?.scope === 'active-work' ? activeFailure.message : null;
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const [c, tr, bookings, profile] = await Promise.all([
-        getCatalogue(location.city),
-        listTopRated(10, location.city),
-        listMyBookings().catch(() => [] as Booking[]),
-        getMyProfile().catch(() => null),
-      ]);
-      setCategories(c.categories);
-      setCatalogue(c);
-      setTopRated(tr);
-      setActive(bookings.find((b) => activeStatuses.includes(b.status) && b.status !== 'pending_payment') ?? null);
-      setFirstName(profile?.full_name?.split(' ')[0] ?? '');
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [location.city]);
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    const scope = cityScope;
+    const city = location.city;
+    setCatalogueFailure((current) => current?.scope === scope ? null : current);
+    setTopRatedFailure((current) => current?.scope === scope ? null : current);
+    setActiveFailure((current) => current?.scope === 'active-work' ? null : current);
+    await Promise.all([
+      getCatalogue(city)
+        .then((value) => {
+          if (guard.isCurrent()) setCatalogueResult({ scope, value });
+        })
+        .catch((error: Error) => {
+          if (guard.isCurrent()) setCatalogueFailure({ scope, message: error.message });
+        }),
+      listTopRated(10, city)
+        .then((value) => {
+          if (guard.isCurrent()) setTopRatedResult({ scope, value });
+        })
+        .catch((error: Error) => {
+          if (guard.isCurrent()) setTopRatedFailure({ scope, message: error.message });
+        }),
+      listMyBookings()
+        .then((bookings) => {
+          if (guard.isCurrent()) {
+            setActiveResult({
+              scope: 'active-work',
+              value: bookings.find((booking) => activeStatuses.includes(booking.status) && booking.status !== 'pending_payment') ?? null,
+            });
+          }
+        })
+        .catch((error: Error) => {
+          if (guard.isCurrent()) setActiveFailure({ scope: 'active-work', message: error.message });
+        }),
+      getMyProfile()
+        .then((profile) => {
+          if (guard.isCurrent()) setFirstName(profile?.full_name?.split(' ')[0] ?? '');
+        })
+        .catch(() => {
+          if (guard.isCurrent()) setFirstName('');
+        }),
+    ]);
+  }, [cityScope, location.city]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { refresh, refreshing } = useEntityRefresh(load, {
+    contextKey: cityScope,
+    enabled: true,
+    intervalMs: null,
+  });
 
   useEffect(() => {
     setSelectedFamilySlug(null);
     setQuery('');
   }, [location.city]);
-
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
 
   const families = useMemo(() => groupCatalogueFamilies(catalogue?.verticals ?? []), [catalogue?.verticals]);
   const selectedFamily = families.find((family) => family.slug === selectedFamilySlug) ?? null;
@@ -122,7 +151,7 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
   const searchInputTypography: TextStyle = { ...t.typography.body, lineHeight: undefined };
 
   return (
-    <Screen inTabs padded={false} refreshing={refreshing} onRefresh={refresh} gap={t.spacing.section}>
+    <Screen inTabs padded={false} refreshing={refreshing} onRefresh={() => void refresh()} gap={t.spacing.section}>
       <View style={[gutter, { paddingTop: insets.top + t.spacing.sm, gap: t.spacing.xl }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
           <Pressable
@@ -214,7 +243,7 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
         )}
       </View>
 
-      {error && !categories ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {catalogueError && !categories ? <ErrorState message={catalogueError} onRetry={() => void refresh()} /> : null}
 
       {unserved ? (
         <View style={gutter}>
@@ -312,6 +341,16 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
       )}
 
       {active ? <View style={gutter}>{activeCard}</View> : null}
+      {activeError ? (
+        <View style={gutter}>
+          <InlineAlert
+            title="Active booking status unavailable"
+            message={activeError}
+            actionLabel="Retry"
+            onAction={() => void refresh()}
+          />
+        </View>
+      ) : null}
 
       {aiEnabled && !noServiceCategories ? (
         <View style={gutter}>
@@ -374,7 +413,7 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
         </LinearGradient>
       </View>
 
-      {unserved || noServiceCategories || selectedFamily || query.trim() || (categories && topRated.length === 0) ? null : (
+      {unserved || noServiceCategories || selectedFamily || query.trim() || (categories && topRated.length === 0 && !topRatedError) ? null : (
         <View style={{ gap: t.spacing.md }}>
           <View style={gutter}>
             <Section
@@ -386,6 +425,16 @@ export function LegacyHome({ flags }: { flags: HomeFlagReader }) {
               {null}
             </Section>
           </View>
+          {topRatedError ? (
+            <View style={gutter}>
+              <InlineAlert
+                title="Top-rated professionals unavailable"
+                message={topRatedError}
+                actionLabel="Retry"
+                onAction={() => void refresh()}
+              />
+            </View>
+          ) : null}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}

@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Linking from 'expo-linking';
 import { Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, ErrorState, IconButton, Screen, Skeleton, Text } from '../../components/ui';
+import { Card, ErrorState, IconButton, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
 import { PriceFooter } from '../../components/market/PriceFooter';
 import { getProviderDetail, listLiveCities, type ProviderDetail } from '../../lib/api';
 import { useSelectedLocation } from '../../lib/locationContext';
+import { useEntityRefresh } from '../../lib/useEntityRefresh';
 import { haptics } from '../../lib/haptics';
 import { formatINR } from '../../lib/money';
 import { onboardingApi, type PublicProfile } from '../../lib/onboarding';
@@ -25,49 +26,103 @@ export default function ProviderDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id, preview, category: categorySlug } = useLocalSearchParams<{ id: string; preview?: string; category?: string }>();
   const isPreview = preview === '1';
-  const [pub, setPub] = useState<PublicProfile | null>(null);
-  const [detail, setDetail] = useState<ProviderDetail | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const scope = JSON.stringify([id ?? '', categorySlug ?? '']);
+  const [detailResult, setDetailResult] = useState<{ scope: string; value: ProviderDetail } | null>(null);
+  const [availabilityResult, setAvailabilityResult] = useState<(
+    { scope: string; status: 'loading' } |
+    { scope: string; status: 'ready'; value: PublicProfile } |
+    { scope: string; status: 'error'; message: string }
+  ) | null>(null);
+  const [detailFailure, setDetailFailure] = useState<{ scope: string; message: string } | null>(null);
+  const [selectedResult, setSelectedResult] = useState<{ scope: string; serviceId: string | null } | null>(null);
+  const detail = detailResult?.scope === scope ? detailResult.value : null;
+  const availability = availabilityResult?.scope === scope ? availabilityResult : { scope, status: 'loading' as const };
+  const pub = availability.status === 'ready' ? availability.value : null;
+  const availabilityError = availability.status === 'error' ? availability.message : null;
+  const selected = selectedResult?.scope === scope ? selectedResult.serviceId : null;
+  const error = detailFailure?.scope === scope ? detailFailure.message : null;
   const [showAll, setShowAll] = useState(false);
   const { location, setLocation } = useSelectedLocation();
-  const [switching, setSwitching] = useState(false);
+  const [switchingResult, setSwitchingResult] = useState<{ scope: string; value: boolean } | null>(null);
+  const switching = switchingResult?.scope === scope && switchingResult.value;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const switchRequestRef = useRef(0);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      switchRequestRef.current++;
+    };
+  }, []);
 
   // Bookings and proposal requests only reach pros in the customer's selected city, so a pro from another city
   // is offered as a one-tap location switch instead of a form that fails at the end.
   const switchToCity = async (city: string) => {
-    setSwitching(true);
+    const requestScope = scope;
+    const requestId = ++switchRequestRef.current;
+    const isCurrent = () => mountedRef.current && scopeRef.current === requestScope && switchRequestRef.current === requestId;
+    setSwitchingResult({ scope: requestScope, value: true });
     try {
       const live = (await listLiveCities()).find((c) => c.city.trim().toLowerCase() === city.trim().toLowerCase());
+      if (!isCurrent()) return;
       if (live?.lat != null && live.lng != null) {
         setLocation({ source: 'area', area: live.city, city: live.city, lat: live.lat, lng: live.lng, line1: null, addressId: null, label: null });
       } else {
         router.push('/location');
       }
     } catch {
-      router.push('/location');
+      if (isCurrent()) router.push('/location');
     } finally {
-      setSwitching(false);
+      if (isCurrent()) setSwitchingResult({ scope: requestScope, value: false });
     }
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!id) return;
-    try {
-      const [d, pp] = await Promise.all([getProviderDetail(id), onboardingApi.getPublicProfile(id).catch(() => null)]);
-      setPub(pp);
-      setDetail(d);
-      setSelected((s) => s ?? d.services.find((x) => x.categories?.slug === categorySlug)?.id ?? d.services[0]?.id ?? null);
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [id, categorySlug]);
+    const requestScope = scope;
+    const providerId = id;
+    const requestedCategory = categorySlug;
+    setAvailabilityResult({ scope: requestScope, status: 'loading' });
+    setDetailFailure((current) => current?.scope === requestScope ? null : current);
+    await Promise.all([
+      getProviderDetail(providerId)
+        .then((value) => {
+          if (!guard.isCurrent()) return;
+          setDetailResult({ scope: requestScope, value });
+          setDetailFailure(null);
+          setSelectedResult((current) => {
+            const previous = current?.scope === requestScope ? current.serviceId : null;
+            const retained = previous && value.services.some((serviceItem) => serviceItem.id === previous)
+              ? previous
+              : null;
+            const requested = value.services.find((serviceItem) => serviceItem.categories?.slug === requestedCategory)?.id;
+            return { scope: requestScope, serviceId: retained ?? requested ?? value.services[0]?.id ?? null };
+          });
+        })
+        .catch((caught: Error) => {
+          if (guard.isCurrent()) setDetailFailure({ scope: requestScope, message: caught.message });
+        }),
+      onboardingApi.getPublicProfile(providerId)
+        .then((value) => {
+          if (!guard.isCurrent()) return;
+          if (value) setAvailabilityResult({ scope: requestScope, status: 'ready', value });
+          else setAvailabilityResult({ scope: requestScope, status: 'error', message: 'Current availability could not be verified.' });
+        })
+        .catch((caught: Error) => {
+          if (guard.isCurrent()) {
+            setAvailabilityResult({ scope: requestScope, status: 'error', message: caught.message });
+          }
+        }),
+    ]);
+  }, [categorySlug, id, scope]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { refresh, refreshing } = useEntityRefresh(load, {
+    contextKey: scope,
+    enabled: !!id,
+    intervalMs: null,
+  });
 
   const breakdown = useMemo(() => {
     const reviews = detail?.reviews ?? [];
@@ -82,7 +137,7 @@ export default function ProviderDetailScreen() {
       <Screen safeTop>
         <IconButton icon="chevron-back" accessibilityLabel="Go back" onPress={back} variant="neutral" />
         {error ? (
-          <ErrorState message={error} onRetry={() => void load()} />
+          <ErrorState message={error} onRetry={() => void refresh()} />
         ) : (
           <View style={{ alignItems: 'center', gap: t.spacing.md }}>
             <Skeleton width={96} height={96} radius={48} />
@@ -119,7 +174,7 @@ export default function ProviderDetailScreen() {
   const now = new Date();
   const today = pub ? todayLabel(pub.hours, now, { onLeaveUntil: pub.on_leave_until }) : null;
   const hours = pub ? summarizeHours(pub.hours) : [];
-  const unavailable = !!pub && (pub.paused || !!pub.on_leave_until);
+  const unavailable = provider.paused || availability.status !== 'ready' || !!pub?.paused || !!pub?.on_leave_until;
   // "Vijayawada Demo" is the test city overlapping Vijayawada; the server routes targeted requests by distance.
   const cityKey = (c: string | null | undefined) => (c ?? '').trim().toLowerCase().replace(/\s+demo$/, '');
   const otherCity = !!provider.city && cityKey(provider.city) !== cityKey(location.city);
@@ -158,11 +213,7 @@ export default function ProviderDetailScreen() {
       padded={false}
       gap={t.spacing.section}
       refreshing={refreshing}
-      onRefresh={async () => {
-        setRefreshing(true);
-        await load();
-        setRefreshing(false);
-      }}
+      onRefresh={() => void refresh()}
       footer={
         service && !isPreview ? (
           <PriceFooter
@@ -196,6 +247,16 @@ export default function ProviderDetailScreen() {
         ) : undefined
       }
     >
+      {availabilityError ? (
+        <InlineAlert
+          title="Availability could not be verified"
+          message={availabilityError}
+          actionLabel="Refresh"
+          onAction={() => void refresh()}
+        />
+      ) : availability.status === 'loading' ? (
+        <InlineAlert tone="neutral" message="Checking current booking availability…" />
+      ) : null}
       <ProviderProfileHero
         provider={provider}
         name={name}
@@ -212,7 +273,7 @@ export default function ProviderDetailScreen() {
         service={service}
         pub={pub}
         hasInspectQuoteService={hasInspectQuoteService}
-        onSelect={setSelected}
+        onSelect={(serviceId) => setSelectedResult({ scope, serviceId })}
         theme={t}
         gutter={gutter}
       />
