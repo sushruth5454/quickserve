@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O20-SP06",
+  "workPackage": "O20",
+  "sourceTaskIds": [
+    "SP-T06"
+  ],
+  "sourceFindingIds": [
+    "SP-F10",
+    "SP-F15"
+  ],
+  "base": {
+    "planningBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "implementationBaseSha": "e1bb5441a9e9a9b7f1140dd5a5db95255b363557",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O09-SP01",
+        "sha": "af9b80bec96419db76427d41ed82a09fb6f08192",
+        "state": "DONE_IN_BASE"
+      }
+    ],
+    "sourceBlobShas": {
+      "supabase/migrations/0080_s2_sports_ops_ux.sql": "039c95f3c9ef57202f6351bcf77434be38e7c30d",
+      "supabase/migrations/0087_ui_redesign_flags_guest_read.sql": "b57e4c5a9f103dac71b602ef707769e4267104df"
+    }
+  },
+  "scope": {
+    "allocatedMigration": "supabase/migrations/0101_o20_sp06_oorva.sql",
+    "workerOwnedFiles": [
+      "supabase/migrations/0101_o20_sp06_oorva.sql",
+      "supabase/tests/oorva_o20_sp06.test.mjs",
+      "docs/design/oorva/evidence/o20-sp06.json"
+    ],
+    "readOnlyRegressionInput": "supabase/tests/guest_read_access.test.mjs",
+    "coordinatorOwnedFilesNotEdited": [
+      "supabase/tests/package.json",
+      ".github/workflows/deploy-backend.yml"
+    ],
+    "liveMoneyOperations": false,
+    "productionOperations": false
+  },
+  "implementation": [
+    "Replaced only the latest public.get_sports_venue(uuid) projection and restored the existing three effective cancellation-policy scalars using the same per-field venue-then-global fallback as 0080.",
+    "Replaced only the latest public.get_sports_slots(uuid,date) body; it reads and validates min_lead_minutes once, preserves true-past state and exact 30-day booking horizon, and blocks future ineligible starts without changing pricing, occupancy, remaining, or output fields.",
+    "Preserved sports and guest-browse gates, verified-venue and active-resource/activity predicates, guest address/coordinate redaction, authenticated address behavior, existing function ACLs, and payout readiness semantics."
+  ],
+  "testCases": [
+    "SP-LATEST-POLICY-PROJECTION",
+    "SP-PER-FIELD-FALLBACK",
+    "SP-LEAD-BOUNDARY",
+    "SP-EXACT-HORIZON",
+    "SP-GUEST-SAFE-FIELDS-AND-PARENT-GATES"
+  ],
+  "registration": {
+    "state": "PAUSED_FOR_COORDINATOR_ROUNDTRIP",
+    "testSelector": "oorva_o20_sp06",
+    "migrationParserSelector": "o20_sp06_oorva.sql",
+    "testRegistration": "NOT_EDITED_BY_WORKER",
+    "migrationParserRegistration": "NOT_EDITED_BY_WORKER",
+    "deployBackendRegistration": "NOT_EDITED_BY_WORKER"
+  },
+  "validation": {
+    "localBuildsTestsAndInstalls": "NOT_RUN_PER_DISPATCH",
+    "codespace": "PENDING_COORDINATOR_REGISTRATION_SHA",
+    "requiredCommands": [
+      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp06'",
+      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o20_sp06_oorva.sql'"
+    ],
+    "selectorRequirement": "Both commands must select at least one check and pass in Codespace from this exact worktree.",
+    "laneCi": "PENDING_CODESPACE_PASS"
+  },
+  "review": {
+    "required": "AUTH",
+    "state": "PENDING_EXACT_HEAD_LANE_CI"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "MIG-O20-SP06": "APPROVED"
+  },
+  "checkpoint": {
+    "state": "WORKER_FILES_ONLY",
+    "stopPoint": "PAUSE_FOR_COORDINATOR_SHARED_REGISTRATION_ROUNDTRIP"
+  }
+}
