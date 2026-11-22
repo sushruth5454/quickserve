@@ -16,6 +16,9 @@ export interface Palette {
   warning: string;
   warningSoft: string;
   warningText: string;
+  secondary: string;
+  accent: string;
+  onAccent: string;
   danger: string;
   /** Destructive button fill (white text passes AA). */
   dangerStrong: string;
@@ -47,18 +50,24 @@ export interface Palette {
   bubbleTheirs: string;
   heroFrom: string;
   heroTo: string;
+  onHero: string;
+  onInverse: string;
   toastBg: string;
   toastBorder: string;
   segmentThumb: string;
   /** Category identity (pillars) only. Never status, never CTA fill. */
   catHome: string;
   catHomeSoft: string;
+  catHomeText: string;
   catShops: string;
   catShopsSoft: string;
+  catShopsText: string;
   catSports: string;
   catSportsSoft: string;
+  catSportsText: string;
   catCreators: string;
   catCreatorsSoft: string;
+  catCreatorsText: string;
 }
 
 export const lightPalette: Palette = {
@@ -74,6 +83,9 @@ export const lightPalette: Palette = {
   warning: '#F79009',
   warningSoft: '#FFFAEB',
   warningText: '#B54708',
+  secondary: '#475467',
+  accent: '#FDB022',
+  onAccent: '#101828',
   danger: '#F04438',
   dangerStrong: '#D92D20',
   dangerPressed: '#B42318',
@@ -102,17 +114,23 @@ export const lightPalette: Palette = {
   bubbleTheirs: '#F2F4F7',
   heroFrom: '#1F4FD1',
   heroTo: '#1A40AA',
+  onHero: '#FFFFFF',
+  onInverse: '#FFFFFF',
   toastBg: '#101828',
   toastBorder: '#101828',
   segmentThumb: '#FFFFFF',
   catHome: '#0F766E',
   catHomeSoft: '#E6F4F1',
+  catHomeText: '#067647',
   catShops: '#B45309',
   catShopsSoft: '#FEF3E2',
+  catShopsText: '#8A3E00',
   catSports: '#BE185D',
   catSportsSoft: '#FCE7F1',
+  catSportsText: '#9F1239',
   catCreators: '#6D28D9',
   catCreatorsSoft: '#F1EBFE',
+  catCreatorsText: '#5B21B6',
 };
 
 export const darkPalette: Palette = {
@@ -128,6 +146,9 @@ export const darkPalette: Palette = {
   warning: '#FDB022',
   warningSoft: '#33250B',
   warningText: '#FEC84B',
+  secondary: '#D0D5DD',
+  accent: '#FDB022',
+  onAccent: '#101828',
   danger: '#F97066',
   dangerStrong: '#D92D20',
   dangerPressed: '#B42318',
@@ -156,17 +177,23 @@ export const darkPalette: Palette = {
   bubbleTheirs: '#1B2434',
   heroFrom: '#1A3FB8',
   heroTo: '#142F8A',
+  onHero: '#FFFFFF',
+  onInverse: '#FFFFFF',
   toastBg: '#1F2A3D',
   toastBorder: '#344054',
   segmentThumb: '#2A3550',
   catHome: '#5EEAD4',
   catHomeSoft: '#0B2A27',
+  catHomeText: '#5EEAD4',
   catShops: '#FCD34D',
   catShopsSoft: '#2E2208',
+  catShopsText: '#FCD34D',
   catSports: '#F9A8D4',
   catSportsSoft: '#33101F',
+  catSportsText: '#F9A8D4',
   catCreators: '#C4B5FD',
   catCreatorsSoft: '#221447',
+  catCreatorsText: '#C4B5FD',
 };
 
 export const categoryGlyphTints = {
