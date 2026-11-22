@@ -152,7 +152,7 @@
           "suite": "app",
           "filter": "src.features.recurring.__tests__.customerPresentation[.]test[.]ts$",
           "selectedFile": "app/src/features/recurring/__tests__/customerPresentation.test.ts",
-          "snapshot": "1c3f0683",
+          "snapshot": "99c7587a",
           "testSuites": 1,
           "testsPassed": 9,
           "result": "PASS"
@@ -161,7 +161,7 @@
           "suite": "jest",
           "filter": "src.features.recurring.__tests__.providerPresentation[.]test[.]ts$",
           "selectedFile": "app/src/features/recurring/__tests__/providerPresentation.test.ts",
-          "snapshot": "86b22d60",
+          "snapshot": "bf0a51d7",
           "testSuites": 1,
           "testsPassed": 12,
           "result": "PASS"
@@ -170,7 +170,7 @@
           "suite": "sql",
           "filter": "oorva_o17_plan",
           "selectedFile": "supabase/tests/oorva_o17_plan.test.mjs",
-          "snapshot": "bdbe079e",
+          "snapshot": "eb75a167",
           "testFiles": 1,
           "parseChecks": 0,
           "checksPassed": 1,
@@ -188,7 +188,7 @@
           "suite": "sql",
           "filter": "o17_plan_oorva.sql",
           "selectedFile": "supabase/migrations/0095_o17_plan_oorva.sql",
-          "snapshot": "50235a18",
+          "snapshot": "3ef8e91d",
           "testFiles": 0,
           "parseChecks": 1,
           "checksPassed": 1,
@@ -201,8 +201,19 @@
       "allSelectorsPassed": true
     },
     "laneCI": {
-      "status": "NOT_RUN",
-      "reason": "Awaiting exact lane push after evidence update and final git diff check."
+      "status": "PENDING_AFTER_LINT_FIX",
+      "priorRun": {
+        "runId": 45032915325,
+        "headSha": "a7fddb38160cef07ba4beadfdd35e1c2920d2f47",
+        "conclusion": "failure",
+        "failedJob": "app / UI lint",
+        "findings": [
+          "RecurringNewDetailScreen.tsx: the custom-date Pressable lacked accessibilityRole.",
+          "RecurringNewDetailScreen.tsx: the fixed-package Pressable lacked accessibilityRole."
+        ],
+        "resolution": "Added accessibilityRole=button to both Pressables; all four required Codespace selectors passed afterward."
+      },
+      "nextRun": "Push the post-lint-fix exact lane head and watch its single Lane CI run."
     },
     "productionOrHostedDatabaseUsed": false,
     "mainOrDeploymentTouched": false

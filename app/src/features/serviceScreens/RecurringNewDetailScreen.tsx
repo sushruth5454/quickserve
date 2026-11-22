@@ -481,7 +481,7 @@ function useRecurringNewDetailController() {
                 const key = istDateKey(day.date);
                 const selected = customDates.includes(key);
                 return (
-                  <Pressable key={key} onPress={() => setCustomDates((current) => selected ? current.filter((date) => date !== key) : [...current, key].sort())}>
+                  <Pressable key={key} accessibilityRole="button" onPress={() => setCustomDates((current) => selected ? current.filter((date) => date !== key) : [...current, key].sort())}>
                     <Card variant="outlined" padding={t.spacing.sm} style={{ borderColor: selected ? t.colors.primary : t.colors.border }}>
                       <Text variant="caption" color={selected ? 'primaryText' : 'text'}>{dateLabel(key)}</Text>
                     </Card>
@@ -554,7 +554,7 @@ function useRecurringNewDetailController() {
           <Text variant="title3">Package and quantity</Text>
           {packagesLoading ? <Skeleton height={120} radius={t.radii.lg} /> : null}
           {packages.map((item) => (
-            <Pressable key={item.id} onPress={() => { setSelectedPackage(item); setQuantity(item.qty_min); }}>
+            <Pressable key={item.id} accessibilityRole="button" onPress={() => { setSelectedPackage(item); setQuantity(item.qty_min); }}>
               <Card variant="outlined" gap={t.spacing.xs} style={{ borderColor: selectedPackage?.id === item.id ? t.colors.primary : t.colors.border }}>
                 <Text variant="subheadStrong">{item.title} · {formatINR(item.price ?? 0)}</Text>
                 {item.description ? <Text variant="footnote" color="textSecondary">{item.description}</Text> : null}
