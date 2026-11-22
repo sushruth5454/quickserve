@@ -115,16 +115,24 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
       if (!accessibilityLabel) throw new Error(`missing ${label} price row`);
       return amountInPaise(accessibilityLabel);
     };
-    // A random later day and window; if an earlier booking already holds it, try another one.
+    // Sweep later dates/windows deterministically; retry only the server's slot-conflict response.
     const days = page.locator('button >> visible=true').filter({ hasText: /(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2}$/ });
     const slots = page.locator('text=/^\\d{1,2}( am| pm)?–\\d{1,2} (am|pm)$/ >> visible=true');
     const checkout = page.getByText('Secure checkout', { exact: true }).first();
-    const taken = page.getByText(/already taken/i).first();
-    for (let attempt = 0; ; attempt++) {
+    const slotConflictMessage = 'provider_unavailable: service window overlaps another booking';
+    const maxAttempts = 5;
+    let slotConflictCount = 0;
+    let checkoutReady = false;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const dayCount = await days.count();
-      if (dayCount > 2) await days.nth(2 + Math.floor(Math.random() * (dayCount - 2))).click();
+      const futureDayCount = dayCount - 2;
+      if (futureDayCount <= 0) throw new Error(`no later dates available: ${JSON.stringify({ dayCount })}`);
+      const dayIndex = 2 + (attempt % futureDayCount);
+      await days.nth(dayIndex).click();
       const slotCount = await slots.count();
-      if (slotCount) await slots.nth(Math.floor(Math.random() * slotCount)).click();
+      if (!slotCount) throw new Error(`no visible slots: ${JSON.stringify({ dayIndex, slotCount })}`);
+      const slotIndex = attempt % slotCount;
+      await slots.nth(slotIndex).click();
       const footerButton = page.locator('text=/^Pay ₹/ >> visible=true').last();
       const footerText = await footerButton.innerText();
       const packagePaise = await priceRowPaise('Package');
@@ -139,23 +147,57 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
       if (packagePaise + platformFeePaise !== totalPaise || totalPaise !== footerPaise) {
         throw new Error(`fixed package footer does not match the displayed price breakdown: ${JSON.stringify(breakdown)}`);
       }
+      const bookingResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/rest/v1/rpc/create_fixed_booking',
+      );
       await footerButton.click();
-      await checkout.or(taken).waitFor();
-      if (await checkout.isVisible()) {
-        const checkoutAmount = await page
-          .locator('text=/^₹[\\d,]+(?:\\.\\d{2})?$/ >> visible=true')
-          .last()
-          .innerText();
-        const checkoutPayButton = await page.locator('text=/^Pay ₹/ >> visible=true').last().innerText();
-        const checkoutPaise = amountInPaise(checkoutAmount);
-        const checkoutButtonPaise = amountInPaise(checkoutPayButton);
-        const actual = { ...breakdown, checkoutPaise, checkoutButtonPaise };
-        if (checkoutPaise !== footerPaise || checkoutButtonPaise !== footerPaise) {
-          throw new Error(`fixed package checkout amount differs from the footer: ${JSON.stringify(actual)}`);
-        }
-        break;
+      const bookingResponse = await bookingResponsePromise;
+      const responseText = await bookingResponse.text();
+      let responseBody;
+      try {
+        responseBody = JSON.parse(responseText);
+      } catch {
+        responseBody = { raw: responseText };
       }
-      if (attempt >= 4) throw new Error('every tried slot was already taken');
+      if (!bookingResponse.ok()) {
+        const errorDetails = [responseBody?.message, responseBody?.details]
+          .filter((value) => typeof value === 'string')
+          .join('\n');
+        if (bookingResponse.status() === 400 && errorDetails.includes(slotConflictMessage)) {
+          slotConflictCount += 1;
+          continue;
+        }
+        throw new Error(`create_fixed_booking failed: ${JSON.stringify({
+          status: bookingResponse.status(),
+          body: responseBody,
+        })}`);
+      }
+      const bookingId = typeof responseBody === 'string' ? responseBody : '';
+      if (!bookingId) {
+        throw new Error(`create_fixed_booking returned no string booking id: ${JSON.stringify({
+          status: bookingResponse.status(),
+          body: responseBody,
+        })}`);
+      }
+      await checkout.waitFor({ state: 'visible' });
+      await page.getByText(`Booking #${bookingId.slice(0, 8)}`, { exact: true }).first().waitFor({ state: 'visible' });
+      const checkoutAmount = await page
+        .locator('text=/^₹[\\d,]+(?:\\.\\d{2})?$/ >> visible=true')
+        .last()
+        .innerText();
+      const checkoutPayButton = await page.locator('text=/^Pay ₹/ >> visible=true').last().innerText();
+      const checkoutPaise = amountInPaise(checkoutAmount);
+      const checkoutButtonPaise = amountInPaise(checkoutPayButton);
+      const actual = { ...breakdown, checkoutPaise, checkoutButtonPaise };
+      if (checkoutPaise !== footerPaise || checkoutButtonPaise !== footerPaise) {
+        throw new Error(`fixed package checkout amount differs from the footer: ${JSON.stringify(actual)}`);
+      }
+      checkoutReady = true;
+      break;
+    }
+    if (!checkoutReady) {
+      throw new Error(`no checkout after ${slotConflictCount} verified slot conflicts: ${JSON.stringify({ maxAttempts })}`);
     }
     await page.getByText('Demo mode — no real money moves', { exact: true }).first().waitFor();
     await page.getByText(/^Pay ₹/).last().click();
