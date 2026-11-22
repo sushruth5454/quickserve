@@ -152,7 +152,7 @@
           "suite": "app",
           "filter": "src.features.recurring.__tests__.customerPresentation[.]test[.]ts$",
           "selectedFile": "app/src/features/recurring/__tests__/customerPresentation.test.ts",
-          "snapshot": "99c7587a",
+          "snapshot": "4cc410f2",
           "testSuites": 1,
           "testsPassed": 9,
           "result": "PASS"
@@ -161,7 +161,7 @@
           "suite": "jest",
           "filter": "src.features.recurring.__tests__.providerPresentation[.]test[.]ts$",
           "selectedFile": "app/src/features/recurring/__tests__/providerPresentation.test.ts",
-          "snapshot": "bf0a51d7",
+          "snapshot": "36b4d7f9",
           "testSuites": 1,
           "testsPassed": 12,
           "result": "PASS"
@@ -170,7 +170,7 @@
           "suite": "sql",
           "filter": "oorva_o17_plan",
           "selectedFile": "supabase/tests/oorva_o17_plan.test.mjs",
-          "snapshot": "eb75a167",
+          "snapshot": "62a92adc",
           "testFiles": 1,
           "parseChecks": 0,
           "checksPassed": 1,
@@ -188,7 +188,7 @@
           "suite": "sql",
           "filter": "o17_plan_oorva.sql",
           "selectedFile": "supabase/migrations/0095_o17_plan_oorva.sql",
-          "snapshot": "3ef8e91d",
+          "snapshot": "d78b0ac3",
           "testFiles": 0,
           "parseChecks": 1,
           "checksPassed": 1,
@@ -201,19 +201,30 @@
       "allSelectorsPassed": true
     },
     "laneCI": {
-      "status": "PENDING_AFTER_LINT_FIX",
-      "priorRun": {
-        "runId": 45032915325,
-        "headSha": "a7fddb38160cef07ba4beadfdd35e1c2920d2f47",
-        "conclusion": "failure",
-        "failedJob": "app / UI lint",
-        "findings": [
-          "RecurringNewDetailScreen.tsx: the custom-date Pressable lacked accessibilityRole.",
-          "RecurringNewDetailScreen.tsx: the fixed-package Pressable lacked accessibilityRole."
-        ],
-        "resolution": "Added accessibilityRole=button to both Pressables; all four required Codespace selectors passed afterward."
-      },
-      "nextRun": "Push the post-lint-fix exact lane head and watch its single Lane CI run."
+      "status": "PENDING_AFTER_QUOTE_SUMMARY_COMPAT_FIX",
+      "priorRuns": [
+        {
+          "runId": 45032915325,
+          "headSha": "a7fddb38160cef07ba4beadfdd35e1c2920d2f47",
+          "conclusion": "failure",
+          "failedJob": "app / UI lint",
+          "findings": [
+            "RecurringNewDetailScreen.tsx: custom-date Pressable lacked accessibilityRole.",
+            "RecurringNewDetailScreen.tsx: fixed-package Pressable lacked accessibilityRole."
+          ],
+          "resolution": "Added accessibilityRole=button to both Pressables."
+        },
+        {
+          "runId": 45033701754,
+          "headSha": "3d80f097c2cf7f1908504eee140d3fa082932fcf",
+          "conclusion": "failure",
+          "failedJob": "app / Unit tests",
+          "failure": "One test failed: activity/__tests__/recurringScreens.test.ts RP-03 expected the prior quote-summary object shape; new null-valued summary keys were present for a legacy quote.",
+          "resolution": "getRecurringQuoteSummary now omits acceptance/payment-window fields unless valid server values exist; server-projected values remain present for new quotes.",
+          "otherJobs": "changes, UI lint, typecheck, SQL, private-postgres, Deno, and tooling passed."
+        }
+      ],
+      "nextRun": "Push the current lane head after all four required Codespace selectors pass; watch the exact-head Lane CI run."
     },
     "productionOrHostedDatabaseUsed": false,
     "mainOrDeploymentTouched": false
@@ -222,6 +233,7 @@
     "status": "Coordinator registration merged; required Codespace selectors passed; lane push pending",
     "behavior": [
       "Quote responses return only acceptance mode and a safe payment-window summary; visit projections use due obligations, server deadlines, exact expiry rules, and actor-specific payment/skip/reschedule capabilities.",
+      "Legacy quote responses without server acceptance/payment-window fields retain their previous summary object shape.",
       "Customer payment labels use remaining_due_paise, payment_due_at, and payment_expires_at; creation copy uses the server acceptance mode and configured payment-window values.",
       "Recurring action helpers require customer ownership, safe server capabilities, exact pending-reschedule identity/counterparty, and the server skip cutoff; pending plans cannot be paused.",
       "Provider context is resolved from the plan provider_id; mismatched route hints cannot produce management controls. Occurrence history is exhaustively partitioned by time and actual status.",
