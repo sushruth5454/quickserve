@@ -1,19 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { TopRatedProvider } from '../lib/apiTypes';
-import { formatINR } from '../lib/money';
 import { useTheme } from '../theme';
 import { skillLabel } from './ProviderCard';
+import { providerCardModel } from './providerCardModel';
 import { Avatar, Skeleton, Text, hashHue, lighten } from './ui';
 
 const MEDIA_HEIGHT = 104;
-
-/** Pick the service to headline: cheapest active visit fee (what "from ₹X" refers to). */
-function headline(p: TopRatedProvider) {
-  const services = (p.provider_services ?? []).filter((s) => s.active);
-  const sorted = [...services].sort((a, b) => a.visit_fee - b.visit_fee);
-  return { lead: sorted[0] ?? null, more: Math.max(0, services.length - 1) };
-}
 
 /**
  * Horizontal-carousel listing card (Urban Company / Airbnb pattern): fixed width so the next card
@@ -24,17 +17,21 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
   const name = p.profiles?.full_name || 'Provider';
   const hue = hashHue(name);
   const rating = Number(p.rating_avg);
-  const { lead, more } = headline(p);
-  const category = lead?.categories?.name ? `${lead.categories.name}${more > 0 ? ` +${more}` : ''}` : null;
+  const { lead, categoryLabel, priceLabel, isOnline } = providerCardModel({
+    services: p.provider_services,
+    isOnline: p.is_online,
+    onLeaveUntil: p.on_leave_until,
+  });
+  const category = categoryLabel;
   const service = lead ? [category, skillLabel[lead.skill_level]].filter(Boolean).join(' · ') : `${p.years_experience} yrs experience`;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, verified${lead ? `, ${service}` : ''}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews${
-        lead ? `, visit fee from ${formatINR(lead.visit_fee)}` : ''
-      }`}
+      accessibilityLabel={`${name}, verified${lead ? `, ${service}` : ''}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews, ${
+        isOnline ? 'online' : 'not online'
+      }, ${priceLabel}, view profile`}
       style={({ pressed }) => [
         {
           width,
@@ -59,7 +56,7 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
             }}
           >
             <View style={{ padding: 3, borderRadius: 40, backgroundColor: t.colors.surface }}>
-              <Avatar name={name} uri={p.profiles?.avatar_url} size={64} online={p.is_online} />
+              <Avatar name={name} uri={p.profiles?.avatar_url} size={64} online={isOnline} />
             </View>
             <View
               style={{
@@ -110,19 +107,15 @@ export function TopRatedCard({ provider: p, width, onPress }: { provider: TopRat
                 justifyContent: 'space-between',
               }}
             >
-              {lead ? (
-                <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
-                  Visit from{' '}
-                  <Text variant="subheadStrong" color="text" tabular>
-                    {formatINR(lead.visit_fee)}
-                  </Text>
-                </Text>
-              ) : (
-                <Text variant="footnote" color="muted">
+              <Text variant="footnote" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>
+                {priceLabel}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                <Text variant="caption" color="muted">
                   View profile
                 </Text>
-              )}
-              <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
+                <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
+              </View>
             </View>
           </View>
         </>
@@ -136,14 +129,20 @@ export function TopRatedRow({ provider: p, onPress }: { provider: TopRatedProvid
   const t = useTheme();
   const name = p.profiles?.full_name || 'Provider';
   const rating = Number(p.rating_avg);
-  const { lead, more } = headline(p);
-  const category = lead?.categories?.name ? `${lead.categories.name}${more > 0 ? ` +${more}` : ''}` : null;
+  const { lead, categoryLabel, priceLabel, isOnline } = providerCardModel({
+    services: p.provider_services,
+    isOnline: p.is_online,
+    onLeaveUntil: p.on_leave_until,
+  });
+  const category = categoryLabel;
   const service = lead ? [category, skillLabel[lead.skill_level]].filter(Boolean).join(' · ') : `${p.years_experience} yrs experience`;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, verified, ${service}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews`}
+      accessibilityLabel={`${name}, verified, ${service}, rated ${rating.toFixed(1)} from ${p.rating_count} reviews, ${
+        isOnline ? 'online' : 'not online'
+      }, ${priceLabel}, view profile`}
       style={({ pressed }) => [
         {
           flexDirection: 'row',
@@ -157,7 +156,7 @@ export function TopRatedRow({ provider: p, onPress }: { provider: TopRatedProvid
         },
       ]}
     >
-      <Avatar name={name} uri={p.profiles?.avatar_url} size={52} online={p.is_online} />
+      <Avatar name={name} uri={p.profiles?.avatar_url} size={52} online={isOnline} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Text variant="calloutStrong" numberOfLines={1} style={{ flexShrink: 1 }}>
@@ -178,16 +177,14 @@ export function TopRatedRow({ provider: p, onPress }: { provider: TopRatedProvid
           </Text>
         </View>
       </View>
-      {lead ? (
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text variant="caption" color="muted">
-            from
-          </Text>
-          <Text variant="subheadStrong" tabular>
-            {formatINR(lead.visit_fee)}
-          </Text>
-        </View>
-      ) : null}
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text variant="footnote" color="muted" numberOfLines={1}>
+          {priceLabel}
+        </Text>
+        <Text variant="caption" color="muted">
+          View profile
+        </Text>
+      </View>
       <Ionicons name="chevron-forward" size={16} color={t.colors.muted} />
     </Pressable>
   );

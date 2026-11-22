@@ -1,0 +1,137 @@
+{
+  "stage": "O14-MK12",
+  "sourceTask": "MK-T12",
+  "finding": "MK-F14",
+  "dispatchOrder": 17,
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "branch": "lane/oorva-o14-mk12",
+  "implementationBase": "962ad769b664e2f36c41198cd4a79d966d55cb53",
+  "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "dependencyHeads": {
+    "O05F": "f204e1a8c0652154260769e26cd24839cedd49c8",
+    "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
+  },
+  "migration": "supabase\\migrations\\0091_o14_mk12_oorva.sql",
+  "implementationStatus": "TESTED_DEPENDENCY_BASE_INTEGRATED; CODESPACE_PASS; LANE_CI_PASS",
+  "sourceDrift": {
+    "scope": "Affected files/functions only; no repeat audit.",
+    "baseDifferencesFromAuditedSha": [
+      {
+        "file": "app\\src\\features\\home\\HomeV2.tsx",
+        "preservedChange": "Narrow-viewport pillar layout."
+      },
+      {
+        "file": "app\\src\\lib\\apiTypes.ts",
+        "preservedChange": "updateMyProfile patch narrowed to full_name/avatar_url."
+      },
+      {
+        "file": "app\\src\\lib\\supabaseApi.ts",
+        "preservedChange": "Auth-session errors now throw in requireUserId/getSession."
+      }
+    ],
+    "existingSelectedCityArgument": "Home and top-rated route continue passing location.city; the new RPC applies trimmed, case-insensitive exact city equality.",
+    "canonicalHelpersRead": [
+      "public._provider_is_live",
+      "public._is_bookable",
+      "public._guest_browse_enabled"
+    ]
+  },
+  "implementation": {
+    "safeProjection": "Public identity, rating/trust counts, effective presence/current leave, active bookable services, category archetype, and explicitly selected active package price fields only.",
+    "ranking": "rating_avg descending, then rating_count descending; normalized selected city; exclude auth.uid(); rating_count > 0; limit clamped to 1..50.",
+    "cardPresentation": "Category sort_order then service id; package sort_order then id; archetype-specific price label; no cross-unit minimum; no-package state is No packages listed / View profile.",
+    "routeHost": "app/app/top-rated.tsx re-exports app/src/features/marketplaceScreens/TopRatedScreen.tsx.",
+    "demoEvidence": "Demo API matches the DTO shape but is not production evidence."
+  },
+  "validation": {
+    "registration": {
+      "status": "MERGED",
+      "commit": "6644f902669941af6768bb51f3db98b19536afa2",
+      "changedFiles": [
+        "supabase\\tests\\package.json"
+      ]
+    },
+    "currentMainHelperFetched": true,
+    "testedDependencyBase": {
+      "head": "c31e93e66111d7628c3715d55d62b6c9438576c3",
+      "laneCI": {
+        "runId": "44939579749",
+        "conclusion": "SUCCESS"
+      },
+      "privateE2ELocal": {
+        "runId": "44939579837",
+        "conclusion": "SUCCESS"
+      },
+      "integration": "Merged non-destructively into O14; merge was conflict-free.",
+      "mergeBase": "8c96625fda96e040a1d5348ae98ed5f2dc2dc8ad",
+      "overlapResolution": "No conflict hunks required manual edits. The target's HomeV2 responsive-pillar changes and supabaseApi session-error handling are present; O14's selected-city top-rated presenter and public RPC remain."
+    },
+    "sourcePreservation": {
+      "homeV2": "Current-main responsive pillar layout remains; O14 selected-city/rating header and archetype-aware TopRatedCard remain.",
+      "supabaseApi": "Current-main requireUserId/getSession error propagation remains; O14 list_top_rated_public RPC remains."
+    },
+    "codespaceSelectors": {
+      "app": {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.providerCardModel[.]test[.]ts$'",
+        "status": "PASS",
+        "result": "One selected suite; 6 tests passed; cs-test result: PASS."
+      },
+      "sqlTest": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o14_mk12'",
+        "status": "PASS",
+        "result": "One selected SQL file; 1/1 checks passed; cs-test result: PASS.",
+        "previousAttempt": {
+          "status": "FAIL",
+          "cause": "Both fixtures used the same city, so the second scenario's rank query included the first scenario's higher-count providers. The fixture now uses a unique city per scenario."
+        }
+      },
+      "migrationParser": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o14_mk12_oorva.sql'",
+        "status": "PASS",
+        "result": "One selected migration parser; 3 top-level statements and 1 function body parsed with 0 errors; cs-test result: PASS."
+      }
+    },
+    "preIntegrationLaneCI": {
+      "runId": "44937659599",
+      "head": "f6d9a9ceaa02eda2e0795b22e63e9016be87f282",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "app": "PASS",
+        "deno": "PASS",
+        "sql": "PASS"
+      },
+      "result": "All Lane CI jobs passed on the exact corrected implementation head."
+    },
+    "laneCI": {
+      "runId": "44943160938",
+      "head": "be356b45dc7c63b8ed043ed3e73bffe9089dee47",
+      "conclusion": "SUCCESS",
+      "result": "App, SQL, and Deno jobs passed on the exact integrated O14 head."
+    },
+    "priorLaneCI": {
+      "runId": "44934283636",
+      "head": "1584e814abe243de90359c0cb1b8fd0fd687411e",
+      "conclusion": "FAILURE",
+      "sqlSummary": "145/146 SQL checks passed; both O14-MK12 scenarios first failed on duplicate profile inserts. A later Codespace SQL attempt exposed fixture city overlap; both test-fixture defects were corrected."
+    },
+    "privateE2E": "Base-only pass 44929374348; no stage E2E dispatched.",
+    "authReview": {
+      "status": "PASS_CARRIED_FORWARD",
+      "reviewedHead": "f6d9a9ceaa02eda2e0795b22e63e9016be87f282",
+      "validity": "No O14 authorization/API behavior changed during integration; current-main session-error propagation remains and the O14 public RPC is unchanged, so no same-stage re-review is required."
+    },
+    "lanePush": {
+      "validatedImplementationHead": "be356b45dc7c63b8ed043ed3e73bffe9089dee47",
+      "status": "PUSHED; exact-head Lane CI passed."
+    },
+    "evidenceRefresh": "This follow-up records tested-base integration, all three current-main Codespace selector passes, and exact-head Lane CI 44943160938."
+  },
+  "scope": {
+    "workerFilesOnly": true,
+    "mainPush": false,
+    "deployment": false,
+    "productionFlagChange": false,
+    "liveMoneyOperation": false,
+    "dataRepair": false
+  }
+}
