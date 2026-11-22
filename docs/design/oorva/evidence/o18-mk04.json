@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O18-MK04",
+  "workPackage": "O18",
+  "status": "IMPLEMENTED_AWAITING_SHARED_REGISTRATION",
+  "base": {
+    "branch": "lane/oorva-o18-mk04",
+    "implementationSha": "b7cb8911c15ef03100e407ff4385151cc2bf364a",
+    "planningCommit": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O12-MK10",
+      "sha": "17fb512159c9b734b850ec1f819873390d949e49",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O17-PLAN",
+      "sha": "f641f6267061d71f95a1fd86d718b0c71db6e342",
+      "state": "DONE_IN_TESTED_PRIVATE_BATCH25_BASE"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T04",
+    "findingId": "MK-F04",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t04",
+    "finding": "Capability OFF erases authorized enquiry/RFQ history and blocks owner cancellation.",
+    "preservedBaseDrift": [
+      {
+        "path": "app/src/features/activity/model.ts",
+        "change": "Preserved O17-PLAN current model and added shop-history visibility."
+      },
+      {
+        "path": "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+        "change": "Preserved O12-MK10 host and edited it in place."
+      }
+    ]
+  },
+  "migrationClaim": {
+    "id": "MIG-O18-MK04",
+    "version": "0096",
+    "filename": "supabase/migrations/0096_o18_mk04_oorva.sql",
+    "acknowledged": true
+  },
+  "sqlFunctions": [
+    "public._product_enquiry_participant",
+    "public._rfq_is_customer",
+    "public._rfq_shop_recipient",
+    "public._rfq_can_read",
+    "public._rfq_quote_can_read",
+    "public.get_product_enquiry",
+    "public.list_product_enquiry_messages",
+    "public.list_my_product_enquiries",
+    "public.list_shop_product_enquiries",
+    "public.mark_enquiry_read",
+    "public.get_my_business_shop",
+    "public.list_my_products",
+    "public.get_rfq",
+    "public.list_my_customer_rfqs",
+    "public.get_supplier_rfq_for_business",
+    "public.list_my_supplier_rfqs",
+    "public.compare_rfq_quotes",
+    "public.cancel_rfq",
+    "public.get_my_activity_unread_counts",
+    "public.mark_my_activity_notification_read",
+    "public._product_image_access"
+  ],
+  "workerOwnedFiles": [
+    "app/src/features/shops/api.ts",
+    "app/src/features/rfq/api.ts",
+    "app/app/enquiry/[id].tsx",
+    "app/app/merchant-enquiries.tsx",
+    "app/app/merchant-rfqs.tsx",
+    "app/app/rfq/[id].tsx",
+    "app/app/rfq/merchant/[id].tsx",
+    "app/app/shop/index.tsx",
+    "app/src/features/activity/UnifiedActivityScreen.tsx",
+    "app/src/features/activity/model.ts",
+    "app/src/features/activity/segments/ShopSegment.tsx",
+    "app/src/features/activity/__tests__/model.test.ts",
+    "app/src/features/marketplaceScreens/EnquiryDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/ShopIndexScreen.tsx",
+    "supabase/migrations/0096_o18_mk04_oorva.sql",
+    "supabase/tests/oorva_o18_mk04.test.mjs",
+    "docs/design/oorva/evidence/o18-mk04.json"
+  ],
+  "coordinatorOwnedFiles": [
+    "supabase/tests/package.json",
+    "e2e/web-smoke.mjs"
+  ],
+  "promotionOwnedFiles": [
+    {
+      "path": ".github/workflows/deploy-backend.yml",
+      "owner": "O37B",
+      "status": "NOT_TOUCHED"
+    }
+  ],
+  "implementation": [
+    "Identity-authorized enquiry/RFQ history and metadata reads no longer depend on new-work capability switches; active merchant_staff membership and exact participants/recipients remain required.",
+    "Only owner cancellation of raw-open RFQs and authorized enquiry/RFQ mark-read paths are available OFF; create/send/select/status/catalogue writes remain gated.",
+    "Owner OFF workspace reads existing shop and product rows without listing active categories; historic owner image reads are allowed while management and public image access remain gated.",
+    "Shop activity/history is retained when all messages are read; detail/history hosts are read-only when their capability is OFF, while public shop discovery remains unavailable."
+  ],
+  "requiredCases": [
+    "MK-OFF-existing-enquiry-role-matrix",
+    "MK-OFF-existing-RFQ-role-matrix",
+    "MK-OFF-cancel-owner-not-outsider",
+    "MK-OFF-new-work-denied",
+    "MK-OFF-shop-unread",
+    "MK-OFF-read-history-keeps-shop-segment"
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "path": "supabase/tests/package.json",
+    "status": "PENDING",
+    "registrationSha": null,
+    "sqlSelector": "oorva_o18_mk04",
+    "migrationParserSelector": "o18_mk04_oorva.sql",
+    "registrationHasTestSuccessClaim": false
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "APPROVED_FOR_STAGE_EXECUTION_ONLY",
+    "MIG-O18-MK04": "APPROVED_RESERVED_0096",
+    "mainPromotion": "NOT_GRANTED",
+    "publicOrNativeRelease": "NOT_GRANTED"
+  },
+  "validation": {
+    "gitDiffCheck": "PENDING",
+    "codespace": {
+      "status": "NOT_RUN_AWAITING_SHARED_REGISTRATION",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "windowsAppOrSqlTests": "NOT_RUN",
+      "selectors": [
+        {
+          "suite": "app",
+          "filter": "src.features.activity.__tests__.model[.]test[.]ts$",
+          "result": "PENDING"
+        },
+        {
+          "suite": "sql",
+          "filter": "oorva_o18_mk04",
+          "result": "PENDING"
+        },
+        {
+          "suite": "sql",
+          "filter": "o18_mk04_oorva.sql",
+          "result": "PENDING"
+        }
+      ]
+    },
+    "authReview": {
+      "required": true,
+      "status": "NOT_RUN"
+    },
+    "privateBatchE2e": {
+      "owner": "coordinator",
+      "requiredScenario": "MK-OFF-same-entity-history-cancel-private-backend",
+      "status": "PENDING_COORDINATOR_REGISTRATION_AND_BATCH"
+    },
+    "laneCi": "PENDING_CODESPACE_PASS_AND_EXACT_HEAD_PUSH"
+  },
+  "productionActions": "NONE"
+}
