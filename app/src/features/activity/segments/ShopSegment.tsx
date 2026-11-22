@@ -27,32 +27,22 @@ export function ShopSegment({
   const [rfqError, setRfqError] = useState<string | null>(null);
 
   const loadEnquiries = useCallback(async () => {
-    if (!enquiriesEnabled) {
-      setEnquiries([]);
-      setEnquiryError(null);
-      return;
-    }
     try {
       setEnquiries(await listMyProductEnquiries());
       setEnquiryError(null);
     } catch (e) {
       setEnquiryError((e as Error).message);
     }
-  }, [enquiriesEnabled]);
+  }, []);
 
   const loadRfqs = useCallback(async () => {
-    if (!rfqEnabled) {
-      setRfqs([]);
-      setRfqError(null);
-      return;
-    }
     try {
       setRfqs(await listMyCustomerRfqs());
       setRfqError(null);
     } catch (e) {
       setRfqError((e as Error).message);
     }
-  }, [rfqEnabled]);
+  }, []);
 
   const load = useCallback(async () => {
     await Promise.all([loadEnquiries(), loadRfqs()]);
@@ -61,21 +51,17 @@ export function ShopSegment({
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   useEffect(() => registerRefresh(load), [load, registerRefresh]);
 
-  if (!enquiriesEnabled && !rfqEnabled) {
-    return <EmptyState icon="storefront-outline" title="Shop activity is unavailable" message="Product enquiries and RFQs are turned off right now." />;
-  }
-
   return (
     <View style={{ gap: t.spacing.lg }}>
-      {enquiriesEnabled ? (
-        <View style={{ gap: t.spacing.sm }}>
-          <Text variant="title3">Product enquiries</Text>
-          {enquiryError ? <InlineAlert message={enquiryError} /> : null}
-          {enquiries == null ? (
-            <Skeleton height={86} radius={t.radii.lg} />
-          ) : !enquiries.length ? (
-            <EmptyState icon="chatbubble-ellipses-outline" title="No product enquiries yet" message="Your shop conversations will appear here." compact />
-          ) : enquiries.map((enquiry) => (
+      <View style={{ gap: t.spacing.sm }}>
+        <Text variant="title3">Product enquiries</Text>
+        {!enquiriesEnabled ? <Text variant="caption" color="muted">Existing history is read-only while new enquiries are turned off.</Text> : null}
+        {enquiryError ? <InlineAlert message={enquiryError} /> : null}
+        {enquiries == null ? (
+          <Skeleton height={86} radius={t.radii.lg} />
+        ) : !enquiries.length ? (
+          <EmptyState icon="chatbubble-ellipses-outline" title="No product enquiries yet" message="Your shop conversations will appear here." compact />
+        ) : enquiries.map((enquiry) => (
             <Card
               key={enquiry.id}
               onPress={() => router.push({ pathname: '/enquiry/[id]', params: { id: enquiry.id } })}
@@ -88,19 +74,18 @@ export function ShopSegment({
               <Text variant="footnote" color="muted">{enquiry.shop_name} · {enquiry.status}</Text>
               <Text variant="caption" color="muted">{fmtDate(enquiry.last_message_at)}</Text>
             </Card>
-          ))}
-        </View>
-      ) : null}
+        ))}
+      </View>
 
-      {rfqEnabled ? (
-        <View style={{ gap: t.spacing.sm }}>
-          <Text variant="title3">Product RFQs</Text>
-          {rfqError ? <InlineAlert message={rfqError} /> : null}
-          {rfqs == null ? (
-            <Skeleton height={86} radius={t.radii.lg} />
-          ) : !rfqs.length ? (
-            <EmptyState icon="document-text-outline" title="No RFQs yet" message="Your product quote requests will appear here." compact />
-          ) : rfqs.map((rfq) => (
+      <View style={{ gap: t.spacing.sm }}>
+        <Text variant="title3">Product RFQs</Text>
+        {!rfqEnabled ? <Text variant="caption" color="muted">Existing history is read-only while new RFQs are turned off.</Text> : null}
+        {rfqError ? <InlineAlert message={rfqError} /> : null}
+        {rfqs == null ? (
+          <Skeleton height={86} radius={t.radii.lg} />
+        ) : !rfqs.length ? (
+          <EmptyState icon="document-text-outline" title="No RFQs yet" message="Your product quote requests will appear here." compact />
+        ) : rfqs.map((rfq) => (
             <Card
               key={rfq.id}
               onPress={() => {
@@ -118,9 +103,8 @@ export function ShopSegment({
                 {rfq.recipient_count} shops contacted · Needed by {new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString('en-IN')}
               </Text>
             </Card>
-          ))}
-        </View>
-      ) : null}
+        ))}
+      </View>
     </View>
   );
 }
