@@ -11,7 +11,7 @@
     "O14-MK12": "2a214c37e909fcc7a93cd7b313db6c095bfc126f"
   },
   "migration": "supabase\\migrations\\0092_o16_mn06_oorva.sql",
-  "implementationStatus": "WORKER_FILES_READY; PAUSED_FOR_SHARED_REGISTRATION",
+  "implementationStatus": "CODESPACE_PASS; READY_FOR_PUSH_AND_LANE_CI",
   "sourceDrift": {
     "scope": "Affected files/functions only; no repeated audit.",
     "latestGetReceiptDefinition": "0084_b2_receipts.sql; no later replacement found in the migrations through the tested base.",
@@ -46,16 +46,46 @@
       "coordinatorOwned": true
     },
     "codespace": {
-      "status": "NOT_RUN_PENDING_REGISTRATION",
-      "selectors": {
-        "app": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.receipts.__tests__.formatReceipt[.]test[.]ts$'",
-        "sqlTest": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o16_mn06'",
-        "migrationParser": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o16_mn06_oorva.sql'"
+      "status": "PASS",
+      "app": {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.receipts.__tests__.formatReceipt[.]test[.]ts$'",
+        "result": "1 suite selected; 3 tests passed; cs-test result: PASS.",
+        "codespaceSnapshot": "d82f4937"
+      },
+      "sqlTest": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o16_mn06'",
+        "result": "1 SQL file selected; 1/1 checks passed; cs-test result: PASS.",
+        "codespaceSnapshot": "56c6551f",
+        "priorAttempts": [
+          "The receipt-preservation assertion initially compared serialized timestamptz strings and reported a false mismatch. Diagnostic checks isolated issued_at string equality while database timestamps and JSONB snapshots were unchanged.",
+          "Replaced representation-sensitive comparisons with SQL timestamptz and JSONB equality; rerun passed all cases."
+        ]
+      },
+      "migrationParser": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o16_mn06_oorva.sql'",
+        "result": "1 migration parser selected; 6 top-level statements and 1 function body parsed; 0 errors; cs-test result: PASS.",
+        "codespaceSnapshot": "3852704a",
+        "registeredOrder": [
+          "0090",
+          "0091",
+          "0092"
+        ]
       }
+    },
+    "registration": {
+      "status": "MERGED",
+      "commit": "1f3f50e17166c7d691df6cee0e01eab217531ef4",
+      "changedFiles": [
+        "supabase\\tests\\package.json"
+      ],
+      "selectionProof": [
+        "node parse.cjs ../migrations/0092_o16_mn06_oorva.sql",
+        "node oorva_o16_mn06.test.mjs"
+      ]
     },
     "focusedReview": {
       "required": "AUTH",
-      "status": "PENDING_EXACT_HEAD_LANE_CI"
+      "status": "PENDING_COORDINATOR_AFTER_LANE_CI_GREEN"
     }
   },
   "scope": {

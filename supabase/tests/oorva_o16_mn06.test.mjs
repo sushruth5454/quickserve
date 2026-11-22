@@ -146,7 +146,35 @@ await scenario('MN-RECEIPT-POST-ISSUE-REFUND', async () => {
       from public.payment_receipts
      where payment_id = $1::uuid
   `, [paymentId]);
+  const persistedSnapshotMatch = await one(`
+    select snapshot = $2::jsonb as matches
+      from public.payment_receipts
+     where payment_id = $1::uuid
+  `, [paymentId, JSON.stringify(original.snapshot)]);
+  const persistedIssuedAtMatch = await one(`
+    select issued_at = $2::timestamptz as matches
+      from public.payment_receipts
+     where payment_id = $1::uuid
+  `, [paymentId, original.issued_at]);
+  const overlaySnapshotMatch = await as(fixture.customer, 'authenticated', `
+    select snapshot = $2::jsonb as matches
+      from public.get_receipt($1::uuid)
+  `, [paymentId, JSON.stringify(original.snapshot)]);
+  const overlayIssuedAtMatch = await as(fixture.customer, 'authenticated', `
+    select issued_at = $2::timestamptz as matches
+      from public.get_receipt($1::uuid)
+  `, [paymentId, original.issued_at]);
   const currentRefund = refunded?.current_refunds?.[0] ?? null;
+  const receiptPreservation = {
+    id: original?.id === persisted?.id,
+    receipt_no: original?.receipt_no === persisted?.receipt_no,
+    payment_id: original?.payment_id === persisted?.payment_id,
+    booking_id: original?.booking_id === persisted?.booking_id,
+    stored_issued_at: persistedIssuedAtMatch?.matches === true,
+    returned_issued_at: overlayIssuedAtMatch[0]?.matches === true,
+    stored_snapshot_jsonb: persistedSnapshotMatch?.matches === true,
+    returned_snapshot_jsonb: overlaySnapshotMatch[0]?.matches === true,
+  };
 
   check(flag?.enabled === false, 'receipt capability remains default-off before explicit enablement', flag);
   check(
@@ -179,17 +207,29 @@ await scenario('MN-RECEIPT-POST-ISSUE-REFUND', async () => {
     { refunded, currentRefund },
   );
   check(
-    Boolean(original
-      && persisted
-      && original.id === persisted.id
-      && original.receipt_no === persisted.receipt_no
-      && original.payment_id === persisted.payment_id
-      && original.booking_id === persisted.booking_id
-      && original.issued_at === persisted.issued_at
-      && JSON.stringify(original.snapshot) === JSON.stringify(persisted.snapshot)
-      && JSON.stringify(refunded?.snapshot) === JSON.stringify(original.snapshot)),
-    'receipt identity, issue time and original snapshot remain byte-for-byte unchanged',
-    { original, persisted, refunded },
+    Boolean(original && persisted && Object.values(receiptPreservation).every(Boolean)),
+    'receipt identity, issue time and original snapshot JSONB remain unchanged',
+    {
+      receiptPreservation,
+      original: original && {
+        id: original.id,
+        receipt_no: original.receipt_no,
+        payment_id: original.payment_id,
+        booking_id: original.booking_id,
+        issued_at: original.issued_at,
+      },
+      persisted: persisted && {
+        id: persisted.id,
+        receipt_no: persisted.receipt_no,
+        payment_id: persisted.payment_id,
+        booking_id: persisted.booking_id,
+        issued_at: persisted.issued_at,
+      },
+      persistedSnapshotMatch,
+      persistedIssuedAtMatch,
+      overlaySnapshotMatch,
+      overlayIssuedAtMatch,
+    },
   );
   await db.query(`update public.feature_flags set enabled = false where key = 'payment_receipts'`);
   const hidden = await as(fixture.customer, 'authenticated', receiptQuery, [paymentId]);
