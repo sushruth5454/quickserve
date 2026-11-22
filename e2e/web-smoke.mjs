@@ -1606,6 +1606,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       shopId = randomUUID();
       productId = randomUUID();
       const shopName = `${QA_MARKER} O18 private history shop`;
+      const productName = `${QA_MARKER} O18 history product`;
       await privateQuery(
         'insert into public.shops '
         + '(id, owner_id, name, description, address_line, city, area, lat, lng, delivery_radius_km, offers_delivery, offers_pickup, status) '
@@ -1619,7 +1620,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       await privateQuery(
         'insert into public.products (id, shop_id, category_id, name, brand, model, description, specs, unit) '
         + `values (${sqlUuid(productId)}, ${sqlUuid(shopId)}, ${sqlUuid(categoryRows[0].id)}, `
-        + `${sqlLiteral(`${QA_MARKER} O18 history product`)}, 'O18', 'History', `
+        + `${sqlLiteral(productName)}, 'O18', 'History', `
         + `${sqlLiteral(`${QA_MARKER} private E2E product`)}, '{"size":"10x10"}'::jsonb, 'box')`,
       );
       const ownerShop = requireRpcSuccess('get_my_shop fixture read', await rpc(ownerToken, 'get_my_shop'));
@@ -1717,12 +1718,13 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
 
       await go('/bookings');
       await page.getByTestId('activity-segment-shop').click();
-      const shopPanel = page.getByTestId('my-activity-panel-shop');
-      await shopPanel.waitFor();
-      await shopPanel.getByText(enquiryText, { exact: true }).waitFor({ state: 'visible' });
-      await shopPanel.getByText(rfqTitle, { exact: true }).waitFor({ state: 'visible' });
+      const enquiryPanel = page.getByTestId('my-activity-panel-shop');
+      await enquiryPanel.waitFor();
+      const enquiryCard = enquiryPanel.getByText(productName, { exact: true });
+      await enquiryCard.waitFor({ state: 'visible' });
+      await enquiryCard.click();
+      await page.waitForURL((url) => new URL(url).pathname === `/enquiry/${enquiryId}`);
 
-      await go(`/enquiry/${enquiryId}`);
       await visible(enquiryText);
       await visible(ownerReplyText);
       await visible('Existing enquiry history is read-only while product enquiries are turned off.');
@@ -1733,7 +1735,14 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         throw new Error(`Read-only enquiry still exposes Send message: ${JSON.stringify({ enquiryId, sendButtons: await page.getByLabel('Send message', { exact: true }).count() })}`);
       }
 
-      await go(`/rfq/${rfqId}`);
+      await go('/bookings');
+      await page.getByTestId('activity-segment-shop').click();
+      const rfqPanel = page.getByTestId('my-activity-panel-shop');
+      await rfqPanel.waitFor();
+      const rfqCard = rfqPanel.getByText(rfqTitle, { exact: true });
+      await rfqCard.waitFor({ state: 'visible' });
+      await rfqCard.click();
+      await page.waitForURL((url) => new URL(url).pathname === `/rfq/${rfqId}`);
       await visible(rfqTitle);
       await page.getByText(/History/).first().waitFor({ state: 'visible' });
       await visible('Existing RFQ history is read-only while new RFQs are turned off.');
