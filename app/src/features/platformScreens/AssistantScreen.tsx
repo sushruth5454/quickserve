@@ -10,10 +10,20 @@ import { AssistantBubble, FeedbackBar, HandoffCard, QuickReplies, StarterList, U
 import { Composer } from '../../components/assistant/Composer';
 import { ProgressSteps } from '../../components/assistant/ProgressSteps';
 import { VoicePreview } from '../../components/assistant/VoicePreview';
-import { Button, EmptyState, Header, IconButton, InlineAlert, Screen, Text, useToast } from '../../components/ui';
+import { Button, EmptyState, Header, IconButton, InlineAlert, Screen, Skeleton, Text, useToast } from '../../components/ui';
 import { track } from '../../lib/analytics';
 import { getMyProfile, getProviderService, listMyBookings } from '../../lib/api';
 import { AssistantError, sendToAssistant, transcribeVoice } from '../../lib/assistant/client';
+import {
+  commitIfCurrent,
+  conversationLoadResult,
+  conversationLoadState,
+  createConversationGeneration,
+  idleConversationLoad,
+  runIfAiEnabled,
+  shouldAutoSend,
+  type ConversationLoadState,
+} from '../../lib/assistant/conversationState';
 import { listConversations, loadConversation, photoUrl, setFeedback, type FeedbackReason, type StoredTurn } from '../../lib/assistant/history';
 import { friendlyError } from '../../lib/errors';
 import { visualPiiRedactionReady } from '../../features/ai/imagePrivacy';
@@ -97,12 +107,16 @@ export default function AssistantScreen() {
   const translate = useT();
   const flags = useAppFeatureFlags();
   const aiOn = aiAssistantEnabled && flags.isOn('ai_assistant');
+  const aiCapabilityRef = useRef(aiOn);
+  aiCapabilityRef.current = aiOn;
   const toast = useToast();
   const reduced = useReducedMotion();
   const { location } = useSelectedLocation();
   const params = useLocalSearchParams<{ q?: string; category?: string; name?: string; conversation?: string }>();
+  const conversationGeneration = useMemo(() => createConversationGeneration(), []);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationLoadState>(idleConversationLoad);
   const [resumed, setResumed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ProgressRow[]>([]);
@@ -114,8 +128,10 @@ export default function AssistantScreen() {
   const [readAloud, setReadAloud] = useState(false);
   const [starters, setStarters] = useState<StarterPrompt[]>(() => starterPrompts([], new Date()));
   const [firstName, setFirstName] = useState('');
+  const canStartAiWork = aiOn && (selectedConversation.status === 'ready' || (selectedConversation.status === 'idle' && !params.conversation));
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const autoSent = useRef(false);
+  const skipAutoResume = useRef(false);
   const chatAbort = useRef<AbortController | null>(null);
   const voiceAbort = useRef<AbortController | null>(null);
 
@@ -135,53 +151,104 @@ export default function AssistantScreen() {
       setFirstName(profile?.full_name?.split(' ')[0] ?? '');
     });
     return () => {
-      chatAbort.current?.abort();
-      voiceAbort.current?.abort();
+      conversationGeneration.invalidate();
       stopSpeaking();
     };
-  }, []);
+  }, [conversationGeneration]);
 
   const openConversation = useCallback(
     async (id: string, auto: boolean) => {
+      const key = conversationGeneration.begin();
+      chatAbort.current = null;
+      voiceAbort.current = null;
+      setBusy(false);
+      setProgress([]);
+      setGeneric(false);
+      setVoice(null);
+      setPhoto(null);
+      setAttachMenu(false);
+      stopSpeaking();
+      setMessages([]);
+      setConversationId(id);
+      setResumed(false);
+      setSelectedConversation(conversationLoadState(id, 'loading', auto));
+
+      if (isDemoMode) {
+        commitIfCurrent(conversationGeneration, key, () => setSelectedConversation(conversationLoadState(id, 'unavailable', auto)));
+        return;
+      }
+
       try {
         const turns = await loadConversation(id);
-        if (!turns.length) return;
-        setConversationId(id);
-        setMessages(turnsToMessages(turns));
-        setResumed(auto);
+        const committed = commitIfCurrent(conversationGeneration, key, () => {
+          setSelectedConversation(conversationLoadResult(id, turns.length, auto));
+          setMessages(turnsToMessages(turns));
+          setResumed(auto && turns.length > 0);
+        });
+        if (!committed || !turns.length) return;
+
         // Private photos: short-lived signed links, owner-only (RLS).
         for (const turn of turns) {
           if (turn.role === 'user' && turn.photoPath) {
-            void photoUrl(turn.photoPath).then((uri) => uri && setMessages((m) => m.map((x) => (x.id === `s${turn.id}` && x.role === 'user' ? { ...x, photoUri: uri } : x))));
+            void photoUrl(turn.photoPath).then((uri) => {
+              if (!uri) return;
+              commitIfCurrent(conversationGeneration, key, () =>
+                setMessages((m) => m.map((x) => (x.id === `s${turn.id}` && x.role === 'user' ? { ...x, photoUri: uri } : x))),
+              );
+            }).catch(() => undefined);
           }
         }
       } catch {
-        if (!auto) toast({ message: 'Could not open that conversation.', tone: 'error' });
+        commitIfCurrent(conversationGeneration, key, () => {
+          setMessages([]);
+          setResumed(false);
+          setSelectedConversation(conversationLoadState(id, 'error', auto));
+        });
       }
     },
-    [toast],
+    [conversationGeneration],
   );
+
+  useEffect(() => {
+    if (aiOn) return;
+    conversationGeneration.invalidate();
+    chatAbort.current = null;
+    voiceAbort.current = null;
+    setBusy(false);
+    setProgress([]);
+    setGeneric(false);
+    setVoice(null);
+    setPhoto(null);
+    setAttachMenu(false);
+  }, [aiOn, conversationGeneration]);
 
   // Resume: a conversation picked from history, else the last one if it is recent (unless opened with a new question).
   useEffect(() => {
     if (params.conversation) {
+      skipAutoResume.current = false;
       void openConversation(params.conversation, false);
       return;
     }
-    if (params.q || params.category || isDemoMode) return;
+    if (!aiOn || params.q || params.category || isDemoMode || skipAutoResume.current) return;
+    const key = conversationGeneration.current();
     void listConversations()
       .then((list) => {
+        if (!conversationGeneration.isCurrent(key)) return;
         const last = list[0];
         if (last && Date.now() - Date.parse(last.updatedAt) < RESUME_WINDOW_MS) void openConversation(last.id, true);
       })
       .catch(() => undefined);
-  }, [params.conversation]);
+    return () => {
+      if (conversationGeneration.isCurrent(key)) conversationGeneration.invalidate();
+    };
+  }, [aiOn, conversationGeneration, openConversation, params.category, params.conversation, params.q]);
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: !reduced }), 80);
 
   const send = useCallback(
     async (input: Retry) => {
-      if (busy) return;
+      if (!aiCapabilityRef.current || !canStartAiWork || busy) return;
+      const key = conversationGeneration.current();
       const userId = nextId();
       const started = Date.now();
       stopSpeaking();
@@ -194,50 +261,64 @@ export default function AssistantScreen() {
       setGeneric(false);
       scrollToEnd();
       const ctrl = new AbortController();
+      const release = conversationGeneration.track(ctrl);
       chatAbort.current = ctrl;
       let rows: ProgressRow[] = [];
       try {
-        const reply = await sendToAssistant(
-          {
-            conversationId,
-            message: input.message,
-            voice: input.voice,
-            image: input.image,
-            location: { area: location.area, city: location.city, lat: location.lat, lng: location.lng, address_id: location.addressId },
-          },
-          {
-            signal: ctrl.signal,
-            onStage: (e) => {
-              rows = applyStage(rows, e);
-              setProgress(rows);
+        const request = runIfAiEnabled(aiCapabilityRef.current && canStartAiWork, () =>
+          sendToAssistant(
+            {
+              conversationId,
+              message: input.message,
+              voice: input.voice,
+              image: input.image,
+              location: { area: location.area, city: location.city, lat: location.lat, lng: location.lng, address_id: location.addressId },
             },
-            onStart: (info) => info.conversationId && setConversationId(info.conversationId),
-            onStreamUnavailable: () => setGeneric(true),
-          },
-        );
-        if (reply.conversation_id) setConversationId(reply.conversation_id);
-        const elapsedMs = reply.elapsed_ms ?? Date.now() - started;
-        setMessages((m) => [
-          ...m.map((x) =>
-            x.id === userId && x.role === 'user'
-              ? { ...x, text: reply.user_turn?.transcript_original ?? x.text, translated: reply.user_turn?.transcript_en ?? x.translated ?? null, pending: false }
-              : x,
+            {
+              signal: ctrl.signal,
+              onStage: (e) => {
+                if (!conversationGeneration.isCurrent(key) || !aiCapabilityRef.current || ctrl.signal.aborted) return;
+                rows = applyStage(rows, e);
+                setProgress(rows);
+              },
+              onStart: (info) => {
+                const id = info.conversationId;
+                if (id && aiCapabilityRef.current && !ctrl.signal.aborted) commitIfCurrent(conversationGeneration, key, () => setConversationId(id));
+              },
+              onStreamUnavailable: () => {
+                if (aiCapabilityRef.current && !ctrl.signal.aborted) commitIfCurrent(conversationGeneration, key, () => setGeneric(true));
+              },
+            },
           ),
-          {
-            id: nextId(),
-            role: 'assistant',
-            text: reply.reply_text,
-            cards: reply.cards,
-            quickReplies: reply.quick_replies,
-            messageId: reply.message_id,
-            requestId: reply.request_id,
-            language: reply.language,
-            handoff: reply.handoff?.reason ?? null,
-            feedback: null,
-            progress: rows.map((r) => (r.status === 'active' ? { ...r, status: 'done' } : r)),
-            elapsedMs,
-          },
-        ]);
+        );
+        if (!request) return;
+        const reply = await request;
+        if (!conversationGeneration.isCurrent(key) || !aiCapabilityRef.current || ctrl.signal.aborted) return;
+        const elapsedMs = reply.elapsed_ms ?? Date.now() - started;
+        commitIfCurrent(conversationGeneration, key, () => {
+          if (reply.conversation_id) setConversationId(reply.conversation_id);
+          setMessages((m) => [
+            ...m.map((x) =>
+              x.id === userId && x.role === 'user'
+                ? { ...x, text: reply.user_turn?.transcript_original ?? x.text, translated: reply.user_turn?.transcript_en ?? x.translated ?? null, pending: false }
+                : x,
+            ),
+            {
+              id: nextId(),
+              role: 'assistant',
+              text: reply.reply_text,
+              cards: reply.cards,
+              quickReplies: reply.quick_replies,
+              messageId: reply.message_id,
+              requestId: reply.request_id,
+              language: reply.language,
+              handoff: reply.handoff?.reason ?? null,
+              feedback: null,
+              progress: rows.map((r) => (r.status === 'active' ? { ...r, status: 'done' } : r)),
+              elapsedMs,
+            },
+          ]);
+        });
         const stageMs: Record<string, number> = {};
         for (const s of reply.stages) stageMs[s.key] = (stageMs[s.key] ?? 0) + s.ms;
         track('stage_latency', { total_ms: elapsedMs, steps: reply.stages.length, streamed: rows.length > 0, stages: stageMs });
@@ -247,6 +328,7 @@ export default function AssistantScreen() {
         if (readAloud && reply.reply_text) speak(reply.reply_text, reply.language);
         if (reply.limits && reply.limits.messages_left <= 3) toast({ message: `${reply.limits.messages_left} AI messages left today`, tone: 'warning' });
       } catch (e) {
+        if (!conversationGeneration.isCurrent(key) || !aiCapabilityRef.current) return;
         const err = e instanceof AssistantError ? e : new AssistantError('Something went wrong. Please try again.', 'internal', 'retry');
         if (err.kind === 'stopped') {
           track('assistant_stopped', { stage: rows.find((r) => r.status === 'active')?.key ?? null, after_ms: Date.now() - started });
@@ -268,33 +350,47 @@ export default function AssistantScreen() {
           ]);
         }
       } finally {
-        chatAbort.current = null;
-        setBusy(false);
-        setProgress([]);
-        scrollToEnd();
+        release();
+        if (conversationGeneration.isCurrent(key) && chatAbort.current === ctrl) {
+          chatAbort.current = null;
+          setBusy(false);
+          setProgress([]);
+          scrollToEnd();
+        }
       }
     },
-    [busy, conversationId, location, readAloud, toast],
+    [busy, canStartAiWork, conversationGeneration, conversationId, location, readAloud, toast],
   );
 
   // Home search ("Ask QuickServe AI" with text) opens the chat with the question already sent.
   useEffect(() => {
-    if (autoSent.current || !params.q?.trim()) return;
+    if (!shouldAutoSend(canStartAiWork, params.q, autoSent.current)) return;
     autoSent.current = true;
-    void send({ message: params.q.trim().slice(0, 1000) });
-  }, [params.q, send]);
+    void runIfAiEnabled(aiCapabilityRef.current, () => send({ message: params.q!.trim().slice(0, 1000) }));
+  }, [canStartAiWork, params.q, send]);
 
   const stop = () => chatAbort.current?.abort();
 
-  const onVoice = async (audio: { data: string; mimeType: string; durationMs: number }) => {
+  const onVoice = async (audio: { data: string; mimeType: string; durationMs: number }, expectedKey = conversationGeneration.current()) => {
+    if (!aiCapabilityRef.current || !canStartAiWork || !conversationGeneration.isCurrent(expectedKey)) return;
+    const key = expectedKey;
     track('voice_used', { duration_s: Math.round(audio.durationMs / 1000) });
     const ctrl = new AbortController();
+    voiceAbort.current?.abort();
+    const release = conversationGeneration.track(ctrl);
     voiceAbort.current = ctrl;
+    const isCurrentVoice = () =>
+      conversationGeneration.isCurrent(key) && voiceAbort.current === ctrl && aiCapabilityRef.current && canStartAiWork && !ctrl.signal.aborted;
     setVoice({ phase: 'transcribing' });
     try {
-      const tr = await transcribeVoice({ data: audio.data, mimeType: audio.mimeType }, ctrl.signal);
-      setVoice({ phase: 'review', t: tr });
+      const request = runIfAiEnabled(aiCapabilityRef.current && canStartAiWork, () =>
+        transcribeVoice({ data: audio.data, mimeType: audio.mimeType }, ctrl.signal),
+      );
+      if (!request) return;
+      const tr = await request;
+      if (isCurrentVoice()) setVoice({ phase: 'review', t: tr });
     } catch (e) {
+      if (!isCurrentVoice()) return;
       setVoice(null);
       const err = e instanceof AssistantError ? e : null;
       if (err?.kind !== 'stopped') {
@@ -317,7 +413,8 @@ export default function AssistantScreen() {
         }
       }
     } finally {
-      voiceAbort.current = null;
+      release();
+      if (conversationGeneration.isCurrent(key) && voiceAbort.current === ctrl) voiceAbort.current = null;
     }
   };
 
@@ -339,10 +436,13 @@ export default function AssistantScreen() {
 
   const pickPhoto = async (source: 'camera' | 'library') => {
     setAttachMenu(false);
-    if (!visualPiiRedactionReady) return;
+    if (!aiCapabilityRef.current || !canStartAiWork || !visualPiiRedactionReady) return;
+    const key = conversationGeneration.current();
+    const isCurrent = () => conversationGeneration.isCurrent(key) && aiCapabilityRef.current && canStartAiWork;
     try {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!isCurrent()) return;
         if (!perm.granted) {
           setPermIssue('camera');
           return;
@@ -351,6 +451,7 @@ export default function AssistantScreen() {
       // EXIF removal is not visual redaction; the server gate remains closed until visible text is scrubbed.
       const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, base64: true, exif: false };
       const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+      if (!isCurrent()) return;
       const a = res.canceled ? null : res.assets[0];
       if (!a) return;
       const data = a.base64 ?? (a.uri.startsWith('data:') ? (a.uri.split(',')[1] ?? null) : null);
@@ -362,10 +463,12 @@ export default function AssistantScreen() {
         toast({ message: 'That photo is too large (max 3 MB). Please choose a smaller one.', tone: 'error' });
         return;
       }
-      setPhoto({ data, mimeType: a.mimeType === 'image/png' ? 'image/png' : 'image/jpeg', uri: a.uri });
+      commitIfCurrent(conversationGeneration, key, () =>
+        setPhoto({ data, mimeType: a.mimeType === 'image/png' ? 'image/png' : 'image/jpeg', uri: a.uri }),
+      );
       track('photo_attached', { source });
     } catch (e) {
-      toast({ message: (e as Error).message || 'Could not open photos.', tone: 'error' });
+      if (isCurrent()) toast({ message: (e as Error).message || 'Could not open photos.', tone: 'error' });
     }
   };
 
@@ -387,8 +490,10 @@ export default function AssistantScreen() {
   };
 
   const openBookingEntry = async (providerServiceId: string, draft?: DraftCard) => {
+    const key = conversationGeneration.current();
     try {
       const service = await getProviderService(providerServiceId);
+      if (!conversationGeneration.isCurrent(key)) return;
       const entry = resolveServiceBookingEntry(service, draft ?? null);
       if (entry.kind === 'unavailable') {
         toast({ message: 'This service cannot be booked from this flow.', tone: 'warning' });
@@ -400,7 +505,7 @@ export default function AssistantScreen() {
       }
       router.push({ pathname: entry.pathname, params: entry.params } as Href);
     } catch (e) {
-      toast({ message: (e as Error).message || 'Could not load this service.', tone: 'error' });
+      if (conversationGeneration.isCurrent(key)) toast({ message: (e as Error).message || 'Could not load this service.', tone: 'error' });
     }
   };
 
@@ -421,11 +526,24 @@ export default function AssistantScreen() {
   };
 
   const newChat = () => {
-    chatAbort.current?.abort();
+    conversationGeneration.invalidate();
+    chatAbort.current = null;
+    voiceAbort.current = null;
+    autoSent.current = true;
+    skipAutoResume.current = true;
     stopSpeaking();
     setMessages([]);
     setConversationId(null);
+    setSelectedConversation(idleConversationLoad);
     setResumed(false);
+    setBusy(false);
+    setProgress([]);
+    setGeneric(false);
+    setVoice(null);
+    setPhoto(null);
+    setAttachMenu(false);
+    setPermIssue(null);
+    if (params.conversation || params.q || params.category || params.name) router.replace('/assistant');
   };
 
   const toggleReadAloud = () => {
@@ -442,20 +560,63 @@ export default function AssistantScreen() {
     return hasDraft ? [...lastAssistant.quickReplies.slice(0, 3), CHANGE_ADDRESS] : lastAssistant.quickReplies;
   }, [busy, voice, lastAssistant, messages]);
 
-  if (!aiOn) {
+  const screenGeneration = conversationGeneration.current();
+  const sendTextForScreen = (text: string) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) sendText(text);
+  };
+  const sendForScreen = (input: Retry) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) void send(input);
+  };
+  const pickPhotoForScreen = (source: 'camera' | 'library') => {
+    if (conversationGeneration.isCurrent(screenGeneration)) void pickPhoto(source);
+  };
+  const setAttachMenuForScreen = () => {
+    if (conversationGeneration.isCurrent(screenGeneration)) setAttachMenu((open) => !open);
+  };
+  const removePhotoForScreen = () => {
+    if (conversationGeneration.isCurrent(screenGeneration)) setPhoto(null);
+  };
+  const voiceForScreen = (audio: { data: string; mimeType: string; durationMs: number }) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) void onVoice(audio, screenGeneration);
+  };
+  const sendVoiceForScreen = (text: string, edited: boolean) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) sendVoice(text, edited);
+  };
+  const retryForScreen = (retry: Retry | VoiceRetry) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) retryFailedCall(retry);
+  };
+  const reviewDraftForScreen = (draft: DraftCard) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) reviewDraft(draft);
+  };
+  const bookProForScreen = (provider: ProviderPick, draft: DraftCard | undefined) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) bookPro(provider, draft);
+  };
+  const rateForScreen = (messageId: string, storedMessageId: number | null, rating: 1 | -1, reason: FeedbackReason | null) => {
+    if (conversationGeneration.isCurrent(screenGeneration)) rate(messageId, storedMessageId, rating, reason);
+  };
+
+  const hasSelectedConversation = !!params.conversation || !!conversationId;
+  if (!aiOn && !hasSelectedConversation) {
     return (
-      <Screen header={<Header title="QuickServe AI" />}>
+      <Screen
+        header={
+          <Header
+            title="QuickServe AI"
+            right={!isDemoMode ? <IconButton icon="time-outline" accessibilityLabel="Past conversations" onPress={() => router.push('/assistant-history')} /> : undefined}
+          />
+        }
+      >
         <EmptyState icon="sparkles-outline" title="QuickServe AI is not available" message="You can still find a pro and book from the service list." actionLabel="Browse services" onAction={() => router.replace('/')} />
       </Screen>
     );
   }
 
   const attachButton =
-    voice || busy || !visualPiiRedactionReady ? null : (
+    !canStartAiWork || voice || busy || !visualPiiRedactionReady ? null : (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={photo ? 'Change attached photo' : 'Attach a photo of the problem'}
-        onPress={() => (Platform.OS === 'web' ? void pickPhoto('library') : setAttachMenu((o) => !o))}
+        onPress={() => (Platform.OS === 'web' ? pickPhotoForScreen('library') : setAttachMenuForScreen())}
         hitSlop={4}
         style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent' })}
       >
@@ -480,7 +641,7 @@ export default function AssistantScreen() {
                 />
               ) : null}
               {!isDemoMode ? <IconButton icon="time-outline" accessibilityLabel="Past conversations" onPress={() => router.push('/assistant-history')} /> : null}
-              {messages.length ? <IconButton icon="create-outline" accessibilityLabel="New chat" onPress={newChat} /> : null}
+              {messages.length || conversationId || params.conversation ? <IconButton icon="create-outline" accessibilityLabel="New chat" onPress={newChat} /> : null}
             </View>
           }
         />
@@ -490,6 +651,12 @@ export default function AssistantScreen() {
       scrollProps={{ onContentSizeChange: () => scrollRef.current?.scrollToEnd({ animated: false }) }}
       footer={
         <View style={{ gap: t.spacing.sm }}>
+          {!aiOn ? (
+            <InlineAlert message="QuickServe AI is unavailable. You can review this conversation, but new AI requests are disabled." tone="warning" />
+          ) : !canStartAiWork ? (
+            <InlineAlert message="This conversation is read-only until it loads. Retry loading it or start a new chat to send a request." tone="warning" />
+          ) : (
+            <>
           {!visualPiiRedactionReady ? (
             <Text variant="caption" color="muted" align="center">
               Photo input is temporarily unavailable until visible phone numbers and addresses can be safely redacted.
@@ -508,11 +675,11 @@ export default function AssistantScreen() {
               <IconButton icon="close" accessibilityLabel="Dismiss" onPress={() => setPermIssue(null)} />
             </View>
           ) : null}
-          <QuickReplies items={quickReplies} onPick={(q) => (q === CHANGE_ADDRESS ? router.push('/location') : void send({ message: q }))} disabled={busy} />
+          <QuickReplies items={quickReplies} onPick={(q) => (q === CHANGE_ADDRESS ? router.push('/location') : sendForScreen({ message: q }))} disabled={busy} />
           {attachMenu && visualPiiRedactionReady ? (
             <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-              <Button title="Take photo" size="sm" variant="outline" leftIcon="camera-outline" onPress={() => void pickPhoto('camera')} />
-              <Button title="Choose from gallery" size="sm" variant="outline" leftIcon="images-outline" onPress={() => void pickPhoto('library')} />
+              <Button title="Take photo" size="sm" variant="outline" leftIcon="camera-outline" onPress={() => pickPhotoForScreen('camera')} />
+              <Button title="Choose from gallery" size="sm" variant="outline" leftIcon="images-outline" onPress={() => pickPhotoForScreen('library')} />
             </View>
           ) : null}
           {photo && visualPiiRedactionReady ? (
@@ -521,28 +688,39 @@ export default function AssistantScreen() {
               <Text variant="caption" color="textSecondary" style={{ flex: 1 }}>
                 Photo attached. Add a few words (optional) and send.
               </Text>
-              <IconButton icon="close-circle" accessibilityLabel="Remove photo" onPress={() => setPhoto(null)} />
+              <IconButton icon="close-circle" accessibilityLabel="Remove photo" onPress={removePhotoForScreen} />
             </View>
           ) : null}
           {voice ? (
             <VoicePreview
+              key={screenGeneration}
               transcription={voice.phase === 'review' ? voice.t : null}
               lang={lang}
-              onSend={sendVoice}
+              onSend={sendVoiceForScreen}
               onDiscard={() => {
+                if (!conversationGeneration.isCurrent(screenGeneration)) return;
                 voiceAbort.current?.abort();
                 setVoice(null);
               }}
-              onRetry={() => setVoice(null)}
+              onRetry={() => {
+                if (conversationGeneration.isCurrent(screenGeneration)) setVoice(null);
+              }}
             />
           ) : (
             <Composer
+              key={screenGeneration}
               busy={busy}
-              onSend={sendText}
-              onVoice={(audio) => void onVoice(audio)}
-              onVoiceError={(message) => toast({ message, tone: 'error' })}
-              onMicDenied={() => setPermIssue('mic')}
-              onStop={stop}
+              onSend={sendTextForScreen}
+              onVoice={voiceForScreen}
+              onVoiceError={(message) => {
+                if (conversationGeneration.isCurrent(screenGeneration)) toast({ message, tone: 'error' });
+              }}
+              onMicDenied={() => {
+                if (conversationGeneration.isCurrent(screenGeneration)) setPermIssue('mic');
+              }}
+              onStop={() => {
+                if (conversationGeneration.isCurrent(screenGeneration)) stop();
+              }}
               attach={attachButton}
               canSendEmpty={!!photo && visualPiiRedactionReady}
             />
@@ -550,6 +728,8 @@ export default function AssistantScreen() {
           <Text variant="micro" color="muted" align="center">
             AI can make mistakes. You always review and pay in checkout.
           </Text>
+            </>
+          )}
         </View>
       }
     >
@@ -580,6 +760,39 @@ export default function AssistantScreen() {
       <AssistantBubble
         text={`Hi${firstName ? ` ${firstName}` : ''}! Tell me what's wrong, in English, हिंदी or తెలుగు. I'll suggest the right pro, show typical prices and prepare the booking for you to review.`}
       />
+      {selectedConversation.status === 'loading' ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Text variant="caption" color="muted">
+            Loading conversation…
+          </Text>
+          <Skeleton height={72} />
+          <Skeleton height={72} />
+        </View>
+      ) : null}
+      {selectedConversation.status === 'error' ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <InlineAlert message="Could not load this conversation. Check your connection and retry." tone="danger" />
+          <Button title={translate('location.retry')} variant="outline" onPress={() => void openConversation(selectedConversation.id, selectedConversation.automatic)} />
+        </View>
+      ) : null}
+      {selectedConversation.status === 'empty' ? (
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="No messages available"
+          message="This conversation may be empty or no longer available."
+          actionLabel={translate('location.retry')}
+          onAction={() => void openConversation(selectedConversation.id, selectedConversation.automatic)}
+        />
+      ) : null}
+      {selectedConversation.status === 'unavailable' ? (
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="Past conversation unavailable"
+          message="Past conversations cannot be opened in demo mode."
+          actionLabel={translate('location.retry')}
+          onAction={() => void openConversation(selectedConversation.id, selectedConversation.automatic)}
+        />
+      ) : null}
       {resumed ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: t.spacing.sm }}>
           <Text variant="caption" color="muted">
@@ -588,7 +801,9 @@ export default function AssistantScreen() {
           <Button title="New chat" size="sm" variant="ghost" onPress={newChat} />
         </View>
       ) : null}
-      {messages.length === 0 && !params.q && !params.conversation ? <StarterList items={starters} onPick={(p) => void send({ message: p.message })} /> : null}
+      {messages.length === 0 && !params.q && !params.conversation && selectedConversation.status === 'idle' ? (
+        <StarterList items={starters} onPick={(p) => sendForScreen({ message: p.message })} />
+      ) : null}
 
       {messages.map((m) => (
         <Animated.View key={m.id} entering={reduced ? undefined : FadeInDown.duration(220)} style={{ gap: t.spacing.md }}>
@@ -605,13 +820,13 @@ export default function AssistantScreen() {
             m.aiBusy ? (
               <View style={{ gap: t.spacing.sm }}>
                 <InlineAlert message={translate('ai.busy')} tone="warning" />
-                {m.retry ? <Button title={translate('location.retry')} variant="outline" onPress={() => retryFailedCall(m.retry!)} /> : null}
+                {m.retry ? <Button title={translate('location.retry')} variant="outline" onPress={() => retryForScreen(m.retry!)} /> : null}
               </View>
             ) : (
               <AssistantBubble
                 text={m.requestId ? `${m.text} (Ref ${m.requestId.slice(0, 8)})` : m.text}
                 error
-                onRetry={m.retry ? () => retryFailedCall(m.retry!) : undefined}
+                onRetry={m.retry ? () => retryForScreen(m.retry!) : undefined}
                 actionLabel={m.kind === 'limited' || m.kind === 'disabled' ? 'Browse services' : m.kind === 'auth' ? 'Sign in again' : undefined}
                 onAction={m.kind === 'limited' || m.kind === 'disabled' ? () => router.replace('/') : m.kind === 'auth' ? () => router.replace('/login') : undefined}
               />
@@ -635,20 +850,28 @@ export default function AssistantScreen() {
                       <ProvidersCardView
                         key={key}
                         card={c}
-                        onOpen={(p) => router.push({ pathname: '/provider/[id]', params: { id: p.provider_id } })}
-                        onBook={(p) => bookPro(p, draft)}
+                        onOpen={(p) => {
+                          if (conversationGeneration.isCurrent(screenGeneration)) router.push({ pathname: '/provider/[id]', params: { id: p.provider_id } });
+                        }}
+                        onBook={(p) => bookProForScreen(p, draft)}
                       />
                     );
                   case 'draft':
-                    return <DraftCardView key={key} card={c} onReview={() => reviewDraft(c)} />;
+                    return <DraftCardView key={key} card={c} onReview={() => reviewDraftForScreen(c)} />;
                   default:
                     return null;
                 }
               })}
               {m.handoff ? (
-                <HandoffCard reason={m.handoff} requestId={m.requestId} onContact={(channel) => track('support_handoff', { reason: m.handoff, channel })} />
+                <HandoffCard
+                  reason={m.handoff}
+                  requestId={m.requestId}
+                  onContact={(channel) => {
+                    if (conversationGeneration.isCurrent(screenGeneration)) track('support_handoff', { reason: m.handoff, channel });
+                  }}
+                />
               ) : null}
-              {m.messageId != null ? <FeedbackBar value={m.feedback} onRate={(r, reason) => rate(m.id, m.messageId, r, reason)} /> : null}
+              {m.messageId != null ? <FeedbackBar value={m.feedback} onRate={(r, reason) => rateForScreen(m.id, m.messageId, r, reason)} /> : null}
             </>
           )}
         </Animated.View>
