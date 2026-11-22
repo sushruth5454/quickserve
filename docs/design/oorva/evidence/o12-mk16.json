@@ -175,7 +175,17 @@
         }
       },
       "laneCI": {
-        "status": "PENDING"
+        "runId": 44998648203,
+        "headSha": "8426aecb4285d6d8466a580d630ff5e3b351b9ff",
+        "conclusion": "success",
+        "jobs": {
+          "changes": "PASS",
+          "app": "PASS",
+          "sql": "PASS",
+          "deno": "PASS",
+          "private-postgres": "SKIPPED",
+          "tooling": "SKIPPED"
+        }
       },
       "diffCheck": "PASS",
       "localInstall": false
