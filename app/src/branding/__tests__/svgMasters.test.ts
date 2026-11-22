@@ -28,6 +28,20 @@ const MASTER_VIEW_BOXES: Record<string, string> = {
   'logo-horizontal-mono-black.svg': '0 0 1440 400',
   'logo-horizontal-mono-ivory.svg': '0 0 1440 400',
 };
+const O01L_PATHS_ADDED_AFTER_FROZEN_PLAN = [
+  'app/assets/brand/logo-horizontal-dark.svg',
+  'app/assets/brand/logo-horizontal-light.svg',
+  'app/assets/brand/logo-horizontal-mono-black.svg',
+  'app/assets/brand/logo-horizontal-mono-ivory.svg',
+  'app/assets/brand/logo-stacked-dark.svg',
+  'app/assets/brand/logo-stacked-light.svg',
+  'app/assets/brand/oorva-symbol.svg',
+  'app/assets/brand/oorva-wordmark-dark.svg',
+  'app/assets/brand/oorva-wordmark-light.svg',
+  'app/assets/brand/source-manifest.json',
+  'app/src/branding/__tests__/svgMasters.test.ts',
+  'docs/design/oorva/evidence/o01l.json',
+];
 const ALLOWED_ELEMENTS = new Set(['svg', 'g', 'path']);
 const NUMERIC_TOKEN = /-?(?:\d+(?:\.\d*)?|\.\d+)/g;
 
@@ -172,10 +186,11 @@ function getTransform(node: SvgNode, label: string) {
   const translateMatch = /translate\(\s*(-?[\d.]+)[\s,]+(-?[\d.]+)\s*\)/.exec(
     value,
   );
-  const scaleMatch = /scale\(\s*(-?[\d.]+)\s*\)/.exec(value);
+  const scaleMatch =
+    /scale\(\s*(-?[\d.]+)(?:[\s,]+(-?[\d.]+))?\s*\)/.exec(value);
   const unsupported = value
     .replace(/translate\(\s*-?[\d.]+[\s,]+-?[\d.]+\s*\)/, '')
-    .replace(/scale\(\s*-?[\d.]+\s*\)/, '')
+    .replace(/scale\(\s*-?[\d.]+(?:[\s,]+-?[\d.]+)?\s*\)/, '')
     .trim();
   assertInvariant(
     unsupported === '',
@@ -185,7 +200,8 @@ function getTransform(node: SvgNode, label: string) {
   return {
     translateX: translateMatch ? Number(translateMatch[1]) : 0,
     translateY: translateMatch ? Number(translateMatch[2]) : 0,
-    scale: scaleMatch ? Number(scaleMatch[1]) : 1,
+    scaleX: scaleMatch ? Number(scaleMatch[1]) : 1,
+    scaleY: scaleMatch ? Number(scaleMatch[2] ?? scaleMatch[1]) : 1,
   };
 }
 
@@ -203,14 +219,15 @@ function boundsFor(node: SvgNode, label: string): Bounds {
     assertInvariant(d !== undefined, `${label} path is missing d`, pathNode);
     const pairs = coordinatePairs(d, label);
     const strokeWidth = Number(pathNode.attributes['stroke-width'] ?? 0);
-    const strokeInset = (strokeWidth * transform.scale) / 2;
+    const strokeInsetX = (strokeWidth * transform.scaleX) / 2;
+    const strokeInsetY = (strokeWidth * transform.scaleY) / 2;
     for (const [x, y] of pairs) {
-      const transformedX = transform.translateX + x * transform.scale;
-      const transformedY = transform.translateY + y * transform.scale;
-      bounds.minX = Math.min(bounds.minX, transformedX - strokeInset);
-      bounds.minY = Math.min(bounds.minY, transformedY - strokeInset);
-      bounds.maxX = Math.max(bounds.maxX, transformedX + strokeInset);
-      bounds.maxY = Math.max(bounds.maxY, transformedY + strokeInset);
+      const transformedX = transform.translateX + x * transform.scaleX;
+      const transformedY = transform.translateY + y * transform.scaleY;
+      bounds.minX = Math.min(bounds.minX, transformedX - strokeInsetX);
+      bounds.minY = Math.min(bounds.minY, transformedY - strokeInsetY);
+      bounds.maxX = Math.max(bounds.maxX, transformedX + strokeInsetX);
+      bounds.maxY = Math.max(bounds.maxY, transformedY + strokeInsetY);
     }
   }
 
@@ -280,6 +297,19 @@ describe('Oorva outlined SVG candidate masters', () => {
           [],
           `${file} contains an external reference or event handler`,
         );
+        const externalContentAttributes = Object.entries(node.attributes)
+          .filter(
+            ([name, value]) =>
+              name.toLowerCase().includes('font') ||
+              name.toLowerCase() === 'style' ||
+              /url\(|data:image/i.test(value),
+          )
+          .map(([name, value]) => ({ name, value }));
+        assertEqual(
+          externalContentAttributes,
+          [],
+          `${file} contains an external font, style resource, or bitmap payload`,
+        );
       }
       for (const pathNode of pathsIn(root)) {
         const d = pathNode.attributes.d;
@@ -344,11 +374,16 @@ describe('Oorva outlined SVG candidate masters', () => {
       );
       const symbolInk = boundsFor(symbolGroup, `${file} symbol`);
       const wordmarkInk = boundsFor(wordmarkGroup, `${file} wordmark`);
+      const minimumClearSpace =
+        Math.max(
+          symbolInk.maxX - symbolInk.minX,
+          symbolInk.maxY - symbolInk.minY,
+        ) / 4;
       const clearSpace = wordmarkInk.minX - symbolInk.maxX;
       assertInvariant(
-        clearSpace >= 52,
+        clearSpace >= minimumClearSpace,
         `${file} symbol-to-wordmark clear space must be >= one-quarter symbol`,
-        { symbolInk, wordmarkInk, clearSpace, minimum: 52 },
+        { symbolInk, wordmarkInk, clearSpace, minimumClearSpace },
       );
       const outsideSpace = Math.min(
         symbolInk.minX,
@@ -358,9 +393,9 @@ describe('Oorva outlined SVG candidate masters', () => {
         400 - wordmarkInk.maxY,
       );
       assertInvariant(
-        outsideSpace >= 52,
+        outsideSpace >= minimumClearSpace,
         `${file} must retain one-quarter-symbol clear space at the canvas edge`,
-        { symbolInk, wordmarkInk, outsideSpace, minimum: 52 },
+        { symbolInk, wordmarkInk, outsideSpace, minimumClearSpace },
       );
     }
 
@@ -375,11 +410,16 @@ describe('Oorva outlined SVG candidate masters', () => {
       );
       const symbolInk = boundsFor(symbolGroup, `${file} symbol`);
       const wordmarkInk = boundsFor(wordmarkGroup, `${file} wordmark`);
+      const minimumClearSpace =
+        Math.max(
+          symbolInk.maxX - symbolInk.minX,
+          symbolInk.maxY - symbolInk.minY,
+        ) / 4;
       const clearSpace = wordmarkInk.minY - symbolInk.maxY;
       assertInvariant(
-        clearSpace >= 52,
+        clearSpace >= minimumClearSpace,
         `${file} stacked clear space must be >= one-quarter symbol`,
-        { symbolInk, wordmarkInk, clearSpace, minimum: 52 },
+        { symbolInk, wordmarkInk, clearSpace, minimumClearSpace },
       );
       const outsideSpace = Math.min(
         symbolInk.minX,
@@ -390,9 +430,9 @@ describe('Oorva outlined SVG candidate masters', () => {
         720 - symbolInk.maxY,
       );
       assertInvariant(
-        outsideSpace >= 52,
+        outsideSpace >= minimumClearSpace,
         `${file} must retain one-quarter-symbol clear space at the canvas edge`,
-        { symbolInk, wordmarkInk, outsideSpace, minimum: 52 },
+        { symbolInk, wordmarkInk, outsideSpace, minimumClearSpace },
       );
     }
   });
@@ -424,23 +464,44 @@ describe('Oorva outlined SVG candidate masters', () => {
     const lowerPoints = coordinatePairs(lowerArc.attributes.d!, 'lower arc');
     const upperStroke = Number(upperArc.attributes['stroke-width']);
     const lowerStroke = Number(lowerArc.attributes['stroke-width']);
-    const sourceGaps = [
-      Math.abs(upperPoints[0]![1] - lowerPoints[0]![1]) -
-        (upperStroke + lowerStroke) / 2,
-      Math.abs(
+    const endpointDistances = [
+      Math.hypot(
+        upperPoints[0]![0] - lowerPoints[0]![0],
+        upperPoints[0]![1] - lowerPoints[0]![1],
+      ),
+      Math.hypot(
+        upperPoints[upperPoints.length - 1]![0] -
+          lowerPoints[lowerPoints.length - 1]![0],
         upperPoints[upperPoints.length - 1]![1] -
           lowerPoints[lowerPoints.length - 1]![1],
-      ) -
-        (upperStroke + lowerStroke) / 2,
+      ),
     ];
-    assertEqual(sourceGaps, [44, 44], 'both arc openings must stay 44 units');
+    const sourceGaps = endpointDistances.map(
+      (distance) => distance - (upperStroke + lowerStroke) / 2,
+    );
+    assertEqual(sourceGaps, [32, 32], 'both arc openings must stay 32 units');
+    assertEqual(
+      [
+        upperPoints[0],
+        upperPoints[upperPoints.length - 1],
+        lowerPoints[0],
+        lowerPoints[lowerPoints.length - 1],
+      ],
+      [
+        [44, 164],
+        [212, 164],
+        [44, 92],
+        [212, 92],
+      ],
+      'symbol arcs must preserve the owner-directed top/bottom C orientation',
+    );
 
     for (const size of [20, 32, 48]) {
       const measuredGaps = sourceGaps.map((gap) => (gap * size) / 256);
       assertInvariant(
-        measuredGaps.every((gap) => gap >= 3 * (size / 20)),
+        measuredGaps.every((gap) => gap >= 2.5 * (size / 20)),
         `both arc gaps must remain visibly open at ${size}px`,
-        { size, measuredGaps, expectedMinimum: 3 * (size / 20) },
+        { size, measuredGaps, expectedMinimum: 2.5 * (size / 20) },
       );
     }
 
@@ -459,6 +520,36 @@ describe('Oorva outlined SVG candidate masters', () => {
         status: 'open',
       })),
       'manifest small-size measurements differ from parsed SVG geometry',
+    );
+  });
+
+  it('uses compact, rounded lowercase wordmark proportions from the approved direction', () => {
+    const { root } = readMaster('oorva-wordmark-light.svg');
+    const wordmark = groupsByRole(root, 'wordmark')[0];
+    assertInvariant(wordmark !== undefined, 'wordmark group is required', {
+      roles: groupsByRole(root, 'wordmark').length,
+    });
+    const letterPaths = pathsIn(wordmark);
+    assertEqual(letterPaths.length, 6, 'custom oorva geometry path count mismatch');
+    const bounds = boundsFor(wordmark, 'owner-directed wordmark');
+    const width = bounds.maxX - bounds.minX;
+    const height = bounds.maxY - bounds.minY;
+    assertInvariant(
+      width >= 680 && width <= 735 && height >= 125 && height <= 135,
+      'custom wordmark should retain the reference’s compact bold proportions',
+      {
+        bounds,
+        width,
+        height,
+        expectedWidth: [680, 735],
+        expectedHeight: [125, 135],
+      },
+    );
+    assertEqual(
+      letterPaths.filter((node) => node.attributes['fill-rule'] === 'evenodd')
+        .length,
+      3,
+      'two o counters and the single-storey a counter must be outlined',
     );
   });
 
@@ -584,16 +675,22 @@ describe('Oorva outlined SVG candidate masters', () => {
       manifest.originalityProvenance?.authorship?.length > 20 &&
         Array.isArray(manifest.originalityProvenance?.directionalInputs) &&
         manifest.originalityProvenance.directionalInputs.length === 6 &&
+        manifest.originalityProvenance?.visualDirection?.status ===
+          'OWNER_APPROVED_REFERENCE_ONLY' &&
+        manifest.originalityProvenance.visualDirection.file ===
+          'oorva-logo-light.png' &&
+        manifest.originalityProvenance.visualDirection.sha256 ===
+          '4fae9ecb3019efaf0bc1b641728a338408660b649138af922bf66e6ba4179150' &&
         manifest.originalityProvenance?.inputUse?.includes(
-          'Unapproved PNG explorations',
+          'No PNG paths were copied or traced',
         ),
-      'manifest must identify original authorship and all six exploration inputs',
+      'manifest must distinguish owner-approved visual direction from final selection',
       manifest.originalityProvenance,
     );
     assertInvariant(
       typeof manifest.license?.customArtwork === 'string' &&
         manifest.license.customArtwork.length > 10 &&
-        manifest.license.customArtwork.includes('D03c remains pending') &&
+        manifest.license.customArtwork.includes('D03c is NOT APPROVED') &&
         typeof manifest.license?.taglineFont === 'string',
       'manifest must record artwork and tagline font license status',
       manifest.license,
@@ -628,13 +725,38 @@ describe('Oorva outlined SVG candidate masters', () => {
     );
     assertEqual(
       manifest.approvalStatus?.D03b,
-      'PENDING',
-      'D03b selection gate must remain pending',
+      'APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION',
+      'D03b standing selection rule must be recorded without claiming an unexported candidate is selected',
+    );
+    assertInvariant(
+      manifest.approvalStatus?.D03bSelectionRule?.includes(
+        'passing all A.4.1 checks',
+      ) &&
+        manifest.approvalStatus?.D03bCandidateEvidence?.includes(
+          'not yet recorded',
+        ),
+      'D03b approval must remain conditional on O01X candidate validation',
+      {
+        rule: manifest.approvalStatus?.D03bSelectionRule,
+        evidence: manifest.approvalStatus?.D03bCandidateEvidence,
+      },
     );
     assertEqual(
       manifest.approvalStatus?.D03c,
-      'PENDING',
-      'D03c rights gate must remain pending',
+      'NOT_APPROVED',
+      'D03c public rights must remain not approved',
+    );
+    assertInvariant(
+      manifest.approvalStatus?.D03cScope?.includes(
+        'does not block development, private integration, main promotion',
+      ),
+      'D03c scope must distinguish public release from development gates',
+      manifest.approvalStatus?.D03cScope,
+    );
+    assertEqual(
+      manifest.approvalStatus?.visualDirection,
+      'OWNER_APPROVED_REFERENCE_ONLY',
+      'visual direction approval must not become final selection or rights clearance',
     );
     assertEqual(
       manifest.approvalStatus?.finalSelection,
@@ -653,7 +775,11 @@ describe('Oorva outlined SVG candidate masters', () => {
         'utf8',
       ),
     );
-    assertEqual(evidence.sourceDrift?.changedPaths, [], 'source drift changed');
+    assertEqual(
+      evidence.sourceDrift?.changedPaths,
+      O01L_PATHS_ADDED_AFTER_FROZEN_PLAN,
+      'source drift must list the exact O01L paths present at the implementation base',
+    );
     assertEqual(
       evidence.sourceDrift?.currentMainChangedPaths,
       [],
@@ -674,6 +800,26 @@ describe('Oorva outlined SVG candidate masters', () => {
       evidence.sourceDrift?.preservationRationale?.length > 20,
       'evidence must explain why existing current-main changes were preserved',
       evidence.sourceDrift,
+    );
+    assertEqual(
+      evidence.ownerDirectedRevision?.visualDirection?.status,
+      'OWNER_APPROVED_REFERENCE_ONLY',
+      'evidence must separate approved visual direction from final selection',
+    );
+    assertEqual(
+      evidence.ownerDirectedRevision?.visualDirection?.sha256,
+      '4fae9ecb3019efaf0bc1b641728a338408660b649138af922bf66e6ba4179150',
+      'evidence owner reference hash mismatch',
+    );
+    assertEqual(
+      evidence.ownerDirectedRevision?.standingD03bApproval?.status,
+      'APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION',
+      'evidence must record the standing conditional D03b approval',
+    );
+    assertEqual(
+      evidence.ownerDirectedRevision?.D03c,
+      'NOT_APPROVED',
+      'evidence must keep public-rights clearance unapproved',
     );
   });
 
