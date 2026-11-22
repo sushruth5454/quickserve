@@ -6,7 +6,7 @@
   "sourceReport": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t16",
   "base": {
     "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
-    "implementationBaseCommit": "e1bb5441a9e9a9b7f1140dd5a5db95255b363557",
+    "implementationBaseCommit": "9e7f5bdecd62edccd63d17fecf7dba3fbcd9b64e",
     "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
     "dependenciesInTestedBase": {
       "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -16,8 +16,17 @@
       "O14-MK13": "3ca7a46f76c9ffd66e6093a5ef7ac2348be267d4"
     }
   },
+  "rebase": {
+    "priorLaneHead": "6a2b9b838cf264645649e4fe45265f5959c2b4a4",
+    "reappliedCanonicalCommits": [
+      "b60994e8f954baf6a9d5ea7576d54316498f7048",
+      "6a2b9b838cf264645649e4fe45265f5959c2b4a4"
+    ],
+    "targetBaseContainsAllDeclaredDependencies": true,
+    "cherryPickConflicts": []
+  },
   "scope": {
-    "branch": "lane/oorva-o12-mk16",
+    "branch": "lane/oorva-o12-mk16-rebase",
     "changedFiles": [
       "app/src/features/home/HomeV2.tsx",
       "app/src/features/home/LegacyHome.tsx",
@@ -117,6 +126,8 @@
       "runId": 44990516623,
       "headSha": "b60994e8f954baf6a9d5ea7576d54316498f7048",
       "conclusion": "success",
+      "status": "HISTORICAL_ONLY",
+      "validatedBase": "e1bb5441a9e9a9b7f1140dd5a5db95255b363557",
       "jobs": {
         "changes": "PASS",
         "app": "PASS",
@@ -125,6 +136,49 @@
         "tooling": "SKIPPED",
         "deno": "SKIPPED"
       }
+    },
+    "revalidation": {
+      "codespaceHelperSource": "origin/main:scripts/cs-test.ps1",
+      "codespaceHelperCommit": "acca22bbcb88dec441747f72b48ea7d7d27ca28e",
+      "codespaceSelectors": {
+        "homeV2App": {
+          "filter": "src.features.home.__tests__.HomeV2[.]test[.]tsx$",
+          "snapshot": "4bab81bc",
+          "selectedCases": [
+            "MK-FRESH-home-independent-results",
+            "MK-FRESH-home-scope-cleanup"
+          ],
+          "result": "PASS"
+        },
+        "providerProfileJest": {
+          "filter": "src.features.providerProfile.__tests__.ProviderProfileScreen[.]test[.]tsx$",
+          "snapshot": "10b8eb5d",
+          "selectedCases": [
+            "MK-FRESH-paused-unknown",
+            "MK-FRESH-profile-context"
+          ],
+          "result": "PASS"
+        },
+        "archetypeCategoryJest": {
+          "filter": "src.features.catalogue.__tests__.ArchetypeCategory[.]test[.]tsx$",
+          "snapshot": "8ef13311",
+          "selectedCases": [
+            "MK-FRESH-city-race"
+          ],
+          "result": "PASS"
+        },
+        "searchScreenProductIntegrationJest": {
+          "filter": "src.features.search.__tests__.SearchScreen[.]test[.]tsx$",
+          "snapshot": "f92d9b60",
+          "selectedCases": 7,
+          "result": "PASS"
+        }
+      },
+      "laneCI": {
+        "status": "PENDING"
+      },
+      "diffCheck": "PASS",
+      "localInstall": false
     },
     "gitDiffCheck": "PASS"
   },
