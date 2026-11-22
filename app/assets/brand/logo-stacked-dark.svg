@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">
+  <g data-role="symbol" transform="translate(232 64)">
+    <path data-arc="upper" d="M 49 161 C 60 96 84 42 128 40 C 172 42 196 96 207 161" fill="none" stroke="#F7F5EF" stroke-width="28" stroke-linecap="round"/>
+    <path data-arc="lower" d="M 49 89 C 60 154 84 210 128 212 C 172 210 196 154 207 89" fill="none" stroke="#F7F5EF" stroke-width="28" stroke-linecap="round"/>
+  </g>
+  <g data-role="wordmark" transform="translate(52.8 355) scale(0.6)" fill="#F7F5EF">
+    <path fill-rule="evenodd" d="M 132 55 C 173 55 206 86 206 128 C 206 170 173 201 132 201 C 91 201 58 170 58 128 C 58 86 91 55 132 55 Z M 132 92 C 153 92 166 106 166 128 C 166 150 153 164 132 164 C 111 164 98 150 98 128 C 98 106 111 92 132 92 Z"/>
+    <path fill-rule="evenodd" d="M 304 55 C 345 55 378 86 378 128 C 378 170 345 201 304 201 C 263 201 230 170 230 128 C 230 86 263 55 304 55 Z M 304 92 C 325 92 338 106 338 128 C 338 150 325 164 304 164 C 283 164 270 150 270 128 C 270 106 283 92 304 92 Z"/>
+    <path d="M 407 58 L 446 58 L 446 85 C 459 65 481 54 507 54 C 523 54 537 58 549 65 L 533 101 C 521 96 511 93 500 93 C 466 93 446 115 446 151 L 446 199 L 407 199 Z"/>
+    <path d="M 576 58 L 620 58 L 672 151 L 724 58 L 768 58 L 698 190 C 692 199 684 204 672 204 C 660 204 652 199 646 190 Z"/>
+    <path fill-rule="evenodd" d="M 866 54 C 911 54 940 84 940 128 C 940 172 911 202 866 202 C 821 202 792 172 792 128 C 792 84 821 54 866 54 Z M 866 92 C 887 92 900 106 900 128 C 900 150 887 164 866 164 C 845 164 832 150 832 128 C 832 106 845 92 866 92 Z"/>
+    <path d="M 914 54 L 960 54 L 960 202 L 914 202 Z"/>
+  </g>
+</svg>
