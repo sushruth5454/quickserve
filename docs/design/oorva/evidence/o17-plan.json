@@ -88,11 +88,21 @@
     "native_or_public_access": "NOT_GRANTED"
   },
   "registration": {
-    "state": "PENDING_COORDINATOR_REGISTRATION_ROUNDTRIP",
+    "state": "REGISTERED_AND_MERGED",
+    "reportedCommitSha": "7ca4c807444bf7f78b9c722901e6cd79c490a94b",
+    "verifiedLocalCommitSha": "7ca4c805373c413a48e6ff1c741a3ee0176dafd6",
+    "localRegistrationRef": "refs/heads/reg/oorva-o17-plan-0da335de",
+    "commitHashNote": "The reported SHA was unavailable; the verified local registration ref descends directly from the exact checkpoint and changes only supabase/tests/package.json.",
     "pgliteSelector": "oorva_o17_plan",
     "migrationParserSelector": "o17_plan_oorva.sql",
     "packageAndParserRegistrationOwner": "coordinator",
-    "registrationHasTestSuccessClaim": false
+    "registrationHasTestSuccessClaim": false,
+    "sharedSelectionProof": {
+      "pgliteFile": "supabase/tests/oorva_o17_plan.test.mjs",
+      "pgliteCommand": "node oorva_o17_plan.test.mjs",
+      "parserFile": "supabase/migrations/0095_o17_plan_oorva.sql",
+      "parserCommand": "node parse.cjs ../migrations/0095_o17_plan_oorva.sql"
+    }
   },
   "requiredCases": [
     "SV-RECURRING-DEADLINE-01",
@@ -133,20 +143,72 @@
   "validation": {
     "gitDiffCheck": "PASS",
     "codespace": {
-      "status": "NOT_RUN_AWAITING_COORDINATOR_REGISTRATION",
-      "testsSelected": false,
-      "helperSource": "origin/main scripts/cs-test.ps1",
-      "reason": "Must run the exact selectors after coordinator registration; no Windows app or SQL tests/builds were run."
+      "status": "PASS",
+      "testsSelected": true,
+      "helperSource": "origin/main:scripts/cs-test.ps1 at e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5",
+      "noWindowsAppOrSqlTests": true,
+      "selectors": [
+        {
+          "suite": "app",
+          "filter": "src.features.recurring.__tests__.customerPresentation[.]test[.]ts$",
+          "selectedFile": "app/src/features/recurring/__tests__/customerPresentation.test.ts",
+          "snapshot": "1c3f0683",
+          "testSuites": 1,
+          "testsPassed": 9,
+          "result": "PASS"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.recurring.__tests__.providerPresentation[.]test[.]ts$",
+          "selectedFile": "app/src/features/recurring/__tests__/providerPresentation.test.ts",
+          "snapshot": "86b22d60",
+          "testSuites": 1,
+          "testsPassed": 12,
+          "result": "PASS"
+        },
+        {
+          "suite": "sql",
+          "filter": "oorva_o17_plan",
+          "selectedFile": "supabase/tests/oorva_o17_plan.test.mjs",
+          "snapshot": "bdbe079e",
+          "testFiles": 1,
+          "parseChecks": 0,
+          "checksPassed": 1,
+          "result": "PASS",
+          "cases": [
+            "SV-RECURRING-DEADLINE-DEFAULTS",
+            "SV-RECURRING-DEADLINE-LATE-GENERATION",
+            "SV-RECURRING-DEADLINE-01",
+            "SV-RECURRING-DEADLINE-02",
+            "SV-RECURRING-PRIVACY-03",
+            "SV-PLAN-CAPABILITY-PARITY-01"
+          ]
+        },
+        {
+          "suite": "sql",
+          "filter": "o17_plan_oorva.sql",
+          "selectedFile": "supabase/migrations/0095_o17_plan_oorva.sql",
+          "snapshot": "50235a18",
+          "testFiles": 0,
+          "parseChecks": 1,
+          "checksPassed": 1,
+          "result": "PASS",
+          "topLevelStatements": 4,
+          "functionBodies": 2,
+          "parseErrors": 0
+        }
+      ],
+      "allSelectorsPassed": true
     },
     "laneCI": {
       "status": "NOT_RUN",
-      "reason": "Checkpoint remains local until shared-registration roundtrip."
+      "reason": "Awaiting exact lane push after evidence update and final git diff check."
     },
     "productionOrHostedDatabaseUsed": false,
     "mainOrDeploymentTouched": false
   },
   "implementation": {
-    "status": "Worker-owned checkpoint committed locally; awaiting shared-registration roundtrip",
+    "status": "Coordinator registration merged; required Codespace selectors passed; lane push pending",
     "behavior": [
       "Quote responses return only acceptance mode and a safe payment-window summary; visit projections use due obligations, server deadlines, exact expiry rules, and actor-specific payment/skip/reschedule capabilities.",
       "Customer payment labels use remaining_due_paise, payment_due_at, and payment_expires_at; creation copy uses the server acceptance mode and configured payment-window values.",

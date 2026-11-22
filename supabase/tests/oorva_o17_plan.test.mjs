@@ -92,6 +92,7 @@ async function as(uid, role, query, params = []) {
 
 let fixtureNumber = 0;
 const uuid = (number) => `00000000-0000-0000-0000-${String(number).padStart(12, '0')}`;
+const dateEpoch = (value) => new Date(value).getTime();
 
 async function createFixture(label, serviceDate, planAcceptance = false) {
   const index = ++fixtureNumber;
@@ -247,27 +248,30 @@ await scenario('SV-RECURRING-DEADLINE-LATE-GENERATION', async () => {
     [fixture.planId],
   ))[0].value.occurrences.find((item) => item.id === fixture.bookingId);
   const rows = (await db.query(`
-    select amount, due_at, status
+    select amount, due_at, status, created_at
       from public.payment_schedule
      where booking_id=$1::uuid and status in ('due','upcoming')
      order by seq, id
   `, [fixture.bookingId])).rows;
   const dueRows = rows.filter((row) => row.status === 'due');
-  const now = Date.parse((await db.query(`select now() as value`)).rows[0].value);
   const scheduledAt = Date.parse(occurrence.scheduled_at);
-  const expectedDueAt = Math.min(...dueRows.map((row) => Date.parse(row.due_at)));
+  const expectedDueAt = Math.min(...dueRows.map((row) => dateEpoch(row.due_at)));
+  const clampedAtCreation = dueRows.length > 0 &&
+    dueRows.every((row) => dateEpoch(row.due_at) === dateEpoch(row.created_at));
   const expectedExpiry = Math.max(...rows.map((row) =>
     Math.min(
-      Date.parse(row.due_at) + 8 * 60 * 60 * 1000,
+      dateEpoch(row.due_at) + 8 * 60 * 60 * 1000,
       scheduledAt - 30 * 60 * 1000,
     ),
   ));
-  ok(occurrence.can_pay === true
-    && Date.parse(occurrence.payment_due_at) === expectedDueAt
-    && expectedDueAt > scheduledAt - 720 * 60 * 60 * 1000
-    && expectedDueAt <= now
-    && Date.parse(occurrence.payment_expires_at) === expectedExpiry,
-    `[SV-RECURRING-DEADLINE-LATE-GENERATION] late-created due rows use the clamped server deadline and expiry without a due_at opening gate: ${JSON.stringify({ occurrence, rows, expectedDueAt: new Date(expectedDueAt).toISOString(), expectedExpiry: new Date(expectedExpiry).toISOString(), now: new Date(now).toISOString() })}`);
+  const checks = {
+    paymentRemainsOpen: occurrence.can_pay === true,
+    projectedDueMatchesObligations: Date.parse(occurrence.payment_due_at) === expectedDueAt,
+    leadWindowWasClampedAtCreation: expectedDueAt > scheduledAt - 720 * 60 * 60 * 1000 && clampedAtCreation,
+    projectedExpiryMatchesObligations: Date.parse(occurrence.payment_expires_at) === expectedExpiry,
+  };
+  ok(Object.values(checks).every(Boolean),
+    `[SV-RECURRING-DEADLINE-LATE-GENERATION] late-created due rows use the clamped server deadline and expiry without a due_at opening gate: ${JSON.stringify({ checks, projectedDueMs: Date.parse(occurrence.payment_due_at), expectedDueAt, projectedExpiryMs: Date.parse(occurrence.payment_expires_at), expectedExpiry, rows: rows.map((row) => ({ due_at: row.due_at, created_at: row.created_at, status: row.status })) })}`);
 });
 
 await scenario('SV-RECURRING-DEADLINE-01 and SV-RECURRING-PRIVACY-03', async () => {
@@ -343,12 +347,12 @@ await scenario('SV-RECURRING-DEADLINE-02 and SV-PLAN-CAPABILITY-PARITY-01', asyn
   `, [fixture.bookingId])).rows;
   const dueRowsOnly = dueRows.filter((row) => row.status === 'due');
   const expectedAmount = dueRowsOnly.reduce((sum, row) => sum + row.amount, 0);
-  const dueInstants = dueRowsOnly.map((row) => Date.parse(row.due_at));
+  const dueInstants = dueRowsOnly.map((row) => dateEpoch(row.due_at));
   const scheduledAt = Date.parse(initialOccurrence.scheduled_at);
   const expectedDueAt = Math.min(...dueInstants);
   const expectedExpiry = Math.max(...dueRows.map((row) =>
     Math.min(
-      Date.parse(row.due_at) + 8 * 60 * 60 * 1000,
+      dateEpoch(row.due_at) + 8 * 60 * 60 * 1000,
       scheduledAt - 30 * 60 * 1000,
     ),
   ));
@@ -421,10 +425,10 @@ await scenario('SV-RECURRING-DEADLINE-02 and SV-PLAN-CAPABILITY-PARITY-01', asyn
   `, [fixture.bookingId])).rows;
   const rescheduledDueRows = rescheduledRows.filter((row) => row.status === 'due');
   const rescheduledScheduledAt = Date.parse(rescheduled.scheduled_at);
-  const expectedRescheduledDueAt = Math.min(...rescheduledDueRows.map((row) => Date.parse(row.due_at)));
+  const expectedRescheduledDueAt = Math.min(...rescheduledDueRows.map((row) => dateEpoch(row.due_at)));
   const expectedRescheduledExpiry = Math.max(...rescheduledRows.map((row) =>
     Math.min(
-      Date.parse(row.due_at) + 8 * 60 * 60 * 1000,
+      dateEpoch(row.due_at) + 8 * 60 * 60 * 1000,
       rescheduledScheduledAt - 30 * 60 * 1000,
     ),
   ));
@@ -452,10 +456,10 @@ await scenario('SV-RECURRING-DEADLINE-02 and SV-PLAN-CAPABILITY-PARITY-01', asyn
   `, [fixture.bookingId])).rows;
   const configDueRows = configRows.filter((row) => row.status === 'due');
   const configScheduledAt = Date.parse(configRefreshed.scheduled_at);
-  const expectedConfigDueAt = Math.min(...configDueRows.map((row) => Date.parse(row.due_at)));
+  const expectedConfigDueAt = Math.min(...configDueRows.map((row) => dateEpoch(row.due_at)));
   const expectedConfigExpiry = Math.max(...configRows.map((row) =>
     Math.min(
-      Date.parse(row.due_at) + 6 * 60 * 60 * 1000,
+      dateEpoch(row.due_at) + 6 * 60 * 60 * 1000,
       configScheduledAt - 30 * 60 * 1000,
     ),
   ));
@@ -480,7 +484,7 @@ await scenario('SV-RECURRING-DEADLINE-02 and SV-PLAN-CAPABILITY-PARITY-01', asyn
   const expectedRemaining = remainingRows.reduce((sum, row) => sum + row.amount, 0);
   ok(partial.can_pay === (expectedRemaining > 0)
     && partial.remaining_due_paise === expectedRemaining
-    && (expectedRemaining === 0 || Date.parse(partial.payment_due_at) === Math.min(...remainingRows.map((row) => Date.parse(row.due_at)))),
+    && (expectedRemaining === 0 || Date.parse(partial.payment_due_at) === Math.min(...remainingRows.map((row) => dateEpoch(row.due_at)))),
     `[SV-RECURRING-DEADLINE-02] paid obligations leave only the current due amount/deadline projected: ${JSON.stringify({ partial, remainingRows, expectedRemaining })}`);
 
   await db.query(`update public.payment_schedule set status='waived' where booking_id=$1::uuid and status='due'`, [fixture.bookingId]);

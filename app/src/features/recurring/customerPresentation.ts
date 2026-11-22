@@ -188,6 +188,7 @@ export type RecurringPlanActionVisibility = {
   reschedule: boolean;
   cancel: boolean;
 };
+type LegacyRecurringPlanActionVisibility = Omit<RecurringPlanActionVisibility, 'skipOccurrenceId'>;
 
 export type RecurringOccurrenceLike = {
   id: string;
@@ -352,8 +353,30 @@ export type RecurringPlanActionInput = {
   now?: number;
 };
 
-export function getRecurringPlanActions(input: RecurringPlanActionInput): RecurringPlanActionVisibility {
-  const { plan, actorId, skipPauseEnabled, rescheduleEnabled } = input;
+export function getRecurringPlanActions(input: RecurringPlanActionInput): RecurringPlanActionVisibility;
+export function getRecurringPlanActions(
+  status: PlanStatus,
+  skipPauseEnabled: boolean,
+  rescheduleEnabled: boolean,
+): LegacyRecurringPlanActionVisibility;
+/** Status-only compatibility is retained for existing summaries; action screens use the actor-aware input. */
+export function getRecurringPlanActions(
+  input: RecurringPlanActionInput | PlanStatus,
+  skipPauseEnabled = false,
+  rescheduleEnabled = false,
+): RecurringPlanActionVisibility | LegacyRecurringPlanActionVisibility {
+  if (typeof input === 'string') {
+    return {
+      skip: input === 'active' && skipPauseEnabled,
+      pause: input === 'active' && skipPauseEnabled,
+      resume: input === 'paused' && skipPauseEnabled,
+      reschedule: input === 'active' && rescheduleEnabled,
+      cancel: input === 'active' || input === 'paused',
+    };
+  }
+  const { plan, actorId } = input;
+  skipPauseEnabled = input.skipPauseEnabled;
+  rescheduleEnabled = input.rescheduleEnabled;
   const now = input.now ?? Date.now();
   const isCustomer = !!actorId && actorId === plan.customer_id;
   const capabilities = plan.capabilities ?? {};
