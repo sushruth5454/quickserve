@@ -212,5 +212,167 @@
     "assetsSuiteSuccess": false,
     "nativeBuildOrRelease": false,
     "hostedE2eWebDispatched": false
+  },
+  "assetsSuiteFollowUp": {
+    "stageId": "O37A",
+    "frozenPlanSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseSha": "5c37fc2691adf5cedaf5826131caff234711af95",
+    "branch": "lane/oorva-o37a-assets-suite",
+    "authorization": {
+      "E1": "APPROVED",
+      "D03a": "APPROVED",
+      "D03b": "PENDING",
+      "D03c": "PENDING",
+      "TOOL-ASSETS-MAIN": "PENDING"
+    },
+    "driftFromFrozenPlan": {
+      "workerFiles": {
+        "scripts\\brand\\asset-tests.mjs": "Absent at P; present at base with --selftest only.",
+        "scripts\\brand\\validate.mjs": "Absent at P; present at base with basic PNG dimension validation.",
+        "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts": "Absent at P; present at base with five infrastructure cases.",
+        "docs\\design\\oorva\\evidence\\o37a.json": "Absent at P; present at base with prior O37A registration and validation evidence."
+      },
+      "scripts\\cs-test.ps1": "Unchanged between P and base; current-main Suite allowlist has no assets.",
+      "scripts\\cs\\run.sh": [
+        "Base added pinned npm ci installation for scripts/brand.",
+        "Base added pinned npm ci installation for supabase/tests-postgres.",
+        "Base runner still has no assets suite case."
+      ]
+    },
+    "workerOwnedFiles": [
+      "scripts\\brand\\asset-tests.mjs",
+      "scripts\\brand\\validate.mjs",
+      "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts",
+      "docs\\design\\oorva\\evidence\\o37a.json"
+    ],
+    "manifestSchema": {
+      "manifestPath": "app\\assets\\brand\\manifest.json",
+      "rootRequired": {
+        "schemaVersion": 1,
+        "stageId": "O01X",
+        "status": "candidate",
+        "selected": false,
+        "publiclyCleared": false,
+        "approvals": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        },
+        "toolchain": {
+          "nodeMajor": 22,
+          "renderer": "@resvg/resvg-js",
+          "rendererVersion": "2.6.2",
+          "loadSystemFonts": false,
+          "exporterSha256": "<64 lowercase hex>",
+          "packageLockSha256": "<64 lowercase hex>"
+        },
+        "files": "Exactly one entry for each allowlisted PNG below; no missing, duplicate, or extra paths."
+      },
+      "fileEntryRequired": {
+        "source": {
+          "path": "Existing regular SVG below app/assets/brand; exporter renders this file directly.",
+          "sha256": "<SHA-256 of exact SVG bytes>"
+        },
+        "export": {
+          "path": "Exact app/assets/brand-relative allowlisted PNG path, slash-normalized.",
+          "role": "Exact output role from the roleByPath map below.",
+          "sha256": "<SHA-256 of exact PNG bytes>",
+          "canvas": {
+            "width": "Exact A.4.1 canvas width.",
+            "height": "Exact A.4.1 canvas height."
+          },
+          "density": "1, 2, 3 for density variants; native for native-source files."
+        },
+        "alpha": "transparent or opaque, verified against decoded pixels.",
+        "colorProfile": "Embedded sRGB chunk with renderingIntent, or valid iCCP chunk with name and profile SHA-256.",
+        "license": {
+          "status": "pending",
+          "reference": "Non-empty provenance/license reference; this is not D03c clearance."
+        },
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        },
+        "selected": false,
+        "publiclyCleared": false,
+        "safeZone": "Rule-specific evidence; quarter-symbol-clear-space also requires symbolDiameterPx and measured pixel margins are recomputed."
+      },
+      "roleByPath": {
+        "app/assets/brand/logo-horizontal-*.png": "horizontal-lockup",
+        "app/assets/brand/oorva-wordmark-*.png": "wordmark",
+        "app/assets/brand/logo-compact-*.png": "compact-symbol",
+        "app/assets/brand/native/icon.png": "ios-app-icon",
+        "app/assets/brand/native/android-icon-foreground.png": "android-adaptive-foreground",
+        "app/assets/brand/native/android-icon-background.png": "android-adaptive-background",
+        "app/assets/brand/native/android-icon-monochrome.png": "android-monochrome",
+        "app/assets/brand/native/splash-icon.png": "splash-icon-light",
+        "app/assets/brand/native/splash-icon-dark.png": "splash-icon-dark",
+        "app/assets/brand/native/notification-icon.png": "notification-small-icon",
+        "app/assets/brand/native/favicon.png": "favicon"
+      },
+      "allowlist": [
+        { "path": "app/assets/brand/logo-horizontal-light.png", "canvas": "360x100", "density": 1, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/logo-horizontal-light@2x.png", "canvas": "720x200", "density": 2, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/logo-horizontal-light@3x.png", "canvas": "1080x300", "density": 3, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/logo-horizontal-dark.png", "canvas": "360x100", "density": 1, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/logo-horizontal-dark@2x.png", "canvas": "720x200", "density": 2, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/logo-horizontal-dark@3x.png", "canvas": "1080x300", "density": 3, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/oorva-wordmark-light.png", "canvas": "256x64", "density": 1, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/oorva-wordmark-light@2x.png", "canvas": "512x128", "density": 2, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/oorva-wordmark-light@3x.png", "canvas": "768x192", "density": 3, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/oorva-wordmark-dark.png", "canvas": "256x64", "density": 1, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/oorva-wordmark-dark@2x.png", "canvas": "512x128", "density": 2, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/oorva-wordmark-dark@3x.png", "canvas": "768x192", "density": 3, "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" },
+        { "path": "app/assets/brand/logo-compact-light.png", "canvas": "32x32", "density": 1, "alpha": "transparent", "safeZone": "central-208-square" },
+        { "path": "app/assets/brand/logo-compact-light@2x.png", "canvas": "64x64", "density": 2, "alpha": "transparent", "safeZone": "central-208-square" },
+        { "path": "app/assets/brand/logo-compact-light@3x.png", "canvas": "96x96", "density": 3, "alpha": "transparent", "safeZone": "central-208-square" },
+        { "path": "app/assets/brand/logo-compact-dark.png", "canvas": "32x32", "density": 1, "alpha": "transparent", "safeZone": "central-208-square" },
+        { "path": "app/assets/brand/logo-compact-dark@2x.png", "canvas": "64x64", "density": 2, "alpha": "transparent", "safeZone": "central-208-square" },
+        { "path": "app/assets/brand/logo-compact-dark@3x.png", "canvas": "96x96", "density": 3, "alpha": "transparent", "safeZone": "central-208-square" },
+        { "path": "app/assets/brand/native/icon.png", "canvas": "1024x1024", "density": "native", "alpha": "opaque", "safeZone": "opaque-square-no-rounded-corners" },
+        { "path": "app/assets/brand/native/android-icon-foreground.png", "canvas": "1024x1024", "density": "native", "alpha": "transparent", "safeZone": "centered-circle-624" },
+        { "path": "app/assets/brand/native/android-icon-background.png", "canvas": "1024x1024", "density": "native", "alpha": "opaque", "safeZone": "flat-opaque-background" },
+        { "path": "app/assets/brand/native/android-icon-monochrome.png", "canvas": "1024x1024", "density": "native", "alpha": "transparent", "safeZone": "centered-circle-624" },
+        { "path": "app/assets/brand/native/splash-icon.png", "canvas": "1024x1024", "density": "native", "alpha": "transparent", "safeZone": "ink-within-624-square" },
+        { "path": "app/assets/brand/native/splash-icon-dark.png", "canvas": "1024x1024", "density": "native", "alpha": "transparent", "safeZone": "ink-within-624-square" },
+        { "path": "app/assets/brand/native/notification-icon.png", "canvas": "96x96", "density": "native", "alpha": "transparent", "safeZone": "white-on-transparent" },
+        { "path": "app/assets/brand/native/favicon.png", "canvas": "48x48", "density": "native", "alpha": "transparent", "safeZone": "quarter-symbol-clear-space" }
+      ],
+      "determinism": "For every entry, SHA-256 the SVG and PNG, then require renderSvg(source SVG) from pinned @resvg/resvg-js to equal the PNG byte-for-byte.",
+      "notVerifiedBehavior": "Missing profile chunks or any unavailable evidence is reported NOT VERIFIED and fails; no success-shaped skip.",
+      "inspection20_32_48": "For each compact theme, the runner uses pinned @resvg/resvg-js with loadSystemFonts=false and fitTo width 20, 32, and 48 to render the declared SVG source directly; it reports visible-pixel bounds and rechecks the central 208-square safe zone."
+    },
+    "coordinatorRegistrationRequest": {
+      "scripts\\cs-test.ps1": "Add 'assets' to the Suite ValidateSet only; keep all existing suites unchanged.",
+      "scripts\\cs\\run.sh": "Add an assets) branch that requires exactly one filter, oorva; reject any other/empty filter with exit 2. In scripts/brand working directory invoke `node asset-tests.mjs --check-oorva`. Do not add a generic assets bypass or call --selftest for this filter.",
+      "testContract": "Current helper absence is explicitly reported NOT VERIFIED. Once registered, the app test requires the allowlist, assets) dispatch, exact oorva filter guard, and exact --check-oorva command."
+    },
+    "validation": {
+      "requiredCurrentMainHelper": "C:\\Users\\snizampuram\\.copilot\\session-state\\d7b13c1d-8de4-4776-9917-8cc5575e83a7\\files\\cs-test-current-main.ps1",
+      "requiredCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+      "codespaceApp": "PASS",
+      "codespaceAppRun": {
+        "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-o37a-assets-suite",
+        "helperSource": "current-main helper artifact supplied for source 5c37fc2",
+        "snapshotBranch": "wip/qs-o37a-assets-suite",
+        "snapshotCommit": "8e35cf52",
+        "suite": "app",
+        "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
+        "typescript": "PASS",
+        "assetCheckerSyntax": "PASS for scripts/brand/asset-tests.mjs and scripts/brand/validate.mjs via node --check.",
+        "selectedJestSuites": 1,
+        "testsPassed": 7,
+        "result": "cs-test result: PASS",
+        "assetHelperRoute": "NOT VERIFIED; all four registration markers absent in current main."
+      },
+      "priorCodespaceAppAttempt": {
+        "result": "FAIL_FIXED",
+        "failure": "TypeScript reported runnerLines[index] as string | undefined under noUncheckedIndexedAccess.",
+        "resolution": "Guarded the indexed line for undefined before regex and concatenation; exact requested selector rerun PASS."
+      },
+      "assetsSuiteRun": "NOT RUN; current-main helper has no assets suite and TOOL-ASSETS-MAIN remains pending.",
+      "assetsSuiteInvoked": false,
+      "lanePushed": false,
+      "toolAssetsMainSatisfied": false
+    }
   }
 }

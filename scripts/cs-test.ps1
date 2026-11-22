@@ -11,10 +11,11 @@
 .EXAMPLE
   pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite sql -Filter b2_
   pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite app -Filter DeliverySection
+  pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite assets -Filter oorva
   pwsh -NoProfile -File <main checkout>\scripts\cs-test.ps1 -Suite all
 #>
 param(
-  [ValidateSet('sql', 'tsc', 'jest', 'app', 'deno', 'all')][string]$Suite = 'all',
+  [ValidateSet('sql', 'tsc', 'jest', 'app', 'assets', 'deno', 'all')][string]$Suite = 'all',
   [string[]]$Filter = @(),
   [string]$Name,              # wip branch suffix; defaults to the worktree folder name
   [string]$Codespace,         # defaults to $env:QS_CODESPACE, then the repo's first Codespace

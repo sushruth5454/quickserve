@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Remote test runner inside the Codespace. scripts/cs-test.ps1 pipes this file (from origin/main)
 # over stdin, so it works for branches that predate it. Self-contained on purpose.
-# Usage: bash -s -- <ref|-> <suite: setup|sql|tsc|jest|app|deno|all> [filters...]
+# Usage: bash -s -- <ref|-> <suite: setup|sql|tsc|jest|app|assets|deno|all> [filters...]
 #   ref "-" tests the current checkout (used by devcontainer postCreateCommand with suite "setup").
 set -uo pipefail
 ref="$1"; suite="$2"; shift 2
@@ -73,6 +73,13 @@ case "$suite" in
   tsc)   run_tsc ;;
   jest)  run_jest "$@" ;;
   app)   run_tsc; run_jest "$@" ;;
+  assets)
+    if [ "$#" -ne 1 ] || [ "$1" != "oorva" ]; then
+      echo "cs-test: assets suite requires exactly the filter 'oorva'"
+      exit 2
+    fi
+    (cd scripts/brand && node asset-tests.mjs --check-oorva) || status=1
+    ;;
   deno)  run_deno ;;
   all)   run_sql "$@"; run_tsc; run_jest "$@"; run_deno ;;
   *)     echo "cs-test: unknown suite '$suite'"; exit 2 ;;
