@@ -390,10 +390,40 @@ export const listAudit = (target: string | null = null, limit = 100) =>
 export const listAdminSupport = (status = 'open') =>
   rpc<AdminSupportThread[]>('admin_list_support_threads', { p_status: status });
 
-export async function listSupportThreads(): Promise<SupportThread[]> {
-  const { data, error } = await supabase.from('support_threads').select('*').order('last_message_at', { ascending: false });
+export async function listSupportThreads(actorId: string): Promise<SupportThread[]> {
+  if (!actorId.trim()) throw new Error('A signed-in user is required to view support conversations.');
+  const { data, error } = await supabase
+    .from('support_threads')
+    .select('*')
+    .eq('user_id', actorId)
+    .order('last_message_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data as SupportThread[];
+}
+
+export async function loadSupportConversation(
+  threadId: string,
+  scope: 'participant' | 'admin',
+  actorId: string,
+): Promise<{ thread: SupportThread | null; messages: SupportMessage[] }> {
+  if (!actorId.trim()) throw new Error('A signed-in user is required to view support conversations.');
+  if (!threadId.trim()) return { thread: null, messages: [] };
+
+  let threadQuery = supabase.from('support_threads').select('*').eq('id', threadId);
+  if (scope === 'participant') threadQuery = threadQuery.eq('user_id', actorId);
+  const { data, error } = await threadQuery.maybeSingle();
+  if (error) throw new Error(error.message);
+
+  const thread = data as SupportThread | null;
+  if (!thread) return { thread: null, messages: [] };
+
+  const { data: messageRows, error: messageError } = await supabase
+    .from('support_messages')
+    .select('*')
+    .eq('thread_id', threadId)
+    .order('created_at');
+  if (messageError) throw new Error(messageError.message);
+  return { thread, messages: messageRows as SupportMessage[] };
 }
 
 export async function getSupportThread(id: string): Promise<SupportThread | null> {
