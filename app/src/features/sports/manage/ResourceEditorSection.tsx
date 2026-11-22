@@ -19,12 +19,7 @@ export function renderResourceEditor(
           key={item.id}
           accessibilityRole="button"
           accessibilityLabel={`Edit ${item.activity_name} resource ${item.name}, ${item.slot_minutes} minute slot`}
-          onPress={() => {
-            state.setResourceId(item.id);
-            state.setActivityId(item.activity_id);
-            state.setResourceName(item.name);
-            state.setSlotMinutes(String(item.slot_minutes));
-          }}
+          onPress={() => state.setResourceId(item.id)}
         >
           <Text variant="footnoteStrong" color={item.id === state.resourceId ? 'primaryText' : 'text'}>
             {item.activity_name} · {item.name} · {item.slot_minutes} min
@@ -121,13 +116,7 @@ export function renderResourceEditor(
           disabled={state.busy || !state.activityId || (state.capacitySlotsEnabled && !state.capacityValid)}
           style={{ flex: 1 }}
         />
-        <Button title="Add new" variant="outline" onPress={() => {
-          state.setResourceId('');
-          state.setResourceName('Court');
-          state.setSlotMinutes('60');
-          state.setBookingMode('approval');
-          state.setCapacity('1');
-        }} style={{ flex: 1 }} />
+        <Button title="Add new" variant="outline" onPress={state.startNewResource} style={{ flex: 1 }} />
       </View>
     </Card>
   );

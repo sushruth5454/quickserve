@@ -2,7 +2,6 @@ import { View } from 'react-native';
 import { ChipRow } from '../../../components/market/ChipRow';
 import { Button, Card, Input, Text } from '../../../components/ui';
 import { formatINR, rupeesToPaise } from '../../../lib/money';
-import { supabase } from '../../../lib/supabase';
 import { isSportsDateValid, isSportsTimeRangeValid } from '../model';
 import type { SportsVenueManagementActions } from './actions';
 import { slotLabel, WEEKDAYS } from './model';
@@ -29,13 +28,13 @@ export function renderOpeningHours(state: ManagementState, actions: SportsVenueM
             <Input label="Opens (24-hour time)" value={state.opens} onChangeText={state.setOpens} containerStyle={{ flex: 1 }} />
             <Input label="Closes (24-hour time)" value={state.closes} onChangeText={state.setCloses} containerStyle={{ flex: 1 }} />
           </View>
-          <Button title="Set closed for this day" variant="ghost" onPress={() => {
-            state.setClosed(true);
-            void supabase.rpc('set_sports_hours', { p_venue_id: state.selectedId, p_weekday: Number(state.weekday), p_opens: null, p_closes: null }).then(({ error: rpcError }) => {
-              if (rpcError) state.setError(rpcError.message);
-              else void state.load();
-            });
-          }} />
+          <Button
+            title="Set closed for this day"
+            variant="ghost"
+            onPress={() => void actions.closeDay()}
+            loading={state.busy}
+            disabled={state.busy}
+          />
         </>
       )}
       <Button title="Save opening hours" onPress={() => void actions.saveHours()} loading={state.busy} disabled={state.busy || state.closed || !isSportsTimeRangeValid(state.opens, state.closes)} />
@@ -109,7 +108,7 @@ export function renderPriceRules(state: ManagementState, actions: SportsVenueMan
                   state.setPriceLabel(row.label);
                 }}
               />
-              <Button title="Delete" variant="ghost" size="sm" onPress={() => void actions.deletePrice(row.id)} loading={state.busy} />
+              <Button title="Delete" variant="ghost" size="sm" onPress={() => void actions.deletePrice(row)} loading={state.busy} disabled={state.busy} />
             </View>
           </View>
         ))}
@@ -138,7 +137,7 @@ export function renderUnavailableTimes(state: ManagementState, actions: SportsVe
       {state.selected?.blocks.filter((row) => row.resource_id === state.resourceId).map((row) => (
         <View key={row.id} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <Text variant="caption" color="muted" style={{ flex: 1 }}>{slotLabel(row.starts_at)} · {row.reason || 'Unavailable'}</Text>
-          <Button title="Remove" variant="ghost" size="sm" onPress={() => void actions.removeBlock(row.id)} />
+          <Button title="Remove" variant="ghost" size="sm" onPress={() => void actions.removeBlock(row)} loading={state.busy} disabled={state.busy} />
         </View>
       ))}
     </Card>
