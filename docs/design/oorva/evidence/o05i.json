@@ -1,0 +1,79 @@
+{
+  "stageId": "O05I",
+  "wp": "O05",
+  "sourceTaskIds": [],
+  "sourceFindingIds": [],
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+  "branch": "lane/oorva-o05i",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O05A": "91ac27fbe028101abdc620739d48e1bd8b1b11a6"
+  },
+  "authorization": {
+    "E0": "approved",
+    "migrationClaims": [],
+    "reviewRequired": false,
+    "publicBrandActivation": false,
+    "mainPromotion": false
+  },
+  "files": [
+    "app\\src\\branding\\identity.ts",
+    "app\\src\\branding\\useBrandIdentity.ts",
+    "app\\src\\branding\\BrandLogo.tsx",
+    "app\\src\\branding\\__tests__\\identity.test.ts",
+    "docs\\design\\oorva\\evidence\\o05i.json"
+  ],
+  "implementation": {
+    "publicApi": "Added the exact BrandContext, BrandIdentityState, ResolvedBrandIdentity, resolveBrandIdentity(context, state), and useBrandIdentity(context) contract from section 2.3.3.",
+    "legacyContextMap": {
+      "Nearo": [
+        "recurring",
+        "rfq",
+        "receiptChrome",
+        "quoteFunding",
+        "gatewayDescription"
+      ],
+      "QuickServe": [
+        "auth",
+        "home",
+        "account",
+        "providerShare",
+        "protectedInvite",
+        "assistant",
+        "support",
+        "paymentOverlay",
+        "statusTimeline",
+        "checkoutPage",
+        "onboardingAgreement"
+      ]
+    },
+    "legacyDisplay": "Legacy tagline and logo slots remain null; no logo/mark is fabricated.",
+    "fallback": "The hook leaves bundledIdentityReady false until O05B supplies an approved selected identity. Rejected/missing runtime appearance therefore remains the exact legacy context.",
+    "runtimeAppearance": "Only runtime-enabled, structurally valid published identity fields are selected; values and null assets are returned without normalization.",
+    "brandLogo": "Displays only the resolved name. Uploaded asset identifiers are not treated as image URIs; approved asset binding remains O05B scope.",
+    "issuerAndTechnicalRetention": "The hook accepts only display identity fields. Receipt/issuer/payment/history/technical text consumers were not edited or routed through this API."
+  },
+  "driftCheck": {
+    "status": "PASS",
+    "baseline": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+    "scope": "Only the five O05I-owned paths were checked; no broad audit.",
+    "ownedPathsAtBase": "The four source/test files and evidence file were absent at the implementation base; no existing owned-path edits were overwritten."
+  },
+  "tests": [
+    {
+      "kind": "codespace-app",
+      "command": "pwsh -NoProfile -File $env:TEMP\\cs-test.ps1 -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
+      "status": "PASS",
+      "helperMainSha": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+      "selected": "app/src/branding/__tests__/identity.test.ts",
+      "result": "45 tests passed; exactly one suite selected."
+    }
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "lockedPathCheck": "PASS",
+    "laneCi": "Exact-head run is performed after commit; run ID and outcome are reported in the handoff.",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
