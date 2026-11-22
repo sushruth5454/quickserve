@@ -130,6 +130,15 @@ async function cleanupFixture(client, fixture) {
 async function state(client, bookingId) {
   return (await client.query(`
     select jsonb_build_object(
+      'schedule', (
+        select to_jsonb(r)
+          from recurring_schedules r
+         where r.id = (
+           select b.recurring_schedule_id
+             from bookings b
+            where b.id = $1::uuid
+         )
+      ),
       'booking', (
         select jsonb_build_object(
           'id', id, 'status', status::text, 'scheduled_at', scheduled_at,
@@ -153,26 +162,18 @@ async function state(client, bookingId) {
   `, [bookingId])).rows[0].value;
 }
 
-async function waitForResponseLock(observer, pid, blockerPid, responseResult, timeoutMs = 10000) {
-  const deadline = Date.now() + timeoutMs;
-  let lastActivity = null;
-  while (Date.now() < deadline) {
-    lastActivity = (await observer.query(`
-      select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
-        from pg_stat_activity where pid = $1::int
-    `, [pid])).rows[0];
-    const blockingPids = (lastActivity?.blocking_pids ?? []).map(Number);
-    if (lastActivity?.wait_event_type === 'Lock'
-        && blockingPids.includes(Number(blockerPid))
-        && String(lastActivity.query).includes('respond_visit_reschedule')) {
-      return lastActivity;
-    }
-    if (responseResult.settled) {
-      throw new Error(`response finished before the row-lock barrier: ${JSON.stringify({ response: responseResult.value, activity })}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
+async function waitForResponseRetry(responsePromise, timeoutMs = 2000) {
+  let timer;
+  try {
+    return await Promise.race([
+      responsePromise,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
-  throw new Error(`response did not reach the booking row-lock barrier: ${JSON.stringify({ pid, blockerPid, lastActivity, response: responseResult.value })}`);
 }
 
 async function runRace(context, status) {
@@ -184,6 +185,8 @@ async function runRace(context, status) {
       const secondPid = Number((await second.query('select pg_backend_pid() pid')).rows[0].pid);
       assert.notEqual(firstPid, secondPid, `race requires independent backends: ${JSON.stringify({ firstPid, secondPid })}`);
 
+      await first.query(`set statement_timeout = '15000ms'`);
+      await second.query(`set statement_timeout = '15000ms'`);
       await first.query('begin');
       let firstTransactionOpen = true;
       let responseResult = { settled: false, value: null };
@@ -200,11 +203,14 @@ async function runRace(context, status) {
             return responseResult;
           },
           (error) => {
-            Object.assign(responseResult, { settled: true, value: { message: error?.message ?? String(error) } });
+            Object.assign(responseResult, {
+              settled: true,
+              value: { code: error?.code ?? null, message: error?.message ?? String(error) },
+            });
             return responseResult;
           },
         );
-        const wait = await waitForResponseLock(first, secondPid, firstPid, responseResult);
+        const responseBeforeRelease = await waitForResponseRetry(responsePromise);
         await first.query(`
           select public._set_status(
             $1::uuid, $2::booking_status, $3::uuid, $4::text
@@ -223,27 +229,202 @@ async function runRace(context, status) {
         );
         await first.query('commit');
         firstTransactionOpen = false;
-        const response = await responsePromise;
+        const response = responseBeforeRelease ?? await responsePromise;
         const afterResponse = await state(first, fixture.booking);
         const outcomes = afterResponse.ledger.filter((row) => ['rescheduled', 'reschedule_declined'].includes(row.kind));
-        assert.match(
-          response.value?.message ?? '',
-          /visit can no longer be rescheduled/i,
-          `blocked response must re-read the transitioned row: ${JSON.stringify({ status, response, wait })}`,
-        );
+        const diagnostics = JSON.stringify({
+          status, firstPid, secondPid, responseBeforeRelease, response,
+          afterTransition, afterResponse, outcomes,
+        });
+        assert.ok(responseBeforeRelease,
+          `response must promptly report retryable booking contention before the lifecycle commit: ${diagnostics}`);
+        assert.equal(response.value?.code, '55P03',
+          `response contention must use SQLSTATE 55P03: ${diagnostics}`);
+        assert.match(response.value?.message ?? '', /retry reschedule response/i,
+          `response contention must explain that the caller can retry: ${diagnostics}`);
         assert.deepEqual(
           afterResponse,
           afterTransition,
-          `response must preserve transitioned booking, dues, and ledger: ${JSON.stringify({ status, afterTransition, afterResponse })}`,
+          `response must preserve transitioned booking, dues, and ledger: ${diagnostics}`,
         );
         assert.equal(
           outcomes.length,
           0,
-          `response must not append a reschedule outcome: ${JSON.stringify({ status, outcomes, afterResponse })}`,
+          `response must not append a reschedule outcome: ${diagnostics}`,
         );
       } finally {
         if (firstTransactionOpen) await first.query('rollback').catch(() => undefined);
         await second.query('reset role').catch(() => undefined);
+      }
+    });
+  } finally {
+    await context.withClient((client) => cleanupFixture(client, fixture));
+  }
+}
+
+async function waitForBookingFirstScheduleLock(observer, pid, blockerPid, operationResult, fixture, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastActivity = null;
+  while (Date.now() < deadline) {
+    lastActivity = (await observer.query(`
+      select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
+        from pg_stat_activity where pid = $1::int
+    `, [pid])).rows[0] ?? null;
+    const blockingPids = (lastActivity?.blocking_pids ?? []).map(Number);
+    if (lastActivity?.wait_event_type === 'Lock'
+        && blockingPids.includes(Number(blockerPid))
+        && String(lastActivity.query).includes('report_provider_absence')) {
+      return lastActivity;
+    }
+    if (operationResult.settled) {
+      throw new Error(`booking-first operation completed before the schedule-lock barrier: ${JSON.stringify({
+        pid, blockerPid, lastActivity, operation: operationResult.value, fixture,
+      })}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`booking-first operation did not reach the schedule-lock barrier: ${JSON.stringify({
+    pid, blockerPid, lastActivity, operation: operationResult.value, fixture,
+  })}`);
+}
+
+async function runBookingFirstResponseContention(context) {
+  const fixture = await context.withClient((client) => createFixture(client, 'booking-first-response'));
+  try {
+    return await context.withTwoClients(async (bookingFirst, response) => {
+      const bookingFirstPid = Number((await bookingFirst.query('select pg_backend_pid() pid')).rows[0].pid);
+      const responsePid = Number((await response.query('select pg_backend_pid() pid')).rows[0].pid);
+      assert.notEqual(bookingFirstPid, responsePid,
+        `booking-first race requires independent PostgreSQL backends: ${JSON.stringify({ bookingFirstPid, responsePid, fixture })}`);
+
+      const before = await state(response, fixture.booking);
+      let bookingFirstTransactionOpen = false;
+      let responseTransactionOpen = false;
+      let operationResult = { settled: false, value: null };
+      let operationPromise = null;
+      try {
+        await bookingFirst.query(`set statement_timeout = '15000ms'`);
+        await response.query(`set statement_timeout = '15000ms'`);
+        await response.query('begin');
+        responseTransactionOpen = true;
+        await response.query(
+          `select id from recurring_schedules where id = $1::uuid for update`,
+          [fixture.schedule],
+        );
+
+        await bookingFirst.query('begin');
+        bookingFirstTransactionOpen = true;
+        operationPromise = as(
+          bookingFirst,
+          fixture.manager,
+          `select report_provider_absence($1::uuid, $2::text)`,
+          [fixture.booking, 'SV07 booking-first lock barrier'],
+        ).then(
+          (result) => {
+            Object.assign(operationResult, { settled: true, value: { ok: true, rows: result.rows } });
+            return operationResult;
+          },
+          (error) => {
+            Object.assign(operationResult, {
+              settled: true,
+              value: { ok: false, error: { code: error?.code ?? null, message: error?.message ?? String(error) } },
+            });
+            return operationResult;
+          },
+        );
+        const scheduleBarrier = await waitForBookingFirstScheduleLock(
+          response, bookingFirstPid, responsePid, operationResult, fixture,
+        );
+
+        await response.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [fixture.manager]);
+        await response.query('set role authenticated');
+        await response.query('savepoint response_attempt');
+        const responseStartedAt = Date.now();
+        let responseAttempt;
+        try {
+          await response.query(`select respond_visit_reschedule($1::uuid, true)`, [fixture.change]);
+          responseAttempt = { ok: true };
+        } catch (error) {
+          responseAttempt = {
+            ok: false,
+            code: error?.code ?? null,
+            message: error?.message ?? String(error),
+          };
+        }
+        const responseDurationMs = Date.now() - responseStartedAt;
+        await response.query('rollback to savepoint response_attempt');
+        await response.query('release savepoint response_attempt');
+        await response.query('reset role');
+        const stateWhileBookingFirstBlocked = await state(response, fixture.booking);
+        const responseNotificationsWhileBlocked = (await response.query(`
+          select id, user_id, kind, booking_id, collapse_key
+            from notifications
+           where booking_id = $1::uuid
+             and kind in ('recurring_visit_rescheduled', 'recurring_visit_reschedule_declined')
+        `, [fixture.booking])).rows;
+        await response.query('commit');
+        responseTransactionOpen = false;
+
+        const bookingFirstResult = await operationPromise;
+        await bookingFirst.query('commit');
+        bookingFirstTransactionOpen = false;
+        const afterBookingFirst = await state(response, fixture.booking);
+        const responseNotificationsAfter = (await response.query(`
+          select id, user_id, kind, booking_id, collapse_key
+            from notifications
+           where booking_id = $1::uuid
+             and kind in ('recurring_visit_rescheduled', 'recurring_visit_reschedule_declined')
+        `, [fixture.booking])).rows;
+        const outcomes = afterBookingFirst.ledger.filter((row) => ['rescheduled', 'reschedule_declined'].includes(row.kind));
+        const absenceChanges = afterBookingFirst.ledger.filter((row) => row.kind === 'provider_absent');
+        const diagnostics = JSON.stringify({
+          bookingFirstPid, responsePid, fixture, before, scheduleBarrier,
+          responseAttempt, responseDurationMs, stateWhileBookingFirstBlocked,
+          responseNotificationsWhileBlocked, bookingFirstResult, afterBookingFirst,
+          absenceChanges, outcomes, responseNotificationsAfter,
+        });
+
+        assert.equal(scheduleBarrier.wait_event_type, 'Lock',
+          `booking-first operation must wait on the response backend's held schedule lock: ${diagnostics}`);
+        assert.ok((scheduleBarrier.blocking_pids ?? []).map(Number).includes(responsePid),
+          `schedule barrier must identify the distinct response backend: ${diagnostics}`);
+        assert.equal(responseAttempt.ok, false, `contended response must be rejected: ${diagnostics}`);
+        assert.equal(responseAttempt.code, '55P03',
+          `contended response must return retryable SQLSTATE 55P03: ${diagnostics}`);
+        assert.match(responseAttempt.message ?? '', /retry reschedule response/i,
+          `contended response must tell its caller to retry: ${diagnostics}`);
+        assert.ok(responseDurationMs < 2000,
+          `contended response must fail promptly rather than wait on the booking: ${diagnostics}`);
+        assert.deepEqual(stateWhileBookingFirstBlocked, before,
+          `response contention must not change schedule, booking, dues, or occurrence ledger: ${diagnostics}`);
+        assert.equal(responseNotificationsWhileBlocked.length, 0,
+          `response contention must not enqueue a response notification: ${diagnostics}`);
+        assert.equal(bookingFirstResult.value?.ok, true,
+          `booking-first absence operation must finish after schedule release: ${diagnostics}`);
+        assert.equal(afterBookingFirst.booking.status, 'cancelled',
+          `booking-first absence operation must cancel its booking: ${diagnostics}`);
+        assert.equal(afterBookingFirst.booking.scheduled_at, before.booking.scheduled_at,
+          `booking-first cancellation must retain the original visit time: ${diagnostics}`);
+        assert.equal(absenceChanges.length, 1,
+          `booking-first operation must write its provider-absence change: ${diagnostics}`);
+        assert.equal(absenceChanges[0]?.actor_id, fixture.manager,
+          `provider-absence change must retain its actor identity: ${diagnostics}`);
+        assert.equal(new Date(absenceChanges[0]?.original_at).toISOString(),
+          new Date(before.booking.scheduled_at).toISOString(),
+          `provider-absence change must retain the original occurrence time: ${diagnostics}`);
+        assert.equal(outcomes.length, 0,
+          `response contention must not write a rescheduled or declined outcome: ${diagnostics}`);
+        assert.equal(responseNotificationsAfter.length, 0,
+          `response contention must not enqueue a response notification after the booking-first commit: ${diagnostics}`);
+        return {
+          bookingFirstPid, responsePid, scheduleBarrier, responseAttempt, responseDurationMs,
+          stateWhileBookingFirstBlocked, bookingFirstResult, afterBookingFirst,
+          responseNotificationsAfter,
+        };
+      } finally {
+        if (responseTransactionOpen) await response.query('rollback').catch(() => undefined);
+        if (bookingFirstTransactionOpen) await bookingFirst.query('rollback').catch(() => undefined);
+        await response.query('reset role').catch(() => undefined);
       }
     });
   } finally {
@@ -453,6 +634,13 @@ export async function run(context) {
     } catch (error) {
       failures.push(`pause-response: ${error?.message ?? error}`);
       console.error(`FAIL SV-RESCHEDULE-PAUSE-RACE-05: ${error?.message ?? error}`);
+    }
+    try {
+      const race = await runBookingFirstResponseContention(context);
+      console.log(`PASS SV-RESCHEDULE-BOOKING-FIRST-RACE-06: ${JSON.stringify(race)}`);
+    } catch (error) {
+      failures.push(`booking-first-response: ${error?.message ?? error}`);
+      console.error(`FAIL SV-RESCHEDULE-BOOKING-FIRST-RACE-06: ${error?.message ?? error}`);
     }
   } finally {
     await context.withClient(async (client) => {
