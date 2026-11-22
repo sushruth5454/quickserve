@@ -327,28 +327,59 @@ await scenario('SP-EXACT-HORIZON', async () => {
   await inTransaction(async () => {
     await setFlags({ guestBrowse: true, sports: true, online: true });
     const timing = await one(`
-      select ((now() + interval '30 days' - interval '30 minutes')
-                at time zone 'Asia/Kolkata')::date::text as slot_day,
-             ((now() + interval '30 days' - interval '30 minutes')
-                at time zone 'Asia/Kolkata')::time::text as opens,
-             ((now() + interval '30 days' + interval '60 minutes')
-                at time zone 'Asia/Kolkata')::time::text as closes,
-             ((now() + interval '30 days') at time zone 'Asia/Kolkata')::time::text
-               as horizon_local_time
+      with horizon as (
+        select now() + interval '30 days' as boundary
+      ),
+      local_horizon as (
+        select h.boundary,
+               (h.boundary at time zone 'Asia/Kolkata')::date as slot_day,
+               (h.boundary at time zone 'Asia/Kolkata')::time as local_time
+          from horizon as h
+      )
+      select extract(epoch from l.boundary)::double precision as horizon_epoch,
+             l.slot_day::text as slot_day,
+             l.local_time >= time '00:30' and l.local_time < time '23:00' as centered,
+             case
+               when l.local_time >= time '00:30' and l.local_time < time '23:00'
+                 then ((l.boundary - interval '30 minutes') at time zone 'Asia/Kolkata')::time::text
+               else time '00:00'::text
+             end as opens,
+             case
+               when l.local_time >= time '00:30' and l.local_time < time '23:00'
+                 then ((l.boundary + interval '60 minutes') at time zone 'Asia/Kolkata')::time::text
+               else time '23:59'::text
+             end as closes
+        from local_horizon as l
     `);
     await setRules({ min_lead_minutes: 30 });
     const fixture = await createFixture('exact-horizon', { slotMinutes: 30, capacity: 2 });
     await addHours(fixture, timing.slot_day, timing.opens, timing.closes);
+    await db.query(`
+      update public.sports_price_rules as pr
+         set ends = time '23:59:59.999999'
+       where pr.resource_id = $1::uuid
+    `, [fixture.resourceId]);
     const slots = await as(null, 'anon', `
-      select s.starts_at::text as starts_at, s.state, s.price_paise, s.remaining
+      select extract(epoch from s.starts_at)::double precision as starts_epoch,
+             s.state, s.price_paise, s.remaining
         from public.get_sports_slots($1::uuid, $2::date) as s
+       where s.starts_at between $3::timestamptz - interval '60 minutes'
+                              and $3::timestamptz + interval '60 minutes'
        order by s.starts_at
-    `, [fixture.resourceId, timing.slot_day]);
-    const expectedStates = ['free', 'free', 'blocked'];
+    `, [fixture.resourceId, timing.slot_day, new Date(timing.horizon_epoch * 1000).toISOString()]);
+    const expectedStates = slots.map((slot) =>
+      slot.starts_epoch <= timing.horizon_epoch ? 'free' : 'blocked');
+    const exactBoundarySlot = slots.find((slot) => slot.starts_epoch === timing.horizon_epoch);
     ok(
-      JSON.stringify(slots.map((slot) => slot.state)) === JSON.stringify(expectedStates)
+      slots.length > 0
+        && slots.some((slot) => slot.state === 'free')
+        && (!timing.centered
+          || (slots.length === 3
+            && slots[1].starts_epoch === timing.horizon_epoch
+            && exactBoundarySlot?.state === 'free'))
+        && JSON.stringify(slots.map((slot) => slot.state)) === JSON.stringify(expectedStates)
         && slots.every((slot) => slot.price_paise === 25000 && slot.remaining === 2),
-      `[SP-EXACT-HORIZON] equality at now()+30 days remains eligible and later starts are blocked; expected states ${JSON.stringify(expectedStates)}, actual ${JSON.stringify({ timing, slots })}`,
+      `[SP-EXACT-HORIZON] equality at now()+30 days remains eligible and later starts are blocked; expected states ${JSON.stringify(expectedStates)}, actual ${JSON.stringify({ timing, slots, exactBoundarySlot })}`,
     );
   });
 });
