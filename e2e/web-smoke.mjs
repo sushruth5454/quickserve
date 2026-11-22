@@ -1507,6 +1507,21 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       }
       return null;
     });
+    const userIdFromAccessToken = (token, role) => {
+      const payload = token.split('.')[1];
+      if (!payload) throw new Error(`Authenticated ${role} token has no JWT payload`);
+      let claims;
+      try {
+        claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+      } catch {
+        throw new Error(`Authenticated ${role} token payload is invalid JSON`);
+      }
+      const id = claims?.sub;
+      if (typeof id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)) {
+        throw new Error(`Authenticated ${role} token has an invalid subject: ${JSON.stringify({ role, subject: id ?? null })}`);
+      }
+      return id;
+    };
     const phoneE164 = (phone) => {
       const digits = phoneKey(phone);
       if (!/^[6-9]\d{9}$/.test(digits)) throw new Error(`Invalid E2E test phone configuration: ${JSON.stringify({ validIndianMobile: false })}`);
@@ -1557,17 +1572,24 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       await grantE2eAdminMembership(ownerPhone);
       const outsiderToken = await signInAs(outsiderPhone);
 
+      const userIds = new Map([
+        ['customer', userIdFromAccessToken(customerToken, 'customer')],
+        ['shop owner/admin', userIdFromAccessToken(ownerToken, 'shop owner/admin')],
+        ['outsider', userIdFromAccessToken(outsiderToken, 'outsider')],
+      ]);
       const userRows = await privateQuery(
-        `select id, phone from auth.users where phone in (${[customerPhone, ownerPhone, outsiderPhone].map(sqlLiteral).join(', ')})`,
+        `select id from auth.users where id in (${[...userIds.values()].map(sqlUuid).join(', ')})`,
       );
       if (!Array.isArray(userRows)) throw new Error(`Test identity lookup returned an unexpected shape: ${JSON.stringify(userRows)}`);
-      const userIds = new Map(userRows.map((row) => [phoneE164(row.phone), row.id]));
-      const missingRoles = [
-        ['customer', customerPhone],
-        ['shop owner/admin', ownerPhone],
-        ['outsider', outsiderPhone],
-      ].filter(([, phone]) => !userIds.get(phone)).map(([role]) => role);
-      if (missingRoles.length) throw new Error(`Required private E2E identities are absent: ${JSON.stringify({ missingRoles })}`);
+      const existingUserIds = new Set(userRows.map((row) => row.id));
+      const missingRoles = [...userIds].filter(([, id]) => !existingUserIds.has(id)).map(([role]) => role);
+      if (missingRoles.length) {
+        throw new Error(`Authenticated private E2E identities are absent from auth.users: ${JSON.stringify({
+          missingRoles,
+          expectedIds: Object.fromEntries(userIds),
+          actualIds: userRows.map((row) => row.id),
+        })}`);
+      }
 
       const existingShop = requireRpcSuccess('get_my_shop', await rpc(ownerToken, 'get_my_shop'));
       const hasExistingShop = Array.isArray(existingShop) ? existingShop.some(Boolean) : existingShop != null;
@@ -1587,7 +1609,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       await privateQuery(
         'insert into public.shops '
         + '(id, owner_id, name, description, address_line, city, area, lat, lng, delivery_radius_km, offers_delivery, offers_pickup, status) '
-        + `values (${sqlUuid(shopId)}, ${sqlUuid(userIds.get(ownerPhone))}, ${sqlLiteral(shopName)}, `
+        + `values (${sqlUuid(shopId)}, ${sqlUuid(userIds.get('shop owner/admin'))}, ${sqlLiteral(shopName)}, `
         + `${sqlLiteral(`${QA_MARKER} isolated local-only fixture`)}, ${sqlLiteral('88 QA Demo Market Road')}, `
         + `${sqlLiteral('Vijayawada')}, ${sqlLiteral('Benz Circle')}, 16.5, 80.6, 20, true, true, 'verified')`,
       );
@@ -1838,6 +1860,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       }
       try {
         await go('/bookings');
+        await page.getByTestId('activity-segment-requests').click();
         await page.getByTestId('my-activity-panel-requests').waitFor();
       } catch (error) {
         cleanupErrors.push(`return to customer activity: ${String(error?.message ?? error)}`);
