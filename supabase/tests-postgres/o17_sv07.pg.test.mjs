@@ -262,14 +262,19 @@ async function runRace(context, status) {
   }
 }
 
+async function readFreshActivity(observer, pid) {
+  await observer.query('select pg_stat_clear_snapshot()');
+  return (await observer.query(`
+    select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
+      from pg_stat_activity where pid = $1::int
+  `, [pid])).rows[0] ?? null;
+}
+
 async function waitForBookingFirstScheduleLock(observer, pid, blockerPid, operationResult, fixture, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
   let lastActivity = null;
   while (Date.now() < deadline) {
-    lastActivity = (await observer.query(`
-      select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
-        from pg_stat_activity where pid = $1::int
-    `, [pid])).rows[0] ?? null;
+    lastActivity = await readFreshActivity(observer, pid);
     const blockingPids = (lastActivity?.blocking_pids ?? []).map(Number);
     if (lastActivity?.wait_event_type === 'Lock'
         && blockingPids.includes(Number(blockerPid))
@@ -305,9 +310,6 @@ async function runBookingFirstResponseContention(context) {
       try {
         await bookingFirst.query(`set statement_timeout = '15000ms'`);
         await response.query(`set statement_timeout = '15000ms'`);
-        // Avoid making BEGIN itself part of the schedule-lock race under test.
-        await bookingFirst.query('begin');
-        bookingFirstTransactionOpen = true;
         await response.query('begin');
         responseTransactionOpen = true;
         await response.query(
@@ -315,6 +317,8 @@ async function runBookingFirstResponseContention(context) {
           [fixture.schedule],
         );
 
+        await bookingFirst.query('begin');
+        bookingFirstTransactionOpen = true;
         operationPromise = as(
           bookingFirst,
           fixture.manager,
@@ -437,10 +441,7 @@ async function waitForResponseScheduleLock(observer, pid, blockerPid, responseRe
   const deadline = Date.now() + timeoutMs;
   let lastActivity = null;
   while (Date.now() < deadline) {
-    lastActivity = (await observer.query(`
-      select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
-        from pg_stat_activity where pid = $1::int
-    `, [pid])).rows[0] ?? null;
+    lastActivity = await readFreshActivity(observer, pid);
     const blockingPids = (lastActivity?.blocking_pids ?? []).map(Number);
     if (lastActivity?.wait_event_type === 'Lock'
         && blockingPids.includes(Number(blockerPid))
