@@ -1,10 +1,11 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Switch, View } from 'react-native';
-import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useToast } from '../../src/components/ui';
+import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useConfirm, useToast } from '../../src/components/ui';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { supabase } from '../../src/lib/supabase';
 import { useTheme } from '../../src/theme';
+import { getVenueReviewPresentation, type VenueReviewAction } from '../../src/features/sports/venueReviewPresentation';
 
 interface VenueReview {
   id: string;
@@ -25,6 +26,7 @@ interface Activity {
 
 export default function AdminSportsScreen() {
   const t = useTheme();
+  const confirm = useConfirm();
   const toast = useToast();
   const flags = useAppFeatureFlags();
   const enabled = flags.isOn('sports');
@@ -51,13 +53,21 @@ export default function AdminSportsScreen() {
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  const setVenueStatus = async (venue: VenueReview, status: 'verified' | 'rejected' | 'suspended') => {
+  const setVenueStatus = async (venue: VenueReview, action: VenueReviewAction) => {
+    if (action.kind !== 'admin' || !action.target) return;
+    const currentAction = getVenueReviewPresentation(venue.status, 'admin').actions
+      .find((candidate) => candidate.kind === 'admin' && candidate.target === action.target);
+    if (!currentAction?.target) return;
+    const venueReason = (reason[venue.id] ?? '').trim();
+    if (currentAction.reasonRequired && venueReason.length < 3) return;
+    if (!await confirm(currentAction.confirmation)) return;
+
     setBusyId(venue.id);
     setError(null);
     const { error: rpcError } = await supabase.rpc('admin_set_venue_status', {
       p_id: venue.id,
-      p_status: status,
-      p_reason: status === 'verified' ? '' : (reason[venue.id] ?? '').trim(),
+      p_status: currentAction.target,
+      p_reason: currentAction.target === 'verified' ? '' : venueReason,
     });
     setBusyId(null);
     if (rpcError) {
@@ -69,7 +79,7 @@ export default function AdminSportsScreen() {
       delete next[venue.id];
       return next;
     });
-    toast({ message: `Venue ${status}`, tone: 'success' });
+    toast({ message: 'Venue status updated', tone: 'success' });
     await load();
   };
 
@@ -104,6 +114,10 @@ export default function AdminSportsScreen() {
             <EmptyState icon="business-outline" title="No venues submitted" message="Submitted venues will appear here for review." compact />
           ) : venues.map((venue) => {
             const venueReason = reason[venue.id] ?? '';
+            const review = getVenueReviewPresentation(venue.status, 'admin');
+            const reviewActions = review.actions.filter((action) => action.kind === 'admin');
+            const verifiedAction = reviewActions.find((action) => action.target === 'verified');
+            const restrictionActions = reviewActions.filter((action) => action.target !== 'verified');
             return (
             <Card key={venue.id} gap={t.spacing.sm}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: t.spacing.sm }}>
@@ -111,18 +125,18 @@ export default function AdminSportsScreen() {
                   <Text variant="bodyStrong">{venue.name}</Text>
                   <Text variant="footnote" color="muted">{venue.area}, {venue.city} · Owner: {venue.owner_name || 'QuickServe user'}</Text>
                 </View>
-                <Text variant="captionStrong" color={venue.status === 'verified' ? 'successText' : 'muted'}>{venue.status.toUpperCase()}</Text>
+                <Text variant="captionStrong" color={venue.status === 'verified' ? 'successText' : 'muted'}>{review.statusLabel}</Text>
               </View>
               {venue.status_reason ? <Text variant="footnote" color="textSecondary">{venue.status_reason}</Text> : null}
-              {venue.status === 'submitted' || venue.status === 'verified' ? (
+              {verifiedAction ? (
                 <Button
-                  title="Verify venue"
-                  onPress={() => void setVenueStatus(venue, 'verified')}
+                  title={verifiedAction.label}
+                  onPress={() => void setVenueStatus(venue, verifiedAction)}
                   loading={busyId === venue.id}
                   disabled={busyId === venue.id}
                 />
               ) : null}
-              {venue.status !== 'draft' ? (
+              {restrictionActions.length > 0 ? (
                 <>
                   <Input
                     label="Reason required to reject or suspend"
@@ -131,20 +145,16 @@ export default function AdminSportsScreen() {
                     maxLength={500}
                   />
                   <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                    <Button
-                      title="Reject"
-                      variant="outline"
-                      onPress={() => void setVenueStatus(venue, 'rejected')}
-                      disabled={busyId === venue.id || venueReason.trim().length < 3}
-                      style={{ flex: 1 }}
-                    />
-                    <Button
-                      title="Suspend"
-                      variant="destructiveGhost"
-                      onPress={() => void setVenueStatus(venue, 'suspended')}
-                      disabled={busyId === venue.id || venueReason.trim().length < 3}
-                      style={{ flex: 1 }}
-                    />
+                    {restrictionActions.map((action) => (
+                      <Button
+                        key={action.target}
+                        title={action.label}
+                        variant={action.target === 'suspended' ? 'destructiveGhost' : 'outline'}
+                        onPress={() => void setVenueStatus(venue, action)}
+                        disabled={busyId === venue.id || (action.reasonRequired === true && venueReason.trim().length < 3)}
+                        style={{ flex: 1 }}
+                      />
+                    ))}
                   </View>
                 </>
               ) : null}
