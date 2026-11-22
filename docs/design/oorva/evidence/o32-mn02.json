@@ -9,10 +9,10 @@
     "sourceSha": "b40e3ac3da80dc7dba677457413180bca6070222"
   },
   "migrationClaim": "MIG-O32-MN02",
-  "migrationPath": "supabase/migrations/0118_o32_mn02_oorva.sql",
+  "migrationPath": "supabase/migrations/0100_o32_mn02_oorva.sql",
   "migrationClaimStatus": "ACKNOWLEDGED/APPROVED",
   "changedFiles": [
-    "supabase/migrations/0118_o32_mn02_oorva.sql",
+    "supabase/migrations/0100_o32_mn02_oorva.sql",
     "supabase/tests/oorva_o32_mn02.test.mjs",
     "docs/design/oorva/evidence/o32-mn02.json"
   ],
