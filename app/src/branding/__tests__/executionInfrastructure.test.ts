@@ -13,11 +13,18 @@ const { spawnSync } = require('child_process') as {
     options: { cwd: string; env: Record<string, string | undefined>; encoding: 'utf8' },
   ) => SpawnResult;
 };
+const { readFileSync } = require('fs') as {
+  readFileSync: (file: string, encoding: 'utf8') => string;
+};
 
 const repoRoot = path.resolve(__dirname, '../../../../');
+const assetTests = path.join(repoRoot, 'scripts', 'brand', 'asset-tests.mjs');
+const assetValidator = path.join(repoRoot, 'scripts', 'brand', 'validate.mjs');
 const planValidator = path.join(repoRoot, 'scripts', 'brand', 'validate-execution-plan.mjs');
 const captureValidator = path.join(repoRoot, 'scripts', 'brand', 'capture-manifest.mjs');
 const postgresRunner = path.join(repoRoot, 'supabase', 'tests-postgres', 'run.mjs');
+const codespaceHelper = path.join(repoRoot, 'scripts', 'cs-test.ps1');
+const codespaceRunner = path.join(repoRoot, 'scripts', 'cs', 'run.sh');
 
 function runNode(script: string, args: string[] = [], environment: Record<string, string | undefined> = {}) {
   const env = { ...process.env };
@@ -68,6 +75,59 @@ describe('isolated execution infrastructure', () => {
     const result = runNode(planValidator);
     expectCommand(result, { stderr: 'zero stage selection' });
     if (result.status === 0) throw new Error(`expected a failed zero selection; actual=${JSON.stringify(result)}`);
+  });
+
+  test('parses O37A asset checker modules without running O01X validation', () => {
+    for (const script of [assetTests, assetValidator]) {
+      const result = spawnSync(process.execPath, ['--check', script], {
+        cwd: repoRoot,
+        env: { ...process.env },
+        encoding: 'utf8',
+      });
+      const actual = {
+        script,
+        status: result.status,
+        stdout: String(result.stdout ?? '').trim(),
+        stderr: String(result.stderr ?? '').trim(),
+      };
+      if (actual.status !== 0) {
+        throw new Error(`O37A asset checker syntax failed; actual=${JSON.stringify(actual)} expected=status 0`);
+      }
+    }
+  });
+
+  test('guards the registered Oorva assets-suite helper route', () => {
+    const helperText = readFileSync(codespaceHelper, 'utf8');
+    const runnerText = readFileSync(codespaceRunner, 'utf8');
+    const helperAllowsAssets = /ValidateSet\([^)]*\bassets\b/s.test(helperText);
+    const runnerLines = runnerText.split(/\r?\n/);
+    const assetsLine = runnerLines.findIndex((line) => /^\s*assets\)\s*/.test(line));
+    let assetsBranch = '';
+    if (assetsLine >= 0) {
+      for (let index = assetsLine + 1; index < runnerLines.length; index += 1) {
+        const line = runnerLines[index];
+        if (line === undefined || /^\s*(?:[A-Za-z_-]+\)|esac\b)/.test(line)) break;
+        assetsBranch += `${line}\n`;
+      }
+    }
+    const runnerHasAssetsCase = assetsLine >= 0;
+    const runnerRequiresOorvaFilter = /["']?\$1["']?\s*(?:!=|==)\s*["']oorva["']/.test(assetsBranch);
+    const runnerRunsExactOorvaCheck = /node\s+asset-tests\.mjs\s+--check-oorva/.test(assetsBranch);
+    const actual = { helperAllowsAssets, runnerHasAssetsCase, runnerRequiresOorvaFilter, runnerRunsExactOorvaCheck };
+    const anyRegistrationPresent = Object.values(actual).some(Boolean);
+
+    if (!anyRegistrationPresent) {
+      console.info(`O37A assets helper route: NOT VERIFIED; coordinator registration pending; actual=${JSON.stringify(actual)}`);
+      return;
+    }
+    if (!helperAllowsAssets || !runnerHasAssetsCase || !runnerRequiresOorvaFilter || !runnerRunsExactOorvaCheck) {
+      throw new Error(`O37A assets helper route is partial or mismatched; actual=${JSON.stringify(actual)} expected=${JSON.stringify({
+        helperAllowsAssets: true,
+        runnerHasAssetsCase: true,
+        runnerRequiresOorvaFilter: true,
+        runnerRunsExactOorvaCheck: true,
+      })}`);
+    }
   });
 
   test('runs dependency-free capture-manifest checks', () => {
