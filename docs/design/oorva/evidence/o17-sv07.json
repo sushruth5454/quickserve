@@ -68,14 +68,16 @@
     "SV-RESCHEDULE-ALLOW-02",
     "SV-RESCHEDULE-IDEMPOTENT-03",
     "SV-RESCHEDULE-RACE-04",
-    "SV-RESCHEDULE-PAUSE-RACE-05"
+    "SV-RESCHEDULE-PAUSE-RACE-05",
+    "SV-RESCHEDULE-BOOKING-FIRST-RACE-06"
   ],
   "validation": {
     "gitDiffCheck": "PASS",
-    "pglite": "PASS_CURRENT_REBASE_CODESPACE",
-    "privatePostgresConcurrency": "PENDING_CORRECTED_HEAD_LANE_CI",
-    "migrationParser": "PASS_CURRENT_REBASE_CODESPACE",
-    "codespace": "PASS_CURRENT_REBASE_SELECTORS",
+    "pglite": "PENDING_CURRENT_CORRECTION_CODESPACE",
+    "privatePostgresConcurrency": "PENDING_CURRENT_CORRECTION_LANE_CI",
+    "bookingFirstRetryableContention": "PENDING_CURRENT_CODESPACE_AND_LANE_CI",
+    "migrationParser": "PENDING_CURRENT_CORRECTION_CODESPACE",
+    "codespace": "PENDING_CURRENT_CORRECTION_SELECTORS",
     "codespaceFailure": "The original exact-green-head attempt was UNAVAILABLE_NO_PASS; the corrected rebase selectors passed on the WIP snapshots recorded below.",
     "rebaseCodespaceSelectors": {
       "pglite": {
