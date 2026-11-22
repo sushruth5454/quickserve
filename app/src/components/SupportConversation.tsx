@@ -19,11 +19,16 @@ type SupportConversationState =
   | { key: string; phase: 'ready'; thread: SupportThread; messages: SupportMessage[]; error: null };
 
 type KeyedText = { key: string; value: string } | null;
+type SupportReadback = { key: string; thread: SupportThread | null };
 
 const SUPPORT_REFRESH_INTERVAL_MS = 60_000;
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+function currentReadback(ref: { current: SupportReadback | null }): SupportReadback | null {
+  return ref.current;
 }
 
 export function SupportConversation({ threadId, admin = false }: { threadId: string; admin?: boolean }) {
@@ -43,7 +48,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
   const [actionErrorState, setActionErrorState] = useState<KeyedText>(null);
   const sendOperationRef = useRef<string | null>(null);
   const statusOperationRef = useRef<string | null>(null);
-  const readbackRef = useRef<{ key: string; thread: SupportThread | null } | null>(null);
+  const readbackRef = useRef<SupportReadback | null>(null);
 
   useEffect(() => {
     setDraftState(null);
@@ -133,7 +138,8 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
       try {
         await refresh();
         if (identityRef.current !== contextKey) return;
-        if (readbackRef.current?.key !== contextKey || !readbackRef.current.thread) {
+        const readback = currentReadback(readbackRef);
+        if (!readback || readback.key !== contextKey || !readback.thread) {
           setActionErrorState({
             key: contextKey,
             value: 'Your reply was sent, but the latest conversation could not be confirmed. Retry to refresh it.',
@@ -191,7 +197,8 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
       try {
         await refresh();
         if (identityRef.current !== contextKey) return;
-        if (readbackRef.current?.key === contextKey && readbackRef.current.thread?.status === nextStatus) {
+        const readback = currentReadback(readbackRef);
+        if (readback && readback.key === contextKey && readback.thread?.status === nextStatus) {
           toast({ message: reopening ? 'Conversation reopened' : 'Conversation closed', tone: 'success' });
         } else {
           setActionErrorState({

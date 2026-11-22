@@ -4,7 +4,7 @@
   "sourceFindingId": "CM-F06",
   "implementationBaseSha": "822e7ba0f43fa3b15a122eff69e389a91926001e",
   "branch": "lane/oorva-o24-cm04",
-  "status": "worker-checkpoint-pending-registration",
+  "status": "codespace-validated-awaiting-lane-ci-and-concurrency-review",
   "changes": [
     "SupportConversation uses loadSupportConversation with actor/scope/thread-keyed state.",
     "Support detail refresh uses the shared O38R active-focused refresh core at 60000 ms.",
@@ -27,19 +27,23 @@
       "CM_SQL_SUPPORT_ROLE_NEUTRAL_START",
       "CM_SQL_SUPPORT_LINKED_PARTICIPANT_ONLY"
     ],
-    "execution": "NOT RUN: stop-before-Codespace registration roundtrip"
+    "execution": {
+      "app": "PASS: exact SupportConversation Jest path; all five named cases passed.",
+      "sql": "PASS: exact oorva_o24_cm04 selector selected one test file; all scenarios passed."
+    }
   },
   "validation": {
     "gitDiffCheck": "PASS",
-    "codespaceApp": "NOT RUN",
-    "codespaceSql": "NOT RUN: awaiting coordinator registration",
-    "laneCi": "NOT RUN",
+    "codespaceApp": "PASS",
+    "codespaceSql": "PASS",
+    "laneCi": "PENDING exact-head push",
     "concurrencyReview": "REQUIRED",
     "nativeKeyboardAcceptance": "NOT VERIFIED"
   },
   "coordinatorRegistration": {
     "path": "supabase/tests/package.json",
     "sqlSelector": "oorva_o24_cm04",
-    "status": "PENDING"
+    "registrationCommit": "f8f9704b924340061831f2c74f0a7a9da3928a02",
+    "status": "REGISTERED"
   }
 }
