@@ -43,11 +43,11 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
 
   const [state, setState] = useState<SupportConversationState | null>(null);
   const [draftState, setDraftState] = useState<KeyedText>(null);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [statusBusyKey, setStatusBusyKey] = useState<string | null>(null);
+  const [busyKeys, setBusyKeys] = useState<Set<string>>(() => new Set());
+  const [statusBusyKeys, setStatusBusyKeys] = useState<Set<string>>(() => new Set());
   const [actionErrorState, setActionErrorState] = useState<KeyedText>(null);
-  const sendOperationRef = useRef<string | null>(null);
-  const statusOperationRef = useRef<string | null>(null);
+  const sendOperationRef = useRef(new Map<string, symbol>());
+  const statusOperationRef = useRef(new Map<string, symbol>());
   const readbackRef = useRef<SupportReadback | null>(null);
 
   useEffect(() => {
@@ -56,8 +56,8 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
   }, [contextKey]);
 
   const body = draftState?.key === contextKey ? draftState.value : '';
-  const busy = busyKey === contextKey;
-  const statusBusy = statusBusyKey === contextKey;
+  const busy = busyKeys.has(contextKey);
+  const statusBusy = statusBusyKeys.has(contextKey);
   const actionError = actionErrorState?.key === contextKey ? actionErrorState.value : null;
 
   const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
@@ -123,11 +123,13 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
       || refreshing
       || busy
       || statusBusy
-      || sendOperationRef.current === contextKey
+      || sendOperationRef.current.has(contextKey)
+      || statusOperationRef.current.has(contextKey)
     ) return;
 
-    sendOperationRef.current = contextKey;
-    setBusyKey(contextKey);
+    const operation = Symbol();
+    sendOperationRef.current.set(contextKey, operation);
+    setBusyKeys((currentKeys) => new Set(currentKeys).add(contextKey));
     try {
       await sendSupport(threadId, trimmedBody);
       setDraftState((currentDraft) => (
@@ -161,8 +163,14 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
         });
       }
     } finally {
-      if (sendOperationRef.current === contextKey) sendOperationRef.current = null;
-      setBusyKey((currentKey) => currentKey === contextKey ? null : currentKey);
+      if (sendOperationRef.current.get(contextKey) === operation) {
+        sendOperationRef.current.delete(contextKey);
+        setBusyKeys((currentKeys) => {
+          const nextKeys = new Set(currentKeys);
+          nextKeys.delete(contextKey);
+          return nextKeys;
+        });
+      }
     }
   }, [authLoading, body, busy, contextKey, refresh, refreshing, state, statusBusy, threadId, userId]);
 
@@ -175,15 +183,17 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
       || refreshing
       || busy
       || statusBusy
-      || statusOperationRef.current === contextKey
+      || sendOperationRef.current.has(contextKey)
+      || statusOperationRef.current.has(contextKey)
     ) return;
 
     const actorId = userId;
     const thread = current.thread;
     const reopening = thread.status === 'closed';
     const nextStatus = reopening ? 'open' : 'closed';
-    statusOperationRef.current = contextKey;
-    setStatusBusyKey(contextKey);
+    const operation = Symbol();
+    statusOperationRef.current.set(contextKey, operation);
+    setStatusBusyKeys((currentKeys) => new Set(currentKeys).add(contextKey));
     try {
       const ok = await confirm({
         title: reopening ? 'Reopen this conversation?' : 'Close this support conversation?',
@@ -222,8 +232,14 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
         });
       }
     } finally {
-      if (statusOperationRef.current === contextKey) statusOperationRef.current = null;
-      setStatusBusyKey((currentKey) => currentKey === contextKey ? null : currentKey);
+      if (statusOperationRef.current.get(contextKey) === operation) {
+        statusOperationRef.current.delete(contextKey);
+        setStatusBusyKeys((currentKeys) => {
+          const nextKeys = new Set(currentKeys);
+          nextKeys.delete(contextKey);
+          return nextKeys;
+        });
+      }
     }
   }, [authLoading, busy, confirm, contextKey, refresh, refreshing, state, statusBusy, threadId, toast, userId]);
 

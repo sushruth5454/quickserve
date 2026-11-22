@@ -4,7 +4,7 @@
   "sourceFindingId": "CM-F06",
   "implementationBaseSha": "822e7ba0f43fa3b15a122eff69e389a91926001e",
   "branch": "lane/oorva-o24-cm04",
-  "status": "codespace-validated-awaiting-lane-ci-and-concurrency-review",
+  "status": "concurrency-fix-awaiting-revalidation",
   "changes": [
     "SupportConversation uses loadSupportConversation with actor/scope/thread-keyed state.",
     "Support detail refresh uses the shared O38R active-focused refresh core at 60000 ms.",
@@ -18,6 +18,7 @@
       "CM_SUPPORT_PARTICIPANT_LOAD",
       "CM_SUPPORT_CROSS_ROLE_REFRESH",
       "CM_SUPPORT_REMOTE_REPLY",
+      "CM_SUPPORT_CONCURRENT_CONTEXT_SEND_LOCKS",
       "CM_SUPPORT_SINGLE_KEYBOARD_OWNER"
     ],
     "sql": [
@@ -27,16 +28,13 @@
       "CM_SQL_SUPPORT_ROLE_NEUTRAL_START",
       "CM_SQL_SUPPORT_LINKED_PARTICIPANT_ONLY"
     ],
-    "execution": {
-      "app": "PASS: exact SupportConversation Jest path; all five named cases passed.",
-      "sql": "PASS: exact oorva_o24_cm04 selector selected one test file; all scenarios passed."
-    }
+    "execution": "NOT RUN after the focused concurrency fix."
   },
   "validation": {
-    "gitDiffCheck": "PASS",
-    "codespaceApp": "PASS",
-    "codespaceSql": "PASS",
-    "laneCi": "PENDING exact-head push",
+    "gitDiffCheck": "PENDING",
+    "codespaceApp": "PENDING after concurrency fix",
+    "codespaceSql": "PENDING after concurrency fix",
+    "laneCi": "PENDING new exact-head push",
     "concurrencyReview": "REQUIRED",
     "nativeKeyboardAcceptance": "NOT VERIFIED"
   },
