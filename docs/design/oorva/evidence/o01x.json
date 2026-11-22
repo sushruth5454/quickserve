@@ -1,0 +1,1644 @@
+{
+  "schemaVersion": 1,
+  "stage": "O01X",
+  "implementationBaseSha": "ca6daa3a071f11033b85c9f3043617945f67a76e",
+  "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O01L": "b64bbd11d27902b88ee92d41657870552acbc0fd",
+    "O37A": "5b2b026ab825100d461ae2db276d6eb42f4497ec"
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "D03a": "APPROVED_AUTHORING_ONLY",
+    "TOOL_ASSETS_MAIN": "APPROVED",
+    "D03b": "PENDING",
+    "D03c": "NOT_APPROVED"
+  },
+  "candidateOnly": true,
+  "finalSelection": false,
+  "production_ready": false,
+  "publicReleaseAllowed": false,
+  "authoringIdentity": {
+    "concept": "Connected O",
+    "wordmark": "oorva",
+    "tagline": "Your world, closer.",
+    "colors": {
+      "forest": "#173D39",
+      "ivory": "#F7F5EF",
+      "slate": "#344B65"
+    }
+  },
+  "manifestPath": "app/assets/brand/manifest.json",
+  "manifestSha256": "b6182955aef77e64480a2953189e5fc43b5d2ef6c7e7124b05a463de1a95516c",
+  "previewPaths": [
+    "app/assets/brand/logo-horizontal-light.png",
+    "app/assets/brand/logo-horizontal-light@2x.png",
+    "app/assets/brand/logo-horizontal-light@3x.png",
+    "app/assets/brand/logo-horizontal-dark.png",
+    "app/assets/brand/logo-horizontal-dark@2x.png",
+    "app/assets/brand/logo-horizontal-dark@3x.png",
+    "app/assets/brand/oorva-wordmark-light.png",
+    "app/assets/brand/oorva-wordmark-light@2x.png",
+    "app/assets/brand/oorva-wordmark-light@3x.png",
+    "app/assets/brand/oorva-wordmark-dark.png",
+    "app/assets/brand/oorva-wordmark-dark@2x.png",
+    "app/assets/brand/oorva-wordmark-dark@3x.png",
+    "app/assets/brand/logo-compact-light.png",
+    "app/assets/brand/logo-compact-light@2x.png",
+    "app/assets/brand/logo-compact-light@3x.png",
+    "app/assets/brand/logo-compact-dark.png",
+    "app/assets/brand/logo-compact-dark@2x.png",
+    "app/assets/brand/logo-compact-dark@3x.png",
+    "app/assets/brand/native/icon.png",
+    "app/assets/brand/native/android-icon-foreground.png",
+    "app/assets/brand/native/android-icon-background.png",
+    "app/assets/brand/native/android-icon-monochrome.png",
+    "app/assets/brand/native/splash-icon.png",
+    "app/assets/brand/native/splash-icon-dark.png",
+    "app/assets/brand/native/notification-icon.png",
+    "app/assets/brand/native/favicon.png"
+  ],
+  "sourceManifest": {
+    "path": "app/assets/brand/source-manifest.json",
+    "sha256": "48626193782fef69e20e2e2e3262fdca48b3c100645e48a6c1fb15b85e62f7a0",
+    "approvedSvgSources": [
+      {
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      {
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      }
+    ]
+  },
+  "toolchain": {
+    "nodeMajor": 22,
+    "renderer": "@resvg/resvg-js",
+    "rendererVersion": "2.6.2",
+    "loadSystemFonts": false,
+    "exporterSha256": "a29a488644d54e6920242b6c4caadb4c7646465a8ee2b2efbfe15211b257bf44",
+    "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a",
+    "runtimeNode": "v22.16.0",
+    "systemFontsLoaded": false
+  },
+  "exportChecks": {
+    "result": "PASS",
+    "count": 26,
+    "mode": "--check",
+    "exports": [
+      {
+        "path": "app/assets/brand/logo-horizontal-light.png",
+        "result": "PASS",
+        "sha256": "0f176e1d34fc045edc5be78ffa2bcf8bcf034169dc4067f13dd59a184365a889",
+        "sourceSha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@2x.png",
+        "result": "PASS",
+        "sha256": "7d45b1721e7862cc323656e52c1f953f02cd80fe2683c9f84807ab6e1b38e8ce",
+        "sourceSha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@3x.png",
+        "result": "PASS",
+        "sha256": "38bee2fbfb65f20412a33452381a09d40fef422fd3d4826e7be5e26a16cdf7a0",
+        "sourceSha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark.png",
+        "result": "PASS",
+        "sha256": "672b32be70ca8ff2d15261a5a1c37d7329143a615b74694930f97829792b1372",
+        "sourceSha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "result": "PASS",
+        "sha256": "30a56868c90ddeb4097313f19c3ff31b31f09750654cfc3ffdb725a3a79b6ae8",
+        "sourceSha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "result": "PASS",
+        "sha256": "f65c5f2eab37df9cd9cf61ec0bb1db3f04b011bbbd7eba0c4826f2ffed6e329c",
+        "sourceSha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light.png",
+        "result": "PASS",
+        "sha256": "1214b6e686f0a73db6c8b51e151dcc1b3fd62b00fc6ea9e738f69119ace4e69c",
+        "sourceSha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "result": "PASS",
+        "sha256": "6a34f81d8ae0d9eeb6e89829e22702920e969bd2c899d53db109f6aea1323cec",
+        "sourceSha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "result": "PASS",
+        "sha256": "b41f86a2722d45ab2ad6f7a3653a6d46a8a57257cd316f308616b6fa2ccf09c3",
+        "sourceSha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark.png",
+        "result": "PASS",
+        "sha256": "c78bd6f3747b439e9b81dd87432b5c3aae20c9609737771c7e90d048476b487b",
+        "sourceSha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "result": "PASS",
+        "sha256": "655eb75f2135cb28546917678114c899847c7795c8b44a8604d08d24ecf3cbd7",
+        "sourceSha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "result": "PASS",
+        "sha256": "0632d5f445065badebdf48deed23287657b4262ff93473b0606b6a5aff99eafa",
+        "sourceSha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      {
+        "path": "app/assets/brand/logo-compact-light.png",
+        "result": "PASS",
+        "sha256": "01cb9b527642ff4f2121001b2274b04985b12ffa0e034216da44568161379d41",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/logo-compact-light@2x.png",
+        "result": "PASS",
+        "sha256": "6fc75e9d515978b6b6ba2017ed7177c8868fed3622680af2967bf916aa2270d5",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/logo-compact-light@3x.png",
+        "result": "PASS",
+        "sha256": "167124595a8217311533b6202a081ce2eb146ec63278889a5e044206af0cbca7",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/logo-compact-dark.png",
+        "result": "PASS",
+        "sha256": "e85939f46abb28f27d935076cb72cc541067147769f3fa5615123c2491067561",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/logo-compact-dark@2x.png",
+        "result": "PASS",
+        "sha256": "d03655663f0ff1a0a06271b6089b5dbbefb2a61d3e70f21190b57a8a476d605b",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/logo-compact-dark@3x.png",
+        "result": "PASS",
+        "sha256": "6211a9aaedbbd37fc16b3914fa37dbdcbb3c339443b5d82750a3ac7aabdd61bc",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/icon.png",
+        "result": "PASS",
+        "sha256": "7aecf310480462c4019d957de2a7eec74f89b2546d9f4a63e38b503e49d010b4",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/android-icon-foreground.png",
+        "result": "PASS",
+        "sha256": "046c2b9ef119e6baffefbcf1c2988a6bcc40557afc3227799e5b392c35951d7c",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/android-icon-background.png",
+        "result": "PASS",
+        "sha256": "d382300ca5f23aea1a250d9981c39f7dcfafda8724c7a13c9104036ba86fa81e",
+        "sourceSha256": "9df7bef9d9e1710b36f80d708aeff798a436683801b8a12e4354e2aadf4ff43c"
+      },
+      {
+        "path": "app/assets/brand/native/android-icon-monochrome.png",
+        "result": "PASS",
+        "sha256": "efbea91da49762927487f8884d48797c01fb54bad622abf64a0c3852e12e530e",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/splash-icon.png",
+        "result": "PASS",
+        "sha256": "41318680976db8615aa39d3339e82fc13d40d86922e193ee918327ecc454f2dd",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/splash-icon-dark.png",
+        "result": "PASS",
+        "sha256": "046c2b9ef119e6baffefbcf1c2988a6bcc40557afc3227799e5b392c35951d7c",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/notification-icon.png",
+        "result": "PASS",
+        "sha256": "1e051dd1a87fa8abc3ae1c718b86003dd48541734177e3b3294d0aa80dd9f8ba",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      {
+        "path": "app/assets/brand/native/favicon.png",
+        "result": "PASS",
+        "sha256": "da83605729124e24fb77a285aad762368f29bb54d4d02232ec5bebf612794fd9",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      }
+    ]
+  },
+  "assetValidation": {
+    "stageId": "O01X",
+    "status": "PASS_CANDIDATE_ONLY",
+    "manifest": "app/assets/brand/manifest.json",
+    "state": {
+      "selected": false,
+      "publiclyCleared": false,
+      "designSelection": "pending",
+      "publicRights": "pending"
+    },
+    "toolchain": {
+      "nodeMajor": 22,
+      "renderer": "@resvg/resvg-js",
+      "rendererVersion": "2.6.2",
+      "lockedRendererVersion": "2.6.2",
+      "loadSystemFonts": false,
+      "exporterSha256": "a29a488644d54e6920242b6c4caadb4c7646465a8ee2b2efbfe15211b257bf44",
+      "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a"
+    },
+    "fileCount": 26,
+    "files": [
+      {
+        "export": "app/assets/brand/logo-horizontal-light.png",
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-light.svg",
+        "sourceSha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412",
+        "sha256": "0f176e1d34fc045edc5be78ffa2bcf8bcf034169dc4067f13dd59a184365a889",
+        "width": 360,
+        "height": 100,
+        "density": 1,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 30386,
+          "partialAlphaPixels": 1036,
+          "opaquePixels": 4578,
+          "bounds": {
+            "left": 28,
+            "top": 24,
+            "right": 328,
+            "bottom": 74
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 50,
+          "minimumPx": 13,
+          "measuredPx": {
+            "left": 28,
+            "top": 24,
+            "right": 31,
+            "bottom": 25
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-horizontal-light@2x.png",
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-light.svg",
+        "sourceSha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412",
+        "sha256": "7d45b1721e7862cc323656e52c1f953f02cd80fe2683c9f84807ab6e1b38e8ce",
+        "width": 720,
+        "height": 200,
+        "density": 2,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 122670,
+          "partialAlphaPixels": 1910,
+          "opaquePixels": 19420,
+          "bounds": {
+            "left": 57,
+            "top": 49,
+            "right": 657,
+            "bottom": 148
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 100,
+          "minimumPx": 25,
+          "measuredPx": {
+            "left": 57,
+            "top": 49,
+            "right": 62,
+            "bottom": 51
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-horizontal-light@3x.png",
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-light.svg",
+        "sourceSha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412",
+        "sha256": "38bee2fbfb65f20412a33452381a09d40fef422fd3d4826e7be5e26a16cdf7a0",
+        "width": 1080,
+        "height": 300,
+        "density": 3,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 276672,
+          "partialAlphaPixels": 3148,
+          "opaquePixels": 44180,
+          "bounds": {
+            "left": 86,
+            "top": 73,
+            "right": 986,
+            "bottom": 223
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 150,
+          "minimumPx": 38,
+          "measuredPx": {
+            "left": 86,
+            "top": 73,
+            "right": 93,
+            "bottom": 76
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-horizontal-dark.png",
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-dark.svg",
+        "sourceSha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db",
+        "sha256": "672b32be70ca8ff2d15261a5a1c37d7329143a615b74694930f97829792b1372",
+        "width": 360,
+        "height": 100,
+        "density": 1,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 30386,
+          "partialAlphaPixels": 1036,
+          "opaquePixels": 4578,
+          "bounds": {
+            "left": 28,
+            "top": 24,
+            "right": 328,
+            "bottom": 74
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 50,
+          "minimumPx": 13,
+          "measuredPx": {
+            "left": 28,
+            "top": 24,
+            "right": 31,
+            "bottom": 25
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-dark.svg",
+        "sourceSha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db",
+        "sha256": "30a56868c90ddeb4097313f19c3ff31b31f09750654cfc3ffdb725a3a79b6ae8",
+        "width": 720,
+        "height": 200,
+        "density": 2,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 122670,
+          "partialAlphaPixels": 1910,
+          "opaquePixels": 19420,
+          "bounds": {
+            "left": 57,
+            "top": 49,
+            "right": 657,
+            "bottom": 148
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 100,
+          "minimumPx": 25,
+          "measuredPx": {
+            "left": 57,
+            "top": 49,
+            "right": 62,
+            "bottom": 51
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-dark.svg",
+        "sourceSha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db",
+        "sha256": "f65c5f2eab37df9cd9cf61ec0bb1db3f04b011bbbd7eba0c4826f2ffed6e329c",
+        "width": 1080,
+        "height": 300,
+        "density": 3,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 276672,
+          "partialAlphaPixels": 3148,
+          "opaquePixels": 44180,
+          "bounds": {
+            "left": 86,
+            "top": 73,
+            "right": 986,
+            "bottom": 223
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 150,
+          "minimumPx": 38,
+          "measuredPx": {
+            "left": 86,
+            "top": 73,
+            "right": 93,
+            "bottom": 76
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/oorva-wordmark-light.png",
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-light.svg",
+        "sourceSha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11",
+        "sha256": "1214b6e686f0a73db6c8b51e151dcc1b3fd62b00fc6ea9e738f69119ace4e69c",
+        "width": 256,
+        "height": 64,
+        "density": 1,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 11880,
+          "partialAlphaPixels": 781,
+          "opaquePixels": 3723,
+          "bounds": {
+            "left": 14,
+            "top": 13,
+            "right": 239,
+            "bottom": 50
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 38,
+          "minimumPx": 10,
+          "measuredPx": {
+            "left": 14,
+            "top": 13,
+            "right": 16,
+            "bottom": 13
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-light.svg",
+        "sourceSha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11",
+        "sha256": "6a34f81d8ae0d9eeb6e89829e22702920e969bd2c899d53db109f6aea1323cec",
+        "width": 512,
+        "height": 128,
+        "density": 2,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 48404,
+          "partialAlphaPixels": 1395,
+          "opaquePixels": 15737,
+          "bounds": {
+            "left": 29,
+            "top": 27,
+            "right": 479,
+            "bottom": 101
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 75,
+          "minimumPx": 19,
+          "measuredPx": {
+            "left": 29,
+            "top": 27,
+            "right": 32,
+            "bottom": 26
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-light.svg",
+        "sourceSha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11",
+        "sha256": "b41f86a2722d45ab2ad6f7a3653a6d46a8a57257cd316f308616b6fa2ccf09c3",
+        "width": 768,
+        "height": 192,
+        "density": 3,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 109357,
+          "partialAlphaPixels": 2385,
+          "opaquePixels": 35714,
+          "bounds": {
+            "left": 43,
+            "top": 40,
+            "right": 719,
+            "bottom": 152
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 113,
+          "minimumPx": 29,
+          "measuredPx": {
+            "left": 43,
+            "top": 40,
+            "right": 48,
+            "bottom": 39
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/oorva-wordmark-dark.png",
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sourceSha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520",
+        "sha256": "c78bd6f3747b439e9b81dd87432b5c3aae20c9609737771c7e90d048476b487b",
+        "width": 256,
+        "height": 64,
+        "density": 1,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 11880,
+          "partialAlphaPixels": 781,
+          "opaquePixels": 3723,
+          "bounds": {
+            "left": 14,
+            "top": 13,
+            "right": 239,
+            "bottom": 50
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 38,
+          "minimumPx": 10,
+          "measuredPx": {
+            "left": 14,
+            "top": 13,
+            "right": 16,
+            "bottom": 13
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sourceSha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520",
+        "sha256": "655eb75f2135cb28546917678114c899847c7795c8b44a8604d08d24ecf3cbd7",
+        "width": 512,
+        "height": 128,
+        "density": 2,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 48404,
+          "partialAlphaPixels": 1395,
+          "opaquePixels": 15737,
+          "bounds": {
+            "left": 29,
+            "top": 27,
+            "right": 479,
+            "bottom": 101
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 75,
+          "minimumPx": 19,
+          "measuredPx": {
+            "left": 29,
+            "top": 27,
+            "right": 32,
+            "bottom": 26
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sourceSha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520",
+        "sha256": "0632d5f445065badebdf48deed23287657b4262ff93473b0606b6a5aff99eafa",
+        "width": 768,
+        "height": 192,
+        "density": 3,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 109357,
+          "partialAlphaPixels": 2385,
+          "opaquePixels": 35714,
+          "bounds": {
+            "left": 43,
+            "top": 40,
+            "right": 719,
+            "bottom": 152
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 113,
+          "minimumPx": 29,
+          "measuredPx": {
+            "left": 43,
+            "top": 40,
+            "right": 48,
+            "bottom": 39
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-compact-light.png",
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "01cb9b527642ff4f2121001b2274b04985b12ffa0e034216da44568161379d41",
+        "width": 32,
+        "height": 32,
+        "density": 1,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 718,
+          "partialAlphaPixels": 119,
+          "opaquePixels": 187,
+          "bounds": {
+            "left": 4,
+            "top": 3,
+            "right": 27,
+            "bottom": 28
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "central-208-square",
+          "visiblePixels": 306,
+          "outsidePixels": 0,
+          "insetX": 3,
+          "insetY": 3
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-compact-light@2x.png",
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "6fc75e9d515978b6b6ba2017ed7177c8868fed3622680af2967bf916aa2270d5",
+        "width": 64,
+        "height": 64,
+        "density": 2,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 2986,
+          "partialAlphaPixels": 255,
+          "opaquePixels": 855,
+          "bounds": {
+            "left": 8,
+            "top": 6,
+            "right": 55,
+            "bottom": 56
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "central-208-square",
+          "visiblePixels": 1110,
+          "outsidePixels": 0,
+          "insetX": 6,
+          "insetY": 6
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-compact-light@3x.png",
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "167124595a8217311533b6202a081ce2eb146ec63278889a5e044206af0cbca7",
+        "width": 96,
+        "height": 96,
+        "density": 3,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 6805,
+          "partialAlphaPixels": 383,
+          "opaquePixels": 2028,
+          "bounds": {
+            "left": 13,
+            "top": 9,
+            "right": 82,
+            "bottom": 84
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "central-208-square",
+          "visiblePixels": 2411,
+          "outsidePixels": 0,
+          "insetX": 9,
+          "insetY": 9
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-compact-dark.png",
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "e85939f46abb28f27d935076cb72cc541067147769f3fa5615123c2491067561",
+        "width": 32,
+        "height": 32,
+        "density": 1,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 718,
+          "partialAlphaPixels": 119,
+          "opaquePixels": 187,
+          "bounds": {
+            "left": 4,
+            "top": 3,
+            "right": 27,
+            "bottom": 28
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "central-208-square",
+          "visiblePixels": 306,
+          "outsidePixels": 0,
+          "insetX": 3,
+          "insetY": 3
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-compact-dark@2x.png",
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "d03655663f0ff1a0a06271b6089b5dbbefb2a61d3e70f21190b57a8a476d605b",
+        "width": 64,
+        "height": 64,
+        "density": 2,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 2986,
+          "partialAlphaPixels": 255,
+          "opaquePixels": 855,
+          "bounds": {
+            "left": 8,
+            "top": 6,
+            "right": 55,
+            "bottom": 56
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "central-208-square",
+          "visiblePixels": 1110,
+          "outsidePixels": 0,
+          "insetX": 6,
+          "insetY": 6
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/logo-compact-dark@3x.png",
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "6211a9aaedbbd37fc16b3914fa37dbdcbb3c339443b5d82750a3ac7aabdd61bc",
+        "width": 96,
+        "height": 96,
+        "density": 3,
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 6805,
+          "partialAlphaPixels": 383,
+          "opaquePixels": 2028,
+          "bounds": {
+            "left": 13,
+            "top": 9,
+            "right": 82,
+            "bottom": 84
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "central-208-square",
+          "visiblePixels": 2411,
+          "outsidePixels": 0,
+          "insetX": 9,
+          "insetY": 9
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/icon.png",
+        "role": "ios-app-icon",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "7aecf310480462c4019d957de2a7eec74f89b2546d9f4a63e38b503e49d010b4",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "alpha": {
+          "mode": "opaque",
+          "colorType": 6,
+          "transparentPixels": 0,
+          "partialAlphaPixels": 0,
+          "opaquePixels": 1048576,
+          "bounds": {
+            "left": 0,
+            "top": 0,
+            "right": 1023,
+            "bottom": 1023
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "opaque-square-no-rounded-corners",
+          "borderMismatch": 0,
+          "backgroundColor": "#173d39"
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/android-icon-foreground.png",
+        "role": "android-adaptive-foreground",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "046c2b9ef119e6baffefbcf1c2988a6bcc40557afc3227799e5b392c35951d7c",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 905295,
+          "partialAlphaPixels": 2998,
+          "opaquePixels": 140283,
+          "bounds": {
+            "left": 233,
+            "top": 206,
+            "right": 790,
+            "bottom": 805
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "centered-circle-624",
+          "visiblePixels": 143281,
+          "outsidePixels": 0,
+          "diameter": 624,
+          "radius": 312
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/android-icon-background.png",
+        "role": "android-adaptive-background",
+        "source": {
+          "kind": "solid-background",
+          "color": "#173D39"
+        },
+        "sourceSha256": "9df7bef9d9e1710b36f80d708aeff798a436683801b8a12e4354e2aadf4ff43c",
+        "sha256": "d382300ca5f23aea1a250d9981c39f7dcfafda8724c7a13c9104036ba86fa81e",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "alpha": {
+          "mode": "opaque",
+          "colorType": 6,
+          "transparentPixels": 0,
+          "partialAlphaPixels": 0,
+          "opaquePixels": 1048576,
+          "bounds": {
+            "left": 0,
+            "top": 0,
+            "right": 1023,
+            "bottom": 1023
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "flat-opaque-background",
+          "uniformColor": true,
+          "color": "#173d39"
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/android-icon-monochrome.png",
+        "role": "android-monochrome",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "efbea91da49762927487f8884d48797c01fb54bad622abf64a0c3852e12e530e",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 905295,
+          "partialAlphaPixels": 2998,
+          "opaquePixels": 140283,
+          "bounds": {
+            "left": 233,
+            "top": 206,
+            "right": 790,
+            "bottom": 805
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "centered-circle-624",
+          "visiblePixels": 143281,
+          "outsidePixels": 0,
+          "diameter": 624,
+          "radius": 312
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/splash-icon.png",
+        "role": "splash-icon-light",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "41318680976db8615aa39d3339e82fc13d40d86922e193ee918327ecc454f2dd",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 905295,
+          "partialAlphaPixels": 2998,
+          "opaquePixels": 140283,
+          "bounds": {
+            "left": 233,
+            "top": 206,
+            "right": 790,
+            "bottom": 805
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "ink-within-624-square",
+          "inkSize": {
+            "width": 558,
+            "height": 600
+          },
+          "bounds": {
+            "left": 233,
+            "top": 206,
+            "right": 790,
+            "bottom": 805
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/splash-icon-dark.png",
+        "role": "splash-icon-dark",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "046c2b9ef119e6baffefbcf1c2988a6bcc40557afc3227799e5b392c35951d7c",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 905295,
+          "partialAlphaPixels": 2998,
+          "opaquePixels": 140283,
+          "bounds": {
+            "left": 233,
+            "top": 206,
+            "right": 790,
+            "bottom": 805
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "ink-within-624-square",
+          "inkSize": {
+            "width": 558,
+            "height": 600
+          },
+          "bounds": {
+            "left": 233,
+            "top": 206,
+            "right": 790,
+            "bottom": 805
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/notification-icon.png",
+        "role": "notification-small-icon",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "1e051dd1a87fa8abc3ae1c718b86003dd48541734177e3b3294d0aa80dd9f8ba",
+        "width": 96,
+        "height": 96,
+        "density": "native",
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 6805,
+          "partialAlphaPixels": 383,
+          "opaquePixels": 2028,
+          "bounds": {
+            "left": 13,
+            "top": 9,
+            "right": 82,
+            "bottom": 84
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "white-on-transparent",
+          "nonWhitePixels": 0,
+          "visiblePixels": 2411
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      },
+      {
+        "export": "app/assets/brand/native/favicon.png",
+        "role": "favicon",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556",
+        "sha256": "da83605729124e24fb77a285aad762368f29bb54d4d02232ec5bebf612794fd9",
+        "width": 48,
+        "height": 48,
+        "density": "native",
+        "alpha": {
+          "mode": "transparent",
+          "colorType": 6,
+          "transparentPixels": 1955,
+          "partialAlphaPixels": 135,
+          "opaquePixels": 214,
+          "bounds": {
+            "left": 11,
+            "top": 10,
+            "right": 36,
+            "bottom": 37
+          }
+        },
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "deterministic": true,
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 28,
+          "minimumPx": 7,
+          "measuredPx": {
+            "left": 11,
+            "top": 10,
+            "right": 11,
+            "bottom": 10
+          }
+        },
+        "licenseClearance": "NOT VERIFIED; D03c remains pending",
+        "approval": {
+          "designSelection": "pending",
+          "publicRights": "pending"
+        }
+      }
+    ],
+    "inspections20_32_48": [
+      {
+        "theme": "light",
+        "logicalPx": 20,
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "visiblePixels": 135,
+        "bounds": {
+          "left": 2,
+          "top": 2,
+          "right": 17,
+          "bottom": 17
+        },
+        "outsideSafeZonePixels": 0,
+        "method": "pinned-resvg-direct-vector-render"
+      },
+      {
+        "theme": "light",
+        "logicalPx": 32,
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "visiblePixels": 306,
+        "bounds": {
+          "left": 4,
+          "top": 3,
+          "right": 27,
+          "bottom": 28
+        },
+        "outsideSafeZonePixels": 0,
+        "method": "pinned-resvg-direct-vector-render"
+      },
+      {
+        "theme": "light",
+        "logicalPx": 48,
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "visiblePixels": 648,
+        "bounds": {
+          "left": 6,
+          "top": 5,
+          "right": 41,
+          "bottom": 42
+        },
+        "outsideSafeZonePixels": 0,
+        "method": "pinned-resvg-direct-vector-render"
+      },
+      {
+        "theme": "dark",
+        "logicalPx": 20,
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "visiblePixels": 135,
+        "bounds": {
+          "left": 2,
+          "top": 2,
+          "right": 17,
+          "bottom": 17
+        },
+        "outsideSafeZonePixels": 0,
+        "method": "pinned-resvg-direct-vector-render"
+      },
+      {
+        "theme": "dark",
+        "logicalPx": 32,
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "visiblePixels": 306,
+        "bounds": {
+          "left": 4,
+          "top": 3,
+          "right": 27,
+          "bottom": 28
+        },
+        "outsideSafeZonePixels": 0,
+        "method": "pinned-resvg-direct-vector-render"
+      },
+      {
+        "theme": "dark",
+        "logicalPx": 48,
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "visiblePixels": 648,
+        "bounds": {
+          "left": 6,
+          "top": 5,
+          "right": 41,
+          "bottom": 42
+        },
+        "outsideSafeZonePixels": 0,
+        "method": "pinned-resvg-direct-vector-render"
+      }
+    ],
+    "visualDesignApproval": "NOT VERIFIED by this machine check; D03b/D03c remain separate gates"
+  },
+  "rasterOpenGapInspection": {
+    "method": "Pinned O37A rendered alpha at the left/right arc-gap center sample; each sample must be transparent.",
+    "sourceEvidence": {
+      "sourceViewBoxWidth": 256,
+      "upperArcEndpoints": [
+        [
+          49,
+          161
+        ],
+        [
+          207,
+          161
+        ]
+      ],
+      "lowerArcEndpoints": [
+        [
+          49,
+          89
+        ],
+        [
+          207,
+          89
+        ]
+      ],
+      "strokeWidths": [
+        28,
+        28
+      ],
+      "gapFormula": "abs(upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2, then multiply by logicalSizePx / 256",
+      "gapUnitsAtBothOpenings": 44,
+      "checks": [
+        {
+          "logicalSizePx": 20,
+          "leftGapPx": 3.4375,
+          "rightGapPx": 3.4375,
+          "status": "open"
+        },
+        {
+          "logicalSizePx": 32,
+          "leftGapPx": 5.5,
+          "rightGapPx": 5.5,
+          "status": "open"
+        },
+        {
+          "logicalSizePx": 48,
+          "leftGapPx": 8.25,
+          "rightGapPx": 8.25,
+          "status": "open"
+        }
+      ],
+      "limitation": "Reproducible vector-endpoint and stroke-cap measurement; no raster export, device rendering, or runtime use is claimed."
+    },
+    "inspections": [
+      {
+        "logicalPx": 20,
+        "canvas": "20x20",
+        "geometricGapPx": 3.4375,
+        "probes": {
+          "left": {
+            "x": 2,
+            "y": 10,
+            "alpha": 0,
+            "visiblyOpen": true
+          },
+          "right": {
+            "x": 17,
+            "y": 10,
+            "alpha": 0,
+            "visiblyOpen": true
+          }
+        }
+      },
+      {
+        "logicalPx": 32,
+        "canvas": "32x32",
+        "geometricGapPx": 5.5,
+        "probes": {
+          "left": {
+            "x": 4,
+            "y": 16,
+            "alpha": 0,
+            "visiblyOpen": true
+          },
+          "right": {
+            "x": 27,
+            "y": 16,
+            "alpha": 0,
+            "visiblyOpen": true
+          }
+        }
+      },
+      {
+        "logicalPx": 48,
+        "canvas": "48x48",
+        "geometricGapPx": 8.25,
+        "probes": {
+          "left": {
+            "x": 6,
+            "y": 23,
+            "alpha": 0,
+            "visiblyOpen": true
+          },
+          "right": {
+            "x": 41,
+            "y": 23,
+            "alpha": 0,
+            "visiblyOpen": true
+          }
+        }
+      }
+    ]
+  },
+  "taglineContrast": {
+    "text": "Your world, closer.",
+    "fontFamily": "Inter",
+    "fontWeight": 400,
+    "background": "#F7F5EF",
+    "textColor": "#344B65",
+    "channelLinearization": "cLinear = cSrgb / 12.92 when cSrgb <= 0.04045; otherwise ((cSrgb + 0.055) / 1.055) ^ 2.4",
+    "relativeLuminance": "L = 0.2126 * RLinear + 0.7152 * GLinear + 0.0722 * BLinear",
+    "contrastRatio": "(max(Lbackground, Ltext) + 0.05) / (min(Lbackground, Ltext) + 0.05)",
+    "backgroundLuminance": 0.913109675065,
+    "textLuminance": 0.067018036987,
+    "ratio": 8.230437801426,
+    "minimum": 4.5,
+    "result": "pass"
+  },
+  "runtimeIntegration": {
+    "nativeAssetsCopied": false,
+    "appConfigChanged": false,
+    "runtimeDestinationsChanged": false,
+    "appFeatureActivated": false,
+    "nativeDeviceVerification": "NOT VERIFIED"
+  },
+  "codespaceValidation": {
+    "helperSource": "origin/main:scripts/cs-test.ps1",
+    "helperSourceCommit": "ca6daa3a071f11033b85c9f3043617945f67a76e",
+    "helperBlob": "f5863fca54febcbf896fadc0b8870b9e24429ec2",
+    "tsc": {
+      "command": "pwsh -NoProfile -File $Helper -Suite tsc",
+      "snapshot": "wip/qs-o01x@832d3bf",
+      "result": "cs-test result: PASS",
+      "selectedAction": "app tsc --noEmit"
+    },
+    "assets": {
+      "command": "pwsh -NoProfile -File $Helper -Suite assets -Filter oorva",
+      "snapshot": "wip/qs-o01x@c441f7e1",
+      "result": "cs-test result: PASS",
+      "selectedCommand": "node asset-tests.mjs --check-oorva",
+      "selectedFileCount": 26,
+      "profiles": 26,
+      "deterministicExports": 26,
+      "inspection20_32_48": 6,
+      "faviconMarginsPx": {
+        "right": 11,
+        "top": 10,
+        "bottom": 10,
+        "left": 11
+      },
+      "iconBorderMismatch": 0
+    },
+    "packagesInstalled": false,
+    "windowsBuildsOrTestsRun": false,
+    "runnerExecution": {
+      "helperOrigin": "origin/main:scripts/cs-test.ps1",
+      "helperSha": "f5863fca54febcbf896fadc0b8870b9e24429ec2",
+      "selectorsUnchanged": true,
+      "runnerScratch": "in-memory redirection to existing ignored Codespace scripts/brand/node_modules; shared lock opened read-only; no /tmp files written",
+      "preinstalledDependenciesVerified": true,
+      "packagesInstalled": false
+    }
+  }
+}

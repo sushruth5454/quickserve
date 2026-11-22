@@ -1,0 +1,1185 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O01X",
+  "status": "candidate",
+  "selected": false,
+  "publiclyCleared": false,
+  "approvals": {
+    "designSelection": "pending",
+    "publicRights": "pending"
+  },
+  "toolchain": {
+    "nodeMajor": 22,
+    "renderer": "@resvg/resvg-js",
+    "rendererVersion": "2.6.2",
+    "loadSystemFonts": false,
+    "exporterSha256": "a29a488644d54e6920242b6c4caadb4c7646465a8ee2b2efbfe15211b257bf44",
+    "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a"
+  },
+  "files": [
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-light.png",
+        "role": "horizontal-lockup",
+        "sha256": "0f176e1d34fc045edc5be78ffa2bcf8bcf034169dc4067f13dd59a184365a889",
+        "canvas": {
+          "width": 360,
+          "height": 100
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 360,
+            "height": 100
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 50
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-light@2x.png",
+        "role": "horizontal-lockup",
+        "sha256": "7d45b1721e7862cc323656e52c1f953f02cd80fe2683c9f84807ab6e1b38e8ce",
+        "canvas": {
+          "width": 720,
+          "height": 200
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 720,
+            "height": 200
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 100
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6bc58101bef19bd7c7d83f4e3ab75a88ed88d52c5bbd1e26eb52b4cad5907412"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-light@3x.png",
+        "role": "horizontal-lockup",
+        "sha256": "38bee2fbfb65f20412a33452381a09d40fef422fd3d4826e7be5e26a16cdf7a0",
+        "canvas": {
+          "width": 1080,
+          "height": 300
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1080,
+            "height": 300
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 150
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-dark.png",
+        "role": "horizontal-lockup",
+        "sha256": "672b32be70ca8ff2d15261a5a1c37d7329143a615b74694930f97829792b1372",
+        "canvas": {
+          "width": 360,
+          "height": 100
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 360,
+            "height": 100
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 50
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "role": "horizontal-lockup",
+        "sha256": "30a56868c90ddeb4097313f19c3ff31b31f09750654cfc3ffdb725a3a79b6ae8",
+        "canvas": {
+          "width": 720,
+          "height": 200
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 720,
+            "height": 200
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 100
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "0c4946a22ad25581ee8b845c1ff3edb9d5332c3422ac964251c8f56728db90db"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "role": "horizontal-lockup",
+        "sha256": "f65c5f2eab37df9cd9cf61ec0bb1db3f04b011bbbd7eba0c4826f2ffed6e329c",
+        "canvas": {
+          "width": 1080,
+          "height": 300
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1080,
+            "height": 300
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 150
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-light.png",
+        "role": "wordmark",
+        "sha256": "1214b6e686f0a73db6c8b51e151dcc1b3fd62b00fc6ea9e738f69119ace4e69c",
+        "canvas": {
+          "width": 256,
+          "height": 64
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 256,
+            "height": 64
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 38
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "role": "wordmark",
+        "sha256": "6a34f81d8ae0d9eeb6e89829e22702920e969bd2c899d53db109f6aea1323cec",
+        "canvas": {
+          "width": 512,
+          "height": 128
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 512,
+            "height": 128
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 75
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "cf177ae79ebb63d1042fc0ae8debd17a8b34c56d91d24190c63de7daaab8ed11"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "role": "wordmark",
+        "sha256": "b41f86a2722d45ab2ad6f7a3653a6d46a8a57257cd316f308616b6fa2ccf09c3",
+        "canvas": {
+          "width": 768,
+          "height": 192
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 768,
+            "height": 192
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 113
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-dark.png",
+        "role": "wordmark",
+        "sha256": "c78bd6f3747b439e9b81dd87432b5c3aae20c9609737771c7e90d048476b487b",
+        "canvas": {
+          "width": 256,
+          "height": 64
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 256,
+            "height": 64
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 38
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "role": "wordmark",
+        "sha256": "655eb75f2135cb28546917678114c899847c7795c8b44a8604d08d24ecf3cbd7",
+        "canvas": {
+          "width": 512,
+          "height": 128
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 512,
+            "height": 128
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 75
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "9d587d06f5469bb0170a905a17376734b311c229cbf4574348ab1623cc517520"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "role": "wordmark",
+        "sha256": "0632d5f445065badebdf48deed23287657b4262ff93473b0606b6a5aff99eafa",
+        "canvas": {
+          "width": 768,
+          "height": 192
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 768,
+            "height": 192
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 113
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-light.png",
+        "role": "compact-symbol",
+        "sha256": "01cb9b527642ff4f2121001b2274b04985b12ffa0e034216da44568161379d41",
+        "canvas": {
+          "width": 32,
+          "height": 32
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 32,
+            "height": 32
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-light@2x.png",
+        "role": "compact-symbol",
+        "sha256": "6fc75e9d515978b6b6ba2017ed7177c8868fed3622680af2967bf916aa2270d5",
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 64,
+            "height": 64
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-light@3x.png",
+        "role": "compact-symbol",
+        "sha256": "167124595a8217311533b6202a081ce2eb146ec63278889a5e044206af0cbca7",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 96,
+            "height": 96
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-dark.png",
+        "role": "compact-symbol",
+        "sha256": "e85939f46abb28f27d935076cb72cc541067147769f3fa5615123c2491067561",
+        "canvas": {
+          "width": 32,
+          "height": 32
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 32,
+            "height": 32
+          },
+          "density": 1,
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-dark@2x.png",
+        "role": "compact-symbol",
+        "sha256": "d03655663f0ff1a0a06271b6089b5dbbefb2a61d3e70f21190b57a8a476d605b",
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 64,
+            "height": 64
+          },
+          "density": 2,
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-dark@3x.png",
+        "role": "compact-symbol",
+        "sha256": "6211a9aaedbbd37fc16b3914fa37dbdcbb3c339443b5d82750a3ac7aabdd61bc",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 96,
+            "height": 96
+          },
+          "density": 3,
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/icon.png",
+        "role": "ios-app-icon",
+        "sha256": "7aecf310480462c4019d957de2a7eec74f89b2546d9f4a63e38b503e49d010b4",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          },
+          "background": "#173D39"
+        }
+      },
+      "alpha": "opaque",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "opaque-square-no-rounded-corners",
+        "backgroundColor": "#173D39"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/android-icon-foreground.png",
+        "role": "android-adaptive-foreground",
+        "sha256": "046c2b9ef119e6baffefbcf1c2988a6bcc40557afc3227799e5b392c35951d7c",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          },
+          "safeArea": "symbol-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "centered-circle-624"
+      }
+    },
+    {
+      "source": {
+        "kind": "solid-background",
+        "color": "#173D39",
+        "sha256": "9df7bef9d9e1710b36f80d708aeff798a436683801b8a12e4354e2aadf4ff43c"
+      },
+      "export": {
+        "path": "app/assets/brand/native/android-icon-background.png",
+        "role": "android-adaptive-background",
+        "sha256": "d382300ca5f23aea1a250d9981c39f7dcfafda8724c7a13c9104036ba86fa81e",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "solid-background",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "background": "#173D39"
+        }
+      },
+      "alpha": "opaque",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "flat-opaque-background",
+        "backgroundColor": "#173D39"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/android-icon-monochrome.png",
+        "role": "android-monochrome",
+        "sha256": "efbea91da49762927487f8884d48797c01fb54bad622abf64a0c3852e12e530e",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#FFFFFF"
+          },
+          "safeArea": "symbol-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "centered-circle-624"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/splash-icon.png",
+        "role": "splash-icon-light",
+        "sha256": "41318680976db8615aa39d3339e82fc13d40d86922e193ee918327ecc454f2dd",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "safeArea": "symbol-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "ink-within-624-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/splash-icon-dark.png",
+        "role": "splash-icon-dark",
+        "sha256": "046c2b9ef119e6baffefbcf1c2988a6bcc40557afc3227799e5b392c35951d7c",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          },
+          "safeArea": "symbol-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "ink-within-624-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/notification-icon.png",
+        "role": "notification-small-icon",
+        "sha256": "1e051dd1a87fa8abc3ae1c718b86003dd48541734177e3b3294d0aa80dd9f8ba",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 96,
+            "height": 96
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#FFFFFF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "white-on-transparent"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "e40a71a8f3c506cc9362345432b8dc343f0effc6ea186c37b290f85ab59c4556"
+      },
+      "export": {
+        "path": "app/assets/brand/native/favicon.png",
+        "role": "favicon",
+        "sha256": "da83605729124e24fb77a285aad762368f29bb54d4d02232ec5bebf612794fd9",
+        "canvas": {
+          "width": 48,
+          "height": 48
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 48,
+            "height": 48
+          },
+          "density": "native",
+          "safeArea": "favicon-10"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "O01L original candidate artwork; D03c ownership, trademark, public-use and redistribution clearance is not approved."
+      },
+      "approval": {
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "selected": false,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 28
+      }
+    }
+  ]
+}
