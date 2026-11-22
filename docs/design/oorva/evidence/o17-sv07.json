@@ -74,8 +74,8 @@
   "validation": {
     "gitDiffCheck": "PASS",
     "pglite": "PASS_CURRENT_CORRECTION_CODESPACE",
-    "privatePostgresConcurrency": "PENDING_CURRENT_CORRECTION_LANE_CI",
-    "bookingFirstRetryableContention": "PENDING_CURRENT_HEAD_LANE_CI_PRIVATE_POSTGRES",
+    "privatePostgresConcurrency": "PASS_CURRENT_CORRECTION_LANE_CI",
+    "bookingFirstRetryableContention": "PASS_CURRENT_CORRECTION_LANE_CI_PRIVATE_POSTGRES",
     "migrationParser": "PASS_CURRENT_CORRECTION_CODESPACE",
     "codespace": "PASS_CURRENT_CORRECTION_SELECTORS",
     "codespaceFailure": "The original exact-green-head attempt was UNAVAILABLE_NO_PASS; the corrected rebase selectors and current same-stage correction selectors passed on the WIP snapshots recorded below.",
@@ -129,11 +129,25 @@
         "private-postgres": "SUCCESS"
       }
     },
+    "sameStageCorrectionLaneCi": {
+      "workflowRunId": 45025078127,
+      "headSha": "0e714bf2ae578639d918c583b5cba3e0be451e31",
+      "headBranch": "lane/oorva-o17-sv07-rebase-0093",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "SUCCESS",
+        "deno": "SUCCESS",
+        "tooling": "SUCCESS",
+        "app": "SUCCESS",
+        "sql": "SUCCESS",
+        "private-postgres": "SUCCESS"
+      }
+    },
     "concurrencyReview": "PENDING_COORDINATOR_REVIEW_ON_FINAL_HEAD",
     "lanePush": "PUSH_ALLOWED_FOR_VALIDATION; CODE_GREEN_BLOCKED_UNTIL_CONCURRENCY_REVIEW_PASS"
   },
   "claims": {
-    "testsPass": false,
+    "testsPass": true,
     "concurrencyVerified": false,
     "productionOrHostedDatabaseUsed": false,
     "mainOrDeploymentTouched": false
