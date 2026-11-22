@@ -3,8 +3,9 @@ import { Pressable, View } from 'react-native';
 import { CategoryIcon, iconForSlug } from '../../components/CategoryIcon';
 import { SkillBadge } from '../../components/ProviderCard';
 import { ProviderProfileAttributes } from '../../components/ProviderProfileAttributes';
-import { ProviderServicePackages } from '../../components/ProviderServicePackages';
 import { Section, Text } from '../../components/ui';
+import { PackageCard } from '../booking/packages/PackageCard';
+import { canPayInstantly } from '../booking/packages/packageModel';
 import { formatINR } from '../../lib/money';
 import type { PublicProfile } from '../../lib/onboarding';
 import { haptics } from '../../lib/haptics';
@@ -15,17 +16,29 @@ import { Pill, Radio } from './ProfileParts';
 export function ProviderServicesSection({
   services,
   service,
+  providerName,
+  rating,
+  ratingCount,
+  selectedPackageId,
+  canSelectPackages,
   pub,
   hasInspectQuoteService,
   onSelect,
+  onSelectPackage,
   theme: t,
   gutter,
 }: {
   services: ProviderDetail['services'];
   service: ProviderDetail['services'][number] | undefined;
+  providerName: string;
+  rating: number;
+  ratingCount: number;
+  selectedPackageId: string | null;
+  canSelectPackages: boolean;
   pub: PublicProfile | null;
   hasInspectQuoteService: boolean;
   onSelect: (serviceId: string) => void;
+  onSelectPackage: (serviceId: string, packageId: string) => void;
   theme: ReturnType<typeof useTheme>;
   gutter: { paddingHorizontal: number };
 }) {
@@ -34,6 +47,7 @@ export function ProviderServicesSection({
       <Section title="Services & rates" subtitle={services.length > 1 ? 'Choose the service you want to book' : undefined}>
         {services.map((s) => {
           const active = s.id === service?.id;
+          const packages = (s.service_packages ?? []).filter((item) => item.active && item.provider_service_id === s.id);
           return (
             <Pressable
               key={s.id}
@@ -110,7 +124,31 @@ export function ProviderServicesSection({
                   ))}
                 </View>
               ) : null}
-              <ProviderServicePackages packages={s.service_packages ?? []} />
+              {active && packages.length > 0 ? (
+                <View style={{ gap: t.spacing.md }}>
+                  <Text variant="footnoteStrong" color="muted">
+                    Packages
+                  </Text>
+                  {packages.map((item) => {
+                    const selected = selectedPackageId === item.id;
+                    const selectable = canSelectPackages && (item.price_type !== 'fixed' || canPayInstantly(item));
+                    return (
+                      <PackageCard
+                        key={item.id}
+                        servicePackage={item}
+                        providerName={providerName}
+                        rating={rating}
+                        ratingCount={ratingCount}
+                        actionLabel={selectable ? selected ? 'Selected' : 'Select package' : undefined}
+                        onPress={selectable ? () => {
+                          haptics.select();
+                          onSelectPackage(s.id, item.id);
+                        } : undefined}
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
