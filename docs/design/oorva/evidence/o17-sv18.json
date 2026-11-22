@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O17-SV18",
   "workPackage": "O17",
-  "status": "PAUSED_FOR_SHARED_REGISTRATION",
+  "status": "VALIDATED_AWAITING_LANE_CI",
   "base": {
     "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
     "implementationSha": "b7cb8911c15ef03100e407ff4385151cc2bf364a",
@@ -74,23 +74,33 @@
     ]
   },
   "registration": {
-    "state": "WAITING_FOR_COORDINATOR",
+    "state": "REGISTERED",
     "path": "supabase\\tests\\package.json",
     "selector": "oorva_o17_sv18",
-    "registrationSha": null,
-    "requiredAction": "Coordinator registers the new SQL filename through the §0.4.3 paused-author roundtrip."
+    "registrationSha": "1c6af7b54b41894ec18588970b46c87cc77bc268",
+    "selectionProof": "SELECTION PASS: supabase/tests/oorva_o17_sv18.test.mjs <- node oorva_o17_sv18.test.mjs"
   },
   "validation": {
     "gitDiffCheck": "PASS",
     "appTests": {
       "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.recurring.__tests__.creationReadiness[.]test[.]tsx$'",
-      "state": "NOT_RUN_BY_INSTRUCTION"
+      "state": "PASS",
+      "wipSnapshotPrefix": "4696fa27",
+      "selectedFiles": 1,
+      "passedTests": 17,
+      "failedTests": 0
     },
     "sqlTests": {
       "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o17_sv18'",
-      "state": "NOT_RUN_BY_INSTRUCTION"
+      "state": "PASS",
+      "wipSnapshotPrefix": "fb174c12",
+      "selectedFiles": 1,
+      "parseChecks": 0,
+      "passedChecks": 1,
+      "failedChecks": 0
     },
-    "lanePush": "BLOCKED_UNTIL_REGISTRATION_AND_CODESPACE_PASS",
+    "lanePush": "READY_AFTER_WORKER_FIX_COMMIT",
+    "laneCi": "PENDING_EXACT_HEAD_AUTHOR_RUN",
     "mainPromotion": "NOT_IN_SCOPE"
   }
 }
