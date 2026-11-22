@@ -130,7 +130,11 @@ async function readRegularFile(filePath, label) {
 }
 
 function asHex(rgb) {
-  return `#${rgb.slice(0, 3).map((value) => value.toString(16).padStart(2, '0')).join('')}`.toLowerCase();
+  const channels = Array.from(rgb).slice(0, 3);
+  if (channels.length !== 3 || channels.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+    throw new Error(`RGB bytes are invalid: actual=${JSON.stringify(channels)} expected=three integers in [0,255]`);
+  }
+  return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`.toLowerCase();
 }
 
 function countOutsideCentral208(rgba, width, height) {
