@@ -80,12 +80,14 @@ describe('shared feature-control state', () => {
     expect(fallback.features.archetypes).toEqual(DEFAULT_FEATURES.archetypes);
   });
 
-  it('waits for delayed saved guest flags after the 250ms deadline, then allows the cached guest', () => {
-    const savedFeatures = makeFeatures({ guest_browse: true });
-    const delayedCacheValue = JSON.stringify({ version: 1, features: savedFeatures });
+  it('waits after a no-cache read for delayed live guest_browse ON, then enters the guest route', () => {
     const route = ['category', 'cleaning'];
     const isPotentialGuestEntryRoute = route[0] === 'category';
-    const stillPendingAfterDeadline = hasFeatureControlDecision(false, false);
+    const stillPendingAfterDeadline = hasFeatureControlDecision({
+      hasValidSnapshot: false,
+      cacheReadSettled: true,
+      latestLiveFetchFailed: false,
+    });
 
     expect(stillPendingAfterDeadline).toBe(false);
     expect(
@@ -99,23 +101,113 @@ describe('shared feature-control state', () => {
       }),
     ).toBe('wait');
 
-    const cachedFeatures = parseFlagsCache(delayedCacheValue)!;
-    const cachedGuestBrowse = featureFlagsView(cachedFeatures).isOn('guest_browse');
-    expect(cachedGuestBrowse).toBe(true);
+    const liveFeatures = makeFeatures({ guest_browse: true });
+    const liveGuestBrowse = featureFlagsView(liveFeatures).isOn('guest_browse');
+    expect(liveGuestBrowse).toBe(true);
     expect(
       getGuestRouteDisposition({
-        controlsReady: hasFeatureControlDecision(true, false),
+        controlsReady: hasFeatureControlDecision({
+          hasValidSnapshot: true,
+          cacheReadSettled: true,
+          latestLiveFetchFailed: false,
+        }),
         restoreStatus: 'known-null',
         inAuthGroup: false,
         onPublicPage: false,
         potentialGuestEntryRoute: isPotentialGuestEntryRoute,
-        canEnterAsGuest: cachedGuestBrowse && isPotentialGuestEntryRoute,
+        canEnterAsGuest: liveGuestBrowse && isPotentialGuestEntryRoute,
       }),
     ).toBe('guest');
   });
 
+  it('keeps a valid cached guest_browse OFF blocked', () => {
+    const cachedGuestBrowse = featureFlagsView(makeFeatures({ guest_browse: false })).isOn('guest_browse');
+    const controlsReady = hasFeatureControlDecision({
+      hasValidSnapshot: true,
+      cacheReadSettled: true,
+      latestLiveFetchFailed: false,
+    });
+
+    expect(controlsReady).toBe(true);
+    expect(cachedGuestBrowse).toBe(false);
+    expect(
+      getGuestRouteDisposition({
+        controlsReady,
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: cachedGuestBrowse,
+      }),
+    ).toBe('redirect');
+  });
+
+  it('keeps a valid live guest_browse OFF blocked', () => {
+    const liveGuestBrowse = featureFlagsView(makeFeatures({ guest_browse: false })).isOn('guest_browse');
+    const controlsReady = hasFeatureControlDecision({
+      hasValidSnapshot: true,
+      cacheReadSettled: true,
+      latestLiveFetchFailed: false,
+    });
+
+    expect(controlsReady).toBe(true);
+    expect(liveGuestBrowse).toBe(false);
+    expect(
+      getGuestRouteDisposition({
+        controlsReady,
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: liveGuestBrowse,
+      }),
+    ).toBe('redirect');
+  });
+
+  it('waits for cache settlement before failing closed after a live-fetch failure', () => {
+    const stillPending = hasFeatureControlDecision({
+      hasValidSnapshot: false,
+      cacheReadSettled: false,
+      latestLiveFetchFailed: true,
+    });
+    expect(stillPending).toBe(false);
+    expect(
+      getGuestRouteDisposition({
+        controlsReady: stillPending,
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: false,
+      }),
+    ).toBe('wait');
+
+    const failClosed = hasFeatureControlDecision({
+      hasValidSnapshot: false,
+      cacheReadSettled: true,
+      latestLiveFetchFailed: true,
+    });
+    const fallbackGuestBrowse = featureFlagsView(DEFAULT_FEATURES).isOn('guest_browse');
+    expect(failClosed).toBe(true);
+    expect(fallbackGuestBrowse).toBe(false);
+    expect(
+      getGuestRouteDisposition({
+        controlsReady: failClosed,
+        restoreStatus: 'known-null',
+        inAuthGroup: false,
+        onPublicPage: false,
+        potentialGuestEntryRoute: true,
+        canEnterAsGuest: fallbackGuestBrowse,
+      }),
+    ).toBe('redirect');
+  });
+
   it('fails closed once cache resolution confirms there is no valid guest snapshot', () => {
-    const controlsReady = hasFeatureControlDecision(true, false);
+    const controlsReady = hasFeatureControlDecision({
+      hasValidSnapshot: false,
+      cacheReadSettled: true,
+      latestLiveFetchFailed: true,
+    });
     const guestBrowse = featureFlagsView(DEFAULT_FEATURES).isOn('guest_browse');
 
     expect(controlsReady).toBe(true);

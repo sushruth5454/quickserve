@@ -2,10 +2,36 @@
   "stageId": "O05F",
   "sourceTaskIds": ["PF-T01"],
   "sourceFindingIds": ["PF-F01", "PF-F02"],
-  "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
-  "previouslyValidatedImplementationHeadSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
-  "validatedCorrectionHeadSha": "23db0e98b29fa7d7d247183eeb9792705b1a8cc0",
-  "authReviewCorrection": "Guest routing now waits for cache resolution or a valid live feature snapshot; the hydration deadline starts refresh without authorizing fallback.",
+  "implementationBaseSha": "9e7f5bdecd62edccd63d17fecf7dba3fbcd9b64e",
+  "hostedReproduction": {
+    "runId": 44991384002,
+    "headSha": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+    "passA": {
+      "result": "success",
+      "screens": 134,
+      "failures": 0
+    },
+    "passB": {
+      "result": "failure",
+      "failedStep": "guest-private-routes-no-personal-data",
+      "route": "/bookings",
+      "finalUrl": "/login",
+      "promptVisible": false,
+      "privateDataRequests": []
+    },
+    "otherFindings": {
+      "pageErrors": 0,
+      "consoleErrors": 0,
+      "http403s": 0,
+      "cleanupAndFlagRestoration": "success"
+    },
+    "flagState": "67 feature switches were pinned; guest_browse was already ON and included in the six Pass-B redesign switches. No settings or flags were changed."
+  },
+  "authReviewCorrection": {
+    "rootCause": "Cache-read completion without a valid cached snapshot released guest routing while the single live get_app_features request was still pending; DEFAULT_FEATURES omitted guest_browse, so the root redirected to login before a delayed live ON result.",
+    "behavior": "A valid cache or valid live snapshot settles guest routing. A cache miss waits for the live result; after a settled live failure, fallback defaults remain OFF and routing fails closed. The 250 ms deadline starts refresh but does not authorize fallback.",
+    "hostedRuntimeLimitation": "No hosted/browser rerun after the fix; the reported run above is the verified failure reproduction."
+  },
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
     "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
@@ -27,47 +53,28 @@
     "docs/design/oorva/evidence/o05f.json"
   ],
   "validation": {
-    "codespace": "UNAVAILABLE: Codespace runner could not fetch the WIP ref because its GitHub credential environment is unavailable; both selectors failed before selection (0 files); no PASS claimed.",
+    "codespace": "PASS",
     "selectors": [
       {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.__tests__.authRestoreModel[.]test[.]ts$'",
         "selectedFile": "app/src/lib/__tests__/authRestoreModel.test.ts",
-        "result": "BLOCKED",
-        "selectedCount": 0
+        "result": "PASS",
+        "selectedCount": 1,
+        "testsPassed": 4,
+        "testsTotal": 4,
+        "typecheck": "PASS"
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.branding.__tests__.featureControl[.]test[.]tsx$'",
         "selectedFile": "app/src/branding/__tests__/featureControl.test.tsx",
-        "result": "BLOCKED",
-        "selectedCount": 0
+        "result": "PASS",
+        "selectedCount": 1,
+        "testsPassed": 10,
+        "testsTotal": 10
       }
     ],
-    "laneCi": {
-      "priorRun": {
-        "runId": 44895855521,
-        "headSha": "cbe4339e3a1507c7b7a4dbc16f047c57a6ce8d2e",
-        "status": "success"
-      },
-      "attempts": [
-        {
-          "runId": 44914446136,
-          "headSha": "4282579336fcee39916d9c449545718826a7241f",
-          "status": "failure",
-          "failedCheck": "featureControl.test.tsx required a React Native AppState mock under the CI Jest resolver"
-        },
-        {
-          "runId": 44915109822,
-          "headSha": "3200eb78a6ad42378179c6690dec945f4b716b5f",
-          "status": "failure",
-          "failedCheck": "featureControl.test.tsx imported authGate, which loaded Expo Router under Jest"
-        }
-      ],
-      "rerun": {
-        "runId": 44916433786,
-        "headSha": "23db0e98b29fa7d7d247183eeb9792705b1a8cc0",
-        "status": "success"
-      }
-    },
+    "gitDiffCheck": "PASS",
+    "laneCiRun": "Exact-head run ID and status are included in the stage handoff.",
     "authReview": "required"
   },
   "scope": {
