@@ -45,12 +45,14 @@ export default function ProductsScreen() {
     images: Record<string, string | null>;
   } | null>(null);
   const [searchFailure, setSearchFailure] = useState<{ scope: string; message: string } | null>(null);
+  const [categoriesFailure, setCategoriesFailure] = useState<{ scope: string; message: string } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const categories = categoriesResult?.scope === locationScope ? categoriesResult.value : [];
   const currentSearch = searchResult?.scope === appliedScope ? searchResult : null;
   const products = currentSearch?.products ?? [];
   const images = currentSearch?.images ?? {};
   const error = searchFailure?.scope === appliedScope ? searchFailure.message : null;
+  const categoryError = categoriesFailure?.scope === locationScope ? categoriesFailure.message : null;
   const [aiQuery, setAiQuery] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -146,10 +148,10 @@ export default function ProductsScreen() {
       return;
     }
     setSearchFailure((current) => current?.scope === requestScope ? null : current);
-    try {
-      const [nextCategories, nextProducts] = await Promise.all([
-        listProductCategories(),
-        searchProducts({
+    setCategoriesFailure((current) => current?.scope === requestLocationScope ? null : current);
+    const [categoryResult, productResult] = await Promise.allSettled([
+      listProductCategories(),
+      searchProducts({
           query: requestFilters.query,
           categorySlug: requestFilters.category || null,
           lat: requestCoords.lat,
@@ -158,23 +160,29 @@ export default function ProductsScreen() {
           maxPricePaise: price,
           inStockOnly: requestFilters.inStockOnly,
         }),
-      ]);
-      const nextImages = await Promise.all(nextProducts.map(async (product) => [
-        product.id,
-        await signedProductImage(product.image_paths[0]).catch(() => null),
-      ] as const));
-      if (guard.isCurrent()) {
-        setCategoriesResult({ scope: requestLocationScope, value: nextCategories });
-        setSearchResult({
-          scope: requestScope,
-          products: nextProducts,
-          images: Object.fromEntries(nextImages),
-        });
-        setSearchFailure(null);
-      }
-    } catch (caught) {
-      if (guard.isCurrent()) setSearchFailure({ scope: requestScope, message: (caught as Error).message });
+    ]);
+    if (!guard.isCurrent()) return;
+    if (categoryResult.status === 'fulfilled') {
+      setCategoriesResult({ scope: requestLocationScope, value: categoryResult.value });
+      setCategoriesFailure(null);
+    } else {
+      setCategoriesFailure({ scope: requestLocationScope, message: (categoryResult.reason as Error).message });
     }
+    if (productResult.status === 'rejected') {
+      setSearchFailure({ scope: requestScope, message: (productResult.reason as Error).message });
+      return;
+    }
+    const nextImages = await Promise.all(productResult.value.map(async (product) => [
+      product.id,
+      await signedProductImage(product.image_paths[0]).catch(() => null),
+    ] as const));
+    if (!guard.isCurrent()) return;
+    setSearchResult({
+      scope: requestScope,
+      products: productResult.value,
+      images: Object.fromEntries(nextImages),
+    });
+    setSearchFailure(null);
   }, [features.products, location.city, location.lat, location.lng, locationScope]);
 
   const loadRef = useRef(load);
@@ -259,7 +267,9 @@ export default function ProductsScreen() {
       onRefresh={() => void runLoad(true)}
     >
       <InlineAlert message={inputError} />
-      {error && currentSearch ? <InlineAlert message={error} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
+      {categoryError && categoriesResult?.scope !== locationScope ? <ErrorState message={categoryError} onRetry={() => void runLoad(true)} /> : null}
+      {categoryError && categoriesResult?.scope === locationScope ? <InlineAlert message={`Category refresh failed. Showing saved categories. ${categoryError}`} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
+      {error && currentSearch ? <InlineAlert message={`Refresh failed. Showing saved search results. ${error}`} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
       {aiProductSearch ? (
         <View style={{ gap: t.spacing.sm }}>
           <Input
@@ -294,6 +304,7 @@ export default function ProductsScreen() {
           <Chip key={item.id} label={item.name} selected={category === item.slug} onPress={() => setCategory(category === item.slug ? '' : item.slug)} />
         ))}
       </View>
+      {categoriesResult?.scope === locationScope && !categories.length && !categoryError ? <Text variant="caption" color="muted">No product categories are available.</Text> : null}
       <Button title="Apply search and filters" variant="outline" onPress={applyFilters} />
       {rfqEnabled ? (
         <Button title="Request quotes from multiple shops" variant="outline" onPress={() => router.push('/rfq/new')} />

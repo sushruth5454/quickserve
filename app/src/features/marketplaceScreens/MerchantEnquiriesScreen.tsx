@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Button, EmptyState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../components/ui';
+import { Button, EmptyState, ErrorState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../components/ui';
 import { listShopProductEnquiries, type EnquirySummary } from '../shops/api';
 import { useShopFeatureFlags } from '../shops/components';
 import { useTheme } from '../../theme';
@@ -11,12 +11,15 @@ export default function MerchantEnquiriesScreen() {
   const [enquiries, setEnquiries] = useState<EnquirySummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasRead, setHasRead] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       setEnquiries(await listShopProductEnquiries());
       setError(null);
+      setHasRead(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -28,10 +31,11 @@ export default function MerchantEnquiriesScreen() {
 
   return (
     <Screen header={<Header title="Shop enquiries" subtitle="Customer conversations about your catalogue" />} gap={t.spacing.md} refreshing={loading} onRefresh={() => void load()}>
-      <InlineAlert message={error} />
+      {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved enquiry history. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
       {!features.enquiries ? <Text variant="caption" color="muted">Existing enquiry history is read-only while product enquiries are turned off.</Text> : null}
       <Button title="Manage my shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
-      {loading ? <Skeleton height={80} radius={t.radii.lg} /> : enquiries.length ? enquiries.map((enquiry) => (
+      {loading && !hasRead ? <Skeleton height={80} radius={t.radii.lg} /> : enquiries.length ? enquiries.map((enquiry) => (
         <ListItem
           key={enquiry.id}
           icon="chatbubble-ellipses-outline"
@@ -41,9 +45,9 @@ export default function MerchantEnquiriesScreen() {
           chevron
           onPress={() => router.push(`/enquiry/${enquiry.id}`)}
         />
-      )) : (
+      )) : hasRead ? (
         <EmptyState title="No enquiries yet" message="Customer questions will appear here." />
-      )}
+      ) : null}
     </Screen>
   );
 }

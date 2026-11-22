@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Button, EmptyState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../components/ui';
+import { Button, EmptyState, ErrorState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../components/ui';
 import { listMySupplierRfqs, type SupplierRfqSummary } from '../rfq/api';
 import { useRfqFeatureFlags } from '../rfq/components';
 import { useTheme } from '../../theme';
@@ -11,12 +11,15 @@ export default function MerchantRfqsScreen() {
   const [rfqs, setRfqs] = useState<SupplierRfqSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasRead, setHasRead] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       setRfqs(await listMySupplierRfqs());
       setError(null);
+      setHasRead(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -33,9 +36,10 @@ export default function MerchantRfqsScreen() {
       refreshing={loading}
       onRefresh={() => void load()}
     >
-      <InlineAlert message={error} />
+      {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved supplier RFQ history. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
       {!enabled ? <Text variant="caption" color="muted">Existing RFQ history is read-only while product RFQs are turned off.</Text> : null}
-      {loading ? <Skeleton height={84} radius={t.radii.lg} /> : rfqs.length ? rfqs.map((rfq) => {
+      {loading && !hasRead ? <Skeleton height={84} radius={t.radii.lg} /> : rfqs.length ? rfqs.map((rfq) => {
         const outcomeLabel = rfq.my_outcome === 'selected' ? 'Selected'
           : rfq.my_outcome === 'rejected' ? 'Not selected'
             : rfq.rfq_status === 'cancelled' ? 'Cancelled'
@@ -55,9 +59,9 @@ export default function MerchantRfqsScreen() {
             })}
           />
         );
-      }) : (
+      }) : hasRead ? (
         <EmptyState title="No recent RFQs" message="Requests routed to your shop and their outcomes appear here for 30 days." />
-      )}
+      ) : null}
       <Button title="Manage my shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
     </Screen>
   );
