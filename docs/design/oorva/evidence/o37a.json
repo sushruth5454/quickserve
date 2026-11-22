@@ -547,6 +547,74 @@
         "O01X": "BLOCKED"
       }
     },
+    "nativeBorderHexComparisonFixForward": {
+      "state": "CODESPACE_PASS_LANE_CI_PASS",
+      "branch": "lane/oorva-o37a-hex-compare",
+      "baseSha": "c5e01ba6b2ad43b6a037aff1770161632052084a",
+      "reportedFalsePositive": "The strict opaque-square border comparison reported 4092 mismatches because formatting Buffer.map callback strings coerced them back to bytes; forest RGB [0x17,0x3d,0x39] rendered as #17039 although the native border pixels matched.",
+      "implementation": "Convert the first three RGB channels to a plain JavaScript array before hex formatting. Keep the exact color comparison and all A.4.1 thresholds unchanged.",
+      "selftest": "Require Buffer.from([0x17,0x3d,0x39]) to format as #173d39 and render a deterministic 64x64 synthetic PNG whose forest border passes the existing opaque-square border check with zero mismatches.",
+      "priorLaneCiAttempt": {
+        "runId": 45041761592,
+        "headSha": "e8f2ec5943684b3782bb7b0c82e3d3ceca326abe",
+        "conclusion": "FAILURE",
+        "jobs": {
+          "changes": "PASS",
+          "app": "PASS",
+          "tooling": "FAIL",
+          "deno": "SKIPPED",
+          "sql": "SKIPPED",
+          "privatePostgres": "SKIPPED"
+        },
+        "failure": "Test brand tooling guards failed at node asset-tests.mjs --selftest: RGB byte hex conversion actual #17039; expected #173d39.",
+        "rootCause": "The pushed commit still contained Buffer.prototype.map in asHex; git show confirmed the formatter correction was not in that commit.",
+        "resolution": "Convert RGB channels to a plain JavaScript array and rerun the exact Codespace app selector; follow-up result PASS."
+      },
+      "validation": {
+        "helperSource": "origin/main:scripts/cs-test.ps1 at c5e01ba6b2ad43b6a037aff1770161632052084a",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+        "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-o37a-hex-compare",
+        "wipSnapshotBranch": "wip/qs-o37a-hex-compare",
+        "wipSnapshotSha": "c77af0fee0c714f9fe607c09d7a5d057f5e6628f",
+        "selectedJestSuites": 1,
+        "testsPassed": 8,
+        "typescript": "PASS",
+        "hexBorderSelftest": {
+          "color": "#173d39",
+          "borderMismatch": 0,
+          "measuredCanvas": "64x64"
+        },
+        "result": "cs-test result: PASS",
+        "assetsSuiteInvoked": false,
+        "lanePushed": true,
+        "laneCi": "PASS",
+        "laneCiRun": {
+          "runId": 45042244238,
+          "headSha": "efd636002a988d2312cf1a3a27fd215f2af82ba3",
+          "conclusion": "SUCCESS",
+          "jobs": {
+            "changes": "PASS",
+            "tooling": "PASS",
+            "app": "PASS",
+            "deno": "SKIPPED",
+            "sql": "SKIPPED",
+            "privatePostgres": "SKIPPED"
+          }
+        }
+      },
+      "scope": {
+        "workerFilesOnly": true,
+        "export.mjsEdited": false,
+        "validate.mjsEdited": false,
+        "O01XOutputOrManifestEdited": false,
+        "O01LSvgEdited": false,
+        "nativeOrRuntimeDestinationsEdited": false,
+        "D03b": "PENDING",
+        "D03c": "PENDING",
+        "TOOL-ASSETS-MAIN": "PENDING",
+        "O01X": "BLOCKED"
+      }
+    },
     "coordinatorRegistrationRequest": {
       "scripts\\cs-test.ps1": "Add 'assets' to the Suite ValidateSet only; keep all existing suites unchanged.",
       "scripts\\cs\\run.sh": "Add an assets) branch that requires exactly one filter, oorva; reject any other/empty filter with exit 2. In scripts/brand working directory invoke `node asset-tests.mjs --check-oorva`. Do not add a generic assets bypass or call --selftest for this filter.",

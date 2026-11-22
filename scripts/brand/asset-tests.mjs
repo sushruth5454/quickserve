@@ -130,7 +130,11 @@ async function readRegularFile(filePath, label) {
 }
 
 function asHex(rgb) {
-  return `#${rgb.slice(0, 3).map((value) => value.toString(16).padStart(2, '0')).join('')}`.toLowerCase();
+  const channels = Array.from(rgb).slice(0, 3);
+  if (channels.length !== 3 || channels.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+    throw new Error(`RGB bytes are invalid: actual=${JSON.stringify(channels)} expected=three integers in [0,255]`);
+  }
+  return `#${channels.map((value) => value.toString(16).padStart(2, '0')).join('')}`.toLowerCase();
 }
 
 function countOutsideCentral208(rgba, width, height) {
@@ -756,6 +760,34 @@ function runTransformSelftests() {
   };
 }
 
+function runHexBorderSelftest() {
+  const rgb = Buffer.from([0x17, 0x3d, 0x39]);
+  const color = asHex(rgb);
+  assert.equal(color, '#173d39', `RGB byte hex conversion actual=${JSON.stringify({ bytes: [...rgb], color })} expected="#173d39"`);
+
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect x="16" y="16" width="32" height="32" fill="#F7F5EF"/></svg>';
+  const png = inspectAssetPng(renderSvg(svg, {
+    mode: 'svg',
+    canvas: { width: 64, height: 64 },
+    density: 1,
+    background: '#173D39',
+  }));
+  const errors = [];
+  const border = validateSafeZone(
+    { path: 'app/assets/brand/native/icon.png', safeRule: 'opaque-square-no-rounded-corners' },
+    { safeZone: { rule: 'opaque-square-no-rounded-corners', backgroundColor: '#173D39' } },
+    png,
+    errors,
+  );
+  const actual = { color, borderMismatch: border.borderMismatch, findings: errors };
+  assert.deepEqual(
+    { color, borderMismatch: border.borderMismatch, findings: errors.length },
+    { color: '#173d39', borderMismatch: 0, findings: 0 },
+    `synthetic PNG border check actual=${JSON.stringify(actual)} expected=${JSON.stringify({ color: '#173d39', borderMismatch: 0, findings: [] })}`,
+  );
+  return { color, borderMismatch: border.borderMismatch, measuredCanvas: `${png.width}x${png.height}` };
+}
+
 export async function runSelftest() {
   const input = path.join(here, 'fixtures', 'export-selftest.svg');
   const fixture = await readFile(input, 'utf8');
@@ -800,6 +832,7 @@ export async function runSelftest() {
     `corrupt sRGB CRC rejection actualOffset=${srgbCrcOffset} expected=CRC mismatch`,
   );
   const transforms = runTransformSelftests();
+  const hexBorder = runHexBorderSelftest();
 
   const output = path.join(here, 'fixtures', `.export-selftest-${randomUUID()}.png`);
   const transformedOutput = path.join(here, 'fixtures', `.export-transform-selftest-${randomUUID()}.png`);
@@ -861,6 +894,7 @@ export async function runSelftest() {
     pngProfile: 'sRGB',
     profileCrcVerified: true,
     transformSelftest: transforms,
+    hexBorderSelftest: hexBorder,
   };
 }
 

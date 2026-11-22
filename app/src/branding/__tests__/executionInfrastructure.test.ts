@@ -101,6 +101,17 @@ describe('isolated execution infrastructure', () => {
       const result = runNode(assetTests, ['--selftest']);
       expectCommand(result, { status: 0, stdout: '"invalidCasesRejected":8' });
       expectCommand(result, { stdout: '"profileCrcVerified":true' });
+      const selftestReport = JSON.parse(result.stdout.trim()) as {
+        hexBorderSelftest?: { color: string; borderMismatch: number; measuredCanvas: string };
+      };
+      const hexBorder = selftestReport.hexBorderSelftest;
+      if (!hexBorder || hexBorder.color !== '#173d39' || hexBorder.borderMismatch !== 0) {
+        throw new Error(`PNG RGB byte/border selftest failed; actual=${JSON.stringify(hexBorder ?? selftestReport)} expected=${JSON.stringify({
+          color: '#173d39',
+          borderMismatch: 0,
+        })}`);
+      }
+      console.info(`PNG RGB byte/border evidence: ${JSON.stringify(hexBorder)}`);
       const report = JSON.parse(result.stdout.trim()) as {
         transformSelftest?: {
           faviconFit?: {
