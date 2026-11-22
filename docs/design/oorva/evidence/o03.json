@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O03",
   "workPackage": "O03",
-  "status": "PAUSED_FOR_REGISTRATION",
+  "status": "READY_FOR_LANE_PUSH",
   "base": {
     "planSourceSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
     "implementationSha": "e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5",
@@ -97,34 +97,79 @@
     ],
     ".github\\workflows\\deploy-backend.yml": "O37B-owned promotion-only; not changed or requested in this registration round."
   },
+  "registration": {
+    "state": "MERGED",
+    "sha": "3743b79b6f861dc2f510b9c243607e4d6d601221",
+    "parentSha": "0c1b6ac3eaaae49de8bb9e011541f39a28daa4b6",
+    "mergeMode": "fast-forward-only",
+    "changedFiles": [
+      ".github\\workflows\\lane-ci.yml",
+      "supabase\\tests\\package.json"
+    ],
+    "packageSelectors": {
+      "supabase\\tests\\oorva_branding.test.mjs": "node oorva_branding.test.mjs",
+      "supabase\\migrations\\0126_o03_oorva.sql": "node parse.cjs ../migrations/0126_o03_oorva.sql"
+    },
+    "privatePostgresSelection": "node run.mjs --filter branding_publish.pg.test.mjs",
+    "privatePostgresIsPGlite": false
+  },
   "validation": {
     "gitDiffCheck": "PASS",
     "windowsAppBuildOrTest": "NOT_RUN_BY_INSTRUCTION",
     "windowsSqlTestOrLocalDatabase": "NOT_RUN_BY_INSTRUCTION",
     "codespaceApp": {
-      "state": "PENDING_REGISTRATION_AND_CURRENT_MAIN_HELPER",
+      "state": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "originMainSha": "4a5eb144ee1570f1db131e5b116fd82af83af2f6",
       "firstSelector": "src.lib.__tests__.featureFlagModel[.]test[.]ts$",
-      "nextSelector": "src.lib.__tests__.adminFeaturePresentation[.]test[.]ts$"
+      "selectedFiles": 1,
+      "testsPassed": 3,
+      "tsc": "PASS via app suite"
+    },
+    "codespaceAdminJest": {
+      "state": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "selector": "src.lib.__tests__.adminFeaturePresentation[.]test[.]ts$",
+      "selectedFiles": 1,
+      "testsPassed": 6
     },
     "codespaceSql": {
-      "state": "PENDING_REGISTRATION_AND_CURRENT_MAIN_HELPER",
-      "selector": "oorva_branding"
+      "state": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "selector": "oorva_branding",
+      "selectedFiles": 1,
+      "result": "1/1 SQL checks passed",
+      "priorAttempt": "FAIL; three incorrect test expectations were corrected and the exact selector reran PASS."
     },
     "codespaceMigrationParser": {
-      "state": "PENDING_REGISTRATION_AND_CURRENT_MAIN_HELPER",
+      "state": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
       "selector": "o03_oorva.sql",
-      "allocatedFilename": "supabase\\migrations\\0126_o03_oorva.sql"
+      "allocatedFilename": "supabase\\migrations\\0126_o03_oorva.sql",
+      "selectedParses": 1,
+      "topLevelStatements": 36,
+      "functionBodies": 12,
+      "parserErrors": 0
     },
     "privatePostgresConcurrency": {
-      "state": "PENDING_PRIVATE_LANE_JOB",
+      "state": "PENDING_EXACT_HEAD_LANE_CI",
       "selector": "branding_publish.pg.test.mjs",
+      "workflowCommand": "node run.mjs --filter branding_publish.pg.test.mjs",
+      "mustActuallyRun": true,
       "requiredEvidence": "Two independent pg_backend_pid values, A holding the singleton lock, B blocked on the same expected generation, exactly one commit and one stale-generation error, and coherent pre/post snapshots."
     },
     "focusedReviews": {
-      "auth": "PENDING_FINAL_STAGED_CODE",
-      "concurrency": "PENDING_FINAL_STAGED_CODE"
+      "reviewMode": "direct focused source review",
+      "auth": {
+        "state": "PASS",
+        "evidence": "Admin RPC membership checks, default-deny table grants/RLS, private helper EXECUTE revocations, public snapshot projection, ordinary-write feature gates, and admin-safe recovery/revocation were checked."
+      },
+      "concurrency": {
+        "state": "PASS",
+        "evidence": "Singleton row-lock CAS, atomic history/state/audit writes, asset/state lock ordering, and statement-consistent snapshots were checked. Review added shared branding_policy row locks to draft/publish validation to serialize soft-policy changes."
+      }
     },
-    "laneCi": "NOT_PUSHED; wait for registration, Codespace checks and focused reviews."
+    "laneCi": "PENDING_EXACT_HEAD_PUSH"
   },
   "releaseStatus": {
     "featureFlagsEnabled": false,
