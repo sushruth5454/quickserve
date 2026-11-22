@@ -615,6 +615,69 @@
         "O01X": "BLOCKED"
       }
     },
+    "symbolCircleSafeAreaFixForward": {
+      "state": "CODESPACE_PASS_LANE_CI_PENDING",
+      "branch": "lane/oorva-o37a-circle-fit-20261122",
+      "baseSha": "ca6daa3a071f11033b85c9f3043617945f67a76e",
+      "reportedA41Failure": "O01X temporary Android foreground and monochrome exports had 6596 visible pixels outside the centered 624px circle each, with maximum visible radius 334.4376px versus 312px. Splash exports measured 624x626px. The approved O01L Connected O source passed its small-size and contrast tests.",
+      "tokenContract": {
+        "token": "symbol-circle-624",
+        "canvas": "1024x1024 at native density",
+        "sourceGeometry": "256x256 viewBox with the existing central 208x208 ink safe box (x/y 24 through 232).",
+        "mapping": "Fit the central 208x208 box to 576x576px: scale 576/208. Relative to symbol-624's 624/208 scale, this is a 12/13 reduction. The existing symbol-624 square contract remains 624x624px and unchanged.",
+        "safeZoneRules": {
+          "androidForeground": "centered-circle-624",
+          "androidMonochrome": "centered-circle-624",
+          "splashLight": "ink-within-624-square",
+          "splashDark": "ink-within-624-square"
+        }
+      },
+      "derivation": {
+        "observedLegacyMaxRadiusPx": 334.4376,
+        "relativeScale": "576/624 = 12/13",
+        "predictedMaxRadiusPx": 308.71163076923074,
+        "radialMarginTo312Px": 3.288369230769256,
+        "observedLegacySplashInkBoundsPx": { "width": 624, "height": 626 },
+        "predictedSplashInkBoundsPx": { "width": 576, "height": 577.8461538461538 },
+        "expectedRasterSplashBoundsPx": { "width": 576, "height": 578 }
+      },
+      "implementation": "Add the explicit symbol-circle-624 safe-area rule with inkSize 576. The O01X manifest checker requires this token for Android foreground, Android monochrome, and both splash paths; their existing safeZone.rule values remain unchanged. No A.4.1 thresholds are changed.",
+      "selftest": "A deterministic synthetic circle fails the old symbol-624 circle check and passes symbol-circle-624 with zero outside pixels and measured maximum radius below 312px. A 208x208 calibration rectangle maps to 576x576px. A deterministic splash-like source fails the old 624-square bound and passes with both new bounds <=624px. The observed O01X radius and splash dimensions are checked against the 12/13 derivation.",
+      "validation": {
+        "helperSource": "origin/main:scripts/cs-test.ps1 at ca6daa3a071f11033b85c9f3043617945f67a76e",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+        "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-o37a-circle-fit-20261122",
+        "wipSnapshotBranch": "wip/qs-o37a-circle-fit-20261122",
+        "wipSnapshotSha": "cc141ad232b24ee06f264bea8a646979f9e85fca",
+        "selectedJestSuites": 1,
+        "testsPassed": 8,
+        "circleSafeAreaFit": {
+          "token": "symbol-circle-624",
+          "inkSizePx": 576,
+          "relativeScale": 0.9230769230769231,
+          "predictedMaxRadiusPx": 308.71163076923074,
+          "measuredMaxRadiusPx": 309.2773835895538,
+          "circleOutsidePixels": 0,
+          "circleInkSize": { "width": 618, "height": 618 },
+          "splashInkSize": { "width": 576, "height": 578 },
+          "deterministic": true
+        },
+        "result": "cs-test result: PASS",
+        "assetsSuiteInvoked": false,
+        "lanePushed": false,
+        "laneCi": "PENDING"
+      },
+      "scope": {
+        "workerFilesOnly": true,
+        "O01LSvgOrSourceManifestEdited": false,
+        "O01XCandidateManifestOrOutputsEdited": false,
+        "validate.mjsEdited": false,
+        "A41ThresholdsChanged": false,
+        "appRuntimeOrNativeDestinationsEdited": false,
+        "D03b": "APPROVED",
+        "O01X": "BLOCKED_UNTIL_PRIVATE_INTEGRATION_AND_CURRENT_MAIN"
+      }
+    },
     "coordinatorRegistrationRequest": {
       "scripts\\cs-test.ps1": "Add 'assets' to the Suite ValidateSet only; keep all existing suites unchanged.",
       "scripts\\cs\\run.sh": "Add an assets) branch that requires exactly one filter, oorva; reject any other/empty filter with exit 2. In scripts/brand working directory invoke `node asset-tests.mjs --check-oorva`. Do not add a generic assets bypass or call --selftest for this filter.",
