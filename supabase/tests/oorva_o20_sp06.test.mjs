@@ -9,7 +9,7 @@ import { createHarness } from './harness.mjs';
 const { ok, scenario, finish } = createHarness();
 const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(here, '..', 'migrations');
-const allocatedMigration = '0101_o20_sp06_oorva.sql';
+const allocatedMigration = '0098_o20_sp06_oorva.sql';
 
 const migration = (file) =>
   fs.readFileSync(path.join(migrationsDir, file), 'utf8')

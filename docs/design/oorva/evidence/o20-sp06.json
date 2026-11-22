@@ -31,9 +31,9 @@
     }
   },
   "scope": {
-    "allocatedMigration": "supabase/migrations/0101_o20_sp06_oorva.sql",
+    "allocatedMigration": "supabase/migrations/0098_o20_sp06_oorva.sql",
     "workerOwnedFiles": [
-      "supabase/migrations/0101_o20_sp06_oorva.sql",
+      "supabase/migrations/0098_o20_sp06_oorva.sql",
       "supabase/tests/oorva_o20_sp06.test.mjs",
       "docs/design/oorva/evidence/o20-sp06.json"
     ],
@@ -83,7 +83,7 @@
       "migrationParserSelector": {
         "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o20_sp06_oorva.sql'",
         "result": "PASS",
-        "selected": "supabase/migrations/0101_o20_sp06_oorva.sql",
+        "selected": "supabase/migrations/0098_o20_sp06_oorva.sql",
         "summary": "1/1 SQL checks passed; two top-level statements and two function bodies parsed with zero errors."
       },
       "resolvedTestAssertionIssue": "The first focused run showed correct policy values but failed because JSONB key order differed from the expected object order. Replaced order-sensitive stringify equality with exact key-set and field-value comparison; both selectors passed afterward."
