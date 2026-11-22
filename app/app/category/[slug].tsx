@@ -26,6 +26,7 @@ import { ArchetypeCategory } from '../../src/features/catalogue/ArchetypeCategor
 import { haptics } from '../../src/lib/haptics';
 import { useSelectedLocation } from '../../src/lib/locationContext';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
+import { useEntityRefresh } from '../../src/lib/useEntityRefresh';
 import { formatINR, rupeesToPaise } from '../../src/lib/money';
 import type { Category, ProviderSearchResult, SearchFilters, SkillLevel, SortOption } from '../../src/lib/types';
 import { useTheme } from '../../src/theme';
@@ -47,17 +48,34 @@ const DEFAULT_FILTERS: SearchFilters = { sort: 'recommended', minRating: null, s
 export default function CategoryRoute() {
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
   const { location } = useSelectedLocation();
-  const [category, setCategory] = useState<Category | null | undefined>(undefined);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  useEffect(() => {
+  const city = location.city;
+  const scope = JSON.stringify([slug ?? '', city]);
+  const [categoryResult, setCategoryResult] = useState<{ scope: string; value: Category | null } | null>(null);
+  const [categoryFailure, setCategoryFailure] = useState<{ scope: string; message: string } | null>(null);
+  const category = categoryResult?.scope === scope ? categoryResult.value : undefined;
+  const categoryError = categoryFailure?.scope === scope ? categoryFailure.message : null;
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!slug) return;
-    getCatalogueCategory(slug, location.city).then(setCategory).catch((e: Error) => setCategoryError(e.message));
-  }, [slug, location.city]);
-  if (categoryError) return <Screen header={<Header title={name ?? 'Service'} />}><ErrorState message={categoryError} onRetry={() => router.replace({ pathname: '/category/[slug]', params: { slug, name: name ?? '' } })} /></Screen>;
+    const requestScope = scope;
+    const requestSlug = slug;
+    const requestCity = city;
+    setCategoryFailure((current) => current?.scope === requestScope ? null : current);
+    try {
+      const value = await getCatalogueCategory(requestSlug, requestCity);
+      if (guard.isCurrent()) {
+        setCategoryResult({ scope: requestScope, value });
+        setCategoryFailure(null);
+      }
+    } catch (error) {
+      if (guard.isCurrent()) setCategoryFailure({ scope: requestScope, message: (error as Error).message });
+    }
+  }, [city, scope, slug]);
+  const { refresh } = useEntityRefresh(load, { contextKey: scope, enabled: !!slug, intervalMs: null });
+  if (categoryError) return <Screen header={<Header title={name ?? 'Service'} />}><ErrorState message={categoryError} onRetry={() => void refresh()} /></Screen>;
   if (category === undefined) return <Screen header={<Header title={name ?? 'Service'} />}><SkeletonProviderCard /></Screen>;
   if (category === null) return <Screen header={<Header title={name ?? 'Service'} />}><EmptyState icon="storefront-outline" title="This service is not available here" message="Categories are enabled city by city. Try another service location." /></Screen>;
   if (category.archetype !== 'inspect_quote' && category.archetype != null) return <ArchetypeCategory category={category} />;
-  return <InspectQuoteCategory />;
+  return <InspectQuoteCategory key={scope} />;
 }
 
 function InspectQuoteCategory() {
@@ -67,35 +85,48 @@ function InspectQuoteCategory() {
   const aiOn = aiAssistantEnabled && flags.isOn('ai_assistant');
   const { slug, name } = useLocalSearchParams<{ slug: string; name?: string }>();
   const { location: place, coords } = useSelectedLocation();
+  const city = place.city;
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
   const [draft, setDraft] = useState<SearchFilters>(DEFAULT_FILTERS);
   const [draftCount, setDraftCount] = useState<number | null>(null);
-  const [results, setResults] = useState<ProviderSearchResult[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState<Category | null>(null);
+  const scope = JSON.stringify([slug ?? '', city, coords.lat, coords.lng, filters]);
+  const [resultsState, setResultsState] = useState<{ scope: string; value: ProviderSearchResult[] } | null>(null);
+  const [categoryState, setCategoryState] = useState<{ scope: string; value: Category | null } | null>(null);
+  const [failure, setFailure] = useState<{ scope: string; message: string } | null>(null);
+  const results = resultsState?.scope === scope ? resultsState.value : null;
+  const category = categoryState?.scope === scope ? categoryState.value : null;
+  const error = failure?.scope === scope ? failure.message : null;
+  const loading = !results && !error;
   const [sheet, setSheet] = useState<'sort' | 'filter' | null>(null);
   const chipsRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!slug) return;
-    setLoading(true);
-    setError(null);
+    const requestScope = scope;
+    const requestSlug = slug;
+    const requestCoords = { lat: coords.lat, lng: coords.lng };
+    const requestFilters = { ...filters };
+    setFailure((current) => current?.scope === requestScope ? null : current);
     try {
-      const [rows, catalog] = await Promise.all([searchProviders(slug, coords, filters), listCategories()]);
-      setCategory(catalog.find((c) => c.slug === slug) ?? null);
-      setResults(rows);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
+      const [rows, catalog] = await Promise.all([
+        searchProviders(requestSlug, requestCoords, requestFilters),
+        listCategories(),
+      ]);
+      if (guard.isCurrent()) {
+        setCategoryState({ scope: requestScope, value: catalog.find((item) => item.slug === requestSlug) ?? null });
+        setResultsState({ scope: requestScope, value: rows });
+        setFailure(null);
+      }
+    } catch (error) {
+      if (guard.isCurrent()) setFailure({ scope: requestScope, message: (error as Error).message });
     }
-  }, [slug, coords, filters]);
+  }, [coords.lat, coords.lng, filters, scope, slug]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { refresh, refreshing } = useEntityRefresh(load, {
+    contextKey: scope,
+    enabled: !!slug,
+    intervalMs: null,
+  });
 
   useEffect(() => {
     chipsRef.current?.scrollTo({ x: 0, animated: true });
@@ -103,11 +134,17 @@ function InspectQuoteCategory() {
 
   // Live result count for the filter sheet CTA ("Show 3 pros").
   useEffect(() => {
-    if (sheet !== 'filter' || !slug) return;
+    if (sheet !== 'filter' || !slug) {
+      setDraftCount(null);
+      return;
+    }
     let alive = true;
     setDraftCount(null);
+    const requestSlug = slug;
+    const requestCoords = { lat: coords.lat, lng: coords.lng };
+    const requestDraft = { ...draft };
     const id = setTimeout(() => {
-      searchProviders(slug, coords, draft)
+      searchProviders(requestSlug, requestCoords, requestDraft)
         .then((r) => alive && setDraftCount(r.length))
         .catch(() => alive && setDraftCount(null));
     }, 250);
@@ -115,7 +152,7 @@ function InspectQuoteCategory() {
       alive = false;
       clearTimeout(id);
     };
-  }, [sheet, draft, slug, coords]);
+  }, [sheet, draft, slug, city, coords.lat, coords.lng]);
 
   const activeCount =
     (filters.minRating != null ? 1 : 0) +
@@ -130,7 +167,7 @@ function InspectQuoteCategory() {
   const count = results?.length ?? 0;
   const where = place.area;
   const subtitle =
-    loading && !results ? 'Finding verified pros…' : count > 0 ? `${count} verified pro${count === 1 ? '' : 's'} near ${where}` : `Near ${where}`;
+    loading ? 'Finding verified pros…' : count > 0 ? `${count} verified pro${count === 1 ? '' : 's'} near ${where}` : `Near ${where}`;
 
   return (
     <>
@@ -158,11 +195,7 @@ function InspectQuoteCategory() {
         gap={0}
         stickyHeaderIndices={[0]}
         refreshing={refreshing}
-        onRefresh={async () => {
-          setRefreshing(true);
-          await load();
-          setRefreshing(false);
-        }}
+        onRefresh={() => void refresh()}
       >
         <View
           style={{
@@ -226,8 +259,8 @@ function InspectQuoteCategory() {
             </Card>
           ) : null}
           {error ? (
-            <ErrorState message={error} onRetry={() => void load()} />
-          ) : loading && !results ? (
+            <ErrorState message={error} onRetry={() => void refresh()} />
+          ) : loading ? (
             Array.from({ length: 3 }).map((_, i) => <SkeletonProviderCard key={i} />)
           ) : count === 0 ? (
             <EmptyState

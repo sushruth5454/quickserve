@@ -1,0 +1,208 @@
+{
+  "stageId": "O12-MK16",
+  "workPackage": "O12",
+  "sourceTaskId": "MK-T16",
+  "findingId": "MK-F18",
+  "sourceReport": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t16",
+  "base": {
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseCommit": "9e7f5bdecd62edccd63d17fecf7dba3fbcd9b64e",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependenciesInTestedBase": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+      "O12-MK10": "17fb512159c9b734b850ec1f819873390d949e49",
+      "O14-MK12": "2a214c37e909fcc7a93cd7b313db6c095bfc126f",
+      "O14-MK13": "3ca7a46f76c9ffd66e6093a5ef7ac2348be267d4"
+    }
+  },
+  "rebase": {
+    "priorLaneHead": "6a2b9b838cf264645649e4fe45265f5959c2b4a4",
+    "reappliedCanonicalCommits": [
+      "b60994e8f954baf6a9d5ea7576d54316498f7048",
+      "6a2b9b838cf264645649e4fe45265f5959c2b4a4"
+    ],
+    "targetBaseContainsAllDeclaredDependencies": true,
+    "cherryPickConflicts": []
+  },
+  "scope": {
+    "branch": "lane/oorva-o12-mk16-rebase",
+    "changedFiles": [
+      "app/src/features/home/HomeV2.tsx",
+      "app/src/features/home/LegacyHome.tsx",
+      "app/app/category/[slug].tsx",
+      "app/src/features/catalogue/ArchetypeCategory.tsx",
+      "app/src/features/providerProfile/ProviderProfileScreen.tsx",
+      "app/src/features/home/__tests__/HomeV2.test.tsx",
+      "app/src/features/providerProfile/__tests__/ProviderProfileScreen.test.tsx",
+      "app/src/features/catalogue/__tests__/ArchetypeCategory.test.tsx",
+      "app/src/features/marketplaceScreens/ProductsScreen.tsx",
+      "app/src/features/marketplaceScreens/TopRatedScreen.tsx",
+      "docs/design/oorva/evidence/o12-mk16.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "newFeatureFlags": [],
+    "unmodifiedSharedFile": "e2e/web-smoke.mjs"
+  },
+  "sourceDrift": {
+    "scope": "Assigned paths only, compared with planning commit P; no repeat audit.",
+    "preservedChanges": [
+      {
+        "file": "app/src/features/home/HomeV2.tsx",
+        "preserved": "O14 selected-city top-rated query/header and archetype-aware TopRatedCard presentation."
+      },
+      {
+        "file": "app/src/features/catalogue/ArchetypeCategory.tsx",
+        "preserved": "O14 selected-city package query and existing package price/action projection."
+      },
+      {
+        "file": "app/src/features/marketplaceScreens/TopRatedScreen.tsx",
+        "preserved": "O14 selected-city query and topRatedHeaderModel ranking context."
+      },
+      {
+        "file": "app/src/features/marketplaceScreens/ProductsScreen.tsx",
+        "preserved": "O12-MK10 effective products/AI/RFQ gates and explicit Apply behavior for draft filters."
+      },
+      {
+        "file": "app/src/lib/useEntityRefresh.ts",
+        "preserved": "Existing O38R focus, foreground, context invalidation, and cleanup convention; not modified."
+      }
+    ],
+    "allocationNote": "The packet-listed app/src/features/marketplaceScreens/CategoryDetailScreen.tsx is absent at the implementation base; category detail is routed through app/app/category/[slug].tsx, which was updated. No replacement screen was created."
+  },
+  "implementation": [
+    "Home catalogue, top-rated, and active-work reads settle independently; city-scoped results ignore stale completions, and secondary failures remain visible with retry.",
+    "Category metadata, inspect-quote results, archetype packages, and proposal results are scoped to immutable slug/city/coordinate/filter snapshots and refresh through the existing focus/foreground lifecycle.",
+    "Provider profile reads use provider/category scope; service selection is retained only when that ID still exists. Provider paused state always disables booking, and unknown/failed temporal availability remains fail-closed with refresh.",
+    "Top-rated and product results cannot be rendered under a different location scope after a failed read. Product draft inputs are applied only by Apply/submit; foreground refresh reuses the last applied filters.",
+    "No migration, SQL function, feature flag, live money path, historical record, or shared E2E file was changed."
+  ],
+  "tests": {
+    "assertions": [
+      "MK-FRESH-home-independent-results",
+      "MK-FRESH-home-scope-cleanup",
+      "MK-FRESH-paused-unknown",
+      "MK-FRESH-profile-context",
+      "MK-FRESH-city-race"
+    ],
+    "codespaceHelper": {
+      "source": "origin/main:scripts/cs-test.ps1",
+      "sourceCommit": "e8ee45152f790240a54126e67f1d83eabb9416f3",
+      "tempIndexHandling": "The helper was evaluated in memory with its temporary Git index redirected to an ignored worktree-local node_modules path; no files were written to a temporary directory.",
+      "selectors": [
+        {
+          "suite": "app",
+          "filter": "src.features.home.__tests__.HomeV2[.]test[.]tsx$",
+          "snapshot": "1fd6a3b6",
+          "selectedCases": 2,
+          "result": "PASS"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.providerProfile.__tests__.ProviderProfileScreen[.]test[.]tsx$",
+          "snapshot": "f8bd2b4c",
+          "selectedCases": 2,
+          "result": "PASS"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.catalogue.__tests__.ArchetypeCategory[.]test[.]tsx$",
+          "snapshot": "d4ef8cde",
+          "selectedCases": 1,
+          "result": "PASS"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.search.__tests__.SearchScreen[.]test[.]tsx$",
+          "snapshot": "4c098da7",
+          "selectedCases": 7,
+          "result": "PASS",
+          "purpose": "Existing ProductsScreen integration and Apply/gating regression."
+        }
+      ]
+    },
+    "laneCI": {
+      "runId": 44990516623,
+      "headSha": "b60994e8f954baf6a9d5ea7576d54316498f7048",
+      "conclusion": "success",
+      "status": "HISTORICAL_ONLY",
+      "validatedBase": "e1bb5441a9e9a9b7f1140dd5a5db95255b363557",
+      "jobs": {
+        "changes": "PASS",
+        "app": "PASS",
+        "sql": "SKIPPED",
+        "private-postgres": "SKIPPED",
+        "tooling": "SKIPPED",
+        "deno": "SKIPPED"
+      }
+    },
+    "revalidation": {
+      "codespaceHelperSource": "origin/main:scripts/cs-test.ps1",
+      "codespaceHelperCommit": "acca22bbcb88dec441747f72b48ea7d7d27ca28e",
+      "codespaceSelectors": {
+        "homeV2App": {
+          "filter": "src.features.home.__tests__.HomeV2[.]test[.]tsx$",
+          "snapshot": "4bab81bc",
+          "selectedCases": [
+            "MK-FRESH-home-independent-results",
+            "MK-FRESH-home-scope-cleanup"
+          ],
+          "result": "PASS"
+        },
+        "providerProfileJest": {
+          "filter": "src.features.providerProfile.__tests__.ProviderProfileScreen[.]test[.]tsx$",
+          "snapshot": "10b8eb5d",
+          "selectedCases": [
+            "MK-FRESH-paused-unknown",
+            "MK-FRESH-profile-context"
+          ],
+          "result": "PASS"
+        },
+        "archetypeCategoryJest": {
+          "filter": "src.features.catalogue.__tests__.ArchetypeCategory[.]test[.]tsx$",
+          "snapshot": "8ef13311",
+          "selectedCases": [
+            "MK-FRESH-city-race"
+          ],
+          "result": "PASS"
+        },
+        "searchScreenProductIntegrationJest": {
+          "filter": "src.features.search.__tests__.SearchScreen[.]test[.]tsx$",
+          "snapshot": "f92d9b60",
+          "selectedCases": 7,
+          "result": "PASS"
+        }
+      },
+      "laneCI": {
+        "runId": 44998648203,
+        "headSha": "8426aecb4285d6d8466a580d630ff5e3b351b9ff",
+        "conclusion": "success",
+        "jobs": {
+          "changes": "PASS",
+          "app": "PASS",
+          "sql": "PASS",
+          "deno": "PASS",
+          "private-postgres": "SKIPPED",
+          "tooling": "SKIPPED"
+        }
+      },
+      "diffCheck": "PASS",
+      "localInstall": false
+    },
+    "gitDiffCheck": "PASS"
+  },
+  "sharedE2ERequest": {
+    "owner": "Coordinator",
+    "file": "e2e/web-smoke.mjs",
+    "case": "MK-FRESH-top-rated-city-error",
+    "workerEdited": false,
+    "proposal": "After location-pick-saved-home, choose an active managed area in a different city; intercept POST /rest/v1/rpc/list_top_rated_public and return 503 only when request JSON p_city equals that city; navigate to /top-rated; assert the heading names the selected city, the injected failure is visible, and no provider rows from the prior city are shown. Restore the original saved-city location and always remove the route interceptor in finally."
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "productionAction": false,
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "verifiedAt": "2026-11-22"
+}
