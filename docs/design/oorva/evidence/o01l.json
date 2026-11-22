@@ -1,7 +1,7 @@
 {
   "stage": "O01L",
   "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
-  "implementationBaseSha": "5c37fc2691adf5cedaf5826131caff234711af95",
+  "implementationBaseSha": "ca6daa3a071f11033b85c9f3043617945f67a76e",
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222"
   },
@@ -9,14 +9,47 @@
   "gates": {
     "E0": "APPROVED",
     "D03a": "APPROVED_AUTHORING_ONLY",
-    "D03b": "PENDING",
-    "D03c": "PENDING"
+    "D03b": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
+    "D03c": "NOT_APPROVED"
   },
   "sourceDrift": {
-    "comparison": "Exact O01L owned paths only: frozen plan P against implementation base 5c37fc2, then implementation base against origin/main.",
-    "changedPaths": [],
+    "comparison": "Exact O01L owned paths only: frozen plan P against implementation base ca6daa3, then implementation base against origin/main.",
+    "changedPaths": [
+      "app/assets/brand/logo-horizontal-dark.svg",
+      "app/assets/brand/logo-horizontal-light.svg",
+      "app/assets/brand/logo-horizontal-mono-black.svg",
+      "app/assets/brand/logo-horizontal-mono-ivory.svg",
+      "app/assets/brand/logo-stacked-dark.svg",
+      "app/assets/brand/logo-stacked-light.svg",
+      "app/assets/brand/oorva-symbol.svg",
+      "app/assets/brand/oorva-wordmark-dark.svg",
+      "app/assets/brand/oorva-wordmark-light.svg",
+      "app/assets/brand/source-manifest.json",
+      "app/src/branding/__tests__/svgMasters.test.ts",
+      "docs/design/oorva/evidence/o01l.json"
+    ],
     "currentMainChangedPaths": [],
-    "preservationRationale": "No O01L-owned path changed between frozen P and the implementation base or between the base and origin/main. Existing current-main work outside the exact O01L file set was preserved and left untouched. The existing PNGs and their manifest were read as unapproved direction only; no exploration asset, runtime file, app configuration, or shared registration was modified."
+    "preservationRationale": "The prior O01L implementation's 12 owned files were added after frozen P and are present at current-main base ca6daa3. This fix-forward revises those same 12 paths in response to owner feedback; the exact path diff from base to origin/main is empty, and all unrelated current-main work, reference PNGs, app configuration, native/runtime destinations, and shared registrations remain untouched."
+  },
+  "ownerDirectedRevision": {
+    "ownerFeedback": "The previous logo was different and not good; use the design at docs/design/oorva/logo/oorva-logo-light.png.",
+    "rejectedO01XCandidateSha": "ddaa8730ed2ef2ccf8b2ffefd211cb7332709e8b",
+    "visualDirection": {
+      "status": "OWNER_APPROVED_REFERENCE_ONLY",
+      "file": "oorva-logo-light.png",
+      "path": "docs/design/oorva/logo/oorva-logo-light.png",
+      "sha256": "4fae9ecb3019efaf0bc1b641728a338408660b649138af922bf66e6ba4179150",
+      "dimensions": "1007x322",
+      "scope": "Visual direction only; the O01L source revision is not a selected O01X export, and D03c public rights clearance is not granted."
+    },
+    "standingD03bApproval": {
+      "status": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
+      "rule": "Any O01X set faithfully reproducing the owner-approved Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
+      "candidateEvidence": "O01X re-export and candidate-specific hashes/validation are not yet recorded."
+    },
+    "D03c": "NOT_APPROVED",
+    "D03cScope": "Blocks public launch/store listing only; it does not block development, private integration, main promotion, or owner testing.",
+    "provenance": "Original custom vector paths were authored from the visual direction. The PNG and related files were not embedded, copied, traced, or exported."
   },
   "authorship": {
     "concept": "Connected O",
@@ -26,33 +59,33 @@
   "smallSizeEvidence": {
     "sourceViewBoxWidth": 256,
     "upperArcEndpoints": [
-      [49, 161],
-      [207, 161]
+      [44, 164],
+      [212, 164]
     ],
     "lowerArcEndpoints": [
-      [49, 89],
-      [207, 89]
+      [44, 92],
+      [212, 92]
     ],
-    "strokeWidths": [28, 28],
-    "gapFormula": "abs(upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2, then multiply by logicalSizePx / 256",
-    "gapUnitsAtBothOpenings": 44,
+    "strokeWidths": [40, 40],
+    "gapFormula": "hypot(upperEndpointX - lowerEndpointX, upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2, then multiply by logicalSizePx / 256",
+    "gapUnitsAtBothOpenings": 32,
     "checks": [
       {
         "logicalSizePx": 20,
-        "leftGapPx": 3.4375,
-        "rightGapPx": 3.4375,
+        "leftGapPx": 2.5,
+        "rightGapPx": 2.5,
         "status": "open"
       },
       {
         "logicalSizePx": 32,
-        "leftGapPx": 5.5,
-        "rightGapPx": 5.5,
+        "leftGapPx": 4,
+        "rightGapPx": 4,
         "status": "open"
       },
       {
         "logicalSizePx": 48,
-        "leftGapPx": 8.25,
-        "rightGapPx": 8.25,
+        "leftGapPx": 6,
+        "rightGapPx": 6,
         "status": "open"
       }
     ],
@@ -75,10 +108,12 @@
   },
   "approvalStatus": {
     "candidateOnly": true,
+    "visualDirection": "OWNER_APPROVED_REFERENCE_ONLY",
     "production_ready": false,
     "D03a": "APPROVED_AUTHORING_ONLY",
-    "D03b": "PENDING",
-    "D03c": "PENDING",
+    "D03b": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
+    "D03bCandidateSelected": false,
+    "D03c": "NOT_APPROVED",
     "finalSelection": false,
     "publicReleaseAllowed": false
   }
