@@ -11,8 +11,10 @@ const TRANSFORM_KEYS = new Set(['mode', 'canvas', 'density', 'recolor', 'backgro
 const SYMBOL_VIEWBOX_SIZE = 256;
 const SYMBOL_INK_SAFEBOX_SIZE = 208;
 const SYMBOL_NATIVE_SAFE_SIZE = 624;
+const SYMBOL_CIRCLE_SAFE_INK_SIZE = 576;
 const SAFE_AREA_RULES = Object.freeze({
   'symbol-624': { canvasSize: 1024, inkSize: SYMBOL_NATIVE_SAFE_SIZE },
+  'symbol-circle-624': { canvasSize: 1024, inkSize: SYMBOL_CIRCLE_SAFE_INK_SIZE },
   'favicon-10': { canvasSize: 48, inkSize: 28 },
 });
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);

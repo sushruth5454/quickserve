@@ -91,6 +91,17 @@ function expectedSourcePath(filePath) {
   return null;
 }
 
+function expectedSafeAreaForAsset(filePath) {
+  if (filePath === 'app/assets/brand/native/favicon.png') return 'favicon-10';
+  if ([
+    'app/assets/brand/native/android-icon-foreground.png',
+    'app/assets/brand/native/android-icon-monochrome.png',
+    'app/assets/brand/native/splash-icon.png',
+    'app/assets/brand/native/splash-icon-dark.png',
+  ].includes(filePath)) return 'symbol-circle-624';
+  return undefined;
+}
+
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
@@ -419,16 +430,7 @@ async function runOorvaCheck() {
       : undefined;
     const actualBackground = typeof transform?.background === 'string' ? transform.background.toLowerCase() : transform?.background;
     expectValue(errors, `${label} transform.background`, actualBackground, expectedBackground);
-    const symbolSafeAreaPaths = [
-      'app/assets/brand/native/android-icon-foreground.png',
-      'app/assets/brand/native/android-icon-monochrome.png',
-      'app/assets/brand/native/splash-icon.png',
-      'app/assets/brand/native/splash-icon-dark.png',
-    ];
-    const expectedSafeArea = label === 'app/assets/brand/native/favicon.png'
-      ? 'favicon-10'
-      : symbolSafeAreaPaths.includes(label) ? 'symbol-624' : undefined;
-    expectValue(errors, `${label} transform.safeArea`, transform?.safeArea, expectedSafeArea);
+    expectValue(errors, `${label} transform.safeArea`, transform?.safeArea, expectedSafeAreaForAsset(label));
     expectValue(errors, `${label} alpha mode`, entry.alpha, definition.alpha);
     expect(errors, `${label} export sha256 format`, typeof entry.export?.sha256 === 'string' && HASH_PATTERN.test(entry.export.sha256), entry.export?.sha256, '64 lowercase hexadecimal characters');
     expect(errors, `${label} source sha256 format`, typeof entry.source?.sha256 === 'string' && HASH_PATTERN.test(entry.source.sha256), entry.source?.sha256, '64 lowercase hexadecimal characters');
@@ -707,6 +709,145 @@ function runTransformSelftests() {
     `symbol-624 safe-area fit actual=${JSON.stringify({ width: safeFit.width, height: safeFit.height, outsidePixels: safeFitMetrics.outsidePixels })}`,
   );
 
+  const circleSource = svg(256, 256, '<circle cx="128" cy="128" r="111.4792" fill="#173D39"/>');
+  const legacyCircleFit = inspectAssetPng(renderSvg(circleSource, {
+    mode: 'svg',
+    canvas: { width: 1024, height: 1024 },
+    density: 'native',
+    safeArea: 'symbol-624',
+  }));
+  const legacyCircleMetrics = countOutsideCenteredCircle(legacyCircleFit.rgba, legacyCircleFit.width, legacyCircleFit.height, 624);
+  assert.ok(
+    legacyCircleMetrics.outsidePixels > 0,
+    `circle source must fail the legacy square fit actual=${JSON.stringify(legacyCircleMetrics)} expected=outsidePixels > 0`,
+  );
+
+  const circleTransform = {
+    mode: 'svg',
+    canvas: { width: 1024, height: 1024 },
+    density: 'native',
+    safeArea: 'symbol-circle-624',
+  };
+  const circleOutput = renderSvg(circleSource, circleTransform);
+  const circleOutputRepeat = renderSvg(circleSource, circleTransform);
+  assert.deepEqual(circleOutput, circleOutputRepeat, `symbol-circle-624 deterministic bytes actual=${sha256(circleOutput)} expected=${sha256(circleOutputRepeat)}`);
+  const circlePng = inspectAssetPng(circleOutput);
+  const circleMetrics = countOutsideCenteredCircle(circlePng.rgba, circlePng.width, circlePng.height, 624);
+  let maxVisibleRadiusPx = 0;
+  for (let y = 0; y < circlePng.height; y += 1) {
+    for (let x = 0; x < circlePng.width; x += 1) {
+      if (circlePng.rgba[(y * circlePng.width + x) * 4 + 3] === 0) continue;
+      maxVisibleRadiusPx = Math.max(maxVisibleRadiusPx, Math.hypot(x + 0.5 - circlePng.width / 2, y + 0.5 - circlePng.height / 2));
+    }
+  }
+  const circleInkBounds = alphaBounds(circlePng.rgba, circlePng.width, circlePng.height).bounds;
+  const circleInkSize = circleInkBounds
+    ? { width: circleInkBounds.right - circleInkBounds.left + 1, height: circleInkBounds.bottom - circleInkBounds.top + 1 }
+    : { width: 0, height: 0 };
+  const circleErrors = [];
+  validateSafeZone(
+    { path: 'app/assets/brand/native/android-icon-foreground.png', safeRule: 'centered-circle-624' },
+    { safeZone: { rule: 'centered-circle-624' } },
+    circlePng,
+    circleErrors,
+  );
+  assert.deepEqual(
+    { outsidePixels: circleMetrics.outsidePixels, safeZoneErrors: circleErrors.length, insideCircle: maxVisibleRadiusPx < 312 },
+    { outsidePixels: 0, safeZoneErrors: 0, insideCircle: true },
+    `symbol-circle-624 circle proof actual=${JSON.stringify({ outsidePixels: circleMetrics.outsidePixels, maxVisibleRadiusPx, safeZoneErrors: circleErrors })} expected=zero outside pixels and max radius < 312px`,
+  );
+
+  const calibrationSource = svg(256, 256, '<rect x="24" y="24" width="208" height="208" fill="#173D39"/>');
+  const calibrationPng = inspectAssetPng(renderSvg(calibrationSource, circleTransform));
+  const calibrationBounds = alphaBounds(calibrationPng.rgba, calibrationPng.width, calibrationPng.height).bounds;
+  const calibrationInkSize = calibrationBounds
+    ? { width: calibrationBounds.right - calibrationBounds.left + 1, height: calibrationBounds.bottom - calibrationBounds.top + 1 }
+    : { width: 0, height: 0 };
+  assert.deepEqual(
+    calibrationInkSize,
+    { width: 576, height: 576 },
+    `symbol-circle-624 central 208-square mapping actual=${JSON.stringify(calibrationInkSize)} expected={width:576,height:576}`,
+  );
+
+  const legacySplashSource = svg(256, 256, '<rect x="24" y="23.75" width="208" height="208.5" fill="#173D39"/>');
+  const legacySplashPng = inspectAssetPng(renderSvg(legacySplashSource, {
+    mode: 'svg',
+    canvas: { width: 1024, height: 1024 },
+    density: 'native',
+    safeArea: 'symbol-624',
+  }));
+  const legacySplashBounds = alphaBounds(legacySplashPng.rgba, legacySplashPng.width, legacySplashPng.height).bounds;
+  const legacySplashInkSize = legacySplashBounds
+    ? { width: legacySplashBounds.right - legacySplashBounds.left + 1, height: legacySplashBounds.bottom - legacySplashBounds.top + 1 }
+    : { width: 0, height: 0 };
+  assert.ok(
+    legacySplashInkSize.width > 624 || legacySplashInkSize.height > 624,
+    `splash source must fail the legacy square fit actual=${JSON.stringify(legacySplashInkSize)} expected=at least one dimension > 624`,
+  );
+  const splashOutput = renderSvg(legacySplashSource, circleTransform);
+  const splashOutputRepeat = renderSvg(legacySplashSource, circleTransform);
+  assert.deepEqual(splashOutput, splashOutputRepeat, `symbol-circle-624 splash deterministic bytes actual=${sha256(splashOutput)} expected=${sha256(splashOutputRepeat)}`);
+  const splashPng = inspectAssetPng(splashOutput);
+  const splashBounds = alphaBounds(splashPng.rgba, splashPng.width, splashPng.height).bounds;
+  const splashInkSize = splashBounds
+    ? { width: splashBounds.right - splashBounds.left + 1, height: splashBounds.bottom - splashBounds.top + 1 }
+    : { width: 0, height: 0 };
+  const splashErrors = [];
+  validateSafeZone(
+    { path: 'app/assets/brand/native/splash-icon.png', safeRule: 'ink-within-624-square' },
+    { safeZone: { rule: 'ink-within-624-square' } },
+    splashPng,
+    splashErrors,
+  );
+  assert.deepEqual(
+    { inkWithin624: splashInkSize.width <= 624 && splashInkSize.height <= 624, safeZoneErrors: splashErrors.length },
+    { inkWithin624: true, safeZoneErrors: 0 },
+    `symbol-circle-624 splash proof actual=${JSON.stringify({ inkSize: splashInkSize, safeZoneErrors: splashErrors })} expected=both dimensions <= 624 and no findings`,
+  );
+
+  const circleScaleRatio = 576 / 624;
+  const predictedMaxRadiusPx = 334.4376 * circleScaleRatio;
+  const predictedSplashInkSize = { width: 624 * circleScaleRatio, height: 626 * circleScaleRatio };
+  assert.ok(
+    predictedMaxRadiusPx < 312 && predictedSplashInkSize.width <= 624 && predictedSplashInkSize.height <= 624,
+    `observed O01X bounds after 576/624 scale actual=${JSON.stringify({ circleScaleRatio, predictedMaxRadiusPx, predictedSplashInkSize })} expected=radius < 312 and both splash bounds <= 624`,
+  );
+
+  const circleCandidatePaths = [
+    'app/assets/brand/native/android-icon-foreground.png',
+    'app/assets/brand/native/android-icon-monochrome.png',
+    'app/assets/brand/native/splash-icon.png',
+    'app/assets/brand/native/splash-icon-dark.png',
+  ];
+  assert.deepEqual(
+    circleCandidatePaths.map(expectedSafeAreaForAsset),
+    Array(4).fill('symbol-circle-624'),
+    `O01X circle-safe manifest tokens actual=${JSON.stringify(circleCandidatePaths.map(expectedSafeAreaForAsset))} expected=${JSON.stringify(Array(4).fill('symbol-circle-624'))}`,
+  );
+  assert.deepEqual(
+    {
+      favicon: expectedSafeAreaForAsset('app/assets/brand/native/favicon.png'),
+      squareIcon: expectedSafeAreaForAsset('app/assets/brand/native/icon.png'),
+    },
+    { favicon: 'favicon-10', squareIcon: undefined },
+    `unrelated manifest safe areas actual=${JSON.stringify({
+      favicon: expectedSafeAreaForAsset('app/assets/brand/native/favicon.png'),
+      squareIcon: expectedSafeAreaForAsset('app/assets/brand/native/icon.png'),
+    })} expected=${JSON.stringify({ favicon: 'favicon-10', squareIcon: undefined })}`,
+  );
+
+  const circleSafeAreaFit = {
+    token: 'symbol-circle-624',
+    inkSizePx: 576,
+    circleScaleRatio,
+    predictedMaxRadiusPx,
+    measuredMaxRadiusPx: maxVisibleRadiusPx,
+    circleOutsidePixels: circleMetrics.outsidePixels,
+    circleInkSize,
+    splashInkSize,
+    deterministic: true,
+  };
+
   const faviconFit = inspectAssetPng(renderSvg(svg(256, 256, '<circle cx="128" cy="128" r="100" fill="#173D39"/>'), {
     mode: 'svg',
     canvas: { width: 48, height: 48 },
@@ -755,6 +896,7 @@ function runTransformSelftests() {
     composed: true,
     solidBackground: true,
     safeArea: 'symbol-624',
+    circleSafeAreaFit,
     faviconFit: faviconEvidence,
     invalidCasesRejected: invalidCases.length,
   };

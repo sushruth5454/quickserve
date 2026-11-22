@@ -114,6 +114,17 @@ describe('isolated execution infrastructure', () => {
       console.info(`PNG RGB byte/border evidence: ${JSON.stringify(hexBorder)}`);
       const report = JSON.parse(result.stdout.trim()) as {
         transformSelftest?: {
+          circleSafeAreaFit?: {
+            token: string;
+            inkSizePx: number;
+            circleScaleRatio: number;
+            predictedMaxRadiusPx: number;
+            measuredMaxRadiusPx: number;
+            circleOutsidePixels: number;
+            circleInkSize: { width: number; height: number };
+            splashInkSize: { width: number; height: number };
+            deterministic: boolean;
+          };
           faviconFit?: {
             bounds: { left: number; top: number; right: number; bottom: number } | null;
             visiblePixels: number;
@@ -122,6 +133,14 @@ describe('isolated execution infrastructure', () => {
           };
         };
       };
+      const circleFit = report.transformSelftest?.circleSafeAreaFit;
+      if (!circleFit || circleFit.token !== 'symbol-circle-624' || circleFit.inkSizePx !== 576 ||
+        circleFit.predictedMaxRadiusPx >= 312 || circleFit.measuredMaxRadiusPx >= 312 ||
+        circleFit.circleOutsidePixels !== 0 || circleFit.circleInkSize.width > 624 || circleFit.circleInkSize.height > 624 ||
+        circleFit.splashInkSize.width > 624 || circleFit.splashInkSize.height > 624 || !circleFit.deterministic) {
+        throw new Error(`O01X circle-safe transform selftest failed; actual=${JSON.stringify(circleFit ?? report)} expected=token symbol-circle-624, 576px ink map, radius <312px, no circle overflow, <=624px splash bounds and deterministic output`);
+      }
+      console.info(`O01X circle-safe transform evidence: ${JSON.stringify(circleFit)}`);
       const favicon = report.transformSelftest?.faviconFit;
       if (!favicon) throw new Error(`favicon fit selftest report missing; actual=${JSON.stringify(report)} expected=transformSelftest.faviconFit`);
       console.info(`48px favicon measured geometry: ${JSON.stringify(favicon)}`);
