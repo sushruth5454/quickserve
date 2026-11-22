@@ -30,7 +30,21 @@
   "authReviewCorrection": {
     "rootCause": "Cache-read completion without a valid cached snapshot released guest routing while the single live get_app_features request was still pending; DEFAULT_FEATURES omitted guest_browse, so the root redirected to login before a delayed live ON result.",
     "behavior": "A valid cache or valid live snapshot settles guest routing. A cache miss waits for the live result; after a settled live failure, fallback defaults remain OFF and routing fails closed. The 250 ms deadline starts refresh but does not authorize fallback.",
-    "hostedRuntimeLimitation": "No hosted/browser rerun after the fix; the reported run above is the verified failure reproduction."
+    "providerLevelTests": [
+      {
+        "case": "Empty cache + deferred live guest_browse ON: wait while pending, then guest",
+        "result": "PASS"
+      },
+      {
+        "case": "Empty cache + live guest_browse OFF: blocked after settlement",
+        "result": "PASS"
+      },
+      {
+        "case": "Empty cache + live fetch failure: fallback settles and fails closed",
+        "result": "PASS"
+      }
+    ],
+    "hostedRuntimeLimitation": "No hosted/browser rerun after the fix; run 44991384002 is the verified failure reproduction and no hosted settings were changed."
   },
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -69,8 +83,8 @@
         "selectedFile": "app/src/branding/__tests__/featureControl.test.tsx",
         "result": "PASS",
         "selectedCount": 1,
-        "testsPassed": 10,
-        "testsTotal": 10
+        "testsPassed": 13,
+        "testsTotal": 13
       }
     ],
     "gitDiffCheck": "PASS",
