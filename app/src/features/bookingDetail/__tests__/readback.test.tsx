@@ -66,7 +66,7 @@ jest.mock('react', () => {
         mockRuntime.states[index],
         (next: unknown) => {
           mockRuntime.states[index] = typeof next === 'function'
-            ? (next as (previous: unknown) => unknown)(mockRuntime.states[index])
+            ? (next as (mockPrevious: unknown) => unknown)(mockRuntime.states[index])
             : next;
         },
       ];
@@ -134,7 +134,7 @@ jest.mock('../../../lib/config', () => ({
   supportContact: { email: 'support@example.test' },
 }));
 jest.mock('../../../lib/creatorRevisions', () => ({
-  creatorRevisionsEnabled: jest.fn(),
+  creatorRevisionsEnabled: jest.fn(async () => false),
   requestCreatorRevision: jest.fn(),
 }));
 jest.mock('../../../lib/haptics', () => ({ haptics: { error: jest.fn(), success: jest.fn() } }));
@@ -167,7 +167,20 @@ jest.mock('../PaymentsSection', () => ({ PaymentsSection: 'PaymentsSection' }));
 jest.mock('../StatusHeader', () => ({ StatusHeader: 'StatusHeader' }));
 
 const ReactRuntime = require('react') as typeof React;
-const api = require('../../../lib/api') as Record<string, jest.Mock>;
+type MockApiMethod =
+  | 'getBooking'
+  | 'getQuotes'
+  | 'getPayments'
+  | 'getEvents'
+  | 'getBookingOtps'
+  | 'getBookingAddress'
+  | 'getReviewForBooking'
+  | 'getProfileName'
+  | 'signedPhotoUrls'
+  | 'listPaymentSchedule'
+  | 'getCoinRedemptionPreview'
+  | 'subscribeToBooking';
+const api = require('../../../lib/api') as Record<MockApiMethod, jest.Mock>;
 const BookingDetailScreen = require('../BookingDetailScreen').default as typeof import('../BookingDetailScreen').default;
 const PaymentScheduleTimeline = require('../../catalogue/PaymentScheduleTimeline').PaymentScheduleTimeline as
   typeof import('../../catalogue/PaymentScheduleTimeline').PaymentScheduleTimeline;
@@ -389,11 +402,20 @@ describe('booking detail readback', () => {
     await olderLoad;
 
     const tree = renderScreen();
-    expect(elements(tree, 'Header')[0]?.props.title).toBe('Service booking-b');
-    expect(elements(tree, 'Header')[0]?.props.title).not.toBe('Service booking-a');
+    const screenHeader = elements(elements(tree, 'Screen')[0]?.props.header, 'Header')[0]?.props.title;
+    expect({ screenHeader }).toEqual({ screenHeader: 'Service booking-b' });
+    expect(screenHeader).not.toBe('Service booking-a');
   });
 
   it('cleanupSubscriptions', async () => {
+    api.getPayments.mockResolvedValue([{
+      id: '00000000-0000-4000-8000-000000000001',
+      booking_id: mockRuntime.id,
+      amount: 10000,
+      status: 'paid',
+      refunds: [],
+    }]);
+
     renderScreen();
     const firstCleanup = mockRuntime.effects[1]!();
     expect(mockRuntime.subscriptions[0]).toMatchObject({ id: 'booking-a', paymentIds: [] });

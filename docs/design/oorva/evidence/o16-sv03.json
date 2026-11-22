@@ -65,12 +65,21 @@
     ],
     "migrationParserSelector": "o16_sv03_oorva.sql"
   },
+  "coordinatorRegistration": {
+    "path": "supabase/tests/package.json",
+    "registrationCommit": "299169130d4a35be3beb9fb3364fa43288460d4f",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "selectionProof": {
+      "sql": "node oorva_o16_sv03.test.mjs",
+      "migrationParser": "node parse.cjs ../migrations/0093_o16_sv03_oorva.sql"
+    }
+  },
   "validation": {
     "sourceScope": "PASS",
     "gitDiffCheck": "PASS",
     "codespaceApp": "PENDING",
-    "codespaceSql": "PENDING registration",
-    "codespaceMigrationParser": "PENDING registration",
+    "codespaceSql": "PENDING",
+    "codespaceMigrationParser": "PENDING",
     "authReview": "REQUIRED",
     "laneCi": "PENDING"
   },
