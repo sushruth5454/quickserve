@@ -1,17 +1,5 @@
 import type { AdminFeature } from './adminApi';
-
-const FEATURE_PARENTS: Record<string, string> = {
-  recurring_skip_pause: 'recurring_bookings',
-  recurring_reschedule: 'recurring_bookings',
-  recurring_plan_acceptance: 'recurring_bookings',
-  recurring_reminders: 'recurring_bookings',
-  recurring_billing: 'recurring_bookings',
-  recurring_prepaid_packages: 'recurring_bookings',
-  sports_online_payments: 'sports',
-  sports_instant_booking: 'sports',
-  sports_capacity_slots: 'sports',
-  sports_multi_slot: 'sports',
-};
+import { FEATURE_PARENTS } from './featureFlagModel';
 
 export function isAdminRulesEditorEnabled(isOn: (key: string) => boolean): boolean {
   return isOn('admin_rules_editor');
@@ -44,8 +32,20 @@ export function getAdminFeaturePresentation(
   }
 
   const parentLabel = allFeatures.find((row) => row.key === parentKey)?.label ?? parentKey;
-  const disabledByParent = featureStates[parentKey] !== true;
   const childEnabled = featureStates[feature.key] === true;
+  let blockedByKey: string | null = null;
+  let ancestorKey: string | undefined = parentKey;
+  while (ancestorKey !== undefined) {
+    if (featureStates[ancestorKey] !== true) {
+      blockedByKey = ancestorKey;
+      break;
+    }
+    ancestorKey = FEATURE_PARENTS[ancestorKey];
+  }
+  const disabledByParent = blockedByKey !== null;
+  const blockedByLabel = blockedByKey
+    ? allFeatures.find((row) => row.key === blockedByKey)?.label ?? blockedByKey
+    : null;
   return {
     parentKey,
     parentLabel,
@@ -54,8 +54,8 @@ export function getAdminFeaturePresentation(
     switchDisabledByParent: disabledByParent && !childEnabled,
     explanation: disabledByParent
       ? childEnabled
-        ? `You can turn this child off while ${parentLabel} is off; enable it first to turn the child back on.`
-        : `Enable ${parentLabel} first; this child switch cannot be turned on while its parent is off.`
+        ? `You can turn this child off while ${blockedByLabel} is off; enable it first to turn the child back on.`
+        : `Enable ${blockedByLabel} first; this child switch cannot be turned on while its parent is off.`
       : null,
   };
 }

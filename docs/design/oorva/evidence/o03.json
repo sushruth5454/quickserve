@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O03",
+  "workPackage": "O03",
+  "status": "PAUSED_FOR_REGISTRATION",
+  "base": {
+    "planSourceSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+    "implementationSha": "e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5",
+    "branch": "lane/oorva-o03",
+    "dependencyShas": {
+      "O00": {
+        "state": "DONE",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222"
+      },
+      "O02": {
+        "state": "DONE",
+        "sha": "2ce8bc1c7500a1eb356978943bd630bbb1247548"
+      },
+      "O37A": {
+        "state": "DONE",
+        "sha": "5b2b026ab825100d461ae2db276d6eb42f4497ec"
+      }
+    },
+    "affectedFileFunctionDriftFromPlanToImplementationBase": "No changes in the O03-owned file/function scope."
+  },
+  "sourceTaskIds": [],
+  "sourceFindingIds": [],
+  "sourceCards": [],
+  "preflight": {
+    "testedBaseContainsPlanningCommitAndAllDoneDependencies": true,
+    "currentO03AdminPresentationSourceAndTestArePresent": true,
+    "localOnlyConflicts": [
+      {
+        "label": "A1",
+        "branchDate": "2026-11-18",
+        "commitsBehind": 781,
+        "originRef": false,
+        "conflict": "Deletes O03-owned adminFeaturePresentation source and test."
+      },
+      {
+        "label": "T0",
+        "branchDate": "2026-11-18",
+        "commitsBehind": 787,
+        "originRef": false,
+        "conflict": "Deletes O03-owned adminFeaturePresentation source and test."
+      }
+    ],
+    "decision": "Proceed from e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5; preserve both stale local branches and the qs-lane-T0 worktree untouched. Do not merge their deletions."
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "MIG-O03": "APPROVED",
+    "E1": "APPROVED",
+    "D03a": "APPROVED",
+    "D03b": "PENDING",
+    "D03c": "NOT_APPROVED"
+  },
+  "migrationClaims": [
+    "MIG-O03"
+  ],
+  "allocatedMigrationFilenames": [
+    "supabase\\migrations\\0126_o03_oorva.sql"
+  ],
+  "workerOwnedFiles": [
+    "app\\src\\lib\\featureFlagModel.ts",
+    "app\\src\\lib\\adminFeaturePresentation.ts",
+    "app\\src\\lib\\__tests__\\featureFlagModel.test.ts",
+    "app\\src\\lib\\__tests__\\adminFeaturePresentation.test.ts",
+    "supabase\\tests-postgres\\branding_publish.pg.test.mjs",
+    "supabase\\migrations\\0126_o03_oorva.sql",
+    "supabase\\tests\\oorva_branding.test.mjs",
+    "docs\\design\\oorva\\evidence\\o03.json"
+  ],
+  "featureRegistry": {
+    "count": 25,
+    "defaultEnabled": false,
+    "sortRange": [
+      200,
+      224
+    ],
+    "ownerOverride": {
+      "key": "oorva_brand",
+      "label": "Oorva brand & colours",
+      "group": "Appearance",
+      "description": "Existing bundled identity/palettes remain; native installed assets cannot remotely revert",
+      "sortOrder": 200
+    }
+  },
+  "requestedCoordinatorRegistrations": {
+    "supabase\\tests\\package.json": [
+      "Register the unique supabase\\tests\\oorva_branding.test.mjs selector.",
+      "Register parser/full-chain migration selector 0126_o03_oorva.sql."
+    ],
+    ".github\\workflows\\lane-ci.yml": [
+      "Select supabase\\tests-postgres\\branding_publish.pg.test.mjs in the exact private-Postgres job.",
+      "Keep the test out of PGlite."
+    ],
+    ".github\\workflows\\deploy-backend.yml": "O37B-owned promotion-only; not changed or requested in this registration round."
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "windowsAppBuildOrTest": "NOT_RUN_BY_INSTRUCTION",
+    "windowsSqlTestOrLocalDatabase": "NOT_RUN_BY_INSTRUCTION",
+    "codespaceApp": {
+      "state": "PENDING_REGISTRATION_AND_CURRENT_MAIN_HELPER",
+      "firstSelector": "src.lib.__tests__.featureFlagModel[.]test[.]ts$",
+      "nextSelector": "src.lib.__tests__.adminFeaturePresentation[.]test[.]ts$"
+    },
+    "codespaceSql": {
+      "state": "PENDING_REGISTRATION_AND_CURRENT_MAIN_HELPER",
+      "selector": "oorva_branding"
+    },
+    "codespaceMigrationParser": {
+      "state": "PENDING_REGISTRATION_AND_CURRENT_MAIN_HELPER",
+      "selector": "o03_oorva.sql",
+      "allocatedFilename": "supabase\\migrations\\0126_o03_oorva.sql"
+    },
+    "privatePostgresConcurrency": {
+      "state": "PENDING_PRIVATE_LANE_JOB",
+      "selector": "branding_publish.pg.test.mjs",
+      "requiredEvidence": "Two independent pg_backend_pid values, A holding the singleton lock, B blocked on the same expected generation, exactly one commit and one stale-generation error, and coherent pre/post snapshots."
+    },
+    "focusedReviews": {
+      "auth": "PENDING_FINAL_STAGED_CODE",
+      "concurrency": "PENDING_FINAL_STAGED_CODE"
+    },
+    "laneCi": "NOT_PUSHED; wait for registration, Codespace checks and focused reviews."
+  },
+  "releaseStatus": {
+    "featureFlagsEnabled": false,
+    "productionFeatureChanges": "NOT_PERFORMED",
+    "logoSelected": false,
+    "nativeAssetsInstalled": false,
+    "O01XOutputsCreated": false,
+    "publicLaunch": "BLOCKED_PENDING_D03C",
+    "D03bCandidateReview": "PENDING",
+    "historicalRepair": "NOT_PERFORMED",
+    "liveMoneyOperation": "NOT_PERFORMED",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
