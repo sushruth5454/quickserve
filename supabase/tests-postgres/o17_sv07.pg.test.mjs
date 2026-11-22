@@ -305,6 +305,9 @@ async function runBookingFirstResponseContention(context) {
       try {
         await bookingFirst.query(`set statement_timeout = '15000ms'`);
         await response.query(`set statement_timeout = '15000ms'`);
+        // Avoid making BEGIN itself part of the schedule-lock race under test.
+        await bookingFirst.query('begin');
+        bookingFirstTransactionOpen = true;
         await response.query('begin');
         responseTransactionOpen = true;
         await response.query(
@@ -312,8 +315,6 @@ async function runBookingFirstResponseContention(context) {
           [fixture.schedule],
         );
 
-        await bookingFirst.query('begin');
-        bookingFirstTransactionOpen = true;
         operationPromise = as(
           bookingFirst,
           fixture.manager,
