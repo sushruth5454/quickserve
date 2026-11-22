@@ -548,7 +548,7 @@
       }
     },
     "nativeBorderHexComparisonFixForward": {
-      "state": "CODESPACE_PASS_AFTER_LANE_CI_FAILURE; FOLLOW-UP_LANE_CI_PENDING",
+      "state": "CODESPACE_PASS_LANE_CI_PASS",
       "branch": "lane/oorva-o37a-hex-compare",
       "baseSha": "c5e01ba6b2ad43b6a037aff1770161632052084a",
       "reportedFalsePositive": "The strict opaque-square border comparison reported 4092 mismatches because formatting Buffer.map callback strings coerced them back to bytes; forest RGB [0x17,0x3d,0x39] rendered as #17039 although the native border pixels matched.",
@@ -586,8 +586,21 @@
         },
         "result": "cs-test result: PASS",
         "assetsSuiteInvoked": false,
-        "lanePushed": false,
-        "laneCi": "PENDING"
+        "lanePushed": true,
+        "laneCi": "PASS",
+        "laneCiRun": {
+          "runId": 45042244238,
+          "headSha": "efd636002a988d2312cf1a3a27fd215f2af82ba3",
+          "conclusion": "SUCCESS",
+          "jobs": {
+            "changes": "PASS",
+            "tooling": "PASS",
+            "app": "PASS",
+            "deno": "SKIPPED",
+            "sql": "SKIPPED",
+            "privatePostgres": "SKIPPED"
+          }
+        }
       },
       "scope": {
         "workerFilesOnly": true,
