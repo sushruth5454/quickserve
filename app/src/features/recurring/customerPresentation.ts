@@ -33,7 +33,21 @@ export function visibleBillingFrequencies(configured: readonly BillingFrequency[
 }
 
 export function getRecurringQuoteSummary(quote: RecurringQuote) {
-  return {
+  const summary: {
+    perVisitPaise: number;
+    visitsInFirstCycle: number;
+    visitsTotal: number | null;
+    discountPaise: number;
+    platformFeePaise: number;
+    gstPaise: number;
+    totalPaisePerCycle: number;
+    billingFrequency: BillingFrequency;
+    firstDates: string[];
+    acceptanceMode?: 'plan' | 'occurrence';
+    paymentDueHoursBefore?: number;
+    billingGraceHours?: number;
+    paymentReleaseCutoffMinutesBeforeVisit?: number;
+  } = {
     perVisitPaise: quote.per_visit_paise,
     visitsInFirstCycle: quote.visits_in_first_cycle,
     visitsTotal: quote.visits_total,
@@ -43,21 +57,33 @@ export function getRecurringQuoteSummary(quote: RecurringQuote) {
     totalPaisePerCycle: quote.total_paise_per_cycle,
     billingFrequency: quote.billing_frequency,
     firstDates: quote.first_dates.slice(0, 5),
-    acceptanceMode: quote.acceptance_mode === 'plan' || quote.acceptance_mode === 'occurrence'
-      ? quote.acceptance_mode
-      : null,
-    paymentDueHoursBefore: Number.isSafeInteger(quote.payment_window?.due_hours_before) && quote.payment_window!.due_hours_before >= 0
-      ? quote.payment_window!.due_hours_before
-      : null,
-    billingGraceHours: Number.isSafeInteger(quote.payment_window?.grace_hours) && quote.payment_window!.grace_hours >= 0
-      ? quote.payment_window!.grace_hours
-      : null,
-    paymentReleaseCutoffMinutesBeforeVisit:
-      Number.isSafeInteger(quote.payment_window?.release_cutoff_minutes_before_visit) &&
-      quote.payment_window!.release_cutoff_minutes_before_visit >= 0
-        ? quote.payment_window!.release_cutoff_minutes_before_visit
-        : null,
   };
+  if (quote.acceptance_mode === 'plan' || quote.acceptance_mode === 'occurrence') {
+    summary.acceptanceMode = quote.acceptance_mode;
+  }
+  const window = quote.payment_window;
+  if (
+    typeof window?.due_hours_before === 'number' &&
+    Number.isSafeInteger(window.due_hours_before) &&
+    window.due_hours_before >= 0
+  ) {
+    summary.paymentDueHoursBefore = window.due_hours_before;
+  }
+  if (
+    typeof window?.grace_hours === 'number' &&
+    Number.isSafeInteger(window.grace_hours) &&
+    window.grace_hours >= 0
+  ) {
+    summary.billingGraceHours = window.grace_hours;
+  }
+  if (
+    typeof window?.release_cutoff_minutes_before_visit === 'number' &&
+    Number.isSafeInteger(window.release_cutoff_minutes_before_visit) &&
+    window.release_cutoff_minutes_before_visit >= 0
+  ) {
+    summary.paymentReleaseCutoffMinutesBeforeVisit = window.release_cutoff_minutes_before_visit;
+  }
+  return summary;
 }
 
 export function visitPaymentLabel(visit: {
