@@ -872,6 +872,134 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
     await verifyCityPackages('Sangareddy (demo)', 'Laxmi Home Cleaning', 'Durga Demo Home Care');
     await verifyCityPackages('Demo home', 'Durga Demo Home Care', 'Laxmi Home Cleaning');
   });
+
+  await step('MK-FRESH-top-rated-city-error', async () => {
+    const alternateCity = 'Sangareddy';
+    const previousProviderName = 'MK-FRESH previous-city provider';
+    const injectedError = 'MK-FRESH top-rated city failure';
+    const routePattern = '**/rest/v1/rpc/list_top_rated_public';
+    let previousCity = null;
+    let previousCityResponseSeen = false;
+    let alternateCityFailureSeen = false;
+    const syntheticPreviousCityProvider = {
+      id: '11111111-1111-4111-8111-111111111111',
+      city: null,
+      rating_avg: 4.8,
+      rating_count: 7,
+      jobs_completed: 12,
+      years_experience: 5,
+      is_online: true,
+      on_leave_until: null,
+      profiles: { full_name: previousProviderName, avatar_url: null },
+      provider_services: [],
+    };
+    const routeHandler = async (route) => {
+      const request = route.request();
+      const payload = request.postDataJSON();
+      const requestCity = typeof payload?.p_city === 'string' ? payload.p_city : null;
+      if (requestCity?.toLowerCase() === alternateCity.toLowerCase()) {
+        alternateCityFailureSeen = true;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'E2E_MK_FRESH',
+            message: injectedError,
+            details: 'Synthetic city-scoped failure',
+            hint: '',
+          }),
+        });
+        return;
+      }
+      if (!previousCityResponseSeen) {
+        previousCityResponseSeen = true;
+        previousCity = requestCity;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([{ ...syntheticPreviousCityProvider, city: requestCity }]),
+        });
+        return;
+      }
+      await route.continue();
+    };
+    const isTopRatedCityResponse = (response, city) =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/list_top_rated_public')
+      && response.request().postDataJSON()?.p_city === city;
+    const isTopRatedOtherCityResponse = (response) => {
+      if (
+        response.request().method() !== 'POST'
+        || !new URL(response.url()).pathname.endsWith('/rest/v1/rpc/list_top_rated_public')
+      ) return false;
+      const requestCity = response.request().postDataJSON()?.p_city;
+      return typeof requestCity === 'string' && requestCity.toLowerCase() !== alternateCity.toLowerCase();
+    };
+    const home = CITY === 'Vijayawada' ? /^Flat 302, Sri Sai Residency/ : /^Flat 302, Sai Residency/;
+
+    await page.route(routePattern, routeHandler);
+    try {
+      const previousCityResponsePromise = page.waitForResponse(isTopRatedOtherCityResponse);
+      await go('/top-rated');
+      const previousCityResponse = await previousCityResponsePromise;
+      const previousRows = await previousCityResponse.json();
+      if (
+        !previousCityResponse.ok()
+        || !Array.isArray(previousRows)
+        || previousRows[0]?.profiles?.full_name !== previousProviderName
+        || !previousCity
+      ) {
+        throw new Error(`Could not establish the previous-city result fixture: ${JSON.stringify({
+          status: previousCityResponse.status(),
+          previousCity,
+          previousRows,
+        })}`);
+      }
+      await page.getByText(previousProviderName, { exact: true }).waitFor({ state: 'visible' });
+
+      await go('/location');
+      const alternateAddress = page.getByText('Sangareddy (demo)', { exact: true }).first();
+      const alternateAddressCount = await page.getByText('Sangareddy (demo)', { exact: true }).count();
+      if (!alternateAddressCount) {
+        throw new Error(`Private E2E seed has no Sangareddy address: ${JSON.stringify({
+          alternateAddressCount,
+          body: (await page.locator('body').innerText()).slice(0, 1200),
+        })}`);
+      }
+      await alternateAddress.click();
+      await page.waitForURL((url) => new URL(url).pathname === '/', { timeout: 10000 });
+
+      const alternateCityResponsePromise = page.waitForResponse((response) =>
+        isTopRatedCityResponse(response, alternateCity),
+      );
+      await go('/top-rated');
+      const alternateCityResponse = await alternateCityResponsePromise;
+      await page.getByRole('heading', { name: `Top rated in ${alternateCity}`, exact: true }).first().waitFor({ state: 'visible' });
+      await page.getByText(injectedError, { exact: true }).first().waitFor({ state: 'visible' });
+      const staleRows = await page.getByText(previousProviderName, { exact: true }).count();
+      if (
+        alternateCityResponse.status() !== 503
+        || !alternateCityFailureSeen
+        || previousCity.toLowerCase() === alternateCity.toLowerCase()
+        || staleRows
+      ) {
+        throw new Error(`Top-rated city failure leaked or used the wrong city: ${JSON.stringify({
+          previousCity,
+          alternateCity,
+          responseStatus: alternateCityResponse.status(),
+          alternateCityFailureSeen,
+          staleRows,
+          body: (await page.locator('body').innerText()).slice(0, 1600),
+        })}`);
+      }
+    } finally {
+      await page.unroute(routePattern, routeHandler);
+      await go('/location');
+      await page.getByText(home).first().click();
+      await page.waitForURL((url) => new URL(url).pathname === '/', { timeout: 10000 });
+      await page.getByText(new RegExp(`^Benz Circle, ${escapeRe(CITY)}$`)).first().waitFor({ state: 'visible' });
+    }
+  });
 }
 
 // ---------- Creator proposal, end to end ----------
