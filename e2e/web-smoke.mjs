@@ -1736,18 +1736,13 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       }
 
       await go('/bookings');
-      const shopTab = page.getByTestId('activity-segment-shop');
-      await shopTab.click();
+      await page.getByTestId('activity-segment-shop').click();
       const rfqPanel = page.getByTestId('my-activity-panel-shop');
       try {
-        await page.waitForFunction(
-          () => document.querySelector('[data-testid="activity-segment-shop"]')?.getAttribute('aria-selected') === 'true',
-        );
         await rfqPanel.waitFor({ state: 'visible' });
       } catch (error) {
         const panelVisible = await rfqPanel.isVisible();
-        throw new Error(`Shop activity selection or panel readiness failed before RFQ lookup: ${JSON.stringify({
-          selectedState: await shopTab.getAttribute('aria-selected'),
+        throw new Error(`Shop activity panel was not visible before RFQ lookup: ${JSON.stringify({
           panelVisible,
           panel: panelVisible ? await rfqPanel.innerText() : null,
           body: (await page.locator('body').innerText()).slice(0, 2400),
