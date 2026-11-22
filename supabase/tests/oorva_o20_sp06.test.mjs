@@ -214,6 +214,14 @@ async function getVenue(uid, role, venueId) {
   `, [venueId]))[0].venue;
 }
 
+function policyMatches(actual, expected) {
+  return actual !== null
+    && typeof actual === 'object'
+    && !Array.isArray(actual)
+    && Object.keys(actual).length === Object.keys(expected).length
+    && Object.entries(expected).every(([key, value]) => actual[key] === value);
+}
+
 async function failureOf(run) {
   try {
     await run();
@@ -249,7 +257,7 @@ await scenario('SP-LATEST-POLICY-PROJECTION', async () => {
     partial_refund_bp: 4000,
   };
   ok(
-    JSON.stringify(venue?.cancellation_policy) === JSON.stringify(expected)
+    policyMatches(venue?.cancellation_policy, expected)
       && !Object.hasOwn(venue ?? {}, 'cancellation_rules')
       && !Object.hasOwn(venue ?? {}, 'owner_id'),
     `[SP-LATEST-POLICY-PROJECTION] expected safe effective policy ${JSON.stringify(expected)}; actual ${JSON.stringify({ venue })}`,
@@ -272,7 +280,7 @@ await scenario('SP-PER-FIELD-FALLBACK', async () => {
     partial_refund_bp: 1000,
   };
   ok(
-    JSON.stringify(venue?.cancellation_policy) === JSON.stringify(expected),
+    policyMatches(venue?.cancellation_policy, expected),
     `[SP-PER-FIELD-FALLBACK] each missing venue scalar falls back independently; expected ${JSON.stringify(expected)}, actual ${JSON.stringify({ venue })}`,
   );
 });

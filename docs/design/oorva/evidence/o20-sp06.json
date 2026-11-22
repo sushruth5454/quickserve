@@ -58,22 +58,37 @@
     "SP-GUEST-SAFE-FIELDS-AND-PARENT-GATES"
   ],
   "registration": {
-    "state": "PAUSED_FOR_COORDINATOR_ROUNDTRIP",
+    "state": "MERGED",
+    "sha": "c005db278fef4903b2e4718ba478a35b492a6902",
     "testSelector": "oorva_o20_sp06",
     "migrationParserSelector": "o20_sp06_oorva.sql",
-    "testRegistration": "NOT_EDITED_BY_WORKER",
-    "migrationParserRegistration": "NOT_EDITED_BY_WORKER",
+    "selectionProof": {
+      "test": "Selected exactly once",
+      "migrationParser": "Selected exactly once"
+    },
+    "testRegistration": "COORDINATOR",
+    "migrationParserRegistration": "COORDINATOR",
     "deployBackendRegistration": "NOT_EDITED_BY_WORKER"
   },
   "validation": {
     "localBuildsTestsAndInstalls": "NOT_RUN_PER_DISPATCH",
-    "codespace": "PENDING_COORDINATOR_REGISTRATION_SHA",
-    "requiredCommands": [
-      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp06'",
-      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o20_sp06_oorva.sql'"
-    ],
-    "selectorRequirement": "Both commands must select at least one check and pass in Codespace from this exact worktree.",
-    "laneCi": "PENDING_CODESPACE_PASS"
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "testSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp06'",
+        "result": "PASS",
+        "selected": "supabase/tests/oorva_o20_sp06.test.mjs",
+        "summary": "1/1 SQL checks passed; SP-LATEST-POLICY-PROJECTION, SP-PER-FIELD-FALLBACK, SP-LEAD-BOUNDARY, SP-EXACT-HORIZON, and SP-GUEST-SAFE-FIELDS-AND-PARENT-GATES passed."
+      },
+      "migrationParserSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o20_sp06_oorva.sql'",
+        "result": "PASS",
+        "selected": "supabase/migrations/0101_o20_sp06_oorva.sql",
+        "summary": "1/1 SQL checks passed; two top-level statements and two function bodies parsed with zero errors."
+      },
+      "resolvedTestAssertionIssue": "The first focused run showed correct policy values but failed because JSONB key order differed from the expected object order. Replaced order-sensitive stringify equality with exact key-set and field-value comparison; both selectors passed afterward."
+    },
+    "laneCi": "PENDING_EXACT_HEAD_LANE_CI"
   },
   "review": {
     "required": "AUTH",
@@ -85,6 +100,7 @@
   },
   "checkpoint": {
     "state": "WORKER_FILES_ONLY",
-    "stopPoint": "PAUSE_FOR_COORDINATOR_SHARED_REGISTRATION_ROUNDTRIP"
+    "sha": "fb7ad67a6409e1f13b8ab14129589f9f03ba18c2",
+    "stopPoint": "AWAIT_EXACT_HEAD_LANE_CI_AND_AUTH_REVIEW"
   }
 }
