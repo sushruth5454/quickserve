@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lstat, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Resvg } from '@resvg/resvg-js';
 import { exportSvg, renderSvg, solidBackgroundSvg } from './export.mjs';
 import { inspectAssetPng, validatePng } from './validate.mjs';
 
@@ -728,6 +729,10 @@ export async function runSelftest() {
   assert.match(fixture, /<path\b/, 'self-test fixture must contain outlined vector paths');
   assert.doesNotMatch(fixture, /<(?:text|font)\b|font-family\s*=|@font-face/i, 'self-test fixture must not use fonts');
 
+  const rawRendererPng = new Resvg(fixture, { font: { loadSystemFonts: false } }).render().asPng();
+  const rawRendererProfile = inspectAssetPng(rawRendererPng).profile;
+  assert.equal(rawRendererProfile.kind, 'NOT VERIFIED', `pinned raw Resvg output profile actual=${JSON.stringify(rawRendererProfile)} expected=untagged baseline`);
+
   const first = renderSvg(fixture);
   const second = renderSvg(fixture);
   assert.deepEqual(first, second, 'identical outlined input must export byte-for-byte identically');
@@ -736,6 +741,30 @@ export async function runSelftest() {
   assert.deepEqual(
     { width: inspected.width, height: inspected.height, colorType: inspected.colorType, hasTransparentPixels: inspected.alpha.transparentPixels > 0, hasVisiblePixels: inspected.alpha.opaquePixels + inspected.alpha.partialAlphaPixels > 0 },
     { width: 64, height: 64, colorType: 6, hasTransparentPixels: true, hasVisiblePixels: true },
+  );
+  assert.deepEqual(
+    inspected.profile,
+    { kind: 'sRGB', renderingIntent: 0 },
+    `exported fixture profile actual=${JSON.stringify(inspected.profile)} expected=${JSON.stringify({ kind: 'sRGB', renderingIntent: 0 })}`,
+  );
+  let chunkOffset = 8;
+  let srgbCrcOffset = -1;
+  while (chunkOffset + 12 <= first.length) {
+    const chunkLength = first.readUInt32BE(chunkOffset);
+    const chunkType = first.toString('ascii', chunkOffset + 4, chunkOffset + 8);
+    if (chunkType === 'sRGB') {
+      srgbCrcOffset = chunkOffset + 8 + chunkLength;
+      break;
+    }
+    chunkOffset += 12 + chunkLength;
+  }
+  assert.ok(srgbCrcOffset >= 0, `exported fixture sRGB chunk offset actual=${srgbCrcOffset} expected>=0`);
+  const corruptProfile = Buffer.from(first);
+  corruptProfile[srgbCrcOffset] ^= 0x01;
+  assert.throws(
+    () => inspectAssetPng(corruptProfile),
+    /CRC mismatch/,
+    `corrupt sRGB CRC rejection actualOffset=${srgbCrcOffset} expected=CRC mismatch`,
   );
   const transforms = runTransformSelftests();
 
@@ -789,7 +818,17 @@ export async function runSelftest() {
     await unlink(transformedOutput).catch(() => undefined);
     await unlink(solidBackgroundOutput).catch(() => undefined);
   }
-  return { fixture: 'export-selftest.svg', width: 64, height: 64, deterministic: true, writeCheck: true, transformSelftest: transforms };
+  return {
+    fixture: 'export-selftest.svg',
+    width: 64,
+    height: 64,
+    deterministic: true,
+    writeCheck: true,
+    rawRendererProfile: rawRendererProfile.kind,
+    pngProfile: 'sRGB',
+    profileCrcVerified: true,
+    transformSelftest: transforms,
+  };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
