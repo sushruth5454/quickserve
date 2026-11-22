@@ -18,8 +18,8 @@
   },
   "migrationClaim": {
     "id": "MIG-O27-MK02",
-    "version": "0110",
-    "path": "supabase/migrations/0110_o27_mk02_oorva.sql"
+    "version": "0099",
+    "path": "supabase/migrations/0099_o27_mk02_oorva.sql"
   },
   "functionLock": "public.submit_shop",
   "sourceDrift": {
@@ -37,7 +37,7 @@
     "Did not modify save_shop, migration 0069, or any unrelated function."
   ],
   "changedFiles": [
-    "supabase/migrations/0110_o27_mk02_oorva.sql",
+    "supabase/migrations/0099_o27_mk02_oorva.sql",
     "supabase/tests/oorva_o27_mk02.test.mjs",
     "docs/design/oorva/evidence/o27-mk02.json"
   ],
