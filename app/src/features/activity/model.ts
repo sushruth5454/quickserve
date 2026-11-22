@@ -13,6 +13,7 @@ export type ActivitySegment = 'services' | 'requests' | 'shop' | 'sports';
 export interface ActivityFeatureVisibility {
   products: boolean;
   sports: boolean;
+  hasShopHistory?: boolean;
   hasSportsBookings?: boolean;
 }
 
@@ -113,7 +114,7 @@ export function visibleActivitySegments(features: ActivityFeatureVisibility): Ac
   return [
     'services',
     'requests',
-    ...(features.products ? (['shop'] as const) : []),
+    ...(features.products || features.hasShopHistory ? (['shop'] as const) : []),
     ...(features.sports || features.hasSportsBookings ? (['sports'] as const) : []),
   ];
 }
@@ -125,7 +126,7 @@ export function visibleActivityUnreadCounts(
   return {
     services: counts.services,
     requests: counts.requests,
-    shop: features.products ? counts.shop : 0,
+    shop: features.products || features.hasShopHistory ? counts.shop : 0,
     sports: features.sports || features.hasSportsBookings ? counts.sports : 0,
   };
 }
