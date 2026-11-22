@@ -141,10 +141,19 @@ async function createFixture(label) {
       true, array['custom']::text[], 0
     ) returning id
   `, [`sv18-${label}-${index}`, `SV18 ${label} ${index}`])).rows[0].id;
+  const otherCategory = (await db.query(`
+    insert into public.categories (
+      slug, name, pricing_mode, active, archetype, intake_schema, config_version,
+      max_lead_days, recurrence_allowed, allowed_frequencies, recurring_discount_bp
+    ) values (
+      $1::text, $2::text, 'quote', true, 'fixed', '{}'::jsonb, 1, 365,
+      true, array['custom']::text[], 0
+    ) returning id
+  `, [`sv18-other-${label}-${index}`, `SV18 other ${label} ${index}`])).rows[0].id;
   await db.query(`
     insert into public.category_cities (category_id, city, live, launched_at)
-    values ($1::uuid, $2::text, true, now())
-  `, [category, city]);
+    values ($1::uuid, $2::text, true, now()), ($3::uuid, $2::text, true, now())
+  `, [category, city, otherCategory]);
   const service = (await db.query(`
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, 0, 0, true)
@@ -154,7 +163,7 @@ async function createFixture(label) {
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, 0, 0, true)
     returning id
-  `, [provider, category])).rows[0].id;
+  `, [provider, otherCategory])).rows[0].id;
   const ownPackage = (await db.query(`
     insert into public.service_packages (
       provider_service_id, title, description, price_type, price, price_min, price_max,
