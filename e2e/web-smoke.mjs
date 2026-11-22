@@ -11,6 +11,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const ANON = process.env.SUPABASE_ANON_KEY;
 const QA_MARKER = process.env.QA_MARKER ?? `QA-E2E manual-${Date.now()}`;
 const E2E_FLAGS_ON = process.env.E2E_FLAGS === 'on';
+const CITY = (process.env.EXPO_PUBLIC_DEMO_CITY ?? '').trim() || 'Vijayawada';
+const TOP_RATED_HOME_TITLE = E2E_FLAGS_ON ? `Top rated in ${CITY}` : 'Top rated near you';
+const TOP_RATED_DETAIL_TITLE = `Top rated in ${CITY}`;
+const TOP_RATED_RANKING_SUMMARY = /^\d+ verified pros? \u00b7 ranked by average rating, then review count$/;
 const PRIVATE_LOCAL_E2E = process.env.PROJECT_REF === 'local'
   && process.env.SUPABASE_MGMT_URL === 'http://127.0.0.1:54399';
 const PHONE = process.env.E2E_CUSTOMER_PHONE ?? '9999999999';
@@ -737,23 +741,23 @@ await step('home-family-drilldown-and-marketplace-entry-points', async () => {
 });
 await optional('home-top-rated', async () => {
   await go('/');
-  await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
+  await page.getByText(TOP_RATED_HOME_TITLE, { exact: true }).first().scrollIntoViewIfNeeded();
   await page.mouse.move(195, 420);
   await page.mouse.wheel(0, 200);
   await snap('home-top-rated');
 });
 await step('top-rated-see-all', async () => {
   await go('/');
-  const topRatedHeading = page.getByRole('heading', { name: 'Top rated near you', exact: true }).first();
+  const topRatedHeading = page.getByRole('heading', { name: TOP_RATED_HOME_TITLE, exact: true }).first();
   await topRatedHeading.waitFor({ state: 'visible' });
   await topRatedHeading.locator('xpath=../..').getByText('See all', { exact: true }).click();
   await page.waitForURL(/\/top-rated$/);
-  await page.getByText(/verified pros?$/).first().waitFor();
+  await page.getByRole('heading', { name: TOP_RATED_DETAIL_TITLE, exact: true }).first().waitFor({ state: 'visible' });
+  await page.getByText(TOP_RATED_RANKING_SUMMARY).first().waitFor({ state: 'visible' });
 });
 
 // ---------- Location picker ----------
 // Demo-seed runs set EXPO_PUBLIC_DEMO_CITY, which becomes the app's launch city.
-const CITY = (process.env.EXPO_PUBLIC_DEMO_CITY ?? '').trim() || 'Vijayawada';
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const managedAreas = await rest('geo_areas?select=name,geo_cities(name)&active=eq.true&order=sort_order').catch(() => []);
 const managedArea = managedAreas.find((area) => area.geo_cities?.name?.toLowerCase() === CITY.toLowerCase());
@@ -1387,15 +1391,17 @@ for (const [name, path, wait] of [
 }
 await optional('dark-home-top-rated', async () => {
   await go('/');
-  await page.getByText('Top rated near you', { exact: true }).first().scrollIntoViewIfNeeded();
+  await page.getByText(TOP_RATED_HOME_TITLE, { exact: true }).first().scrollIntoViewIfNeeded();
   await page.mouse.move(195, 420);
   await page.mouse.wheel(0, 200);
   await snap('dark-home-top-rated');
 });
 await step('dark-top-rated-see-all', async () => {
   await go('/top-rated');
-  await page.getByText(/verified pros?$/).first().waitFor();
-});await page.emulateMedia({ colorScheme: 'light' });
+  await page.getByRole('heading', { name: TOP_RATED_DETAIL_TITLE, exact: true }).first().waitFor({ state: 'visible' });
+  await page.getByText(TOP_RATED_RANKING_SUMMARY).first().waitFor({ state: 'visible' });
+});
+await page.emulateMedia({ colorScheme: 'light' });
 await step('me-customer-again', async () => {
   await go('/account');
   await visible('Switch to provider mode');
@@ -1761,16 +1767,27 @@ await step('admin-feature-registry', async () => {
         urgent_requests: true,
         fixed_asap: true,
         e2e_registry_probe: probeEnabled,
-        archetypes: { inspect_quote: true, fixed: true, time_based: true, proposal: true },
+        archetypes: { inspect_quote: true, fixed: true, time_based: true, proposal: true, remote: false },
       }),
     });
   });
   await page.getByText('Features', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin/features');
   await visible('E2E registry probe');
+  for (const label of [
+    'AI assistant',
+    'Urgent creator requests',
+    'ASAP for fixed-price services',
+    'E2E registry probe',
+    'Repair & inspection',
+    'Fixed-price packages',
+    'Time-based sessions',
+    'Creators & events',
+    'Remote services',
+  ]) await visible(label);
   const switches = page.getByRole('switch');
   const switchCount = await switches.count();
-  if (switchCount !== 8) throw new Error(`expected 4 registry + 4 archetype switches, got ${JSON.stringify({ switchCount })}`);
+  if (switchCount !== 9) throw new Error(`expected 4 registry + 5 archetype switches, got ${JSON.stringify({ switchCount })}`);
   const probeResponse = page.waitForResponse((response) => {
     if (new URL(response.url()).pathname !== '/rest/v1/rpc/admin_set_feature') return false;
     try {
