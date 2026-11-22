@@ -3,6 +3,7 @@ import type {
   BookingAddress,
   BookingEvent,
   BookingOtps,
+  BookingArchetype,
   Category,
   Message,
   OtpResult,
@@ -14,6 +15,8 @@ import type {
   ProviderJob,
   ProviderSearchResult,
   ProviderService,
+  PackagePriceType,
+  PackageUnit,
   Quote,
   QuoteItemDraft,
   RateUnit,
@@ -70,16 +73,28 @@ export interface TopRatedProvider {
   jobs_completed: number;
   years_experience: number;
   is_online: boolean;
+  on_leave_until: string | null;
   profiles: { full_name: string; avatar_url: string | null } | null;
-  /** Active services, for the card's category/skill/visit-fee line. Optional so older callers still type-check. */
-  provider_services?: TopRatedService[];
+  provider_services: TopRatedService[];
 }
 
 export interface TopRatedService {
+  id: string;
   visit_fee: number;
   skill_level: SkillLevel;
   active: boolean;
-  categories: { name: string; slug: string } | null;
+  categories: { name: string; slug: string; archetype: BookingArchetype; sort_order: number } | null;
+  service_packages: TopRatedPackage[];
+}
+
+export interface TopRatedPackage {
+  id: string;
+  sort_order: number;
+  price_type: PackagePriceType;
+  price: number | null;
+  price_min: number | null;
+  price_max: number | null;
+  unit: PackageUnit;
 }
 
 export interface PublicReview {

@@ -844,24 +844,57 @@ export const demoApi: Api = {
   async listTopRated(limit = 10, city?: string | null): Promise<TopRatedProvider[]> {
     await wait();
     const want = city?.trim().toLowerCase();
+    if (!want) return [];
+    const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 50);
     return db.providers
-      .filter((p) => p.kyc_status === 'verified' && !p.suspended && p.rating_count > 0 && p.id !== session?.userId)
-      .filter((p) => !want || p.city.trim().toLowerCase() === want)
+      .filter((p) => p.kyc_status === 'verified' && !p.suspended && !p.paused && p.rating_count > 0 && p.id !== session?.userId)
+      .filter((p) => p.city.trim().toLowerCase() === want)
       .sort((a, b) => b.rating_avg - a.rating_avg || b.rating_count - a.rating_count)
-      .slice(0, limit)
-      .map((p) => ({
-        id: p.id,
-        city: p.city,
-        rating_avg: p.rating_avg,
-        rating_count: p.rating_count,
-        jobs_completed: p.jobs_completed,
-        years_experience: p.years_experience,
-        is_online: p.is_online,
-        profiles: { full_name: nameOf(p.id), avatar_url: null },
-        provider_services: db.services
+      .slice(0, boundedLimit)
+      .map((p) => {
+        const services = db.services
           .filter((s) => s.provider_id === p.id && s.active)
-          .map((s) => ({ visit_fee: s.visit_fee, skill_level: s.skill_level, active: s.active, categories: categoryOf(s.category_id) })),
-      }));
+          .map((s) => {
+            const category = db.categories.find((c) => c.id === s.category_id);
+            return {
+              id: s.id,
+              visit_fee: s.visit_fee,
+              skill_level: s.skill_level,
+              active: s.active,
+              categories: category
+                ? {
+                    name: category.name,
+                    slug: category.slug,
+                    archetype: category.archetype ?? 'inspect_quote',
+                    sort_order: category.sort_order,
+                  }
+                : null,
+              service_packages: (s.service_packages ?? [])
+                .filter((pkg) => pkg.active)
+                .map((pkg) => ({
+                  id: pkg.id,
+                  sort_order: pkg.sort_order,
+                  price_type: pkg.price_type,
+                  price: pkg.price,
+                  price_min: pkg.price_min,
+                  price_max: pkg.price_max,
+                  unit: pkg.unit,
+                })),
+            };
+          });
+        return {
+          id: p.id,
+          city: p.city,
+          rating_avg: p.rating_avg,
+          rating_count: p.rating_count,
+          jobs_completed: p.jobs_completed,
+          years_experience: p.years_experience,
+          is_online: p.is_online,
+          on_leave_until: null,
+          profiles: { full_name: nameOf(p.id), avatar_url: null },
+          provider_services: services,
+        };
+      });
   },
 
   async listLiveCities(): Promise<LiveCity[]> {
