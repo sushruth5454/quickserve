@@ -49,7 +49,7 @@ jest.mock('react', () => {
         mockRuntime.states[index],
         (next: unknown) => {
           mockRuntime.states[index] = typeof next === 'function'
-            ? (next as (previous: unknown) => unknown)(mockRuntime.states[index])
+            ? (next as (mockPrevious: unknown) => unknown)(mockRuntime.states[index])
             : next;
         },
       ];
@@ -322,7 +322,7 @@ async function requestQuote(tree: unknown) {
 }
 
 beforeEach(() => {
-  for (const effect of mockRuntime.effects) effect.cleanup?.();
+  for (const effect of mockRuntime.effects) effect?.cleanup?.();
   mockRuntime.params = {};
   mockRuntime.location = {
     addressId: 'address-a',
@@ -558,7 +558,7 @@ describe('recurring creation readiness', () => {
     const actual = {
       quoteAddresses: quoteRecurringPlan.mock.calls.map(([input]) => input.address_id),
       requestDisabled: sendButton(tree)?.props.disabled,
-      visiblePrice: elements(tree, 'Text').some((item) => textContent(item).includes('per visit')),
+      visiblePrice: elements(tree, 'Text').some((item) => textContent(item).includes('₹10500')),
       createCalls: createRecurringPlan.mock.calls,
     };
     await (sendButton(tree)?.props.onPress as (() => Promise<void>) | undefined)?.();
