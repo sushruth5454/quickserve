@@ -1,0 +1,98 @@
+{
+  "stageId": "O29-STATE",
+  "frozenPlanningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+  "dependencyHeads": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O09-SP02": "00bd2be56799c6af541fd6e1b89665ce51d073e5"
+  },
+  "gate": {
+    "E0": "APPROVED",
+    "migrationClaims": [],
+    "requiredReview": "AUTH",
+    "productionFlagActivation": false,
+    "liveMoneyWork": false,
+    "mainDeployment": false
+  },
+  "sourceDrift": {
+    "comparisonBase": "822e7ba0f43fa3b15a122eff69e389a91926001e",
+    "auditSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "scopedFilesDifferentAtBase": [
+      "app/src/features/sports/manage/BookingSections.tsx",
+      "app/src/features/sports/manage/ResourceEditorSection.tsx",
+      "app/src/features/sports/manage/VenueEditorSections.tsx",
+      "app/src/features/sports/manage/__tests__/actions.test.ts",
+      "app/src/features/sports/manage/actions.ts"
+    ],
+    "o09Sp02IsAncestorOfBase": true,
+    "o09Sp02OwnedFilesUnchangedAfterDependency": [
+      "app/src/features/sports/manage/actions.ts",
+      "app/src/features/sports/manage/VenueEditorSections.tsx"
+    ]
+  },
+  "implementation": {
+    "sourceTasks": ["SP-T03", "SP-T04", "SP-T17"],
+    "sourceFindings": ["SP-F04", "SP-F05", "SP-F06", "SP-F20"],
+    "ownedFiles": [
+      "app/src/features/sports/manage/useSportsVenueManagementState.ts",
+      "app/src/features/sports/manage/actions.ts",
+      "app/src/features/sports/manage/ResourceEditorSection.tsx",
+      "app/src/features/sports/manage/ResourceScheduleSections.tsx",
+      "app/src/features/sports/manage/SportsVenueManagementScreen.tsx",
+      "app/src/features/sports/manage/BookingSections.tsx",
+      "app/src/features/sports/manage/__tests__/actions.test.ts",
+      "app/src/features/sports/manage/__tests__/managementState.test.ts",
+      "app/src/features/sports/manage/VenueEditorSections.tsx",
+      "docs/design/oorva/evidence/o29-state.json"
+    ],
+    "summary": [
+      "Map selected resource booking_mode and preserve stored resource settings when child controls are off.",
+      "Hydrate complete venue/resource/hour drafts from loaded records and retain dirty fields during background refresh.",
+      "Provide common loading, retry/error, authorized venue selection, and actual-venue-UUID booking filtering.",
+      "Restrict owner management controls to actual owners while keeping assigned bookings read-only.",
+      "Route close-day, price-rule deletion, and block removal through confirmed management actions."
+    ]
+  },
+  "validation": {
+    "codespace": [
+      {
+        "command": "pwsh -NoProfile -File $env:TEMP\\cs-test.ps1 -Suite app -Filter 'src.features.sports.manage.__tests__.actions[.]test[.]ts$'",
+        "selectedFile": "app/src/features/sports/manage/__tests__/actions.test.ts",
+        "selectedCases": 12,
+        "caseNames": [
+          "cancelling a review reset confirmation sends no save RPC",
+          "does not warn for unchanged details or payment-only edits",
+          "maps selected resource booking_mode and preserves all stored fields when child controls are off",
+          "cancelling close-day confirmation performs zero writes",
+          "confirming close-day writes the exact venue and weekday once",
+          "routes a closed-draft save through the confirmation boundary",
+          "suppresses duplicate close confirmations and writes while the first action is busy",
+          "canceling price-rule deletion performs zero writes and confirmation deletes its UUID once",
+          "canceling block removal performs zero writes and confirmation removes its UUID once",
+          "a failed close write preserves the prior closed state and clears busy state",
+          "does not attempt a detail save for a suspended venue",
+          "does not attempt a detail save for a non-owner business member"
+        ],
+        "outcome": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File $env:TEMP\\cs-test.ps1 -Suite jest -Filter 'src.features.sports.manage.__tests__.managementState[.]test[.]ts$'",
+        "selectedFile": "app/src/features/sports/manage/__tests__/managementState.test.ts",
+        "selectedCases": 6,
+        "caseNames": [
+          "hydrates every server resource field, including the snake-case booking mode",
+          "loads the selected weekday row and treats a missing row as closed only after the read completes",
+          "shows loading or retryable error instead of Create/no-bookings before the first successful read",
+          "refreshes clean venue/resource fields while retaining dirty draft text",
+          "keeps any selected accessible venue and resolves a removed selection without sorting",
+          "removes bookings from the revoked venue instead of mixing another venue’s rows"
+        ],
+        "outcome": "PASS"
+      }
+    ],
+    "migrationClaims": [],
+    "nativeEvidence": "NOT VERIFIED",
+    "laneCi": "PENDING",
+    "authReview": "PENDING"
+  }
+}
