@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O18-MK15",
+  "workPackage": "O18",
+  "status": "CODE_GREEN_AWAITING_LANE_CI",
+  "base": {
+    "branch": "lane/oorva-o18-mk04",
+    "implementationSha": "0ce7f326e60eff14df874ccfcd67f16a7b378813",
+    "currentMainShaAtDriftCheck": "ca6daa3a071f11033b85c9f3043617945f67a76e"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O12-MK16",
+      "sha": "f34c127e322fd7475de4239751335b2ac2f9e8bd",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O38R",
+      "sha": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK04",
+      "sha": "0ce7f326e60eff14df874ccfcd67f16a7b378813",
+      "state": "APPROVED_PAUSED_CLEAN_PREDECESSOR"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T15",
+    "findingId": "MK-F17",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t15"
+  },
+  "preservedBaseDrift": [
+    {
+      "paths": [
+        "app/src/features/marketplaceScreens/EnquiryDetailScreen.tsx",
+        "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+        "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+        "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+        "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+        "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+        "app/src/features/marketplaceScreens/ShopIndexScreen.tsx"
+      ],
+      "change": "Reviewed current-main drift against the exact approved base; preserved the seven-file predecessor transfer without merging or resetting."
+    },
+    {
+      "path": "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "change": "Retained the approved base version, which differs from current origin/main."
+    }
+  ],
+  "migrationClaim": null,
+  "sqlFunctions": [],
+  "implementation": [
+    "Resource reads distinguish fresh success and empty results from failures; failed initial reads expose Retry and failed refreshes retain labeled stale state.",
+    "Shop catalogue, nearby shops, and authorized enquiry history load independently; authorized enquiry history remains readable with its capability disabled.",
+    "Merchant shop setup is rendered only after a successful current no-shop read; shop mutations are disabled until fresh eligibility data is available.",
+    "RFQ category retry preserves the entered draft and blocks submission until categories are refreshed.",
+    "Enquiry and RFQ histories remain readable while capability switches are OFF; new or unsafe commits remain gated."
+  ],
+  "workerOwnedFiles": [
+    "app/app/admin/rfqs.tsx",
+    "app/app/admin/shops.tsx",
+    "app/app/product/[id].tsx",
+    "app/app/rfq/new.tsx",
+    "app/app/shop/[id].tsx",
+    "app/src/features/shops/__tests__/readStates.test.tsx",
+    "app/src/features/rfq/__tests__/readStates.test.tsx",
+    "app/src/features/marketplaceScreens/AdminRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/AdminShopsScreen.tsx",
+    "app/src/features/marketplaceScreens/EnquiryDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+    "app/src/features/marketplaceScreens/ProductDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/ProductsScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqNewScreen.tsx",
+    "app/src/features/marketplaceScreens/ShopDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/ShopIndexScreen.tsx",
+    "docs/design/oorva/evidence/o18-mk15.json"
+  ],
+  "coordinatorOwnedFiles": [
+    "e2e/web-smoke.mjs"
+  ],
+  "requiredCases": [
+    "MK-READ-product-shop-error-empty",
+    "MK-READ-merchant-failed-setup",
+    "MK-READ-independent-shop-sections",
+    "MK-READ-RFQ-category-retry-draft",
+    "MK-READ-supplier-history-error"
+  ],
+  "approvals": {
+    "requiredReviews": [],
+    "mainPromotion": "NOT_GRANTED",
+    "featureActivation": "NOT_GRANTED",
+    "publicOrNativeRelease": "NOT_GRANTED",
+    "liveMoneyOperations": "NOT_GRANTED"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "638e211a9bb20ddb511f39b69700911680cb0c21",
+      "typescript": "PASS",
+      "selectors": [
+        {
+          "suite": "app",
+          "filter": "src.features.shops.__tests__.readStates[.]test[.]tsx$",
+          "selectedFiles": 1,
+          "selectedTests": 3,
+          "cases": [
+            "MK-READ-product-shop-error-empty",
+            "MK-READ-merchant-failed-setup",
+            "MK-READ-independent-shop-sections"
+          ],
+          "result": "PASS"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.rfq.__tests__.readStates[.]test[.]tsx$",
+          "selectedFiles": 1,
+          "selectedTests": 2,
+          "cases": [
+            "MK-READ-RFQ-category-retry-draft",
+            "MK-READ-supplier-history-error"
+          ],
+          "result": "PASS"
+        }
+      ]
+    },
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_PUSH"
+    }
+  },
+  "productionActions": "NONE"
+}

@@ -1,7 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, Chip, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
+import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import { SpecFields } from '../shops/SpecFields';
 import { listProductCategories, type ProductCategory } from '../shops/api';
 import { cleanSpecs } from '../shops/specs';
@@ -41,12 +41,15 @@ export default function MerchantRfqQuoteScreen() {
   const [deliveryDays, setDeliveryDays] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasRead, setHasRead] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setError(null);
     try {
       const [next, categories] = await Promise.all([
         getSupplierRfq(id, shopId || undefined),
@@ -71,6 +74,7 @@ export default function MerchantRfqQuoteScreen() {
           })));
       }
       setError(null);
+      setHasRead(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -105,9 +109,9 @@ export default function MerchantRfqQuoteScreen() {
   ), [drafts, estimatedDeliveryPaise, rfq]);
 
   const submit = async () => {
-    if (!rfq || rfq.status !== 'open' || !canQuote) return;
+    if (!rfq || rfq.status !== 'open' || !canQuote || !hasRead || loading || error) return;
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       const quoteItems: SupplierQuoteItemInput[] = drafts.map((draft) => {
         const rupees = Number(draft.unitPriceRupees);
@@ -148,7 +152,7 @@ export default function MerchantRfqQuoteScreen() {
       toast({ message: 'Your quote was sent to the customer.', tone: 'success' });
       router.replace('/merchant-rfqs');
     } catch (e) {
-      setError((e as Error).message);
+      setActionError((e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -160,16 +164,22 @@ export default function MerchantRfqQuoteScreen() {
       gap={t.spacing.md}
       footer={rfq?.status === 'open' && canQuote ? (
         <View style={{ gap: t.spacing.sm }}>
-          <InlineAlert message={error} />
-          <Button title="Send quote" fullWidth loading={saving} onPress={() => void submit()} />
+          <InlineAlert message={actionError} />
+          <Button title="Send quote" fullWidth loading={saving} disabled={!hasRead || loading || !!error} onPress={() => void submit()} />
         </View>
       ) : (
-        <InlineAlert message={error ?? (rfq?.business_role === 'staff'
-          ? 'Staff can view RFQs; only owners and managers can send quotes.'
-          : !enabled ? 'Existing RFQ history is read-only while product RFQs are turned off.' : null)} />
+        <View style={{ gap: t.spacing.sm }}>
+          <InlineAlert message={error ?? (rfq?.business_role === 'staff'
+            ? 'Staff can view RFQs; only owners and managers can send quotes.'
+            : !enabled ? 'Existing RFQ history is read-only while product RFQs are turned off.' : null)} />
+          <InlineAlert message={actionError} />
+        </View>
       )}
     >
-      {loading && !rfq ? <Skeleton height={180} radius={t.radii.lg} /> : null}
+      {loading && !hasRead ? <Skeleton height={180} radius={t.radii.lg} /> : null}
+      {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved supplier RFQ history; quote submission is disabled until a successful refresh. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
+      {hasRead && !loading && !error && !rfq ? <EmptyState title="RFQ unavailable" message="This request is no longer available." /> : null}
       {!loading && !rfq && error ? (
         <Button title="Open Supplier RFQs" variant="outline" onPress={() => router.replace('/merchant-rfqs')} />
       ) : null}
