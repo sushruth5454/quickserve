@@ -844,12 +844,16 @@ begin
     raise exception 'version id is required' using errcode = '22023';
   end if;
 
-  v_config := public._branding_validate_config(p_config, false);
-  perform public._branding_assets_publishable(v_config, false);
   select c.value into v_policy
     from public.app_config as c
-   where c.key = 'branding_policy';
+   where c.key = 'branding_policy'
+   for share;
+  if not found then
+    raise exception 'branding policy is not initialized' using errcode = '55000';
+  end if;
   v_policy_revision := coalesce((v_policy ->> 'revision')::bigint, 1);
+  v_config := public._branding_validate_config(p_config, false);
+  perform public._branding_assets_publishable(v_config, false);
 
   insert into public.app_branding_versions (
     id, config, schema_version, created_by, validation_version, soft_policy_revision
@@ -900,6 +904,7 @@ declare
   v_state public.app_branding_state%rowtype;
   v_version public.app_branding_versions%rowtype;
   v_config jsonb;
+  v_policy jsonb;
   v_asset_ids uuid[];
   v_next_generation bigint;
   v_updated_assets integer;
@@ -939,6 +944,13 @@ begin
     raise exception 'branding version not found' using errcode = 'P0002';
   end if;
 
+  select c.value into v_policy
+    from public.app_config as c
+   where c.key = 'branding_policy'
+   for share;
+  if not found then
+    raise exception 'branding policy is not initialized' using errcode = '55000';
+  end if;
   v_config := public._branding_validate_config(v_version.config, false);
   perform public._branding_assets_publishable(v_config, false);
   select coalesce(array_agg(distinct asset_id), array[]::uuid[])

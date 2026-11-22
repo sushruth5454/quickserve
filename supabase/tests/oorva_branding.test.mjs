@@ -189,7 +189,7 @@ await scenario('O03-effective-parent-role-and-direct-access', async () => {
     'all Oorva children fail closed when the root brand flag is OFF, even when raw children are ON',
     { raw: OORVA_KEYS.filter((key) => key !== 'oorva_brand'), effective: rootOff.rows });
 
-  await setFlags(['oorva_brand', 'branding_editor']);
+  await setFlags(['oorva_brand', 'branding_editor', 'oorva_home_ux']);
   const intermediateOff = await db.query(
     `select public._oorva_feature_enabled('branding_editor') as editor,
             public._oorva_feature_enabled('oorva_home_ux') as family`,
@@ -199,7 +199,7 @@ await scenario('O03-effective-parent-role-and-direct-access', async () => {
     'branding editor observes the OFF runtime intermediate while unrelated root children remain effective',
     intermediateOff.rows[0],
   );
-  await setFlags(['oorva_brand', 'branding_runtime']);
+  await setFlags(['oorva_brand', 'branding_runtime', 'oorva_home_ux']);
   const childOff = await db.query(
     `select public._oorva_feature_enabled('branding_editor') as editor,
             public._oorva_feature_enabled('oorva_home_ux') as family`,
@@ -534,6 +534,11 @@ await scenario('O03-assets-revocation-recovery-and-money-safety', async () => {
     /revoked/,
     'recovery never republishes a revoked asset despite bypassing soft policy',
   );
+  const flagsBeforeRecovery = (await as(
+    ADMIN_ID,
+    'authenticated',
+    `select public.get_app_features() as flags`,
+  ))[0].flags;
   const recovered = await as(
     ADMIN_ID,
     'authenticated',
@@ -548,9 +553,12 @@ await scenario('O03-assets-revocation-recovery-and-money-safety', async () => {
     recovered[0].snapshot,
   );
   check(
-    OORVA_KEYS.every((key) => recovered[0].snapshot.flags[key] === false),
-    'branding rollback never enables feature flags',
-    Object.fromEntries(OORVA_KEYS.map((key) => [key, recovered[0].snapshot.flags[key]])),
+    OORVA_KEYS.every((key) => flagsBeforeRecovery[key] === recovered[0].snapshot.flags[key]),
+    'branding rollback preserves every feature flag without enabling or disabling any',
+    {
+      before: Object.fromEntries(OORVA_KEYS.map((key) => [key, flagsBeforeRecovery[key]])),
+      after: Object.fromEntries(OORVA_KEYS.map((key) => [key, recovered[0].snapshot.flags[key]])),
+    },
   );
 
   const moneyGates = await db.query(`
