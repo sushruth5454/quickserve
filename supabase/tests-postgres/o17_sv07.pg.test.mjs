@@ -27,7 +27,7 @@ async function createFixture(client, label, startAccepted = false) {
   );
   await client.query(`
     update feature_flags set enabled = true
-     where key in ('recurring_bookings', 'recurring_reschedule', 'merchant_staff')
+     where key in ('recurring_bookings', 'recurring_reschedule', 'recurring_skip_pause', 'merchant_staff')
   `);
   await client.query(`
     insert into providers (
@@ -251,10 +251,182 @@ async function runRace(context, status) {
   }
 }
 
+async function waitForResponseScheduleLock(observer, pid, blockerPid, responseResult, fixture, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastActivity = null;
+  while (Date.now() < deadline) {
+    lastActivity = (await observer.query(`
+      select wait_event_type, wait_event, query, pg_blocking_pids(pid) blocking_pids
+        from pg_stat_activity where pid = $1::int
+    `, [pid])).rows[0] ?? null;
+    const blockingPids = (lastActivity?.blocking_pids ?? []).map(Number);
+    if (lastActivity?.wait_event_type === 'Lock'
+        && blockingPids.includes(Number(blockerPid))
+        && String(lastActivity.query).includes('respond_visit_reschedule')) {
+      return lastActivity;
+    }
+    if (responseResult.settled) {
+      throw new Error(`response completed before the schedule-lock barrier: ${JSON.stringify({
+        pid, blockerPid, lastActivity, response: responseResult.value, fixture,
+      })}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`response did not reach the schedule-lock barrier: ${JSON.stringify({
+    pid, blockerPid, lastActivity, response: responseResult.value, fixture,
+  })}`);
+}
+
+async function runPauseResponseRace(context) {
+  const fixture = await context.withClient((client) => createFixture(client, 'pause-response'));
+  try {
+    return await context.withTwoClients(async (first, second) => {
+      const firstPid = Number((await first.query('select pg_backend_pid() pid')).rows[0].pid);
+      const secondPid = Number((await second.query('select pg_backend_pid() pid')).rows[0].pid);
+      assert.notEqual(firstPid, secondPid,
+        `pause/response race requires independent PostgreSQL backends: ${JSON.stringify({ firstPid, secondPid, fixture })}`);
+
+      const before = await state(first, fixture.booking);
+      const initialPlanStatus = (await first.query(
+        `select status from recurring_schedules where id = $1::uuid`,
+        [fixture.schedule],
+      )).rows[0]?.status;
+      let firstTransactionOpen = false;
+      let responseResult = { settled: false, value: null };
+      let responsePromise = null;
+      let barrier = null;
+      let barrierError = null;
+      let pauseResult = null;
+      let pausedPlanStatus = null;
+      let pausedVisitState = null;
+      let afterResponse = null;
+      let planStatusAfterResponse = null;
+
+      try {
+        await first.query(`set statement_timeout = '15000ms'`);
+        await second.query(`set statement_timeout = '15000ms'`);
+        await first.query('begin');
+        firstTransactionOpen = true;
+        await first.query(
+          `select id from recurring_schedules where id = $1::uuid for update`,
+          [fixture.schedule],
+        );
+
+        responsePromise = as(
+          second,
+          fixture.manager,
+          `select respond_visit_reschedule($1::uuid, true)`,
+          [fixture.change],
+        ).then(
+          (result) => {
+            Object.assign(responseResult, { settled: true, value: { ok: true, rows: result.rows } });
+            return responseResult;
+          },
+          (error) => {
+            Object.assign(responseResult, {
+              settled: true,
+              value: { ok: false, error: { code: error?.code ?? null, message: error?.message ?? String(error) } },
+            });
+            return responseResult;
+          },
+        );
+
+        try {
+          barrier = await waitForResponseScheduleLock(first, secondPid, firstPid, responseResult, fixture);
+        } catch (error) {
+          barrierError = error?.message ?? String(error);
+        }
+
+        if (!barrierError) {
+          try {
+            await first.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [fixture.customer]);
+            await first.query('set role authenticated');
+            const pause = await first.query(
+              `select pause_recurring_plan($1::uuid, null::date) result`,
+              [fixture.schedule],
+            );
+            pauseResult = { ok: true, rows: pause.rows };
+            await first.query('reset role');
+            pausedPlanStatus = (await first.query(
+              `select status from recurring_schedules where id = $1::uuid`,
+              [fixture.schedule],
+            )).rows[0]?.status;
+            pausedVisitState = await state(first, fixture.booking);
+            await first.query('commit');
+            firstTransactionOpen = false;
+          } catch (error) {
+            pauseResult = {
+              ok: false,
+              error: { code: error?.code ?? null, message: error?.message ?? String(error) },
+            };
+            if (firstTransactionOpen) {
+              await first.query('rollback').catch(() => undefined);
+              firstTransactionOpen = false;
+            }
+          }
+        } else if (firstTransactionOpen) {
+          await first.query('rollback');
+          firstTransactionOpen = false;
+        }
+
+        let responseTimeout;
+        if (responsePromise) {
+          const completedResponse = await Promise.race([
+            responsePromise,
+            new Promise((resolve) => {
+              responseTimeout = setTimeout(() => resolve(null), 20000);
+            }),
+          ]);
+          clearTimeout(responseTimeout);
+          if (completedResponse) responseResult = completedResponse;
+        }
+        afterResponse = await state(first, fixture.booking);
+        planStatusAfterResponse = (await first.query(
+          `select status from recurring_schedules where id = $1::uuid`,
+          [fixture.schedule],
+        )).rows[0]?.status;
+
+        const outcomes = afterResponse.ledger.filter((row) => ['rescheduled', 'reschedule_declined'].includes(row.kind));
+        const diagnostics = JSON.stringify({
+          firstPid, secondPid, fixture, initialPlanStatus, before, barrier, barrierError,
+          pauseResult, pausedPlanStatus, pausedVisitState, response: responseResult.value,
+          afterResponse, planStatusAfterResponse, outcomes,
+        });
+        assert.equal(initialPlanStatus, 'active', `pause-race fixture must begin active: ${diagnostics}`);
+        assert.equal(barrierError, null, `response must block on the held schedule before pause: ${diagnostics}`);
+        assert.equal(pauseResult?.ok, true, `plan pause must complete without a deadlock: ${diagnostics}`);
+        assert.equal(pausedPlanStatus, 'paused', `pause must end the plan before response resumes: ${diagnostics}`);
+        assert.equal(pausedVisitState?.booking?.status, 'cancelled',
+          `pause must cancel the pending visit before response resumes: ${diagnostics}`);
+        assert.equal(responseResult.value?.ok, false, `stale Accept must be rejected after pause: ${diagnostics}`);
+        assert.match(responseResult.value?.error?.message ?? '', /visit can no longer be rescheduled/i,
+          `response must reject the cancelled visit: ${diagnostics}`);
+        assert.equal(afterResponse.booking.status, 'cancelled',
+          `the ended visit must remain cancelled and unschedulable: ${diagnostics}`);
+        assert.equal(afterResponse.booking.scheduled_at, before.booking.scheduled_at,
+          `response must preserve the ended visit's original schedule: ${diagnostics}`);
+        assert.equal(outcomes.length, 0,
+          `response must not append a rescheduled outcome for the ended visit: ${diagnostics}`);
+        assert.deepEqual(afterResponse, pausedVisitState,
+          `response must leave the paused/cancelled booking, dues, and ledger unchanged: ${diagnostics}`);
+        return {
+          firstPid, secondPid, barrier, pauseResult, pausedPlanStatus, pausedVisitState,
+          response: responseResult.value, afterResponse, planStatusAfterResponse,
+        };
+      } finally {
+        if (firstTransactionOpen) await first.query('rollback').catch(() => undefined);
+        await second.query('reset role').catch(() => undefined);
+      }
+    });
+  } finally {
+    await context.withClient((client) => cleanupFixture(client, fixture));
+  }
+}
+
 export async function run(context) {
   const originalFlags = await context.withClient(async (client) => (await client.query(`
     select key, enabled from feature_flags
-     where key in ('recurring_bookings', 'recurring_reschedule', 'merchant_staff')
+     where key in ('recurring_bookings', 'recurring_reschedule', 'recurring_skip_pause', 'merchant_staff')
   `)).rows);
   const originalArchetypeFlags = await context.withClient(async (client) => (await client.query(`
     select value from app_config where key = 'archetype_flags'
@@ -274,6 +446,13 @@ export async function run(context) {
         failures.push(`${status}: ${error?.message ?? error}`);
         console.error(`FAIL SV-RESCHEDULE-RACE-04 ${status}: ${error?.message ?? error}`);
       }
+    }
+    try {
+      const race = await runPauseResponseRace(context);
+      console.log(`PASS SV-RESCHEDULE-PAUSE-RACE-05: ${JSON.stringify(race)}`);
+    } catch (error) {
+      failures.push(`pause-response: ${error?.message ?? error}`);
+      console.error(`FAIL SV-RESCHEDULE-PAUSE-RACE-05: ${error?.message ?? error}`);
     }
   } finally {
     await context.withClient(async (client) => {

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O17-SV07",
   "workPackage": "O17",
-  "status": "PAUSED_FOR_REGISTRATION",
+  "status": "RUNNING",
   "base": {
     "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
     "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
@@ -55,8 +55,8 @@
     "E1": "PENDING"
   },
   "registration": {
-    "state": "PENDING_COORDINATOR_REGISTRATION_ROUNDTRIP",
-    "blockedBy": "O20-SP07 current lock",
+    "state": "REGISTERED",
+    "registrationCommit": "6deba86b4739efb4d78d18cf1cdb8d090c7083d2",
     "pgliteSelector": "oorva_o17_sv07",
     "migrationSelector": "o17_sv07_oorva.sql",
     "privatePostgresStep": "node run.mjs --filter o17_sv07.pg.test.mjs",
@@ -67,15 +67,34 @@
     "SV-RESCHEDULE-TERMINAL-01",
     "SV-RESCHEDULE-ALLOW-02",
     "SV-RESCHEDULE-IDEMPOTENT-03",
-    "SV-RESCHEDULE-RACE-04"
+    "SV-RESCHEDULE-RACE-04",
+    "SV-RESCHEDULE-PAUSE-RACE-05"
   ],
   "validation": {
     "gitDiffCheck": "PASS",
-    "pglite": "PASS_LANE_CI_FALLBACK",
-    "privatePostgresConcurrency": "PASS_LANE_CI_FALLBACK",
-    "migrationParser": "PASS_LANE_CI_FALLBACK",
-    "codespace": "UNAVAILABLE_NO_PASS",
-    "codespaceFailure": "The current-main helper snapshot was created, but Codespace could not fetch the WIP branch before selector execution; no credentials were changed.",
+    "pglite": "PASS_CURRENT_REBASE_CODESPACE",
+    "privatePostgresConcurrency": "PENDING_CORRECTED_HEAD_LANE_CI",
+    "migrationParser": "PASS_CURRENT_REBASE_CODESPACE",
+    "codespace": "PASS_CURRENT_REBASE_SELECTORS",
+    "codespaceFailure": "The original exact-green-head attempt was UNAVAILABLE_NO_PASS; the corrected rebase selectors passed on the WIP snapshots recorded below.",
+    "rebaseCodespaceSelectors": {
+      "pglite": {
+        "filter": "oorva_o17_sv07",
+        "wipSnapshotSha": "a14619e13745b8fd50e9d073ba92f55c449922d5",
+        "testFiles": 1,
+        "parseChecks": 0,
+        "checksPassed": 1,
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "filter": "o17_sv07_oorva.sql",
+        "wipSnapshotSha": "be17a6857d985a9cd8fc32e25724cb9b2de1f897",
+        "testFiles": 0,
+        "parseChecks": 1,
+        "checksPassed": 1,
+        "result": "PASS"
+      }
+    },
     "laneCiFallback": {
       "workflowRunId": 44935217275,
       "headSha": "61705fe4a383aab398dda09c76cb8e871e01c82e",
@@ -90,12 +109,12 @@
         "private-postgres": "SUCCESS"
       }
     },
-    "concurrencyReview": "PENDING_COORDINATOR_REVIEW",
-    "lanePush": "BLOCKED_UNTIL_CONCURRENCY_REVIEW_PASS"
+    "concurrencyReview": "PENDING_COORDINATOR_REVIEW_ON_FINAL_HEAD",
+    "lanePush": "PUSH_ALLOWED_FOR_VALIDATION; CODE_GREEN_BLOCKED_UNTIL_CONCURRENCY_REVIEW_PASS"
   },
   "claims": {
-    "testsPass": true,
-    "concurrencyVerified": true,
+    "testsPass": false,
+    "concurrencyVerified": false,
     "productionOrHostedDatabaseUsed": false,
     "mainOrDeploymentTouched": false
   }

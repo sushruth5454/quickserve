@@ -24,9 +24,10 @@ begin
   perform public._assert(p_accept is not null, 'reschedule decision is required');
   select * into c from public.recurring_occurrence_changes where id = p_change_id for update;
   perform public._assert(found and c.kind = 'reschedule_requested', 'reschedule request not found');
-  b := public._lock_booking(c.booking_id);
   select * into r from public.recurring_schedules where id = c.schedule_id for update;
-  perform public._assert(found and b.recurring_schedule_id = r.id, 'recurring visit not found');
+  perform public._assert(found, 'recurring visit not found');
+  b := public._lock_booking(c.booking_id);
+  perform public._assert(b.recurring_schedule_id = r.id, 'recurring visit not found');
   v_requester_is_customer := c.actor_id = b.customer_id;
   if v_requester_is_customer then
     perform public._assert(public._acts_for(b.provider_id, 'manager'), 'only the provider manager can respond');
