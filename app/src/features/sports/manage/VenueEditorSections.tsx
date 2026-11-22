@@ -31,21 +31,11 @@ export function renderVenueSwitcher(state: ManagementState, spacing: Spacing) {
           </Pressable>
         ))}
       </View>
-      <Button title="Create another venue" variant="outline" onPress={() => {
-        state.setSelectedId('');
-        state.setName('');
-        state.setDescription('');
-        state.setAddress(state.location.line1 ?? state.location.area);
-        state.setCity(state.location.city);
-        state.setArea(state.location.area);
-        state.setLat(String(state.location.lat));
-        state.setLng(String(state.location.lng));
-        state.setAmenities('');
-        state.setPhotos('');
-        state.setResourceId('');
-      }} />
       {state.selected?.venue.owner_id === state.userId ? (
-        <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
+        <>
+          <Button title="Create another venue" variant="outline" onPress={state.startNewVenue} />
+          <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
+        </>
       ) : null}
     </View>
   ) : null;
@@ -64,7 +54,7 @@ function VenueDetailsEditor({ state, actions, spacing }: {
   const { selected, paymentModes, settingsVisibility, busy, name } = state;
   const isOwner = selected?.venue.owner_id === state.userId;
   const review = selected
-    ? getVenueReviewPresentation(selected.venue.status, isOwner ? 'owner' : selected.venue.business_role ?? 'member')
+    ? getVenueReviewPresentation(selected.venue.status, isOwner ? 'owner' : 'member')
     : null;
   const canEditDetails = !selected || review?.canEditDetails === true;
   return (

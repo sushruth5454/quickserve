@@ -6,9 +6,9 @@ import {
   resolveSportsVenuePaymentModesForSave,
 } from '../model';
 import { getVenueReviewPresentation, hasSportsVenueReviewChanges } from '../venueReviewPresentation';
-import { rupeesToPaise } from '../../../lib/money';
+import { formatINR, rupeesToPaise } from '../../../lib/money';
 import { supabase } from '../../../lib/supabase';
-import { toInstant } from './model';
+import { toInstant, WEEKDAYS } from './model';
 import type { useSportsVenueManagementState } from './useSportsVenueManagementState';
 
 type ManagementState = ReturnType<typeof useSportsVenueManagementState>;
@@ -22,11 +22,44 @@ type Confirm = (options: {
 
 export type SportsVenueManagementActions = ReturnType<typeof createSportsVenueManagementActions>;
 
-export function createSportsVenueManagementActions(state: ManagementState, toast: Toast) {
+type PriceRule = NonNullable<ManagementState['selected']>['price_rules'][number];
+type SportsBlock = NonNullable<ManagementState['selected']>['blocks'][number];
+
+export function createSportsVenueManagementActions(state: ManagementState, toast: Toast, confirm?: Confirm) {
+  let confirmedActionInFlight = false;
+
+  const runConfirmedAction = async (
+    options: Parameters<Confirm>[0],
+    operation: () => PromiseLike<{ error: { message: string } | null }>,
+    afterSuccess: () => void,
+    successMessage?: string,
+  ) => {
+    if (!confirm || state.busy || confirmedActionInFlight) return;
+    confirmedActionInFlight = true;
+    state.setBusy(true);
+    state.setError(null);
+    try {
+      if (!await confirm(options)) return;
+      const { error: rpcError } = await operation();
+      if (rpcError) {
+        state.setError(rpcError.message);
+        return;
+      }
+      afterSuccess();
+      if (successMessage) toast({ message: successMessage, tone: 'success' });
+      await state.load();
+    } catch (e) {
+      state.setError((e as Error).message);
+    } finally {
+      confirmedActionInFlight = false;
+      state.setBusy(false);
+    }
+  };
+
   const saveVenue = async (confirm: Confirm) => {
     const selected = state.selected;
     const isOwner = selected?.venue.owner_id === state.userId;
-    if (selected && !getVenueReviewPresentation(selected.venue.status, isOwner ? 'owner' : selected.venue.business_role ?? 'member').canEditDetails) {
+    if (selected && (!isOwner || !getVenueReviewPresentation(selected.venue.status, 'owner').canEditDetails)) {
       return;
     }
 
@@ -41,10 +74,12 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
       amenities: state.amenities.split(',').map((item) => item.trim()).filter(Boolean),
       photos: state.photos.split('\n').map((item) => item.trim()).filter(Boolean),
     };
+    const savedVenue = state.venueBaseline ?? selected?.venue;
     if (
       selected
       && selected.venue.status !== 'draft'
-      && hasSportsVenueReviewChanges(selected.venue, normalizedDetails)
+      && savedVenue
+      && hasSportsVenueReviewChanges(savedVenue, normalizedDetails)
       && !await confirm({
         title: 'Save venue changes and restart review?',
         message: 'Changing venue details will return this venue to draft and clear its current review status. You will need to submit it again. Payment-setting changes alone do not restart review.',
@@ -79,6 +114,7 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
       state.setError(rpcError.message);
       return;
     }
+    state.clearVenueDraftDirty();
     state.setSelectedId(data as string);
     toast({ message: 'Venue details saved', tone: 'success' });
     await state.load();
@@ -86,12 +122,18 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
 
   const saveResource = async () => {
     if (!state.selectedId || !state.activityId) return;
+    const storedSettings = state.selectedResource
+      ? {
+          bookingMode: state.selectedResource.booking_mode ?? 'approval',
+          capacity: state.selectedResource.capacity ?? 1,
+        }
+      : undefined;
     const resourceSettings = resolveSportsResourceSettings(
       state.bookingMode,
       state.capacity,
       state.instantBookingEnabled,
       state.capacitySlotsEnabled,
-      state.selectedResource,
+      storedSettings,
     );
     if (!isSportsCapacityValid(resourceSettings.capacity)) {
       state.setError('Capacity must be a whole number from 1 to 100.');
@@ -113,29 +155,58 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
       state.setError(rpcError.message);
       return;
     }
+    state.clearResourceDraftDirty();
     state.setResourceId(data as string);
     toast({ message: 'Court/resource saved', tone: 'success' });
     await state.load();
   };
 
+  const closeDay = async () => {
+    if (!state.selected || !state.selectedId) return;
+    const weekday = Number(state.weekday);
+    const weekdayLabel = WEEKDAYS[weekday] ?? `weekday ${state.weekday}`;
+    await runConfirmedAction({
+      title: `Close ${weekdayLabel}?`,
+      message: `${state.selected.venue.name} · venue ${state.selected.venue.id} · ${weekdayLabel}. This removes opening hours for this venue and day.`,
+      confirmLabel: 'Close day',
+      destructive: true,
+    }, () => supabase.rpc('set_sports_hours', {
+      p_venue_id: state.selectedId,
+      p_weekday: weekday,
+      p_opens: null,
+      p_closes: null,
+    }), () => {
+      state.setClosed(true);
+      state.clearHoursDraftDirty();
+    }, 'Day marked closed');
+  };
+
   const saveHours = async () => {
     if (!state.selectedId) return;
+    if (state.closed) return closeDay();
     if (!state.closed && !isSportsTimeRangeValid(state.opens, state.closes)) {
       state.setError('Enter valid opening and closing times in 24-hour format.');
       return;
     }
     state.setBusy(true);
-    const { error: rpcError } = await supabase.rpc('set_sports_hours', {
-      p_venue_id: state.selectedId,
-      p_weekday: Number(state.weekday),
-      p_opens: state.closed ? null : state.opens,
-      p_closes: state.closed ? null : state.closes,
-    });
-    state.setBusy(false);
-    if (rpcError) state.setError(rpcError.message);
-    else {
-      toast({ message: 'Opening hours saved', tone: 'success' });
-      await state.load();
+    state.setError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc('set_sports_hours', {
+        p_venue_id: state.selectedId,
+        p_weekday: Number(state.weekday),
+        p_opens: state.closed ? null : state.opens,
+        p_closes: state.closed ? null : state.closes,
+      });
+      if (rpcError) state.setError(rpcError.message);
+      else {
+        state.clearHoursDraftDirty();
+        toast({ message: 'Opening hours saved', tone: 'success' });
+        await state.load();
+      }
+    } catch (e) {
+      state.setError((e as Error).message);
+    } finally {
+      state.setBusy(false);
     }
   };
 
@@ -167,20 +238,20 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
     }
   };
 
-  const deletePrice = async (id: string) => {
-    state.setBusy(true);
-    const { error: rpcError } = await supabase.rpc('delete_sports_price_rule', { p_id: id });
-    state.setBusy(false);
-    if (rpcError) state.setError(rpcError.message);
-    else {
-      if (state.editingPriceId === id) {
+  const deletePrice = async (rule: PriceRule) => {
+    const weekdayLabel = rule.weekday == null ? 'Every day' : WEEKDAYS[rule.weekday] ?? `weekday ${rule.weekday}`;
+    await runConfirmedAction({
+      title: 'Delete price rule?',
+      message: `${rule.label} · ${weekdayLabel} · ${rule.starts.slice(0, 5)}–${rule.ends.slice(0, 5)} · ${formatINR(rule.price_paise)} · rule ${rule.id}`,
+      confirmLabel: 'Delete rule',
+      destructive: true,
+    }, () => supabase.rpc('delete_sports_price_rule', { p_id: rule.id }), () => {
+      if (state.editingPriceId === rule.id) {
         state.setEditingPriceId(null);
         state.setPriceRupees('');
         state.setPriceLabel('Standard');
       }
-      toast({ message: 'Price rule deleted', tone: 'success' });
-      await state.load();
-    }
+    }, 'Price rule deleted');
   };
 
   const addBlock = async () => {
@@ -210,10 +281,13 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
     }
   };
 
-  const removeBlock = async (id: string) => {
-    const { error: rpcError } = await supabase.rpc('remove_sports_block', { p_id: id });
-    if (rpcError) state.setError(rpcError.message);
-    else await state.load();
+  const removeBlock = async (block: SportsBlock) => {
+    await runConfirmedAction({
+      title: 'Remove unavailable time?',
+      message: `Block ${block.id} · ${block.starts_at} to ${block.ends_at} · ${block.reason || 'Unavailable'}`,
+      confirmLabel: 'Remove block',
+      destructive: true,
+    }, () => supabase.rpc('remove_sports_block', { p_id: block.id }), () => {}, 'Unavailable time removed');
   };
 
   const submitVenue = async () => {
@@ -238,5 +312,5 @@ export function createSportsVenueManagementActions(state: ManagementState, toast
     });
   };
 
-  return { saveVenue, saveResource, saveHours, savePrice, deletePrice, addBlock, removeBlock, submitVenue, togglePaymentMode };
+  return { saveVenue, saveResource, saveHours, closeDay, savePrice, deletePrice, addBlock, removeBlock, submitVenue, togglePaymentMode };
 }

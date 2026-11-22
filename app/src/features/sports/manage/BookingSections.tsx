@@ -1,6 +1,6 @@
 import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { Badge, Button, Card, EmptyState, Header, InlineAlert, Screen, Text, type Tone } from '../../../components/ui';
+import { Badge, Button, Card, EmptyState, InlineAlert, Text, type Tone } from '../../../components/ui';
 import { formatINR } from '../../../lib/money';
 import {
   getSportsBookingStatusLabel,
@@ -22,7 +22,8 @@ const SPORTS_BOOKING_STATUS_TONES: Record<string, Tone> = {
 
 export function renderAssignedBookings(venueName: string, venueBookings: SportsBookingRow[], gap: number) {
   return (
-    <Screen header={<Header title="Assigned sports bookings" subtitle={`${venueName} · read-only`} onBack={() => router.back()} />}>
+    <View style={{ gap }}>
+      <Text variant="title3">Assigned sports bookings · {venueName}</Text>
       <Text variant="footnote" color="muted">Staff can view sports bookings. Only the venue owner can edit venue details, prices, hours, or respond to requests.</Text>
       <Button title="All assigned business work" variant="outline" onPress={() => router.push('/merchant-work')} />
       <Card gap={gap}>
@@ -42,7 +43,7 @@ export function renderAssignedBookings(venueName: string, venueBookings: SportsB
           </Pressable>
         ))}
       </Card>
-    </Screen>
+    </View>
   );
 }
 
