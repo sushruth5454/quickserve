@@ -1,3 +1,5 @@
+import type { RecurringOccurrenceProjection, RecurringPlanCapabilities } from './types';
+
 export type ProviderFrequency = 'daily' | 'alternate_days' | 'weekly' | 'monthly' | 'custom';
 export type ProviderBillingFrequency = 'per_visit' | 'weekly' | 'monthly' | 'prepaid_package';
 export type ProviderPlanStatus = 'active' | 'paused' | 'cancelled' | 'completed';
@@ -43,9 +45,10 @@ export interface RecurringPlanRecord {
   created_at: string;
   updated_at: string;
   cancelled_at: string | null;
+  capabilities?: Partial<RecurringPlanCapabilities>;
 }
 
-export interface RecurringOccurrence {
+export interface RecurringOccurrence extends RecurringOccurrenceProjection {
   id: string;
   scheduled_at: string;
   service_window: string | null;

@@ -1,0 +1,332 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O17-PLAN",
+  "workPackage": "O17",
+  "status": "IMPLEMENTED_AWAITING_SHARED_REGISTRATION",
+  "base": {
+    "branch": "lane/oorva-o17-plan",
+    "implementationSha": "b285d1efbe432de2bd868f40a4053cfb1802a818",
+    "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "sourceAuditSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "wasModified": false
+  },
+  "sourceDrift": {
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "chosenBase": "b285d1efbe432de2bd868f40a4053cfb1802a818",
+    "changedStageOwnedFiles": [
+      {
+        "path": "supabase\\migrations\\0094_o17_sv07_oorva.sql",
+        "reason": "The tested batch21 base adds the completed O17-SV07 prerequisite; no app presentation or assigned quote/payload function drift was found."
+      }
+    ],
+    "otherComparedStageOwnedFiles": "No audited-source-to-base drift reported for the scoped recurring routes, presentation models, migrations 0057/0066, or assigned functions."
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "PRESENT_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O17-SV07",
+      "sha": "b285d1efbe432de2bd868f40a4053cfb1802a818",
+      "state": "DONE_IN_TESTED_PRIVATE_BATCH21_BASE"
+    }
+  ],
+  "sourceTaskIds": [
+    "SV-T08",
+    "SV-T09"
+  ],
+  "sourceFindingIds": [
+    "SV-F07",
+    "SV-F08"
+  ],
+  "sqlFunctions": [
+    "public._recurring_plan_payload",
+    "public.quote_recurring_plan"
+  ],
+  "sqlObjects": [],
+  "migrationClaims": [
+    "MIG-O17-PLAN"
+  ],
+  "allocatedMigrationFilenames": [
+    "supabase\\migrations\\0095_o17_plan_oorva.sql"
+  ],
+  "workerOwnedFiles": [
+    "app\\src\\features\\recurring\\types.ts",
+    "app\\src\\features\\recurring\\providerTypes.ts",
+    "app\\src\\features\\recurring\\customerPresentation.ts",
+    "app\\app\\recurring\\[id].tsx",
+    "app\\app\\recurring\\new\\[providerServiceId].tsx",
+    "app\\src\\features\\recurring\\providerPresentation.ts",
+    "app\\app\\recurring\\provider\\[id].tsx",
+    "app\\src\\features\\activity\\model.ts",
+    "app\\src\\features\\activity\\segments\\ServicesSegment.tsx",
+    "supabase\\migrations\\0095_o17_plan_oorva.sql",
+    "app\\src\\features\\recurring\\__tests__\\customerPresentation.test.ts",
+    "app\\src\\features\\recurring\\__tests__\\providerPresentation.test.ts",
+    "supabase\\tests\\oorva_o17_plan.test.mjs",
+    "app\\src\\features\\serviceScreens\\RecurringDetailScreen.tsx",
+    "app\\src\\features\\serviceScreens\\RecurringNewDetailScreen.tsx",
+    "app\\src\\features\\serviceScreens\\RecurringProviderDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o17-plan.json"
+  ],
+  "coordinatorOwnedFiles": [
+    "supabase\\tests\\package.json"
+  ],
+  "promotionOwnedFiles": [
+    {
+      "path": ".github\\workflows\\deploy-backend.yml",
+      "owner": "O37B",
+      "status": "NOT_TOUCHED"
+    }
+  ],
+  "approvals": {
+    "E0": "APPROVED",
+    "MIG-O17-PLAN": "APPROVED",
+    "E1_main_promotion": "NOT_GRANTED",
+    "native_or_public_access": "NOT_GRANTED"
+  },
+  "registration": {
+    "state": "REGISTERED_AND_MERGED",
+    "reportedCommitSha": "7ca4c807444bf7f78b9c722901e6cd79c490a94b",
+    "verifiedLocalCommitSha": "7ca4c805373c413a48e6ff1c741a3ee0176dafd6",
+    "localRegistrationRef": "refs/heads/reg/oorva-o17-plan-0da335de",
+    "commitHashNote": "The reported SHA was unavailable; the verified local registration ref descends directly from the exact checkpoint and changes only supabase/tests/package.json.",
+    "pgliteSelector": "oorva_o17_plan",
+    "migrationParserSelector": "o17_plan_oorva.sql",
+    "packageAndParserRegistrationOwner": "coordinator",
+    "registrationHasTestSuccessClaim": false,
+    "sharedSelectionProof": {
+      "pgliteFile": "supabase/tests/oorva_o17_plan.test.mjs",
+      "pgliteCommand": "node oorva_o17_plan.test.mjs",
+      "parserFile": "supabase/migrations/0095_o17_plan_oorva.sql",
+      "parserCommand": "node parse.cjs ../migrations/0095_o17_plan_oorva.sql"
+    }
+  },
+  "requiredCases": [
+    "SV-RECURRING-DEADLINE-01",
+    "SV-RECURRING-DEADLINE-02",
+    "SV-RECURRING-PRIVACY-03",
+    "SV-PLAN-CAPABILITY-PARITY-01"
+  ],
+  "codespaceSelectorsAfterRegistration": [
+    {
+      "suite": "app",
+      "filter": "src.features.recurring.__tests__.customerPresentation[.]test[.]ts$"
+    },
+    {
+      "suite": "jest",
+      "filter": "src.features.recurring.__tests__.providerPresentation[.]test[.]ts$"
+    },
+    {
+      "suite": "sql",
+      "filter": "oorva_o17_plan"
+    },
+    {
+      "suite": "sql",
+      "filter": "o17_plan_oorva.sql"
+    }
+  ],
+  "review": {
+    "required": [
+      "money",
+      "auth"
+    ],
+    "status": "MONEY_PASS_AUTH_PASS_ON_FINAL_STAGED_CODE",
+    "results": {
+      "money": "PASS",
+      "auth": "PASS"
+    },
+    "correction": "The review's missing per_visit_paise finding was fixed in 0095 and covered by the SQL privacy assertion before the final review."
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "PASS",
+      "testsSelected": true,
+      "helperSource": "origin/main:scripts/cs-test.ps1 at e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5",
+      "noWindowsAppOrSqlTests": true,
+      "selectors": [
+        {
+          "suite": "app",
+          "filter": "src.features.recurring.__tests__.customerPresentation[.]test[.]ts$",
+          "selectedFile": "app/src/features/recurring/__tests__/customerPresentation.test.ts",
+          "snapshot": "4cc410f2",
+          "testSuites": 1,
+          "testsPassed": 9,
+          "result": "PASS"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.recurring.__tests__.providerPresentation[.]test[.]ts$",
+          "selectedFile": "app/src/features/recurring/__tests__/providerPresentation.test.ts",
+          "snapshot": "36b4d7f9",
+          "testSuites": 1,
+          "testsPassed": 12,
+          "result": "PASS"
+        },
+        {
+          "suite": "sql",
+          "filter": "oorva_o17_plan",
+          "selectedFile": "supabase/tests/oorva_o17_plan.test.mjs",
+          "snapshot": "62a92adc",
+          "testFiles": 1,
+          "parseChecks": 0,
+          "checksPassed": 1,
+          "result": "PASS",
+          "cases": [
+            "SV-RECURRING-DEADLINE-DEFAULTS",
+            "SV-RECURRING-DEADLINE-LATE-GENERATION",
+            "SV-RECURRING-DEADLINE-01",
+            "SV-RECURRING-DEADLINE-02",
+            "SV-RECURRING-PRIVACY-03",
+            "SV-PLAN-CAPABILITY-PARITY-01"
+          ]
+        },
+        {
+          "suite": "sql",
+          "filter": "o17_plan_oorva.sql",
+          "selectedFile": "supabase/migrations/0095_o17_plan_oorva.sql",
+          "snapshot": "d78b0ac3",
+          "testFiles": 0,
+          "parseChecks": 1,
+          "checksPassed": 1,
+          "result": "PASS",
+          "topLevelStatements": 4,
+          "functionBodies": 2,
+          "parseErrors": 0
+        }
+      ],
+      "allSelectorsPassed": true
+    },
+    "laneCI": {
+      "status": "PENDING_AFTER_QUOTE_SUMMARY_COMPAT_FIX",
+      "priorRuns": [
+        {
+          "runId": 45032915325,
+          "headSha": "a7fddb38160cef07ba4beadfdd35e1c2920d2f47",
+          "conclusion": "failure",
+          "failedJob": "app / UI lint",
+          "findings": [
+            "RecurringNewDetailScreen.tsx: custom-date Pressable lacked accessibilityRole.",
+            "RecurringNewDetailScreen.tsx: fixed-package Pressable lacked accessibilityRole."
+          ],
+          "resolution": "Added accessibilityRole=button to both Pressables."
+        },
+        {
+          "runId": 45033701754,
+          "headSha": "3d80f097c2cf7f1908504eee140d3fa082932fcf",
+          "conclusion": "failure",
+          "failedJob": "app / Unit tests",
+          "failure": "One test failed: activity/__tests__/recurringScreens.test.ts RP-03 expected the prior quote-summary object shape; new null-valued summary keys were present for a legacy quote.",
+          "resolution": "getRecurringQuoteSummary now omits acceptance/payment-window fields unless valid server values exist; server-projected values remain present for new quotes.",
+          "otherJobs": "changes, UI lint, typecheck, SQL, private-postgres, Deno, and tooling passed."
+        }
+      ],
+      "nextRun": "Push the current lane head after all four required Codespace selectors pass; watch the exact-head Lane CI run."
+    },
+    "productionOrHostedDatabaseUsed": false,
+    "mainOrDeploymentTouched": false
+  },
+  "implementation": {
+    "status": "Coordinator registration merged; required Codespace selectors passed; lane push pending",
+    "behavior": [
+      "Quote responses return only acceptance mode and a safe payment-window summary; visit projections use due obligations, server deadlines, exact expiry rules, and actor-specific payment/skip/reschedule capabilities.",
+      "Legacy quote responses without server acceptance/payment-window fields retain their previous summary object shape.",
+      "Customer payment labels use remaining_due_paise, payment_due_at, and payment_expires_at; creation copy uses the server acceptance mode and configured payment-window values.",
+      "Recurring action helpers require customer ownership, safe server capabilities, exact pending-reschedule identity/counterparty, and the server skip cutoff; pending plans cannot be paused.",
+      "Provider context is resolved from the plan provider_id; mismatched route hints cannot produce management controls. Occurrence history is exhaustively partitioned by time and actual status.",
+      "Existing address masking, provider-only net estimate, customer cancellation, authorized provider absence, per-visit billing, and existing feature-parent behavior are preserved."
+    ],
+    "routeHostBindings": [
+      {
+        "route": "app\\app\\recurring\\[id].tsx",
+        "host": "app\\src\\features\\serviceScreens\\RecurringDetailScreen.tsx",
+        "controller": "useRecurringDetailController"
+      },
+      {
+        "route": "app\\app\\recurring\\new\\[providerServiceId].tsx",
+        "host": "app\\src\\features\\serviceScreens\\RecurringNewDetailScreen.tsx",
+        "controller": "useRecurringNewDetailController"
+      },
+      {
+        "route": "app\\app\\recurring\\provider\\[id].tsx",
+        "host": "app\\src\\features\\serviceScreens\\RecurringProviderDetailScreen.tsx",
+        "controller": "useRecurringProviderDetailController"
+      }
+    ]
+  },
+  "sourceRefs": [
+    {
+      "path": "app\\src\\features\\recurring\\customerPresentation.ts",
+      "startLine": 43,
+      "endLine": 74,
+      "symbol": "visitPaymentLabel",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "app\\app\\recurring\\new\\[providerServiceId].tsx",
+      "startLine": 664,
+      "endLine": 668,
+      "symbol": "two-day note",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "supabase\\migrations\\0057_recurring_plans_v2.sql",
+      "startLine": 342,
+      "endLine": 375,
+      "symbol": "payment due_at",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "supabase\\migrations\\0057_recurring_plans_v2.sql",
+      "startLine": 2219,
+      "endLine": 2249,
+      "symbol": "recurring occurrence expiry",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "supabase\\migrations\\0066_h2b_recurring_ux.sql",
+      "startLine": 327,
+      "endLine": 343,
+      "symbol": "payload occurrence projection",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "app\\src\\features\\recurring\\customerPresentation.ts",
+      "startLine": 159,
+      "endLine": 174,
+      "symbol": "status-only action helper",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "app\\app\\recurring\\[id].tsx",
+      "startLine": 160,
+      "endLine": 181,
+      "symbol": "next visit and pending reschedule logic",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "app\\app\\recurring\\provider\\[id].tsx",
+      "startLine": 108,
+      "endLine": 160,
+      "symbol": "provider role and occurrence partitions",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "app\\src\\features\\activity\\segments\\ServicesSegment.tsx",
+      "startLine": 144,
+      "endLine": 169,
+      "symbol": "activity next plan occurrence",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    },
+    {
+      "path": "supabase\\migrations\\0065_h2a_recurring_correctness.sql",
+      "startLine": 737,
+      "endLine": 745,
+      "symbol": "pending plan pause denial in source RPC",
+      "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+    }
+  ]
+}

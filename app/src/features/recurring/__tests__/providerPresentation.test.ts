@@ -1,11 +1,15 @@
 import {
   canShowProviderCalendar,
+  canManageRecurringPlanContext,
+  canRequestRecurringReschedule,
   canUsePlanAcceptance,
   canUseRecurringReschedule,
   findTimeOffVisits,
   firstRecurringDates,
   formatRecurrence,
   pendingProviderPlans,
+  partitionProviderOccurrences,
+  providerVisitSections,
   providerCalendarVisitRoute,
   providerCalendarRange,
   providerDateTimeIso,
@@ -91,6 +95,50 @@ test('pending requests are scoped to the selected provider and active pending pl
   const accepted = makePlan({ id: 'plan-3', provider_acceptance: 'accepted' });
 
   expect(pendingProviderPlans([pending, otherProvider, accepted], 'provider-1')).toEqual([pending]);
+});
+
+test('provider management requires the plan provider, matching route hint, and owner or manager role', () => {
+  expect(canManageRecurringPlanContext('provider-1', undefined, 'provider-1', 'owner')).toBe(true);
+  expect(canManageRecurringPlanContext('provider-1', 'provider-1', 'provider-1', 'manager')).toBe(true);
+  expect(canManageRecurringPlanContext('provider-1', 'provider-2', 'provider-2', 'manager')).toBe(false);
+  expect(canManageRecurringPlanContext('provider-1', 'provider-1', 'provider-2', 'manager')).toBe(false);
+  expect(canManageRecurringPlanContext('provider-1', 'provider-1', 'provider-1', 'staff')).toBe(false);
+});
+
+test('new reschedule requests use the server-projected cutoff and capability', () => {
+  const occurrence = {
+    can_request_reschedule: true,
+    reschedule_cutoff_at: '2026-11-23T00:00:00.000Z',
+  };
+  expect(canRequestRecurringReschedule(occurrence, Date.parse('2026-11-22T00:00:00.000Z'))).toBe(true);
+  expect(canRequestRecurringReschedule(occurrence, Date.parse('2026-11-23T00:00:00.000Z'))).toBe(false);
+  expect(canRequestRecurringReschedule({ ...occurrence, can_request_reschedule: false }, Date.parse('2026-11-22T00:00:00.000Z'))).toBe(false);
+});
+
+test('occurrence partition is exhaustive and keeps every id exactly once by time and booking status', () => {
+  const visits = [
+    { id: 'future-open', scheduled_at: '2026-11-23T00:00:00.000Z', status: 'accepted' },
+    { id: 'past-open', scheduled_at: '2026-11-21T00:00:00.000Z', status: 'requested' },
+    { id: 'future-resolving', scheduled_at: '2026-11-24T00:00:00.000Z', status: 'in_progress' },
+    { id: 'past-completed', scheduled_at: '2026-11-20T00:00:00.000Z', status: 'completed' },
+    { id: 'future-expired', scheduled_at: '2026-11-25T00:00:00.000Z', status: 'expired' },
+    { id: 'bad-time', scheduled_at: 'not-a-date', status: 'pending_payment' },
+  ];
+  const partition = partitionProviderOccurrences(visits, Date.parse('2026-11-22T00:00:00.000Z'));
+  const flattened = [
+    ...Object.values(partition.past).flat(),
+    ...Object.values(partition.future).flat(),
+    ...partition.invalidTime,
+  ];
+
+  expect(flattened.map((visit) => visit.id).sort()).toEqual(visits.map((visit) => visit.id).sort());
+  expect(new Set(flattened.map((visit) => visit.id)).size).toBe(visits.length);
+  expect(partition.future.terminal.map((visit) => visit.id)).toEqual(['future-expired']);
+  expect(partition.past.actionable.map((visit) => visit.id)).toEqual(['past-open']);
+  const sections = providerVisitSections(visits, Date.parse('2026-11-22T00:00:00.000Z'));
+  const shown = [...sections.upcoming, ...sections.completed, ...sections.otherHistory];
+  expect(shown.map((visit) => visit.id).sort()).toEqual(visits.map((visit) => visit.id).sort());
+  expect(new Set(shown.map((visit) => visit.id)).size).toBe(visits.length);
 });
 
 test('weekly plan copy and first dates follow the shared recurrence rule', () => {
