@@ -11,6 +11,93 @@ const TRANSFORM_KEYS = new Set(['mode', 'canvas', 'density', 'recolor', 'backgro
 const SYMBOL_VIEWBOX_SIZE = 256;
 const SYMBOL_INK_SAFEBOX_SIZE = 208;
 const SYMBOL_NATIVE_SAFE_SIZE = 624;
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const SRGB_CHROMATICITIES = [31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000];
+
+function pngCrc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function embedSrgbProfile(png) {
+  if (!Buffer.isBuffer(png) || png.length < 45 || !png.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error(`Resvg output is not a complete PNG: actualBytes=${Buffer.isBuffer(png) ? png.length : 'NOT A BUFFER'}`);
+  }
+
+  let offset = 8;
+  let ihdrEnd = null;
+  let hasSrgb = false;
+  let hasIccp = false;
+  let gamma = null;
+  let chromaticities = null;
+  let sawEnd = false;
+
+  while (offset + 12 <= png.length) {
+    const length = png.readUInt32BE(offset);
+    const type = png.toString('ascii', offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const chunkEnd = dataEnd + 4;
+    if (chunkEnd > png.length) throw new Error(`Resvg PNG chunk exceeds buffer: type=${type} end=${chunkEnd} bytes=${png.length}`);
+
+    const data = png.subarray(dataStart, dataEnd);
+    const actualCrc = png.readUInt32BE(dataEnd);
+    const expectedCrc = pngCrc32(png.subarray(offset + 4, dataEnd));
+    if (actualCrc !== expectedCrc) {
+      throw new Error(`Resvg PNG chunk CRC is invalid: type=${type} actual=${actualCrc} expected=${expectedCrc}`);
+    }
+
+    if (offset === 8) {
+      if (type !== 'IHDR' || length !== 13) throw new Error(`Resvg PNG must start with IHDR: actualType=${type} actualLength=${length}`);
+      ihdrEnd = chunkEnd;
+    } else if (type === 'IHDR') {
+      throw new Error('Resvg PNG contains duplicate IHDR');
+    }
+
+    if (type === 'sRGB') {
+      if (length !== 1 || data[0] > 3) throw new Error(`Resvg sRGB chunk is invalid: actual=${data.toString('hex')}`);
+      hasSrgb = true;
+    } else if (type === 'iCCP') {
+      hasIccp = true;
+    } else if (type === 'gAMA') {
+      if (length !== 4) throw new Error(`Resvg gAMA chunk is invalid: actualLength=${length} expected=4`);
+      gamma = data.readUInt32BE(0);
+    } else if (type === 'cHRM') {
+      if (length !== 32) throw new Error(`Resvg cHRM chunk is invalid: actualLength=${length} expected=32`);
+      chromaticities = Array.from({ length: 8 }, (_, index) => data.readUInt32BE(index * 4));
+    }
+
+    offset = chunkEnd;
+    if (type === 'IEND') {
+      if (length !== 0 || offset !== png.length) throw new Error(`Resvg IEND is invalid: actualLength=${length} end=${offset} bytes=${png.length}`);
+      sawEnd = true;
+      break;
+    }
+  }
+
+  if (ihdrEnd === null || !sawEnd) throw new Error(`Resvg PNG is incomplete: ihdrEnd=${ihdrEnd} IEND=${sawEnd}`);
+  if (hasSrgb && hasIccp) throw new Error('Resvg PNG contains conflicting sRGB and iCCP profiles');
+  if (hasSrgb || hasIccp) return png;
+  if (gamma !== null && gamma !== 45455) {
+    throw new Error(`Resvg PNG gamma is not sRGB: actual=${gamma} expected=45455`);
+  }
+  if (chromaticities !== null && chromaticities.some((value, index) => value !== SRGB_CHROMATICITIES[index])) {
+    throw new Error(`Resvg PNG chromaticities are not sRGB: actual=${JSON.stringify(chromaticities)} expected=${JSON.stringify(SRGB_CHROMATICITIES)}`);
+  }
+
+  const chunk = Buffer.alloc(13);
+  chunk.writeUInt32BE(1, 0);
+  chunk.write('sRGB', 4, 4, 'ascii');
+  chunk[8] = 0;
+  chunk.writeUInt32BE(pngCrc32(chunk.subarray(4, 9)), 9);
+  return Buffer.concat([png.subarray(0, ihdrEnd), chunk, png.subarray(ihdrEnd)]);
+}
 
 function assertSelfContainedSvg(svgSource) {
   const invalidElements = /<(?:text|textPath|font|image|feImage|script|foreignObject)\b|font-family\s*=|@font-face|<!DOCTYPE\b|<!ENTITY\b|@import\b/i.test(svgSource);
@@ -201,19 +288,21 @@ export function renderSvg(svgSource, transform) {
     if (typeof svgSource !== 'string' || svgSource.trim() === '') {
       throw new TypeError('SVG source must be a non-empty string');
     }
-    return new Resvg(svgSource, {
+    const rawPng = new Resvg(svgSource, {
       font: { loadSystemFonts: false },
     }).render().asPng();
+    return embedSrgbProfile(rawPng);
   }
 
   const normalized = validateTransform(svgSource, transform);
   const preparedSvg = normalized.mode === 'solid-background'
     ? solidBackgroundSvg(normalized.canvas, normalized.background)
     : composeSvg(svgSource, normalized);
-  const png = new Resvg(preparedSvg, {
+  const rawPng = new Resvg(preparedSvg, {
     fitTo: { mode: 'width', value: normalized.canvas.width },
     font: { loadSystemFonts: false },
   }).render().asPng();
+  const png = embedSrgbProfile(rawPng);
   validatePng(png, normalized.canvas);
   return png;
 }

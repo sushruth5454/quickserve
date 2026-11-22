@@ -465,6 +465,41 @@
         "O01X": "BLOCKED"
       }
     },
+    "srgbProfileFixForward": {
+      "state": "CODESPACE_PASS_LANE_CI_PENDING",
+      "branch": "lane/oorva-o37a-srgb-profile",
+      "baseSha": "e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5",
+      "reportedIssue": "Pinned Resvg PNG bytes did not include sRGB or iCCP chunks, so the existing strict validator correctly reported color profile NOT VERIFIED.",
+      "implementation": "Exporter inserts a deterministic one-byte sRGB chunk (perceptual intent 0) immediately after IHDR when neither sRGB nor iCCP exists and no conflicting gamma/chromaticity hints are present; the chunk CRC covers sRGB+intent. Existing transforms and validate.mjs thresholds are unchanged.",
+      "selftest": "The pinned raw Resvg fixture proves the baseline profile is NOT VERIFIED; exporter output must be recognized by inspectAssetPng as sRGB intent 0, and a deliberately corrupted sRGB CRC must be rejected. Existing transform and CLI deterministic selftests remain in the same asset-tests --selftest.",
+      "validation": {
+        "helperSource": "origin/main:scripts/cs-test.ps1 at e9948a8380e4c06b0d75ec5255e2a65db0dfd3d5",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.executionInfrastructure[.]test[.]ts$'",
+        "worktreeRootVerified": "C:\\Users\\snizampuram\\source\\qs-o37a-srgb-profile",
+        "wipSnapshotBranch": "wip/qs-o37a-srgb-profile",
+        "wipSnapshotSha": "21cd5e0f46c23a27b8156fb8679fbc8f9694629d",
+        "selectedJestSuites": 1,
+        "testsPassed": 8,
+        "typescript": "PASS",
+        "profileSelftest": "PASS; raw renderer profile NOT VERIFIED; exported PNG sRGB intent 0 accepted by validate.mjs; corrupted sRGB CRC rejected.",
+        "result": "cs-test result: PASS",
+        "assetsSuiteInvoked": false,
+        "lanePushed": false,
+        "laneCi": "PENDING"
+      },
+      "scope": {
+        "workerFilesOnly": true,
+        "validate.mjsEdited": false,
+        "dependenciesChanged": false,
+        "sourceManifestEdited": false,
+        "O01XManifestOrPngsCreated": false,
+        "nativeOrRuntimeDestinationsEdited": false,
+        "D03b": "PENDING",
+        "D03c": "PENDING",
+        "TOOL-ASSETS-MAIN": "PENDING",
+        "O01X": "BLOCKED"
+      }
+    },
     "coordinatorRegistrationRequest": {
       "scripts\\cs-test.ps1": "Add 'assets' to the Suite ValidateSet only; keep all existing suites unchanged.",
       "scripts\\cs\\run.sh": "Add an assets) branch that requires exactly one filter, oorva; reject any other/empty filter with exit 2. In scripts/brand working directory invoke `node asset-tests.mjs --check-oorva`. Do not add a generic assets bypass or call --selftest for this filter.",
