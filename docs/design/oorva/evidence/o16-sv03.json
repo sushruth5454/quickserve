@@ -65,14 +65,40 @@
     ],
     "migrationParserSelector": "o16_sv03_oorva.sql"
   },
+  "coordinatorRegistration": {
+    "path": "supabase/tests/package.json",
+    "registrationCommit": "299169130d4a35be3beb9fb3364fa43288460d4f",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "selectionProof": {
+      "sql": "node oorva_o16_sv03.test.mjs",
+      "migrationParser": "node parse.cjs ../migrations/0093_o16_sv03_oorva.sql"
+    }
+  },
   "validation": {
     "sourceScope": "PASS",
     "gitDiffCheck": "PASS",
-    "codespaceApp": "PENDING",
-    "codespaceSql": "PENDING registration",
-    "codespaceMigrationParser": "PENDING registration",
-    "authReview": "REQUIRED",
-    "laneCi": "PENDING"
+    "codespaceApp": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.bookingDetail.__tests__.readback[.]test[.]tsx$'",
+      "selectedFile": "app/src/features/bookingDetail/__tests__/readback.test.tsx",
+      "selectedCases": 5,
+      "tsc": "PASS",
+      "outcome": "PASS"
+    },
+    "codespaceSql": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o16_sv03'",
+      "selectedFile": "supabase/tests/oorva_o16_sv03.test.mjs",
+      "scenarios": 1,
+      "outcome": "PASS"
+    },
+    "codespaceMigrationParser": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o16_sv03_oorva.sql'",
+      "selectedMigration": "supabase/migrations/0093_o16_sv03_oorva.sql",
+      "topLevelStatements": 3,
+      "parseErrors": 0,
+      "outcome": "PASS"
+    },
+    "authReview": "REQUIRED BEFORE CODE_GREEN",
+    "laneCi": "PENDING exact-head push"
   },
   "runtimeEvidence": {
     "publicationMembership": "NOT VERIFIED in the PGlite harness because supabase_realtime is absent there; production catalog state is not queried or changed in this implementation session."

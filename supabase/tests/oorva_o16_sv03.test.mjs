@@ -37,11 +37,10 @@ async function createBookingFixture(seed, actors) {
   const booking = (await one(`
     insert into public.bookings (
       customer_id, provider_id, category_id, provider_service_id, address_id,
-      description, status, scheduled_at, visit_fee, platform_fee, total_amount, coin_discount
+      description, status, visit_fee, platform_fee, total_amount, coin_discount
     ) values (
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-      'Readback fixture', 'in_progress'::public.booking_status, '2026-12-15 10:00:00+00'::timestamptz,
-      19900, 2900, 19900, 0
+      'Readback fixture', 'in_progress'::public.booking_status, 19900, 2900, 19900, 0
     )
     returning id
   `, [actors.customer, actors.provider, category, service, address])).id;
@@ -60,8 +59,11 @@ async function createBookingFixture(seed, actors) {
     returning id
   `, [booking, quote])).id;
   await db.query(`
-    insert into public.payment_schedule (booking_id, seq, label, amount, due_rule, status, payment_id)
-    values ($1::uuid, 1, $2::text, 10000, 'at_booking', 'due', $3::uuid)
+    insert into public.payment_schedule (
+      booking_id, seq, obligation_type, label, amount, due_rule, status, payment_id
+    ) values (
+      $1::uuid, 1, 'service', $2::text, 10000, 'at_booking', 'due', $3::uuid
+    )
   `, [booking, `SV O16 milestone ${seed}`, payment]);
   await db.query(`
     insert into public.refunds (payment_id, amount, reason, status)
