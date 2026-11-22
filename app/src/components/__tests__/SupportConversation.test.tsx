@@ -268,6 +268,16 @@ async function advanceInterval(ms = 60_000) {
   });
 }
 
+async function enterDraft(value: string) {
+  const input = container.querySelector('textarea');
+  const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+  if (input) valueSetter?.call(input, value);
+  await testAct(async () => {
+    input?.dispatchEvent(new window.Event('input', { bubbles: true }));
+    await flushMicrotasks();
+  });
+}
+
 function textContent() {
   return container.textContent ?? '';
 }
@@ -517,6 +527,65 @@ describe('SupportConversation', () => {
     assertEqual(serverThread.user_unread, 0, 'read RPC refreshes the actor-side unread counter');
     assertActual(textContent().includes('Draft reply'), { text: textContent() }, 'canonical readback includes the sent message');
     assertEqual((container.querySelector('textarea') as HTMLTextAreaElement).value, '', 'successful send clears the draft');
+  });
+
+  it('CM_SUPPORT_CONCURRENT_CONTEXT_SEND_LOCKS keeps in-flight sends isolated across role switches', async () => {
+    await render('thread-1');
+    await setFocused(true);
+    await enterDraft('Participant reply');
+
+    const participantSend = deferred<void>();
+    mockApi.sendSupport.mockImplementationOnce(() => participantSend.promise);
+    await testAct(async () => {
+      mockButtonHandlers.get('Send')?.();
+      await flushMicrotasks();
+    });
+    assertEqual(mockApi.sendSupport.mock.calls.length, 1, 'participant send starts once');
+
+    mockActorId = 'admin-1';
+    mockActorIsAdmin = true;
+    await render('thread-1', true);
+    await enterDraft('Admin reply');
+    const adminSend = deferred<void>();
+    mockApi.sendSupport.mockImplementationOnce(() => adminSend.promise);
+    await testAct(async () => {
+      mockButtonHandlers.get('Send')?.();
+      await flushMicrotasks();
+    });
+    assertEqual(mockApi.sendSupport.mock.calls.length, 2, 'admin may send under its own actor/scope');
+
+    mockActorId = 'actor-1';
+    mockActorIsAdmin = false;
+    await render('thread-1');
+    await enterDraft('Second participant reply');
+    assertActual(button('Send')?.disabled === true, {
+      disabled: button('Send')?.disabled ?? null,
+      calls: mockApi.sendSupport.mock.calls,
+    }, 'returning to participant context retains its in-flight lock');
+    await testAct(async () => {
+      mockButtonHandlers.get('Send')?.();
+      await flushMicrotasks();
+    });
+    assertEqual(mockApi.sendSupport.mock.calls.length, 2, 'participant retry cannot overlap its pending RPC');
+
+    mockActorId = 'admin-1';
+    mockActorIsAdmin = true;
+    await render('thread-1', true);
+    await enterDraft('Second admin reply');
+    assertActual(button('Send')?.disabled === true, {
+      disabled: button('Send')?.disabled ?? null,
+      calls: mockApi.sendSupport.mock.calls,
+    }, 'participant completion cannot clear the independent admin lock');
+
+    participantSend.resolve();
+    await testAct(async () => { await flushMicrotasks(); await flushMicrotasks(); });
+    assertActual(button('Send')?.disabled === true, {
+      disabled: button('Send')?.disabled ?? null,
+      calls: mockApi.sendSupport.mock.calls,
+    }, 'older participant completion leaves the admin operation locked');
+    adminSend.resolve();
+    await testAct(async () => { await flushMicrotasks(); await flushMicrotasks(); });
+    assertEqual(mockApi.sendSupport.mock.calls.length, 2, 'both in-flight sends complete without a duplicate write');
   });
 
   it('CM_SUPPORT_SINGLE_KEYBOARD_OWNER leaves keyboard ownership to Screen', async () => {
