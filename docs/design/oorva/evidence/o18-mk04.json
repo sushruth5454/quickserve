@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O18-MK04",
   "workPackage": "O18",
-  "status": "IMPLEMENTED_AWAITING_SHARED_REGISTRATION",
+  "status": "CODE_GREEN_AWAITING_LANE_CI",
   "base": {
     "branch": "lane/oorva-o18-mk04",
     "implementationSha": "b7cb8911c15ef03100e407ff4385151cc2bf364a",
@@ -122,8 +122,8 @@
   "registration": {
     "owner": "coordinator",
     "path": "supabase/tests/package.json",
-    "status": "PENDING",
-    "registrationSha": null,
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "registrationSha": "39fc70c4b3b31a44283738a7476e8efa9355383d",
     "sqlSelector": "oorva_o18_mk04",
     "migrationParserSelector": "o18_mk04_oorva.sql",
     "registrationHasTestSuccessClaim": false
@@ -136,39 +136,62 @@
     "publicOrNativeRelease": "NOT_GRANTED"
   },
   "validation": {
-    "gitDiffCheck": "PENDING",
+    "gitDiffCheck": "PASS",
     "codespace": {
-      "status": "NOT_RUN_AWAITING_SHARED_REGISTRATION",
+      "status": "PASS",
       "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "c5e01ba6b2ad43b6a037aff1770161632052084a",
       "windowsAppOrSqlTests": "NOT_RUN",
+      "resolvedPreliminaryFailures": [
+        "App typecheck found an optional unread.shop comparison; a nullish fallback was added and the exact app selector passed.",
+        "SQL selector found two stray template delimiters and an owner-unread fixture assumption; the syntax and isolated unread fixture were corrected and the exact SQL selector passed."
+      ],
       "selectors": [
         {
           "suite": "app",
           "filter": "src.features.activity.__tests__.model[.]test[.]ts$",
-          "result": "PENDING"
+          "selectedFile": "app/src/features/activity/__tests__/model.test.ts",
+          "selectedTestSuites": 1,
+          "selectedTests": 1,
+          "result": "PASS"
         },
         {
           "suite": "sql",
           "filter": "oorva_o18_mk04",
-          "result": "PENDING"
+          "selectedFile": "supabase/tests/oorva_o18_mk04.test.mjs",
+          "selectedFiles": 1,
+          "scenarios": [
+            "MK-OFF-existing-enquiry-role-matrix",
+            "MK-OFF-existing-RFQ-role-matrix",
+            "MK-OFF-cancel-owner-not-outsider",
+            "MK-OFF-new-work-denied",
+            "MK-OFF-shop-unread"
+          ],
+          "result": "PASS"
         },
         {
           "suite": "sql",
           "filter": "o18_mk04_oorva.sql",
-          "result": "PENDING"
+          "selectedMigration": "supabase/migrations/0096_o18_mk04_oorva.sql",
+          "parseChecks": 1,
+          "topLevelStatements": 23,
+          "functionBodies": 21,
+          "parseErrors": 0,
+          "result": "PASS"
         }
       ]
     },
     "authReview": {
       "required": true,
-      "status": "NOT_RUN"
+      "status": "PASS",
+      "findings": "No AUTH findings."
     },
     "privateBatchE2e": {
       "owner": "coordinator",
       "requiredScenario": "MK-OFF-same-entity-history-cancel-private-backend",
       "status": "PENDING_COORDINATOR_REGISTRATION_AND_BATCH"
     },
-    "laneCi": "PENDING_CODESPACE_PASS_AND_EXACT_HEAD_PUSH"
+    "laneCi": "PENDING_AUTH_REVIEW_AND_EXACT_HEAD_PUSH"
   },
   "productionActions": "NONE"
 }

@@ -58,7 +58,7 @@ export default function UnifiedActivityScreen() {
     setHasShopHistory(
       (enquiries.status === 'fulfilled' && enquiries.value.length > 0)
       || (rfqs.status === 'fulfilled' && rfqs.value.length > 0)
-      || (unread.status === 'fulfilled' && unread.value?.shop > 0),
+      || (unread.status === 'fulfilled' && (unread.value?.shop ?? 0) > 0),
     );
     if (unread.status === 'fulfilled' && unread.value) setOffShopUnread(unread.value.shop);
   }, [userId, productsEnabled]);

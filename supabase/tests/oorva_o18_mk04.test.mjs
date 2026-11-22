@@ -89,8 +89,8 @@ async function makeFixture(label) {
   return { customer, owner, outsider, manager, staff, inactiveMember, shop, productId: product.id };
 }
 
-async function createEnquiry(fixture) {
-  const result = await as(fixture.customer, 'authenticated', `
+async function createEnquiry(fixture, customerId = fixture.customer) {
+  const result = await as(customerId, 'authenticated', `
     select public.start_product_enquiry(
       $1::uuid, $2::uuid, $3::text
     ) as id
@@ -527,6 +527,7 @@ await scenario('MK-OFF-shop-unread', async () => {
   await as(fixture.owner, 'authenticated', `
     select public.send_enquiry_message($1::uuid, $2::text)
   `, [enquiryId, 'Unread customer reply']);
+  const ownerUnreadEnquiryId = await createEnquiry(fixture, await makeUser());
   const rfqId = await createRfq(fixture);
   await sendQuote(fixture, rfqId);
   await setFlags({ products: false, enquiries: true, rfq: true, merchantStaff: true });
@@ -538,8 +539,7 @@ await scenario('MK-OFF-shop-unread', async () => {
     select e.shop_unread
       from public.list_shop_product_enquiries() as e
      where e.id = $1::uuid
-  `, [enquiryId]);
-  `);
+  `, [ownerUnreadEnquiryId]);
   await as(fixture.customer, 'authenticated', `
     select public.mark_enquiry_read($1::uuid)
   `, [enquiryId]);
@@ -551,13 +551,12 @@ await scenario('MK-OFF-shop-unread', async () => {
   `);
   await as(fixture.owner, 'authenticated', `
     select public.mark_enquiry_read($1::uuid)
-  `, [enquiryId]);
+  `, [ownerUnreadEnquiryId]);
   const ownerUnreadAfterRead = await as(fixture.owner, 'authenticated', `
     select e.shop_unread
       from public.list_shop_product_enquiries() as e
      where e.id = $1::uuid
-  `, [enquiryId]);
-  `);
+  `, [ownerUnreadEnquiryId]);
   await expectDenied(
     () => as(fixture.outsider, 'authenticated', `
       select public.mark_my_activity_notification_read('rfq'::text, $1::uuid)
@@ -569,7 +568,7 @@ await scenario('MK-OFF-shop-unread', async () => {
     && rfqReadCount[0]?.count === 1 && afterRead[0]?.shop === 0
     && ownerUnreadAfterRead[0]?.shop_unread === 0,
   'shop enquiry and RFQ unread counts remain accurate and owner-scoped with capabilities OFF',
-  { beforeRead, ownerUnread, rfqReadCount, afterRead, ownerUnreadAfterRead });
+  { beforeRead, ownerUnreadEnquiryId, ownerUnread, rfqReadCount, afterRead, ownerUnreadAfterRead });
 });
 
 finish();
