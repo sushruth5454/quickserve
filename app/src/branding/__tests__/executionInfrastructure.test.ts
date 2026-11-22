@@ -101,6 +101,24 @@ describe('isolated execution infrastructure', () => {
       const result = runNode(assetTests, ['--selftest']);
       expectCommand(result, { status: 0, stdout: '"invalidCasesRejected":8' });
       expectCommand(result, { stdout: '"profileCrcVerified":true' });
+      const report = JSON.parse(result.stdout.trim()) as {
+        transformSelftest?: {
+          faviconFit?: {
+            bounds: { left: number; top: number; right: number; bottom: number } | null;
+            visiblePixels: number;
+            clearSpace: { left: number; top: number; right: number; bottom: number };
+            visibleSize: { width: number; height: number };
+          };
+        };
+      };
+      const favicon = report.transformSelftest?.faviconFit;
+      if (!favicon) throw new Error(`favicon fit selftest report missing; actual=${JSON.stringify(report)} expected=transformSelftest.faviconFit`);
+      console.info(`48px favicon measured geometry: ${JSON.stringify(favicon)}`);
+      if (!favicon.bounds || favicon.visiblePixels < 1 ||
+        Object.values(favicon.clearSpace).some((margin) => margin < 10) ||
+        favicon.visibleSize.width < 20 || favicon.visibleSize.height < 20) {
+        throw new Error(`48px favicon safe-space/recognizability check failed; actual=${JSON.stringify(favicon)} expected=10px margins and visible width/height >=20px`);
+      }
     });
   } else {
     test.skip('runs the pinned O37A transform selftest in Codespace; lane tooling job runs it', () => undefined);

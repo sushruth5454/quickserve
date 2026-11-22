@@ -415,12 +415,15 @@ async function runOorvaCheck() {
       : undefined;
     const actualBackground = typeof transform?.background === 'string' ? transform.background.toLowerCase() : transform?.background;
     expectValue(errors, `${label} transform.background`, actualBackground, expectedBackground);
-    const expectedSafeArea = [
+    const symbolSafeAreaPaths = [
       'app/assets/brand/native/android-icon-foreground.png',
       'app/assets/brand/native/android-icon-monochrome.png',
       'app/assets/brand/native/splash-icon.png',
       'app/assets/brand/native/splash-icon-dark.png',
-    ].includes(label) ? 'symbol-624' : undefined;
+    ];
+    const expectedSafeArea = label === 'app/assets/brand/native/favicon.png'
+      ? 'favicon-10'
+      : symbolSafeAreaPaths.includes(label) ? 'symbol-624' : undefined;
     expectValue(errors, `${label} transform.safeArea`, transform?.safeArea, expectedSafeArea);
     expectValue(errors, `${label} alpha mode`, entry.alpha, definition.alpha);
     expect(errors, `${label} export sha256 format`, typeof entry.export?.sha256 === 'string' && HASH_PATTERN.test(entry.export.sha256), entry.export?.sha256, '64 lowercase hexadecimal characters');
@@ -700,6 +703,29 @@ function runTransformSelftests() {
     `symbol-624 safe-area fit actual=${JSON.stringify({ width: safeFit.width, height: safeFit.height, outsidePixels: safeFitMetrics.outsidePixels })}`,
   );
 
+  const faviconFit = inspectAssetPng(renderSvg(svg(256, 256, '<circle cx="128" cy="128" r="100" fill="#173D39"/>'), {
+    mode: 'svg',
+    canvas: { width: 48, height: 48 },
+    density: 'native',
+    safeArea: 'favicon-10',
+  }));
+  const faviconInk = alphaBounds(faviconFit.rgba, faviconFit.width, faviconFit.height);
+  const faviconClearSpace = {
+    left: faviconInk.bounds?.left,
+    top: faviconInk.bounds?.top,
+    right: faviconFit.width - 1 - (faviconInk.bounds?.right ?? faviconFit.width - 1),
+    bottom: faviconFit.height - 1 - (faviconInk.bounds?.bottom ?? faviconFit.height - 1),
+  };
+  const faviconInkSize = faviconInk.bounds
+    ? { width: faviconInk.bounds.right - faviconInk.bounds.left + 1, height: faviconInk.bounds.bottom - faviconInk.bounds.top + 1 }
+    : { width: 0, height: 0 };
+  const faviconEvidence = { bounds: faviconInk.bounds, visiblePixels: faviconInk.visiblePixels, clearSpace: faviconClearSpace, visibleSize: faviconInkSize };
+  assert.ok(
+    faviconInk.visiblePixels > 0 && Object.values(faviconClearSpace).every((margin) => margin >= 10) &&
+      faviconInkSize.width >= 20 && faviconInkSize.height >= 20,
+    `48px favicon safe-area and recognizability actual=${JSON.stringify(faviconEvidence)} expected=all margins >= 10px and visible width/height >= 20px`,
+  );
+
   const invalidCases = [
     ['invalid aspect ratio', () => renderSvg(transformCases[0].source, { mode: 'svg', canvas: { width: 360, height: 99 }, density: 1 }), /aspect ratio/],
     ['invalid viewBox origin', () => renderSvg(svg(32, 32, '<rect width="32" height="32" fill="#173D39"/>').replace('viewBox="0 0 32 32"', 'viewBox="1 0 32 32"'), { mode: 'svg', canvas: { width: 32, height: 32 }, density: 1 }), /viewBox origin/],
@@ -720,7 +746,14 @@ function runTransformSelftests() {
     assert.ok(caught instanceof Error, `${name} must reject actual=${JSON.stringify(caught)} expected=Error`);
     assert.match(caught.message, message, `${name} rejection actual=${JSON.stringify(caught.message)} expected=${JSON.stringify(message)}`);
   }
-  return { fittedCanvases: transformCases.map(({ name, canvas }) => ({ name, ...canvas })), composed: true, solidBackground: true, safeArea: 'symbol-624', invalidCasesRejected: invalidCases.length };
+  return {
+    fittedCanvases: transformCases.map(({ name, canvas }) => ({ name, ...canvas })),
+    composed: true,
+    solidBackground: true,
+    safeArea: 'symbol-624',
+    faviconFit: faviconEvidence,
+    invalidCasesRejected: invalidCases.length,
+  };
 }
 
 export async function runSelftest() {

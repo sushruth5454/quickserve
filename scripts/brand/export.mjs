@@ -11,6 +11,10 @@ const TRANSFORM_KEYS = new Set(['mode', 'canvas', 'density', 'recolor', 'backgro
 const SYMBOL_VIEWBOX_SIZE = 256;
 const SYMBOL_INK_SAFEBOX_SIZE = 208;
 const SYMBOL_NATIVE_SAFE_SIZE = 624;
+const SAFE_AREA_RULES = Object.freeze({
+  'symbol-624': { canvasSize: 1024, inkSize: SYMBOL_NATIVE_SAFE_SIZE },
+  'favicon-10': { canvasSize: 48, inkSize: 28 },
+});
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const SRGB_CHROMATICITIES = [31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000];
 
@@ -190,13 +194,14 @@ function validateTransform(svgSource, transform) {
 
   let safeArea;
   if (transform.safeArea !== undefined) {
-    if (transform.safeArea !== 'symbol-624') {
-      throw new Error(`transform safeArea is unsupported: actual=${JSON.stringify(transform.safeArea)} expected="symbol-624"`);
+    const fitRule = Object.hasOwn(SAFE_AREA_RULES, transform.safeArea) ? SAFE_AREA_RULES[transform.safeArea] : null;
+    if (!fitRule) {
+      throw new Error(`transform safeArea is unsupported: actual=${JSON.stringify(transform.safeArea)} expected=${JSON.stringify(Object.keys(SAFE_AREA_RULES))}`);
     }
     if (viewBox.width !== SYMBOL_VIEWBOX_SIZE || viewBox.height !== SYMBOL_VIEWBOX_SIZE ||
-      canvas.width !== 1024 || canvas.height !== 1024 || transform.density !== 'native' ||
+      canvas.width !== fitRule.canvasSize || canvas.height !== fitRule.canvasSize || transform.density !== 'native' ||
       transform.background !== undefined) {
-      throw new Error(`symbol-624 fit is restricted to transparent 1024-square native symbol outputs: actual=${JSON.stringify({ viewBox, canvas, density: transform.density, background: transform.background })} expected=viewBox 0 0 256 256, canvas 1024x1024, density native, no background`);
+      throw new Error(`${transform.safeArea} fit has incompatible source or canvas: actual=${JSON.stringify({ viewBox, canvas, density: transform.density, background: transform.background })} expected=viewBox 0 0 256 256, canvas ${fitRule.canvasSize}x${fitRule.canvasSize}, density native, no background`);
     }
     safeArea = transform.safeArea;
   }
@@ -257,8 +262,8 @@ function recolorSvg(svgSource, recolor) {
   return result;
 }
 
-function fitSymbolSafeArea(svgSource, canvas) {
-  const scale = SYMBOL_NATIVE_SAFE_SIZE / SYMBOL_INK_SAFEBOX_SIZE;
+function fitSymbolSafeArea(svgSource, canvas, safeInkSize) {
+  const scale = safeInkSize / SYMBOL_INK_SAFEBOX_SIZE;
   const viewWidth = canvas.width / scale;
   const viewHeight = canvas.height / scale;
   const originX = SYMBOL_VIEWBOX_SIZE / 2 - viewWidth / 2;
@@ -270,7 +275,7 @@ function fitSymbolSafeArea(svgSource, canvas) {
 
 function composeSvg(svgSource, transform) {
   let result = recolorSvg(svgSource, transform.recolor);
-  if (transform.safeArea === 'symbol-624') result = fitSymbolSafeArea(result, transform.canvas);
+  if (transform.safeArea) result = fitSymbolSafeArea(result, transform.canvas, SAFE_AREA_RULES[transform.safeArea].inkSize);
   if (transform.background !== undefined) {
     const opening = /<svg\b[^>]*>/i.exec(result);
     if (!opening || opening[0].endsWith('/>')) {
