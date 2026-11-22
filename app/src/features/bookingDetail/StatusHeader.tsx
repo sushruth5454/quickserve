@@ -2,7 +2,7 @@ import { StatusHero } from '../../components/StatusHero';
 import { InlineAlert } from '../../components/ui';
 import { useT } from '../../i18n';
 import { friendlyError } from '../../lib/errors';
-import type { Booking, BookingEvent } from '../../lib/types';
+import type { Booking, BookingEvent, PaymentSchedule } from '../../lib/types';
 import { PaymentScheduleTimeline } from '../catalogue/PaymentScheduleTimeline';
 import type { BookingHeroCopy } from './model';
 
@@ -14,7 +14,12 @@ export function StatusHeader({
   actionError,
   bookingId,
   isCustomer,
-  onPaid,
+  paymentSchedule,
+  scheduleLoading,
+  scheduleError,
+  onRetry,
+  onPayDue,
+  paying,
 }: {
   status: Booking['status'];
   copy: BookingHeroCopy;
@@ -23,7 +28,12 @@ export function StatusHeader({
   actionError: string | null;
   bookingId: string;
   isCustomer: boolean;
-  onPaid: () => void;
+  paymentSchedule: PaymentSchedule[] | null;
+  scheduleLoading: boolean;
+  scheduleError: string | null;
+  onRetry: () => void;
+  onPayDue: () => void;
+  paying: boolean;
 }) {
   const t = useT();
   const friendlyActionError = actionError ? t(friendlyError(actionError).key) : null;
@@ -33,7 +43,17 @@ export function StatusHeader({
       <StatusHero status={status} copy={copy} events={events} archetype={archetype} />
       <InlineAlert message={friendlyActionError} />
       {/* Single payment schedule view; the footer collects the first payment while the booking is pending. */}
-      <PaymentScheduleTimeline key={`${bookingId}:${status}`} bookingId={bookingId} canPay={isCustomer} showPay={status !== 'pending_payment'} onPaid={onPaid} />
+      <PaymentScheduleTimeline
+        bookingId={bookingId}
+        items={paymentSchedule}
+        loading={scheduleLoading}
+        error={scheduleError}
+        onRetry={onRetry}
+        canPay={isCustomer}
+        showPay={status !== 'pending_payment'}
+        onPayDue={onPayDue}
+        paying={paying}
+      />
     </>
   );
 }

@@ -1,0 +1,106 @@
+{
+  "stageId": "O16-SV03",
+  "sourceTaskId": "SV-T03",
+  "sourceFindingId": "SV-F03",
+  "frozenPlanningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+  "dependencyHeads": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+    "O16-MN06": "221718742de4f5535c00d64824ed14b136978697"
+  },
+  "migrationClaim": {
+    "id": "MIG-O16-SV03",
+    "version": "0093",
+    "filename": "supabase/migrations/0093_o16_sv03_oorva.sql",
+    "acknowledged": true
+  },
+  "sourceDrift": {
+    "comparisonBase": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "changedFromPlanningCommit": [
+      "app/src/lib/supabaseApi.ts"
+    ],
+    "preservedBaseChanges": [
+      "Existing booking subscription implementation and O05F/O16-MN06 changes in supabaseApi.ts",
+      "O16-MN06 receipt/readback implementation in the booking detail area"
+    ],
+    "rlsSourcesVerified": [
+      "supabase/migrations/0001_init.sql",
+      "supabase/migrations/0019_fixed_package_booking.sql",
+      "supabase/migrations/0023_proposal_milestone_booking.sql"
+    ]
+  },
+  "implementation": {
+    "ownedFiles": [
+      "app/src/lib/supabaseApi.ts",
+      "app/src/features/bookingDetail/BookingDetailScreen.tsx",
+      "app/src/features/bookingDetail/StatusHeader.tsx",
+      "app/src/features/catalogue/PaymentScheduleTimeline.tsx",
+      "app/src/features/bookingDetail/__tests__/readback.test.tsx",
+      "supabase/migrations/0093_o16_sv03_oorva.sql",
+      "supabase/tests/oorva_o16_sv03.test.mjs",
+      "docs/design/oorva/evidence/o16-sv03.json"
+    ],
+    "summary": [
+      "Make the payment timeline a controlled child of the booking detail parent read and refresh lifecycle.",
+      "Refresh on focused/foreground resume through the shared useEntityRefresh core and guard actor/entity loads against stale completion.",
+      "Subscribe to booking-scoped quote, schedule, event, payment, and review updates; subscribe to refunds only for current known payment IDs and rebind when those IDs change.",
+      "Add idempotent membership for only existing RLS-protected booking child tables when supabase_realtime exists; add no SELECT grants."
+    ],
+    "featureOffBehavior": "Payment/refund/history refresh and permission truth remain active; no presentation feature flag is added.",
+    "liveMoneyOrHistoricalDataChanges": false
+  },
+  "tests": {
+    "appSelector": "src.features.bookingDetail.__tests__.readback[.]test[.]tsx$",
+    "appCases": [
+      "sameStatusQuoteRevision",
+      "scheduleFailureRetry",
+      "refundAndReviewReadback",
+      "olderLoadIgnored",
+      "cleanupSubscriptions"
+    ],
+    "sqlSelector": "oorva_o16_sv03",
+    "sqlCases": [
+      "SV-BOOKING-READ-AUTH-01"
+    ],
+    "migrationParserSelector": "o16_sv03_oorva.sql"
+  },
+  "coordinatorRegistration": {
+    "path": "supabase/tests/package.json",
+    "registrationCommit": "299169130d4a35be3beb9fb3364fa43288460d4f",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "selectionProof": {
+      "sql": "node oorva_o16_sv03.test.mjs",
+      "migrationParser": "node parse.cjs ../migrations/0093_o16_sv03_oorva.sql"
+    }
+  },
+  "validation": {
+    "sourceScope": "PASS",
+    "gitDiffCheck": "PASS",
+    "codespaceApp": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.bookingDetail.__tests__.readback[.]test[.]tsx$'",
+      "selectedFile": "app/src/features/bookingDetail/__tests__/readback.test.tsx",
+      "selectedCases": 5,
+      "tsc": "PASS",
+      "outcome": "PASS"
+    },
+    "codespaceSql": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o16_sv03'",
+      "selectedFile": "supabase/tests/oorva_o16_sv03.test.mjs",
+      "scenarios": 1,
+      "outcome": "PASS"
+    },
+    "codespaceMigrationParser": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o16_sv03_oorva.sql'",
+      "selectedMigration": "supabase/migrations/0093_o16_sv03_oorva.sql",
+      "topLevelStatements": 3,
+      "parseErrors": 0,
+      "outcome": "PASS"
+    },
+    "authReview": "REQUIRED BEFORE CODE_GREEN",
+    "laneCi": "PENDING exact-head push"
+  },
+  "runtimeEvidence": {
+    "publicationMembership": "NOT VERIFIED in the PGlite harness because supabase_realtime is absent there; production catalog state is not queried or changed in this implementation session."
+  }
+}
