@@ -114,7 +114,17 @@
       ]
     },
     "laneCI": {
-      "status": "PENDING"
+      "runId": 44990516623,
+      "headSha": "b60994e8f954baf6a9d5ea7576d54316498f7048",
+      "conclusion": "success",
+      "jobs": {
+        "changes": "PASS",
+        "app": "PASS",
+        "sql": "SKIPPED",
+        "private-postgres": "SKIPPED",
+        "tooling": "SKIPPED",
+        "deno": "SKIPPED"
+      }
     },
     "gitDiffCheck": "PASS"
   },
