@@ -26,7 +26,19 @@ begin
   perform public._assert(found and c.kind = 'reschedule_requested', 'reschedule request not found');
   select * into r from public.recurring_schedules where id = c.schedule_id for update;
   perform public._assert(found, 'recurring visit not found');
-  b := public._lock_booking(c.booking_id);
+  begin
+    select * into b
+      from public.bookings
+     where id = c.booking_id
+     for update nowait;
+  exception
+    when lock_not_available then
+      raise exception 'booking is being updated; retry reschedule response'
+        using errcode = '55P03';
+  end;
+  if b.id is null then
+    raise exception 'booking not found' using errcode = 'P0002';
+  end if;
   perform public._assert(b.recurring_schedule_id = r.id, 'recurring visit not found');
   v_requester_is_customer := c.actor_id = b.customer_id;
   if v_requester_is_customer then
