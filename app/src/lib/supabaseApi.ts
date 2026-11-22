@@ -829,15 +829,27 @@ export function subscribeToMessages(bookingId: string, onMessage: (m: Message) =
   };
 }
 
-export function subscribeToBooking(bookingId: string, onChange: () => void): () => void {
-  const channel = supabase
-    .channel(`booking:${bookingId}`)
-    .on(
+export function subscribeToBooking(bookingId: string, onChange: () => void, paymentIds?: string[]): () => void {
+  const knownPaymentIds = [...new Set((paymentIds ?? []).filter((id) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id),
+  ))].sort();
+  const paymentKey = knownPaymentIds.join('.');
+  let channel = supabase.channel(`booking:${bookingId}:${paymentKey || 'no-payments'}`);
+  const listen = (table: string, filter: string) => {
+    channel = channel.on(
       'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${bookingId}` },
+      { event: '*', schema: 'public', table, filter },
       () => onChange(),
-    )
-    .subscribe();
+    );
+  };
+  listen('bookings', `id=eq.${bookingId}`);
+  if (paymentIds !== undefined) {
+    for (const table of ['quotes', 'payment_schedule', 'booking_events', 'payments', 'reviews']) {
+      listen(table, `booking_id=eq.${bookingId}`);
+    }
+    for (const paymentId of knownPaymentIds) listen('refunds', `payment_id=eq.${paymentId}`);
+  }
+  channel.subscribe();
   return () => {
     void supabase.removeChannel(channel);
   };
