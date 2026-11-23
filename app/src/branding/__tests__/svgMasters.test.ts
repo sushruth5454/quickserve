@@ -792,16 +792,21 @@ describe('Oorva outlined SVG candidate masters', () => {
       9,
       'D kit must flag exactly nine required existing-contract SVG records',
     );
-    const requiredDHashes = Object.fromEntries(
-      requiredDRecords
-        .map(
-          (record: { target: string; sha256: string }) =>
-            [path.basename(record.target), record.sha256] as const,
-        )
-        .sort(([first], [second]) => first.localeCompare(second)),
+    const requiredDHashEntries: Array<[string, string]> = requiredDRecords.map(
+      (record: { target: string; sha256: string }) => [
+        path.basename(record.target),
+        record.sha256,
+      ],
     );
+    const requiredDHashes = Object.fromEntries(
+      requiredDHashEntries.sort(([first], [second]) =>
+        first.localeCompare(second),
+      ),
+    );
+    const expectedDHashEntries: Array<[string, string]> =
+      Object.entries(SOURCE_HASHES);
     const expectedDHashes = Object.fromEntries(
-      Object.entries(SOURCE_HASHES).sort(([first], [second]) =>
+      expectedDHashEntries.sort(([first], [second]) =>
         first.localeCompare(second),
       ),
     );
