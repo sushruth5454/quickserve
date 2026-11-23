@@ -1,0 +1,39 @@
+{
+  "stage": "O08",
+  "workPackage": "O08",
+  "sourceTaskIds": [],
+  "implementationBase": "de989f95e5d57f78540417587023318afef123c6",
+  "dependencies": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O03": "99a9f22bb39fb159637852bf2eaffa797401abe9",
+    "O05I": "bfc18878a3ecd25f1f6ddf8d694f9346564a763f",
+    "O06B": "1d8736305297adc4f64a2a526661d934e34d53f3",
+    "O07A": "66e2ac82a7911524dca5d94f33ee4e0b8cf2c9ef",
+    "O08-MK20": "035906fc04575c43e2f8c6a1c67047691ef6dc86"
+  },
+  "implementation": {
+    "presentationContract": "Added optional legacy-default presentation props to PillarCard, ListingCard, PriceFooter, QuoteCompareTable, and TrustStrip. No family caller was changed or enabled.",
+    "pillars": "Kept the MK-T20 legacy narrow layout and added the Oorva 288-point content-width / 1.3 font-scale column rule with intrinsic card height and full wrapping.",
+    "listing": "Oorva listing composition keeps media first, then full title and supplied metadata, then the full supplied price label; legacy tag count and truncation remain the default.",
+    "priceAndComparison": "Oorva price footers stack the full amount/caption before the unchanged CTA; quote comparisons use stacked mobile cards and wrapping supplier columns on wide layouts without changing sorting, warnings, selection, or eligibility.",
+    "trust": "Oorva trust items wrap and preserve full labels; verification remains the existing supplied state.",
+    "safety": "No authorization, server inputs, amount calculation, feature flag, route, or money-resolution behavior was changed."
+  },
+  "validation": {
+    "codespaceAppSelector": {
+      "helper": "C:\\Users\\snizampuram\\.copilot\\session-state\\d7b13c1d-8de4-4776-9917-8cc5575e83a7\\files\\cs-test-current-main.ps1",
+      "suite": "app",
+      "filter": "src.components.market.__tests__.presentationContract[.]test[.]tsx$",
+      "status": "pending"
+    },
+    "gitDiffCheck": "pending",
+    "laneCI": "pending",
+    "visualDeviceEvidence": "NOT VERIFIED; no device/browser execution was requested or performed."
+  },
+  "runtime": {
+    "oorva_brand": "OFF and unchanged",
+    "promotion": "Not performed",
+    "publicRights": "Unchanged",
+    "nativeInstalledDestinations": "Untouched"
+  }
+}

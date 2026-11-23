@@ -4,7 +4,7 @@ import { useTheme } from '../../theme';
 import { Avatar, Badge, Card, RatingStars, Text } from '../ui';
 import type { IconName } from '../ui/Button';
 import { MediaImage } from './MediaImage';
-import { listingA11yLabel, visibleTags } from './listingModel';
+import { listingA11yLabel, visibleTags, type CardPresentation } from './listingModel';
 import { VerifiedBadge } from './VerifiedBadge';
 
 export type ListingVariant = 'provider' | 'venue' | 'shop' | 'product' | 'creator';
@@ -21,6 +21,7 @@ export interface ListingCardProps {
   priceLabel?: string | null;
   tags?: string[];
   layout?: 'row' | 'grid';
+  presentation?: CardPresentation;
   onPress: () => void;
   testID?: string;
 }
@@ -45,11 +46,14 @@ export function ListingCard({
   priceLabel,
   tags = [],
   layout = 'row',
+  presentation = 'legacy',
   onPress,
   testID,
 }: ListingCardProps): JSX.Element {
   const t = useTheme();
-  const shownTags = visibleTags(tags);
+  const isOorva = presentation === 'oorva';
+  const shownTags = visibleTags(tags, presentation);
+  const hasMetadata = rating != null || shownTags.length > 0 || verified === true;
   const accessibilityLabel = listingA11yLabel({
     title,
     subtitle,
@@ -59,6 +63,29 @@ export function ListingCard({
     priceLabel,
   });
   const isAvatar = variant === 'provider' || variant === 'creator';
+  const metadata = hasMetadata ? (
+    <View
+      style={{
+        flexDirection: 'row',
+        flexWrap: isOorva ? 'wrap' : undefined,
+        alignItems: 'center',
+        gap: t.spacing.sm,
+      }}
+    >
+      {rating != null ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.xs }}>
+          <RatingStars value={rating} count={ratingCount} />
+          <Text variant="footnote" color="muted">
+            {rating.toFixed(1)}
+          </Text>
+        </View>
+      ) : null}
+      {shownTags.map((tag, index) => (
+        <Badge key={`${tag}-${index}`} tone="neutral" label={tag} />
+      ))}
+      {verified ? <VerifiedBadge /> : null}
+    </View>
+  ) : null;
 
   return (
     <View testID={testID}>
@@ -71,11 +98,12 @@ export function ListingCard({
               fallbackIcon={FALLBACK_ICONS[variant]}
               accessibilityLabel={title}
             />
-            <Text variant="bodyStrong" numberOfLines={2}>
+            <Text variant="bodyStrong" numberOfLines={isOorva ? undefined : 2}>
               {title}
             </Text>
+            {isOorva ? metadata : null}
             {priceLabel ? (
-              <Text variant="calloutStrong" numberOfLines={1}>
+              <Text variant="calloutStrong" numberOfLines={isOorva ? undefined : 1}>
                 {priceLabel}
               </Text>
             ) : null}
@@ -95,35 +123,38 @@ export function ListingCard({
               </View>
             )}
             <View style={{ flex: 1, minWidth: 0, gap: t.spacing.sm }}>
-              <Text variant="bodyStrong" numberOfLines={1}>
+              <Text variant="bodyStrong" numberOfLines={isOorva ? undefined : 1}>
                 {title}
               </Text>
               {subtitle ? (
-                <Text variant="footnote" color="muted" numberOfLines={1}>
+                <Text variant="footnote" color="muted" numberOfLines={isOorva ? undefined : 1}>
                   {subtitle}
                 </Text>
               ) : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                  {rating != null ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.xs }}>
-                      <RatingStars value={rating} count={ratingCount} />
-                      <Text variant="footnote" color="muted">
-                        {rating.toFixed(1)}
-                      </Text>
-                    </View>
+              {isOorva ? metadata : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: t.spacing.sm }}>
+                    {rating != null ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.xs }}>
+                        <RatingStars value={rating} count={ratingCount} />
+                        <Text variant="footnote" color="muted">
+                          {rating.toFixed(1)}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {shownTags.map((tag, index) => (
+                      <Badge key={`${tag}-${index}`} tone="neutral" label={tag} />
+                    ))}
+                    {verified ? <VerifiedBadge /> : null}
+                  </View>
+                  {priceLabel ? (
+                    <Text variant="calloutStrong" align="right" numberOfLines={1}>
+                      {priceLabel}
+                    </Text>
                   ) : null}
-                  {shownTags.map((tag, index) => (
-                    <Badge key={`${tag}-${index}`} tone="neutral" label={tag} />
-                  ))}
-                  {verified ? <VerifiedBadge /> : null}
                 </View>
-                {priceLabel ? (
-                  <Text variant="calloutStrong" align="right" numberOfLines={1}>
-                    {priceLabel}
-                  </Text>
-                ) : null}
-              </View>
+              )}
+              {isOorva && priceLabel ? <Text variant="calloutStrong">{priceLabel}</Text> : null}
             </View>
           </View>
         )}

@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Button, type IconName } from '../ui/Button';
 import { Text } from '../ui/Text';
 import { useTheme } from '../../theme';
+import type { CardPresentation } from './listingModel';
 
 export interface PriceFooterProps {
   caption: string;
@@ -18,6 +19,7 @@ export interface PriceFooterProps {
   note?: { text: string; tone?: 'muted' | 'warningText' } | null;
   above?: ReactNode;
   amountVariant?: 'amount' | 'text';
+  presentation?: CardPresentation;
 }
 
 export function PriceFooter({
@@ -27,15 +29,23 @@ export function PriceFooter({
   note,
   above,
   amountVariant = 'amount',
+  presentation = 'legacy',
 }: PriceFooterProps): ReactElement {
   const t = useTheme();
+  const isOorva = presentation === 'oorva';
 
   return (
     <View style={{ gap: t.spacing.sm }}>
       {above}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.lg }}>
+      <View
+        style={{
+          flexDirection: isOorva ? 'column' : 'row',
+          alignItems: isOorva ? 'stretch' : 'center',
+          gap: t.spacing.lg,
+        }}
+      >
         <View style={{ flexShrink: 1 }}>
-          <Text variant="caption" color="muted" numberOfLines={1}>
+          <Text variant="caption" color="muted" numberOfLines={isOorva ? undefined : 1}>
             {caption}
           </Text>
           {amountVariant === 'text' ? (
@@ -46,7 +56,7 @@ export function PriceFooter({
             </Text>
           )}
         </View>
-        <Button {...cta} size="lg" style={{ flex: 1 }} />
+        <Button {...cta} size="lg" style={isOorva ? { alignSelf: 'stretch' } : { flex: 1 }} />
       </View>
       {note ? (
         <Text variant="caption" color={note.tone ?? 'muted'} align="center">

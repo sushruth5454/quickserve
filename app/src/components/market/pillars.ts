@@ -1,6 +1,32 @@
 import type { Palette } from '../../theme/tokens';
+import type { CardPresentation } from './listingModel';
 
 export type Pillar = 'home' | 'shops' | 'sports' | 'creators';
+
+export function pillarCardLayout({
+  presentation,
+  viewportWidth,
+  fontScale,
+  fullWidth,
+}: {
+  presentation: CardPresentation;
+  viewportWidth: number;
+  fontScale: number;
+  fullWidth: boolean;
+}): { width: '48%' | '100%'; stacked: boolean } {
+  if (presentation === 'legacy') {
+    return {
+      width: fullWidth ? '100%' : '48%',
+      stacked: viewportWidth < 600,
+    };
+  }
+
+  const twoColumns = viewportWidth - 32 >= 288 && fontScale <= 1.3;
+  return {
+    width: twoColumns ? '48%' : '100%',
+    stacked: twoColumns,
+  };
+}
 
 export const PILLAR_ORDER: Pillar[] = ['home', 'shops', 'sports', 'creators'];
 
