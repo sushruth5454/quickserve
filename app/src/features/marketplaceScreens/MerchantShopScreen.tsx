@@ -19,7 +19,7 @@ import {
   type ShopProfile,
   type ShopProduct,
 } from '../shops/api';
-import { FeatureUnavailable, IndicativePrice, ShopStatusLabel, useShopFeatureFlags } from '../shops/components';
+import { IndicativePrice, ShopStatusLabel, useShopFeatureFlags } from '../shops/components';
 import { SpecFields } from '../shops/SpecFields';
 import { UNIT_LABELS } from '../shops/format';
 import { cleanSpecs } from '../shops/specs';
@@ -115,10 +115,12 @@ export default function MerchantShopScreen() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (): Promise<ShopProfile | null> => {
-    if (!features.products) return null;
     setLoading(true);
     try {
-      const [nextCategories, nextShop] = await Promise.all([listProductCategories(), getMyShop()]);
+      const [nextShop, nextCategories] = await Promise.all([
+        getMyShop(),
+        features.products ? listProductCategories() : Promise.resolve([]),
+      ]);
       setCategories(nextCategories);
       setShop(nextShop);
       if (nextShop) {
@@ -346,10 +348,6 @@ export default function MerchantShopScreen() {
     }
   };
 
-  if (!features.products) {
-    return <Screen header={<Header title="My shop" />}><FeatureUnavailable /></Screen>;
-  }
-
   if (shop && shop.business_role !== 'owner') {
     const managementLinks = getShopManagementLinks(shop.business_role, {
       merchantStaff: appFeatures.isOn('merchant_staff'),
@@ -361,8 +359,55 @@ export default function MerchantShopScreen() {
           Staff can view shop enquiries and RFQs. Only the owner can change shop details, catalogue prices, or verification.
         </Text>
         <Button title="All assigned business work" variant="outline" onPress={() => router.push('/merchant-work')} />
-        {features.enquiries ? <Button title="Open enquiries" onPress={() => router.push('/merchant-enquiries')} /> : null}
-        {managementLinks.supplierRfqs ? <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} /> : null}
+        <Button title="Open enquiries" onPress={() => router.push('/merchant-enquiries')} />
+        <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
+      </Screen>
+    );
+  }
+
+  if (!features.products) {
+    return (
+      <Screen
+        header={<Header title={shop?.name ?? 'My shop'} subtitle="Read-only while products and shops are turned off" />}
+        gap={t.spacing.md}
+        refreshing={loading}
+        onRefresh={() => void load()}
+      >
+        <InlineAlert message={error} />
+        {loading ? <Skeleton height={160} radius={t.radii.lg} /> : null}
+        {shop ? (
+          <>
+            <Card gap={t.spacing.sm}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="title3">{shop.name}</Text>
+                <ShopStatusLabel status={shop.status} />
+              </View>
+              {shop.status_reason ? <Text color="dangerText">{shop.status_reason}</Text> : null}
+              {shop.description ? <Text>{shop.description}</Text> : null}
+              <Text variant="footnote" color="muted">{[shop.address_line, shop.area, shop.city].filter(Boolean).join(' · ')}</Text>
+              <Text variant="caption" color="muted">
+                {shop.offers_delivery ? 'Delivery available' : 'No delivery'} · {shop.offers_pickup ? 'Pickup available' : 'No pickup'}
+              </Text>
+              <Text variant="footnote" color="muted">Existing shop details and catalogue are available for history only.</Text>
+              <Button title="Open enquiries" variant="outline" onPress={() => router.push('/merchant-enquiries')} />
+              <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
+            </Card>
+            <Text variant="title3">Existing product catalogue ({products.length})</Text>
+            {products.map((product) => (
+              <Card key={product.id} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+                {productImages[product.id] ? <Image source={{ uri: productImages[product.id] ?? undefined }} style={{ width: 58, height: 58, borderRadius: t.radii.sm, backgroundColor: t.colors.surfaceAlt }} contentFit="cover" /> : null}
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text variant="calloutStrong">{product.name}</Text>
+                  <Text variant="caption" color="muted">{product.category_name} · {product.active ? 'Listed' : 'Paused'} · {product.in_stock ? 'In stock' : 'Out of stock'}</Text>
+                  <IndicativePrice pricePaise={product.indicative_price_paise} unit={product.unit} updatedAt={product.price_updated_at} />
+                </View>
+              </Card>
+            ))}
+            {!products.length && !loading ? <Text variant="footnote" color="muted">No saved catalogue items.</Text> : null}
+          </>
+        ) : !loading ? (
+          <Text variant="footnote" color="muted">No existing shop is available. New shop setup is turned off.</Text>
+        ) : null}
       </Screen>
     );
   }
@@ -427,7 +472,8 @@ export default function MerchantShopScreen() {
             <Text variant="title3">Product catalogue ({products.length}/500)</Text>
             <Button title="Add product" size="sm" disabled={products.length >= 500} onPress={() => editProduct()} />
           </View>
-          {features.enquiries ? <Button title="Open enquiries" variant="outline" onPress={() => router.push('/merchant-enquiries')} /> : null}
+          <Button title="Open enquiries" variant="outline" onPress={() => router.push('/merchant-enquiries')} />
+          <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
 
           {productDraft ? (
             <Card gap={t.spacing.md}>

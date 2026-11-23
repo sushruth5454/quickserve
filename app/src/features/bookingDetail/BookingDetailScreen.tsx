@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Linking, ScrollView, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { QuoteView } from '../../components/QuoteView';
@@ -40,6 +40,7 @@ import {
 } from '../../lib/coins';
 import { creatorRevisionsEnabled, requestCreatorRevision } from '../../lib/creatorRevisions';
 import { usePayment } from '../../lib/payments';
+import { useEntityRefresh } from '../../lib/useEntityRefresh';
 import { typicalRange } from '../../lib/pricing';
 import { registerForPush } from '../../lib/push';
 import { bookingRef, dayLabel, scheduleLabel } from '../../lib/schedule';
@@ -54,6 +55,7 @@ import { StatusHeader } from './StatusHeader';
 import { canReportProposalPaymentDefault, fmt, heroCopy } from './model';
 
 interface Data {
+  contextKey: string;
   booking: CreatorRevisionBooking;
   quotes: Quote[];
   payments: Payment[];
@@ -64,7 +66,8 @@ interface Data {
   counterpart: string;
   photoUrls: string[];
   coinPreview: CoinRedemptionPreview | null;
-  paymentSchedule: PaymentScheduleRow[];
+  paymentSchedule: PaymentScheduleRow[] | null;
+  paymentScheduleError: string | null;
   creatorRevisionsEnabled: boolean;
 }
 
@@ -90,10 +93,9 @@ export default function BookingDetailScreen() {
   const { userId } = useAuth();
   const unread = useUnread();
   const [data, setData] = useState<Data | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ contextKey: string; message: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   // Provider code entry (start / completion), submitted from the sticky footer.
   const [otp, setOtp] = useState('');
   const [otpMsg, setOtpMsg] = useState<string | null>(null);
@@ -104,12 +106,22 @@ export default function BookingDetailScreen() {
   const [revisionSheetOpen, setRevisionSheetOpen] = useState(false);
   const [revisionNote, setRevisionNote] = useState('');
 
-  const load = useCallback(async () => {
-    if (!id || !userId) return;
+  const contextKey = `booking:${id ?? ''}:${userId ?? ''}`;
+  const contextKeyRef = useRef(contextKey);
+  contextKeyRef.current = contextKey;
+
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    if (!id || !userId || !guard.isCurrent()) return;
     try {
       const booking = await api.getBooking(id);
+      if (!guard.isCurrent()) return;
+      if (booking.customer_id !== userId && booking.provider_id !== userId) {
+        setData(null);
+        setLoadError({ contextKey, message: 'You do not have permission to view this booking.' });
+        return;
+      }
       const isCustomer = booking.customer_id === userId;
-      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, paymentSchedule, revisionsEnabled] = await Promise.all([
+      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, scheduleResult, revisionsEnabled] = await Promise.all([
         api.getQuotes(id),
         api.getPayments(id),
         api.getEvents(id).catch(() => [] as BookingEvent[]),
@@ -118,14 +130,20 @@ export default function BookingDetailScreen() {
         api.getReviewForBooking(id),
         api.getProfileName(isCustomer ? booking.provider_id : booking.customer_id),
         api.signedPhotoUrls(booking.photos).catch(() => []),
-        api.listPaymentSchedule(id).catch(() => [] as PaymentScheduleRow[]),
+        api.listPaymentSchedule(id).then(
+          (paymentSchedule) => ({ paymentSchedule, error: null }),
+          (caught: Error) => ({ paymentSchedule: null, error: caught.message }),
+        ),
         creatorRevisionsEnabled().catch(() => false),
       ]);
+      if (!guard.isCurrent()) return;
       const sentQuote = quotes.find((q) => q.status === 'sent') ?? null;
       const coinPreview = isCustomer && sentQuote
         ? await api.getCoinRedemptionPreview(id, sentQuote.id).catch(() => null)
         : null;
+      if (!guard.isCurrent()) return;
       setData({
+        contextKey,
         booking: booking as CreatorRevisionBooking,
         quotes,
         payments,
@@ -136,23 +154,54 @@ export default function BookingDetailScreen() {
         counterpart,
         photoUrls,
         coinPreview,
-        paymentSchedule,
+        paymentSchedule: scheduleResult.paymentSchedule,
+        paymentScheduleError: scheduleResult.error,
         creatorRevisionsEnabled: revisionsEnabled,
       });
-      setError(null);
+      setLoadError(null);
     } catch (e) {
-      setError((e as Error).message);
+      if (!guard.isCurrent()) return;
+      setData(null);
+      setLoadError({ contextKey, message: (e as Error).message });
     }
-  }, [id, userId]);
+  }, [contextKey, id, userId]);
+
+  const { refresh, refreshing } = useEntityRefresh(load, {
+    contextKey,
+    enabled: Boolean(id && userId),
+    intervalMs: null,
+  });
+  const visibleData = data?.contextKey === contextKey ? data : null;
+  const currentError = loadError?.contextKey === contextKey ? loadError.message : null;
 
   useEffect(() => {
-    void load();
-    if (!id) return;
-    return api.subscribeToBooking(id, () => void load());
-  }, [id, load]);
+    setData(null);
+    setLoadError(null);
+    setActionError(null);
+    setBusy(false);
+    setOtp('');
+    setOtpMsg(null);
+    setDisputeOpen(false);
+    setReason('');
+    setUseCoins(true);
+    setRevisionSheetOpen(false);
+    setRevisionNote('');
+  }, [contextKey]);
+
+  const paymentIdsKey = visibleData?.payments.map((payment) => payment.id).sort().join(',') ?? '';
+  const paymentIds = useMemo(() => paymentIdsKey ? paymentIdsKey.split(',') : [], [paymentIdsKey]);
+  useEffect(() => {
+    if (!id || !userId) return;
+    const subscribeWithPaymentIds = api.subscribeToBooking as (
+      bookingId: string,
+      onChange: () => void,
+      paymentIds?: string[],
+    ) => () => void;
+    return subscribeWithPaymentIds(id, () => void refresh(), paymentIds);
+  }, [id, paymentIds, paymentIdsKey, refresh, userId]);
 
   // A live booking is the moment updates matter (acceptance, quotes, chat): ask for notification permission once.
-  const liveBooking = !!data && !['pending_payment', 'declined', 'expired', 'cancelled', 'closed', 'refunded'].includes(data.booking.status);
+  const liveBooking = !!visibleData && !['pending_payment', 'declined', 'expired', 'cancelled', 'closed', 'refunded'].includes(visibleData.booking.status);
   useEffect(() => {
     if (liveBooking && userId) void registerForPush(userId, { prompt: true });
   }, [liveBooking, userId]);
@@ -161,18 +210,22 @@ export default function BookingDetailScreen() {
     async (fn: () => Promise<unknown>, success?: string) => {
       setBusy(true);
       setActionError(null);
+      const actionContextKey = contextKey;
       try {
         await fn();
-        await load();
+        if (contextKeyRef.current !== actionContextKey) return;
+        await refresh();
+        if (contextKeyRef.current !== actionContextKey) return;
         if (success) toast({ message: success, tone: 'success' });
       } catch (e) {
+        if (contextKeyRef.current !== actionContextKey) return;
         haptics.error();
         setActionError((e as Error).message);
       } finally {
-        setBusy(false);
+        if (contextKeyRef.current === actionContextKey) setBusy(false);
       }
     },
-    [load, toast],
+    [contextKey, refresh, toast],
   );
 
   const pay = useCallback(
@@ -185,11 +238,11 @@ export default function BookingDetailScreen() {
     [id, run, startPayment, toast],
   );
 
-  if (!data || !userId) {
+  if (!visibleData || !userId) {
     return (
       <Screen header={<Header title="Booking" />}>
-        {error ? (
-          <ErrorState message={error} onRetry={() => void load()} />
+        {currentError ? (
+          <ErrorState message={currentError} onRetry={() => void refresh()} />
         ) : (
           <>
             <Skeleton height={150} radius={t.radii.lg} />
@@ -201,7 +254,7 @@ export default function BookingDetailScreen() {
     );
   }
 
-  const { booking, quotes, payments, otps, review } = data;
+  const { booking, quotes, payments, otps, review } = visibleData;
   const s = booking.status;
   const isCustomer = booking.customer_id === userId;
   const revisionsAllowed = booking.revisions_allowed ?? 2;
@@ -210,7 +263,7 @@ export default function BookingDetailScreen() {
   const deliveryReview = booking.archetype === 'proposal' && booking.delivery_status === 'submitted';
   const canRequestRevision =
     isCustomer
-    && data.creatorRevisionsEnabled
+    && visibleData.creatorRevisionsEnabled
     && s === 'completion_requested'
     && booking.archetype === 'proposal'
     && booking.delivery_status === 'submitted'
@@ -219,16 +272,18 @@ export default function BookingDetailScreen() {
     !isCustomer
     && booking.archetype === 'proposal'
     && (s === 'confirmed' || s === 'in_progress' || s === 'completion_requested')
-    && canReportProposalPaymentDefault(data.paymentSchedule, s, booking.delivery_status);
-  const revisionRequestEvent = data.events.slice().reverse().find(
+    && canReportProposalPaymentDefault(visibleData.paymentSchedule ?? [], s, booking.delivery_status);
+  const revisionRequestEvent = visibleData.events.slice().reverse().find(
     (event) => event.to_status === 'delivery_pending' && event.note?.startsWith('revision requested: '),
   );
   const providerRevisionNote = revisionRequestEvent?.note?.replace(/^revision requested:\s*/, '') ?? '';
   const isTimeBased = booking.archetype === 'time_based';
   // Proposal, fixed and pay-per-session bookings pay every obligation due now (e.g. advance + platform fee) in one payment.
-  const scheduled = (booking.archetype === 'proposal' || booking.archetype === 'fixed' || isTimeBased) && data.paymentSchedule.length > 0;
-  const dueNow = data.paymentSchedule.filter((row) => row.status === 'due').reduce((sum, row) => sum + row.amount, 0);
-  const first = data.counterpart.split(' ')[0] ?? data.counterpart;
+  const requiresSchedule = booking.archetype === 'proposal' || booking.archetype === 'fixed' || isTimeBased;
+  const scheduleUnavailable = requiresSchedule && visibleData.paymentSchedule === null;
+  const scheduled = requiresSchedule && (visibleData.paymentSchedule?.length ?? 0) > 0;
+  const dueNow = (visibleData.paymentSchedule ?? []).filter((row) => row.status === 'due').reduce((sum, row) => sum + row.amount, 0);
+  const first = visibleData.counterpart.split(' ')[0] ?? visibleData.counterpart;
   // Net of partial refunds (e.g. a change order that lowered the total), matching the server's amount owed.
   const paid = payments
     .filter((p) => p.status === 'paid')
@@ -239,10 +294,10 @@ export default function BookingDetailScreen() {
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;
-  const coinPreviewState = data.coinPreview ? coinRedemptionPreviewState(data.coinPreview) : null;
+  const coinPreviewState = visibleData.coinPreview ? coinRedemptionPreviewState(visibleData.coinPreview) : null;
   const coinCanRedeem = coinPreviewState?.canRedeem ?? false;
   const coinDiscountPreview = coinCanRedeem
-    ? (useCoins ? data.coinPreview?.maximum_paise ?? 0 : 0)
+    ? (useCoins ? visibleData.coinPreview?.maximum_paise ?? 0 : 0)
     : coinPreviewState?.appliedPaise ?? 0;
   const shownQuoteIds = new Set([openQuote?.id, pendingPaymentQuote?.id].filter(Boolean));
   const typical = typicalRange(booking.categories?.slug);
@@ -284,7 +339,7 @@ export default function BookingDetailScreen() {
       const res = await api.approveQuote(
         booking.id,
         quote.id,
-        useCoins && (data.coinPreview?.maximum_paise ?? 0) > 0,
+        useCoins && (visibleData.coinPreview?.maximum_paise ?? 0) > 0,
       );
       if (res.amount_due > 0) await startPayment(booking.id);
     }, 'Quote approved');
@@ -334,9 +389,9 @@ export default function BookingDetailScreen() {
   const openEditor = (changeOrder: boolean) =>
     router.push({ pathname: '/quote/[bookingId]', params: { bookingId: booking.id, changeOrder: changeOrder ? '1' : '0' } });
   const navigate =
-    !isCustomer && data.address?.lat != null && data.address?.lng != null
+    !isCustomer && visibleData.address?.lat != null && visibleData.address?.lng != null
       ? () =>
-          Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${data.address!.lat},${data.address!.lng}`).catch(() =>
+          Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${visibleData.address!.lat},${visibleData.address!.lng}`).catch(() =>
             toast({ message: 'Could not open maps.', tone: 'error' }),
           )
       : null;
@@ -346,7 +401,7 @@ export default function BookingDetailScreen() {
   if (isCustomer) {
     if (customerRespondsToQuote && openQuote) {
       const previewDiscount = useCoins && coinCanRedeem
-        ? data.coinPreview?.maximum_paise ?? 0
+        ? visibleData.coinPreview?.maximum_paise ?? 0
         : 0;
       const appliedCoinDiscount = !coinCanRedeem
         ? coinPreviewState?.appliedPaise ?? 0
@@ -361,7 +416,7 @@ export default function BookingDetailScreen() {
           <Button title={due > 0 ? 'Approve & pay' : 'Approve'} onPress={() => void approve(openQuote)} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
-    } else if (pendingPaymentQuote && dueForPending > 0 && !scheduled) {
+    } else if (pendingPaymentQuote && dueForPending > 0 && !scheduled && !scheduleUnavailable) {
       footer = (
         <AmountFooter label="Balance due" amount={dueForPending}>
           <Button
@@ -374,7 +429,7 @@ export default function BookingDetailScreen() {
           />
         </AmountFooter>
       );
-    } else if (s === 'pending_payment') {
+    } else if (s === 'pending_payment' && !scheduleUnavailable) {
       footer = (
         <AmountFooter label={scheduled ? 'Due now' : isTimeBased ? 'Session payment' : 'Visit fee'} amount={scheduled ? dueNow : isTimeBased ? booking.total_amount ?? 0 : booking.visit_fee}>
           <Button title={isTimeBased ? 'Pay session' : scheduled ? 'Pay & confirm' : 'Pay & send request'} leftIcon="lock-closed" onPress={() => void pay()} loading={busy} size="lg" style={{ flex: 1 }} />
@@ -510,21 +565,25 @@ export default function BookingDetailScreen() {
       header={<Header title={booking.categories?.name ?? 'Booking'} subtitle={`${bookingRef(booking.id)} · ${dayLabel(new Date(booking.created_at))}`} />}
       footer={footer}
       refreshing={refreshing}
-      onRefresh={async () => {
-        setRefreshing(true);
-        await load();
-        setRefreshing(false);
-      }}
+      onRefresh={refresh}
     >
+      {currentError ? <ErrorState message={currentError} onRetry={() => void refresh()} /> : null}
       <StatusHeader
         status={s}
         copy={hero}
-        events={data.events}
+        events={visibleData.events}
         archetype={booking.archetype}
         actionError={actionError}
         bookingId={booking.id}
         isCustomer={isCustomer}
-        onPaid={() => void load()}
+        paymentSchedule={visibleData.paymentSchedule}
+        scheduleLoading={refreshing}
+        scheduleError={visibleData.paymentScheduleError}
+        onRetry={() => void refresh()}
+        onPayDue={() => void run(async () => {
+          if (id) await startPayment(id);
+        })}
+        paying={busy}
       />
       {booking.archetype === 'proposal' && (booking.delivery_links?.length ?? 0) > 0 ? (
         <DeliverySection
@@ -576,18 +635,18 @@ export default function BookingDetailScreen() {
       ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
-          {coinCanRedeem && data.coinPreview && data.coinPreview.maximum_paise > 0 ? (
+          {coinCanRedeem && visibleData.coinPreview && visibleData.coinPreview.maximum_paise > 0 ? (
             <Card
               gap={t.spacing.sm}
               style={{ flexDirection: 'row', alignItems: 'center' }}
-              accessibilityLabel={`Use ${coinPaiseToCoins(data.coinPreview.maximum_paise, { coin_paise: data.coinPreview.coin_paise })} Seva Coins (${formatINR(data.coinPreview.maximum_paise)})`}
+              accessibilityLabel={`Use ${coinPaiseToCoins(visibleData.coinPreview.maximum_paise, { coin_paise: visibleData.coinPreview.coin_paise })} Seva Coins (${formatINR(visibleData.coinPreview.maximum_paise)})`}
             >
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="calloutStrong">
-                  Use {coinPaiseToCoins(data.coinPreview.maximum_paise, { coin_paise: data.coinPreview.coin_paise })} coins · {formatINR(data.coinPreview.maximum_paise)}
+                  Use {coinPaiseToCoins(visibleData.coinPreview.maximum_paise, { coin_paise: visibleData.coinPreview.coin_paise })} coins · {formatINR(visibleData.coinPreview.maximum_paise)}
                 </Text>
                 <Text variant="footnote" color="muted">
-                  Wallet: {coinPaiseToCoins(data.coinPreview.balance_paise, { coin_paise: data.coinPreview.coin_paise })} coins · {formatINR(data.coinPreview.balance_paise)}
+                  Wallet: {coinPaiseToCoins(visibleData.coinPreview.balance_paise, { coin_paise: visibleData.coinPreview.coin_paise })} coins · {formatINR(visibleData.coinPreview.balance_paise)}
                 </Text>
               </View>
               <Switch
@@ -604,7 +663,7 @@ export default function BookingDetailScreen() {
             visitFee={booking.visit_fee}
             platformFee={booking.platform_fee}
             alreadyPaid={paid}
-            counterpartName={data.counterpart}
+            counterpartName={visibleData.counterpart}
             coinDiscountPreview={coinDiscountPreview}
             coinPaid={coinPaid}
             typical={openQuote.is_change_order ? null : typical}
@@ -618,7 +677,7 @@ export default function BookingDetailScreen() {
         </View>
       ) : null}
       {isCustomer && pendingPaymentQuote && dueForPending > 0 ? (
-        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} />
+        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={visibleData.counterpart} coinPaid={coinPaid} />
       ) : null}
       {isCustomer && (s === 'completed' || s === 'closed') && !review ? (
         <ReviewForm name={first} busy={busy} reviewTags={booking.categories?.review_tags ?? []} onSubmit={(r) => void run(() => api.submitReview(booking.id, r), 'Thanks for your review!')} />
@@ -670,20 +729,20 @@ export default function BookingDetailScreen() {
         <DeliverySection placement="revision" theme={t} revisionsUsed={revisionsUsed} revisionsAllowed={revisionsAllowed} note={providerRevisionNote} />
       ) : null}
       {openQuote && !customerRespondsToQuote ? (
-        <QuoteView quote={openQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} />
+        <QuoteView quote={openQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={visibleData.counterpart} coinPaid={coinPaid} />
       ) : null}
       {pendingPaymentQuote && !isCustomer ? (
-        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} />
+        <QuoteView quote={pendingPaymentQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={visibleData.counterpart} coinPaid={coinPaid} />
       ) : null}
 
       {/* ---------- details ---------- */}
       <Section title="Booking details">
         <Card gap={t.spacing.md}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-            <Avatar name={data.counterpart} size={44} />
+            <Avatar name={visibleData.counterpart} size={44} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="calloutStrong" numberOfLines={1}>
-                {data.counterpart}
+                {visibleData.counterpart}
               </Text>
               {isCustomer && pro && pro.rating_count > 0 ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -715,9 +774,9 @@ export default function BookingDetailScreen() {
             icon="location-outline"
             label="Address"
             text={
-              data.address?.address_line
-                ? `${data.address.address_line}, ${data.address.area}`
-                : `${data.address?.area ?? '—'} · full address after you accept`
+              visibleData.address?.address_line
+                ? `${visibleData.address.address_line}, ${visibleData.address.area}`
+                : `${visibleData.address?.area ?? '—'} · full address after you accept`
             }
           />
           <InfoRow
@@ -726,9 +785,9 @@ export default function BookingDetailScreen() {
             text={booking.scheduled_at ? scheduleLabel(booking.scheduled_at) : `As soon as possible (requested ${fmt(booking.created_at)})`}
           />
           {booking.description ? <InfoRow icon="construct-outline" label="Issue" text={booking.description} /> : null}
-          {data.photoUrls.length > 0 ? (
+          {visibleData.photoUrls.length > 0 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: t.spacing.sm, paddingLeft: 30 }}>
-              {data.photoUrls.map((u) => (
+              {visibleData.photoUrls.map((u) => (
                 <Image key={u} source={{ uri: u }} style={{ width: 64, height: 64, borderRadius: t.radii.md }} contentFit="cover" accessibilityLabel="Problem photo" />
               ))}
             </ScrollView>
@@ -751,12 +810,12 @@ export default function BookingDetailScreen() {
 
       {approvedQuote && !shownQuoteIds.has(approvedQuote.id) ? (
         <Section title="Approved scope">
-          <QuoteView quote={approvedQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={data.counterpart} coinPaid={coinPaid} title="Quote" />
+          <QuoteView quote={approvedQuote} visitFee={booking.visit_fee} platformFee={booking.platform_fee} alreadyPaid={paid} counterpartName={visibleData.counterpart} coinPaid={coinPaid} title="Quote" />
         </Section>
       ) : null}
 
 
-      <PaymentsSection payments={payments} schedules={data.paymentSchedule} theme={t} />
+      <PaymentsSection payments={payments} schedules={visibleData.paymentSchedule ?? []} theme={t} />
 
       {canReport && disputeOpen ? (
         <Animated.View entering={FadeInDown.duration(200)}>

@@ -1,49 +1,53 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, InlineAlert, Skeleton, Text } from '../../components/ui';
+import { Button, Card, ErrorState, InlineAlert, Skeleton, Text } from '../../components/ui';
 import { formatINR } from '../../lib/money';
+import type { PaymentSchedule } from '../../lib/types';
 import { useTheme } from '../../theme';
-import { usePayment } from '../../lib/payments';
-import { getPaymentSchedule, type PaymentScheduleItem } from './api';
 
 /**
- * Read-only list of the booking's payment obligations, plus ONE pay button for everything due now.
- * The booking footer owns the first payment (pending_payment), so pass showPay=false there.
+ * Read-only presentation of the booking's parent-loaded payment obligations.
+ * The booking screen owns refresh, retry and the single payment action.
  */
-export function PaymentScheduleTimeline({ bookingId, canPay, showPay = true, onPaid }: { bookingId: string; canPay: boolean; showPay?: boolean; onPaid?: () => void }) {
+export function PaymentScheduleTimeline({
+  bookingId,
+  items,
+  loading,
+  error,
+  onRetry,
+  canPay,
+  showPay = true,
+  onPayDue,
+  paying,
+}: {
+  bookingId: string;
+  items: PaymentSchedule[] | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  canPay: boolean;
+  showPay?: boolean;
+  onPayDue: () => void;
+  paying: boolean;
+}) {
   const t = useTheme();
-  const [items, setItems] = useState<PaymentScheduleItem[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [paying, setPaying] = useState(false);
-  const startPayment = usePayment();
-  const load = useCallback(() => getPaymentSchedule(bookingId).then(setItems).catch((caught: Error) => setError(caught.message)), [bookingId]);
-  useEffect(() => { void load(); }, [load]);
 
-  const payDue = async () => {
-    setPaying(true);
-    setError(null);
-    try {
-      await startPayment(bookingId);
-      await load();
-      onPaid?.();
-    } catch (caught) {
-      setError((caught as Error).message);
-    } finally {
-      setPaying(false);
-    }
-  };
+  if (items === null) {
+    if (error) return <ErrorState message={error} onRetry={onRetry} />;
+    if (loading) return <Skeleton height={120} radius={t.radii.lg} />;
+    return <ErrorState message="Payment schedule is unavailable." onRetry={onRetry} />;
+  }
+  if (items.length === 0 && !error) return null;
 
-  if (items === null) return <Skeleton height={120} radius={t.radii.lg} />;
-  if (items.length === 0) return null;
   const dueNow = items.filter((item) => item.status === 'due').reduce((sum, item) => sum + item.amount, 0);
   return (
-    <Card gap={t.spacing.md} variant="outlined">
+    <Card gap={t.spacing.md} variant="outlined" accessibilityLabel={`Payment timeline for booking ${bookingId}`}>
       <View style={{ gap: 2 }}>
         <Text variant="title3">Payment timeline</Text>
         <Text variant="footnote" color="muted">Anything due is paid together in one payment. Later milestones are collected when they fall due.</Text>
       </View>
       <InlineAlert message={error} />
+      {error ? <Button title="Retry" variant="outline" onPress={onRetry} /> : null}
       <View>
         {items.map((item, index) => {
           const paid = item.status === 'paid' || item.status === 'waived' || item.status === 'refunded';
@@ -70,7 +74,7 @@ export function PaymentScheduleTimeline({ bookingId, canPay, showPay = true, onP
         })}
       </View>
       {canPay && showPay && dueNow > 0 ? (
-        <Button title={`Pay ${formatINR(dueNow)}`} leftIcon="lock-closed" onPress={() => void payDue()} loading={paying} fullWidth />
+        <Button title={`Pay ${formatINR(dueNow)}`} leftIcon="lock-closed" onPress={onPayDue} loading={paying} fullWidth />
       ) : null}
     </Card>
   );
