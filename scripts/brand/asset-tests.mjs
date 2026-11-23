@@ -67,6 +67,8 @@ const approvedSvgViewBoxes = new Map([
 ]);
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const APPROVAL_STATES = new Set(['pending', 'approved']);
+const RELEASE_BLOCKING_GATES = ['D02', 'D07a-platform', 'D07b'];
 
 function expectedRole(filePath) {
   if (filePath.includes('/logo-horizontal-')) return 'horizontal-lockup';
@@ -230,6 +232,144 @@ function expectValue(errors, label, actual, expected) {
 
 function expect(errors, label, condition, actual, expected) {
   if (!condition) errors.push(`${label}: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`);
+}
+
+function validateManifestApprovalState(manifest) {
+  const errors = [];
+  const gates = [
+    { approval: 'designSelection', flag: 'selected' },
+    { approval: 'publicRights', flag: 'publiclyCleared' },
+  ];
+  const rootApprovals = manifest.approvals ?? {};
+
+  for (const gate of gates) {
+    const approval = rootApprovals[gate.approval];
+    expect(errors, `manifest.approvals.${gate.approval} state`, APPROVAL_STATES.has(approval), approval, [...APPROVAL_STATES]);
+    expectValue(errors, `manifest.${gate.flag}`, manifest[gate.flag], approval === 'approved');
+  }
+
+  for (const [index, entry] of (Array.isArray(manifest.files) ? manifest.files : []).entries()) {
+    for (const gate of gates) {
+      const approval = entry.approval?.[gate.approval];
+      expectValue(errors, `manifest.files[${index}].approval.${gate.approval}`, approval, rootApprovals[gate.approval]);
+      expect(errors, `manifest.files[${index}].approval.${gate.approval} state`, APPROVAL_STATES.has(approval), approval, [...APPROVAL_STATES]);
+      expectValue(errors, `manifest.files[${index}].${gate.flag}`, entry[gate.flag], approval === 'approved');
+    }
+  }
+
+  return {
+    errors,
+    state: {
+      selected: rootApprovals.designSelection === 'approved',
+      publiclyCleared: rootApprovals.publicRights === 'approved',
+      designSelection: rootApprovals.designSelection,
+      publicRights: rootApprovals.publicRights,
+    },
+  };
+}
+
+function resolveReleaseReadiness(gates, authorization = {}) {
+  const pendingGates = RELEASE_BLOCKING_GATES.filter((gate) => gates[gate] !== 'APPROVED');
+  const releaseGatesApproved = pendingGates.length === 0;
+  return {
+    productionReady: releaseGatesApproved && authorization.productionReady === true,
+    publicLaunchAuthorized: releaseGatesApproved && authorization.publicLaunchAuthorized === true,
+    nativeVerified: releaseGatesApproved && authorization.nativeVerified === true,
+    oorvaBrandFeature: releaseGatesApproved && authorization.oorvaBrandFeature === true ? 'ON' : 'OFF',
+    pendingGates,
+  };
+}
+
+function runManifestStateSelftests() {
+  const makeManifest = (designSelection, publicRights) => {
+    const selected = designSelection === 'approved';
+    const publiclyCleared = publicRights === 'approved';
+    return {
+      approvals: { designSelection, publicRights },
+      selected,
+      publiclyCleared,
+      files: [{
+        approval: { designSelection, publicRights },
+        selected,
+        publiclyCleared,
+      }],
+    };
+  };
+  const approved = validateManifestApprovalState(makeManifest('approved', 'approved'));
+  assert.deepEqual(approved, {
+    errors: [],
+    state: {
+      selected: true,
+      publiclyCleared: true,
+      designSelection: 'approved',
+      publicRights: 'approved',
+    },
+  }, `approved D03b/D03c state actual=${JSON.stringify(approved)}`);
+
+  const candidate = validateManifestApprovalState(makeManifest('pending', 'pending'));
+  assert.deepEqual(candidate.errors, [], `pending candidate state actual=${JSON.stringify(candidate)}`);
+
+  const selectedButNotPublic = validateManifestApprovalState(makeManifest('approved', 'pending'));
+  assert.deepEqual(selectedButNotPublic, {
+    errors: [],
+    state: {
+      selected: true,
+      publiclyCleared: false,
+      designSelection: 'approved',
+      publicRights: 'pending',
+    },
+  }, `D03b-only approval state actual=${JSON.stringify(selectedButNotPublic)}`);
+
+  const falseApprovalClaims = makeManifest('pending', 'pending');
+  falseApprovalClaims.selected = true;
+  falseApprovalClaims.publiclyCleared = true;
+  falseApprovalClaims.files[0].publiclyCleared = true;
+  const falseApprovalResult = validateManifestApprovalState(falseApprovalClaims);
+  assert.ok(falseApprovalResult.errors.some((finding) => finding.startsWith('manifest.selected:')),
+    `pending D03b must reject selected=true; actual=${JSON.stringify(falseApprovalResult.errors)}`);
+  assert.ok(falseApprovalResult.errors.some((finding) => finding.startsWith('manifest.publiclyCleared:')),
+    `pending D03c must reject publiclyCleared=true; actual=${JSON.stringify(falseApprovalResult.errors)}`);
+  assert.ok(falseApprovalResult.errors.some((finding) => finding.startsWith('manifest.files[0].publiclyCleared:')),
+    `pending D03c must reject publiclyCleared=true; actual=${JSON.stringify(falseApprovalResult.errors)}`);
+
+  const unapprovedGate = makeManifest('unapproved', 'unapproved');
+  unapprovedGate.selected = true;
+  unapprovedGate.publiclyCleared = true;
+  unapprovedGate.files[0].selected = true;
+  unapprovedGate.files[0].publiclyCleared = true;
+  unapprovedGate.files[0].approval.designSelection = 'unapproved';
+  unapprovedGate.files[0].approval.publicRights = 'unapproved';
+  const unapprovedResult = validateManifestApprovalState(unapprovedGate);
+  assert.ok(unapprovedResult.errors.some((finding) => finding.includes('designSelection state')),
+    `unknown/unapproved gate states must be rejected; actual=${JSON.stringify(unapprovedResult.errors)}`);
+  assert.ok(unapprovedResult.errors.some((finding) => finding.includes('publicRights state')),
+    `unknown/unapproved public-rights states must be rejected; actual=${JSON.stringify(unapprovedResult.errors)}`);
+
+  const pendingReleaseGates = {
+    D02: 'PENDING',
+    'D07a-platform': 'PENDING',
+    D07b: 'PENDING',
+  };
+  const releaseReadiness = resolveReleaseReadiness(pendingReleaseGates, {
+    productionReady: true,
+    publicLaunchAuthorized: true,
+    nativeVerified: true,
+    oorvaBrandFeature: true,
+  });
+  assert.deepEqual(releaseReadiness, {
+    productionReady: false,
+    publicLaunchAuthorized: false,
+    nativeVerified: false,
+    oorvaBrandFeature: 'OFF',
+    pendingGates: RELEASE_BLOCKING_GATES,
+  }, `pending D02/D07 gates must block all release/readiness claims; actual=${JSON.stringify(releaseReadiness)}`);
+
+  return {
+    approvedSelectedAndClearedAccepted: true,
+    selectionOnlyStateAccepted: true,
+    pendingClaimsRejected: true,
+    pendingReleaseGatesBlocked: true,
+  };
 }
 
 function resolveBrandPath(relativePath, label) {
@@ -467,10 +607,8 @@ async function runOorvaCheck() {
   expectValue(errors, 'manifest.schemaVersion', manifest.schemaVersion, 1);
   expectValue(errors, 'manifest.stageId', manifest.stageId, 'O01X');
   expectValue(errors, 'manifest.status', manifest.status, 'candidate');
-  expectValue(errors, 'manifest.selected', manifest.selected, false);
-  expectValue(errors, 'manifest.publiclyCleared', manifest.publiclyCleared, false);
-  expectValue(errors, 'manifest.approvals.designSelection', manifest.approvals?.designSelection, 'pending');
-  expectValue(errors, 'manifest.approvals.publicRights', manifest.approvals?.publicRights, 'pending');
+  const approvalState = validateManifestApprovalState(manifest);
+  errors.push(...approvalState.errors);
   expect(errors, 'manifest.files', Array.isArray(manifest.files) && manifest.files.length === expectedFiles.length, {
     isArray: Array.isArray(manifest.files),
     actualCount: Array.isArray(manifest.files) ? manifest.files.length : null,
@@ -559,13 +697,9 @@ async function runOorvaCheck() {
     expect(errors, `${label} export sha256 format`, typeof entry.export?.sha256 === 'string' && HASH_PATTERN.test(entry.export.sha256), entry.export?.sha256, '64 lowercase hexadecimal characters');
     expect(errors, `${label} source sha256 format`, typeof entry.source?.sha256 === 'string' && HASH_PATTERN.test(entry.source.sha256), entry.source?.sha256, '64 lowercase hexadecimal characters');
     expectValue(errors, `${label} source.kind`, entry.source?.kind, expectedSourceKind(label));
-    expectValue(errors, `${label} approval.designSelection`, entry.approval?.designSelection, 'pending');
-    expectValue(errors, `${label} approval.publicRights`, entry.approval?.publicRights, 'pending');
-    expectValue(errors, `${label} selected`, entry.selected, false);
-    expectValue(errors, `${label} publiclyCleared`, entry.publiclyCleared, false);
     expectValue(errors, `${label} license.status`, entry.license?.status, 'pending');
     expect(errors, `${label} license.reference`, typeof entry.license?.reference === 'string' &&
-      entry.license.reference.trim().length > 0 && !/^<.*>$/.test(entry.license.reference.trim()), entry.license?.reference, 'non-empty provenance/license reference; clearance remains pending');
+      entry.license.reference.trim().length > 0 && !/^<.*>$/.test(entry.license.reference.trim()), entry.license?.reference, 'non-empty provenance/license reference; independent of public-rights approval');
 
     let sourcePath = null;
     let sourceRelativePath = null;
@@ -705,8 +839,11 @@ async function runOorvaCheck() {
       deterministic,
       renderingProvenance,
       safeZone,
-      licenseClearance: 'NOT VERIFIED; D03c remains pending',
-      approval: { designSelection: 'pending', publicRights: 'pending' },
+      licenseStatus: entry.license?.status,
+      approval: {
+        designSelection: entry.approval?.designSelection,
+        publicRights: entry.approval?.publicRights,
+      },
     };
     summaries.push(summary);
     if (label.includes('logo-compact-')) compact.set(label, { png, sourcePath: entry.source.path, sourceText, transform });
@@ -767,14 +904,14 @@ async function runOorvaCheck() {
   }
   return {
     stageId: 'O01X',
-    status: 'PASS_CANDIDATE_ONLY',
+    status: 'PASS_ASSET_AND_STATE',
     manifest: 'app/assets/brand/manifest.json',
-    state: { selected: false, publiclyCleared: false, designSelection: 'pending', publicRights: 'pending' },
+    state: approvalState.state,
     toolchain: actualToolchain,
     fileCount: summaries.length,
     files: summaries,
     inspections20_32_48: inspections,
-    visualDesignApproval: 'NOT VERIFIED by this machine check; D03b/D03c remain separate gates',
+    visualDesignApproval: 'D03b/D03c metadata consistency checked; this does not verify owner approval or authorize release, native verification, or runtime activation',
   };
 }
 
@@ -1131,6 +1268,7 @@ export async function runSelftest() {
   const fixture = await readFile(input, 'utf8');
   assert.match(fixture, /<path\b/, 'self-test fixture must contain outlined vector paths');
   assert.doesNotMatch(fixture, /<(?:text|font)\b|font-family\s*=|@font-face/i, 'self-test fixture must not use fonts');
+  const manifestStateSelftest = runManifestStateSelftests();
   const suppliedDProfile = await verifySuppliedDProfile();
 
   const rawRendererPng = new Resvg(fixture, { font: { loadSystemFonts: false } }).render().asPng();
@@ -1174,6 +1312,7 @@ export async function runSelftest() {
     /CRC mismatch/,
     `corrupt sRGB CRC rejection actualOffset=${srgbCrcOffset} expected=CRC mismatch`,
   );
+  const assetIntegrityTamperRejected = true;
   const transforms = runTransformSelftests();
   const hexBorder = runHexBorderSelftest();
 
@@ -1236,6 +1375,8 @@ export async function runSelftest() {
     rawRendererProfile: rawRendererProfile.kind,
     pngProfile: 'sRGB',
     profileCrcVerified: true,
+    manifestStateSelftest,
+    assetIntegrityTamperRejected,
     suppliedDProfile,
     transformSelftest: transforms,
     hexBorderSelftest: hexBorder,

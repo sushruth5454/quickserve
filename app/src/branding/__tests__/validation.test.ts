@@ -41,6 +41,39 @@ describe('O02 strict appearance color contract', () => {
     expect(darkPalette.segmentThumb).toBe('#2A3550');
   });
 
+  it('uses the owner-approved D role mappings for the candidate palette', () => {
+    expect(OORVA_BRANDING_CANDIDATE).toMatchObject({
+      defaultTheme: 'system',
+      light: {
+        primary: '#006D77',
+        primaryPressed: '#00515B',
+        primarySoft: '#E4F2F1',
+        primaryText: '#005B63',
+        onPrimary: '#FFFFFF',
+        bg: '#FFFFFF',
+        secondary: '#526983',
+        accent: '#E8B772',
+        onAccent: '#3D2B0D',
+      },
+      dark: {
+        primary: '#80D4D4',
+        primaryPressed: '#A0E4E2',
+        primarySoft: '#163D44',
+        primaryText: '#9BE1E0',
+        onPrimary: '#003B42',
+        bg: '#0C1B21',
+        accent: '#F1C482',
+        onAccent: '#3D2B0D',
+      },
+    });
+
+    for (const mode of ['light', 'dark'] as const) {
+      expect(getContrastFailures(OORVA_BRANDING_CANDIDATE[mode])).toEqual([]);
+    }
+    expect(contrastRatio('#FFFFFF', '#006D77')).toBeCloseTo(6.08, 2);
+    expect(contrastRatio('#FFFFFF', '#00515B')).toBeCloseTo(9.02, 2);
+  });
+
   it('adds the exact legacy on-danger and pressed-danger roles in both themes', () => {
     expect({ onDanger: lightPalette.onDanger, dangerPressed: lightPalette.dangerPressed }).toEqual({
       onDanger: '#FFFFFF',
@@ -60,6 +93,8 @@ describe('O02 strict appearance color contract', () => {
   });
 
   it('accepts the fixed valid appearance and Oorva candidate', () => {
+    expect(validAppearance.light).toEqual(OORVA_BRANDING_CANDIDATE.light);
+    expect(validAppearance.dark).toEqual(OORVA_BRANDING_CANDIDATE.dark);
     expect(validateAppearanceV1(validAppearance)).toMatchObject({ valid: true, errors: [] });
     expect(validateAppearanceV1(OORVA_BRANDING_CANDIDATE)).toMatchObject({ valid: true, errors: [] });
   });
@@ -67,8 +102,15 @@ describe('O02 strict appearance color contract', () => {
   it('rejects the fixed unsafe appearance fixture with both contrast failures', () => {
     const result = validateAppearanceV1(invalidAppearance);
     expect(result.valid).toBe(false);
-    expect(result.errors.join('\n')).toContain('light');
-    expect(result.errors.join('\n')).toContain('dark');
+    expect(result.errors.join('\n')).toContain('light: onDanger/dangerStrong');
+    expect(result.errors.join('\n')).toContain('dark: onDanger/dangerStrong');
+    expect(result.errors.join('\n')).toContain('dark: onDanger/dangerPressed');
+  });
+
+  it('fails closed when a required actual-use pair is missing', () => {
+    expect(getContrastFailures({})).toContain(
+      'text/bg for body text on page does not have string colors for a required actual-use pair',
+    );
   });
 
   it('independently rejects unread-count fill that fails AA', () => {
@@ -116,6 +158,15 @@ describe('O02 strict appearance color contract', () => {
     expect(result.errors.join('\n')).toContain('unexpected');
   });
 
+  it('rejects an unknown contrast-breaking color override', () => {
+    const appearance = copyValidAppearance();
+    copyColorOverrides(appearance, 'light').unexpected = '#FFFFFF';
+
+    const result = validateAppearanceV1(appearance);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('light.unexpected is not an allowed color token');
+  });
+
   it('rejects unsafe URLs, unsupported fonts, and non-hex color values', () => {
     const urlAppearance = copyValidAppearance();
     (urlAppearance['assets'] as Record<string, unknown>).logoLight = 'https://example.invalid/logo.png';
@@ -126,7 +177,9 @@ describe('O02 strict appearance color contract', () => {
 
     expect(validateAppearanceV1(urlAppearance).valid).toBe(false);
     expect(validateAppearanceV1(fontAppearance).valid).toBe(false);
-    expect(validateAppearanceV1(colorAppearance).valid).toBe(false);
+    const colorResult = validateAppearanceV1(colorAppearance);
+    expect(colorResult.valid).toBe(false);
+    expect(colorResult.errors).toContain('light.dangerPressed must be a six-digit hex color');
   });
 
   it('rejects invalid schema versions, unsafe display text, and payloads over 32 KiB', () => {
