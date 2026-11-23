@@ -38,7 +38,7 @@
     "scope": "Reference direction only; no raster embedded or traced."
   },
   "manifestPath": "app/assets/brand/manifest.json",
-  "manifestSha256": "a52f52b8d1977c252f838bcbf25816c010b39284448d4ff4d10f1e63b15b680b",
+  "manifestSha256": "4f81d613e4d1001079777a7b5123a296318d36c6ca4b05cdd19548298dcc5095",
   "previewPaths": [
     "app/assets/brand/logo-horizontal-light.png",
     "app/assets/brand/logo-horizontal-light@2x.png",
@@ -1630,7 +1630,8 @@
     "packagesInstalled": false,
     "windowsBuildsOrTestsRun": false,
     "selectionValidationOrder": "Codespace selectors ran and passed with the candidate/unselected manifest before standing D03b selection metadata was applied.",
-    "runnerScratch": "Temporary cache/log/lock paths relocated in-memory to existing ignored Codespace package directory; shared Codespace lock acquired read-only; selector/test commands unchanged."
+    "runnerScratch": "Temporary cache/log/lock paths relocated in-memory to existing ignored Codespace package directory; shared Codespace lock acquired read-only; selector/test commands unchanged.",
+    "selectedManifestSha256": "4f81d613e4d1001079777a7b5123a296318d36c6ca4b05cdd19548298dcc5095"
   },
   "approvalStatus": {
     "candidateOnlyForInstallationAndPublicRelease": true,
@@ -1647,7 +1648,7 @@
     "status": "APPROVED_STANDING_RULE",
     "criterion": "The source-derived Connected O output set passed all A.4.1 exporter checks and both required current-main Codespace selectors; standing owner rule selects it without further owner choice.",
     "validatedCandidateManifestSha256": "35caa7921dd1f89321104ff4ee8a9b6bd87098aac765f4fa90e14f6f85f3eaf4",
-    "selectedManifestSha256": "a52f52b8d1977c252f838bcbf25816c010b39284448d4ff4d10f1e63b15b680b",
+    "selectedManifestSha256": "4f81d613e4d1001079777a7b5123a296318d36c6ca4b05cdd19548298dcc5095",
     "selectedAssetSha256s": [
       {
         "path": "app/assets/brand/logo-horizontal-light.png",
@@ -1757,5 +1758,17 @@
     "D03c": "NOT_APPROVED",
     "publicReleaseAllowed": false
   },
-  "assetValidationNote": "The A.4.1 checker passed the candidate/unselected manifest state. After PASS, only D03b approval/selection metadata changed; source, transform, output bytes, and per-asset hashes were unchanged."
+  "assetValidationNote": "The A.4.1 checker passed the candidate/unselected manifest state. After PASS, only D03b approval/selection metadata changed; source, transform, output bytes, and per-asset hashes were unchanged.",
+  "manifestHashEvidence": {
+    "path": "app/assets/brand/manifest.json",
+    "canonicalCommittedSha256": "4f81d613e4d1001079777a7b5123a296318d36c6ca4b05cdd19548298dcc5095",
+    "canonicalBytes": 33738,
+    "gitBlobSha1": "ebe654e6b1f733213c2ecb824c8efe3af59d5b5b",
+    "lineEnding": "LF",
+    "autocrlf": true,
+    "worktreeSha256": "a52f52b8d1977c252f838bcbf25816c010b39284448d4ff4d10f1e63b15b680b",
+    "worktreeBytes": 34922,
+    "preSelectionCandidateSha256": "35caa7921dd1f89321104ff4ee8a9b6bd87098aac765f4fa90e14f6f85f3eaf4",
+    "note": "Git committed blob is the canonical SHA-256 source; CRLF worktree bytes are normalized by core.autocrlf and are not a manifest content change."
+  }
 }
