@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "stageId": "O01X",
   "status": "candidate",
-  "selected": false,
+  "selected": true,
   "publiclyCleared": true,
   "approvals": {
-    "designSelection": "pending",
+    "designSelection": "approved",
     "publicRights": "approved"
   },
   "toolchain": {
@@ -51,10 +51,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -95,10 +95,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -139,10 +139,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -183,10 +183,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -227,10 +227,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -271,10 +271,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -315,10 +315,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -359,10 +359,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -403,10 +403,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -447,10 +447,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -491,10 +491,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -535,10 +535,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
@@ -579,10 +579,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "central-208-square"
@@ -622,10 +622,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "central-208-square"
@@ -665,10 +665,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "central-208-square"
@@ -711,10 +711,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "central-208-square"
@@ -757,10 +757,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "central-208-square"
@@ -803,10 +803,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "central-208-square"
@@ -850,10 +850,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "opaque-square-no-rounded-corners",
@@ -898,10 +898,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "centered-circle-624"
@@ -942,10 +942,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "flat-opaque-background",
@@ -990,10 +990,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "centered-circle-624"
@@ -1034,10 +1034,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "ink-within-624-square"
@@ -1081,10 +1081,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "ink-within-624-square"
@@ -1127,10 +1127,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "white-on-transparent"
@@ -1171,10 +1171,10 @@
         "reference": "Supplied D kit; docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json; D03c approval is recorded separately."
       },
       "approval": {
-        "designSelection": "pending",
+        "designSelection": "approved",
         "publicRights": "approved"
       },
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
       "safeZone": {
         "rule": "quarter-symbol-clear-space",
