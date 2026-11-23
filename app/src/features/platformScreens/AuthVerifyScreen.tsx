@@ -8,6 +8,8 @@ import { authErrorMessage, formatOtpCountdown } from '../../lib/authErrors';
 import { haptics } from '../../lib/haptics';
 import { formatPhone } from '../../lib/phone';
 import { hasCompletedOnboarding, isSafeAuthReturnTo, resolveAuthDestination, returningUserRole } from '../../lib/returningUser';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
+import { useFeature } from '../../branding/FeatureFlagsProvider';
 import { useTheme } from '../../theme';
 
 const RESEND_SECONDS = 60;
@@ -127,6 +129,8 @@ function useAuthVerifyController() {
 
 export default function AuthVerifyScreen() {
   const { t, phone, code, setCode, busy, error, setError, left, otpVerified, submit, resend } = useAuthVerifyController();
+  const identity = useBrandIdentity('auth');
+  const authUx = useFeature('oorva_auth_ux');
 
   return (
     <Screen
@@ -146,6 +150,12 @@ export default function AuthVerifyScreen() {
       }
     >
       <View style={{ gap: t.spacing.sm }}>
+        {authUx ? (
+          <View testID="o13c-auth-ux" style={{ gap: t.spacing.xs }}>
+            <Text variant="overline">{identity.displayName}</Text>
+            {identity.tagline ? <Text variant="footnote" color="muted">{identity.tagline}</Text> : null}
+          </View>
+        ) : null}
         <Text variant="title1" accessibilityRole="header">
           Verify your number
         </Text>

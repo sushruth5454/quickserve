@@ -8,6 +8,8 @@ import { useAuth, type ActiveRole } from '../../lib/auth';
 import { haptics } from '../../lib/haptics';
 import { roleProfilePatch } from '../../lib/roleSelection';
 import { resolveAuthDestination } from '../../lib/returningUser';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
+import { useFeature } from '../../branding/FeatureFlagsProvider';
 import { useTheme } from '../../theme';
 
 const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bullets: string[] }[] = [
@@ -106,6 +108,8 @@ function useAuthRoleController() {
 export default function AuthRoleScreen() {
   const { t, name, setName, role, setRole, commissionBullet, profileStatus, busy, error, loadProfile, proceed } =
     useAuthRoleController();
+  const identity = useBrandIdentity('auth');
+  const authUx = useFeature('oorva_auth_ux');
 
   return (
     <Screen
@@ -125,8 +129,14 @@ export default function AuthRoleScreen() {
       }
     >
       <View style={{ gap: t.spacing.sm, marginTop: t.spacing.lg }}>
+        {authUx ? (
+          <View testID="o13c-auth-ux" style={{ gap: t.spacing.xs }}>
+            <Text variant="overline">{identity.displayName}</Text>
+            {identity.tagline ? <Text variant="footnote" color="muted">{identity.tagline}</Text> : null}
+          </View>
+        ) : null}
         <Text variant="title1" accessibilityRole="header">
-          Welcome to QuickServe
+          Welcome to {identity.displayName}
         </Text>
         <Text variant="body" color="muted">
           Tell us your name and how you'll use the app. You can switch any time from the Me tab.
@@ -135,7 +145,7 @@ export default function AuthRoleScreen() {
       <Input label="Your name" placeholder="Priya Sharma" value={name} onChangeText={setName} autoComplete="name" leftIcon="person-outline" />
       <View accessibilityRole="radiogroup" style={{ gap: t.spacing.md }}>
         <Text variant="subhead" color="textSecondary">
-          How will you use QuickServe?
+          How will you use {identity.displayName}?
         </Text>
         {ROLES.map((r) => {
           const selected = role === r.role;
