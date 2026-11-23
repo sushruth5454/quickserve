@@ -125,7 +125,15 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: '100%' },
+  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, minWidth: 0 },
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    maxWidth: '100%',
+    minWidth: 0,
+  },
   full: { alignSelf: 'stretch' },
 });
