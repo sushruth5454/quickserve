@@ -1118,7 +1118,7 @@
     "finalSelection": true,
     "production_ready": false,
     "publicReleaseAllowed": false,
-    "D03bCandidateEvidence": "D03b/D03c selected/cleared for all 26 D exports. Prior candidate A.4.1 PASS is recorded; approved-state asset and app identity selectors are pending O20 lock release. Final selected manifest SHA-256: 25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b."
+    "D03bCandidateEvidence": "Approved-state A.4.1 PASS_ASSET_AND_STATE for all 26 D exports plus O05B identity selector PASS (1 suite, 86 tests); selected manifest SHA-256 25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b. Release remains blocked by D02/D07."
   },
   "runtimeInstallation": "NOT PERFORMED; native candidates remain under app/assets/brand/native and are not installed.",
   "safeZoneDiameterMapping": {
@@ -1153,7 +1153,7 @@
   "dAssetDelta": {
     "id": "O01X-D",
     "palette": "D",
-    "status": "D03B_D03C_SELECTED_AWAITING_O20_VALIDATION",
+    "status": "A4.1_PASS_D03B_D03C_APPROVED_UNRELEASED",
     "previousDStackBase": "b914532ba1be6527ea0e74202fe0c3833376329e",
     "currentO01XBase": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
     "currentMainMergeCommitSha": "06f722b94a95846b4adf73fc66dab106085d01b2",
@@ -1339,29 +1339,45 @@
     "validation": {
       "codespaceTsc": {
         "status": "PASS",
-        "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd (same helper blob as tested branch)",
+        "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
         "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite tsc",
+        "codespace": "qs-tests-g67pgv4xqj639gx5",
         "wipSnapshotBranch": "wip/qs-o01x-d-b914",
-        "wipSnapshotSha": "ff5769b5ff3e17ddd3919b6bfe6a40406d3a6149",
+        "wipSnapshotSha": "a2c11172eace93e563419545ad44ef3f90e70ab4",
         "result": "cs-test result: PASS"
       },
       "assetsSelector": {
-        "status": "PASS_CANDIDATE_ONLY",
-        "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd (same helper blob as tested branch)",
+        "status": "PASS_ASSET_AND_STATE",
+        "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
         "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite assets -Filter oorva",
         "codespace": "qs-tests-g67pgv4xqj639gx5",
         "wipSnapshotBranch": "wip/qs-o01x-d-b914",
-        "wipSnapshotSha": "0f31df51e0cbc741b12cb1b4789bcaf3d725e18",
-        "testedManifestSha256": "0f21fa1a44b94bad0ec5bdf192ef5246930a0bb5b59faacc1680d57a3db4010f",
+        "wipSnapshotSha": "971e9faea0f229173e567118acd5d3ce8fec104f",
+        "testedManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
         "checkedFileCount": 26,
         "result": "cs-test result: PASS",
-        "candidateState": {
-          "selected": false,
-          "publiclyCleared": false,
-          "designSelection": "pending",
-          "publicRights": "pending"
+        "state": {
+          "selected": true,
+          "publiclyCleared": true,
+          "designSelection": "approved",
+          "publicRights": "approved"
         },
-        "renderingProvenance": "The 26 D PNGs match the supplied-export manifest and are supplied Chromium 158.0.4370.33/Pillow artifacts, not Resvg byte-parity outputs."
+        "hashMismatchCount": 0,
+        "smallSizeInspections": 6,
+        "safeZoneFailures": 0
+      },
+      "identitySelector": {
+        "status": "PASS",
+        "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+        "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
+        "codespace": "qs-tests-g67pgv4xqj639gx5",
+        "wipSnapshotBranch": "wip/qs-o01x-d-b914",
+        "wipSnapshotSha": "073008cc978591d1dd5e15e5e527ee3b8c903687",
+        "selectedSuites": 1,
+        "selectedTests": 86,
+        "passedTests": 86,
+        "failedTests": 0,
+        "result": "cs-test result: PASS"
       }
     },
     "gateStatus": {
@@ -1418,7 +1434,7 @@
       "E0": "APPROVED",
       "E1": "APPROVED",
       "TOOL_ASSETS_MAIN": "APPROVED",
-      "O05BFourHashBinding": "MATCHED_PENDING_O20_VALIDATION",
+      "O05BFourHashBinding": "MATCHED_4_OF_4",
       "D02": "PENDING",
       "D07aPlatform": "PENDING",
       "D07b": "PENDING"
@@ -2882,7 +2898,7 @@
       "wipSnapshotSha": "0f31df51e0cbc741b12cb1b4789bcaf3d725e18"
     },
     "bindingReadiness": {
-      "status": "READY_MATCHED_PENDING_O20_VALIDATION",
+      "status": "MATCHED_4_OF_4_SELECTORS_PASS",
       "suppliedKitBindingsMatchApp": "4/4",
       "o05bDefaultsBindingsMatchApp": "4/4",
       "o05bEvidenceBindingsMatchApp": "4/4",
@@ -2915,17 +2931,43 @@
           "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
         }
       ],
-      "nextAction": "After O20 releases the Codespace lock, run the current-main O01X approved-state assets and app identity selectors; then hand the exact selected manifest SHA to O05B for atomic lane validation."
+      "nextAction": "O05B four D bindings and files match; current-main O01X asset and identity selectors PASS. Ready for exact-head Lane CI; no main/Expo integration."
+    },
+    "previousUnselectedManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
+    "preSelectionA41Summary": {
+      "status": "PASS_CANDIDATE_ONLY",
+      "manifestSha256": "0f21fa1a44b94bad0ec5bdf192ef5246930a0bb5b59faacc1680d57a3db4010f",
+      "fileCount": 26,
+      "state": {
+        "selected": false,
+        "publiclyCleared": false,
+        "designSelection": "pending",
+        "publicRights": "pending"
+      }
     },
     "finalManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
-    "previousUnselectedManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
     "approvedStateValidation": {
-      "status": "WAITING_FOR_O20_CODESPACE_LOCK",
-      "assetCommand": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite assets -Filter oorva",
-      "identityCommand": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
-      "targetManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
-      "priorCandidateA41Status": "PASS_CANDIDATE_ONLY",
-      "currentApprovedStateResult": "NOT_RUN"
+      "status": "PASS",
+      "manifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+      "assetsSelector": "PASS_ASSET_AND_STATE",
+      "assetCount": 26,
+      "assetHashMismatches": 0,
+      "state": {
+        "selected": true,
+        "publiclyCleared": true,
+        "designSelection": "approved",
+        "publicRights": "approved"
+      },
+      "smallSizeInspections": 6,
+      "safeZoneFailures": 0,
+      "identitySelector": {
+        "suites": 1,
+        "tests": 86,
+        "passed": 86,
+        "failed": 0
+      },
+      "tsc": "PASS",
+      "currentMain": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd"
     }
   }
 }
