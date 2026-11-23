@@ -9,7 +9,7 @@
 | Visual evidence | Historical 162-name index remains in appendix D. Fresh archived run **44696642603**, head `229995fe3194de39684f12ef348d3e37930ae5f2`, has application code equal to frozen source (only doc14 differs), **failed three Home flag-coverage assertions**. All nine contact sheets were reviewed in the completed audit. Captures/filenames do not prove route/state or runtime PASS. The ended-booking/payment contradiction is image **89**, not 87/88. |
 | Scope retained | Complete original brand/UX/logo/launch briefs, Critical requirements and **21 review fixes + 3 suggestions** remain binding. Exact accessible palette, native asset handoff and bounded launch choreography are preserved in appendix A; review ledger in G. |
 | Safety / existing work | Preserve existing routes, technical/history identifiers, Supabase contracts, actual actor permissions, backend money arithmetic/records and working integrations. Doc14/17 functional repairs and current owners take precedence over presentation. |
-| Owner decisions | E0 authorizes future reversible implementation, **not E1 main/automatic deployment, D03 public identity rights, D07b native cutover or any historical money/status repair**. Missing legal/bank/issuer/signing approvals are scoped release boundaries, not source-audit incompleteness. |
+| Owner decisions | **D colour direction approved November 23, 2026**: teal/white/sand and exact doc 19 values. Ready logo/native-source artwork is supplied; no drawing task remains. E0/E1, public rights, native cutover and historical money/status repair retain their existing separate scope. [Approval](design/oorva/colours/approval.json). |
 
 ---
 
@@ -19,7 +19,7 @@
 
 - **Coordinator:** readiness, exact metadata, exclusive locks, migration allocation, serialized shared registrations, tested integration batches and human gates. It does **not** implement/rewrite a worker's feature code or guess a conflict resolution.
 - **Stage author:** one stage, one fresh background agent, one isolated worktree, one `lane/oorva-<lowercase-stage>` branch. Use configured model defaults, **no automatic Opus**. Required focused money/auth/concurrency implementation reviews are the only review gate; no new audit or optional review program.
-- **Owner:** explicit scoped approvals. Pending final SVG selection/public trademark/native resources never block unrelated Class-A repairs.
+- **Owner:** explicit scoped approvals. Pending public trademark/native resources never block unrelated Class-A repairs. Supplied-master integrity is a mechanical check, not another creative-selection request.
 
 | State | Exact meaning / prerequisite use |
 |---|---|
@@ -77,7 +77,7 @@ Use PowerShell 7 (`pwsh`) for these snippets (`if ($PSVersionTable.PSVersion.Maj
 1. Read active repository/session instructions and current owner handoffs. Record `git --no-pager status --short`, `git worktree list --porcelain`, `git remote -v`, `git fetch origin main`, and actual `origin/main` SHA. Never checkout/reset/stash/clean the existing dirty or detached planning checkout.
 2. Record current doc12/doc14/doc17 live owners, especially Q-02/Q-03/P2-01 and money/recurring/native locks. An old status/reservation is not permission. Ask only the exact affected owner for transfer/acknowledgment; leave unrelated stages ready.
 3. Freeze approved portable inputs on planning commit **P** based on current main in a **new clean planning worktree**. Explicitly allowlist doc18, execution JSON, published audit/coverage/before-manifest files and existing approved exploration inputs; verify hashes before copying/adding. Never `git add -A` someone else's dirty tree. Push only a planning branch if authorized by E0; do not use detached `8ef...` as an implementation base.
-4. Record E0/D01 development approval, every human gate as `APPROVED/PENDING/NOT_AVAILABLE`, its exact affected stages/platform/context and evidence. O00 does not wait for final SVG/native/public release decisions.
+4. Record E0/D01 development approval, every human gate as `APPROVED/PENDING/NOT_AVAILABLE`, its exact affected stages/platform/context and evidence. O00 does not wait for native/public release decisions. D03a/b use the supplied-kit verification rule in A.4.1, not another drawing/selection round.
 5. Reconcile and allocate only ready SQL claims by section 3; fill exact filenames. Record planning SHA P, tested integration target ref/SHA and approved stacked bases. Each worker base must contain P **and every dependency SHA**, even when those changes are only on an integration branch.
 6. Initialize stage/todo metadata below from the JSON, without recreating or changing built-in `todos`/`todo_deps`. Mark only O00 `DONE` after its documentary acceptance. No completed-audit lane or WP aggregate is a dependency.
 
@@ -468,8 +468,8 @@ Never gate payment recording, refunds, settlement/payout release, expiry cleanup
 | **E0** | Future explicit request to implement this approved contract; reversible private development/testing only. D01 development approval references fixed design/architecture. | This documentation integration; no implied deployment/data repair. |
 | **E1** | Explicit ordinary flag-OFF main delivery permission acknowledging automatic backend/Expo publication. May be scoped to tooling/foundations. | Private lane/batch implementation/testing. |
 | **D02** | Approval of independent controls, bounded startup/fallback/late-ON behavior before public identity activation. | Private O05F/O05A/launch model work. |
-| **D03a** | Rights/provenance for supplied inputs and original outlined-SVG authoring method in A.4.1. | Fonts, unrelated A repairs, schema/tooling. |
-| **D03b** | Actual selected logo/wordmark/asset manifest. Required for O05B/O33/O34 and public brand. | Producing original candidates or unrelated UI/safety code. |
+| **D03a** | Coordinator verifies supplied-master hashes/provenance, records evidence and marks this input gate APPROVED; no new artwork or owner-selection request. Public rights remain D03c. | Fonts, unrelated A repairs, schema/tooling. |
+| **D03b** | Coordinator verifies supplied D manifest/binding hashes against the recorded D approval and marks this input gate APPROVED. O05B/O33/O34 consume ready files; public/native gates remain separate. | Unrelated UI/safety code, fonts, schema/tooling. |
 | **D03c** | Public brand/trademark/store/asset rights clearance. | Internal candidate/source implementation. |
 | **D04** | Fixed eligible-cold-process motion contract, never resume/login replay, web/Expo Go reveal OFF. | Private development follows A.4.4; public motion waits approval. |
 | **D05-policy-scope** | Approve exact scope-qualified public safety/agreement/deletion copy; no new fee/refund/guarantee/domain/issuer policy. | Unrelated actor/state/money safety fixes. ID-Q01's exact deactivation-duty clarification is already resolved. |
@@ -478,7 +478,7 @@ Never gate payment recording, refunds, settlement/payout release, expiry cleanup
 | **D07a-platform** | Actual supported device, signing/build access and device-reachable owner-approved isolated non-production backend on exact branch server revision, synthetic actors. Loopback CI backend is not automatically device reachable. | Other-platform/private code; unavailable platform explicitly NOT VERIFIED. |
 | **STACK-O34** | Explicit O34 candidate stacked start at exact O33 CODE_GREEN SHA/run. | Does not grant D07b or main merge. |
 | **D07b** | Native production/runtime/channel cutover, reinstall/legacy maintenance and distribution approval **after candidate evidence**. | Creating the O33→O34 evidence stack. |
-| **TOOL-ASSETS-MAIN** | O37A assets runner really exists in current main under E1 tooling authorization; refreshed helper accepts it. | O01F/SVG authoring/A fixes; no guessed suite command. |
+| **TOOL-ASSETS-MAIN** | O37A assets runner really exists in current main under E1 tooling authorization; refreshed helper accepts it. | O01F/supplied-SVG import/A fixes; no guessed suite command. |
 | **MIG-\*** | One unique claim reconciled/acknowledged/substituted under section 3 before SQL writer launch. | Disjoint non-SQL work. |
 | **DATA-CASE-\*** | Separate explicit per-PK preview/approval for any historical money/status correction beyond defined runtime behavior. | Never implied by E0/E1 or flag-OFF deployment. No such operation is executed by this plan/task. |
 
@@ -590,8 +590,8 @@ Each row is one real writer. Every source task maps **exactly once**. Full exact
 | `O26-ID06` | A | [ID-T06](audit/18-WS4-Identity-Provider-Workspaces.md#id-t06) | Provider identity and hours drafts are shared across accounts on the same device | O00, O38R, O26-ID05 |
 | `O30-ID11` | A | [ID-T11](audit/18-WS4-Identity-Provider-Workspaces.md#id-t11) | Admin provider cards retain completed review actions and collapse independent state axes | O00, O38-ID01 |
 | `O01F` | B | Retained core contract | Licensed bundled heading fonts independent of final logo | O00 |
-| `O01L` | B | Retained core contract | Author genuine original outlined SVG candidates | O00 |
-| `O01X` | B | Retained core contract | Deterministically export and validate candidate PNG asset handoff | O00, O37A, O01L |
+| `O01L` | B | Retained core contract | Verify and import supplied approved-D vector masters; do not redraw | O00 |
+| `O01X` | B | Retained core contract | Verify and import supplied approved-D PNG exports and metadata | O00, O37A, O01L |
 | `O03` | B | Retained core contract | Secure registry, versioned branding storage and atomic publication | O00, O37A, O02 |
 | `O04` | B | Retained core contract | Constrained immutable PNG upload, public serving and private preview | O00, O37A, O03 |
 | `O05A` | B | Retained core contract | Atomic appearance integration into the existing theme, without final logo dependency | O00, O02, O05F, O07A, O01F |
@@ -691,6 +691,7 @@ These specify actual files/steps/tests, not vague IDs. Source-only stages use th
 6. Private job uses current local-supabase.sh LOCAL_DB_URL and synthetic fixtures, optional local-only service role for Edge/Storage. Do not register any real-pg file in PGlite package/scripts/run-all.
 7. Register future assets helper/job only when its files exist. Before E1 tooling-main approval, O37A uses narrow existing Codespace app selftests and its actual branch CI tooling/PG jobs; do not call unknown -Suite assets.
 8. E2E pins every section-0.5 key OFF in hosted legacy passes with snapshot/restore; positive family/brand pass is private only. Capture manifest asserts route/state/actor/flags and no blanket console filters.
+9. O37A alone updates its owned exporter/validator/asset-test palette/profile assertions for the supplied approved-D files. Keep generated resvg and supplied Chromium/Pillow provenance truthful and retain all source/hash/PNG/safe-zone/security checks. Hand the tested tooling SHA to O01X; O01X never edits these tooling files.
 
 **Acceptance:** Runner/export/capture selftests are green without future feature imports; actual real-PG selftest proves two connections and safety guards. New Codespace assets capability is UNAVAILABLE until code really reaches current main with E1 approval; tooling green alone does not satisfy TOOL-ASSETS-MAIN. No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS.
 
@@ -804,37 +805,38 @@ These specify actual files/steps/tests, not vague IDs. Source-only stages use th
 - private-e2e: `gh workflow run e2e-local.yml --repo sushruth5454/quickserve --ref lane/oorva-o01f`. Optional once per UI/migration lane when it adds wiring/state signal; mandatory on integration batch. Integrator alone watches E2E; no e2e-web dispatch on lane/batch.
 - lane-ci: `git push origin HEAD:refs/heads/lane/oorva-o01f`. After Codespace PASS (or explicitly documented outage fallback), own exact-head lane-ci run green; no main/native/public permission inferred.
 
-#### O01L — Author genuine original outlined SVG candidates
+#### O01L — Verify and import supplied approved-D vector masters; do not redraw
 
 **Depends:** O00. **Gates:** E0, D03a.
 
 **Exact owned files:** `app\assets\brand\oorva-symbol.svg`; `app\assets\brand\oorva-wordmark-light.svg`; `app\assets\brand\oorva-wordmark-dark.svg`; `app\assets\brand\logo-horizontal-light.svg`; `app\assets\brand\logo-horizontal-dark.svg`; `app\assets\brand\logo-stacked-light.svg`; `app\assets\brand\logo-stacked-dark.svg`; `app\assets\brand\logo-horizontal-mono-black.svg`; `app\assets\brand\logo-horizontal-mono-ivory.svg`; `app\assets\brand\source-manifest.json`; `app\src\branding\__tests__\svgMasters.test.ts`; `docs\design\oorva\evidence\o01l.json`.
 
-1. Read this exact stage and linked completed source task/finding/placement rows; perform affected-file/function drift check only. No repeat full audit, invented policy or scope expansion.
-2. Use existing Connected O PNGs only as unapproved exploration. Author original outlined paths for symbol/custom lowercase wordmark and each exact A.4.1 variant.
-3. No raster wrapper, live text, external href/script/font or copied mark; record provenance and candidate status in source-manifest.
-4. source-manifest.json includes conceptRationale, geometryRationale, originality/provenance, smallSizeEvidence, license and approvalStatus; provide the final chosen-concept reasoning with the actual candidate, not only exported pictures.
-5. Use the exact viewBoxes/safe zones in A.4.1. D03b selection and D03c public rights remain distinct later gates.
+1. Read the approved-D colour/asset input record and ready brand-kit manifest; perform affected-file drift/owner-lock checks only.
+2. Verify the nine existing SVG master paths flagged requiredForExistingAppContract. Copy those supplied outlined files exactly; no drawing, tracing, live text, image embedding or substitute wordmark.
+3. Use handoff/vector-provenance.json to update the current source-manifest schema truthfully, retaining supplied path/transform geometry and approved D colours.
+4. Update existing svgMasters expectations to approved D colours while preserving self-containment, path, viewBox/safe-zone checks and existing file ownership.
+5. If already completed, deliver only the current-owner D asset delta; do not reset task progress or ask for another creative choice. Public rights remain D03c.
 
-**Acceptance:** Every named master is real self-contained vector geometry; production_ready remains false until actual selection/public clearance as applicable. No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS.
+**Acceptance:** All nine required existing master files exactly match the supplied approved-D hashes and contain real self-contained outlined paths. No artwork generation step, new app capability, public-rights assertion or native destination copy.
 
 **Exact validation selectors/commands:**
 - codespace-app: `pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.svgMasters[.]test[.]ts$'`. First command runs tsc+one exact Jest path; remaining commands run only each other exact Jest path. All listed files/cases selected, each cs-test result: PASS; no zero selection.
 - private-e2e: `gh workflow run e2e-local.yml --repo sushruth5454/quickserve --ref lane/oorva-o01l`. Optional once per UI/migration lane when it adds wiring/state signal; mandatory on integration batch. Integrator alone watches E2E; no e2e-web dispatch on lane/batch.
 - lane-ci: `git push origin HEAD:refs/heads/lane/oorva-o01l`. After Codespace PASS (or explicitly documented outage fallback), own exact-head lane-ci run green; no main/native/public permission inferred.
 
-#### O01X — Deterministically export and validate candidate PNG asset handoff
+#### O01X — Verify and import supplied approved-D PNG exports and metadata
 
 **Depends:** O00, O37A, O01L. **Gates:** E0, D03a, TOOL-ASSETS-MAIN.
 
 **Exact owned files:** `app\assets\brand\logo-horizontal-light.png`; `app\assets\brand\logo-horizontal-light@2x.png`; `app\assets\brand\logo-horizontal-light@3x.png`; `app\assets\brand\logo-horizontal-dark.png`; `app\assets\brand\logo-horizontal-dark@2x.png`; `app\assets\brand\logo-horizontal-dark@3x.png`; `app\assets\brand\oorva-wordmark-light.png`; `app\assets\brand\oorva-wordmark-light@2x.png`; `app\assets\brand\oorva-wordmark-light@3x.png`; `app\assets\brand\oorva-wordmark-dark.png`; `app\assets\brand\oorva-wordmark-dark@2x.png`; `app\assets\brand\oorva-wordmark-dark@3x.png`; `app\assets\brand\logo-compact-light.png`; `app\assets\brand\logo-compact-light@2x.png`; `app\assets\brand\logo-compact-light@3x.png`; `app\assets\brand\logo-compact-dark.png`; `app\assets\brand\logo-compact-dark@2x.png`; `app\assets\brand\logo-compact-dark@3x.png`; `app\assets\brand\native\icon.png`; `app\assets\brand\native\android-icon-foreground.png`; `app\assets\brand\native\android-icon-background.png`; `app\assets\brand\native\android-icon-monochrome.png`; `app\assets\brand\native\splash-icon.png`; `app\assets\brand\native\splash-icon-dark.png`; `app\assets\brand\native\notification-icon.png`; `app\assets\brand\native\favicon.png`; `app\assets\brand\manifest.json`; `docs\design\oorva\evidence\o01x.json`.
 
-1. Read this exact stage and linked completed source task/finding/placement rows; perform affected-file/function drift check only. No repeat full audit, invented policy or scope expansion.
-2. Use O37A's pinned Node22/resvg exporter remotely with loadSystemFonts=false and only declared bundled sources.
-3. Import only the A.4.1 allowlisted exports and manifest after checking source/tool hashes, canvas/alpha/profile/safe-zone/density and 20/32/48px inspection.
-4. Run the actual current-main Codespace assets suite only after TOOL-ASSETS-MAIN is satisfied. Do not copy native source exports into installed-app destinations; O33 alone does that.
+1. Read brand-kit/README.md and the sealed manifest. The nine SVG / 26 PNG existing-path input set is already supplied; do not ask a model to render or draw missing artwork.
+2. Verify supplied file hashes, PNG decode/canvas/alpha/sRGB, monochrome white and native safe-zone evidence; import only existing-contract exports under the assigned app-assets locks.
+3. Consume the tested D-tooling handoff from O37A, the sole owner of exporter/validator/asset-test files. O01X updates only its owned export manifest with truthful renderer/source/export metadata. Handoff JSON is evidence, not a blind schema replacement.
+4. Do not label supplied Chromium/Pillow bytes as pinned resvg output, disable safety checks or claim old forest-only --check passes. If encoding is mechanically regenerated, use supplied SVG only and atomically update hashes/manifests/bindings.
+5. Run the actual available targeted assets/CI checks with documented Codespace fallback; native installed destinations remain O33-owned. For completed stages apply a narrow D delta.
 
-**Acceptance:** Re-export --check is deterministic; all A.4.1 canvas/alpha/safe-zone constraints pass; candidate versus selected versus publicly cleared state is truthful. No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS.
+**Acceptance:** Every required existing-path export is present/valid with correct D colours; source/renderer/hash/alpha/canvas/safe-zone evidence is truthful. Tooling adoption preserves security/safety validation; no redrawing, false CI claim, runtime activation or native destination copy.
 
 **Exact validation selectors/commands:**
 - codespace-tsc: `pwsh -NoProfile -File $Helper -Suite tsc`. cs-test result: PASS; additional tool/device tests remain separate.
@@ -936,6 +938,7 @@ These specify actual files/steps/tests, not vague IDs. Source-only stages use th
 4. PF-T10: Bind only selected genuine vector/export assets; expose stable identity API for screen owners, not a global string replacement.
 5. Bind only D03b's actual selected real SVG/PNG manifest in defaults/BrandLogo; retain useBrandIdentity/resolveBrandIdentity as the sole API.
 6. No new public identity until D02/D03c/relevant D05 release gates, and no native destination copy in this stage.
+7. Use the supplied D images and `handoff/binding-data.json` / `selected-brand-exports.ts.txt`; replace all four image hashes atomically. Do not retain forest-image hashes or redraw artwork.
 
 **Acceptance:** PF-T10: Brand OFF keeps each legacy context; unsupported appearance cannot freeze OFF. PF-T10: Historical financial snapshots, references, IDs and scheme unchanged. No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS.
 
@@ -1673,7 +1676,7 @@ No secrets/real customer data; independent synthetic fixtures per scenario. One 
 | Source audit/package | COMPLETE: 88 screens +5 layouts /503 placements /136 findings /131 tasks /29 entities /12 families. |
 | Dispatch allocation | 140 concrete stages, every source task exactly once; unique ownership/dependency graph and 38 UNASSIGNED migration claims. |
 | Implementation / lanes / current-main tool integration | NOT STARTED by this documentation task; no Codespace/app/SQL/CI test run or push claimed. |
-| Logo | Existing six Connected O PNG exploration exports remain unapproved. Original outlined SVG production authorship, actual selection and public rights are separate gates. |
+| Logo/assets | Approved D ready kit supplies real SVG masters, 56 PNG exports and exact copy/binding data using the existing selected geometry. No drawing task remains. Actual application/native integration and public-rights clearance stay separately verified. |
 | Fresh archived before run | 44696642603 /229995fe…; failure with three Home flag-coverage assertions, not a blanket UX/app PASS. Actual route/state coverage remains field-specific. |
 | Historical evidence | All 162 original names retained in D; not relabeled current runtime PASS. |
 | Native/large-text/gateway | NOT RUN / NOT VERIFIED. Signed native candidate, real devices/backends, keyboard/large-text/remote-push/gateway evidence still required where applicable. |
@@ -1711,8 +1714,8 @@ At execution, maintain **individual stages**, not only WP summaries. Live board 
 | Tagline | `Your world, closer.` |
 | Secondary brand statement | `DISCOVER · CONNECT · EXPERIENCE`; restrained promotional use, never a replacement for the exact primary tagline or mandatory clutter in every header |
 | Personality | Warm, trustworthy, restrained, premium, locally relevant; not ornamental or shopping-template-heavy |
-| Primary action | Forest; never gold by default |
-| Gold | Rewards/premium decoration or forest-on-gold text; no white-on-gold normal button labels |
+| Primary action | Approved D deep teal `#006D77`; never warm sand by default |
+| Warm accent | Sand `#E8B772` with `#3D2B0D` text; small brand highlight, not a second CTA or a status signal |
 | Category identity | Four accents within one common interface; not four independent themes |
 | AI label | `Ask Oorva AI`; state actual capability. Home-service assistance is not permission to promise every marketplace is supported. |
 | Existing program | `Seva Coins` retained until separately approved |
@@ -1722,68 +1725,73 @@ At execution, maintain **individual stages**, not only WP summaries. Live board 
 
 #### A.1.2 Color tokens
 
-PROPOSED implementation values below are deterministic defaults, not a claim that the owner has approved every accessibility refinement. Preserve the existing Palette names where possible. Add `secondary`, `accent`, `onAccent`, `onDanger`, `dangerPressed`, `onInverse`, `onHero`, and four `cat*Text` fields.
 
-| Token | Light | Dark | Rule |
+**Owner-approved D contract.** Read [doc 19](19-Oorva-Colour-Exploration-and-Design-Tokens.md), [the exact tokens](design/oorva/colours/design-tokens.json) and [approval record](design/oorva/colours/approval.json). No worker chooses replacement colours. Approval selects design values; it does not activate runtime flags, deploy application code or clear public/native rights.
+
+| Existing colour key | Light | Dark | Rule |
 |---|---|---|---|
-| primary | `#173D39` | `#A9CFBC` | Accessible action fill, adapted for dark mode |
-| primaryPressed | `#102D2A` | `#8FBBA6` | Pressed action fill |
-| primarySoft | `#E4EFE9` | `#1C3B32` | Selected/background emphasis |
-| primaryText | `#173D39` | `#B9DAC8` | Links and selected labels |
-| onPrimary | `#FFFFFF` | `#102D2A` | Text/icons on primary |
-| secondary | `#8BA99A` | `#8BA99A` | Decorative sage, not normal body text |
-| accent | `#D5A65B` | `#D5A65B` | Restrained gold |
-| onAccent | `#173D39` | `#102D2A` | Text on accent |
-| bg | `#F7F5EF` | `#101C18` | Page |
-| surface | `#FFFFFF` | `#182923` | Cards/forms |
-| surfaceAlt | `#F0F2EB` | `#20352D` | Secondary containers |
-| surfaceRaised / surfaceOverlay | `#FFFFFF` | `#284236` | Elevation/sheets |
-| text | `#202B29` | `#F3F4ED` | Primary readable text |
-| textSecondary | `#344B65` | `#CDD6CE` | Supporting text; source brief's slate neutral |
-| muted | `#606B65` | `#A7B6AC` | Accessible muted text, replacing the proposed lighter grey |
-| subtle | `#8D9690` | `#7D9185` | Disabled/decorative only |
-| border | `#E7E5DD` | `#314A3E` | Decorative separators |
-| borderStrong | `#D1D8D0` | `#486556` | Container separators, not sole input boundary |
-| outline | `#7B857F` | `#7F9D8B` | Interactive boundary; verify 3:1 |
-| success | `#27845B` | `#71C99C` | Status accent |
-| successStrong / successText | `#1F6848` | `#8BDDB0` | Readable success |
-| successSoft | `#E5F3EB` | `#18372A` | Success container |
-| warning | `#C68A32` | `#E5B765` | Status accent |
-| warningText | `#765017` | `#F0C982` | Readable warning |
-| warningSoft | `#F7EDDC` | `#3B2E18` | Warning container |
-| danger | `#C65353` | `#EB9999` | Accent, not white-text button fill |
-| dangerStrong | `#A43737` | `#A43737` | Destructive fill |
-| dangerPressed | `#852C2C` | `#852C2C` | Do not use light `dangerText` as pressed fill |
-| onDanger | `#FFFFFF` | `#FFFFFF` | Destructive label |
-| dangerText | `#A43737` | `#F3B1B1` | Readable error |
-| dangerSoft | `#FBECEC` | `#3A2020` | Error container |
-| info | `#3977A8` | `#8CB8DD` | Information accent |
-| infoText | `#28577D` | `#B3D6F1` | Readable information |
-| infoSoft | `#E7F0F7` | `#1B3041` | Information container |
-| star | `#926111` | `#D5A65B` | Rating glyph; text still states rating |
-| skeleton | `#E7EAE3` | `#294236` | Loading decoration |
-| bubbleMine | primary | primary | Use onPrimary for its text |
-| bubbleTheirs | primarySoft | surfaceAlt | Use normal text tokens |
-| heroFrom / heroTo | `#173D39` / `#102D2A` | Same | Brand hero, not every screen |
-| onHero / onInverse | `#F7F5EF` | `#F7F5EF` | Hero/toast text |
-| toastBg / toastBorder | `#102D2A` | `#102D2A` | Inverse notification surface |
-| segmentThumb | surface | surfaceRaised | Segmented control |
-| overlay | `rgba(32,43,41,0.48)` | `rgba(0,0,0,0.60)` | Bundled derived token, not arbitrary remote CSS |
+| `bg` | `#FFFFFF` | `#0C1B21` | White light page; retain OS-selected dark companion |
+| `surface` | `#FFFFFF` | `#14262D` | Neutral cards/forms |
+| `surfaceAlt` | `#F4F7F8` | `#1B3138` | Secondary/disabled/grouped containers |
+| `surfaceRaised` | `#FFFFFF` | `#20383F` | Raised containers |
+| `surfaceOverlay` | `#FFFFFF` | `#20383F` | Sheets |
+| `text` | `#18282E` | `#EAF4F6` | Primary content text |
+| `textSecondary` | `#465C64` | `#C0D3D7` | Secondary content text |
+| `muted` | `#5F7077` | `#A0B7BE` | Readable supporting text |
+| `subtle` | `#849197` | `#728B94` | Inactive/decorative only |
+| `border` | `#DEE5E7` | `#2E4850` | Decorative separation only |
+| `borderStrong` | `#C9D3D7` | `#48656D` | Container grouping, not sole input boundary |
+| `outline` | `#74848B` | `#76939D` | Meaningful input/control boundary >=3:1 |
+| `success` | `#1C7B4B` | `#88DAB0` | Semantic role; use the documented foreground/container pair |
+| `successStrong` | `#15613B` | `#88DAB0` | Semantic role; use the documented foreground/container pair |
+| `successText` | `#15613B` | `#B2EACB` | Semantic role; use the documented foreground/container pair |
+| `successSoft` | `#E9F6EE` | `#18392A` | Semantic role; use the documented foreground/container pair |
+| `warning` | `#A96111` | `#F4C56F` | Semantic role; use the documented foreground/container pair |
+| `warningText` | `#87500A` | `#F8D593` | Semantic role; use the documented foreground/container pair |
+| `warningSoft` | `#FFF4E1` | `#3C301C` | Semantic role; use the documented foreground/container pair |
+| `danger` | `#BA3F3F` | `#FFB3B7` | Semantic role; use the documented foreground/container pair |
+| `dangerStrong` | `#B4232D` | `#B4232D` | Destructive/unread fill |
+| `dangerPressed` | `#8F1D27` | `#8F1D27` | Pressed destructive fill |
+| `onDanger` | `#FFFFFF` | `#FFFFFF` | Destructive/unread foreground |
+| `dangerText` | `#A51D27` | `#FFB3B7` | Semantic role; use the documented foreground/container pair |
+| `dangerSoft` | `#FDEDEE` | `#402128` | Semantic role; use the documented foreground/container pair |
+| `info` | `#2D6596` | `#8BC3EE` | Semantic role; use the documented foreground/container pair |
+| `infoText` | `#245A85` | `#B0D7F6` | Semantic role; use the documented foreground/container pair |
+| `infoSoft` | `#EDF4FA` | `#1C354A` | Semantic role; use the documented foreground/container pair |
+| `star` | `#865514` | `#F4C56F` | Semantic role; use the documented foreground/container pair |
+| `skeleton` | `#E7EDEF` | `#29434C` | Semantic role; use the documented foreground/container pair |
+| `onInverse` | `#FFFFFF` | `#FFFFFF` | Inverse foreground |
+| `onHero` | `#FFFFFF` | `#FFFFFF` | Hero foreground |
+| `toastBg` | `#18282E` | `#18282E` | Inverse notification container |
+| `toastBorder` | `#18282E` | `#48656D` | Inverse boundary |
+| `segmentThumb` | `#FFFFFF` | `#20383F` | Selected segment container |
+| `primary` | `#006D77` | `#80D4D4` | Primary action fill |
+| `primaryPressed` | `#00515B` | `#A0E4E2` | Pressed action |
+| `primarySoft` | `#E4F2F1` | `#163D44` | Selected container |
+| `primaryText` | `#005B63` | `#9BE1E0` | Brand links/selected text; NOT primary body text |
+| `onPrimary` | `#FFFFFF` | `#003B42` | Text/icons on primary |
+| `secondary` | `#526983` | `#B7C9E0` | Restrained secondary identity |
+| `accent` | `#E8B772` | `#F1C482` | Small warm recognition accent |
+| `onAccent` | `#3D2B0D` | `#3D2B0D` | Readable accent label |
+| `heroFrom` | `#006D77` | `#006D77` | Occasional brand hero only |
+| `heroTo` | `#00515B` | `#00515B` | Occasional brand hero only |
+| `bubbleMine` | `#006D77` | `#80D4D4` | Semantic role; use the documented foreground/container pair |
+| `bubbleTheirs` | `#E4F2F1` | `#1B3138` | Semantic role; use the documented foreground/container pair |
 
-Remote admin color inputs accept six-digit hex only. Alpha overlays are derived in code; do not expose CSS strings, arbitrary style JSON, or executable content in configuration.
+All 59 existing colour-role keys are provided. `components`, `badges` and `charts` in the token file are bundled design mappings, **not new fields to upload into strict BrandingV1**. Remote colour inputs remain six-digit hex only. Derived overlay stays code-owned: light `rgba(24,40,46,0.48)`, dark `rgba(0,0,0,0.60)`; never arbitrary remote CSS.
 
-| Category | Accent light / soft light | Readable text light | Accent dark / soft dark | Readable text dark |
-|---|---|---|---|---|
-| Home services | `#477D61` / `#E4F0E9` | `#28593D` | `#8FBBA2` / `#1B3627` | `#B9DEC5` |
-| Shops/products | `#527BAE` / `#E6EDF6` | `#335E8C` | `#94B7DF` / `#1D3047` | `#BAD3EF` |
-| Sports | `#C18B42` / `#F7EDDC` | `#765017` | `#D9B16D` / `#3B2E18` | `#F0CB8F` |
-| Creators | `#9673AA` / `#F0E9F5` | `#694A80` | `#BBA1D0` / `#31253C` | `#D9C2E8` |
+| Category | Accent light | Soft light | Text light | Accent dark | Soft dark | Text dark |
+|---|---|---|---|---|---|---|
+| Home services | `#006D77` | `#E4F2F1` | `#005B63` | `#80D4D4` | `#163D44` | `#A5E6E4` |
+| Shops/products | `#315CA4` | `#EBF1FA` | `#264C8B` | `#A0C2FF` | `#1B3155` | `#BDD4FF` |
+| Sports | `#865514` | `#FCF1DF` | `#795014` | `#EBC482` | `#3C301C` | `#F2D59E` |
+| Creators | `#754185` | `#F5ECF8` | `#663674` | `#D5ADE2` | `#382340` | `#E3C5ED` |
 
-Update `pillarAccent` to return the readable category foreground, retaining accent separately if decoration needs it. Existing tests must still assert readable category text >=4.5:1.
+Use category colours only in small labelled icon/metadata areas, not full cards/screens. Keep status meaning separate and backed by canonical data; pair it with text/icons. Use `outline` for actual input boundaries, not decorative `border`. Focus uses `primaryText`, 3 px ring and 2 px surface-colour gap.
 
-Measured planning checks: forest/ivory 10.93:1; white/forest 11.91:1; revised muted/ivory 5.08:1; forest/gold 5.35:1; light category text pairs 6.94/5.71/6.18/6.11:1; dark category text pairs 8.93/8.72/8.58/8.79:1. O02 must test the complete actual palette/usage matrix, not only these samples.
+Measured D light pairs: white/teal 6.08:1; white/pressed teal 9.02:1; supporting text/white 5.16:1; selected text/container 6.83:1; white/destructive 6.52:1. The supplied 312-pair specification and 1279 actual static browser text checks pass; this is not full accessibility/native/runtime proof. O02/O06/O05A must validate actual application usage, 320-width/200% text and ON/OFF/parent-OFF behaviour.
 
-**Legacy Class-A semantic defaults:** add `dangerPressed=#B42318` and `onDanger=#FFFFFF` in both legacy themes; unread uses `dangerStrong/onDanger`. Current unread contrast is 3.7574 light / 2.7861 dark and dark destructive pressed is 1.9412; these fail. Current primary/onPrimary and segmentThumb are correct and retained. O02/O06A test actual used pairs, not only abstract token arithmetic.
+**Legacy Class-A semantic defaults stay unchanged:** `dangerPressed=#B42318`, `onDanger=#FFFFFF`, unread `dangerStrong/onDanger`; preserve the existing correct legacy primary/onPrimary and segmentThumb. D styling remains behind effective Oorva brand/UX controls, never a dependency of existing money resolution.
 
 #### A.1.3 Typography, spacing and shape
 
@@ -2031,35 +2039,45 @@ existing ThemeProvider/useTheme/makeStyles + nested isolated admin preview
 
 #### A.4.1 Asset handoff
 
-**Current input:** docs\design\oorva\logo\ contains six verified PNG exploration exports and manifest (`production_ready=false`, no SVG master). They are not approved/native assets. O01L may use them as a direction, not call them vectors.
 
-**Authorship:** O01L's designated asset agent authors original SVG paths for the selected direction and custom lowercase wordmark; owner-provided masters are allowed only with provenance. No raster-in-SVG wrapper, live font/network dependency in wordmark masters, copied mark or paid generation call without an explicit request. Image generation is exploration only. D03b selection and D03c public rights are separate from producing candidates.
+**Ready supplied input — no drawing task:** [approved-D brand kit](design/oorva/brand-kit/README.md),
+[download ZIP](design/oorva/brand-kit/oorva-approved-D-brand-kit.zip),
+[preview](design/oorva/brand-kit/previews/brand-kit-board.png),
+[exact file/destination/hash manifest](design/oorva/brand-kit/manifest.json).
+The kit contains actual outlined SVG masters and 56 ready PNG exports, preserving existing selected Connected O/custom
+wordmark path geometry. No worker should draw, trace, raster-wrap, typeset a substitute wordmark or request image generation.
 
-**Remote deterministic pipeline:** O37A owns the new scripts\brand exporter/tests and pinned dev manifest/lock; coordinator registers the proposed assets Codespace suite and lane CI job. O01L owns artwork inputs/outputs, not the shared exporter. Node22 + pinned @resvg/resvg-js, loadSystemFonts=false, explicit bundled fonts only. Export into an isolated artifact directory; validate and allowlist-import into the lane; record source hash/tool version/command/dimensions/alpha/color profile. No Windows registry installs and no ad-hoc upscaled raster as native master.
+| Input | Exact delivery / use |
+|---|---|
+| Existing app contract | 9 existing SVG master paths + 26 existing PNG export paths are flagged `requiredForExistingAppContract` in the kit manifest. Import only those under existing owners/locks. |
+| Logo variants | Symbol, wordmark-only, horizontal/stacked; light teal, dark-placement light teal, black/white; PNG @1x/@2x/@3x. Extra variants are optional, not new runtime dependencies. |
+| Light / dark placement | `#006D77` on white; `#80D4D4` on `#0C1B21`. Monochrome white is `#FFFFFF`. The legacy `mono-ivory.svg` filename is a compatibility alias for pure white; no ivory colour decision remains. |
+| Native sources | Opaque 1024 app icon; separate adaptive foreground/background/monochrome; 1024 transparent splash light/dark; 96 white-alpha notification icon; 48 favicon and optional ICO. |
+| Native safe zone | Actual adaptive critical ink is verified inside the centred 624 px diameter circle, not merely a 624 square. Opaque icon has no prepainted corner mask. |
+| Canvas/densities | Horizontal 360×100/720×200/1080×300; wordmark 256×64/512×128/768×192; compact 32/64/96; stacked 240/480/720 square. Exact canvases/alpha/sRGB/hashes are in the manifest. |
+| Binding | `handoff/binding-data.json` and `selected-brand-exports.ts.txt` give the four exact paths/hashes. O05B applies these atomically with the asset import, not an old forest hash. |
+| Native config | Merge-only `handoff/native-config-fragment.json`; `bundle/app/assets/brand/launch-geometry.json`. Do not replace app IDs/scheme/unrelated plugins. Native copies remain O33-owned. |
+| Motion reference | Light/dark 1800 ms GIF references use the supplied layers; **do not ship them as a splash movie**. O34 still owns guarded destination, OFF/reduced-motion/watchdog/native-frame behaviour. |
+| Provenance/rights | Existing selected vector contours retained and D colours explicitly approved. Public/trademark clearance remains D03c; native/device/release evidence remains D07a/D07b. |
 
-| Source/export (under app\assets\brand unless native destination shown) | Exact canvas / alpha | Variants / safe area |
-|---|---|---|
-| oorva-symbol.svg | viewBox 0 0 256 256, outlined vector | forest/ivory/black; ink fits central 208-square, preserve optical proportions |
-| oorva-wordmark-light.svg, oorva-wordmark-dark.svg | viewBox 0 0 1024 256, outlined custom letters | wordmark-only for staged reveal; no typed replacement in Manrope |
-| logo-horizontal-light.svg, logo-horizontal-dark.svg | viewBox 0 0 1440 400 | approved symbol+wordmark; tagline remains separate Inter text |
-| logo-stacked-light.svg, logo-stacked-dark.svg | viewBox 0 0 720 720 | actual stacked lockup, not merely an unnamed requirement |
-| logo-horizontal-mono-black.svg, logo-horizontal-mono-ivory.svg | same horizontal geometry | one-color/reversed masters |
-| logo-horizontal-light.png / dark.png and @2x/@3x | 360x100 / 720x200 / 1080x300 RGBA | matching master; transparent background |
-| oorva-wordmark-light.png / dark.png and @2x/@3x | 256x64 / 512x128 / 768x192 RGBA | exact custom wordmark geometry |
-| logo-compact-light.png / dark.png and @2x/@3x | 32/64/96-square RGBA | symbol-only; 20/32/48 logical-size inspection |
-| native\icon.png -> app\assets\icon.png | 1024-square opaque | forest background, ivory symbol, no prepainted rounded corners |
-| native\android-icon-foreground.png -> existing destination | 1024-square RGBA | all critical ink inside the centered 624-pixel-diameter circle (not merely a 624-square bounding box), within Android 66/108 layer guidance |
-| native\android-icon-background.png -> existing destination | 1024-square opaque | flat forest, no symbol |
-| native\android-icon-monochrome.png -> existing destination | 1024-square RGBA | white alpha-only symbol, same safe zone |
-| native\splash-icon.png / splash-icon-dark.png -> app\assets\* | 1024-square RGBA | light forest / dark ivory symbol, ink <=624-square; first JS frame uses the SAME PNG and canvas |
-| native\notification-icon.png -> app\assets\notification-icon.png | 96-square RGBA | white-only small-icon foreground on transparent; O33 notification color uses primary |
-| native\favicon.png -> app\assets\favicon.png | 48-square RGBA | simplified clear symbol |
-| app\assets\fonts\Manrope-SemiBold.ttf / Manrope-Bold.ttf | approved static 600/700 | O01F license/source/hash; keep Inter and actual Telugu fallback |
-| manifest.json | source/export role/hash/canvas/alpha/density/license/approval | draft vs selected vs publicly cleared explicitly distinct |
+**Owner workflow:** O01L now verifies/imports supplied masters; O01X imports/verifies supplied PNGs/manifests; O05B binds;
+O33 alone copies native destinations. If a stage already landed, apply only the narrow D delta on its current owner lane;
+do not reopen unrelated completed tasks or repeat design discovery.
 
-Light/dark suffix describes the placement/background theme, not a promise the mark is identical ink color. Outlined wordmark/symbol variants keep exact geometry; no external SVG href/script/embedded bitmap. Per-master clear space >=one quarter symbol diameter. Tagline in launch is separate bundled Inter400 and exact English `Your world, closer.` unless a separately approved brand-copy change exists.
+**Coordinator gate evidence:** verify the actual supplied master/export hashes against the kit manifest and all four
+binding records against their PNGs; record the approval JSON plus checked manifest/ZIP hashes in the session ledger.
+Then mark input gates D03a and D03b APPROVED without asking for another colour/logo decision. A mismatch blocks only
+the affected import/binding lane. This does not satisfy D03c, E0/E1 or D07. Keep completed stage status/SHAs intact
+and track any D adoption as a narrow follow-up under its existing owner/file locks.
 
-O33 alone copies generated native-source files into runtime destinations and adds actual splash/notification plugin config. Merely exporting PNGs is not integration or native verification.
+**Actual tooling limitation:** the current exporter/asset tests contain forest/ivory-only assertions and a pinned resvg
+byte-reproduction profile. The supplied D files truthfully record Chromium/Pillow rasterization; **no current resvg,
+Codespace or lane-CI PASS is claimed**. O37A alone adopts its tooling palette/profile before the O01X export-manifest handoff;
+preserve all safety checks. Do not falsify renderer metadata or disable validation. If maintainers normalize encoding
+through pinned resvg, the supplied SVGs are the complete input: mechanical export/hash regeneration only, never drawing.
+The kit's handoff JSON is evidence, not an unchecked replacement for the application's current manifest schema.
+
+The art files are ready now; application/native integration is not performed by this documentation change.
 
 #### A.4.2 Native versus runtime
 
@@ -2124,7 +2142,7 @@ O35D consumes this completed context inventory and checks only affected-file/lat
 
 **Binary eligibility:** native Android/iOS, not Expo Go, and the installed reviewed runtime is in the O33 Oorva-native capability set. Only this permits evaluating the native adapter/holding the native splash before flags are known. **Reveal eligibility:** binary eligible AND valid effective brand/launch flags ON AND D03b assets bundled. Known OFF skips the reveal and releases normally; it does not prevent the early bounded bootstrap/watchdog. Web/Expo Go/legacy binaries never evaluate a new missing native module merely because a global flag is ON. New native-module code is delivered only under the compatible Oorva runtime/channel policy in A.4.5.
 
-**Shared immutable geometry:** planned app\assets\brand\launch-geometry.json is consumed by the native config generator and launchModel.ts. It names the exact light/dark splash PNG, imageWidth 160 logical units, resizeMode contain, OS-native-window centering and bundled backgrounds (light ivory, dark bg). Add real expo-splash-screen plugin config, including dark image/background; the existing unreferenced splash-icon file is not configuration. First JS frame draws the SAME PNG at the SAME canvas size/center outside screen-specific padding. If OS scaling differs, calibrate one documented platform constant shared by native+JS, never per-device magic offsets. Require pixel/frame comparison before approval.
+**Shared immutable geometry:** planned app\assets\brand\launch-geometry.json is consumed by the native config generator and launchModel.ts. It names the exact light/dark splash PNG, imageWidth 160 logical units, resizeMode contain, OS-native-window centering and bundled backgrounds (light white `#FFFFFF`, dark `#0C1B21`). Add real expo-splash-screen plugin config, including dark image/background; the existing unreferenced splash-icon file is not configuration. First JS frame draws the SAME PNG at the SAME canvas size/center outside screen-specific padding. If OS scaling differs, calibrate one documented platform constant shared by native+JS, never per-device magic offsets. Require pixel/frame comparison before approval.
 
 **Bootstrap/controller (proposed fixed D02 contract):**
 1. A minimal launchBootstrap module runs before provider/render work on binary-eligible runtimes, without waiting to learn the flags. It starts prevent-auto-hide and an independent 2500 ms watchdog; releaseNativeSplash(reason) is idempotent and available to the error boundary. Native code is behind the capability boundary, not a top-level missing-module import in the legacy-compatible path. Never rely solely on a component effect that may not mount.
@@ -2514,7 +2532,7 @@ Original Oorva complete text export fingerprint: `89F2301E6BF8C5D53AF16FE93A8025
 |---|---|
 | Complete all-route/body/navigation/role/status audit, actual problem vs retain | Completed seven reports/coverage, 88 screens+5layouts and 503 placements. O00 checks drift only; no audit worker is dispatched. |
 | Current/historical before images and truthful issue register | C/D plus published audit/before manifests; staged actual-state after evidence and O37B completion matrix. |
-| Warm premium Indian/community Oorva, exact forest/gold/ivory/slate personality, tagline and category accents | A.1/A.4, O02/O01F/O01L/O01X/O05A/O05I/O05B. Accessible readable variants preserve original hue roles, gold restrained. |
+| Warm premium local-marketplace Oorva, approved D teal/white/sand identity, exact tagline and labelled category accents | Doc19approved choice + A.1/A.4; existing stage owners apply ready tokens/artwork, not a new design task. |
 | Genuine original custom lowercase mark/symbol/horizontal/stacked/mono/light/dark/native assets | Exact A.4.1 canvases/safe zones/densities/provenance and split authorship/export/actual selection/public rights gates. PNG exploration is not an SVG master. |
 | Manrope heading/Inter body, 4-point spacing, rounded common icon family, realistic media | O01F/O05A/O06A/O06B/O08; preserve Inter/script fallback/Ionicons and actual photo facts, no invented assets/stock/ratings. |
 | Central semantic light/dark/category typography/shape/elevation/component system | Existing theme/primitives extended, one identity/refresh/control API; no competing UI framework or mega-card/status engine. |
@@ -2537,7 +2555,7 @@ Original Oorva complete text export fingerprint: `89F2301E6BF8C5D53AF16FE93A8025
 |---|---|
 | Implementation authorization | Future E0, not this doc request. |
 | Ordinary main delivery and proposed assets helper availability | E1 scoped permission, actual O37A current-main integration and refreshed helper; branch tooling green is not current-main support. |
-| Final SVG/native/public identity | Original authored masters, real export checks, actual D03b selection and D03c public rights remain pending. |
+| Ready assets / public-native proof | Actual D SVG/PNG kit is supplied and independently checked. Public rights and actual native candidate/device/release evidence remain separate; no model drawing remains. |
 | Public legal/outbound/issuer/bank/contact replacements | Exact per-context D05 approvals; retain operational/legal values absent verified replacement. No invented policy. |
 | Native devices/signing/reachable non-prod backend/iOS | Actual platform D07a resources and signed compatible candidate evidence; no Expo Go substitute. |
 | Native production cutover | D07b after O33 GREEN → explicitly approved O34 candidate stack; legacy maintenance/reinstall/channels recorded. |

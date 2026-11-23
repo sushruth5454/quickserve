@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "state": "APPROVED_COLOUR_DIRECTION",
+  "concept": "D",
+  "name": "Deep Teal + Warm Sand",
+  "ownerInput": "yes lets go with D",
+  "approvedAt": "2026-11-23T06:29:20.528-08:00",
+  "approvedTokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+  "tokenPath": "docs/design/oorva/colours/design-tokens.json",
+  "values": {
+    "primary": "#006D77",
+    "backgroundLight": "#FFFFFF",
+    "accent": "#E8B772",
+    "darkPrimary": "#80D4D4",
+    "backgroundDark": "#0C1B21",
+    "defaultTheme": "system"
+  },
+  "readyAssets": {
+    "path": "docs/design/oorva/brand-kit",
+    "archive": "docs/design/oorva/brand-kit/oorva-approved-D-brand-kit.zip",
+    "archiveSha256": "80975DB81151ED2E80E5D28E8E818BF08205DA0F30DAA76F5276CC67B9177395",
+    "pngExports": 56,
+    "canonicalSvgSources": 22,
+    "existingAppContract": {
+      "pngFiles": 26,
+      "svgMasters": 9,
+      "rule": "Import these existing paths under current stage locks. Extra variants are optional, not new app dependencies."
+    },
+    "rule": "Use supplied artwork. No model drawing, tracing or alternate logo required."
+  },
+  "scope": [
+    "D colour values and white light background",
+    "OS-selected dark companion",
+    "Prepared ready-to-use artwork preserving the existing selected Connected O geometry",
+    "Documentation and existing-coordinator implementation handoff"
+  ],
+  "doesNotAuthorize": [
+    "Feature activation",
+    "Main application deployment",
+    "Native runtime/channel/distribution cutover",
+    "Public trademark/legal clearance",
+    "Live money or historical production data changes"
+  ],
+  "applicationIntegratedByThisChange": false,
+  "nativeDeviceVerified": false
+}

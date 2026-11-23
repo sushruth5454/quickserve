@@ -3,7 +3,7 @@
   "sourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
   "planningDate": "2026-11-20",
   "status": "DOCUMENT_READY_IMPLEMENTATION_NOT_STARTED",
-  "authority": "Doc18 sections 0-8 and reviewed appendix A; this file is the sole dispatch/dependency/file/function/migration-claim source; source reports remain frozen evidence, not allocations.",
+  "authority": "Doc18 sections 0-8 and reviewed appendix A; this file is the sole dispatch/dependency/file/function/migration-claim source; source reports remain frozen evidence, not allocations. Approved D token/ready-artwork input is defined by approvedDesignInput; application activation and stage live status remain separate.",
   "sourceReports": [
     {
       "stream": "platform",
@@ -391,7 +391,8 @@
         "Implement separate real-pg run.mjs/helpers/selftest, two independent pg.Client connections and distinct PIDs; private-stack loopback guard PRIVATE_TEST_STACK=true. Discover only existing *.pg.test.mjs plus explicit HTTP integration tests, fail requested zero matches.",
         "Private job uses current local-supabase.sh LOCAL_DB_URL and synthetic fixtures, optional local-only service role for Edge/Storage. Do not register any real-pg file in PGlite package/scripts/run-all.",
         "Register future assets helper/job only when its files exist. Before E1 tooling-main approval, O37A uses narrow existing Codespace app selftests and its actual branch CI tooling/PG jobs; do not call unknown -Suite assets.",
-        "E2E pins every section-0.5 key OFF in hosted legacy passes with snapshot/restore; positive family/brand pass is private only. Capture manifest asserts route/state/actor/flags and no blanket console filters."
+        "E2E pins every section-0.5 key OFF in hosted legacy passes with snapshot/restore; positive family/brand pass is private only. Capture manifest asserts route/state/actor/flags and no blanket console filters.",
+        "O37A alone updates its owned exporter/validator/asset-test palette/profile assertions for supplied approved-D files. Keep generated resvg and supplied Chromium/Pillow provenance truthful and retain all source/hash/PNG/safe-zone/security checks. Hand the tested tooling SHA to O01X; O01X never edits these tooling files."
       ],
       "acceptance": [
         "Runner/export/capture selftests are green without future feature imports; actual real-PG selftest proves two connections and safety guards.",
@@ -403,7 +404,9 @@
       "sourceRefs": [],
       "readOnlyInputs": [],
       "registrationRequests": [],
-      "implementationOverrides": [],
+      "implementationOverrides": [
+        "O37A alone updates its owned exporter/validator/asset-test palette/profile assertions for supplied approved-D files. Keep generated resvg and supplied Chromium/Pillow provenance truthful and retain all source/hash/PNG/safe-zone/security checks. Hand the tested tooling SHA to O01X; O01X never edits these tooling files."
+      ],
       "requirements": [
         "Original Oorva brief",
         "Reviewed appendix A",
@@ -630,7 +633,8 @@
         "Implement strict A.3 V1 types/validation/defaults and shared fixed good/bad fixtures, separately from forward-compatible public feature parsing.",
         "Legacy dangerPressed is #B42318 and onDanger is #FFFFFF in both themes; keep current correct primary/onPrimary and segmentThumb roles.",
         "Unread backgrounds use dangerStrong/onDanger; actual-used-pair tests reject 3.7574/2.7861 unread and 1.9412 dark pressed-destructive fixtures, not already-correct pairs.",
-        "Preserve the exact A.1 palette/metrics/typography/category role contract and >32KiB/unknown-field/unsafe URL/font/contrast failure rules."
+        "Preserve the exact A.1 palette/metrics/typography/category role contract and >32KiB/unknown-field/unsafe URL/font/contrast failure rules.",
+        "The exact approved colour values are doc19 D and colours/design-tokens.json; preserve existing legacy Class-A values and strict schema. No worker colour choice."
       ],
       "acceptance": [
         "PF-T07: Every normal text foreground/fill pair passes4.5, including dark pressed.",
@@ -675,7 +679,8 @@
       "readOnlyInputs": [],
       "registrationRequests": [],
       "implementationOverrides": [
-        "Primary/onPrimary and segmentThumb were already correct at the frozen source. Preserve them; test actual used pairs rather than calling these broken."
+        "Primary/onPrimary and segmentThumb were already correct at the frozen source. Preserve them; test actual used pairs rather than calling these broken.",
+        "The exact approved colour values are doc19 D and colours/design-tokens.json; preserve existing legacy Class-A values and strict schema. No worker colour choice."
       ],
       "featureKeys": [],
       "testFilesAndCases": [
@@ -23947,7 +23952,7 @@
     {
       "id": "O01L",
       "wp": "O01",
-      "title": "Author genuine original outlined SVG candidates",
+      "title": "Verify and import supplied approved-D vector masters; do not redraw",
       "sourceTaskIds": [],
       "sourceFindingIds": [],
       "dependsOn": [
@@ -23976,15 +23981,15 @@
         "D03a"
       ],
       "steps": [
-        "Read this exact stage and linked completed source task/finding/placement rows; perform affected-file/function drift check only. No repeat full audit, invented policy or scope expansion.",
-        "Use existing Connected O PNGs only as unapproved exploration. Author original outlined paths for symbol/custom lowercase wordmark and each exact A.4.1 variant.",
-        "No raster wrapper, live text, external href/script/font or copied mark; record provenance and candidate status in source-manifest.",
-        "source-manifest.json includes conceptRationale, geometryRationale, originality/provenance, smallSizeEvidence, license and approvalStatus; provide the final chosen-concept reasoning with the actual candidate, not only exported pictures.",
-        "Use the exact viewBoxes/safe zones in A.4.1. D03b selection and D03c public rights remain distinct later gates."
+        "Read the approved-D colour/asset input record and ready brand-kit manifest; perform affected-file drift/owner-lock checks only.",
+        "Verify the nine existing SVG master paths flagged requiredForExistingAppContract. Copy those supplied outlined files exactly; no drawing, tracing, live text, image embedding or substitute wordmark.",
+        "Use handoff/vector-provenance.json to update the current source-manifest schema truthfully, retaining supplied path/transform geometry and approved D colours.",
+        "Update existing svgMasters expectations to approved D colours while preserving self-containment, path, viewBox/safe-zone checks and existing file ownership.",
+        "If already completed, deliver only the current-owner D asset delta; do not reset task progress or ask for another creative choice. Public rights remain D03c."
       ],
       "acceptance": [
-        "Every named master is real self-contained vector geometry; production_ready remains false until actual selection/public clearance as applicable.",
-        "No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS."
+        "All nine required existing master files exactly match the supplied approved-D hashes and contain real self-contained outlined paths.",
+        "No artwork generation step, new app capability, public-rights assertion or native destination copy."
       ],
       "featureOffBehavior": [],
       "reviewRequired": [],
@@ -24094,12 +24099,13 @@
         "$Helper = Join-Path $ArtifactDir 'cs-test-current-main.ps1'",
         "$HelperText = git show origin/main:scripts/cs-test.ps1; if ($LASTEXITCODE) { throw 'Cannot read current-main Codespace helper' }",
         "$HelperText | Set-Content -LiteralPath $Helper -Encoding utf8"
-      ]
+      ],
+      "readyAssetInput": "docs/design/oorva/brand-kit/manifest.json"
     },
     {
       "id": "O01X",
       "wp": "O01",
-      "title": "Deterministically export and validate candidate PNG asset handoff",
+      "title": "Verify and import supplied approved-D PNG exports and metadata",
       "sourceTaskIds": [],
       "sourceFindingIds": [],
       "dependsOn": [
@@ -24147,14 +24153,15 @@
         "TOOL-ASSETS-MAIN"
       ],
       "steps": [
-        "Read this exact stage and linked completed source task/finding/placement rows; perform affected-file/function drift check only. No repeat full audit, invented policy or scope expansion.",
-        "Use O37A's pinned Node22/resvg exporter remotely with loadSystemFonts=false and only declared bundled sources.",
-        "Import only the A.4.1 allowlisted exports and manifest after checking source/tool hashes, canvas/alpha/profile/safe-zone/density and 20/32/48px inspection.",
-        "Run the actual current-main Codespace assets suite only after TOOL-ASSETS-MAIN is satisfied. Do not copy native source exports into installed-app destinations; O33 alone does that."
+        "Read brand-kit/README.md and the sealed manifest. The nine SVG / 26 PNG existing-path input set is already supplied; do not ask a model to render or draw missing artwork.",
+        "Verify supplied file hashes, PNG decode/canvas/alpha/sRGB, monochrome white and native safe-zone evidence; import only existing-contract exports under the assigned app-assets locks.",
+        "Consume the tested D-tooling handoff from O37A, the sole owner of exporter/validator/asset-test files. O01X updates only its owned export manifest with truthful renderer/source/export metadata. Handoff JSON is evidence, not a blind schema replacement.",
+        "Do not label supplied Chromium/Pillow bytes as pinned resvg output, disable safety checks or claim old forest-only --check passes. If encoding is mechanically regenerated, use supplied SVG only and atomically update hashes/manifests/bindings.",
+        "Run the actual available targeted assets/CI checks with documented Codespace fallback; native installed destinations remain O33-owned. For completed stages apply a narrow D delta."
       ],
       "acceptance": [
-        "Re-export --check is deterministic; all A.4.1 canvas/alpha/safe-zone constraints pass; candidate versus selected versus publicly cleared state is truthful.",
-        "No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS."
+        "Every required existing-path export is present/valid with correct D colours; source/renderer/hash/alpha/canvas/safe-zone evidence is truthful.",
+        "Tooling adoption preserves security/safety validation; no redrawing, false CI claim, runtime activation or native destination copy."
       ],
       "featureOffBehavior": [],
       "reviewRequired": [],
@@ -24295,7 +24302,8 @@
         "$Helper = Join-Path $ArtifactDir 'cs-test-current-main.ps1'",
         "$HelperText = git show origin/main:scripts/cs-test.ps1; if ($LASTEXITCODE) { throw 'Cannot read current-main Codespace helper' }",
         "$HelperText | Set-Content -LiteralPath $Helper -Encoding utf8"
-      ]
+      ],
+      "readyAssetInput": "docs/design/oorva/brand-kit/manifest.json"
     },
     {
       "id": "O03",
@@ -24761,7 +24769,8 @@
         "Consume only O05F's appearanceCandidate/refresh; no second fetch/timer/cache framework for flags. Implement strict appearance validation/preload and one atomic immutable theme swap.",
         "Preserve useTheme/makeStyles, OS-first light/dark/default precedence, all existing variant names, stable theme identity and provider-independent fallback.",
         "Register bundled Manrope headings with 1000ms readiness fallback; preserve Inter/script fallback and do not import new native modules here.",
-        "Use project-namespaced separate appearance/flag caches. Missing RPC/invalid schema/bad logo never blocks valid OFF controls or remounts dirty forms."
+        "Use project-namespaced separate appearance/flag caches. Missing RPC/invalid schema/bad logo never blocks valid OFF controls or remounts dirty forms.",
+        "Adopt only approved-D central values from the token file under existing branding controls; keep legacy OFF and the independent-control/appearance contracts."
       ],
       "acceptance": [
         "UI-CACHE cases hold across real compatibility fallback and strict appearance; brand OFF retains context-specific legacy palette/copy; no final SVG/trademark dependency for foundations.",
@@ -24772,7 +24781,9 @@
       "sourceRefs": [],
       "readOnlyInputs": [],
       "registrationRequests": [],
-      "implementationOverrides": [],
+      "implementationOverrides": [
+        "Adopt only approved-D central values from the token file under existing branding controls; keep legacy OFF and the independent-control/appearance contracts."
+      ],
       "requirements": [
         "Original Oorva brief",
         "Reviewed appendix A",
@@ -25042,7 +25053,8 @@
         "PF-T10: Supply explicit legacy labels for login, AI, support, BYO and the separately owned Nearo receipt/checkout contexts.",
         "PF-T10: Bind only selected genuine vector/export assets; expose stable identity API for screen owners, not a global string replacement.",
         "Bind only D03b's actual selected real SVG/PNG manifest in defaults/BrandLogo; retain useBrandIdentity/resolveBrandIdentity as the sole API.",
-        "No new public identity until D02/D03c/relevant D05 release gates, and no native destination copy in this stage."
+        "No new public identity until D02/D03c/relevant D05 release gates, and no native destination copy in this stage.",
+        "Use supplied D images and handoff/binding-data.json/selected-brand-exports.ts.txt. Apply the four new hashes atomically; do not redraw or retain old forest file hashes."
       ],
       "acceptance": [
         "PF-T10: Brand OFF keeps each legacy context; unsupported appearance cannot freeze OFF.",
@@ -25085,7 +25097,9 @@
       ],
       "readOnlyInputs": [],
       "registrationRequests": [],
-      "implementationOverrides": [],
+      "implementationOverrides": [
+        "Use supplied D images and handoff/binding-data.json/selected-brand-exports.ts.txt. Apply the four new hashes atomically; do not redraw or retain old forest file hashes."
+      ],
       "featureKeys": [
         "oorva_brand"
       ],
@@ -26456,7 +26470,8 @@
         "PF-T11: Keep final public rights/native cutover/signing/iOS limitations as explicit real gates, not future source-audit questions.",
         "Implement all A.4.1/A.4.4/A.4.5 native/config/geometry/update isolation requirements; compatible direct expo-splash-screen dependency is candidate-only.",
         "Use one app/native-release.json for reviewed runtime/capability/channel identities, consumed by build/publish. Coordinator applies existing workflow edits, never a worker race.",
-        "Become GREEN on isolated candidate branch. Explicitly approve O34 stack on that exact green SHA while D07b is PENDING; do not require production merge to create approval evidence."
+        "Become GREEN on isolated candidate branch. Explicitly approve O34 stack on that exact green SHA while D07b is PENDING; do not require production merge to create approval evidence.",
+        "All native D artwork is ready in brand-kit/native/app/assets; merge the supplied native config fragment and exact launch geometry only under current native gates. No illustration/drawing/export invention remains."
       ],
       "acceptance": [
         "PF-T11: Three cold starts after unrelated main publish retain reviewed code.",
@@ -26495,7 +26510,9 @@
       ],
       "readOnlyInputs": [],
       "registrationRequests": [],
-      "implementationOverrides": [],
+      "implementationOverrides": [
+        "All native D artwork is ready in brand-kit/native/app/assets; merge the supplied native config fragment and exact launch geometry only under current native gates. No illustration/drawing/export invention remains."
+      ],
       "featureKeys": [
         "oorva_brand"
       ],
@@ -32585,7 +32602,8 @@
         "PF-T12: Settle protected auth/URL/notification intent; never route home as an animation side effect. OFF cancels without asset/schema dependency.",
         "PF-T12: Use the required O33 GREEN candidate stack before D07b; record real geometry/routes/errors and delivery identities.",
         "Implement A.4.4 exactly, including binary versus reveal eligibility, module-scope release/watchdog, 250/800/1000/2500ms bounds, D frozen once in 0..1800, already-present symbol and actual guarded destination.",
-        "No native-changing main promotion before D07b; no local-notification or Expo Go substitute for real remote push/iOS native evidence."
+        "No native-changing main promotion before D07b; no local-notification or Expo Go substitute for real remote push/iOS native evidence.",
+        "Use the supplied symbol/wordmark/splash PNGs and launch-geometry.json; light/dark GIFs are design references only, not a runtime movie or native frame proof."
       ],
       "acceptance": [
         "PF-T12: No symbol disappearance, unbounded native splash, unwanted resume replay or home-first deep-link flash.",
@@ -32617,7 +32635,9 @@
       ],
       "readOnlyInputs": [],
       "registrationRequests": [],
-      "implementationOverrides": [],
+      "implementationOverrides": [
+        "Use the supplied symbol/wordmark/splash PNGs and launch-geometry.json; light/dark GIFs are design references only, not a runtime movie or native frame proof."
+      ],
       "featureKeys": [
         "oorva_launch_animation"
       ],
@@ -41578,7 +41598,7 @@
     {
       "id": "D03a",
       "initialState": "PENDING",
-      "meaning": "Original outlined SVG authoring/input rights/provenance approval, not final selection.",
+      "meaning": "Coordinator verifies supplied outlined-master hashes/provenance and records evidence to mark this input gate APPROVED. No new drawing/creative decision or additional owner-selection request; public rights remain D03c.",
       "implementationStages": [
         "O01L",
         "O01X"
@@ -41588,7 +41608,7 @@
     {
       "id": "D03b",
       "initialState": "PENDING",
-      "meaning": "Actual selected logo/wordmark/asset manifest approval.",
+      "meaning": "Coordinator verifies supplied D manifest and all four binding hashes against the recorded D approval, then marks this input gate APPROVED. No new model drawing or creative selection. Public/native release approval remains separate.",
       "implementationStages": [
         "O05B",
         "O33",
@@ -42044,5 +42064,31 @@
     ],
     "rule": "One coordinator writer, serialized per-lane registration roundtrip. Authors pause index/staging, coordinator uses separate worktree and exact already-existing-file additions only. Not a stage/aggregate readiness prerequisite; O37B verifies final registration.",
     "includes": "CI/package/full-chain/deploy/locale/shared-barrel/E2E additions. Exact requested keys/values/patches and returned registration SHA/selection proof are recorded in the stage dispatch metadata; never speculative feature-code changes."
+  },
+  "approvedDesignInput": {
+    "concept": "D",
+    "approvalPath": "docs/design/oorva/colours/approval.json",
+    "tokensPath": "docs/design/oorva/colours/design-tokens.json",
+    "approvedTokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "readyAssets": "docs/design/oorva/brand-kit/manifest.json",
+    "archive": "docs/design/oorva/brand-kit/oorva-approved-D-brand-kit.zip",
+    "archiveSha256": "80975DB81151ED2E80E5D28E8E818BF08205DA0F30DAA76F5276CC67B9177395",
+    "rule": "No model drawing. Current owners apply narrow D adoption deltas; completed stage progress is not reset.",
+    "coordinatorInputGateRule": "Verify actual kit/master/export/binding/ZIP hashes against the supplied manifests and approval record, record that evidence, then satisfy D03a/b without another creative-approval request. Do not infer E0/E1, D03c or D07 approval.",
+    "ownerDeltas": {
+      "O37A": "Sole writer of owned exporter/validator/asset-test D profile changes; provide a tested tooling SHA to O01X.",
+      "O01L": "Verify/import the nine required supplied SVGs and update the current source-manifest schema truthfully.",
+      "O01X": "Consume tested O37A tooling and supplied PNGs; change only owned exports/manifest, never O37A scripts.",
+      "O02": "Apply exact approved D values/contrast expectations to owned central defaults/contracts/fixtures while preserving legacy OFF values.",
+      "O05B": "Bind the four supplied images and hashes atomically after asset/default locks are available.",
+      "O33": "Copy separate installed-native destinations and merge configuration only under existing candidate/runtime/release gates."
+    },
+    "notAuthorized": [
+      "Feature activation",
+      "Main application deployment",
+      "Native runtime/channel/distribution cutover",
+      "Public trademark/legal clearance",
+      "Live money or historical production data changes"
+    ]
   }
 }

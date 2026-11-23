@@ -1,10 +1,16 @@
 {
   "schemaVersion": 1,
-  "status": "DESIGN_ONLY_NOT_APPLIED",
+  "status": "APPROVED_DESIGN_NOT_APP_INTEGRATED",
   "recommendedConcept": "D",
+  "approvedConcept": "D",
   "sourceSha": "128c9595472b92589ff5407246df1aadde4dc7cb",
   "date": "2026-11-23",
   "files": [
+    {
+      "file": "approval.json",
+      "bytes": 1722,
+      "sha256": "51068c3d55c2406b68eb9f08a97ec57fc29642b57f2a0e9af5addc6af946a559"
+    },
     {
       "file": "benchmark-sources.json",
       "bytes": 10595,
@@ -57,8 +63,8 @@
     },
     {
       "file": "design-tokens.json",
-      "bytes": 10948,
-      "sha256": "ee19944e662ca556e4e408589814d883484fe604e4532703abbd553a41480803"
+      "bytes": 11256,
+      "sha256": "8ce7b174ac547f9b3037034425ce20ee900dcb9bb394d7d7d3325d7dc6b257b5"
     },
     {
       "file": "FONT-LICENSE.txt",
@@ -67,8 +73,8 @@
     },
     {
       "file": "index.html",
-      "bytes": 584512,
-      "sha256": "b199364852cbe4b8dfe7ad07a4974eb4ce76c325e1da0479fbc99e504c51ade9"
+      "bytes": 584711,
+      "sha256": "0bb8a78a862a4bf92ee350cca50afe72d59815a1ceba36c0d74e78a63c24bba3"
     },
     {
       "file": "palettes.json",
@@ -257,8 +263,8 @@
     },
     {
       "file": "provenance.json",
-      "bytes": 2870,
-      "sha256": "44f435be8eef05587b041335de5502d7749abcd4946b7d21b68ac3f70d8c962f"
+      "bytes": 3062,
+      "sha256": "b3ce12cae5c1bfc93f30cdf7fa32c3a46dd7a9a0c355d34af491c6b8c223ba52"
     },
     {
       "file": "recommended-components-dark.png",
@@ -282,8 +288,8 @@
     },
     {
       "file": "study-validation.json",
-      "bytes": 4813,
-      "sha256": "1f0f96465f1697d16a44f6f07e0e82e40c8f3361dacbddcd6fc58aaf25a4354b"
+      "bytes": 4933,
+      "sha256": "24bbe03bc967d8b1835845f72c62e156929522d47ce11aa13e24405b21dafb0e"
     }
   ]
 }

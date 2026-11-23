@@ -1,12 +1,12 @@
-# Oorva — Colour Exploration and Final Design-Token Recommendation
+# Oorva — Colour Exploration and Approved Design Tokens
 
 | Field | Result |
 |---|---|
-| Scope | Completed planning/design exploration. **No application, database, runtime switch, installed asset or existing implementation-plan change.** |
+| Scope | Completed planning/design exploration. **No application, database, runtime switch or installed-native-asset change.** The approved D values and ready-asset handoff are recorded in doc 18. |
 | Source baseline | `128c9595472b92589ff5407246df1aadde4dc7cb`, inspected November 23, 2026; snapshot of actual current source, not a claim every source screen was run. |
 | Brief | Colours document `15vk-anmnAsYjYWWAOg-2Ze27fhM8MmxrOmY3VYhZZWc`; complete 164-line export SHA256 `00E4C800BCC1EB8A4DF61AEAAE6930110F136F411374BD8515D544642D3CEAC8`. |
 | Evidence | Five controlled directions; 30 light screen concepts; 6 recommended dark counterparts; 46 PNG assets including comparison/identity/background/component boards; 9 official benchmark entries; 312 specified contrast checks. |
-| Decision | **D — Deep Teal + Warm Sand on pure white.** Design recommendation is final for this study; owner acceptance still gates replacing the application colour contract. |
+| Decision | **D — Deep Teal + Warm Sand on pure white.** **Owner approved D on November 23, 2026.** [Approval and exact value hash](design/oorva/colours/approval.json). Application activation/public-native release remain separate. |
 | Approval authority | Project owner. User research, trademark clearance and production/native release are not established by this study. |
 
 ## Summary
@@ -121,13 +121,13 @@ Each criterion is 1–10, equally weighted, total/100. These are expert design j
 | Accessibility and contrast | 9: All prescribed used pairs pass the same numerical gate. | 9: All prescribed used pairs pass the same numerical gate. | 9: All prescribed used pairs pass the same numerical gate. | 9: All prescribed used pairs pass the same numerical gate. | 9: All prescribed used pairs pass the same numerical gate. |
 | Long-term sustainability | 8: Simple and durable; gold should not become an offer/status dependency. | 9: Simple semantic scaling; recognition depends more heavily on mark/content. | 8: Durable neutral base; warm accent needs careful allocation. | 9: Clear separation of brand, surfaces, semantic status and categories. | 8: Durable if restrained, but strongest association risk in this review. |
 
-**Select D.** Its teal action remains legible in discovery, booking, owner forms and AI; success remains explicitly green, while warning/error retain their own meanings. White prevents the product from becoming a heavy “premium” shell. The same Connected O silhouette at 20 / 32 / 48 px, teal action/nav rhythm, neutral layout and small warm accent form the recognition system. Category identity is local and labelled, not four separate app themes.
+**D is selected and owner-approved.** Its teal action remains legible in discovery, booking, owner forms and AI; success remains explicitly green, while warning/error retain their own meanings. White prevents the product from becoming a heavy “premium” shell. The same Connected O silhouette at 20 / 32 / 48 px, teal action/nav rhythm, neutral layout and small warm accent form the recognition system. Category identity is local and labelled, not four separate app themes.
 
 **Why not the alternatives:** A has excellent contrast and restraint, but its more formal forest/sand association is weaker for the friendly everyday product in this comparison. B is clean and practical, but offers less separation from familiar blue consumer interfaces in the benchmark. C is refined yet action-heavy/near-neutral in busy workspaces. E stands out most, but its expressive character is harder to keep neutral across service operations, payments and admin. These are bounded design interpretations, not causal user findings.
 
 ## 6. Complete centralized colour specification
 
-The machine-readable authority for this **recommended design** is [design-tokens.json](design/oorva/colours/design-tokens.json). It provides all 59 existing colour keys for light and dark plus explicit component, badge, chart and state mappings. Do not select additional hex values while implementing an approved adoption.
+The machine-readable authority for this **owner-approved design** is [design-tokens.json](design/oorva/colours/design-tokens.json). It provides all 59 existing colour keys for light and dark plus explicit component, badge, chart and state mappings. Do not select additional hex values while implementing the approved adoption.
 
 ### Requested brand/content roles
 
@@ -258,26 +258,40 @@ Decorative dividers and inactive content are explicitly excluded from readable-t
 
 ## 8. Implementation handoff and concurrent-work boundary
 
-This report proposes **colour values, not application implementation**. [Doc18](18-Oorva-Transformation-Implementation-Plan.md) and its existing execution allocation remain unchanged until the owner accepts this recommendation. Current-main brand defaults already contain forest; that does not make forest the outcome of this independent study.
+The owner approved **D**. [Doc18](18-Oorva-Transformation-Implementation-Plan.md) and its existing execution allocation now point to the exact approved D values and supplied ready assets. No application integration, flag activation or native distribution is performed by this documentation change.
 
-1. Record owner acceptance of **D / white + exact JSON version/hash**; do not silently infer public/native identity approval. Keep independent correctness/permission/money work moving.
+1. Consume the recorded **D / white exact token-value hash** and ready kit; do not repeat palette selection or ask a model to draw. Apply a narrow current-owner delta, not a reset of completed implementation work. Public/native rights and release approvals remain separate.
 2. On the active implementation base, route the approved colour adoption to the current owners of `branding/defaults.ts`, `colorContract.ts`, strict fixtures and `theme/tokens.ts`. Preserve any newer fixes and exact feature/parent/OFF contracts. Do not create another theme engine.
 3. Map `light`/`dark` to their 59 existing Palette keys. `components`, `badges` and `charts` are bundled design-role mappings, **not extra fields to upload into strict BrandingV1**. Update exact contrast/validation expectations together; invalid appearance must never stop live OFF controls.
 4. Apply values through central roles and existing components; no route-level hex overrides. Preserve doc 18 production typography, spacing, essential text reflow, controller/RPC/state/money behaviour and historical data.
-5. Re-export approved identity/native artwork with the selected colours while retaining the mark geometry. Installed icons/splash and native distribution retain their own gates; runtime settings cannot undo installed assets.
+5. Import the supplied ready SVG/PNG kit with exact target/hash mappings and binding records. No model artwork creation remains. O37A owns the tooling-profile update; O01L imports masters, O01X consumes that tested tooling handoff and imports PNGs, and O05B binds them. Verify supplied input evidence to satisfy D03a/b without another creative approval. Installed-native copies and distribution retain their own gates.
 6. Run targeted authorized implementation checks for light/dark/custom/invalid/rollback, brand/family OFF and parent-OFF, actual used colour pairs, keyboard/focus,320-width / 200% text and real native frames. Only then consider explicitly approved activation.
+
+### Approved-D ready artwork — no drawing required
+
+- [Download the complete ready brand kit](design/oorva/brand-kit/oorva-approved-D-brand-kit.zip).
+- [Ready-kit instructions and exact import boundary](design/oorva/brand-kit/README.md).
+- [Light/dark/monochrome/app-icon preview](design/oorva/brand-kit/previews/brand-kit-board.png).
+- [Splash-frame reference](design/oorva/brand-kit/previews/splash-frame-reference.png).
+- [Exact file/destination/hash manifest](design/oorva/brand-kit/manifest.json).
+
+The kit includes 56 PNG exports and actual outlined SVG masters/sources, plus separate native destination files,
+four binding records, merge-only native config, launch geometry and reference GIFs.
+The existing app's 9 SVG / 26 PNG paths are explicitly identified. Extra variants are optional.
+All artwork is prepared; actual application/native-device/old-pipeline CI integration is not claimed.
+The current exporter is forest/ivory-specific; maintainers adopt D metadata/validation without redraw or weakened tests.
 
 ## 9. Risks, decisions and not verified
 
 | Item | Exact boundary |
 |---|---|
-| Palette selection | D is the study's decisive recommendation, not automatic production activation. |
+| Palette selection | D is owner-approved; this does not automatically activate or deploy it. |
 | Competitor evidence | Official public materials; not a current authenticated app audit or evidence that a specific hue causes trust/conversion. |
 | Cultural relevance | No Indian consumer preference study; no stereotypes, religious cues or demographic inference used. |
 | Distinctiveness | Relative design judgment within a bounded benchmark; no trademark/uniqueness clearance. |
 | UI fidelity | Source-informed reconstructions and condensed samples, not running/captured application screens; all concepts explicitly labelled. |
 | Typography/device | Existing heading font and constant study body; production Inter/Telugu/native/200% rendering not validated by these static PNGs. |
-| App/runtime | No app/source/theme/flags/SQL/native asset or doc 18/execution-plan change. Concurrent untracked venue work remains untouched. |
+| App/runtime | No app/source/theme/flags/SQL/installed-native-asset change; doc 18/execution handoff now records approved D. Concurrent untracked venue work remains untouched. |
 | Financial/product claims | Synthetic data only; no new availability, verified identity, stock, price, checkout, refund or bank-settlement assertion. |
 
 ## References

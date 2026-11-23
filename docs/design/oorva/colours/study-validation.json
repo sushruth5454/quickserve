@@ -25,12 +25,12 @@
       }
     },
     {
-      "check": "Final recommendation and unchanged authority",
+      "check": "Owner-approved D with no application integration",
       "pass": true,
       "actual": {
         "primary": "#006D77",
         "background": "#FFFFFF",
-        "status": "DESIGN_RECOMMENDATION_NOT_APPLIED"
+        "status": "APPROVED_DESIGN_NOT_APP_INTEGRATED"
       }
     },
     {
@@ -174,9 +174,12 @@
       }
     },
     {
-      "check": "No tracked application or existing plan edits",
+      "check": "Only approved design-handoff tracked edits",
       "pass": true,
-      "actual": []
+      "actual": [
+        "docs/18-Oorva-Transformation-Implementation-Plan.md",
+        "docs/design/oorva/execution-plan.json"
+      ]
     },
     {
       "check": "Document whitespace and destination",

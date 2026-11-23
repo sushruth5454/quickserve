@@ -1,0 +1,319 @@
+{
+  "schemaVersion": 1,
+  "brand": "Oorva",
+  "colourDirection": "D",
+  "status": "READY_ASSETS_NOT_APP_INTEGRATED",
+  "colourApproval": {
+    "date": "2026-11-23",
+    "ownerInput": "yes lets go with D",
+    "scope": "D colour direction; not legal/public-rights or native-release approval."
+  },
+  "geometry": "Existing selected Connected O outlined path geometry retained; no redraw or raster tracing.",
+  "sourceSha": "7e0c7850002d595452cf609576a56f2397963714",
+  "publiclyCleared": false,
+  "nativeVerified": false,
+  "rasterizer": {
+    "renderer": "Chromium SVG rasterization",
+    "version": "158.0.4370.33",
+    "pngEncoder": "Pillow",
+    "systemFontsUsed": false,
+    "note": "Outline-only inputs. These are supplied sealed exports, not a claim that the old forest-only resvg --check passes."
+  },
+  "masters": [
+    {
+      "file": "bundle/app/assets/brand/oorva-symbol.svg",
+      "role": "compact-symbol",
+      "group": "bundle",
+      "sha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "bytes": 1536,
+      "canvas": "0 0 256 256",
+      "colour": "#006D77",
+      "outlined": true,
+      "geometrySource": "oorva-symbol.svg",
+      "target": "app/assets/brand/oorva-symbol.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-symbol-dark.svg",
+      "role": "compact-symbol",
+      "group": "bundle",
+      "sha256": "72bee072c2bcbe263601b42e358e9c2cba139f297d4c34888f16a149ee03f8d2",
+      "bytes": 1536,
+      "canvas": "0 0 256 256",
+      "colour": "#80D4D4",
+      "outlined": true,
+      "geometrySource": "oorva-symbol.svg",
+      "target": "app/assets/brand/oorva-symbol-dark.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-symbol-mono-black.svg",
+      "role": "compact-symbol",
+      "group": "bundle",
+      "sha256": "82e18264c6b84818ceb1f93f6f36af97b8bfe8ee725aa4806648a07e5dff5cb6",
+      "bytes": 1536,
+      "canvas": "0 0 256 256",
+      "colour": "#000000",
+      "outlined": true,
+      "geometrySource": "oorva-symbol.svg",
+      "target": "app/assets/brand/oorva-symbol-mono-black.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-symbol-mono-white.svg",
+      "role": "compact-symbol",
+      "group": "bundle",
+      "sha256": "77aec60278dad545e0a86298cb7f5319981d43a35deb37a32733098094240100",
+      "bytes": 1536,
+      "canvas": "0 0 256 256",
+      "colour": "#FFFFFF",
+      "outlined": true,
+      "geometrySource": "oorva-symbol.svg",
+      "target": "app/assets/brand/oorva-symbol-mono-white.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-wordmark-light.svg",
+      "role": "wordmark",
+      "group": "bundle",
+      "sha256": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "bytes": 4727,
+      "canvas": "0 0 1024 256",
+      "colour": "#006D77",
+      "outlined": true,
+      "geometrySource": "oorva-wordmark-light.svg",
+      "target": "app/assets/brand/oorva-wordmark-light.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-wordmark-dark.svg",
+      "role": "wordmark",
+      "group": "bundle",
+      "sha256": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "bytes": 4727,
+      "canvas": "0 0 1024 256",
+      "colour": "#80D4D4",
+      "outlined": true,
+      "geometrySource": "oorva-wordmark-light.svg",
+      "target": "app/assets/brand/oorva-wordmark-dark.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-wordmark-mono-black.svg",
+      "role": "wordmark",
+      "group": "bundle",
+      "sha256": "6e3b91e79f7427d1d22b0d688091429a3ee99fe6f760293c3c96fdd15cda4bdb",
+      "bytes": 4727,
+      "canvas": "0 0 1024 256",
+      "colour": "#000000",
+      "outlined": true,
+      "geometrySource": "oorva-wordmark-light.svg",
+      "target": "app/assets/brand/oorva-wordmark-mono-black.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/oorva-wordmark-mono-white.svg",
+      "role": "wordmark",
+      "group": "bundle",
+      "sha256": "a004713983022639b5a71b5b4e2363d1538dda84779a4b6d08042f1597b62028",
+      "bytes": 4727,
+      "canvas": "0 0 1024 256",
+      "colour": "#FFFFFF",
+      "outlined": true,
+      "geometrySource": "oorva-wordmark-light.svg",
+      "target": "app/assets/brand/oorva-wordmark-mono-white.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-horizontal-light.svg",
+      "role": "horizontal-lockup",
+      "group": "bundle",
+      "sha256": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "bytes": 6139,
+      "canvas": "0 0 1440 400",
+      "colour": "#006D77",
+      "outlined": true,
+      "geometrySource": "logo-horizontal-light.svg",
+      "target": "app/assets/brand/logo-horizontal-light.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-horizontal-dark.svg",
+      "role": "horizontal-lockup",
+      "group": "bundle",
+      "sha256": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "bytes": 6139,
+      "canvas": "0 0 1440 400",
+      "colour": "#80D4D4",
+      "outlined": true,
+      "geometrySource": "logo-horizontal-light.svg",
+      "target": "app/assets/brand/logo-horizontal-dark.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-horizontal-mono-black.svg",
+      "role": "horizontal-lockup",
+      "group": "bundle",
+      "sha256": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "bytes": 6139,
+      "canvas": "0 0 1440 400",
+      "colour": "#000000",
+      "outlined": true,
+      "geometrySource": "logo-horizontal-light.svg",
+      "target": "app/assets/brand/logo-horizontal-mono-black.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-horizontal-mono-white.svg",
+      "role": "horizontal-lockup",
+      "group": "bundle",
+      "sha256": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5",
+      "bytes": 6139,
+      "canvas": "0 0 1440 400",
+      "colour": "#FFFFFF",
+      "outlined": true,
+      "geometrySource": "logo-horizontal-light.svg",
+      "target": "app/assets/brand/logo-horizontal-mono-white.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-stacked-light.svg",
+      "role": "stacked-lockup",
+      "group": "bundle",
+      "sha256": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "bytes": 6123,
+      "canvas": "0 0 720 720",
+      "colour": "#006D77",
+      "outlined": true,
+      "geometrySource": "logo-stacked-light.svg",
+      "target": "app/assets/brand/logo-stacked-light.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-stacked-dark.svg",
+      "role": "stacked-lockup",
+      "group": "bundle",
+      "sha256": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+      "bytes": 6123,
+      "canvas": "0 0 720 720",
+      "colour": "#80D4D4",
+      "outlined": true,
+      "geometrySource": "logo-stacked-light.svg",
+      "target": "app/assets/brand/logo-stacked-dark.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-stacked-mono-black.svg",
+      "role": "stacked-lockup",
+      "group": "bundle",
+      "sha256": "67172ed8e2618722a94e69bb5873108eee0d2996beffaa8dbf4f20cfb8411efb",
+      "bytes": 6123,
+      "canvas": "0 0 720 720",
+      "colour": "#000000",
+      "outlined": true,
+      "geometrySource": "logo-stacked-light.svg",
+      "target": "app/assets/brand/logo-stacked-mono-black.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/logo-stacked-mono-white.svg",
+      "role": "stacked-lockup",
+      "group": "bundle",
+      "sha256": "c41176eb489c262ea6c171eb4b2c9cb893d0718aac26a8f3c8f6c12efee36bd4",
+      "bytes": 6123,
+      "canvas": "0 0 720 720",
+      "colour": "#FFFFFF",
+      "outlined": true,
+      "geometrySource": "logo-stacked-light.svg",
+      "target": "app/assets/brand/logo-stacked-mono-white.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/native/icon.svg",
+      "role": "ios-app-icon-source",
+      "group": "bundle",
+      "sha256": "b2295c99d6bb58e40fb9b2ce70f62bc6c473c2870e482435d0a39c11163ee394",
+      "bytes": 1662,
+      "outlined": true,
+      "colour": "#FFFFFF",
+      "target": "app/assets/brand/native/icon.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/native/android-icon-foreground.svg",
+      "role": "android-adaptive-foreground-source",
+      "group": "bundle",
+      "sha256": "855488e0b8551c78ccc328c9b9adbfff90099add2ff44789e96a9dfecaf7f883",
+      "bytes": 1617,
+      "outlined": true,
+      "colour": "#FFFFFF",
+      "target": "app/assets/brand/native/android-icon-foreground.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/native/android-icon-background.svg",
+      "role": "android-adaptive-background-source",
+      "group": "bundle",
+      "sha256": "c23561e3544093096312032e5f6da96a26925d44fe3ba5ad04beab6700754a2f",
+      "bytes": 146,
+      "outlined": true,
+      "colour": "#006D77",
+      "target": "app/assets/brand/native/android-icon-background.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/native/android-icon-monochrome.svg",
+      "role": "android-monochrome-source",
+      "group": "bundle",
+      "sha256": "855488e0b8551c78ccc328c9b9adbfff90099add2ff44789e96a9dfecaf7f883",
+      "bytes": 1617,
+      "outlined": true,
+      "colour": "#FFFFFF",
+      "target": "app/assets/brand/native/android-icon-monochrome.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/native/splash-icon.svg",
+      "role": "splash-icon-light-source",
+      "group": "bundle",
+      "sha256": "d1dd1f1c2bb35973b515929b329ae4f8108443bbf5fd5a371749b00bc3c3cf3a",
+      "bytes": 1617,
+      "outlined": true,
+      "colour": "#006D77",
+      "target": "app/assets/brand/native/splash-icon.svg"
+    },
+    {
+      "file": "bundle/app/assets/brand/native/splash-icon-dark.svg",
+      "role": "splash-icon-dark-source",
+      "group": "bundle",
+      "sha256": "a148e78dfa4a3b860929578fab96176b580cdca037dc7a58be7ee8e13a535774",
+      "bytes": 1617,
+      "outlined": true,
+      "colour": "#80D4D4",
+      "target": "app/assets/brand/native/splash-icon-dark.svg"
+    }
+  ],
+  "inputFiles": [
+    {
+      "path": "app/assets/brand/manifest.json",
+      "sha256": "a8741e9810107d64394fcb21edb6dae63768e27d186ebb5ae86fefe3675cb945",
+      "bytes": 34676
+    },
+    {
+      "path": "app/assets/brand/source-manifest.json",
+      "sha256": "44d44a37db813885c7ba054dc098762a55c61cf2c1b03672e2374144161247d5",
+      "bytes": 18277
+    },
+    {
+      "path": "app/assets/brand/oorva-symbol.svg",
+      "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "bytes": 1536
+    },
+    {
+      "path": "app/assets/brand/oorva-wordmark-light.svg",
+      "sha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+      "bytes": 4727
+    },
+    {
+      "path": "app/assets/brand/logo-horizontal-light.svg",
+      "sha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+      "bytes": 6139
+    },
+    {
+      "path": "app/assets/brand/logo-stacked-light.svg",
+      "sha256": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "bytes": 6123
+    },
+    {
+      "path": "app/src/branding/defaults.ts",
+      "sha256": "f84523319c86b8c9b272642f32733d95a8b45d087fe00e4fa61ced11c55feb48",
+      "bytes": 4745
+    },
+    {
+      "path": "app/app.json",
+      "sha256": "62b18caea5879afcde0a5a979e46e1687a4abfbe435ee422d31bc0f896b612b6",
+      "bytes": 2201
+    }
+  ],
+  "designRule": "Use the supplied files; no original-path authoring, tracing or alternate logo required."
+}

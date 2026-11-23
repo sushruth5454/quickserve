@@ -1,0 +1,26 @@
+{
+  "logoLight": {
+    "modulePath": "../../assets/brand/logo-horizontal-light.png",
+    "path": "app/assets/brand/logo-horizontal-light.png",
+    "role": "horizontal-lockup",
+    "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e"
+  },
+  "logoDark": {
+    "modulePath": "../../assets/brand/logo-horizontal-dark.png",
+    "path": "app/assets/brand/logo-horizontal-dark.png",
+    "role": "horizontal-lockup",
+    "sha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b"
+  },
+  "compactLight": {
+    "modulePath": "../../assets/brand/logo-compact-light.png",
+    "path": "app/assets/brand/logo-compact-light.png",
+    "role": "compact-symbol",
+    "sha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69"
+  },
+  "compactDark": {
+    "modulePath": "../../assets/brand/logo-compact-dark.png",
+    "path": "app/assets/brand/logo-compact-dark.png",
+    "role": "compact-symbol",
+    "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
+  }
+}

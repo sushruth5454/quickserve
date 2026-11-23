@@ -88,5 +88,10 @@
       ],
       "use": "Existing forest candidate; compatible Palette role inventory."
     }
-  ]
+  ],
+  "colourSelection": {
+    "state": "owner-approved-D",
+    "approvalRecord": "approval.json",
+    "tokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1"
+  }
 }

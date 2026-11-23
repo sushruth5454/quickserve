@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "colourDirection": "D",
+  "imageWidth": 160,
+  "resizeMode": "contain",
+  "anchor": "native-window-centre",
+  "canvas": {
+    "width": 1024,
+    "height": 1024
+  },
+  "light": {
+    "backgroundColor": "#FFFFFF",
+    "foregroundColor": "#006D77",
+    "nativeImage": "app/assets/splash-icon.png",
+    "jsImage": "app/assets/brand/native/splash-icon.png"
+  },
+  "dark": {
+    "backgroundColor": "#0C1B21",
+    "foregroundColor": "#80D4D4",
+    "nativeImage": "app/assets/splash-icon-dark.png",
+    "jsImage": "app/assets/brand/native/splash-icon-dark.png"
+  },
+  "wordmark": {
+    "light": "app/assets/brand/oorva-wordmark-light.png",
+    "dark": "app/assets/brand/oorva-wordmark-dark.png"
+  },
+  "tagline": "Your world, closer.",
+  "taglineRule": "Separate existing bundled Inter400 text; do not redraw a wordmark in a font.",
+  "motionReference": {
+    "durationMs": 1800,
+    "phaseBoundariesMs": [
+      0,
+      300,
+      900,
+      1400,
+      1800
+    ],
+    "rule": "Scale with validated duration; D=0/reduced motion skips reveal. Actual navigation/auth/error/watchdog remains O34."
+  },
+  "nativeFrameProof": "NOT VERIFIED; candidate native/JS frame alignment still required. This is data and ready artwork, not a splash implementation."
+}

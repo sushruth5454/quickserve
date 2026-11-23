@@ -1,0 +1,163 @@
+{
+  "result": "PASS",
+  "scope": "Ready artwork and documentation verification only; not application/native/Codespace/lane validation.",
+  "checks": [
+    {
+      "check": "Owner-approved exact D colour values",
+      "pass": true,
+      "actual": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1"
+    },
+    {
+      "check": "Approval does not activate or deploy",
+      "pass": true,
+      "actual": [
+        "Feature activation",
+        "Main application deployment",
+        "Native runtime/channel/distribution cutover",
+        "Public trademark/legal clearance",
+        "Live money or historical production data changes"
+      ]
+    },
+    {
+      "check": "Existing140-stage graph preserved and acyclic",
+      "pass": true,
+      "actual": 140
+    },
+    {
+      "check": "File/function locks, source-task assignment and SQL reservations unchanged",
+      "pass": true,
+      "actual": true
+    },
+    {
+      "check": "O01L consumes supplied files, not drawing",
+      "pass": true,
+      "actual": "Verify and import supplied approved-D vector masters; do not redraw"
+    },
+    {
+      "check": "O01X consumes supplied files, not drawing",
+      "pass": true,
+      "actual": "Verify and import supplied approved-D PNG exports and metadata"
+    },
+    {
+      "check": "All89supplied asset files and physical D/safe-zone properties",
+      "pass": true,
+      "actual": []
+    },
+    {
+      "check": "All existing required application paths ready",
+      "pass": true,
+      "actual": 35
+    },
+    {
+      "check": "All four exact image binding hashes supplied",
+      "pass": true,
+      "actual": {
+        "logoLight": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e",
+        "logoDark": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b",
+        "compactLight": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69",
+        "compactDark": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
+      }
+    },
+    {
+      "check": "Actual light/dark motion references last1800ms",
+      "pass": true,
+      "actual": {
+        "references": [
+          {
+            "theme": "light",
+            "frames": 30,
+            "durationMs": 1800,
+            "size": [
+              390,
+              844
+            ],
+            "distinctFrames": 30
+          },
+          {
+            "theme": "dark",
+            "frames": 30,
+            "durationMs": 1800,
+            "size": [
+              390,
+              844
+            ],
+            "distinctFrames": 30
+          }
+        ],
+        "note": "The GIF encoder coalesces identical hold frames; decoded duration is authoritative."
+      }
+    },
+    {
+      "check": "Approved handoff links and ready files resolve",
+      "pass": true,
+      "actual": []
+    },
+    {
+      "check": "Doc18exact colour table matches every approved token",
+      "pass": true,
+      "actual": {
+        "mainRoles": 47,
+        "categoryRoles": 12
+      }
+    },
+    {
+      "check": "No future-authoring instruction in retained asset stages",
+      "pass": true,
+      "actual": true
+    },
+    {
+      "check": "Only intended existing docs changed",
+      "pass": true,
+      "actual": "No app/SQL/CI/runtime edits"
+    },
+    {
+      "check": "Ready kit viewer loads every actual image",
+      "pass": true,
+      "actual": [
+        {
+          "src": "previews/brand-kit-board.png",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/logo-horizontal-light.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/logo-horizontal-dark.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/logo-stacked-light.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/logo-stacked-dark.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/oorva-wordmark-light.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/oorva-wordmark-dark.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/logo-horizontal-mono-black.svg",
+          "ok": true
+        },
+        {
+          "src": "bundle/app/assets/brand/logo-horizontal-mono-white.svg",
+          "ok": true
+        },
+        {
+          "src": "previews/splash-frame-reference.png",
+          "ok": true
+        }
+      ]
+    }
+  ],
+  "readyPngExports": 56,
+  "existingContractSvg": 9,
+  "existingContractPng": 26
+}

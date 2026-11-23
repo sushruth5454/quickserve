@@ -1,11 +1,18 @@
 {
   "schemaVersion": 1,
-  "status": "DESIGN_RECOMMENDATION_NOT_APPLIED",
+  "status": "APPROVED_DESIGN_NOT_APP_INTEGRATED",
   "date": "2026-11-23",
   "sourceSha": "128c9595472b92589ff5407246df1aadde4dc7cb",
   "recommendedConcept": "D",
   "name": "Deep Teal + Warm Sand",
-  "approval": "Await owner selection before changing doc18 runtime values, bundled assets or production settings.",
+  "approval": {
+    "state": "approved-D",
+    "record": "docs/design/oorva/colours/approval.json",
+    "ownerInput": "yes lets go with D",
+    "approvedAt": "2026-11-23T06:29:20.528-08:00",
+    "approvedTokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "scope": "Colour selection only; release/rights/native gates are separate."
+  },
   "defaultTheme": "system",
   "defaultThemeRule": "White light theme; retain OS-selected dark companion. Do not force dark mode or override system preference.",
   "light": {
@@ -365,9 +372,10 @@
     "mapping": "light/dark are exact existing Palette keys; components/badges/charts are design mappings, NOT additional BrandingV1 JSON keys.",
     "changesAfterApproval": [
       "Update candidate/default/fixture/contrast expectations coherently on current implementation branch.",
-      "Update doc18 A.1 colour-specific rows and the selected design contract, not unrelated source tasks/dependencies.",
+      "Doc18 colour/asset contract now selects D; actual app tokens/fixtures/assets/bindings remain an existing-owner implementation delta.",
       "Re-export mark/icon/native artwork with approved colours; native remains separately gated.",
       "Test ON/OFF/parent-OFF and used semantic pairs before activation. Do not remotely recolour historical records."
     ]
-  }
+  },
+  "selectedConcept": "D"
 }
