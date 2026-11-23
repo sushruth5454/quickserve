@@ -24572,6 +24572,176 @@
       ]
     },
     {
+      "id": "O03-ASSET-REG",
+      "wp": "O03",
+      "title": "Service-role-only registration of validated immutable branding assets",
+      "sourceTaskIds": [],
+      "sourceFindingIds": [],
+      "dependsOn": [
+        "O00",
+        "O03",
+        "O37A"
+      ],
+      "ownedFiles": [
+        "supabase\\migrations\\UNASSIGNED__o03_asset_registration.sql",
+        "supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs",
+        "docs\\design\\oorva\\evidence\\o03-asset-registration.json"
+      ],
+      "sqlFunctions": [
+        "public.admin_register_branding_asset"
+      ],
+      "sqlObjects": [],
+      "migrationClaims": [
+        "MIG-O03-ASSET-REG"
+      ],
+      "flagClass": "B",
+      "gates": [
+        "E0",
+        "O03-ASSET-REG-SCOPE",
+        "MIG-O03-ASSET-REG"
+      ],
+      "steps": [
+        "Owner-authorized 2026-11-23 O03/O04 scope follow-up. O03 remains DONE; add one forward-only migration and never edit 0097.",
+        "Expose asset registration only to service_role for the validated O04 Edge flow. O04 verifies the user JWT, admin role, effective flags, and complete PNG bytes before Storage write and RPC call. Do not grant direct table access or RPC execution to public, anon, or authenticated.",
+        "Require the effective oorva_brand -> branding_runtime -> branding_editor chain in the RPC. Derive the fixed branding/<uuid>.png object path, accept only bounded PNG metadata, verify the private Storage object exists, and record the actor/audit event.",
+        "Make registration immutable and idempotent: identical retries return the same asset ID; conflicting, revoked, missing-object, or invalid-metadata retries fail closed. Keep existing publication, rollback, and revocation behavior unchanged."
+      ],
+      "acceptance": [
+        "Direct table writes remain revoked. Only service_role can execute the registration RPC; the O04 Edge is the only caller and performs the end-user admin/JWT and byte-validation checks.",
+        "Parent/child flags OFF, non-service caller, invalid actor, missing object, wrong path/MIME/hash, oversized or invalid dimensions are rejected.",
+        "Valid server-validated metadata registers once, produces an audit entry with the verified actor, identical retries are idempotent, and mismatched retries are rejected.",
+        "No flag is enabled; no public/native release or existing money-safety behavior changes."
+      ],
+      "featureOffBehavior": [
+        "Effective oorva_brand/branding_runtime/branding_editor OFF prevents new registration; existing assets and safe recovery remain available."
+      ],
+      "reviewRequired": [
+        "auth",
+        "concurrency"
+      ],
+      "sourceRefs": [],
+      "readOnlyInputs": [
+        "supabase\\migrations\\0097_o03_oorva.sql",
+        "supabase\\tests\\oorva_branding.test.mjs"
+      ],
+      "registrationRequests": [
+        {
+          "path": ".github\\workflows\\lane-ci.yml",
+          "owner": "coordinator",
+          "instruction": "Before author validation, add the existing private-postgres test step for branding_asset_registration.pg.test.mjs with LOCAL_DB_URL and PRIVATE_TEST_STACK=true. Do not edit the worker branch."
+        }
+      ],
+      "implementationOverrides": [],
+      "requirements": [
+        "Owner-approved narrow O03/O04 metadata-registration scope delta, 2026-11-23"
+      ],
+      "featureKeys": [
+        "oorva_brand",
+        "branding_runtime",
+        "branding_editor"
+      ],
+      "testFilesAndCases": [
+        {
+          "path": "supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs",
+          "cases": [
+            "service-role-only execution",
+            "parent/child flag-off rejection",
+            "fixed UUID-derived path and PNG metadata bounds",
+            "private Storage object existence",
+            "immutable duplicate and conflicting retry behavior",
+            "verified actor audit attribution"
+          ]
+        }
+      ],
+      "sourceTestPathAllocations": {},
+      "readOnlyRegressionTests": [],
+      "coordinatorOwnedFiles": [
+        ".github\\workflows\\lane-ci.yml"
+      ],
+      "workerOwnedFiles": [
+        "supabase\\migrations\\UNASSIGNED__o03_asset_registration.sql",
+        "supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs",
+        "docs\\design\\oorva\\evidence\\o03-asset-registration.json"
+      ],
+      "requestedSharedEdits": [
+        {
+          "path": ".github\\workflows\\lane-ci.yml",
+          "owner": "coordinator",
+          "instruction": "Run node run.mjs --filter branding_asset_registration.pg.test.mjs in the existing private-postgres job after the author checkpoint; set the existing LOCAL_DB_URL and PRIVATE_TEST_STACK=true."
+        },
+        {
+          "path": ".github\\workflows\\deploy-backend.yml",
+          "owner": "coordinator",
+          "instruction": "Register the actually allocated migration only at authorized E1 promotion, in numeric order; preserve existing live guards."
+        }
+      ],
+      "evidenceFile": "docs\\design\\oorva\\evidence\\o03-asset-registration.json",
+      "dispatchOrder": 96.5,
+      "locks": [
+        "file:supabase\\migrations\\UNASSIGNED__o03_asset_registration.sql",
+        "file:supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs",
+        "file:docs\\design\\oorva\\evidence\\o03-asset-registration.json",
+        "function:public.admin_register_branding_asset"
+      ],
+      "sourceCards": [],
+      "dispatchMetadata": {
+        "state": "NOT_LAUNCHED",
+        "requiredBeforeLaunch": [
+          "activeSessionId",
+          "assignedAgentName",
+          "worktree",
+          "branch",
+          "planBaseSha",
+          "implementationBaseSha",
+          "dependencyShas",
+          "approvedGateEvidence",
+          "allocatedMigrationFilenames",
+          "locksHeld",
+          "exactValidationCommands",
+          "sharedRegistrationOwner",
+          "evidencePath"
+        ],
+        "requiredImmediatelyAfterLaunch": [
+          "agentId",
+          "launchToolResult"
+        ],
+        "rule": "Coordinator fills every field in the live ledger before launch; null/placeholder fields block dispatch."
+      },
+      "tests": [
+        {
+          "kind": "codespace-sql-parse",
+          "files": [
+            "supabase\\migrations\\UNASSIGNED__o03_asset_registration.sql"
+          ],
+          "selector": "o03_asset_registration.sql",
+          "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o03_asset_registration.sql'",
+          "expected": "The coordinator substitutes the exact allocated migration filename; the parser selector must select nonzero checks."
+        },
+        {
+          "kind": "private-postgres-lane-job",
+          "files": [
+            "supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs"
+          ],
+          "selector": "branding_asset_registration.pg.test.mjs",
+          "command": "node run.mjs --filter branding_asset_registration.pg.test.mjs",
+          "workingDirectory": "supabase\\tests-postgres",
+          "where": "O37A private job after disposable stack exports LOCAL_DB_URL, PRIVATE_TEST_STACK=true; never a hosted database.",
+          "expected": "The exact new private PostgreSQL test is selected and passes on the full integration migration chain."
+        },
+        {
+          "kind": "lane-ci",
+          "command": "git push origin HEAD:refs/heads/lane/oorva-o03-asset-reg",
+          "expected": "After registration roundtrip, Codespace selector PASS (or documented outage fallback), exact-head Lane CI green, and required auth/concurrency review."
+        }
+      ],
+      "validationSetup": [
+        "git fetch origin main; if ($LASTEXITCODE) { throw 'Cannot refresh main for Codespace helper' }",
+        "$Helper = Join-Path $ArtifactDir 'cs-test-current-main.ps1'",
+        "$HelperText = git show origin/main:scripts/cs-test.ps1; if ($LASTEXITCODE) { throw 'Cannot read current-main Codespace helper' }",
+        "$HelperText | Set-Content -LiteralPath $Helper -Encoding utf8"
+      ]
+    },
+    {
       "id": "O04",
       "wp": "O04",
       "title": "Constrained immutable PNG upload, public serving and private preview",
@@ -24580,7 +24750,8 @@
       "dependsOn": [
         "O00",
         "O37A",
-        "O03"
+        "O03",
+        "O03-ASSET-REG"
       ],
       "ownedFiles": [
         "supabase\\functions\\branding-assets\\index.ts",
@@ -24602,6 +24773,7 @@
         "Read this exact stage and linked completed source task/finding/placement rows; perform affected-file/function drift check only. No repeat full audit, invented policy or scope expansion.",
         "Implement A.3.3 exactly: published non-revoked UUID GET; every admin POST verifies JWT/user/admin before a service-role Storage read/write.",
         "Validate complete PNG structure/CRC/dimensions/ceilings, reject animation/truncation/unsafe MIME/path and strip metadata; no arbitrary URL fetcher or remote SVG.",
+        "After the Edge authenticates the admin and validates complete PNG bytes, register immutable metadata through O03-ASSET-REG's service-role-only RPC. Never write app_branding_assets directly.",
         "Preview returns configured-origin signed URL expiring <=300s, no-store, without putting bearer tokens in images/config/cache.",
         "Immutable upload failure cleans only its known orphan; bounded public cache <=300s and audited revocation have honest propagation/offline limits."
       ],
@@ -34872,6 +35044,19 @@
       "allocationRule": "Coordinator reconciles current main, active lanes and acknowledged unpublished claims; exact unused forward filename/version recorded before launch. Never append after merge/apply."
     },
     {
+      "id": "MIG-O03-ASSET-REG",
+      "stageId": "O03-ASSET-REG",
+      "filenameTemplate": "supabase\\migrations\\UNASSIGNED__o03_asset_registration.sql",
+      "functions": [
+        "public.admin_register_branding_asset"
+      ],
+      "objects": [],
+      "numericVersion": "UNASSIGNED",
+      "state": "PROPOSED_NOT_RESERVED",
+      "lockTemplate": "migration-version:<allocated numericVersion>",
+      "allocationRule": "Coordinator reconciles current main, active lanes and acknowledged unpublished claims; exact unused forward filename/version recorded before launch. Never append after merge/apply."
+    },
+    {
       "id": "MIG-O35SQL",
       "stageId": "O35SQL",
       "filenameTemplate": "supabase\\migrations\\UNASSIGNED__o35sql_oorva.sql",
@@ -34948,7 +35133,8 @@
       "displayName": "O03",
       "dispatchable": false,
       "stageIds": [
-        "O03"
+        "O03",
+        "O03-ASSET-REG"
       ],
       "rule": "Informational WP family only; never a readiness prerequisite or separately dispatched aggregate"
     },
@@ -42021,6 +42207,24 @@
       "meaning": "Owner-acknowledged unique numeric allocation of supabase\\migrations\\UNASSIGNED__o03_oorva.sql before O03 launch.",
       "implementationStages": [
         "O03"
+      ],
+      "promotionOnly": false
+    },
+    {
+      "id": "O03-ASSET-REG-SCOPE",
+      "initialState": "APPROVED",
+      "meaning": "Owner approved on 2026-11-23 a narrow O03/O04 follow-up: one secure service-role-only asset-metadata registration RPC and forward migration with tests. No flag activation or public/native cutover.",
+      "implementationStages": [
+        "O03-ASSET-REG"
+      ],
+      "promotionOnly": false
+    },
+    {
+      "id": "MIG-O03-ASSET-REG",
+      "initialState": "PENDING",
+      "meaning": "Owner-acknowledged unique numeric allocation of supabase\\migrations\\UNASSIGNED__o03_asset_registration.sql before O03-ASSET-REG launch.",
+      "implementationStages": [
+        "O03-ASSET-REG"
       ],
       "promotionOnly": false
     },

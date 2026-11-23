@@ -593,7 +593,8 @@ Each row is one real writer. Every source task maps **exactly once**. Full exact
 | `O01L` | B | Retained core contract | Verify and import supplied approved-D vector masters; do not redraw | O00 |
 | `O01X` | B | Retained core contract | Verify and import supplied approved-D PNG exports and metadata | O00, O37A, O01L |
 | `O03` | B | Retained core contract | Secure registry, versioned branding storage and atomic publication | O00, O37A, O02 |
-| `O04` | B | Retained core contract | Constrained immutable PNG upload, public serving and private preview | O00, O37A, O03 |
+| `O03-ASSET-REG` | B | Owner-approved 2026-11-23 scope delta | Service-role-only registration of Edge-validated immutable asset metadata | O00, O03, O37A |
+| `O04` | B | Retained core contract | Constrained immutable PNG upload, public serving and private preview | O00, O37A, O03, O03-ASSET-REG |
 | `O05A` | B | Retained core contract | Atomic appearance integration into the existing theme, without final logo dependency | O00, O02, O05F, O07A, O01F |
 | `O05I` | B | Retained core contract | Single contextual identity hook and resolver for all display consumers | O00, O05A |
 | `O05B` | B | [PF-T10](audit/18-WS1-Platform-Auth-AI-Native.md#pf-t10) | Selected identity asset binding with contextual legacy fallback | O00, O01X, O05A, O05I |
@@ -870,17 +871,32 @@ These specify actual files/steps/tests, not vague IDs. Source-only stages use th
 - private-e2e: `gh workflow run e2e-local.yml --repo sushruth5454/quickserve --ref lane/oorva-o03`. Optional once per UI/migration lane when it adds wiring/state signal; mandatory on integration batch. Integrator alone watches E2E; no e2e-web dispatch on lane/batch.
 - lane-ci: `git push origin HEAD:refs/heads/lane/oorva-o03`. After Codespace PASS (or explicitly documented outage fallback), own exact-head lane-ci run green; no main/native/public permission inferred.
 
+#### O03-ASSET-REG — Service-role-only registration of validated asset metadata
+
+**Owner-approved scope delta (2026-11-23):** O03 remains DONE. This is one new forward migration and one new registration function; never edit or append to `0097_o03_oorva.sql`.
+
+**Depends:** O00, O03, O37A. **Gates:** E0, O03-ASSET-REG-SCOPE, the launch-allocated `MIG-O03-ASSET-REG`.
+
+**Exact worker-owned files:** `supabase\migrations\UNASSIGNED__o03_asset_registration.sql`; `supabase\tests-postgres\branding_asset_registration.pg.test.mjs`; `docs\design\oorva\evidence\o03-asset-registration.json`. The coordinator owns the private-postgres `lane-ci.yml` registration and adds the migration to the deploy list only at E1 promotion.
+
+1. Implement only `public.admin_register_branding_asset` as a fixed-search-path `SECURITY DEFINER` function. Grant execution only to `service_role`; keep direct table writes and execution from `public`, `anon`, and `authenticated` revoked.
+2. Require the O04 Edge Function to verify the caller JWT/admin/effective flags and the complete PNG bytes before Storage upload and RPC invocation. The RPC rechecks `oorva_brand`, `branding_runtime`, and `branding_editor`, derives `branding/<uuid>.png`, checks PNG metadata bounds and the private Storage object, and records the verified actor in the audit log.
+3. Make identical registration retries idempotent and immutable. Reject mismatched duplicate metadata, revoked IDs, missing objects, invalid hash/MIME/path/dimensions, and disabled parent/child flags.
+4. Test service-role-only execution, flag-off rejection, object existence, metadata constraints, idempotency/conflict, and actor/audit behavior against the disposable private PostgreSQL stack. No feature activation, public/native cutover, or production data repair.
+5. Use the paused-author §0.4.3 roundtrip for the exact existing lane-CI test registration before author validation. Require the current-main Codespace migration parser selector and exact-head Lane CI. The stage requires focused auth review.
+
 #### O04 — Constrained immutable PNG upload, public serving and private preview
 
-**Depends:** O00, O37A, O03. **Gates:** E0.
+**Depends:** O00, O37A, O03, O03-ASSET-REG. **Gates:** E0.
 
 **Exact owned files:** `supabase\functions\branding-assets\index.ts`; `supabase\functions\branding-assets\logic.ts`; `supabase\functions\branding-assets\logic_test.ts`; `supabase\functions\branding-assets\png.ts`; `supabase\functions\branding-assets\png_test.ts`; `supabase\tests-postgres\branding_assets.http.test.mjs`; `docs\design\oorva\evidence\o04.json`.
 
 1. Read this exact stage and linked completed source task/finding/placement rows; perform affected-file/function drift check only. No repeat full audit, invented policy or scope expansion.
 2. Implement A.3.3 exactly: published non-revoked UUID GET; every admin POST verifies JWT/user/admin before a service-role Storage read/write.
 3. Validate complete PNG structure/CRC/dimensions/ceilings, reject animation/truncation/unsafe MIME/path and strip metadata; no arbitrary URL fetcher or remote SVG.
-4. Preview returns configured-origin signed URL expiring <=300s, no-store, without putting bearer tokens in images/config/cache.
-5. Immutable upload failure cleans only its known orphan; bounded public cache <=300s and audited revocation have honest propagation/offline limits.
+4. After the Edge authenticates the admin and validates complete PNG bytes, register immutable metadata through the O03-ASSET-REG service-role-only RPC. Never write `app_branding_assets` directly.
+5. Preview returns configured-origin signed URL expiring <=300s, no-store, without putting bearer tokens in images/config/cache.
+6. Immutable upload failure cleans only its known orphan; bounded public cache <=300s and audited revocation have honest propagation/offline limits.
 
 **Acceptance:** Draft assets remain private; preview works on web/native; publication cannot reference incomplete/revoked bytes; bad assets cannot veto independent OFF flags. No existing money-safety resolution depends on appearance/asset/leaf availability; any new capability has enabled/OFF/ancestor-OFF/authorized/unauthorized tests. Missing runtime/device evidence is NOT VERIFIED, not PASS.
 
@@ -1459,6 +1475,7 @@ There are **38 independent writer claims** below. These are templates, not exist
 | `MIG-O38-ID01` | `O38-ID01` | `supabase\migrations\UNASSIGNED__o38_id01_oorva.sql`; numericVersion=`UNASSIGNED` | `public._provider_document_requirement`, `public._provider_go_live`, `public._provider_onboarding_checks`, `public.get_my_provider_onboarding`, `public.admin_list_providers`, `public.admin_list_document_queue`, `public.get_provider_jobs`, `public.get_my_business_provider_jobs` |
 | `MIG-O25-SV12` | `O25-SV12` | `supabase\migrations\UNASSIGNED__o25_sv12_oorva.sql`; numericVersion=`UNASSIGNED` | `public.get_my_business_provider_jobs`, `public.accept_booking` |
 | `MIG-O03` | `O03` | `supabase\migrations\UNASSIGNED__o03_oorva.sql`; numericVersion=`UNASSIGNED` | `public.get_app_branding_snapshot`, `public.admin_list_branding_versions`, `public.admin_get_branding_version`, `public.admin_save_branding_draft`, `public.admin_publish_branding`, `public.admin_set_branding_policy`, `public.admin_rollback_branding`, `public.admin_revoke_branding_asset`, `public._branding_validate_config`, `public._branding_validate_policy`, `public._branding_assets_publishable`, `public._oorva_feature_enabled` |
+| `MIG-O03-ASSET-REG` | `O03-ASSET-REG` | `supabase\migrations\UNASSIGNED__o03_asset_registration.sql`; numericVersion=`UNASSIGNED` | `public.admin_register_branding_asset` |
 | `MIG-O35SQL` | `O35SQL` | `supabase\migrations\UNASSIGNED__o35sql_oorva.sql`; numericVersion=`UNASSIGNED` | `public._outbound_brand`, `public._support_post`, `public.request_completion`, `public.submit_delivery`, `public._apply_quote_coins`, `public.accept_proposal` |
 
 Allocation algorithm:
