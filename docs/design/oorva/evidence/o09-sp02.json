@@ -80,5 +80,59 @@
   "reviewGate": {
     "required": "none",
     "status": "not-required-by-stage"
+  },
+  "followUpDelta": {
+    "id": "d-o09-sp02-admin-screen-host-20261123",
+    "sourceScope": [
+      "SP-T02",
+      "SP-F01",
+      "SP-F02",
+      "SP-F03",
+      "SP-F20"
+    ],
+    "base": {
+      "implementationSha": "7cfc0cb541d87e5090fd8a12590ca365b7ad8def",
+      "planningSourceCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "planningSourceIsAncestor": true,
+      "previousO09SP02Head": "00bd2be56799c6af541fd6e1b89665ce51d073e5",
+      "previousO09SP02Main": "822e7ba0f43fa3b15a122eff69e389a91926001e"
+    },
+    "worktree": "C:\\Users\\snizampuram\\source\\qs-o09-sp02-adminhost-20261123",
+    "branch": "lane/oorva-o09-sp02-adminhost-20261123",
+    "change": "Extract the existing AdminSportsScreen implementation unchanged into the feature module and keep the Expo route as a thin import/host; no behavior expansion.",
+    "preserved": [
+      "admin/role authorization",
+      "error and retry states",
+      "feature-OFF gates",
+      "mutations",
+      "routing",
+      "UI behavior"
+    ],
+    "changedFiles": [
+      "app/app/admin/sports.tsx",
+      "app/src/features/sportsScreens/AdminSportsScreen.tsx",
+      "docs/design/oorva/evidence/o09-sp02.json"
+    ],
+    "reviewRequired": [],
+    "validation": {
+      "codespaceHelper": "origin/main:scripts/cs-test.ps1",
+      "status": "PENDING",
+      "commands": [
+        {
+          "suite": "app",
+          "filter": "src.features.sports.__tests__.venueReviewPresentation[.]test[.]ts$",
+          "result": "PENDING"
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.sports.manage.__tests__.actions[.]test[.]ts$",
+          "result": "PENDING"
+        }
+      ],
+      "laneCi": {
+        "status": "REQUIRED_AFTER_PUSH",
+        "exactHeadRun": "PENDING"
+      }
+    }
   }
 }
