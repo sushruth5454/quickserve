@@ -103,12 +103,37 @@ describe('isolated execution infrastructure', () => {
       expectCommand(result, { stdout: '"profileCrcVerified":true' });
       const selftestReport = JSON.parse(result.stdout.trim()) as {
         hexBorderSelftest?: { color: string; borderMismatch: number; measuredCanvas: string };
+        manifestStateSelftest?: {
+          approvedSelectedAndClearedAccepted: boolean;
+          selectionOnlyStateAccepted: boolean;
+          pendingClaimsRejected: boolean;
+          pendingReleaseGatesBlocked: boolean;
+        };
+        assetIntegrityTamperRejected?: boolean;
       };
       const hexBorder = selftestReport.hexBorderSelftest;
       if (!hexBorder || hexBorder.color !== '#173d39' || hexBorder.borderMismatch !== 0) {
         throw new Error(`PNG RGB byte/border selftest failed; actual=${JSON.stringify(hexBorder ?? selftestReport)} expected=${JSON.stringify({
           color: '#173d39',
           borderMismatch: 0,
+        })}`);
+      }
+      const manifestState = selftestReport.manifestStateSelftest;
+      if (!manifestState || manifestState.approvedSelectedAndClearedAccepted !== true ||
+        manifestState.selectionOnlyStateAccepted !== true ||
+        manifestState.pendingClaimsRejected !== true || manifestState.pendingReleaseGatesBlocked !== true ||
+        selftestReport.assetIntegrityTamperRejected !== true) {
+        throw new Error(`O37A approved-state selftest failed; actual=${JSON.stringify({
+          manifestState,
+          assetIntegrityTamperRejected: selftestReport.assetIntegrityTamperRejected,
+        })} expected=${JSON.stringify({
+          manifestStateSelftest: {
+            approvedSelectedAndClearedAccepted: true,
+            selectionOnlyStateAccepted: true,
+            pendingClaimsRejected: true,
+            pendingReleaseGatesBlocked: true,
+          },
+          assetIntegrityTamperRejected: true,
         })}`);
       }
       console.info(`PNG RGB byte/border evidence: ${JSON.stringify(hexBorder)}`);
