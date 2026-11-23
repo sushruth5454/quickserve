@@ -80,7 +80,7 @@ begin
     if not found then
       raise exception 'branding policy is not initialized' using errcode = '55000';
     end if;
-    v_policy := public._branding_validate_policy(v_policy);
+    v_policy := public._branding_validate_policy(v_policy - 'revision');
     v_max_upload_bytes := (v_policy ->> 'maxUploadBytes')::integer;
     v_min_dimension := (v_policy ->> 'minImageDimension')::integer;
     v_max_dimension := (v_policy ->> 'maxImageDimension')::integer;
