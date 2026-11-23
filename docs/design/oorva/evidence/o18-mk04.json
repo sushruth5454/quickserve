@@ -139,14 +139,16 @@
   "validation": {
     "gitDiffCheck": "PASS",
     "codespace": {
-      "status": "UNAVAILABLE_FOR_POST_FIX_RUN",
+      "status": "PASS",
       "helperSource": "origin/main:scripts/cs-test.ps1",
-      "helperSourceCommit": "c5e01ba6b2ad43b6a037aff1770161632052084a",
+      "helperSourceCommit": "3cc8f1326537e872504fa84835e735e15bf17b7e",
       "windowsAppOrSqlTests": "NOT_RUN",
       "postFixAttempt": {
         "filter": "src.features.activity.__tests__.model[.]test[.]ts$",
-        "result": "BLOCKED",
-        "reason": "The current-main helper reached the known Codespace lookup, but gh API access returned HTTP 404 requesting the codespace OAuth scope. Windows app/SQL tests were not run."
+        "selectedFile": "app/src/features/activity/__tests__/model.test.ts",
+        "selectedTestSuites": 1,
+        "selectedTests": 1,
+        "result": "PASS"
       },
       "resolvedPreliminaryFailures": [
         "App typecheck found an optional unread.shop comparison; a nullish fallback was added and the exact app selector passed.",
@@ -197,7 +199,15 @@
       "requiredScenario": "MK-OFF-same-entity-history-cancel-private-backend",
       "status": "PENDING_COORDINATOR_BATCH_RERUN_AFTER_WEB_CONFIRMATION_FIX"
     },
-    "laneCi": "PENDING_POST_FIX_PUSH; USE_LANE_CI_FALLBACK_FOR_CODESPACE_SCOPE_BLOCKER"
+    "mergedTestFix": {
+      "ownerStage": "O17-SV07",
+      "commit": "8cdc9e8ea023e30fb1f74c1496c4a637d9aefea7",
+      "path": "supabase/tests-postgres/o17_sv07.pg.test.mjs",
+      "ownerLaneCiRun": 45134971534,
+      "ownerLaneCiResult": "PASS",
+      "scenarios": 5
+    },
+    "laneCi": "PENDING_EXACT_POST_FIX_PUSH"
   },
   "productionActions": "NONE"
 }
