@@ -111,6 +111,12 @@ function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+function toPillowInkBounds(bounds) {
+  if (!bounds) return null;
+  // The supplied manifest uses exclusive right/bottom endpoints; PNG inspection returns inclusive pixels.
+  return [bounds.left, bounds.top, bounds.right + 1, bounds.bottom + 1];
+}
+
 function resolveSuppliedKitPath(relativePath, label) {
   if (typeof relativePath !== 'string' || relativePath.length === 0) {
     throw new Error(`${label}: actual=${JSON.stringify(relativePath)} expected=bundle-relative path`);
@@ -202,9 +208,9 @@ async function verifySuppliedDProfile() {
   assert.equal(png.alpha.transparentPixels > 0, entry.alpha === 'transparent',
     `supplied D profile alpha actual=${JSON.stringify(png.alpha)} expected=${JSON.stringify(entry.alpha)}`);
   assert.deepEqual(
-    png.alpha.bounds && [png.alpha.bounds.left, png.alpha.bounds.top, png.alpha.bounds.right, png.alpha.bounds.bottom],
+    toPillowInkBounds(png.alpha.bounds),
     entry.inkBounds,
-    `supplied D profile ink bounds actual=${JSON.stringify(png.alpha.bounds)} expected=${JSON.stringify(entry.inkBounds)}`,
+    `supplied D profile Pillow ink bounds actual=${JSON.stringify(toPillowInkBounds(png.alpha.bounds))} expected=${JSON.stringify(entry.inkBounds)}`,
   );
   return {
     file: entry.target,
@@ -429,10 +435,7 @@ function validateSuppliedExportRecord(record, definition, png, bytes, errors, la
   expectValue(errors, `${label} supplied dimensions`, { width: png.width, height: png.height }, record.canvas);
   expectValue(errors, `${label} supplied alpha mode`, definition.alpha, record.alpha);
   expectValue(errors, `${label} supplied color profile`, png.profile.kind, record.colourProfile);
-  const actualInkBounds = png.alpha.bounds
-    ? [png.alpha.bounds.left, png.alpha.bounds.top, png.alpha.bounds.right, png.alpha.bounds.bottom]
-    : null;
-  expectValue(errors, `${label} supplied ink bounds`, actualInkBounds, record.inkBounds);
+  expectValue(errors, `${label} supplied Pillow ink bounds`, toPillowInkBounds(png.alpha.bounds), record.inkBounds);
   const expectedSafeCircle = definition.safeRule === 'centered-circle-624' ? 624 : null;
   expectValue(errors, `${label} supplied safe-circle diameter`, record.safeCircleDiameter, expectedSafeCircle);
 }

@@ -752,7 +752,7 @@
     "preservedChecks": [
       "source and export SHA-256",
       "PNG chunks, CRC, dimensions, alpha and embedded profile",
-      "safe zones, icon boundaries and supplied ink bounds",
+      "safe zones, icon boundaries and supplied Pillow half-open ink bounds normalized to the inspector's inclusive pixel bounds",
       "outlined/self-contained SVG security checks"
     ],
     "scope": {
