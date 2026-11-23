@@ -1,0 +1,1152 @@
+{
+  "stage": "O01X",
+  "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "76e98fb8d871b5af9d0e38bc88f85042409986a6",
+  "currentMainSha": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+  "dependencyShas": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O37A": "e48422e85d11e1bcfd97efa1eba54338d608d3d7",
+    "O01L": "76e98fb8d871b5af9d0e38bc88f85042409986a6"
+  },
+  "sourceProvenance": {
+    "originalArtworkSourceCommit": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
+    "originalDropInHashes": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
+      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
+      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
+      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
+      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+    },
+    "correctedO01LMasterHashes": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+      "oorva-wordmark-dark.svg": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+      "logo-horizontal-light.svg": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+      "logo-horizontal-dark.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+    },
+    "centeredScales": {
+      "horizontal": 0.88,
+      "wordmark": 0.86
+    },
+    "pathDataAndViewBoxesPreserved": true
+  },
+  "toolchain": {
+    "nodeMajor": 22,
+    "renderer": "@resvg/resvg-js",
+    "rendererVersion": "2.6.2",
+    "loadSystemFonts": false,
+    "exporterSha256": "b2b7e5f418e61223a8a024b17894b1e6a484c314a01d0851ce3099e7b3c1be58",
+    "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a"
+  },
+  "export": {
+    "status": "PASS",
+    "method": "Pinned current-main O37A Node22/resvg CLI --write then --check for all 26 allowlisted outputs; byte-identical.",
+    "fileCount": 26,
+    "manifestSha256": "a8741e9810107d64394fcb21edb6dae63768e27d186ebb5ae86fefe3675cb945",
+    "files": [
+      {
+        "path": "app/assets/brand/logo-horizontal-light.png",
+        "sha256": "c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d",
+        "sourceSha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+        "width": 360,
+        "height": 100,
+        "density": 1,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 30654,
+          "partial": 1001,
+          "opaque": 4345
+        },
+        "bounds": {
+          "left": 59,
+          "top": 19,
+          "right": 300,
+          "bottom": 80
+        },
+        "margins": {
+          "left": 59,
+          "right": 59,
+          "top": 19,
+          "bottom": 19
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 62
+        },
+        "symbolGeometry": {
+          "method": "union of the two leftmost connected emblem arcs",
+          "bounds": {
+            "left": 59,
+            "top": 19,
+            "right": 118,
+            "bottom": 80
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@2x.png",
+        "sha256": "d828adb0679623dbf7fd12ba0cc36566948a485b014855f9fb90a44fcf275640",
+        "sourceSha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+        "width": 720,
+        "height": 200,
+        "density": 2,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 123629,
+          "partial": 2024,
+          "opaque": 18347
+        },
+        "bounds": {
+          "left": 119,
+          "top": 38,
+          "right": 600,
+          "bottom": 161
+        },
+        "margins": {
+          "left": 119,
+          "right": 119,
+          "top": 38,
+          "bottom": 38
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 124
+        },
+        "symbolGeometry": {
+          "method": "union of the two leftmost connected emblem arcs",
+          "bounds": {
+            "left": 119,
+            "top": 38,
+            "right": 237,
+            "bottom": 161
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@3x.png",
+        "sha256": "4d18bc32ba9a5e734cdf2f24098f07a6773384a8b89d5ee28ab8758131c3f0b4",
+        "sourceSha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+        "width": 1080,
+        "height": 300,
+        "density": 3,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 278930,
+          "partial": 3017,
+          "opaque": 42053
+        },
+        "bounds": {
+          "left": 179,
+          "top": 57,
+          "right": 900,
+          "bottom": 242
+        },
+        "margins": {
+          "left": 179,
+          "right": 179,
+          "top": 57,
+          "bottom": 57
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 186
+        },
+        "symbolGeometry": {
+          "method": "union of the two leftmost connected emblem arcs",
+          "bounds": {
+            "left": 179,
+            "top": 57,
+            "right": 355,
+            "bottom": 242
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark.png",
+        "sha256": "30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c",
+        "sourceSha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+        "width": 360,
+        "height": 100,
+        "density": 1,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 30654,
+          "partial": 1001,
+          "opaque": 4345
+        },
+        "bounds": {
+          "left": 59,
+          "top": 19,
+          "right": 300,
+          "bottom": 80
+        },
+        "margins": {
+          "left": 59,
+          "right": 59,
+          "top": 19,
+          "bottom": 19
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 62
+        },
+        "symbolGeometry": {
+          "method": "union of the two leftmost connected emblem arcs",
+          "bounds": {
+            "left": 59,
+            "top": 19,
+            "right": 118,
+            "bottom": 80
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "sha256": "77779a4dd953d25980b19b10597404639ce89c5e7991c7540578dfb05dbc914a",
+        "sourceSha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+        "width": 720,
+        "height": 200,
+        "density": 2,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 123629,
+          "partial": 2024,
+          "opaque": 18347
+        },
+        "bounds": {
+          "left": 119,
+          "top": 38,
+          "right": 600,
+          "bottom": 161
+        },
+        "margins": {
+          "left": 119,
+          "right": 119,
+          "top": 38,
+          "bottom": 38
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 124
+        },
+        "symbolGeometry": {
+          "method": "union of the two leftmost connected emblem arcs",
+          "bounds": {
+            "left": 119,
+            "top": 38,
+            "right": 237,
+            "bottom": 161
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "sha256": "ed1fa903e21207f830a4b805a62b26ff3504da607e08ad3e28f9939f1132a4bd",
+        "sourceSha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+        "width": 1080,
+        "height": 300,
+        "density": 3,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 278930,
+          "partial": 3017,
+          "opaque": 42053
+        },
+        "bounds": {
+          "left": 179,
+          "top": 57,
+          "right": 900,
+          "bottom": 242
+        },
+        "margins": {
+          "left": 179,
+          "right": 179,
+          "top": 57,
+          "bottom": 57
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 186
+        },
+        "symbolGeometry": {
+          "method": "union of the two leftmost connected emblem arcs",
+          "bounds": {
+            "left": 179,
+            "top": 57,
+            "right": 355,
+            "bottom": 242
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light.png",
+        "sha256": "86cf5e7ab45d4180f79116be614208f86fc4afe27bcadd5d4247eb61df6a9bd7",
+        "sourceSha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+        "width": 256,
+        "height": 64,
+        "density": 1,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 12233,
+          "partial": 786,
+          "opaque": 3365
+        },
+        "bounds": {
+          "left": 33,
+          "top": 13,
+          "right": 222,
+          "bottom": 50
+        },
+        "margins": {
+          "left": 33,
+          "right": 33,
+          "top": 13,
+          "bottom": 13
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 40
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of the leftmost lowercase o glyph",
+          "bounds": {
+            "left": 33,
+            "top": 13,
+            "right": 72,
+            "bottom": 50
+          },
+          "size": {
+            "width": 40,
+            "height": 38
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "sha256": "ede9b9af7cd5c5b9cbf591dc136df2ada75177a8e00c8c3b3e98a681433e797d",
+        "sourceSha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+        "width": 512,
+        "height": 128,
+        "density": 2,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 49623,
+          "partial": 1651,
+          "opaque": 14262
+        },
+        "bounds": {
+          "left": 66,
+          "top": 26,
+          "right": 445,
+          "bottom": 101
+        },
+        "margins": {
+          "left": 66,
+          "right": 66,
+          "top": 26,
+          "bottom": 26
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 80
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of the leftmost lowercase o glyph",
+          "bounds": {
+            "left": 66,
+            "top": 26,
+            "right": 145,
+            "bottom": 101
+          },
+          "size": {
+            "width": 80,
+            "height": 76
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "sha256": "cfaafb25a9ab1aff1102b57559433524357c1b3a4641ea7f3a773a19545a867d",
+        "sourceSha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+        "width": 768,
+        "height": 192,
+        "density": 3,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 112276,
+          "partial": 2406,
+          "opaque": 32774
+        },
+        "bounds": {
+          "left": 99,
+          "top": 39,
+          "right": 668,
+          "bottom": 152
+        },
+        "margins": {
+          "left": 99,
+          "right": 99,
+          "top": 39,
+          "bottom": 39
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 120
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of the leftmost lowercase o glyph",
+          "bounds": {
+            "left": 99,
+            "top": 40,
+            "right": 217,
+            "bottom": 152
+          },
+          "size": {
+            "width": 119,
+            "height": 113
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark.png",
+        "sha256": "dbad70b9209c4b4880384c77f672325c22c87639918cd58913df2aa800f378ca",
+        "sourceSha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+        "width": 256,
+        "height": 64,
+        "density": 1,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 12233,
+          "partial": 786,
+          "opaque": 3365
+        },
+        "bounds": {
+          "left": 33,
+          "top": 13,
+          "right": 222,
+          "bottom": 50
+        },
+        "margins": {
+          "left": 33,
+          "right": 33,
+          "top": 13,
+          "bottom": 13
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 40
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of the leftmost lowercase o glyph",
+          "bounds": {
+            "left": 33,
+            "top": 13,
+            "right": 72,
+            "bottom": 50
+          },
+          "size": {
+            "width": 40,
+            "height": 38
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "sha256": "a05ede1ace6b10c2cdaed723d2fe143929579bc7b7839363bec2aa57f7e874a3",
+        "sourceSha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+        "width": 512,
+        "height": 128,
+        "density": 2,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 49623,
+          "partial": 1651,
+          "opaque": 14262
+        },
+        "bounds": {
+          "left": 66,
+          "top": 26,
+          "right": 445,
+          "bottom": 101
+        },
+        "margins": {
+          "left": 66,
+          "right": 66,
+          "top": 26,
+          "bottom": 26
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 80
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of the leftmost lowercase o glyph",
+          "bounds": {
+            "left": 66,
+            "top": 26,
+            "right": 145,
+            "bottom": 101
+          },
+          "size": {
+            "width": 80,
+            "height": 76
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "sha256": "9a2ac546311bea6b05ba14d3bc72f63543955a361719e9fff631d182d3e30590",
+        "sourceSha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+        "width": 768,
+        "height": 192,
+        "density": 3,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 112276,
+          "partial": 2406,
+          "opaque": 32774
+        },
+        "bounds": {
+          "left": 99,
+          "top": 39,
+          "right": 668,
+          "bottom": 152
+        },
+        "margins": {
+          "left": 99,
+          "right": 99,
+          "top": 39,
+          "bottom": 39
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 120
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of the leftmost lowercase o glyph",
+          "bounds": {
+            "left": 99,
+            "top": 40,
+            "right": 217,
+            "bottom": 152
+          },
+          "size": {
+            "width": 119,
+            "height": 113
+          }
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-compact-light.png",
+        "sha256": "2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 32,
+        "height": 32,
+        "density": 1,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 632,
+          "partial": 117,
+          "opaque": 275
+        },
+        "bounds": {
+          "left": 3,
+          "top": 3,
+          "right": 28,
+          "bottom": 28
+        },
+        "margins": {
+          "left": 3,
+          "right": 3,
+          "top": 3,
+          "bottom": 3
+        },
+        "safeZone": {
+          "rule": "central-208-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-compact-light@2x.png",
+        "sha256": "af4a527ee134e4390f926183ef442fa0e4b0858222affed414bf4fd354325b8b",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 64,
+        "height": 64,
+        "density": 2,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 2642,
+          "partial": 249,
+          "opaque": 1205
+        },
+        "bounds": {
+          "left": 7,
+          "top": 6,
+          "right": 56,
+          "bottom": 57
+        },
+        "margins": {
+          "left": 7,
+          "right": 7,
+          "top": 6,
+          "bottom": 6
+        },
+        "safeZone": {
+          "rule": "central-208-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-compact-light@3x.png",
+        "sha256": "e03174e1a6222c00a383db7cf090ee38effe0152420d8ce58606710eee3b34b3",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 96,
+        "height": 96,
+        "density": 3,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 6022,
+          "partial": 380,
+          "opaque": 2814
+        },
+        "bounds": {
+          "left": 10,
+          "top": 9,
+          "right": 85,
+          "bottom": 86
+        },
+        "margins": {
+          "left": 10,
+          "right": 10,
+          "top": 9,
+          "bottom": 9
+        },
+        "safeZone": {
+          "rule": "central-208-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-compact-dark.png",
+        "sha256": "2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 32,
+        "height": 32,
+        "density": 1,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 632,
+          "partial": 117,
+          "opaque": 275
+        },
+        "bounds": {
+          "left": 3,
+          "top": 3,
+          "right": 28,
+          "bottom": 28
+        },
+        "margins": {
+          "left": 3,
+          "right": 3,
+          "top": 3,
+          "bottom": 3
+        },
+        "safeZone": {
+          "rule": "central-208-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-compact-dark@2x.png",
+        "sha256": "a715cac019d2ee87f775fb1a42e1b17ccb64c2358efdfb530a08f87fd5bea898",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 64,
+        "height": 64,
+        "density": 2,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 2642,
+          "partial": 249,
+          "opaque": 1205
+        },
+        "bounds": {
+          "left": 7,
+          "top": 6,
+          "right": 56,
+          "bottom": 57
+        },
+        "margins": {
+          "left": 7,
+          "right": 7,
+          "top": 6,
+          "bottom": 6
+        },
+        "safeZone": {
+          "rule": "central-208-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/logo-compact-dark@3x.png",
+        "sha256": "945ef9fe957455fc42aa510d657577c4260b138a1470ec65a77b3a9743a8998c",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 96,
+        "height": 96,
+        "density": 3,
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 6022,
+          "partial": 380,
+          "opaque": 2814
+        },
+        "bounds": {
+          "left": 10,
+          "top": 9,
+          "right": 85,
+          "bottom": 86
+        },
+        "margins": {
+          "left": 10,
+          "right": 10,
+          "top": 9,
+          "bottom": 9
+        },
+        "safeZone": {
+          "rule": "central-208-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/icon.png",
+        "sha256": "c9af02ce71af9c4e1da871b71c6a93f40af453b1c33399f5d3165bca33244ca2",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 0,
+          "partial": 0,
+          "opaque": 1048576
+        },
+        "bounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1023,
+          "bottom": 1023
+        },
+        "margins": {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        "safeZone": {
+          "rule": "opaque-square-no-rounded-corners",
+          "backgroundColor": "#173d39"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/android-icon-foreground.png",
+        "sha256": "b358dd1c5226288e63d5f47407306a1219fa299162bb4538140aaf667ea339a7",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 883272,
+          "partial": 2821,
+          "opaque": 162483
+        },
+        "bounds": {
+          "left": 237,
+          "top": 224,
+          "right": 786,
+          "bottom": 799
+        },
+        "margins": {
+          "left": 237,
+          "right": 237,
+          "top": 224,
+          "bottom": 224
+        },
+        "safeZone": {
+          "rule": "centered-circle-624"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/android-icon-background.png",
+        "sha256": "d382300ca5f23aea1a250d9981c39f7dcfafda8724c7a13c9104036ba86fa81e",
+        "sourceSha256": "9df7bef9d9e1710b36f80d708aeff798a436683801b8a12e4354e2aadf4ff43c",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 0,
+          "partial": 0,
+          "opaque": 1048576
+        },
+        "bounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1023,
+          "bottom": 1023
+        },
+        "margins": {
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "bottom": 0
+        },
+        "safeZone": {
+          "rule": "flat-opaque-background",
+          "backgroundColor": "#173d39"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/android-icon-monochrome.png",
+        "sha256": "fa29ec68c8a95f990e05f6bb5763dd19a7b100852c811e66edc98c5643be5503",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 883272,
+          "partial": 2821,
+          "opaque": 162483
+        },
+        "bounds": {
+          "left": 237,
+          "top": 224,
+          "right": 786,
+          "bottom": 799
+        },
+        "margins": {
+          "left": 237,
+          "right": 237,
+          "top": 224,
+          "bottom": 224
+        },
+        "safeZone": {
+          "rule": "centered-circle-624"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/splash-icon.png",
+        "sha256": "beb0f40e9efe2d9ee98fb368b2c5a5bbb2032c5dcadd701a592eac41c82c7ecd",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 883272,
+          "partial": 2821,
+          "opaque": 162483
+        },
+        "bounds": {
+          "left": 237,
+          "top": 224,
+          "right": 786,
+          "bottom": 799
+        },
+        "margins": {
+          "left": 237,
+          "right": 237,
+          "top": 224,
+          "bottom": 224
+        },
+        "safeZone": {
+          "rule": "ink-within-624-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/splash-icon-dark.png",
+        "sha256": "b358dd1c5226288e63d5f47407306a1219fa299162bb4538140aaf667ea339a7",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 1024,
+        "height": 1024,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 883272,
+          "partial": 2821,
+          "opaque": 162483
+        },
+        "bounds": {
+          "left": 237,
+          "top": 224,
+          "right": 786,
+          "bottom": 799
+        },
+        "margins": {
+          "left": 237,
+          "right": 237,
+          "top": 224,
+          "bottom": 224
+        },
+        "safeZone": {
+          "rule": "ink-within-624-square"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/notification-icon.png",
+        "sha256": "a3e5ed4a2e0607b5dd71b4a182c258e3a49aea7705504cee37f34f8b6b53708a",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 96,
+        "height": 96,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 6022,
+          "partial": 380,
+          "opaque": 2814
+        },
+        "bounds": {
+          "left": 10,
+          "top": 9,
+          "right": 85,
+          "bottom": 86
+        },
+        "margins": {
+          "left": 10,
+          "right": 10,
+          "top": 9,
+          "bottom": 9
+        },
+        "safeZone": {
+          "rule": "white-on-transparent"
+        }
+      },
+      {
+        "path": "app/assets/brand/native/favicon.png",
+        "sha256": "e1968b870aafa679fd12e2be2cf17ea979e51fcabbdb6b30bfb00027d978dd8b",
+        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "width": 48,
+        "height": 48,
+        "density": "native",
+        "colorProfile": {
+          "kind": "sRGB",
+          "renderingIntent": 0
+        },
+        "alpha": {
+          "colorType": 6,
+          "transparent": 1849,
+          "partial": 137,
+          "opaque": 318
+        },
+        "bounds": {
+          "left": 10,
+          "top": 10,
+          "right": 37,
+          "bottom": 37
+        },
+        "margins": {
+          "left": 10,
+          "right": 10,
+          "top": 10,
+          "bottom": 10
+        },
+        "safeZone": {
+          "rule": "quarter-symbol-clear-space",
+          "symbolDiameterPx": 28
+        },
+        "symbolGeometry": {
+          "method": "outer diameter of rendered favicon emblem",
+          "bounds": {
+            "left": 10,
+            "top": 10,
+            "right": 37,
+            "bottom": 37
+          }
+        }
+      }
+    ],
+    "validatedCandidateManifestSha256": "9186ad0d89a7e7e1f358be8fea72c2471fb8acc5be6d9148e2e0d64f6a43e402"
+  },
+  "validation": {
+    "codespaceTsc": {
+      "status": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+      "command": "pwsh -NoProfile -File $Helper -Suite tsc",
+      "wipSnapshotBranch": "wip/qs-o01x-fixforward-f6c627b",
+      "wipSnapshotSha": "9cc1e77acfb087554eee033832bc7f81b8b2956a",
+      "result": "cs-test result: PASS"
+    },
+    "assetsSelector": {
+      "status": "PASS_CANDIDATE_ONLY",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+      "command": "pwsh -NoProfile -File $Helper -Suite assets -Filter oorva",
+      "codespace": "qs-tests-g67pgv4xqj639gx5",
+      "wipSnapshotBranch": "wip/qs-o01x-fixforward-f6c627b",
+      "wipSnapshotSha": "08f8d9c41c50e6a45eb1eba16ba1a6f757ae8ac4",
+      "checkedFileCount": 26,
+      "result": "cs-test result: PASS",
+      "testedState": {
+        "selected": false,
+        "publiclyCleared": false,
+        "designSelection": "pending",
+        "publicRights": "pending"
+      },
+      "note": "Candidate-state assets selector passed before standing D03b selection was applied; selector is intentionally not rerun on selected metadata."
+    }
+  },
+  "taglineContrast": {
+    "standard": "WCAG relative luminance and contrast ratio for sRGB colors",
+    "channelLinearization": "cLinear = cSrgb / 12.92 when cSrgb <= 0.04045; otherwise ((cSrgb + 0.055) / 1.055) ^ 2.4, where cSrgb is the 0-1 channel value.",
+    "relativeLuminance": "L = 0.2126 * RLinear + 0.7152 * GLinear + 0.0722 * BLinear",
+    "ratioFormula": "(max(Lbackground, Ltext) + 0.05) / (min(Lbackground, Ltext) + 0.05)",
+    "backgroundRelativeLuminance": 0.913109675065,
+    "textRelativeLuminance": 0.067018036987,
+    "ratio": 8.230437801426,
+    "minimum": 4.5,
+    "result": "pass"
+  },
+  "approvalStatus": {
+    "candidateOnly": true,
+    "D03a": "APPROVED",
+    "D03b": "APPROVED",
+    "D03bCandidateSelected": true,
+    "D03bSelectionRule": "Standing selection applies only to faithful O01X outputs that pass all A.4.1 checks.",
+    "D03c": "NOT_APPROVED",
+    "D03cScope": "Blocks public/store launch only.",
+    "finalSelection": true,
+    "production_ready": false,
+    "publicReleaseAllowed": false,
+    "D03bCandidateEvidence": "Standing D03b selection applied after the official 26-file A.4.1 candidate selector returned PASS_CANDIDATE_ONLY; final manifest and all asset SHA-256 values are recorded in this evidence."
+  },
+  "runtimeInstallation": "NOT PERFORMED; native candidates remain under app/assets/brand/native and are not installed.",
+  "safeZoneDiameterMapping": {
+    "horizontal": {
+      "method": "Measured outer emblem diameter at 1x, multiplied by declared density",
+      "byDensity": {
+        "app/assets/brand/logo-horizontal-light.png": 62,
+        "app/assets/brand/logo-horizontal-light@2x.png": 124,
+        "app/assets/brand/logo-horizontal-light@3x.png": 186,
+        "app/assets/brand/logo-horizontal-dark.png": 62,
+        "app/assets/brand/logo-horizontal-dark@2x.png": 124,
+        "app/assets/brand/logo-horizontal-dark@3x.png": 186
+      }
+    },
+    "wordmark": {
+      "method": "Measured lowercase-o outer diameter at 1x, multiplied by declared density",
+      "byDensity": {
+        "app/assets/brand/oorva-wordmark-light.png": 40,
+        "app/assets/brand/oorva-wordmark-light@2x.png": 80,
+        "app/assets/brand/oorva-wordmark-light@3x.png": 120,
+        "app/assets/brand/oorva-wordmark-dark.png": 40,
+        "app/assets/brand/oorva-wordmark-dark@2x.png": 80,
+        "app/assets/brand/oorva-wordmark-dark@3x.png": 120
+      }
+    },
+    "favicon": {
+      "method": "Measured native outer diameter of simplified emblem",
+      "symbolDiameterPx": 28
+    }
+  }
+}

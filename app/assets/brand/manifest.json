@@ -1,0 +1,1185 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O01X",
+  "status": "candidate",
+  "selected": true,
+  "publiclyCleared": false,
+  "approvals": {
+    "designSelection": "approved",
+    "publicRights": "pending"
+  },
+  "toolchain": {
+    "nodeMajor": 22,
+    "renderer": "@resvg/resvg-js",
+    "rendererVersion": "2.6.2",
+    "loadSystemFonts": false,
+    "exporterSha256": "b2b7e5f418e61223a8a024b17894b1e6a484c314a01d0851ce3099e7b3c1be58",
+    "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a"
+  },
+  "files": [
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-light.png",
+        "role": "horizontal-lockup",
+        "sha256": "c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d",
+        "canvas": {
+          "width": 360,
+          "height": 100
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 360,
+            "height": 100
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 62
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-light@2x.png",
+        "role": "horizontal-lockup",
+        "sha256": "d828adb0679623dbf7fd12ba0cc36566948a485b014855f9fb90a44fcf275640",
+        "canvas": {
+          "width": 720,
+          "height": 200
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 720,
+            "height": 200
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 124
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-light@3x.png",
+        "role": "horizontal-lockup",
+        "sha256": "4d18bc32ba9a5e734cdf2f24098f07a6773384a8b89d5ee28ab8758131c3f0b4",
+        "canvas": {
+          "width": 1080,
+          "height": 300
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1080,
+            "height": 300
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 186
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-dark.png",
+        "role": "horizontal-lockup",
+        "sha256": "30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c",
+        "canvas": {
+          "width": 360,
+          "height": 100
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 360,
+            "height": 100
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 62
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "role": "horizontal-lockup",
+        "sha256": "77779a4dd953d25980b19b10597404639ce89c5e7991c7540578dfb05dbc914a",
+        "canvas": {
+          "width": 720,
+          "height": 200
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 720,
+            "height": 200
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 124
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "role": "horizontal-lockup",
+        "sha256": "ed1fa903e21207f830a4b805a62b26ff3504da607e08ad3e28f9939f1132a4bd",
+        "canvas": {
+          "width": 1080,
+          "height": 300
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1080,
+            "height": 300
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 186
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-light.png",
+        "role": "wordmark",
+        "sha256": "86cf5e7ab45d4180f79116be614208f86fc4afe27bcadd5d4247eb61df6a9bd7",
+        "canvas": {
+          "width": 256,
+          "height": 64
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 256,
+            "height": 64
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 40
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "role": "wordmark",
+        "sha256": "ede9b9af7cd5c5b9cbf591dc136df2ada75177a8e00c8c3b3e98a681433e797d",
+        "canvas": {
+          "width": 512,
+          "height": 128
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 512,
+            "height": 128
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 80
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "role": "wordmark",
+        "sha256": "cfaafb25a9ab1aff1102b57559433524357c1b3a4641ea7f3a773a19545a867d",
+        "canvas": {
+          "width": 768,
+          "height": 192
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 768,
+            "height": 192
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 120
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-dark.png",
+        "role": "wordmark",
+        "sha256": "dbad70b9209c4b4880384c77f672325c22c87639918cd58913df2aa800f378ca",
+        "canvas": {
+          "width": 256,
+          "height": 64
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 256,
+            "height": 64
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 40
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "role": "wordmark",
+        "sha256": "a05ede1ace6b10c2cdaed723d2fe143929579bc7b7839363bec2aa57f7e874a3",
+        "canvas": {
+          "width": 512,
+          "height": 128
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 512,
+            "height": 128
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 80
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117"
+      },
+      "export": {
+        "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "role": "wordmark",
+        "sha256": "9a2ac546311bea6b05ba14d3bc72f63543955a361719e9fff631d182d3e30590",
+        "canvas": {
+          "width": 768,
+          "height": 192
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 768,
+            "height": 192
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 120
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-light.png",
+        "role": "compact-symbol",
+        "sha256": "2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08",
+        "canvas": {
+          "width": 32,
+          "height": 32
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 32,
+            "height": 32
+          },
+          "density": 1
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-light@2x.png",
+        "role": "compact-symbol",
+        "sha256": "af4a527ee134e4390f926183ef442fa0e4b0858222affed414bf4fd354325b8b",
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 64,
+            "height": 64
+          },
+          "density": 2
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-light@3x.png",
+        "role": "compact-symbol",
+        "sha256": "e03174e1a6222c00a383db7cf090ee38effe0152420d8ce58606710eee3b34b3",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 96,
+            "height": 96
+          },
+          "density": 3
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-dark.png",
+        "role": "compact-symbol",
+        "sha256": "2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3",
+        "canvas": {
+          "width": 32,
+          "height": 32
+        },
+        "density": 1,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 32,
+            "height": 32
+          },
+          "density": 1,
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-dark@2x.png",
+        "role": "compact-symbol",
+        "sha256": "a715cac019d2ee87f775fb1a42e1b17ccb64c2358efdfb530a08f87fd5bea898",
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "density": 2,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 64,
+            "height": 64
+          },
+          "density": 2,
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/logo-compact-dark@3x.png",
+        "role": "compact-symbol",
+        "sha256": "945ef9fe957455fc42aa510d657577c4260b138a1470ec65a77b3a9743a8998c",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "density": 3,
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 96,
+            "height": 96
+          },
+          "density": 3,
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "central-208-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/icon.png",
+        "role": "ios-app-icon",
+        "sha256": "c9af02ce71af9c4e1da871b71c6a93f40af453b1c33399f5d3165bca33244ca2",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          },
+          "background": "#173D39"
+        }
+      },
+      "alpha": "opaque",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "opaque-square-no-rounded-corners",
+        "backgroundColor": "#173d39"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/android-icon-foreground.png",
+        "role": "android-adaptive-foreground",
+        "sha256": "b358dd1c5226288e63d5f47407306a1219fa299162bb4538140aaf667ea339a7",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          },
+          "safeArea": "symbol-circle-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "centered-circle-624"
+      }
+    },
+    {
+      "source": {
+        "kind": "solid-background",
+        "color": "#173D39",
+        "sha256": "9df7bef9d9e1710b36f80d708aeff798a436683801b8a12e4354e2aadf4ff43c"
+      },
+      "export": {
+        "path": "app/assets/brand/native/android-icon-background.png",
+        "role": "android-adaptive-background",
+        "sha256": "d382300ca5f23aea1a250d9981c39f7dcfafda8724c7a13c9104036ba86fa81e",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "solid-background",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "background": "#173D39"
+        }
+      },
+      "alpha": "opaque",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "flat-opaque-background",
+        "backgroundColor": "#173d39"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/android-icon-monochrome.png",
+        "role": "android-monochrome",
+        "sha256": "fa29ec68c8a95f990e05f6bb5763dd19a7b100852c811e66edc98c5643be5503",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#FFFFFF"
+          },
+          "safeArea": "symbol-circle-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "centered-circle-624"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/splash-icon.png",
+        "role": "splash-icon-light",
+        "sha256": "beb0f40e9efe2d9ee98fb368b2c5a5bbb2032c5dcadd701a592eac41c82c7ecd",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "safeArea": "symbol-circle-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "ink-within-624-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/splash-icon-dark.png",
+        "role": "splash-icon-dark",
+        "sha256": "b358dd1c5226288e63d5f47407306a1219fa299162bb4538140aaf667ea339a7",
+        "canvas": {
+          "width": 1024,
+          "height": 1024
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 1024,
+            "height": 1024
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#F7F5EF"
+          },
+          "safeArea": "symbol-circle-624"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "ink-within-624-square"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/notification-icon.png",
+        "role": "notification-small-icon",
+        "sha256": "a3e5ed4a2e0607b5dd71b4a182c258e3a49aea7705504cee37f34f8b6b53708a",
+        "canvas": {
+          "width": 96,
+          "height": 96
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 96,
+            "height": 96
+          },
+          "density": "native",
+          "recolor": {
+            "#173D39": "#FFFFFF"
+          }
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "white-on-transparent"
+      }
+    },
+    {
+      "source": {
+        "kind": "svg",
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73"
+      },
+      "export": {
+        "path": "app/assets/brand/native/favicon.png",
+        "role": "favicon",
+        "sha256": "e1968b870aafa679fd12e2be2cf17ea979e51fcabbdb6b30bfb00027d978dd8b",
+        "canvas": {
+          "width": 48,
+          "height": 48
+        },
+        "density": "native",
+        "transform": {
+          "mode": "svg",
+          "canvas": {
+            "width": 48,
+            "height": 48
+          },
+          "density": "native",
+          "safeArea": "favicon-10"
+        }
+      },
+      "alpha": "transparent",
+      "colorProfile": {
+        "kind": "sRGB",
+        "renderingIntent": 0
+      },
+      "license": {
+        "status": "pending",
+        "reference": "Owner-provided Connected O artwork; corrected O01L masters at 76e98fb8d871b5af9d0e38bc88f85042409986a6; D03c public-rights clearance remains pending."
+      },
+      "approval": {
+        "designSelection": "approved",
+        "publicRights": "pending"
+      },
+      "selected": true,
+      "publiclyCleared": false,
+      "safeZone": {
+        "rule": "quarter-symbol-clear-space",
+        "symbolDiameterPx": 28
+      }
+    }
+  ]
+}
