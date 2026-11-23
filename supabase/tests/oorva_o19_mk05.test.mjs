@@ -344,6 +344,9 @@ await scenario('MK-SELECT-role-denials-retained', async () => {
   );
   const otherOwner = await makeUser();
   const nonRecipientShopId = await makeShop(otherOwner, fixture.categoryId, 'non-recipient', false);
+  const rfqItem = await one(`
+    select id from public.rfq_items where rfq_id = $1::uuid order by seq limit 1
+  `, [rfqId]);
   await expectDenied(
     () => as(otherOwner, 'authenticated', `
       select public.send_supplier_quote_for_business(
@@ -354,10 +357,7 @@ await scenario('MK-SELECT-role-denials-retained', async () => {
       rfqId,
       nonRecipientShopId,
       JSON.stringify([{
-        rfq_item_id: (await one(
-          'select id from public.rfq_items where rfq_id = $1::uuid order by seq limit 1',
-          [rfqId],
-        )).id,
+        rfq_item_id: rfqItem.id,
         brand: 'O19',
         model: 'Unauthorized',
         specs: {},
