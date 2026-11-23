@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Starts a throwaway local Supabase stack inside a CI runner for E2E: full migration chain from
 # supabase/migrations, test OTP logins, demo seeds. Never points at a hosted project.
-# Usage: bash scripts/ci/local-supabase.sh   (exports API_URL, ANON_KEY, DB_URL to $GITHUB_ENV when set)
+# Usage: bash scripts/ci/local-supabase.sh (exports local API, anon, DB, and service-role values to $GITHUB_ENV when set)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -48,12 +48,25 @@ sed -i 's/^\[auth\.sms\]$/[auth.sms]\nmax_frequency = "1s"/' supabase/config.tom
 mkdir -p /tmp/qs-later-migrations
 find supabase/migrations -name '*.sql' ! -name '0001_*' -exec mv {} /tmp/qs-later-migrations/ \;
 
-supabase start -x studio,imgproxy,logflare,vector
-
-eval "$(supabase status -o env)"
-if [[ -z "${SERVICE_ROLE_KEY:-}" ]]; then
-  echo "Local Supabase status did not provide SERVICE_ROLE_KEY; private Storage tests cannot run" >&2
+if ! supabase start -x studio,imgproxy,logflare,vector >/dev/null 2>&1; then
+  echo "Failed to start throwaway local Supabase stack" >&2
   exit 1
+fi
+
+unset SERVICE_ROLE_KEY
+eval "$(supabase status -o env)"
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+  if [[ -z "${SERVICE_ROLE_KEY:-}" ]]; then
+    echo "::error::Local Supabase status did not provide SERVICE_ROLE_KEY; private Storage tests cannot run" >&2
+    exit 1
+  fi
+  printf '::add-mask::%s\n' "$SERVICE_ROLE_KEY"
+  {
+    echo "LOCAL_API_URL=$API_URL"
+    echo "LOCAL_ANON_KEY=$ANON_KEY"
+    echo "LOCAL_DB_URL=$DB_URL"
+    printf 'LOCAL_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+  } >> "$GITHUB_ENV"
 fi
 psql_db() { psql "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 
@@ -130,15 +143,6 @@ demo_seed supabase/seed-sangareddy.sql
 echo "== hosted demo admin settings"
 psql_db -f supabase/seed-e2e-settings.sql
 
-if [ -n "${GITHUB_ENV:-}" ]; then
-  printf '::add-mask::%s\n' "$SERVICE_ROLE_KEY"
-  {
-    echo "LOCAL_API_URL=$API_URL"
-    echo "LOCAL_ANON_KEY=$ANON_KEY"
-    echo "LOCAL_DB_URL=$DB_URL"
-    printf 'LOCAL_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
-  } >> "$GITHUB_ENV"
-fi
 echo "== local Supabase ready at $API_URL"
 
 echo '== runtime settings'
