@@ -56,7 +56,21 @@ const selectedManifest = require('../../../assets/brand/manifest.json') as {
   }>;
 };
 const selectedEvidence = require('../../../../docs/design/oorva/evidence/o01x.json') as {
-  export: { status: string; fileCount: number; manifestSha256: string };
+  dAssetDelta: {
+    bindingHashes: Record<
+      ExportKey,
+      { modulePath: string; path: string; role: string; sha256: string }
+    >;
+    gateStatus: Record<string, string>;
+    appManifestState: {
+      publiclyCleared: boolean;
+      productionReady: boolean;
+      publicReleaseAllowed: boolean;
+      nativeReleaseAuthorized: boolean;
+      nativeAssetsInstalled: boolean;
+      oorvaBrandEnabled: boolean;
+    };
+  };
 };
 const appRoot = resolve(__dirname, '../../..');
 const selectedExportMetadata: Record<ExportKey, { path: string; role: string }> = {
@@ -191,27 +205,42 @@ describe('contextual brand identity', () => {
 
   it('binds only selected O01X exports with their manifest roles and hashes', () => {
     expect(selectedManifest.selected).toBe(true);
-    expect(selectedManifest.publiclyCleared).toBe(false);
-    expect(selectedEvidence.export).toMatchObject({ status: 'PASS', fileCount: 26 });
-    expect(
-      createHash('sha256')
-        .update(readFileSync(resolve(appRoot, 'assets/brand/manifest.json')))
-        .digest('hex'),
-    ).toBe(selectedEvidence.export.manifestSha256);
+    expect(selectedManifest.publiclyCleared).toBe(true);
+    expect(selectedEvidence.dAssetDelta.gateStatus).toMatchObject({
+      D03b: 'APPROVED',
+      D03c: 'APPROVED',
+      D02: 'PENDING',
+      D07aPlatform: 'PENDING',
+      D07bPlatform: 'PENDING',
+    });
+    expect(selectedEvidence.dAssetDelta.appManifestState).toMatchObject({
+      publiclyCleared: true,
+      productionReady: false,
+      publicReleaseAllowed: false,
+      nativeReleaseAuthorized: false,
+      nativeAssetsInstalled: false,
+      oorvaBrandEnabled: false,
+    });
 
     for (const key of Object.keys(selectedExportMetadata) as ExportKey[]) {
       const expected = selectedExportMetadata[key];
       const binding = selectedBindings[key];
+      const evidenceBinding = selectedEvidence.dAssetDelta.bindingHashes[key];
       const manifestFile = selectedManifest.files.find(
         (file) => file.export.path === expected.path,
       );
 
       expect(binding.path).toBe(expected.path);
       expect(binding.role).toBe(expected.role);
+      expect(evidenceBinding).toMatchObject({
+        path: expected.path,
+        role: expected.role,
+        sha256: binding.sha256,
+      });
       expect(binding.source).toBe(selectedExports[key]);
       expect(manifestFile).toMatchObject({
         selected: true,
-        publiclyCleared: false,
+        publiclyCleared: true,
         export: {
           path: expected.path,
           role: expected.role,

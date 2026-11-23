@@ -5,25 +5,25 @@ export const OORVA_SELECTED_BRAND_EXPORTS = {
     source: require('../../assets/brand/logo-horizontal-light.png') as number,
     path: 'app/assets/brand/logo-horizontal-light.png',
     role: 'horizontal-lockup',
-    sha256: 'c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d',
+    sha256: 'e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e',
   },
   logoDark: {
     source: require('../../assets/brand/logo-horizontal-dark.png') as number,
     path: 'app/assets/brand/logo-horizontal-dark.png',
     role: 'horizontal-lockup',
-    sha256: '30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c',
+    sha256: '3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b',
   },
   compactLight: {
     source: require('../../assets/brand/logo-compact-light.png') as number,
     path: 'app/assets/brand/logo-compact-light.png',
     role: 'compact-symbol',
-    sha256: '2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08',
+    sha256: 'ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69',
   },
   compactDark: {
     source: require('../../assets/brand/logo-compact-dark.png') as number,
     path: 'app/assets/brand/logo-compact-dark.png',
     role: 'compact-symbol',
-    sha256: '2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3',
+    sha256: '91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2',
   },
 } as const;
 
