@@ -113,6 +113,18 @@ describe('isolated execution infrastructure', () => {
       }
       console.info(`PNG RGB byte/border evidence: ${JSON.stringify(hexBorder)}`);
       const report = JSON.parse(result.stdout.trim()) as {
+        suppliedDProfile?: {
+          provenance?: {
+            renderer?: string;
+            version?: string;
+            pngEncoder?: string;
+            systemFontsUsed?: boolean;
+          };
+          file?: string;
+          sha256?: string;
+          colorProfile?: string;
+        };
+        rawRendererProfile?: string;
         transformSelftest?: {
           circleSafeAreaFit?: {
             token: string;
@@ -133,6 +145,31 @@ describe('isolated execution infrastructure', () => {
           };
         };
       };
+      const suppliedDProfile = report.suppliedDProfile;
+      const expectedSuppliedDProfile = {
+        file: 'app/assets/brand/logo-horizontal-light.png',
+        sha256: 'e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e',
+        colorProfile: 'sRGB',
+        provenance: {
+          renderer: 'Chromium SVG rasterization',
+          version: '158.0.4370.33',
+          pngEncoder: 'Pillow',
+          systemFontsUsed: false,
+        },
+      };
+      if (report.rawRendererProfile !== 'NOT VERIFIED' || !suppliedDProfile ||
+        suppliedDProfile.file !== expectedSuppliedDProfile.file ||
+        suppliedDProfile.sha256 !== expectedSuppliedDProfile.sha256 ||
+        suppliedDProfile.colorProfile !== expectedSuppliedDProfile.colorProfile ||
+        JSON.stringify(suppliedDProfile.provenance) !== JSON.stringify(expectedSuppliedDProfile.provenance)) {
+        throw new Error(`supplied D PNG profile/provenance must remain distinct from generated Resvg output; actual=${JSON.stringify({
+          rawRendererProfile: report.rawRendererProfile,
+          suppliedDProfile,
+        })} expected=${JSON.stringify({
+          rawRendererProfile: 'NOT VERIFIED',
+          suppliedDProfile: expectedSuppliedDProfile,
+        })}`);
+      }
       const circleFit = report.transformSelftest?.circleSafeAreaFit;
       if (!circleFit || circleFit.token !== 'symbol-circle-624' || circleFit.inkSizePx !== 576 ||
         circleFit.predictedMaxRadiusPx >= 312 || circleFit.measuredMaxRadiusPx >= 312 ||
