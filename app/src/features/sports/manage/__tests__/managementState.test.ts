@@ -24,7 +24,7 @@ jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../../lib/locationContext', () => ({ useSelectedLocation: jest.fn() }));
 jest.mock('../../../../lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 var mockSportsReadLoad: ((guard: { isCurrent: () => boolean }) => Promise<void>) | undefined;
-jest.mock('../useSportsReadRefresh', () => ({
+jest.mock('../../useSportsReadRefresh', () => ({
   useSportsReadRefresh: (load: (guard: { isCurrent: () => boolean }) => Promise<void>) => {
     mockSportsReadLoad = load;
     return { refresh: jest.fn().mockResolvedValue(undefined), refreshing: false };
