@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O27-MK03",
+  "workPackage": "O27",
+  "status": "CODE_GREEN_AWAITING_LANE_CI",
+  "base": {
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseCommit": "2a1f30f9fecb104c701ecbaec6d5e957603e6867",
+    "branch": "lane/oorva-o27-mk03",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1"
+  },
+  "source": {
+    "taskId": "MK-T03",
+    "findingId": "MK-F03",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t03"
+  },
+  "scope": {
+    "changedFiles": [
+      "app/src/features/shops/manage/shopManageModel.ts",
+      "app/src/features/shops/manage/__tests__/shopManageModel.test.ts",
+      "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "docs/design/oorva/evidence/o27-mk03.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "featureFlags": [],
+    "routeFileChanged": false
+  },
+  "sourceDriftReview": {
+    "currentRouteHost": "app/app/merchant-shop.tsx re-exports MerchantShopScreen; route and parameters unchanged.",
+    "preserved": [
+      "Existing save_shop suspended-status preservation was left unchanged.",
+      "Existing save_product, list_my_products, and delete_product server guards were left unchanged.",
+      "No payment or money-safety paths were changed."
+    ]
+  },
+  "implementation": [
+    "Added shopManageActions with explicit canEditProducts, canSubmit, and canSaveDetails actions based on actual-owner role, shop status, and products availability.",
+    "Gated product editor entry, edits, photos, and saves; closed and hid stale editors after a refreshed status or products capability disables editing.",
+    "Kept suspended-owner shop-detail save and existing product removal available; displayed the suspension reason or a suspension-specific fallback.",
+    "Kept existing read-only product catalogue behavior when products are disabled."
+  ],
+  "requiredCases": [
+    "MK-MANAGE-suspended-product-edit",
+    "MK-MANAGE-owner-member-actions",
+    "MK-MANAGE-refreshed-suspension",
+    "MK-HOST-refreshed-suspension"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "3cc8f1326537e872504fa84835e735e15bf17b7e",
+      "suite": "app",
+      "selector": "src.features.shops.manage.__tests__.shopManageModel[.]test[.]ts$",
+      "selectedFiles": 1,
+      "selectedTests": 5,
+      "typescript": "PASS",
+      "jest": "PASS",
+      "result": "PASS",
+      "resolvedTestAttempts": [
+        {
+          "phase": "initial-red-harness",
+          "result": "FIXED",
+          "detail": "Corrected strict-index mock typing and declared the useSelectedLocation test mock before continuing."
+        },
+        {
+          "phase": "red",
+          "result": "EXPECTED_FAIL",
+          "detail": "The suspended-shop host regression observed the stale Save product button enabled before implementation."
+        }
+      ]
+    },
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_PUSH"
+    }
+  },
+  "gates": {
+    "E0_D01": "APPROVED_FOR_DEVELOPMENT",
+    "E1": "NOT_GRANTED",
+    "mainPromotion": "NOT_GRANTED",
+    "featureActivation": "NOT_GRANTED",
+    "publicOrNativeRelease": "NOT_GRANTED",
+    "liveMoneyOperations": "NOT_GRANTED"
+  },
+  "productionActions": "NONE",
+  "verifiedDate": "2026-11-23"
+}
