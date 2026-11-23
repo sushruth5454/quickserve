@@ -11,9 +11,11 @@ import {
 import { useAuth } from '../../src/lib/auth';
 import { Button, FullScreenLoader, InlineAlert, Screen } from '../../src/components/ui';
 import { amIAdmin } from '../../src/lib/adminApi';
+import { useNavigationIdentityOptions } from '../../src/components/tabOptions';
 
 export default function AdminLayout() {
   const { userId, loading: authLoading } = useAuth();
+  const identityOptions = useNavigationIdentityOptions('account');
   const [access, setAccess] = useState<AccessPresentation<never>>(() => loadingAccess(null));
   const [accessAttempt, setAccessAttempt] = useState(0);
   useEffect(() => {
@@ -48,5 +50,5 @@ export default function AdminLayout() {
   }
   if (currentAccess.status === 'denied') return <Redirect href="/" />;
   if (currentAccess.status !== 'allowed') return <FullScreenLoader />;
-  return <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />;
+  return <Stack screenOptions={{ ...identityOptions, animation: 'slide_from_right' }} />;
 }
