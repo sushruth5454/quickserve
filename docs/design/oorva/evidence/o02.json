@@ -67,5 +67,130 @@
     "appearanceCandidateApplied": false,
     "featureFlagsOrProductionOperations": "not performed",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "approvedDPaletteDelta": {
+    "status": "AWAITING_LANE_CI_FALLBACK",
+    "approvedTokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "paletteMapVerification": {
+      "result": "PASS",
+      "lightKeys": 59,
+      "darkKeys": 59,
+      "source": "docs/design/oorva/colours/design-tokens.json"
+    },
+    "contrast": {
+      "actualUsedTextPairsPerTheme": 33,
+      "lightMinimum": {
+        "ratio": 4.792,
+        "foreground": "muted",
+        "background": "surfaceAlt",
+        "purpose": "body text on alternate surface"
+      },
+      "darkMinimum": {
+        "ratio": 6.0802,
+        "foreground": "onHero",
+        "background": "heroFrom",
+        "purpose": "hero text on leading fill"
+      },
+      "blockingActualUse": "The b914 consumer pair findings are resolved in tested batch32: unselected badges use textSecondary/surfaceAlt and selected badges use onPrimary/primary; exact D token values remain unchanged.",
+      "selectedState": {
+        "status": "PASS_BY_TESTED_CONSUMER_BASE",
+        "consumers": [
+          {
+            "path": "app/src/components/ui/SegmentedControl.tsx",
+            "symbol": "SegmentedControl",
+            "backgroundLine": 103,
+            "foregroundLine": 108,
+            "selectedForeground": "t.colors.onPrimary",
+            "unselectedForeground": "t.colors.textSecondary",
+            "unselectedBackground": "t.colors.surfaceAlt"
+          },
+          {
+            "path": "app/src/features/activity/ActivitySegmentControl.tsx",
+            "symbol": "ActivitySegmentControl",
+            "backgroundLine": 63,
+            "foregroundLine": 68,
+            "selectedForeground": "t.colors.onPrimary",
+            "unselectedForeground": "t.colors.textSecondary",
+            "unselectedBackground": "t.colors.surfaceAlt"
+          }
+        ],
+        "approvedTokenPairs": {
+          "selected": {
+            "foreground": "onPrimary #003B42",
+            "background": "primary #80D4D4",
+            "ratio": 7.209
+          },
+          "unselectedLight": {
+            "foreground": "textSecondary #465C64",
+            "background": "surfaceAlt #F4F7F8",
+            "ratio": 6.5561
+          },
+          "unselectedDark": {
+            "foreground": "textSecondary #C0D3D7",
+            "background": "surfaceAlt #1B3138",
+            "ratio": 8.7751
+          }
+        },
+        "tokenValuesChanged": false
+      },
+      "priorBaseBlockers": {
+        "b914UnselectedDark": {
+          "foreground": "textSecondary #C0D3D7",
+          "background": "borderStrong #48656D",
+          "ratio": 4.0324
+        },
+        "b914SelectedDark": {
+          "foreground": "hardcoded #FFFFFF",
+          "background": "primary #80D4D4",
+          "ratio": 1.7093
+        }
+      }
+    },
+    "codespaceValidation": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.validation[.]test[.]ts$'",
+      "environment": "GitHub Codespace via current-origin/main helper",
+      "status": "UNAVAILABLE_BEFORE_TEST_SELECTION",
+      "selectedTests": 0,
+      "exactError": "npm error code EUSAGE: The npm ci command can only install with an existing package-lock.json or npm-shrinkwrap.json with lockfileVersion >= 1. The helper stopped while installing pinned brand tooling dependencies; no app test/tsc selection ran."
+    },
+    "ownerProvidedGates": {
+      "D03a": "APPROVED",
+      "D03b": "APPROVED",
+      "D03c": "APPROVED",
+      "E1": "APPROVED",
+      "D02": "PENDING",
+      "D07a-platform": "PENDING",
+      "D07b": "PENDING"
+    },
+    "safety": {
+      "oorva_brand": "OFF",
+      "publicOrNativeCutover": "not performed",
+      "mainPromotion": "not performed",
+      "liveMoneyOrProductionDataOperations": "not performed"
+    },
+    "nextAction": "Commit/push only this isolated private lane to invoke the documented fallback; watch the exact pushed head. Do not main-promote.",
+    "sourceBaseSha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
+    "gitHeadSha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
+    "commitAndPush": "PENDING_LANE_CI_FALLBACK",
+    "laneCi": {
+      "runId": null,
+      "status": "DOCUMENTED_FALLBACK_PENDING",
+      "reason": "Codespace setup failed before test selection; validate this exact O02 head with Lane CI."
+    },
+    "testedBase32": {
+      "sha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
+      "laneCi": {
+        "runId": 45223379405,
+        "status": "PASS"
+      },
+      "privateE2eLocal": {
+        "runId": 45224080730,
+        "status": "PASS",
+        "retry": "one exact-head retry; initial inbucket port-54324 startup failure ran no app assertions"
+      },
+      "promotion": "NOT_MAIN_PROMOTED",
+      "pendingAtomicAssets": "O01X PNG/manifest and O05B bindings incomplete",
+      "source": "owner-provided ledger update"
+    }
   }
 }
