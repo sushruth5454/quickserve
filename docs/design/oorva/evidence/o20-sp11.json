@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O20-SP11",
+  "workPackage": "O20",
+  "sourceTaskIds": [
+    "SP-T11"
+  ],
+  "sourceFindingIds": [
+    "SP-F16"
+  ],
+  "base": {
+    "planningBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseSha": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "originMainSha": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O20-SP06",
+        "sha": "dc233b136906754c12e277ad4ef9232ea4d54292",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O37A",
+        "sha": "e48422e85d11e1bcfd97efa1eba54338d608d3d7",
+        "state": "DONE_IN_BASE"
+      }
+    ],
+    "sourceBlobShas": {
+      "supabase/migrations/0080_s2_sports_ops_ux.sql": "039c95f3c9ef57202f6351bcf77434be38e7c30d"
+    }
+  },
+  "scope": {
+    "allocatedMigration": "supabase/migrations/0102_o20_sp11_oorva.sql",
+    "workerOwnedFiles": [
+      "supabase/migrations/0102_o20_sp11_oorva.sql",
+      "supabase/tests-postgres/o20_sp11.pg.test.mjs",
+      "supabase/tests/oorva_o20_sp11.test.mjs",
+      "docs/design/oorva/evidence/o20-sp11.json"
+    ],
+    "coordinatorOwnedFilesNotEdited": [
+      "supabase/tests/package.json",
+      ".github/workflows/lane-ci.yml",
+      ".github/workflows/deploy-backend.yml"
+    ],
+    "liveMoneyOperations": false,
+    "productionOperations": false,
+    "deploymentOrPromotion": false
+  },
+  "implementation": [
+    "Replaced only request_sports_slot's interval-wide occupancy sum with the maximum of the participant sums for each requested slot. Preserved the original overlap and live-booking predicates, resource/customer advisory-lock order, all existing gates, one-participant pay-at-venue request insertion, price loop, and notification handling.",
+    "The change does not modify flags, money calculations, payment functions, or any other SQL object."
+  ],
+  "testCases": [
+    "SP-LEGACY-ADJACENT-SLOTS-USE-MAX-OCCUPANCY",
+    "SP-LEGACY-FULL-SEGMENT-REJECTS-SPAN",
+    "SP-LEGACY-PARENT-FEATURE-OFF-REJECTS",
+    "SP-LEGACY-MULTI-SLOT-FEATURE-OFF-REJECTS",
+    "SP-LEGACY-OWNER-SELF-BOOKING-REJECTS",
+    "SP-LEGACY-ONLINE-ONLY-VENUE-REJECTS-PAY-AT-VENUE",
+    "SP-LEGACY-ACTIVE-HOLD-LIMIT-REJECTS",
+    "SP11-TWO-SESSION-RESOURCE-ADVISORY-LOCK-RACE"
+  ],
+  "registration": {
+    "state": "MERGED",
+    "sha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+    "requiredSqlTestSelector": "oorva_o20_sp11",
+    "requiredMigrationParserSelector": "0102_o20_sp11_oorva.sql",
+    "requiredPrivatePostgreSqlStep": "node run.mjs --filter o20_sp11.pg.test.mjs",
+    "owner": "COORDINATOR",
+    "selectionProof": {
+      "sqlTest": "Selected exactly once",
+      "migrationParser": "Selected exactly once",
+      "privatePostgreSql": "Selected exactly once"
+    }
+  },
+  "validation": {
+    "status": "PASS",
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "sqlTestSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp11'",
+        "result": "PASS",
+        "selected": "supabase/tests/oorva_o20_sp11.test.mjs",
+        "summary": "1/1 SQL checks passed; the seven SP11 request, capacity, and gate scenarios passed."
+      },
+      "migrationParserSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter '0102_o20_sp11_oorva.sql'",
+        "result": "PASS",
+        "selected": "supabase/migrations/0102_o20_sp11_oorva.sql",
+        "summary": "1/1 SQL checks passed; one top-level statement, one function body, zero errors."
+      }
+    },
+    "privatePostgreSql": {
+      "command": "node run.mjs --filter o20_sp11.pg.test.mjs",
+      "result": "PASS",
+      "laneCiRunId": 45249355704,
+      "validatedHeadSha": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197",
+      "selected": "o20_sp11.pg.test.mjs",
+      "summary": "Two independent backends contended on the resource advisory lock. The first request persisted; the second returned P0001 (slot is no longer available). Final occupancy was [2,2] at capacity 2, with three bookings, zero competing-request rows, one request notification, and zero payment rows.",
+      "resolvedHarnessFailure": {
+        "runId": 45247846206,
+        "failedHeadSha": "7ace3146671ed05ee6335445ba751d7f07d2774c",
+        "finding": "The competing backend stalled on SET ROLE authenticated before request_sports_slot; pg_stat_activity showed an advisory wait, so the function-lock barrier was never reached.",
+        "fix": "Set both session identities and roles before beginning the first request transaction; the competing backend now calls request_sports_slot directly.",
+        "assertionsChanged": false,
+        "retest": "PASS in run 45249355704"
+      }
+    },
+    "laneCi": {
+      "runHistory": [
+        {
+          "runId": 45246556909,
+          "headSha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "runId": 45247846206,
+          "headSha": "7ace3146671ed05ee6335445ba751d7f07d2774c",
+          "status": "completed",
+          "conclusion": "failure",
+          "failedStep": "Test O20-SP11 private PostgreSQL capacity",
+          "resolution": "Harness setup reordered; assertions retained."
+        },
+        {
+          "runId": 45249355704,
+          "headSha": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197",
+          "status": "completed",
+          "conclusion": "success",
+          "privatePostgreSqlStep": "PASS: Test O20-SP11 private PostgreSQL capacity",
+          "sqlStep": "PASS",
+          "toolingStep": "PASS",
+          "denoStep": "PASS",
+          "appStep": "PASS"
+        }
+      ],
+      "lastGreenRunId": 45249355704,
+      "lastGreenHeadSha": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197"
+    },
+    "localBuildsTestsAndInstalls": "NOT_RUN_PER_DISPATCH"
+  },
+  "review": {
+    "required": "CONCURRENCY",
+    "state": "PENDING_AFTER_REVALIDATION_AND_COORDINATOR_REVIEW"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "CONDITIONAL_NO_DEPLOYMENT_OR_PROMOTION"
+  },
+  "checkpoint": {
+    "state": "WORKER_FILES_ONLY",
+    "sha": "d97512edcca5ae8ff852f239167e5ccd2ddea569",
+    "postRegistrationHead": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+    "validatedImplementationHead": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197",
+    "stopPoint": "PAUSE_FOR_COORDINATOR_CONCURRENCY_REVIEW"
+  },
+  "integration": {
+    "state": "NOT_INTEGRATED",
+    "promotion": "NOT_PERFORMED",
+    "gate": "Await coordinator concurrency review and lower-claim clearance."
+  }
+}
