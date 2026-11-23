@@ -4,10 +4,9 @@ import { useMemo, type ComponentProps } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
-import { BrandLogo } from '../branding/BrandLogo';
 import { useBrandIdentity } from '../branding/useBrandIdentity';
 import type { BrandContext, ResolvedBrandIdentity } from '../branding/identity';
-import { tabBarHeight } from './ui';
+import { tabBarHeight, Text } from './ui';
 
 type TabOptions = Extract<NonNullable<ComponentProps<typeof Tabs>['screenOptions']>, object>;
 type IonName = ComponentProps<typeof Ionicons>['name'];
@@ -28,21 +27,14 @@ export function useNavigationIdentityOptions(context: BrandContext) {
     () => ({
       headerShown: visible,
       headerTitle: visible
-        ? () => (
-            <BrandLogo
-              context={context}
-              variant="compact"
-              style={{ color: t.colors.text, fontFamily: t.fontFamily.medium, fontSize: 16 }}
-              imageStyle={{ width: 32, height: 32 }}
-            />
-          )
+        ? () => <Text variant="title3" color="text">{identity.displayName}</Text>
         : undefined,
       headerTitleAlign: 'left' as const,
       headerStyle: { backgroundColor: t.colors.surface },
       headerTintColor: t.colors.primaryText,
       headerShadowVisible: false,
     }),
-    [context, t, visible],
+    [context, identity.displayName, t, visible],
   );
 }
 
@@ -50,11 +42,11 @@ export function useUnreadCountBadgeStyle() {
   const t = useTheme();
   return useMemo(
     () => ({
+      ...t.typography.micro,
       backgroundColor: t.colors.dangerStrong,
       color: t.colors.onDanger,
-      fontSize: 11,
     }),
-    [t.colors.dangerStrong, t.colors.onDanger],
+    [t.colors.dangerStrong, t.colors.onDanger, t.typography.micro],
   );
 }
 
