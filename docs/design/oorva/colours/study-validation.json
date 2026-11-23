@@ -1,0 +1,192 @@
+{
+  "result": "PASS",
+  "scope": "Design documentation, static rendering, semantic-colour arithmetic and artifact checks only. No application/backend/native tests.",
+  "checks": [
+    {
+      "check": "Five genuinely identified candidate directions",
+      "pass": true,
+      "actual": [
+        "Forest + Champagne",
+        "Cobalt + Apricot",
+        "Charcoal Green + Clay",
+        "Deep Teal + Warm Sand",
+        "Plum + Soft Peach"
+      ]
+    },
+    {
+      "check": "Ten scored criteria and50reasoned judgments",
+      "pass": true,
+      "actual": {
+        "A": 82,
+        "B": 85,
+        "C": 80,
+        "D": 87,
+        "E": 82
+      }
+    },
+    {
+      "check": "Final recommendation and unchanged authority",
+      "pass": true,
+      "actual": {
+        "primary": "#006D77",
+        "background": "#FFFFFF",
+        "status": "DESIGN_RECOMMENDATION_NOT_APPLIED"
+      }
+    },
+    {
+      "check": "Every current branding role explicitly specified",
+      "pass": true,
+      "actual": 59
+    },
+    {
+      "check": "Component, category, badge and chart roles complete",
+      "pass": true,
+      "actual": {
+        "components": 14,
+        "badges": 6,
+        "chartSeriesPerTheme": 6
+      }
+    },
+    {
+      "check": "Independent numerical contrast recomputation",
+      "pass": true,
+      "actual": {
+        "pairs": 312,
+        "failures": 0
+      }
+    },
+    {
+      "check": "No image content masquerades as implementation",
+      "pass": true,
+      "actual": "Explicit source/static/user-study/production boundaries"
+    },
+    {
+      "check": "All46rendered image bytes verified",
+      "pass": true,
+      "actual": []
+    },
+    {
+      "check": "Six-screen controlled geometry recorded",
+      "pass": true,
+      "actual": [
+        {
+          "screen": "home",
+          "concepts": 5,
+          "nodesComparedPerConcept": 104,
+          "textAndGeometryIdentical": true,
+          "scroll": {
+            "client": 894,
+            "content": 894
+          }
+        },
+        {
+          "screen": "service",
+          "concepts": 5,
+          "nodesComparedPerConcept": 79,
+          "textAndGeometryIdentical": true,
+          "scroll": {
+            "client": 966,
+            "content": 966
+          }
+        },
+        {
+          "screen": "sports",
+          "concepts": 5,
+          "nodesComparedPerConcept": 60,
+          "textAndGeometryIdentical": true,
+          "scroll": {
+            "client": 883,
+            "content": 883
+          }
+        },
+        {
+          "screen": "merchant",
+          "concepts": 5,
+          "nodesComparedPerConcept": 75,
+          "textAndGeometryIdentical": true,
+          "scroll": {
+            "client": 894,
+            "content": 894
+          }
+        },
+        {
+          "screen": "shop",
+          "concepts": 5,
+          "nodesComparedPerConcept": 53,
+          "textAndGeometryIdentical": true,
+          "scroll": {
+            "client": 966,
+            "content": 966
+          }
+        },
+        {
+          "screen": "ai",
+          "concepts": 5,
+          "nodesComparedPerConcept": 48,
+          "textAndGeometryIdentical": true,
+          "scroll": {
+            "client": 852,
+            "content": 852
+          }
+        }
+      ]
+    },
+    {
+      "check": "Nine bounded official benchmark entries",
+      "pass": true,
+      "actual": [
+        "blinkit.com",
+        "developer.android.com",
+        "developer.apple.com",
+        "merchants.uber.com",
+        "news.airbnb.com",
+        "play.google.com",
+        "shopify.dev",
+        "www.swiggy.com",
+        "www.urbancompany.com"
+      ]
+    },
+    {
+      "check": "Every report link/image resolves",
+      "pass": true,
+      "actual": []
+    },
+    {
+      "check": "Reference fingerprints and dates verified",
+      "pass": true,
+      "actual": "128c9595472b92589ff5407246df1aadde4dc7cb"
+    },
+    {
+      "check": "Actual browser-computed visible text pairs",
+      "pass": true,
+      "actual": {
+        "checked": 1279,
+        "failures": [],
+        "scope": "Non-SVG visible non-disabled concept text, not a full accessibility audit."
+      }
+    },
+    {
+      "check": "Standalone viewer has no external fetch or script error",
+      "pass": true,
+      "actual": {
+        "networkRequests": [],
+        "scriptErrors": []
+      }
+    },
+    {
+      "check": "No tracked application or existing plan edits",
+      "pass": true,
+      "actual": []
+    },
+    {
+      "check": "Document whitespace and destination",
+      "pass": true,
+      "actual": "C:\\Users\\snizampuram\\source\\quickserve-new\\docs\\19-Oorva-Colour-Exploration-and-Design-Tokens.md"
+    }
+  ],
+  "actualBrowserTextPairs": 1279,
+  "specifiedColourPairs": 312,
+  "renderedImages": 46,
+  "concepts": 5,
+  "screenTemplates": 6
+}

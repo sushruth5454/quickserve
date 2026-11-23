@@ -1,0 +1,373 @@
+{
+  "schemaVersion": 1,
+  "status": "DESIGN_RECOMMENDATION_NOT_APPLIED",
+  "date": "2026-11-23",
+  "sourceSha": "128c9595472b92589ff5407246df1aadde4dc7cb",
+  "recommendedConcept": "D",
+  "name": "Deep Teal + Warm Sand",
+  "approval": "Await owner selection before changing doc18 runtime values, bundled assets or production settings.",
+  "defaultTheme": "system",
+  "defaultThemeRule": "White light theme; retain OS-selected dark companion. Do not force dark mode or override system preference.",
+  "light": {
+    "bg": "#FFFFFF",
+    "surface": "#FFFFFF",
+    "surfaceAlt": "#F4F7F8",
+    "surfaceRaised": "#FFFFFF",
+    "surfaceOverlay": "#FFFFFF",
+    "text": "#18282E",
+    "textSecondary": "#465C64",
+    "muted": "#5F7077",
+    "subtle": "#849197",
+    "border": "#DEE5E7",
+    "borderStrong": "#C9D3D7",
+    "outline": "#74848B",
+    "success": "#1C7B4B",
+    "successStrong": "#15613B",
+    "successText": "#15613B",
+    "successSoft": "#E9F6EE",
+    "warning": "#A96111",
+    "warningText": "#87500A",
+    "warningSoft": "#FFF4E1",
+    "danger": "#BA3F3F",
+    "dangerStrong": "#B4232D",
+    "dangerPressed": "#8F1D27",
+    "onDanger": "#FFFFFF",
+    "dangerText": "#A51D27",
+    "dangerSoft": "#FDEDEE",
+    "info": "#2D6596",
+    "infoText": "#245A85",
+    "infoSoft": "#EDF4FA",
+    "star": "#865514",
+    "skeleton": "#E7EDEF",
+    "onInverse": "#FFFFFF",
+    "onHero": "#FFFFFF",
+    "catHome": "#006D77",
+    "catHomeText": "#005B63",
+    "catHomeSoft": "#E4F2F1",
+    "catShops": "#315CA4",
+    "catShopsText": "#264C8B",
+    "catShopsSoft": "#EBF1FA",
+    "catSports": "#865514",
+    "catSportsText": "#795014",
+    "catSportsSoft": "#FCF1DF",
+    "catCreators": "#754185",
+    "catCreatorsText": "#663674",
+    "catCreatorsSoft": "#F5ECF8",
+    "toastBg": "#18282E",
+    "toastBorder": "#18282E",
+    "segmentThumb": "#FFFFFF",
+    "primary": "#006D77",
+    "primaryPressed": "#00515B",
+    "primarySoft": "#E4F2F1",
+    "primaryText": "#005B63",
+    "onPrimary": "#FFFFFF",
+    "secondary": "#526983",
+    "accent": "#E8B772",
+    "onAccent": "#3D2B0D",
+    "heroFrom": "#006D77",
+    "heroTo": "#00515B",
+    "bubbleMine": "#006D77",
+    "bubbleTheirs": "#E4F2F1"
+  },
+  "dark": {
+    "primary": "#80D4D4",
+    "primaryPressed": "#A0E4E2",
+    "primarySoft": "#163D44",
+    "primaryText": "#9BE1E0",
+    "onPrimary": "#003B42",
+    "secondary": "#B7C9E0",
+    "accent": "#F1C482",
+    "onAccent": "#3D2B0D",
+    "bg": "#0C1B21",
+    "surface": "#14262D",
+    "surfaceAlt": "#1B3138",
+    "surfaceRaised": "#20383F",
+    "surfaceOverlay": "#20383F",
+    "text": "#EAF4F6",
+    "textSecondary": "#C0D3D7",
+    "muted": "#A0B7BE",
+    "subtle": "#728B94",
+    "border": "#2E4850",
+    "borderStrong": "#48656D",
+    "outline": "#76939D",
+    "success": "#88DAB0",
+    "successStrong": "#88DAB0",
+    "successText": "#B2EACB",
+    "successSoft": "#18392A",
+    "warning": "#F4C56F",
+    "warningText": "#F8D593",
+    "warningSoft": "#3C301C",
+    "danger": "#FFB3B7",
+    "dangerStrong": "#B4232D",
+    "dangerPressed": "#8F1D27",
+    "onDanger": "#FFFFFF",
+    "dangerText": "#FFB3B7",
+    "dangerSoft": "#402128",
+    "info": "#8BC3EE",
+    "infoText": "#B0D7F6",
+    "infoSoft": "#1C354A",
+    "star": "#F4C56F",
+    "skeleton": "#29434C",
+    "onInverse": "#FFFFFF",
+    "onHero": "#FFFFFF",
+    "catHome": "#80D4D4",
+    "catHomeText": "#A5E6E4",
+    "catHomeSoft": "#163D44",
+    "catShops": "#A0C2FF",
+    "catShopsText": "#BDD4FF",
+    "catShopsSoft": "#1B3155",
+    "catSports": "#EBC482",
+    "catSportsText": "#F2D59E",
+    "catSportsSoft": "#3C301C",
+    "catCreators": "#D5ADE2",
+    "catCreatorsText": "#E3C5ED",
+    "catCreatorsSoft": "#382340",
+    "toastBg": "#18282E",
+    "toastBorder": "#48656D",
+    "segmentThumb": "#20383F",
+    "heroFrom": "#006D77",
+    "heroTo": "#00515B",
+    "bubbleMine": "#80D4D4",
+    "bubbleTheirs": "#1B3138"
+  },
+  "components": {
+    "primaryButton": {
+      "background": "primary",
+      "foreground": "onPrimary",
+      "pressedBackground": "primaryPressed"
+    },
+    "secondaryButton": {
+      "background": "primarySoft",
+      "foreground": "primaryText",
+      "border": "primaryText"
+    },
+    "outlineButton": {
+      "background": "surface",
+      "foreground": "text",
+      "border": "outline"
+    },
+    "destructiveButton": {
+      "background": "dangerStrong",
+      "foreground": "onDanger",
+      "pressedBackground": "dangerPressed"
+    },
+    "disabledButton": {
+      "background": "surfaceAlt",
+      "foreground": "subtle",
+      "border": "borderStrong",
+      "rule": "Disabled semantics and an explicit unavailable reason; not a readable-text substitute."
+    },
+    "input": {
+      "background": "surface",
+      "foreground": "text",
+      "placeholder": "muted",
+      "border": "outline"
+    },
+    "selected": {
+      "background": "primarySoft",
+      "foreground": "primaryText",
+      "border": "primary",
+      "additionalCue": "Checkmark + selected state; do not rely on hue alone."
+    },
+    "focus": {
+      "ring": "primaryText",
+      "widthPx": 3,
+      "offsetPx": 2,
+      "gap": "surface",
+      "rule": "Separate ring from filled control by a surface-colour gap. Verify against actual adjacent surface."
+    },
+    "unreadCount": {
+      "background": "dangerStrong",
+      "foreground": "onDanger"
+    },
+    "chatMine": {
+      "background": "bubbleMine",
+      "foreground": "onPrimary"
+    },
+    "chatOther": {
+      "background": "bubbleTheirs",
+      "foreground": "text"
+    },
+    "toast": {
+      "background": "toastBg",
+      "foreground": "onInverse",
+      "action": "onInverse",
+      "additionalCue": "Underline action and pair status icon with text."
+    },
+    "divider": {
+      "color": "border",
+      "rule": "Decorative separation only; never the sole boundary for an input."
+    },
+    "promotional": {
+      "background": "accent",
+      "foreground": "onAccent",
+      "rule": "Small brand accent only. No invented offer or use as success/warning."
+    }
+  },
+  "badges": {
+    "neutral": {
+      "background": "surfaceAlt",
+      "foreground": "textSecondary",
+      "label": "Not booked"
+    },
+    "brand": {
+      "background": "primarySoft",
+      "foreground": "primaryText",
+      "label": "Selected"
+    },
+    "success": {
+      "background": "successSoft",
+      "foreground": "successText",
+      "label": "Completed",
+      "icon": "check"
+    },
+    "warning": {
+      "background": "warningSoft",
+      "foreground": "warningText",
+      "label": "Action needed",
+      "icon": "clock"
+    },
+    "danger": {
+      "background": "dangerSoft",
+      "foreground": "dangerText",
+      "label": "Failed",
+      "icon": "alert"
+    },
+    "info": {
+      "background": "infoSoft",
+      "foreground": "infoText",
+      "label": "Requested",
+      "icon": "clock"
+    }
+  },
+  "charts": {
+    "light": [
+      {
+        "id": "series1",
+        "hex": "#006D77",
+        "marker": "circle",
+        "dash": "solid"
+      },
+      {
+        "id": "series2",
+        "hex": "#315CA4",
+        "marker": "square",
+        "dash": "6 3"
+      },
+      {
+        "id": "series3",
+        "hex": "#865514",
+        "marker": "triangle",
+        "dash": "2 3"
+      },
+      {
+        "id": "series4",
+        "hex": "#754185",
+        "marker": "diamond",
+        "dash": "8 3 2 3"
+      },
+      {
+        "id": "series5",
+        "hex": "#B4543C",
+        "marker": "cross",
+        "dash": "10 4"
+      },
+      {
+        "id": "series6",
+        "hex": "#465C64",
+        "marker": "plus",
+        "dash": "3 2"
+      }
+    ],
+    "dark": [
+      {
+        "id": "series1",
+        "hex": "#80D4D4",
+        "marker": "circle",
+        "dash": "solid"
+      },
+      {
+        "id": "series2",
+        "hex": "#A0C2FF",
+        "marker": "square",
+        "dash": "6 3"
+      },
+      {
+        "id": "series3",
+        "hex": "#EBC482",
+        "marker": "triangle",
+        "dash": "2 3"
+      },
+      {
+        "id": "series4",
+        "hex": "#D5ADE2",
+        "marker": "diamond",
+        "dash": "8 3 2 3"
+      },
+      {
+        "id": "series5",
+        "hex": "#F2B69E",
+        "marker": "cross",
+        "dash": "10 4"
+      },
+      {
+        "id": "series6",
+        "hex": "#C0D3D7",
+        "marker": "plus",
+        "dash": "3 2"
+      }
+    ],
+    "rules": [
+      "Direct series labels and numeric values; do not rely on palette alone.",
+      "2px minimum lines plus distinct markers/dashes; categorical bars have 2px surface separators.",
+      "Do not assume pairwise colourblind distinguishability. Include accessible table and test actual chart.",
+      "Status charts use status tokens + labels, never arbitrary series colour for success/failure."
+    ]
+  },
+  "aliases": {
+    "primaryDark": "primaryPressed",
+    "primaryLight": "primarySoft",
+    "secondaryBrand": "secondary",
+    "background": "bg",
+    "elevatedSurface": "surfaceRaised",
+    "contentPrimaryText": "text",
+    "brandLinkText": "primaryText",
+    "secondaryText": "textSecondary",
+    "disabledText": "subtle",
+    "divider": "border",
+    "focus": "components.focus"
+  },
+  "stateRules": [
+    "A selected item has a checkmark/border and aria-selected/checked state, not just hue.",
+    "Disabled copy is not a substitute for readable essential information; explain why an action is unavailable.",
+    "Success/warning/error/info always pair status text and distinct icon with colour.",
+    "Status derives from existing backend truth; this document changes no lifecycle, price or permission."
+  ],
+  "surfaceBudget": {
+    "background": "white in light mode",
+    "cards": "neutral, predominantly white",
+    "brandFill": "primary CTA, small selected/tab indicators, own message bubble and mark",
+    "accentFill": "optional small promotional/highlight regions only; not every card",
+    "categoryFill": "small icon roundels/category labels only; never whole category screens"
+  },
+  "runtimeIntegration": {
+    "implementedNow": false,
+    "preserve": [
+      "oorva_brand",
+      "branding_runtime",
+      "family UX flags",
+      "strict existing schema",
+      "existing effective parent checks",
+      "independent controls vs appearance failure",
+      "financial safety and exact backend money",
+      "current context-specific legacy OFF identity"
+    ],
+    "mapping": "light/dark are exact existing Palette keys; components/badges/charts are design mappings, NOT additional BrandingV1 JSON keys.",
+    "changesAfterApproval": [
+      "Update candidate/default/fixture/contrast expectations coherently on current implementation branch.",
+      "Update doc18 A.1 colour-specific rows and the selected design contract, not unrelated source tasks/dependencies.",
+      "Re-export mark/icon/native artwork with approved colours; native remains separately gated.",
+      "Test ON/OFF/parent-OFF and used semantic pairs before activation. Do not remotely recolour historical records."
+    ]
+  }
+}

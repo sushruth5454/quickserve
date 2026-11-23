@@ -1,0 +1,348 @@
+{
+  "scope": "Offline standalone HTML design concepts only; not application, native, backend or user testing.",
+  "networkRequests": [],
+  "consoleErrors": [],
+  "geometryChecks": [
+    {
+      "screen": "home",
+      "concepts": 5,
+      "nodesComparedPerConcept": 104,
+      "textAndGeometryIdentical": true,
+      "scroll": {
+        "client": 894,
+        "content": 894
+      }
+    },
+    {
+      "screen": "service",
+      "concepts": 5,
+      "nodesComparedPerConcept": 79,
+      "textAndGeometryIdentical": true,
+      "scroll": {
+        "client": 966,
+        "content": 966
+      }
+    },
+    {
+      "screen": "sports",
+      "concepts": 5,
+      "nodesComparedPerConcept": 60,
+      "textAndGeometryIdentical": true,
+      "scroll": {
+        "client": 883,
+        "content": 883
+      }
+    },
+    {
+      "screen": "merchant",
+      "concepts": 5,
+      "nodesComparedPerConcept": 75,
+      "textAndGeometryIdentical": true,
+      "scroll": {
+        "client": 894,
+        "content": 894
+      }
+    },
+    {
+      "screen": "shop",
+      "concepts": 5,
+      "nodesComparedPerConcept": 53,
+      "textAndGeometryIdentical": true,
+      "scroll": {
+        "client": 966,
+        "content": 966
+      }
+    },
+    {
+      "screen": "ai",
+      "concepts": 5,
+      "nodesComparedPerConcept": 48,
+      "textAndGeometryIdentical": true,
+      "scroll": {
+        "client": 852,
+        "content": 852
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "compare-home.png",
+      "width": 2038,
+      "height": 1065,
+      "sha256": "e5c0619ea04aea941bb7c44667e82a0c5eeb15086eb72fb972e47eb4a5c36c6a"
+    },
+    {
+      "file": "previews/A-home.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "82b72d290e439eae946eb21916a1cb8753a4a62ec873e93b7149cd5bb48eebe6"
+    },
+    {
+      "file": "previews/B-home.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "d7d1859f062801eabb27b7b08503972ce6274a5f4da00c2ebe6f5b95624475eb"
+    },
+    {
+      "file": "previews/C-home.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "d1d6b63a7873a7a102dddc1d437aefc6f82b56e09f3600c3b258530419fe7d23"
+    },
+    {
+      "file": "previews/D-home.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "adbe438e1d39ab1c5b644b8df322755a1fb19d3c55b9f26afddda0de7979c319"
+    },
+    {
+      "file": "previews/E-home.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "eff56802a6966500cf59c88ae986f2bfc21f33ac33b6013ebdcdb49926a28614"
+    },
+    {
+      "file": "compare-service.png",
+      "width": 2038,
+      "height": 1065,
+      "sha256": "d3dce89cb1f4392e561bc679f943134de821d08e228f9308d238431781ff6b30"
+    },
+    {
+      "file": "previews/A-service.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "296fe8681dff42b1eb8471eaf309975670b5cd6812be912730aca7d2091ff97f"
+    },
+    {
+      "file": "previews/B-service.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "0c30ccb3a5a912832414eeba7dd08a564d9f0a5233f9ffacf1966290ed9e1918"
+    },
+    {
+      "file": "previews/C-service.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "b3fad35fd850832e736568dfb3e06ef58b323053b9a25013eea0488345f0027d"
+    },
+    {
+      "file": "previews/D-service.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "05896036de32cccab5eb0fa59aac35bbc46e7c0f08be458bb0fd0d5949bad47d"
+    },
+    {
+      "file": "previews/E-service.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "3c4e547afcfb6bf179b021eb02603d86dd11bc6e3d28e3281e6673b978ce6598"
+    },
+    {
+      "file": "compare-sports.png",
+      "width": 2038,
+      "height": 1065,
+      "sha256": "5a6614f2640401f6f79b8046d9368b8ea7d780cb7e7325de222aeac11f5835a0"
+    },
+    {
+      "file": "previews/A-sports.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "5776cc8e1cd3469e8ae42191e8db42c6d1afca859257d73d5810c4ca07e0e2d6"
+    },
+    {
+      "file": "previews/B-sports.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "1e551fdfdc8b99d19d8e4f04ca836d4033a8c64192ee58f16538c06d292f6bc5"
+    },
+    {
+      "file": "previews/C-sports.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "3dded10909b100dcccee40ffb299867430d2a4ce835dda1952153a09de7a4b65"
+    },
+    {
+      "file": "previews/D-sports.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "bf2539a911645a6f9d250afabf9aa7c19db002f8ced5364a1eaa14cd1f6fc1cc"
+    },
+    {
+      "file": "previews/E-sports.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "f1b578c9d00f67f627c48dfba0790ff94e74f4feea1696e846c85e66584b0244"
+    },
+    {
+      "file": "compare-merchant.png",
+      "width": 2038,
+      "height": 1065,
+      "sha256": "61d03a535f8dfd82093c2baa23bc425434221d7c77d2763702515de11c316fbb"
+    },
+    {
+      "file": "previews/A-merchant.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "0571ce2e3bb32310d521db3e33401cd5520fc4673863d0e90f907927212f266d"
+    },
+    {
+      "file": "previews/B-merchant.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "f8e89ecbc2b55e16732c54268775867668375f1a024c95b50f9bcc0367f5dbf5"
+    },
+    {
+      "file": "previews/C-merchant.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "c28bd7d6fec6f3333b8ca52712614fbbd8c1f4ea33d64c343fbd18b36fc226a8"
+    },
+    {
+      "file": "previews/D-merchant.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "f62363a5fe078fa908de18d907a12f64c93015e737f1a5be5da10c2a1afd58c3"
+    },
+    {
+      "file": "previews/E-merchant.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "1359916c4cc409586a468853c3a80208b7e3fcf531c2455866e76aa648f37f30"
+    },
+    {
+      "file": "compare-shop.png",
+      "width": 2038,
+      "height": 1065,
+      "sha256": "c5f0c45565f455f572fbf89cea57e498f0b0e740df7070499d701b86baad9cb3"
+    },
+    {
+      "file": "previews/A-shop.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "0136d696f3564383408501f669f66168c62e93fcb3b9888f8dbad65c95122cfd"
+    },
+    {
+      "file": "previews/B-shop.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "5c32ff99047cbbb70ce4761f9d1d05ae2e6a37276dfa1900aaa56603acfe97db"
+    },
+    {
+      "file": "previews/C-shop.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "726c2e276726ac000c63327d8ce05d00e3c7f544699cada7c3879f0942b93658"
+    },
+    {
+      "file": "previews/D-shop.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "99ba32574c7c962f7941438b821852d59398e11e82909674655146d942245b27"
+    },
+    {
+      "file": "previews/E-shop.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "7ac5ecfa796c537cc5aac3790f3bf4a16de171343acd4cddd104d7dfda655d08"
+    },
+    {
+      "file": "compare-ai.png",
+      "width": 2038,
+      "height": 1065,
+      "sha256": "fffceac4f6f546e166d88c6efe86ed16446170300b92803c7c6461f631e53592"
+    },
+    {
+      "file": "previews/A-ai.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "18781041a9303cf19f15767ff52981b3000966cf1e58a3a24dbd269e9efb72ad"
+    },
+    {
+      "file": "previews/B-ai.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "5d7dc9651e5e2eef8488e640b468f90c91de560025afa135cb468e233ab71daa"
+    },
+    {
+      "file": "previews/C-ai.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "567a0865a016555d3362c040d97651784b79b9686861e9bc497655a86528402d"
+    },
+    {
+      "file": "previews/D-ai.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "487f2c8b2d62b9d32f3e8c621fb3c6631ccedac86b4faf9778d2d9f5a428af35"
+    },
+    {
+      "file": "previews/E-ai.png",
+      "width": 390,
+      "height": 1065,
+      "sha256": "7f95529aa2cf6487c5efc7bc9cc2975bcc834d0e2e93d32e32e74e0058302aa1"
+    },
+    {
+      "file": "compare-backgrounds.png",
+      "width": 1214,
+      "height": 1065,
+      "sha256": "29c3d21fae534de18ba5a0e17862044098c711b5753b5a41961c4249ba069f8a"
+    },
+    {
+      "file": "previews/D-dark-home.png",
+      "width": 390,
+      "height": 1060,
+      "sha256": "ba3c2ec44c544d6d71641f4c05987d6c52c1d94cfb013405a0f6eea316acef74"
+    },
+    {
+      "file": "previews/D-dark-service.png",
+      "width": 390,
+      "height": 1060,
+      "sha256": "24e9fd6d850a98191326478831af38c928b361f75ae37b433914b5db89d96426"
+    },
+    {
+      "file": "previews/D-dark-sports.png",
+      "width": 390,
+      "height": 1060,
+      "sha256": "30cd13e564745ebc548f43b5cbf236e3f87e156c9cb4d6ccd6fb5c0ba8cded39"
+    },
+    {
+      "file": "previews/D-dark-merchant.png",
+      "width": 390,
+      "height": 1060,
+      "sha256": "e6479ee4605995126f43c7d27dc5ba548e67a7c9038b9a71350417905b854e78"
+    },
+    {
+      "file": "previews/D-dark-shop.png",
+      "width": 390,
+      "height": 1060,
+      "sha256": "e8e015ae76ce8c1ee3ad5eff49deda7d6efe3e3fef52196277bba4cb42667d37"
+    },
+    {
+      "file": "previews/D-dark-ai.png",
+      "width": 390,
+      "height": 1060,
+      "sha256": "e0519e5508cc8b3e58bc2a4681767249b4bc20c48c74b4aa0d52853d2d347e24"
+    },
+    {
+      "file": "recommended-components-light.png",
+      "width": 1080,
+      "height": 1265,
+      "sha256": "1620b4021d9a89293c9d14b0a64f110f8e9b9e2ee8991a77a93b0076bdf41d33"
+    },
+    {
+      "file": "recommended-components-dark.png",
+      "width": 1080,
+      "height": 1265,
+      "sha256": "60943adb2c535a99d48df85f1ea854cfb681d474a87c1b33ba1675b50a86daea"
+    },
+    {
+      "file": "compare-identity.png",
+      "width": 1580,
+      "height": 479,
+      "sha256": "47028d70f58406d4c7833f64c024cec93b3b0a0c3072ec01522c1b36e708603e"
+    }
+  ],
+  "viewerNavigation": "PASS: local screen tab -> five sports concepts",
+  "contrastSpecification": 312,
+  "result": "PASS"
+}

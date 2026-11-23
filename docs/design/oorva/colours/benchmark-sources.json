@@ -1,0 +1,204 @@
+{
+  "accessDate": "2026-11-23",
+  "scope": "Official public product materials and published design guidance, not authenticated native-app audits.",
+  "entries": [
+    {
+      "id": "B01",
+      "product": "Urban Company",
+      "observed": "Developer promotional screens use light surfaces with a purple booking control; the mark is black and white. Service categories use labels and imagery.",
+      "apply": "Keep browsing surfaces quiet and make the current booking action unmistakable.",
+      "avoid": "Do not copy the purple, mark, layout, service imagery or icons.",
+      "limitation": "Promotional imagery does not establish every current screen, region or native state.",
+      "sources": [
+        {
+          "title": "Urban Company",
+          "url": "https://www.urbancompany.com/",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Official category scope and public service presentation."
+        },
+        {
+          "title": "Urban Company developer listing",
+          "url": "https://play.google.com/store/apps/details?id=com.urbanclap.urbanclap&hl=en-US",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Vendor-authored promotional light surfaces and purple booking action."
+        }
+      ]
+    },
+    {
+      "id": "B02",
+      "product": "Swiggy",
+      "observed": "The publicly hosted guide names orange #FF5200, white #FFFFFF and pale Salt #FFEDE3. Promotional slides distinguish services with contextual colour families.",
+      "apply": "Separate recognition colour, action roles and product/category accents.",
+      "avoid": "Do not borrow the orange identity, sub-brand graphics or promotional composition.",
+      "limitation": "Guide metadata indicates creation in 2025; latest revision and authenticated app implementation were not established.",
+      "sources": [
+        {
+          "title": "Masterbrand Internal Guidelines, pages21 and24",
+          "url": "https://www.swiggy.com/corporate/wp-content/uploads/2026/06/Masterbrand-Internal-Guidelines.pdf",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Named brand swatches and illustrated button treatments."
+        },
+        {
+          "title": "Swiggy developer listing",
+          "url": "https://play.google.com/store/apps/details?id=in.swiggy.android&hl=en-US",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Vendor promotional multi-service colour treatments."
+        }
+      ]
+    },
+    {
+      "id": "B03",
+      "product": "Blinkit",
+      "observed": "Public promotional material combines yellow, black and green; a light support panel uses green links.",
+      "apply": "Brand expression need not be the same as every functional accent.",
+      "avoid": "Do not copy the yellow-green mark, graphics or make category/status meaning depend on the brand hue.",
+      "limitation": "Purchase-action colour and authenticated checkout were not verified.",
+      "sources": [
+        {
+          "title": "Blinkit",
+          "url": "https://blinkit.com/",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Official grocery-delivery public website."
+        },
+        {
+          "title": "Blinkit developer listing",
+          "url": "https://play.google.com/store/apps/details?id=com.grofers.customerapp&hl=en-US",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Vendor yellow branding and light support panel with green links."
+        }
+      ]
+    },
+    {
+      "id": "B04",
+      "product": "Airbnb",
+      "observed": "Official release examples and store promotion show a pink-red mark, light booking views, labelled photographic categories, and context-specific pink or dark actions.",
+      "apply": "Test action emphasis across booking contexts; keep content and category labels legible.",
+      "avoid": "Do not clone the mark, booking composition, photography or signature colour treatment.",
+      "limitation": "Release illustrations/store promotion are not an audit of every live native booking state.",
+      "sources": [
+        {
+          "title": "Airbnb 2026 Fall Update",
+          "url": "https://news.airbnb.com/airbnb-2026-fall-update/",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Published light booking examples and context-specific actions."
+        },
+        {
+          "title": "Airbnb developer listing",
+          "url": "https://play.google.com/store/apps/details?id=com.airbnb.android&hl=en-US",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Vendor app identity and labelled travel offerings."
+        }
+      ]
+    },
+    {
+      "id": "B05",
+      "product": "Uber",
+      "observed": "Developer promotion frames light product views with black-and-white branding and contextual green/gold. Separate Uber Direct collateral illustrates a dark action.",
+      "apply": "One neutral product base can support multiple service contexts without recolouring every card.",
+      "avoid": "Do not reuse the mark, membership/grocery palette, promotional frames or graphics.",
+      "limitation": "Rider promotional views and merchant collateral are distinct contexts; current rider checkout was not audited.",
+      "sources": [
+        {
+          "title": "Uber developer listing",
+          "url": "https://play.google.com/store/apps/details?id=com.ubercab&hl=en",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Vendor neutral branding, light app views and contextual accents."
+        },
+        {
+          "title": "Delivery decoded: Uber Direct",
+          "url": "https://merchants.uber.com/rs/324-SFA-598/images/Delivery%20Decoded%20Infographic.pdf",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Merchant marketing example of a dark action on a contrasting promotional surface."
+        }
+      ]
+    },
+    {
+      "id": "B06",
+      "product": "Apple HIG",
+      "observed": "Published guidance uses dynamic foreground/background roles and appearance variants; accents emphasize controls and colour needs supporting meaning.",
+      "apply": "Specify paired light/dark roles and retain text/symbol cues.",
+      "avoid": "Do not assume copying platform colour values creates a distinctive consumer brand.",
+      "limitation": "Platform guidance, not competitor marketplace research or a prescription to force dark mode.",
+      "sources": [
+        {
+          "title": "Human Interface Guidelines: Color",
+          "url": "https://developer.apple.com/design/human-interface-guidelines/color.md",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Dynamic roles, appearance variants, accent use and non-colour cues."
+        }
+      ]
+    },
+    {
+      "id": "B07",
+      "product": "Material / Android",
+      "observed": "Official guidance distinguishes accent, semantic and surface roles with paired container/foreground colours and light/dark schemes.",
+      "apply": "Evaluate real foreground/background usage pairs, not isolated brand swatches.",
+      "avoid": "Do not copy a sample palette or invent category colours from a generic system.",
+      "limitation": "General platform guidance; no particular marketplace/category hues are prescribed.",
+      "sources": [
+        {
+          "title": "Android colour for mobile design",
+          "url": "https://developer.android.com/design/ui/mobile/guides/styles/color",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Accent/semantic/surface role separation and light/dark paired roles."
+        }
+      ]
+    },
+    {
+      "id": "B08",
+      "product": "Shopify merchant guidance",
+      "observed": "Merchant-admin guidance reserves colours for state, uses neutral text/category chips, and illustrates a dark action on a light card.",
+      "apply": "Keep merchant/admin pages neutral; distinguish category decoration from status.",
+      "avoid": "Do not import Shopify-specific status meanings or copy its exact interface.",
+      "limitation": "Merchant-admin design context, not a universal consumer-app colour policy.",
+      "sources": [
+        {
+          "title": "Shopify app visual design",
+          "url": "https://shopify.dev/docs/apps/design/visual-design",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Neutral text, semantic status, category chips and contrast guidance."
+        }
+      ]
+    },
+    {
+      "id": "B09",
+      "product": "Booking.com",
+      "observed": "Vendor-published store images show blue promotional framing, a white booking card and a blue outlined Select room action; product photography remains content rather than page decoration.",
+      "apply": "Treat blue as a credible booking/action direction and keep product surfaces legible; brand distinctiveness still needs Oorva's own mark and composition.",
+      "avoid": "Do not copy the logo, photography, promotional layout, rewards or discount claims.",
+      "limitation": "Two official developer promotional images inspected; these do not establish current authenticated checkout or all blue values.",
+      "sources": [
+        {
+          "title": "Booking.com developer listing and promotional images",
+          "url": "https://play.google.com/store/apps/details?id=com.booking&hl=en-US",
+          "accessDate": "2026-11-23",
+          "evidenceClaim": "Vendor blue-framed promotional material and white card with blue outlined booking action; exact brand hex not inferred."
+        }
+      ]
+    }
+  ],
+  "guidance": [
+    {
+      "id": "W1",
+      "title": "WCAG2.2 Contrast Minimum",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+      "accessDate": "2026-11-23",
+      "evidenceClaim": "4.5:1 normal text;3:1 qualifying large text; specified exceptions; thresholds use unrounded results."
+    },
+    {
+      "id": "W2",
+      "title": "WCAG2.2 Non-text Contrast",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
+      "accessDate": "2026-11-23",
+      "evidenceClaim": "Applicable meaningful visual control/state/graphic cues require3:1 against adjacent colours."
+    },
+    {
+      "id": "W3",
+      "title": "WCAG2.2 Use of Color",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html",
+      "accessDate": "2026-11-23",
+      "evidenceClaim": "Do not make colour the sole visible cue for meaning, actions or required information."
+    }
+  ],
+  "interpretationBoundary": "Oorva principles and all concept scores are design judgments, not verified causal effects, Indian consumer preference, conversion measurements or trademark clearance."
+}
