@@ -97,6 +97,103 @@ export interface CustomerSportsBookingDetail extends CustomerSportsBooking {
   business_role?: 'owner' | 'manager' | 'staff';
 }
 
+export interface SportsHomeBusinessVenue {
+  venue: {
+    id: string;
+    owner_id: string;
+    business_role?: 'owner' | 'manager' | 'staff';
+    name: string;
+  };
+}
+
+export interface SportsHomeBusinessAction {
+  kind: 'owner' | 'assigned' | 'onboarding';
+  title: string;
+  subtitle: string;
+  href: '/sports/manage';
+  readOnly: boolean;
+}
+
+export type SportsHomeDiscoveryState = 'loading' | 'error' | 'empty' | 'ready';
+
+export interface SportsHomePresentationInput {
+  userId: string | null;
+  sportsEnabled: boolean;
+  familyUxEnabled: boolean;
+  merchantStaffEnabled: boolean;
+  discoveryState: SportsHomeDiscoveryState;
+  businessVenuesLoaded: boolean;
+  businessVenues: readonly SportsHomeBusinessVenue[];
+}
+
+export function shouldLoadSportsBusinessVenues(userId: string | null, sportsEnabled: boolean): boolean {
+  return sportsEnabled && Boolean(userId?.trim());
+}
+
+export async function listMyBusinessSportsVenues(): Promise<SportsHomeBusinessVenue[]> {
+  const { data, error } = await supabase.rpc('get_my_business_sports_venues');
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SportsHomeBusinessVenue[];
+}
+
+export function getSportsHomeBusinessActions(input: {
+  userId: string | null;
+  sportsEnabled: boolean;
+  merchantStaffEnabled: boolean;
+  businessVenuesLoaded: boolean;
+  businessVenues: readonly SportsHomeBusinessVenue[];
+}): SportsHomeBusinessAction[] {
+  if (!input.sportsEnabled || !input.userId?.trim() || !input.businessVenuesLoaded) return [];
+
+  const ownedVenues = input.businessVenues.some((item) => item.venue.owner_id === input.userId);
+  const assignedVenues = input.merchantStaffEnabled && input.businessVenues.some((item) =>
+    item.venue.owner_id !== input.userId
+      && (item.venue.business_role === 'manager' || item.venue.business_role === 'staff'),
+  );
+  const actions: SportsHomeBusinessAction[] = [];
+
+  if (ownedVenues) {
+    actions.push({
+      kind: 'owner',
+      title: 'My venues',
+      subtitle: 'Manage your sports venues',
+      href: '/sports/manage',
+      readOnly: false,
+    });
+  }
+  if (assignedVenues) {
+    actions.push({
+      kind: 'assigned',
+      title: 'Assigned business work',
+      subtitle: 'View read-only sports bookings shared with you',
+      href: '/sports/manage',
+      readOnly: true,
+    });
+  }
+  if (input.businessVenues.length === 0) {
+    actions.push({
+      kind: 'onboarding',
+      title: 'List a venue',
+      subtitle: 'Add a sports venue you own',
+      href: '/sports/manage',
+      readOnly: false,
+    });
+  }
+
+  return actions;
+}
+
+export function getSportsHomePresentation(input: SportsHomePresentationInput) {
+  const hasSignedInUser = Boolean(input.userId?.trim());
+  return {
+    composition: input.familyUxEnabled ? 'family' as const : 'legacy' as const,
+    showHistoryNavigation: hasSignedInUser,
+    showDiscovery: input.sportsEnabled,
+    discoveryState: input.sportsEnabled ? input.discoveryState : 'off' as const,
+    businessActions: getSportsHomeBusinessActions(input),
+  };
+}
+
 export async function listMyCustomerSportsBookings(): Promise<CustomerSportsBooking[]> {
   const { data, error } = await supabase.rpc('list_my_customer_sports_bookings');
   if (error) throw new Error(error.message);
