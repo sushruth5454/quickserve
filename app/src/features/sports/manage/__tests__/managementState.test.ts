@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   getBookingsForVenue,
   getHoursDraftFromRows,
@@ -13,6 +14,7 @@ import {
   type HoursDraftValues,
   type ResourceDraftValues,
   type VenueDraftValues,
+  useSportsVenueManagementState,
 } from '../useSportsVenueManagementState';
 import type { ManagementVenue, Resource, SportsBookingRow } from '../types';
 
@@ -21,6 +23,27 @@ jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn()
 jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../../lib/locationContext', () => ({ useSelectedLocation: jest.fn() }));
 jest.mock('../../../../lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
+var mockSportsReadLoad: ((guard: { isCurrent: () => boolean }) => Promise<void>) | undefined;
+jest.mock('../useSportsReadRefresh', () => ({
+  useSportsReadRefresh: (load: (guard: { isCurrent: () => boolean }) => Promise<void>) => {
+    mockSportsReadLoad = load;
+    return { refresh: jest.fn().mockResolvedValue(undefined), refreshing: false };
+  },
+}));
+
+const mockDom = new (require('jsdom').JSDOM)('<!doctype html><html><body></body></html>');
+Object.defineProperty(globalThis, 'window', { configurable: true, value: mockDom.window });
+Object.defineProperty(globalThis, 'document', { configurable: true, value: mockDom.window.document });
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: mockDom.window.navigator });
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+const { createRoot } = require('react-dom/client') as {
+  createRoot: (container: Element) => { render: (element: React.ReactElement) => void; unmount: () => void };
+};
+const testAct = require('react').act as (callback: () => void | Promise<void>) => Promise<void>;
+const mockRpc = (jest.requireMock('../../../../lib/supabase') as { supabase: { rpc: jest.Mock } }).supabase.rpc;
+const mockFeatureFlags = jest.requireMock('../../../../lib/featureFlags').useAppFeatureFlags as jest.Mock;
+const mockAuth = jest.requireMock('../../../../lib/auth').useAuth as jest.Mock;
+const mockLocation = jest.requireMock('../../../../lib/locationContext').useSelectedLocation as jest.Mock;
 
 const venueRecord: ManagementVenue['venue'] = {
   id: 'venue-owned',
@@ -139,7 +162,96 @@ describe('SP-DIRTY-REFRESH', () => {
       resourceName: 'Unsaved court name',
     });
   });
+
 });
+
+describe('SP-REFRESH-DIRTY-PRESERVATION', () => {
+    let root: { render: (element: React.ReactElement) => void; unmount: () => void } | undefined;
+    let state: ReturnType<typeof useSportsVenueManagementState> | undefined;
+
+    function ManagementHarness() {
+      state = useSportsVenueManagementState();
+      return null;
+    }
+
+    async function flushMicrotasks() {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+
+    const record = (name: string, status: string): ManagementVenue => ({
+      ...venue('venue-owned', 'owner-1', 'owner'),
+      venue: { ...venueRecord, id: 'venue-owned', owner_id: 'owner-1', name, status, status_reason: 'Updated by review' },
+    });
+
+    beforeEach(() => {
+      mockSportsReadLoad = undefined;
+      mockRpc.mockReset().mockImplementation((name: string) => {
+        if (name === 'get_my_business_sports_venues') {
+          return Promise.resolve({ data: [record('East Court', 'verified')], error: null });
+        }
+        if (name === 'list_sports_activities') return Promise.resolve({ data: [], error: null });
+        if (name === 'get_my_business_sports_bookings') return Promise.resolve({ data: [], error: null });
+        return Promise.resolve({ data: null, error: null });
+      });
+      mockFeatureFlags.mockReturnValue({ isOn: (key: string) => key === 'sports' });
+      mockAuth.mockReturnValue({ userId: 'owner-1' });
+      mockLocation.mockReturnValue({
+        location: { area: 'Camp', city: 'Pune', line1: '4 Market Road', lat: 18.52, lng: 73.85 },
+      });
+      state = undefined;
+    });
+
+    afterEach(async () => {
+      if (root) {
+        await testAct(async () => {
+          root!.unmount();
+          await flushMicrotasks();
+        });
+      }
+      root = undefined;
+      state = undefined;
+      jest.clearAllMocks();
+    });
+
+    it('converges the selected venue after review without overwriting dirty name or price drafts', async () => {
+      await testAct(async () => {
+        root = createRoot(document.createElement('div'));
+        root.render(React.createElement(ManagementHarness));
+        await flushMicrotasks();
+      });
+      const load = mockSportsReadLoad;
+      if (!load || !state) throw new Error('management refresh was not registered');
+
+      await testAct(async () => {
+        await load({ isCurrent: () => true });
+        await flushMicrotasks();
+      });
+      await testAct(async () => {
+        state!.setName('Unsaved venue name');
+        state!.setPriceRupees('777');
+        await flushMicrotasks();
+      });
+
+      mockRpc.mockImplementation((name: string) => {
+        if (name === 'get_my_business_sports_venues') {
+          return Promise.resolve({ data: [record('Server name after review', 'suspended')], error: null });
+        }
+        if (name === 'list_sports_activities') return Promise.resolve({ data: [], error: null });
+        if (name === 'get_my_business_sports_bookings') return Promise.resolve({ data: [], error: null });
+        return Promise.resolve({ data: null, error: null });
+      });
+      await testAct(async () => {
+        await load({ isCurrent: () => true });
+        await flushMicrotasks();
+      });
+
+      expect(state!.selected?.venue.status).toBe('suspended');
+      expect(state!.name).toBe('Unsaved venue name');
+      expect(state!.priceRupees).toBe('777');
+    });
+  });
 
 describe('SP-MULTI-ASSIGNED-SELECTOR and SP-MIXED-OWNER-MEMBER', () => {
   it('keeps any selected accessible venue and resolves a removed selection without sorting', () => {
@@ -175,3 +287,5 @@ describe('SP-REVOKED-MEMBER', () => {
     expect(getBookingsForVenue(bookings, 'revoked-venue')).toEqual([]);
   });
 });
+
+afterAll(() => mockDom.window.close());
