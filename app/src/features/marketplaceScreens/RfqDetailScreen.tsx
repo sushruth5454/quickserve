@@ -1,7 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
-import { Badge, Button, Card, Header, InlineAlert, Screen, Skeleton, Text, useToast } from '../../components/ui';
+import { Alert, Platform, ScrollView, View } from 'react-native';
+import { Badge, Button, Card, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { QuoteCompareTable } from '../../components/market/QuoteCompareTable';
 import { cancelRfq, compareRfqQuotes, getRfq, selectSupplierQuote, type Rfq, type RfqQuoteComparison } from '../rfq/api';
 import { buildComparePresentation } from '../rfq/comparePresentation';
@@ -16,6 +16,7 @@ function describeSpecs(specs: Record<string, unknown>) {
 
 export default function RfqDetailScreen() {
   const t = useTheme();
+  const confirm = useConfirm();
   const toast = useToast();
   const { rfq: enabled, enquiries: enquiriesEnabled } = useRfqFeatureFlags();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -85,7 +86,19 @@ export default function RfqDetailScreen() {
     }
   };
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
+    if (Platform.OS === 'web') {
+      const accepted = await confirm({
+        title: 'Cancel request',
+        message: 'Suppliers will be told that this request was cancelled.',
+        confirmLabel: 'Cancel request',
+        cancelLabel: 'Keep request',
+        destructive: true,
+      });
+      if (accepted) await cancelRequest();
+      return;
+    }
+
     Alert.alert('Cancel request', 'Suppliers will be told that this request was cancelled.', [
       { text: 'Keep request', style: 'cancel' },
       { text: 'Cancel request', style: 'destructive', onPress: () => void cancelRequest() },

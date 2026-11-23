@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O18-MK04",
   "workPackage": "O18",
-  "status": "CODE_GREEN_AWAITING_LANE_CI",
+  "status": "WEB_CONFIRMATION_FIX_AWAITING_LANE_CI",
   "base": {
     "branch": "lane/oorva-o18-mk04",
     "implementationSha": "b7cb8911c15ef03100e407ff4385151cc2bf364a",
@@ -109,7 +109,8 @@
     "Identity-authorized enquiry/RFQ history and metadata reads no longer depend on new-work capability switches; active merchant_staff membership and exact participants/recipients remain required.",
     "Only owner cancellation of raw-open RFQs and authorized enquiry/RFQ mark-read paths are available OFF; create/send/select/status/catalogue writes remain gated.",
     "Owner OFF workspace reads existing shop and product rows without listing active categories; historic owner image reads are allowed while management and public image access remain gated.",
-    "Shop activity/history is retained when all messages are read; detail/history hosts are read-only when their capability is OFF, while public shop discovery remains unavailable."
+    "Shop activity/history is retained when all messages are read; detail/history hosts are read-only when their capability is OFF, while public shop discovery remains unavailable.",
+    "RFQ cancellation keeps native Alert confirmation and uses the existing cross-platform ConfirmProvider on web, so the owner action callback is invoked only after explicit confirmation."
   ],
   "requiredCases": [
     "MK-OFF-existing-enquiry-role-matrix",
@@ -138,10 +139,15 @@
   "validation": {
     "gitDiffCheck": "PASS",
     "codespace": {
-      "status": "PASS",
+      "status": "UNAVAILABLE_FOR_POST_FIX_RUN",
       "helperSource": "origin/main:scripts/cs-test.ps1",
       "helperSourceCommit": "c5e01ba6b2ad43b6a037aff1770161632052084a",
       "windowsAppOrSqlTests": "NOT_RUN",
+      "postFixAttempt": {
+        "filter": "src.features.activity.__tests__.model[.]test[.]ts$",
+        "result": "BLOCKED",
+        "reason": "The current-main helper reached the known Codespace lookup, but gh API access returned HTTP 404 requesting the codespace OAuth scope. Windows app/SQL tests were not run."
+      },
       "resolvedPreliminaryFailures": [
         "App typecheck found an optional unread.shop comparison; a nullish fallback was added and the exact app selector passed.",
         "SQL selector found two stray template delimiters and an owner-unread fixture assumption; the syntax and isolated unread fixture were corrected and the exact SQL selector passed."
@@ -189,9 +195,9 @@
     "privateBatchE2e": {
       "owner": "coordinator",
       "requiredScenario": "MK-OFF-same-entity-history-cancel-private-backend",
-      "status": "PENDING_COORDINATOR_REGISTRATION_AND_BATCH"
+      "status": "PENDING_COORDINATOR_BATCH_RERUN_AFTER_WEB_CONFIRMATION_FIX"
     },
-    "laneCi": "PENDING_AUTH_REVIEW_AND_EXACT_HEAD_PUSH"
+    "laneCi": "PENDING_POST_FIX_PUSH; USE_LANE_CI_FALLBACK_FOR_CODESPACE_SCOPE_BLOCKER"
   },
   "productionActions": "NONE"
 }
