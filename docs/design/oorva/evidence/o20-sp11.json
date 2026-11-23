@@ -78,7 +78,7 @@
     }
   },
   "validation": {
-    "status": "PENDING_REVALIDATION_AFTER_PRIVATE_TEST_SYNCHRONIZATION_FIX",
+    "status": "PASS",
     "codespace": {
       "helperSource": "origin/main:scripts/cs-test.ps1",
       "sqlTestSelector": {
@@ -96,33 +96,50 @@
     },
     "privatePostgreSql": {
       "command": "node run.mjs --filter o20_sp11.pg.test.mjs",
-      "lastGreenResult": "PASS",
-      "lastGreenLaneCiRunId": 45246556909,
+      "result": "PASS",
+      "laneCiRunId": 45249355704,
+      "validatedHeadSha": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197",
       "selected": "o20_sp11.pg.test.mjs",
-      "summary": "Two independent backends contended on the resource advisory lock. The first request persisted; the second returned P0001 (slot is no longer available). Final occupancy was [2,2] at capacity 2, with three bookings, zero competing-request rows, one request notification, and zero payment rows."
+      "summary": "Two independent backends contended on the resource advisory lock. The first request persisted; the second returned P0001 (slot is no longer available). Final occupancy was [2,2] at capacity 2, with three bookings, zero competing-request rows, one request notification, and zero payment rows.",
+      "resolvedHarnessFailure": {
+        "runId": 45247846206,
+        "failedHeadSha": "7ace3146671ed05ee6335445ba751d7f07d2774c",
+        "finding": "The competing backend stalled on SET ROLE authenticated before request_sports_slot; pg_stat_activity showed an advisory wait, so the function-lock barrier was never reached.",
+        "fix": "Set both session identities and roles before beginning the first request transaction; the competing backend now calls request_sports_slot directly.",
+        "assertionsChanged": false,
+        "retest": "PASS in run 45249355704"
+      }
     },
     "laneCi": {
-      "lastGreen": {
-        "runId": 45246556909,
-        "headSha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
-        "status": "completed",
-        "conclusion": "success",
-        "privatePostgreSqlStep": "PASS: Test O20-SP11 private PostgreSQL capacity",
-        "sqlStep": "PASS",
-        "toolingStep": "PASS",
-        "denoStep": "PASS",
-        "appStep": "PASS"
-      },
-      "latestRun": {
-        "runId": 45247846206,
-        "headSha": "7ace3146671ed05ee6335445ba751d7f07d2774c",
-        "status": "completed",
-        "conclusion": "failure",
-        "failedStep": "Test O20-SP11 private PostgreSQL capacity",
-        "observedFailure": "The second backend timed out before its request reached request_sports_slot; pg_stat_activity showed it waiting on an advisory lock while executing SET ROLE authenticated.",
-        "testFix": "Set both authenticated session identities before the first request acquires the resource lock; issue the competing request directly so the observed barrier is the function call.",
-        "revalidation": "PENDING"
-      }
+      "runHistory": [
+        {
+          "runId": 45246556909,
+          "headSha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "runId": 45247846206,
+          "headSha": "7ace3146671ed05ee6335445ba751d7f07d2774c",
+          "status": "completed",
+          "conclusion": "failure",
+          "failedStep": "Test O20-SP11 private PostgreSQL capacity",
+          "resolution": "Harness setup reordered; assertions retained."
+        },
+        {
+          "runId": 45249355704,
+          "headSha": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197",
+          "status": "completed",
+          "conclusion": "success",
+          "privatePostgreSqlStep": "PASS: Test O20-SP11 private PostgreSQL capacity",
+          "sqlStep": "PASS",
+          "toolingStep": "PASS",
+          "denoStep": "PASS",
+          "appStep": "PASS"
+        }
+      ],
+      "lastGreenRunId": 45249355704,
+      "lastGreenHeadSha": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197"
     },
     "localBuildsTestsAndInstalls": "NOT_RUN_PER_DISPATCH"
   },
@@ -138,6 +155,7 @@
     "state": "WORKER_FILES_ONLY",
     "sha": "d97512edcca5ae8ff852f239167e5ccd2ddea569",
     "postRegistrationHead": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+    "validatedImplementationHead": "ee24b5eb87d80cc4d96b66b067185bdaf81b8197",
     "stopPoint": "PAUSE_FOR_COORDINATOR_CONCURRENCY_REVIEW"
   },
   "integration": {
