@@ -440,6 +440,8 @@ jobs:
              ("0099", "0099_o27_mk02_oorva.sql"),
              ("0100", "0100_o32_mn02_oorva.sql"),
              ("0102", "0102_o20_sp11_oorva.sql"),
+             ("0103", "0103_o03_asset_registration.sql"),
+             ("0104", "0104_o19_mk05_oorva.sql"),
           ]:
               if applied(version):
                   print(f"{version} already applied; skipped.")
