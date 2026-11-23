@@ -33,7 +33,7 @@ jest.mock('../../components', () => ({
 jest.mock('../../SpecFields', () => ({ SpecFields: 'SpecFields' }));
 jest.mock('../../format', () => ({ UNIT_LABELS: {} }));
 jest.mock('../../specs', () => ({ cleanSpecs: jest.fn() }));
-jest.mock('../../../../lib/locationContext', () => ({}));
+jest.mock('../../../../lib/locationContext', () => ({ useSelectedLocation: jest.fn() }));
 jest.mock('../../../../lib/places', () => ({ newPlacesSession: jest.fn() }));
 jest.mock('../../../../lib/onboarding/validation', () => ({ parseRupees: jest.fn() }));
 jest.mock('../../../../theme', () => ({ useTheme: jest.fn() }));
@@ -48,8 +48,202 @@ const { getShopManagementLinks } = require('../../../marketplaceScreens/Merchant
   ) => { staffManagement: boolean; supplierRfqs: boolean };
 };
 
+const { default: MerchantShopScreen } = require('../../../marketplaceScreens/MerchantShopScreen') as {
+  default: () => unknown;
+};
+const { shopManageActions } = require('../shopManageModel') as {
+  shopManageActions: typeof import('../shopManageModel').shopManageActions;
+};
+const React = require('react') as Record<string, jest.Mock>;
+const { useShopFeatureFlags } = require('../../components') as { useShopFeatureFlags: jest.Mock };
+const { useSelectedLocation } = require('../../../../lib/locationContext') as { useSelectedLocation: jest.Mock };
+const { useTheme } = require('../../../../theme') as { useTheme: jest.Mock };
+const { useConfirm, useToast } = require('../../../../components/ui') as {
+  useConfirm: jest.Mock;
+  useToast: jest.Mock;
+};
+
+function renderShopScreenWithState(state: unknown[]) {
+  let stateIndex = 0;
+  const useStateSpy = jest.spyOn(React, 'useState');
+  const useRefSpy = jest.spyOn(React, 'useRef');
+  const useCallbackSpy = jest.spyOn(React, 'useCallback');
+  const useEffectSpy = jest.spyOn(React, 'useEffect');
+  useStateSpy.mockImplementation((initial: unknown) => {
+    const value = stateIndex < state.length ? state[stateIndex] : initial;
+    stateIndex += 1;
+    return [value, jest.fn()];
+  });
+  useRefSpy.mockImplementation((initial: unknown) => ({ current: initial }));
+  useCallbackSpy.mockImplementation((callback: unknown) => callback);
+  useEffectSpy.mockImplementation(() => undefined);
+
+  useShopFeatureFlags.mockReturnValue({ products: true });
+  useSelectedLocation.mockReturnValue({ location: { lat: 0, lng: 0 } });
+  useTheme.mockReturnValue({
+    spacing: { xs: 2, sm: 4, md: 8 },
+    radii: { sm: 4, lg: 8 },
+    colors: { surfaceAlt: 'surface-alt' },
+  });
+  useConfirm.mockReturnValue(jest.fn());
+  useToast.mockReturnValue(jest.fn());
+
+  try {
+    return MerchantShopScreen();
+  } finally {
+    useEffectSpy.mockRestore();
+    useCallbackSpy.mockRestore();
+    useRefSpy.mockRestore();
+    useStateSpy.mockRestore();
+  }
+}
+
+type ScreenElement = { type: unknown; props: Record<string, unknown> & { children?: unknown } };
+
+function collectElements(node: unknown, elements: ScreenElement[] = []): ScreenElement[] {
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectElements(child, elements));
+  } else if (node && typeof node === 'object' && 'props' in node) {
+    const element = node as ScreenElement;
+    elements.push(element);
+    collectElements(element.props.children, elements);
+  }
+  return elements;
+}
+
 beforeEach(() => {
   Object.assign(mockFlags, { products: true, product_rfq: true, merchant_staff: true });
+});
+
+it('MK-MANAGE-suspended-product-edit keeps owner details save but disables product edits and submission', () => {
+  expect(shopManageActions({
+    shop: { business_role: 'owner', status: 'suspended' },
+    actualOwner: true,
+    productsEnabled: true,
+  })).toEqual({ canEditProducts: false, canSubmit: false, canSaveDetails: true });
+});
+
+it('MK-MANAGE-owner-member-actions allows only enabled actual owners to manage products', () => {
+  const shop = { business_role: 'owner' as const, status: 'draft' as const };
+  expect(shopManageActions({ shop, actualOwner: true, productsEnabled: true })).toEqual({
+    canEditProducts: true,
+    canSubmit: true,
+    canSaveDetails: true,
+  });
+  expect(shopManageActions({
+    shop: { business_role: 'manager', status: 'draft' },
+    actualOwner: false,
+    productsEnabled: true,
+  })).toEqual({ canEditProducts: false, canSubmit: false, canSaveDetails: false });
+  expect(shopManageActions({
+    shop: { business_role: 'staff', status: 'draft' },
+    actualOwner: false,
+    productsEnabled: true,
+  })).toEqual({ canEditProducts: false, canSubmit: false, canSaveDetails: false });
+  expect(shopManageActions({ shop, actualOwner: true, productsEnabled: false })).toEqual({
+    canEditProducts: false,
+    canSubmit: false,
+    canSaveDetails: false,
+  });
+  expect(shopManageActions({ shop: { ...shop, business_role: 'manager' }, actualOwner: true, productsEnabled: true }))
+    .toEqual({ canEditProducts: false, canSubmit: false, canSaveDetails: false });
+});
+
+it('MK-MANAGE-refreshed-suspension disables an editor after the shop status refreshes', () => {
+  const shop = { business_role: 'owner' as const, status: 'verified' as const };
+  const before = shopManageActions({ shop, actualOwner: true, productsEnabled: true });
+  const after = shopManageActions({
+    shop: { ...shop, status: 'suspended' },
+    actualOwner: true,
+    productsEnabled: true,
+  });
+
+  expect(before.canEditProducts).toBe(true);
+  expect(after.canEditProducts).toBe(false);
+  expect(after.canSaveDetails).toBe(true);
+});
+
+it('MK-HOST-refreshed-suspension disables a stale product editor but keeps the catalogue and removal', () => {
+  const shop = {
+    id: 'shop-1',
+    owner_id: 'owner-1',
+    business_role: 'owner',
+    name: 'Suspended Shop',
+    description: '',
+    address_line: '',
+    city: 'Pune',
+    area: '',
+    lat: null,
+    lng: null,
+    delivery_radius_km: 10,
+    offers_delivery: false,
+    offers_pickup: true,
+    whatsapp_contact: false,
+    gstin: null,
+    status: 'suspended',
+    status_reason: 'Verification needs attention',
+    category_slugs: ['building-materials'],
+  };
+  const product = {
+    id: 'product-1',
+    shop_id: shop.id,
+    category_id: 'category-1',
+    category_slug: 'building-materials',
+    category_name: 'Building materials',
+    name: 'Existing catalogue item',
+    brand: '',
+    model: '',
+    description: '',
+    specs: {},
+    unit: 'piece',
+    indicative_price_paise: null,
+    price_updated_at: null,
+    in_stock: true,
+    active: true,
+    image_paths: [],
+  };
+  const staleDraft = {
+    id: product.id,
+    categoryId: product.category_id,
+    name: product.name,
+    brand: '',
+    model: '',
+    description: '',
+    specs: {},
+    unit: 'piece',
+    priceText: '',
+    inStock: true,
+    active: true,
+    existingPaths: [],
+    previousPaths: [],
+    newPhotos: [],
+  };
+  const elements = collectElements(renderShopScreenWithState([
+    shop,
+    {},
+    [],
+    [product],
+    {},
+    '',
+    [],
+    staleDraft,
+    null,
+    null,
+    false,
+    false,
+    true,
+  ]));
+  const buttons = elements.filter((element) => element.type === 'Button');
+  const saveButton = buttons.find((button) => button.props.title === 'Save product');
+
+  expect(saveButton === undefined || saveButton.props.disabled === true).toBe(true);
+  expect(buttons.find((button) => button.props.title === 'Add product')?.props.disabled).toBe(true);
+  expect(buttons.find((button) => button.props.title === 'Edit')?.props.disabled).toBe(true);
+  expect(buttons.find((button) => button.props.title === 'Remove')?.props.disabled).toBe(false);
+  expect(buttons.find((button) => button.props.title === 'Save shop details')?.props.disabled).toBe(false);
+  expect(buttons.find((button) => button.props.title === 'Submit for verification')).toBeUndefined();
+  expect(elements.some((element) => element.type === 'Text' && element.props.children === 'Verification needs attention')).toBe(true);
+  expect(elements.some((element) => element.type === 'Text' && element.props.children === 'Existing catalogue item')).toBe(true);
 });
 
 it('MK-GATE-staff-RFQ-links gates only the unavailable role-specific discovery links', () => {
