@@ -6,6 +6,10 @@ jest.mock('react-native', () => ({
   Text: 'Text',
 }));
 
+jest.mock('expo-image', () => ({
+  Image: 'Image',
+}));
+
 import { useAppearance, type AppearanceState } from '../AppearanceProvider';
 import { OORVA_BRANDING_CANDIDATE } from '../defaults';
 import {
@@ -17,6 +21,12 @@ import {
 import { BrandLogo } from '../BrandLogo';
 
 const mockUseAppearance = useAppearance as jest.MockedFunction<typeof useAppearance>;
+const selectedExports = {
+  logoLight: require('../../../assets/brand/logo-horizontal-light.png') as number,
+  logoDark: require('../../../assets/brand/logo-horizontal-dark.png') as number,
+  compactLight: require('../../../assets/brand/logo-compact-light.png') as number,
+  compactDark: require('../../../assets/brand/logo-compact-dark.png') as number,
+};
 type ExcludedIdentityFields = Extract<
   keyof BrandIdentityState | keyof ResolvedBrandIdentity,
   | 'issuer'
@@ -29,20 +39,25 @@ type ExcludedIdentityFields = Extract<
 >;
 
 const contexts: Array<[BrandContext, 'QuickServe' | 'Nearo']> = [
+  ['login', 'QuickServe'],
   ['auth', 'QuickServe'],
   ['home', 'QuickServe'],
   ['account', 'QuickServe'],
   ['providerShare', 'QuickServe'],
   ['protectedInvite', 'QuickServe'],
+  ['ai', 'QuickServe'],
   ['assistant', 'QuickServe'],
   ['support', 'QuickServe'],
+  ['byo', 'QuickServe'],
   ['recurring', 'Nearo'],
   ['rfq', 'Nearo'],
+  ['nearoReceipt', 'Nearo'],
   ['receiptChrome', 'Nearo'],
   ['quoteFunding', 'Nearo'],
   ['paymentOverlay', 'QuickServe'],
   ['statusTimeline', 'QuickServe'],
-  ['checkoutPage', 'QuickServe'],
+  ['nearoCheckout', 'Nearo'],
+  ['checkoutPage', 'Nearo'],
   ['gatewayDescription', 'Nearo'],
   ['onboardingAgreement', 'QuickServe'],
 ];
@@ -73,6 +88,7 @@ function validPublished(
   overrides: Partial<NonNullable<BrandIdentityState['published']>> = {},
 ): NonNullable<BrandIdentityState['published']> {
   return {
+    schemaVersion: 1,
     displayName: 'Oorva Partner',
     tagline: 'A runtime-approved tagline',
     logoLight: '00000000-0000-4000-8000-000000000001',
@@ -98,7 +114,7 @@ describe('contextual brand identity', () => {
     expect(resolveBrandIdentity(context, state())).toEqual(legacy(name));
   });
 
-  it.each(contexts)('keeps the exact legacy identity for %s until bundled approval', (context, name) => {
+  it.each(contexts)('falls back to the exact legacy identity for %s when bundled assets are unavailable', (context, name) => {
     expect(
       resolveBrandIdentity(
         context,
@@ -106,6 +122,32 @@ describe('contextual brand identity', () => {
       ),
     ).toEqual(legacy(name));
   });
+
+  it.each(contexts)('keeps the exact legacy identity for %s when the parent brand is OFF', (context, name) => {
+    expect(
+      resolveBrandIdentity(
+        context,
+        state({
+          brandOn: false,
+          runtimeOn: true,
+          bundledIdentityReady: true,
+          published: validPublished(),
+        }),
+      ),
+    ).toEqual(legacy(name));
+  });
+
+  it.each(contexts.filter(([, name]) => name === 'Nearo'))(
+    'keeps separately owned Nearo context %s on its legacy identity',
+    (context, name) => {
+      expect(
+        resolveBrandIdentity(
+          context,
+          state({ brandOn: true, bundledIdentityReady: true }),
+        ),
+      ).toEqual(legacy(name));
+    },
+  );
 
   it('uses the bundled identity only when its availability is approved', () => {
     const resolved = resolveBrandIdentity(
@@ -116,10 +158,7 @@ describe('contextual brand identity', () => {
     expect(resolved).toEqual({
       displayName: OORVA_BRANDING_CANDIDATE.displayName,
       tagline: OORVA_BRANDING_CANDIDATE.tagline,
-      logoLight: null,
-      logoDark: null,
-      compactLight: null,
-      compactDark: null,
+      ...selectedExports,
       source: 'bundled',
     });
   });
@@ -129,10 +168,18 @@ describe('contextual brand identity', () => {
 
     expect(
       resolveBrandIdentity(
-        'checkoutPage',
+        'home',
         state({ brandOn: true, runtimeOn: true, published }),
       ),
-    ).toEqual({ ...published, source: 'published' });
+    ).toEqual({
+      displayName: published.displayName,
+      tagline: published.tagline,
+      logoLight: published.logoLight,
+      logoDark: published.logoDark,
+      compactLight: published.compactLight,
+      compactDark: published.compactDark,
+      source: 'published',
+    });
   });
 
   it('preserves null runtime assets without substituting a made-up mark', () => {
@@ -145,10 +192,18 @@ describe('contextual brand identity', () => {
 
     expect(
       resolveBrandIdentity(
-        'receiptChrome',
+        'home',
         state({ brandOn: true, runtimeOn: true, published }),
       ),
-    ).toEqual({ ...published, source: 'published' });
+    ).toEqual({
+      displayName: published.displayName,
+      tagline: published.tagline,
+      logoLight: null,
+      logoDark: null,
+      compactLight: null,
+      compactDark: null,
+      source: 'published',
+    });
   });
 
   it.each([
@@ -160,14 +215,14 @@ describe('contextual brand identity', () => {
   ])('fails safely to legacy when runtime appearance is invalid: %j', (published) => {
     expect(
       resolveBrandIdentity(
-        'rfq',
+        'home',
         state({
           brandOn: true,
           runtimeOn: true,
           published: published as BrandIdentityState['published'],
         }),
       ),
-    ).toEqual(legacy('Nearo'));
+    ).toEqual(legacy('QuickServe'));
   });
 
   it('uses approved bundled identity after runtime appearance rejection only when ready', () => {
@@ -184,18 +239,22 @@ describe('contextual brand identity', () => {
     ).toBe('bundled');
   });
 
-  it('does not let runtime or bundled state override parent brand OFF', () => {
+  it('rejects a published identity with an unsupported schema version', () => {
+    const published = {
+      ...validPublished(),
+      schemaVersion: 2,
+    } as unknown as BrandIdentityState['published'];
+
     expect(
       resolveBrandIdentity(
-        'receiptChrome',
+        'home',
         state({
-          brandOn: false,
+          brandOn: true,
           runtimeOn: true,
-          bundledIdentityReady: true,
-          published: validPublished(),
+          published,
         }),
       ),
-    ).toEqual(legacy('Nearo'));
+    ).toEqual(legacy('QuickServe'));
   });
 
   it('keeps issuer, receipt, historical and technical data outside the identity API', () => {
@@ -240,6 +299,27 @@ describe('contextual brand identity', () => {
     expect(logo.props).toMatchObject({
       accessibilityLabel: 'Oorva Business',
       children: 'Oorva Business',
+    });
+  });
+
+  it('renders the selected dark export for a bundled identity without a placeholder label', () => {
+    const identity = resolveBrandIdentity(
+      'home',
+      state({ brandOn: true, bundledIdentityReady: true }),
+    );
+    const logo = BrandLogo({
+      context: 'home',
+      identity,
+      variant: 'full',
+      colorScheme: 'dark',
+      testID: 'selected-brand-logo',
+    });
+
+    expect(logo.type).toBe('Image');
+    expect(logo.props).toMatchObject({
+      source: selectedExports.logoDark,
+      accessibilityLabel: 'Oorva',
+      testID: 'selected-brand-logo',
     });
   });
 });
