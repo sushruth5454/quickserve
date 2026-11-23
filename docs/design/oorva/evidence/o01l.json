@@ -1,35 +1,23 @@
 {
   "stage": "O01L",
   "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
-  "implementationBaseSha": "ca6daa3a071f11033b85c9f3043617945f67a76e",
+  "implementationBaseSha": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
   "dependencyShas": {
     "O00": "b40e3ac3da80dc7dba677457413180bca6070222"
   },
   "sourceTaskId": null,
   "gates": {
     "E0": "APPROVED",
-    "D03a": "APPROVED_AUTHORING_ONLY",
-    "D03b": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
+    "D03a": "APPROVED",
+    "D03b": "APPROVED",
     "D03c": "NOT_APPROVED"
   },
   "sourceDrift": {
-    "comparison": "Exact O01L owned paths only: frozen plan P against implementation base ca6daa3, then implementation base against origin/main.",
-    "changedPaths": [
-      "app/assets/brand/logo-horizontal-dark.svg",
-      "app/assets/brand/logo-horizontal-light.svg",
-      "app/assets/brand/logo-horizontal-mono-black.svg",
-      "app/assets/brand/logo-horizontal-mono-ivory.svg",
-      "app/assets/brand/logo-stacked-dark.svg",
-      "app/assets/brand/logo-stacked-light.svg",
-      "app/assets/brand/oorva-symbol.svg",
-      "app/assets/brand/oorva-wordmark-dark.svg",
-      "app/assets/brand/oorva-wordmark-light.svg",
-      "app/assets/brand/source-manifest.json",
-      "app/src/branding/__tests__/svgMasters.test.ts",
-      "docs/design/oorva/evidence/o01l.json"
-    ],
+    "comparison": "Exact O01L-owned paths only: previous green lane head b237106 against current-main implementation base f6c627, then base against origin/main.",
+    "previousO01LHeadSha": "b23710618fa1e3fbb69cd2d903710c1910f13855",
+    "changedPaths": [],
     "currentMainChangedPaths": [],
-    "preservationRationale": "The prior O01L implementation's 12 owned files were added after frozen P and are present at current-main base ca6daa3. This fix-forward revises those same 12 paths in response to owner feedback; the exact path diff from base to origin/main is empty, and all unrelated current-main work, reference PNGs, app configuration, native/runtime destinations, and shared registrations remain untouched."
+    "preservationRationale": "The assigned O01L branch was fast-forwarded from b237106 to origin/main f6c627. The exact O01L-owned path diff over that fast-forward is empty. The nine approved drop-in inputs are outside the worker-owned paths and remain read-only; only the 12 O01L-owned paths are edited."
   },
   "ownerDirectedRevision": {
     "ownerFeedback": "The previous logo was different and not good; use the design at docs/design/oorva/logo/oorva-logo-light.png.",
@@ -43,53 +31,85 @@
       "scope": "Visual direction only; the O01L source revision is not a selected O01X export, and D03c public rights clearance is not granted."
     },
     "standingD03bApproval": {
-      "status": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
+      "status": "APPROVED",
       "rule": "Any O01X set faithfully reproducing the owner-approved Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
-      "candidateEvidence": "O01X re-export and candidate-specific hashes/validation are not yet recorded."
+      "candidateEvidence": "O01X candidate export and candidate-specific hashes/validation are expected after the exact O01L source revision is green."
     },
     "D03c": "NOT_APPROVED",
     "D03cScope": "Blocks public launch/store listing only; it does not block development, private integration, main promotion, or owner testing.",
-    "provenance": "Original custom vector paths were authored from the visual direction. The PNG and related files were not embedded, copied, traced, or exported."
+    "provenance": "The exact current-main app-assets drop-ins were copied byte-for-byte. This revision did not redraw, derive, or trace geometry and did not copy or embed PNGs."
+  },
+  "dropInProvenance": {
+    "sourceCommit": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
+    "sourceReadme": "docs/design/oorva/logo/vector/README.md",
+    "sourceReadmeSha256": "4137e340929fcd75c9fa21e3b83265cd109091ca81928738426325bf8df0ed4f",
+    "sourceDirectory": "docs/design/oorva/logo/vector/app-assets/",
+    "sourceMasterSha256": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
+      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
+      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
+      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
+      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+    },
+    "destinationSha256": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
+      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
+      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
+      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
+      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+    },
+    "byteForByteVerified": true,
+    "copiedFileCount": 9
+  },
+  "handoff": {
+    "O01X": "BLOCKED until this exact O01L lane head passes Lane CI; coordinator then re-exports the PNG set and records candidate-specific hashes."
   },
   "authorship": {
     "concept": "Connected O",
-    "wordmark": "Custom outlined lowercase oorva",
-    "authoringScope": "Original paths and lockup geometry only; no PNG export, native asset copy, or runtime integration."
+    "wordmark": "Supplied outlined lowercase oorva",
+    "authoringScope": "Exact source-master copy only; no PNG export, native asset copy, or runtime integration."
   },
   "smallSizeEvidence": {
     "sourceViewBoxWidth": 256,
-    "upperArcEndpoints": [
-      [44, 164],
-      [212, 164]
-    ],
-    "lowerArcEndpoints": [
-      [44, 92],
-      [212, 92]
-    ],
-    "strokeWidths": [40, 40],
-    "gapFormula": "hypot(upperEndpointX - lowerEndpointX, upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2, then multiply by logicalSizePx / 256",
-    "gapUnitsAtBothOpenings": 32,
-    "checks": [
+    "measurementMethod": "Sample each cubic segment of the exact source symbol path at 120 equal t-intervals; compute the minimum Euclidean distance between the two compound subpaths separately in the left and right halves after path transform; scale by logicalSizePx / 256.",
+    "sourceSamplingStepsPerCubic": 120,
+    "leftMinimumGapUnitsAfterTransform": 8.916269262736144,
+    "rightMinimumGapUnitsAfterTransform": 8.583600766361336,
+    "logicalPixelChecks": [
       {
-        "logicalSizePx": 20,
-        "leftGapPx": 2.5,
-        "rightGapPx": 2.5,
+        "sizePx": 20,
+        "leftGapPx": 0.696584,
+        "rightGapPx": 0.670594,
         "status": "open"
       },
       {
-        "logicalSizePx": 32,
-        "leftGapPx": 4,
-        "rightGapPx": 4,
+        "sizePx": 32,
+        "leftGapPx": 1.114534,
+        "rightGapPx": 1.072950,
         "status": "open"
       },
       {
-        "logicalSizePx": 48,
-        "leftGapPx": 6,
-        "rightGapPx": 6,
+        "sizePx": 48,
+        "leftGapPx": 1.671800,
+        "rightGapPx": 1.609425,
         "status": "open"
       }
     ],
-    "limitation": "Reproducible vector-endpoint and stroke-cap measurement; no raster export, device rendering, or runtime use is claimed."
+    "visualSource": {
+      "path": "docs/design/oorva/logo/vector/app-assets-contact-sheet.png",
+      "sha256": "3242d927c79c88acc90f5fc5c19605730cc2301946759924a162fe430531ab05",
+      "reviewedSizesPx": [48, 32, 20],
+      "result": "Both openings are visually distinct at all supplied render sizes."
+    },
+    "limitation": "Measurement and visual review use the provided source master/contact sheet; no new raster export, device rendering, or runtime use is claimed."
   },
   "taglineContrast": {
     "text": "Your world, closer.",
@@ -110,10 +130,12 @@
     "candidateOnly": true,
     "visualDirection": "OWNER_APPROVED_REFERENCE_ONLY",
     "production_ready": false,
-    "D03a": "APPROVED_AUTHORING_ONLY",
-    "D03b": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
+    "D03a": "APPROVED",
+    "D03b": "APPROVED",
     "D03bCandidateSelected": false,
+    "D03bSelectionRule": "Any O01X set faithfully reproducing the owner-approved Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
     "D03c": "NOT_APPROVED",
+    "D03cScope": "Blocks public launch/store listing only; not development, private integration, main promotion, or owner testing.",
     "finalSelection": false,
     "publicReleaseAllowed": false
   }

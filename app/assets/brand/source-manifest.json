@@ -2,10 +2,10 @@
   "brand": "Oorva",
   "wordmark": "oorva",
   "concept": "Connected O",
-  "conceptRationale": "The owner-approved visual direction is the Connected O paired with the compact, bold lowercase oorva wordmark shown in the light reference. The symbol reads as two rounded opposing arcs with open side breaks; the letterforms use close, even spacing and a single-storey a.",
-  "geometryRationale": "The symbol uses original cubic Bézier arcs with rounded ends and two controlled side openings. The custom lowercase o-o-r-v-a paths use broad rounded counters, a compact r shoulder, a rounded V join, and a single-storey a. The paths are independently authored vector geometry, not a raster trace or live font rendering.",
+  "conceptRationale": "The owner-approved Connected O artwork, compact lowercase oorva wordmark, and lockup proportions are supplied in the exact O01L app-asset vector masters.",
+  "geometryRationale": "This revision copies the nine current-main O01L drop-in SVG masters byte-for-byte from docs/design/oorva/logo/vector/app-assets. Their vector geometry is unchanged; no redraw, trace, alternate geometry, or raster embedding was performed by this revision.",
   "originalityProvenance": {
-    "authorship": "Original Bézier symbol and custom lowercase letter paths authored for this Oorva candidate. No third-party mark was copied or traced.",
+    "authorship": "The supplied masters are the owner-approved Connected O artwork; the source README documents their upstream vectorization from the owner's own approved PNGs. This revision only copies the supplied SVG masters verbatim and does not redraw or trace raster artwork.",
     "directionalInputs": [
       "oorva-logo-concept.png",
       "oorva-logo-light.png",
@@ -24,8 +24,24 @@
       "scope": "Approval establishes visual direction and a standing D03b selection rule; this O01L source revision is not itself a selected O01X export. D03c public rights clearance and PNG export approval are not granted."
     },
     "inputManifest": "docs/design/oorva/logo/manifest.json",
-    "inputUse": "The light reference is owner-approved visual direction; related dark, transparent, monochrome, and symbol exports provide supplemental visual direction. No PNG paths were copied or traced, and no raster was embedded.",
-    "wordmarkConstruction": "Hand-authored lowercase vector paths; all master files contain no live text, font, or external resource."
+    "sourceReadme": "docs/design/oorva/logo/vector/README.md",
+    "sourceReadmeSha256": "4137e340929fcd75c9fa21e3b83265cd109091ca81928738426325bf8df0ed4f",
+    "sourceCommit": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
+    "sourceDirectory": "docs/design/oorva/logo/vector/app-assets/",
+    "copyMethod": "Byte-for-byte copy of the nine approved app-assets SVGs; source and destination SHA-256 values were checked.",
+    "sourceMasterSha256": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
+      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
+      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
+      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
+      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+    },
+    "inputUse": "The light PNG remains the owner-approved visual reference. The supplied SVG masters are authoritative drop-ins; this revision copies no PNG path, does no raster trace, and embeds no bitmap.",
+    "wordmarkConstruction": "The wordmark is the supplied outlined vector path; no live text, font, external href, script, or external resource is used."
   },
   "masters": [
     {
@@ -84,41 +100,42 @@
     }
   ],
   "smallSizeEvidence": {
-    "method": "The symbol SVG's actual M/C path endpoints are paired at each open side. Euclidean endpoint distance is reduced by the sum of the round-cap radii, then scaled by logicalSize / 256.",
+    "method": "The supplied symbol is two filled cubic-Bezier subpaths. Each subpath is sampled at 120 equal t-intervals per cubic; the minimum Euclidean distance between the subpaths is measured separately in the left and right halves after the SVG path transform. logicalGapPx = minimumTransformedGapUnits * logicalSizePx / 256.",
     "sourceViewBoxWidth": 256,
-    "upperArcEndpoints": [
-      [44, 164],
-      [212, 164]
-    ],
-    "lowerArcEndpoints": [
-      [44, 92],
-      [212, 92]
-    ],
-    "upperStrokeWidth": 40,
-    "lowerStrokeWidth": 40,
-    "gapFormula": "gapUnits = hypot(upperEndpointX - lowerEndpointX, upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2; gapPx = gapUnits * logicalSizePx / sourceViewBoxWidth",
-    "gapUnitsAtBothOpenings": 32,
+    "subpaths": 2,
+    "samplesPerCubic": 120,
+    "sourceTransform": "translate(0.65 -3.75) scale(0.86225)",
+    "minimumGapUnitsAfterTransform": {
+      "left": 8.916269262736144,
+      "right": 8.583600766361336
+    },
     "logicalPixelChecks": [
       {
         "sizePx": 20,
-        "leftGapPx": 2.5,
-        "rightGapPx": 2.5,
+        "leftGapPx": 0.696584,
+        "rightGapPx": 0.670594,
         "status": "open"
       },
       {
         "sizePx": 32,
-        "leftGapPx": 4,
-        "rightGapPx": 4,
+        "leftGapPx": 1.114534,
+        "rightGapPx": 1.072950,
         "status": "open"
       },
       {
         "sizePx": 48,
-        "leftGapPx": 6,
-        "rightGapPx": 6,
+        "leftGapPx": 1.671800,
+        "rightGapPx": 1.609425,
         "status": "open"
       }
     ],
-    "visualInspection": "The two side openings remain distinct at each requested size; the 20px master retains a 2.5px computed gap on each side. The reference PNG remains visual direction only; no raster export or device rendering is claimed by this stage."
+    "visualSource": {
+      "path": "docs/design/oorva/logo/vector/app-assets-contact-sheet.png",
+      "sha256": "3242d927c79c88acc90f5fc5c19605730cc2301946759924a162fe430531ab05",
+      "sizesPx": [48, 32, 20],
+      "result": "Both openings are visually open at all three supplied render sizes."
+    },
+    "renderingClaim": "This source contact sheet was visually inspected; no new raster export or device rendering was performed by O01L."
   },
   "tagline": {
     "text": "Your world, closer.",
@@ -141,18 +158,19 @@
     }
   },
   "license": {
-    "customArtwork": "Original project candidate authored in this task from owner-approved visual direction; no third-party vector or raster paths were copied. The owner-approved selection rule does not provide ownership, trademark, public-use or redistribution clearance; D03c is NOT APPROVED.",
+    "customArtwork": "The supplied SVG paths are the owner's approved artwork direction documented by the source README. No third-party artwork was used per that README. Trademark, public-use, ownership, and redistribution clearance are not asserted; D03c is NOT_APPROVED.",
     "taglineFont": "Bundled Inter Regular 400 is referenced only as a separate app text recommendation; no font file is embedded in the SVG masters.",
-    "explorationPngs": "The light PNG is owner-approved visual direction only. The PNG and related exports are not vector masters or approved public assets. D03b's standing rule selects an O01X set only after A.4.1 fidelity and validation; this source revision is not that export. D03c is NOT APPROVED."
+    "explorationPngs": "The PNGs remain references, not copied assets in this revision. O01L copied the supplied SVG drop-ins byte-for-byte. D03c is NOT_APPROVED and continues to block public/store release only."
   },
   "approvalStatus": {
     "status": "draft-candidate-only",
     "candidateOnly": true,
     "visualDirection": "OWNER_APPROVED_REFERENCE_ONLY",
-    "D03a": "APPROVED_AUTHORING_ONLY",
-    "D03b": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
-    "D03bSelectionRule": "Any O01X set faithfully reproducing the owner-approved docs/design/oorva/logo/ Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
-    "D03bCandidateEvidence": "O01X re-export and candidate-specific hashes/validation are not yet recorded.",
+    "D03a": "APPROVED",
+    "D03b": "APPROVED",
+    "D03bCandidateSelected": false,
+    "D03bSelectionRule": "Any O01X set faithfully reproducing the owner-approved Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
+    "D03bCandidateEvidence": "O01X candidate export and candidate-specific hashes/validation will be recorded after this source revision is green.",
     "D03c": "NOT_APPROVED",
     "D03cScope": "Blocks public launch/store listing only; it does not block development, private integration, main promotion, or owner testing.",
     "finalSelection": false,
