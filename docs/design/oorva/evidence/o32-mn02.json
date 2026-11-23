@@ -1,0 +1,102 @@
+{
+  "stageId": "O32-MN02",
+  "sourceTaskId": "MN-T02",
+  "findingId": "MN-F02",
+  "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+  "planningSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "dependency": {
+    "stageId": "O00",
+    "sourceSha": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "migrationClaim": "MIG-O32-MN02",
+  "migrationPath": "supabase/migrations/0100_o32_mn02_oorva.sql",
+  "migrationClaimStatus": "ACKNOWLEDGED/APPROVED",
+  "changedFiles": [
+    "supabase/migrations/0100_o32_mn02_oorva.sql",
+    "supabase/tests/oorva_o32_mn02.test.mjs",
+    "docs/design/oorva/evidence/o32-mn02.json"
+  ],
+  "functionDriftCheck": {
+    "symbol": "public._finalize_session_completion(uuid, uuid)",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "implementationBaseSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "result": "NO_DRIFT"
+  },
+  "implementation": {
+    "status": "worker-files-only",
+    "classification": "selected payment razorpay_payment_id pay_demo_ prefix",
+    "syntheticPayoutStatus": "demo",
+    "livePayoutStatus": "pending",
+    "syntheticTransferCreation": "skipped",
+    "completionUpdatesAndPayoutFormulas": "copied from latest 0075 finalizer"
+  },
+  "tests": {
+    "file": "supabase/tests/oorva_o32_mn02.test.mjs",
+    "cases": [
+      "MN-DEMO-SESSION-ONESHOT",
+      "MN-DEMO-PACK-SESSION",
+      "MN-LIVE-SESSION-PAISE",
+      "MN-OFF-SAFETY"
+    ],
+    "existingRegression": {
+      "file": "supabase/tests/demo_payouts.test.mjs",
+      "status": "retained-unmodified"
+    },
+    "registration": {
+      "status": "complete",
+      "commit": "f6cd932994811ba041d86f61395a7b856f3eccc7",
+      "changedFile": "supabase/tests/package.json"
+    },
+    "execution": "LANE_CI_FAILURE",
+    "requiredSelectors": [
+      "oorva_o32_mn02",
+      "o32_mn02_oorva.sql"
+    ],
+    "codespace": {
+      "result": "UNAVAILABLE_NO_PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "originMainSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
+      "name": "qs-tests-g67pgv4xqj639gx5",
+      "firstSelector": {
+        "selector": "oorva_o32_mn02",
+        "result": "UNAVAILABLE_NO_PASS",
+        "selected": false,
+        "reason": "Codespace could not fetch the WIP snapshot before selection; remote Git reported missing HTTPS username."
+      },
+      "secondSelector": {
+        "selector": "o32_mn02_oorva.sql",
+        "result": "not-run",
+        "reason": "Stopped after the same pre-selection Codespace fetch failure; no credentials changed."
+      }
+    },
+    "laneCi": {
+      "runId": "44932441341",
+      "headSha": "bd2525e08cf71109141fa80a3493c46957ff08bb",
+      "conclusion": "failure",
+      "failedJob": "sql",
+      "sqlChecksPassed": 144,
+      "sqlChecksTotal": 145,
+      "failures": [
+        "MN-DEMO-SESSION-ONESHOT: category_not_bookable",
+        "MN-DEMO-PACK-SESSION: category_not_bookable",
+        "MN-LIVE-SESSION-PAISE: category_not_bookable",
+        "MN-OFF-SAFETY: category_not_bookable"
+      ]
+    },
+    "fixtureFollowUp": {
+      "changes": [
+        "seed a live category-city row",
+        "enable the time_based archetype in app_config",
+        "use unique future slots within the category lead-time window"
+      ],
+      "status": "coordinator-reviewed; awaiting lane CI verification"
+    }
+  },
+  "checkpoint": "READY_FOR_LANE_CI_FALLBACK",
+  "reviewRequired": "money",
+  "reviewStatus": "PASS",
+  "reviewer": "Coordinator",
+  "reviewedHead": "27becf5d77f592412a9fbc35e66d79333a4480fe",
+  "e1Status": "pending",
+  "productionActions": "none"
+}
