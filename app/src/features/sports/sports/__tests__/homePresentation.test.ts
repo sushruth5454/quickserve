@@ -1,5 +1,13 @@
 import { getSportsHomePresentation, shouldLoadSportsBusinessVenues } from '../../api';
 
+jest.mock('../../../../lib/supabase', () => ({
+  supabase: { rpc: jest.fn() },
+}));
+
+function expectJson(actual: unknown, expected: unknown): void {
+  expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+}
+
 function presentation(overrides: Partial<Parameters<typeof getSportsHomePresentation>[0]> = {}) {
   return getSportsHomePresentation({
     userId: 'customer-1',
@@ -22,14 +30,15 @@ describe('sports home independent sections', () => {
       presentation({ discoveryState: 'empty' }),
     ];
 
-    expect(states.map((state) => state.showHistoryNavigation), JSON.stringify(states)).toEqual([
+    expectJson(states.map((state) => state.showHistoryNavigation), [
       true,
       true,
       true,
       true,
     ]);
-    expect(states[0], JSON.stringify(states[0])).toMatchObject({
+    expectJson(states[0], {
       composition: 'legacy',
+      showHistoryNavigation: true,
       showDiscovery: false,
       discoveryState: 'off',
       businessActions: [],
@@ -45,17 +54,18 @@ describe('sports home independent sections', () => {
     });
     const shouldLoadPrivateBusinessRead = shouldLoadSportsBusinessVenues(null, true);
 
-    expect(guest.showHistoryNavigation, JSON.stringify(guest)).toBe(false);
-    expect(guest.businessActions, JSON.stringify(guest)).toEqual([]);
-    expect(shouldLoadPrivateBusinessRead, JSON.stringify({ shouldLoadPrivateBusinessRead })).toBe(false);
+    expectJson(guest.showHistoryNavigation, false);
+    expectJson(guest.businessActions, []);
+    expectJson(shouldLoadPrivateBusinessRead, false);
   });
 
   it('does not request business discovery when actual sports is off', () => {
     const shouldLoadPrivateBusinessRead = shouldLoadSportsBusinessVenues('customer-1', false);
     const sportsOff = presentation({ sportsEnabled: false });
 
-    expect(shouldLoadPrivateBusinessRead, JSON.stringify({ shouldLoadPrivateBusinessRead })).toBe(false);
-    expect(sportsOff, JSON.stringify(sportsOff)).toMatchObject({
+    expectJson(shouldLoadPrivateBusinessRead, false);
+    expectJson(sportsOff, {
+      composition: 'legacy',
       showHistoryNavigation: true,
       showDiscovery: false,
       discoveryState: 'off',
@@ -67,7 +77,7 @@ describe('sports home independent sections', () => {
     const legacy = presentation({ familyUxEnabled: false });
     const family = presentation({ familyUxEnabled: true });
 
-    expect(legacy.composition, JSON.stringify(legacy)).toBe('legacy');
-    expect(family.composition, JSON.stringify(family)).toBe('family');
+    expectJson(legacy.composition, 'legacy');
+    expectJson(family.composition, 'family');
   });
 });

@@ -11,6 +11,10 @@ jest.mock('../../../lib/supabase', () => ({
 
 const rpc = supabase.rpc as jest.Mock;
 
+function expectJson(actual: unknown, expected: unknown): void {
+  expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+}
+
 function businessVenue(ownerId: string, businessRole: 'owner' | 'manager' | 'staff'): SportsHomeBusinessVenue {
   return {
     venue: {
@@ -38,15 +42,23 @@ describe('sports home business navigation', () => {
       sportsEnabled: true,
       merchantStaffEnabled: false,
       businessVenuesLoaded: true,
-      businessVenues: [businessVenue('owner-1', 'owner')],
+      businessVenues: [],
     });
 
-    expect(ownerActions, JSON.stringify(ownerActions)).toEqual([
-      expect.objectContaining({ kind: 'owner', title: 'My venues', href: '/sports/manage', readOnly: false }),
-    ]);
-    expect(providerNonOwnerActions, JSON.stringify(providerNonOwnerActions)).toEqual([
-      expect.objectContaining({ kind: 'onboarding', title: 'List a venue', href: '/sports/manage', readOnly: false }),
-    ]);
+    expectJson(ownerActions, [{
+      kind: 'owner',
+      title: 'My venues',
+      subtitle: 'Manage your sports venues',
+      href: '/sports/manage',
+      readOnly: false,
+    }]);
+    expectJson(providerNonOwnerActions, [{
+      kind: 'onboarding',
+      title: 'List a venue',
+      subtitle: 'Add a sports venue you own',
+      href: '/sports/manage',
+      readOnly: false,
+    }]);
   });
 
   it('SP-ASSIGNED-READONLY: exposes assigned work only while effective merchant_staff is on', () => {
@@ -66,15 +78,14 @@ describe('sports home business navigation', () => {
       businessVenues: [assignedVenue],
     });
 
-    expect(assignedActions, JSON.stringify(assignedActions)).toEqual([
-      expect.objectContaining({
-        kind: 'assigned',
-        title: 'Assigned business work',
-        href: '/sports/manage',
-        readOnly: true,
-      }),
-    ]);
-    expect(featureOffActions, JSON.stringify(featureOffActions)).toEqual([]);
+    expectJson(assignedActions, [{
+      kind: 'assigned',
+      title: 'Assigned business work',
+      subtitle: 'View read-only sports bookings shared with you',
+      href: '/sports/manage',
+      readOnly: true,
+    }]);
+    expectJson(featureOffActions, []);
   });
 
   it('SP-LIST-VENUE: offers existing self-onboarding only after an authorized empty read', () => {
@@ -93,10 +104,14 @@ describe('sports home business navigation', () => {
       businessVenues: [],
     });
 
-    expect(actions, JSON.stringify(actions)).toEqual([
-      expect.objectContaining({ kind: 'onboarding', title: 'List a venue' }),
-    ]);
-    expect(unresolvedActions, JSON.stringify(unresolvedActions)).toEqual([]);
+    expectJson(actions, [{
+      kind: 'onboarding',
+      title: 'List a venue',
+      subtitle: 'Add a sports venue you own',
+      href: '/sports/manage',
+      readOnly: false,
+    }]);
+    expectJson(unresolvedActions, []);
   });
 
   it('reads business context through the existing authorized sports RPC', async () => {
@@ -106,7 +121,7 @@ describe('sports home business navigation', () => {
     const result = await listMyBusinessSportsVenues();
 
     const calls = rpc.mock.calls;
-    expect(calls, JSON.stringify(calls)).toContainEqual(['get_my_business_sports_venues']);
-    expect(result, JSON.stringify(result)).toEqual(venues);
+    expectJson(calls, [['get_my_business_sports_venues']]);
+    expectJson(result, venues);
   });
 });

@@ -3,6 +3,7 @@
   "sourceTaskId": "SP-T13",
   "sourceFindingId": "SP-F18",
   "implementationBaseSha": "fc73dd35f4b5cc53c2064e5431978089965abb21",
+  "stackBaseMergeSha": "74d4e39fef187cdda3c51648034b3d07ed03b6dc",
   "implementedBehavior": [
     "Signed-in My sports requests navigation is rendered independently of discovery loading, empty, error, and sports-off states; guests do not receive the private-history entry.",
     "Sports business navigation uses the existing authorized get_my_business_sports_venues read and actual owner_id; provider activeRole is not used as ownership evidence.",
@@ -13,11 +14,11 @@
   "scopePreserved": [
     "The /sports route and existing booking/activity URLs and parameters are unchanged.",
     "Existing cancellation policy/preview and sports payment request behavior were not edited.",
-    "No migration, SQL function, shared registration, permission, booking/payment rule, or global navigation change."
+    "O20-SP13 adds no migration, SQL function, shared registration, permission, booking/payment rule, or global navigation change."
   ],
   "codespaceValidation": {
     "status": "UNAVAILABLE",
-    "details": "The current-main helper returned HTTP 404 for the Codespaces API with the missing codespace scope message. Credentials were not refreshed; exact-head Lane CI is the required fallback."
+    "details": "The helper returned HTTP 404 from /repos/sushruth5454/quickserve/codespaces?per_page=30 and reported that the operation needs the codespace scope. Credentials were not refreshed. Both exact selectors use exact-head Lane CI as the fallback."
   },
   "runtimeDeviceEvidence": "NOT_VERIFIED"
 }

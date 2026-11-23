@@ -130,11 +130,10 @@ export function shouldLoadSportsBusinessVenues(userId: string | null, sportsEnab
   return sportsEnabled && Boolean(userId?.trim());
 }
 
-export function listMyBusinessSportsVenues(): Promise<SportsHomeBusinessVenue[]> {
-  return supabase.rpc('get_my_business_sports_venues').then(({ data, error }) => {
-    if (error) throw new Error(error.message);
-    return (data ?? []) as SportsHomeBusinessVenue[];
-  });
+export async function listMyBusinessSportsVenues(): Promise<SportsHomeBusinessVenue[]> {
+  const { data, error } = await supabase.rpc('get_my_business_sports_venues');
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SportsHomeBusinessVenue[];
 }
 
 export function getSportsHomeBusinessActions(input: {
