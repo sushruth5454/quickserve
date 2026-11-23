@@ -78,7 +78,7 @@
     }
   },
   "validation": {
-    "status": "PASS",
+    "status": "PENDING_REVALIDATION_AFTER_PRIVATE_TEST_SYNCHRONIZATION_FIX",
     "codespace": {
       "helperSource": "origin/main:scripts/cs-test.ps1",
       "sqlTestSelector": {
@@ -96,26 +96,39 @@
     },
     "privatePostgreSql": {
       "command": "node run.mjs --filter o20_sp11.pg.test.mjs",
-      "result": "PASS",
+      "lastGreenResult": "PASS",
+      "lastGreenLaneCiRunId": 45246556909,
       "selected": "o20_sp11.pg.test.mjs",
       "summary": "Two independent backends contended on the resource advisory lock. The first request persisted; the second returned P0001 (slot is no longer available). Final occupancy was [2,2] at capacity 2, with three bookings, zero competing-request rows, one request notification, and zero payment rows."
     },
     "laneCi": {
-      "runId": 45246556909,
-      "headSha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
-      "status": "completed",
-      "conclusion": "success",
-      "privatePostgreSqlStep": "PASS: Test O20-SP11 private PostgreSQL capacity",
-      "sqlStep": "PASS",
-      "toolingStep": "PASS",
-      "denoStep": "PASS",
-      "appStep": "PASS"
+      "lastGreen": {
+        "runId": 45246556909,
+        "headSha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+        "status": "completed",
+        "conclusion": "success",
+        "privatePostgreSqlStep": "PASS: Test O20-SP11 private PostgreSQL capacity",
+        "sqlStep": "PASS",
+        "toolingStep": "PASS",
+        "denoStep": "PASS",
+        "appStep": "PASS"
+      },
+      "latestRun": {
+        "runId": 45247846206,
+        "headSha": "7ace3146671ed05ee6335445ba751d7f07d2774c",
+        "status": "completed",
+        "conclusion": "failure",
+        "failedStep": "Test O20-SP11 private PostgreSQL capacity",
+        "observedFailure": "The second backend timed out before its request reached request_sports_slot; pg_stat_activity showed it waiting on an advisory lock while executing SET ROLE authenticated.",
+        "testFix": "Set both authenticated session identities before the first request acquires the resource lock; issue the competing request directly so the observed barrier is the function call.",
+        "revalidation": "PENDING"
+      }
     },
     "localBuildsTestsAndInstalls": "NOT_RUN_PER_DISPATCH"
   },
   "review": {
     "required": "CONCURRENCY",
-    "state": "PENDING_COORDINATOR_REVIEW_AFTER_GREEN_LANE_CI"
+    "state": "PENDING_AFTER_REVALIDATION_AND_COORDINATOR_REVIEW"
   },
   "approvals": {
     "E0": "APPROVED",

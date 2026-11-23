@@ -3,28 +3,12 @@ import { randomUUID } from 'node:crypto';
 
 const fixedDay = '2026-12-15';
 
-async function as(client, uid, sql, params = [], { savepoint = false } = {}) {
-  if (savepoint) await client.query('savepoint o20_sp11_request');
+async function setAuthenticated(client, uid) {
   await client.query(
     `select set_config('request.jwt.claim.sub', $1::text, false)`,
     [uid ?? ''],
   );
   await client.query('set role authenticated');
-  try {
-    const result = await client.query(sql, params);
-    await client.query('reset role');
-    if (savepoint) await client.query('release savepoint o20_sp11_request');
-    return result;
-  } catch (error) {
-    if (savepoint) {
-      await client.query('rollback to savepoint o20_sp11_request');
-      await client.query('reset role');
-      await client.query('release savepoint o20_sp11_request');
-    } else {
-      await client.query('reset role').catch(() => undefined);
-    }
-    throw error;
-  }
 }
 
 async function startsAt(client, time) {
@@ -264,17 +248,29 @@ export async function run(context) {
         `race requires two independent PostgreSQL backends: ${JSON.stringify(diagnostics)}`);
       await first.query(`set statement_timeout = '15000ms'`);
       await second.query(`set statement_timeout = '15000ms'`);
+      await setAuthenticated(first, fixture.customerIds[2]);
+      await setAuthenticated(second, fixture.customerIds[3]);
       await first.query('begin');
       let firstTransactionOpen = true;
       let secondResult = { settled: false, value: null };
       try {
-        const firstRequest = await as(first, fixture.customerIds[2], `
-          select public.request_sports_slot(
-            $1::uuid, $2::timestamptz, 2::int, 'SP11 first concurrent request'::text
-          ) as id
-        `, [fixture.resourceId, fixture.start], { savepoint: true });
+        await first.query('savepoint o20_sp11_request');
+        let firstRequest;
+        try {
+          firstRequest = await first.query(`
+            select public.request_sports_slot(
+              $1::uuid, $2::timestamptz, 2::int, 'SP11 first concurrent request'::text
+            ) as id
+          `, [fixture.resourceId, fixture.start]);
+          await first.query('release savepoint o20_sp11_request');
+        } catch (error) {
+          await first.query('rollback to savepoint o20_sp11_request');
+          await first.query('release savepoint o20_sp11_request');
+          throw error;
+        }
         const firstBookingId = firstRequest.rows[0]?.id;
-        const secondPromise = as(second, fixture.customerIds[3], `
+        await first.query('reset role');
+        const secondPromise = second.query(`
           select public.request_sports_slot(
             $1::uuid, $2::timestamptz, 2::int, 'SP11 competing concurrent request'::text
           ) as id
