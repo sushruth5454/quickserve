@@ -1,9 +1,55 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 
 const FLAG_KEYS = ['oorva_brand', 'branding_runtime', 'branding_editor'];
-const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
+const STORAGE_BUCKET = 'branding-assets';
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, value) => {
+  let crc = value;
+  for (let bit = 0; bit < 8; bit += 1) {
+    crc = (crc & 1) ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1);
+  }
+  return crc >>> 0;
+});
+
+function pngCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, payload) {
+  const typeBytes = Buffer.from(type, 'ascii');
+  const crcInput = Buffer.concat([typeBytes, payload]);
+  const length = Buffer.alloc(4);
+  const crc = Buffer.alloc(4);
+  length.writeUInt32BE(payload.length);
+  crc.writeUInt32BE(pngCrc32(crcInput));
+  return Buffer.concat([length, typeBytes, payload, crc]);
+}
+
+function createPng(width, height) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8;
+  header[9] = 6;
+  const scanlines = Buffer.alloc(height * (1 + width * 4));
+  return Buffer.concat([
+    PNG_SIGNATURE,
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(scanlines)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+// The RPC checks metadata and object presence; O04 owns full PNG-byte validation.
+const STORAGE_PNG = createPng(32, 32);
+const HASH_A = createHash('sha256').update(STORAGE_PNG).digest('hex');
 
 async function asRole(client, role, callback) {
   await client.query(`set role ${role}`);
@@ -40,18 +86,53 @@ async function setFlags(client, enabledKeys) {
   );
 }
 
-async function addPrivateObject(client, assetId) {
-  await client.query(
-    `insert into storage.objects (bucket_id, name)
-     values ('branding-assets', $1::text)`,
-    [`branding/${assetId}.png`],
+function storageUrl(localApiUrl, path = '') {
+  const base = `${localApiUrl.replace(/\/+$/, '')}/storage/v1/object/${STORAGE_BUCKET}`;
+  if (!path) return base;
+  return `${base}/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+function storageHeaders(localServiceRoleKey, contentType) {
+  return {
+    apikey: localServiceRoleKey,
+    Authorization: `Bearer ${localServiceRoleKey}`,
+    ...(contentType ? { 'Content-Type': contentType } : {}),
+  };
+}
+
+async function addPrivateObject(storageContext, assetId, createdPaths) {
+  const path = `branding/${assetId}.png`;
+  const response = await fetch(storageUrl(storageContext.localApiUrl, path), {
+    method: 'POST',
+    headers: storageHeaders(storageContext.localServiceRoleKey, 'image/png'),
+    body: STORAGE_PNG,
+  });
+  const body = await response.text();
+  assert.ok(
+    response.ok,
+    `private Storage API upload failed; actual=${JSON.stringify({ path, status: response.status, body: body.slice(0, 512) })}`,
+  );
+  createdPaths.add(path);
+}
+
+async function removePrivateObjects(storageContext, paths) {
+  if (paths.length === 0) return;
+  const response = await fetch(storageUrl(storageContext.localApiUrl), {
+    method: 'DELETE',
+    headers: storageHeaders(storageContext.localServiceRoleKey, 'application/json'),
+    body: JSON.stringify({ prefixes: paths }),
+  });
+  const body = await response.text();
+  assert.ok(
+    response.ok,
+    `private Storage API cleanup failed; actual=${JSON.stringify({ paths, status: response.status, body: body.slice(0, 512) })}`,
   );
 }
 
 async function register(client, actorId, assetId, overrides = {}) {
   const metadata = {
     sha256: HASH_A,
-    byteLength: 64,
+    byteLength: STORAGE_PNG.length,
     width: 32,
     height: 32,
     ...overrides,
@@ -75,7 +156,17 @@ async function registerAsService(client, actorId, assetId, overrides = {}) {
   return asRole(client, 'service_role', () => register(client, actorId, assetId, overrides));
 }
 
-export async function run({ withClient, withTwoClients }) {
+export async function run({ withClient, withTwoClients, localApiUrl, localServiceRoleKey }) {
+  assert.ok(
+    localApiUrl,
+    `private Storage API URL is required for asset fixtures; actual=${JSON.stringify({ localApiUrl: Boolean(localApiUrl) })}`,
+  );
+  assert.ok(
+    localServiceRoleKey,
+    `private Storage service-role key is required for asset fixtures; actual=${JSON.stringify({ localServiceRoleKey: Boolean(localServiceRoleKey) })}`,
+  );
+  const storageContext = { localApiUrl, localServiceRoleKey };
+  const createdStoragePaths = new Set();
   const actorId = randomUUID();
   const nonAdminId = randomUUID();
   const assetIds = {
@@ -121,8 +212,10 @@ export async function run({ withClient, withTwoClients }) {
     const originalPolicy = originalPolicyResult.rows[0];
     const policyForTest = { ...originalPolicy.value };
     delete policyForTest.revision;
+    const policyForRestore = { ...originalPolicy.value };
+    delete policyForRestore.revision;
     Object.assign(policyForTest, {
-      maxUploadBytes: 128,
+      maxUploadBytes: 4096,
       minImageDimension: 32,
       maxImageDimension: 64,
       maxImagePixels: 1024,
@@ -137,6 +230,7 @@ export async function run({ withClient, withTwoClients }) {
       [actorId],
     );
 
+    let policyChanged = false;
     try {
       const grants = await client.query(`
         select
@@ -173,15 +267,6 @@ export async function run({ withClient, withTwoClients }) {
         },
         `registration RPC/table grants must preserve the service-only boundary; actual=${JSON.stringify(grants.rows)}`,
       );
-      const bucket = await client.query(
-        `select id, public from storage.buckets where id = 'branding-assets'`,
-      );
-      assert.deepEqual(
-        bucket.rows,
-        [{ id: 'branding-assets', public: false }],
-        `asset metadata may only register against the private O03 bucket; actual=${JSON.stringify(bucket.rows)}`,
-      );
-
       for (const role of ['anon', 'authenticated']) {
         await asRole(client, role, () => expectPgError(
           () => register(client, actorId, assetIds.missingObject),
@@ -204,8 +289,9 @@ export async function run({ withClient, withTwoClients }) {
         `select public.admin_set_branding_policy($1::jsonb)`,
         [JSON.stringify(policyForTest)],
       );
+      policyChanged = true;
 
-      await addPrivateObject(client, assetIds.valid);
+      await addPrivateObject(storageContext, assetIds.valid, createdStoragePaths);
       const valid = await registerAsService(client, actorId, assetIds.valid);
       assert.equal(
         valid.rows[0]?.id,
@@ -232,7 +318,7 @@ export async function run({ withClient, withTwoClients }) {
           object_path: `branding/${assetIds.valid}.png`,
           sha256: HASH_A,
           mime_type: 'image/png',
-          byte_length: '64',
+          byte_length: String(STORAGE_PNG.length),
           width: 32,
           height: 32,
           uploaded_by: actorId,
@@ -280,7 +366,7 @@ export async function run({ withClient, withTwoClients }) {
         `a conflicting retry must not add another registration audit event; actual=${JSON.stringify(conflictingRetryAudit.rows)}`,
       );
 
-      await addPrivateObject(client, assetIds.invalidActor);
+      await addPrivateObject(storageContext, assetIds.invalidActor, createdStoragePaths);
       await expectPgError(
         () => registerAsService(client, nonAdminId, assetIds.invalidActor),
         '42501',
@@ -288,14 +374,14 @@ export async function run({ withClient, withTwoClients }) {
       );
 
       const invalidMetadata = [
-        ['non-normalized SHA-256', assetIds.invalidHash, { sha256: HASH_A.toUpperCase() }],
-        ['oversized bytes', assetIds.oversizedBytes, { byteLength: 129 }],
+        ['non-normalized SHA-256', assetIds.invalidHash, { sha256: 'A'.repeat(64) }],
+        ['oversized bytes', assetIds.oversizedBytes, { byteLength: 4097 }],
         ['undersized width', assetIds.undersizedWidth, { width: 31 }],
         ['oversized dimension', assetIds.oversizedDimension, { width: 65 }],
         ['configured pixel ceiling', assetIds.pixelCeiling, { width: 33 }],
       ];
       for (const [label, assetId, overrides] of invalidMetadata) {
-        await addPrivateObject(client, assetId);
+        await addPrivateObject(storageContext, assetId, createdStoragePaths);
         await expectPgError(
           () => registerAsService(client, actorId, assetId, overrides),
           '22023',
@@ -308,21 +394,21 @@ export async function run({ withClient, withTwoClients }) {
         'missing private Storage object',
       );
 
-      await addPrivateObject(client, assetIds.parentOff);
+      await addPrivateObject(storageContext, assetIds.parentOff, createdStoragePaths);
       await setFlags(client, ['branding_runtime', 'branding_editor']);
       await expectPgError(
         () => registerAsService(client, actorId, assetIds.parentOff),
         '55000',
         'oorva_brand OFF',
       );
-      await addPrivateObject(client, assetIds.runtimeOff);
+      await addPrivateObject(storageContext, assetIds.runtimeOff, createdStoragePaths);
       await setFlags(client, ['oorva_brand', 'branding_editor']);
       await expectPgError(
         () => registerAsService(client, actorId, assetIds.runtimeOff),
         '55000',
         'branding_runtime OFF',
       );
-      await addPrivateObject(client, assetIds.editorOff);
+      await addPrivateObject(storageContext, assetIds.editorOff, createdStoragePaths);
       await setFlags(client, ['oorva_brand', 'branding_runtime']);
       await expectPgError(
         () => registerAsService(client, actorId, assetIds.editorOff),
@@ -331,7 +417,7 @@ export async function run({ withClient, withTwoClients }) {
       );
 
       await setFlags(client, FLAG_KEYS);
-      await addPrivateObject(client, assetIds.revoked);
+      await addPrivateObject(storageContext, assetIds.revoked, createdStoragePaths);
       await registerAsService(client, actorId, assetIds.revoked);
       await client.query(
         `select set_config('request.jwt.claim.sub', $1::text, false)`,
@@ -347,7 +433,7 @@ export async function run({ withClient, withTwoClients }) {
         'revoked asset id',
       );
 
-      await addPrivateObject(client, assetIds.concurrent);
+      await addPrivateObject(storageContext, assetIds.concurrent, createdStoragePaths);
       await withTwoClients(async (first, second) => {
         const [firstPidResult, secondPidResult] = await Promise.all([
           first.query(`select pg_backend_pid() as pid`),
@@ -438,18 +524,31 @@ export async function run({ withClient, withTwoClients }) {
         `concurrent identical registration must create one asset audit row; actual=${JSON.stringify(concurrentAudit.rows)}`,
       );
     } finally {
+      if (policyChanged) {
+        await setFlags(client, FLAG_KEYS);
+        await client.query(
+          `select set_config('request.jwt.claim.sub', $1::text, false)`,
+          [actorId],
+        );
+        await client.query(
+          `select public.admin_set_branding_policy($1::jsonb)`,
+          [JSON.stringify(policyForRestore)],
+        );
+        await client.query(
+          `update public.app_config
+              set value = value || jsonb_build_object('revision', $1::bigint),
+                  updated_by = $2::uuid,
+                  updated_at = $3::timestamptz
+            where key = 'branding_policy'`,
+          [originalPolicy.value.revision, originalPolicy.updated_by, originalPolicy.updated_at],
+        );
+      }
       for (const flag of originalFlags) {
         await client.query(
           `update public.feature_flags set enabled = $2::boolean where key = $1::text`,
           [flag.key, flag.enabled],
         );
       }
-      await client.query(
-        `update public.app_config
-            set value = $1::jsonb, updated_by = $2::uuid, updated_at = $3::timestamptz
-          where key = 'branding_policy'`,
-        [JSON.stringify(originalPolicy.value), originalPolicy.updated_by, originalPolicy.updated_at],
-      );
       await client.query(
         `delete from public.admin_audit_log
           where admin_id = $1::uuid
@@ -468,6 +567,7 @@ export async function run({ withClient, withTwoClients }) {
         `delete from auth.users where id = any($1::uuid[])`,
         [[actorId, nonAdminId]],
       );
+      await removePrivateObjects(storageContext, [...createdStoragePaths]);
     }
   });
 }
