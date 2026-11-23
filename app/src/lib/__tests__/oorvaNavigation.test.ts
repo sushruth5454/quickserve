@@ -99,7 +99,7 @@ describe('O11 navigation matrix', () => {
     expect(customer).toContain("safeReturnTo(path) ? path : '/'");
     expect(customer).toContain("activeRole === 'provider'");
     expect(provider).toContain("activeRole === 'customer' && !businessRole");
-    expect(provider).toContain('ownerOnlyTabHref(businessRole)');
+    expect(provider).toContain('href: isOwner ? undefined : null');
     expect(admin).toContain("currentAccess.status === 'denied'");
     expect(notificationRoute({ url: '/booking/booking-1' })).toBe('/booking/booking-1');
     expect(notificationRoute({ url: '/provider/dashboard' })).toBe('/dashboard');
