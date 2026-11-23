@@ -4,84 +4,108 @@
   "logicalWorkPackage": "O05",
   "sourceTask": "PF-T10",
   "sourceFinding": "PF-F12",
-  "implementationBaseSha": "4f1e92ce44edd43e48a93919d381ef09c8b1c748",
-  "dependencies": {
-    "O01X_D": "b1e49daf6ecf47e5b821a0c78488e43268b833ee",
-    "O02_D": "2dc1b60b3a2175c4c57793bebaddf2f4f600ba3a",
-    "O37A_D_State": "a2efce254c0502bb6d60609bc1f4bbe2206b99c1"
+  "bindingCheckpoint": {
+    "commit": "190d00bcf3b003ca7550288c50fd6500dea19850",
+    "base": "4f1e92ce44edd43e48a93919d381ef09c8b1c748",
+    "manifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
+    "selected": false,
+    "publiclyCleared": true
   },
-  "sourceEvidence": {
-    "path": "docs/audit/18-WS1-Platform-Auth-AI-Native.md",
-    "section": "PF-T10",
-    "lines": "396-410"
+  "selectedStack": {
+    "head": "c2ca765893520b7e335c69f95a27c342cd0d220c",
+    "selectedManifest": {
+      "path": "app/assets/brand/manifest.json",
+      "sha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+      "selected": true,
+      "publiclyCleared": true,
+      "verifiedAgainst": [
+        "working-tree manifest bytes",
+        "c2ca765893520b7e335c69f95a27c342cd0d220c manifest blob",
+        "O01X D assets selector testedManifestSha256"
+      ]
+    },
+    "dependencies": {
+      "O01X_D": "b1e49daf6ecf47e5b821a0c78488e43268b833ee",
+      "O02_D": "2dc1b60b3a2175c4c57793bebaddf2f4f600ba3a",
+      "O37A_D_State": "a2efce254c0502bb6d60609bc1f4bbe2206b99c1"
+    }
   },
   "gates": {
     "E0": "APPROVED",
     "D03b": "APPROVED",
     "D03c": {
       "status": "APPROVED",
-      "scope": "Rights only; D02, D07, native, and release gates remain separate."
+      "scope": "Rights only; not public/store or native release authorization."
     },
     "D02": "PENDING",
     "D07aPlatform": "PENDING",
     "D07bPlatform": "PENDING"
   },
-  "o01xDCandidate": {
-    "status": "CANDIDATE_A4.1_PASS_WAITING_O05B_BINDINGS",
-    "assetsSelector": "PASS_CANDIDATE_ONLY",
-    "assetCount": 26,
-    "bindingDataMatchesO01XEvidence": true,
-    "fourBoundAssetBytesMatch": true
-  },
-  "manifestAtCheckpoint": {
-    "path": "app/assets/brand/manifest.json",
-    "sha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
-    "selected": false,
-    "publiclyCleared": true,
-    "selectionStatus": "O01X must set selected=true after this binding checkpoint."
-  },
-  "approvedSelectedIdentityTarget": {
-    "selected": true,
-    "publiclyCleared": true,
-    "rightsGate": "D03c APPROVED",
-    "productionReady": false,
-    "publicReleaseAllowed": false,
-    "nativeReleaseAuthorized": false,
-    "nativeAssetsInstalled": false,
-    "oorvaBrandEnabled": false
-  },
-  "selectedExports": {
-    "bindingDataPath": "docs/design/oorva/brand-kit/handoff/binding-data.json",
-    "exports": [
-      {
-        "key": "logoLight",
-        "modulePath": "../../assets/brand/logo-horizontal-light.png",
-        "path": "app/assets/brand/logo-horizontal-light.png",
-        "role": "horizontal-lockup",
-        "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e"
+  "dAssetBindings": [
+    {
+      "key": "logoLight",
+      "modulePath": "../../assets/brand/logo-horizontal-light.png",
+      "path": "app/assets/brand/logo-horizontal-light.png",
+      "role": "horizontal-lockup",
+      "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e",
+      "verifiedAgainstManifestAndFile": true
+    },
+    {
+      "key": "logoDark",
+      "modulePath": "../../assets/brand/logo-horizontal-dark.png",
+      "path": "app/assets/brand/logo-horizontal-dark.png",
+      "role": "horizontal-lockup",
+      "sha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b",
+      "verifiedAgainstManifestAndFile": true
+    },
+    {
+      "key": "compactLight",
+      "modulePath": "../../assets/brand/logo-compact-light.png",
+      "path": "app/assets/brand/logo-compact-light.png",
+      "role": "compact-symbol",
+      "sha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69",
+      "verifiedAgainstManifestAndFile": true
+    },
+    {
+      "key": "compactDark",
+      "modulePath": "../../assets/brand/logo-compact-dark.png",
+      "path": "app/assets/brand/logo-compact-dark.png",
+      "role": "compact-symbol",
+      "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2",
+      "verifiedAgainstManifestAndFile": true
+    }
+  ],
+  "selectedStackValidation": {
+    "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "codespaceTsc": {
+      "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite tsc",
+      "result": "PASS"
+    },
+    "assetsA41Selector": {
+      "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite assets -Filter oorva",
+      "result": "PASS",
+      "manifestState": {
+        "selected": true,
+        "publiclyCleared": true
       },
-      {
-        "key": "logoDark",
-        "modulePath": "../../assets/brand/logo-horizontal-dark.png",
-        "path": "app/assets/brand/logo-horizontal-dark.png",
-        "role": "horizontal-lockup",
-        "sha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b"
-      },
-      {
-        "key": "compactLight",
-        "modulePath": "../../assets/brand/logo-compact-light.png",
-        "path": "app/assets/brand/logo-compact-light.png",
-        "role": "compact-symbol",
-        "sha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69"
-      },
-      {
-        "key": "compactDark",
-        "modulePath": "../../assets/brand/logo-compact-dark.png",
-        "path": "app/assets/brand/logo-compact-dark.png",
-        "role": "compact-symbol",
-        "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
-      }
-    ]
+      "checkedFileCount": 26,
+      "hashMismatchCount": 0,
+      "safeZoneFailures": 0
+    },
+    "identitySelector": {
+      "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
+      "result": "PASS",
+      "selectedSuites": 1,
+      "selectedTests": 86,
+      "passedTests": 86,
+      "failedTests": 0
+    },
+    "laneCI": {
+      "runId": "45253787264",
+      "headSha": "c2ca765893520b7e335c69f95a27c342cd0d220c",
+      "status": "completed",
+      "conclusion": "success"
+    }
   },
   "legacyFallback": {
     "contextCount": 21,
@@ -115,29 +139,19 @@
     "bundledAssetUnavailable": "Falls back to the exact context legacy identity.",
     "financialIdentityFields": "Issuer, account identifiers, receipt snapshots, contact URLs, historical text, payout narration, and technical identifiers are outside the identity API."
   },
-  "testCoverage": [
-    "Contextual legacy identities with brand OFF and bundled assets unavailable",
-    "Parent brand OFF despite runtime and bundled state being ON",
-    "Separately owned Nearo receipt and checkout contexts remain Nearo",
-    "Four D bindings match current manifest paths, roles, O01X D binding hashes, and file SHA-256 values",
-    "Approved selected/public-rights manifest state with D03c approved and D02/D07/native/release gates separate",
-    "Published identity schema, null asset, invalid identity, and legacy fallback cases",
-    "BrandLogo uses selected exports or the exact identity label without a placeholder"
-  ],
-  "validation": {
-    "selector": "src.branding.__tests__.identity[.]test[.]ts$",
-    "suite": "app",
-    "status": "NOT_RUN_WAITING_O01X_SELECTION",
-    "reason": "The current manifest is intentionally selected=false. O01X must set selected=true after the binding checkpoint; run current-main Codespace selector and exact-head Lane CI only after that selection."
-  },
-  "scope": {
-    "o05bOwnedChangesOnly": true,
-    "manifestOrAssetChanges": false,
-    "nativeDestinationChanges": false,
-    "featureFlagActivation": false,
-    "productionFeatureEnablement": false,
+  "o05bScope": {
+    "changedFiles": [
+      "app/src/branding/defaults.ts",
+      "app/src/branding/__tests__/identity.test.ts",
+      "docs/design/oorva/evidence/o05b.json"
+    ],
+    "productionReady": false,
+    "publicReleaseAllowed": false,
+    "nativeReleaseAuthorized": false,
+    "nativeAssetsInstalled": false,
+    "oorvaBrandEnabled": false,
     "historicalMoneyIdentityChanges": false,
-    "publicOrStoreRelease": false,
-    "runtimeOrDeviceVerification": "NOT_PERFORMED"
+    "runtimeOrDeviceVerification": "NOT_PERFORMED",
+    "publicOrNativeRelease": false
   }
 }
