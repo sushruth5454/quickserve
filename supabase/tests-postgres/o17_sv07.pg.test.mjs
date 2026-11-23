@@ -316,7 +316,6 @@ async function runBookingFirstResponseContention(context) {
           `select id from recurring_schedules where id = $1::uuid for update`,
           [fixture.schedule],
         );
-        await response.query('set role authenticated');
 
         await bookingFirst.query('begin');
         bookingFirstTransactionOpen = true;
@@ -340,6 +339,7 @@ async function runBookingFirstResponseContention(context) {
           response, bookingFirstPid, responsePid, operationResult, fixture,
         );
 
+        await response.query('set role authenticated');
         await response.query('savepoint response_attempt');
         const responseStartedAt = Date.now();
         let responseAttempt;
