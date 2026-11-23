@@ -39,7 +39,7 @@
       "outage": "HTTP 404: Not Found from https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30; response stated the operation needs the codespace scope. The required helper stopped before running app tests. Credentials were not refreshed."
     },
     "gitDiffCheck": "PASS",
-    "laneCIFallback": "Required because Codespace is unavailable; the result will be recorded by the exact-head GitHub Actions run."
+    "laneCIFallback": "Required because Codespace is unavailable; the result will be recorded by the exact-head GitHub Actions run.",
     "visualDeviceEvidence": "NOT VERIFIED; no device/browser execution was requested or performed."
   },
   "runtime": {
