@@ -69,7 +69,7 @@
     "runtimeDeviceEvidence": "NOT_VERIFIED"
   },
   "approvedDPaletteDelta": {
-    "status": "AWAITING_LANE_CI_FALLBACK",
+    "status": "CODE_GREEN_PRIVATE_CODE_COMMIT",
     "approvedTokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
     "paletteMapVerification": {
       "result": "PASS",
@@ -168,14 +168,20 @@
       "mainPromotion": "not performed",
       "liveMoneyOrProductionDataOperations": "not performed"
     },
-    "nextAction": "Commit/push only this isolated private lane to invoke the documented fallback; watch the exact pushed head. Do not main-promote.",
+    "nextAction": "Do not promote O02 to main until O01X PNG/manifest and O05B bindings are complete and the full brand asset/binding set is atomic.",
     "sourceBaseSha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
     "gitHeadSha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
-    "commitAndPush": "PENDING_LANE_CI_FALLBACK",
+    "commitAndPush": "PRIVATE_LANE_PUSHED; no main promotion",
     "laneCi": {
-      "runId": null,
-      "status": "DOCUMENTED_FALLBACK_PENDING",
-      "reason": "Codespace setup failed before test selection; validate this exact O02 head with Lane CI."
+      "runId": 45229065800,
+      "status": "PASS",
+      "headSha": "92ad04b9b5d8d7d6a833cbb725255551701c6ece",
+      "appJobId": 137883431916,
+      "selectorFile": "src/branding/__tests__/validation.test.ts",
+      "selectorResult": "PASS",
+      "testSuites": "113 passed / 113 total",
+      "tests": "822 passed / 823 total; 1 skipped",
+      "workflow": "documented Lane-CI fallback after Codespace setup failed before selection"
     },
     "testedBase32": {
       "sha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
@@ -191,6 +197,7 @@
       "promotion": "NOT_MAIN_PROMOTED",
       "pendingAtomicAssets": "O01X PNG/manifest and O05B bindings incomplete",
       "source": "owner-provided ledger update"
-    }
+    },
+    "validatedCodeHead": "92ad04b9b5d8d7d6a833cbb725255551701c6ece"
   }
 }
