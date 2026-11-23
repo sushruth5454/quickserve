@@ -13,7 +13,7 @@ import {
 import { badgeLabel } from '../../src/lib/unread';
 import { useUnread } from '../../src/lib/unreadContext';
 import { Button, FullScreenLoader, InlineAlert, Screen } from '../../src/components/ui';
-import { ownerOnlyTabHref, TabIcon, useTabScreenOptions, useUnreadCountBadgeStyle } from '../../src/components/tabOptions';
+import { TabIcon, useTabScreenOptions, useUnreadCountBadgeStyle } from '../../src/components/tabOptions';
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
 

@@ -4,6 +4,9 @@ import { resolveBrandIdentity, type BrandIdentityState } from '../../branding/id
 import { safeReturnTo } from '../authGate';
 import { badgeLabel, notificationRoute, toUnreadMap, totalUnread } from '../unread';
 
+jest.mock('expo-router', () => ({ router: { replace: jest.fn() } }));
+jest.mock('../api', () => ({ getSession: jest.fn() }));
+
 const publishedIdentity: NonNullable<BrandIdentityState['published']> = {
   schemaVersion: 1,
   displayName: 'Oorva',
