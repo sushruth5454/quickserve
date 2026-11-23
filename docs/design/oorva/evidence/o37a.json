@@ -711,5 +711,69 @@
       "lanePushed": false,
       "toolAssetsMainSatisfied": false
     }
+  },
+  "dPaletteDelta": {
+    "canonicalStageId": "O37A",
+    "canonicalStageStatus": "DONE",
+    "deltaStatus": "IMPLEMENTED_PENDING_LANE_CI",
+    "baseSha": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "frozenPlanCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "ownerApprovedTokenSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "approvalSnapshot": {
+      "D03a": "APPROVED",
+      "D03b": "APPROVED",
+      "D03c": "APPROVED",
+      "E0": "APPROVED",
+      "E1": "APPROVED",
+      "TOOL-ASSETS-MAIN": "APPROVED",
+      "D02": "PENDING",
+      "D07a-platform": "PENDING",
+      "D07b": "PENDING"
+    },
+    "palette": {
+      "primary": "#006D77",
+      "backgroundLight": "#FFFFFF",
+      "accent": "#E8B772",
+      "darkPrimary": "#80D4D4",
+      "backgroundDark": "#0C1B21",
+      "defaultTheme": "system",
+      "legacyForestAndIvoryCoverageRetained": true
+    },
+    "exportProvenance": {
+      "generated": "Pinned @resvg/resvg-js output remains sRGB-tagged and byte-deterministic against its declared SVG/source transform.",
+      "supplied": "Sealed supplied PNGs retain Chromium SVG rasterization 158.0.4370.33 plus Pillow provenance; exact supplied hashes and PNG metadata are checked without Resvg byte-reproduction claims.",
+      "sample": {
+        "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+        "file": "app/assets/brand/logo-horizontal-light.png",
+        "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e",
+        "colorProfile": "sRGB"
+      }
+    },
+    "preservedChecks": [
+      "source and export SHA-256",
+      "PNG chunks, CRC, dimensions, alpha and embedded profile",
+      "safe zones, icon boundaries and supplied ink bounds",
+      "outlined/self-contained SVG security checks"
+    ],
+    "scope": {
+      "suppliedPngsCopiedOrRegenerated": false,
+      "appManifestOrAssetDestinationsEdited": false,
+      "oorvaBrandActivated": false,
+      "nativeOrPublicCutover": false,
+      "moneyOrProductionDataTouched": false
+    },
+    "validation": {
+      "codespaceApp": {
+        "status": "UNAVAILABLE_AUTH_SCOPE",
+        "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
+        "error": "GitHub Codespaces API returned HTTP 404 for the repository list; response stated the token requires the codespace scope. No auth refresh/workaround was attempted."
+      },
+      "laneCi": {
+        "status": "PENDING",
+        "headSha": null,
+        "runId": null
+      },
+      "assetsSuiteInvoked": false
+    }
   }
 }
