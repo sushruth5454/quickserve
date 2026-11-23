@@ -715,8 +715,9 @@
   "dPaletteDelta": {
     "canonicalStageId": "O37A",
     "canonicalStageStatus": "DONE",
-    "deltaStatus": "IMPLEMENTED_PENDING_LANE_CI",
-    "baseSha": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "deltaStatus": "APP_SELECTOR_PASS_ASSET_SELECTOR_BLOCKED_BY_BASE_INPUTS_PENDING_LANE_CI",
+    "baseSha": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
+    "originMainInputSha": "b914532ba1be6527ea0e74202fe0c3833376329e",
     "frozenPlanCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
     "ownerApprovedTokenSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
     "approvalSnapshot": {
@@ -729,6 +730,48 @@
       "D02": "PENDING",
       "D07a-platform": "PENDING",
       "D07b": "PENDING"
+    },
+    "appManifestStateModel": {
+      "observedBaseManifest": {
+        "root": {
+          "selected": true,
+          "publiclyCleared": false,
+          "designSelection": "approved",
+          "publicRights": "pending"
+        },
+        "assetCount": 26,
+        "perAssetStateMatchesRoot": true
+      },
+      "O01XCandidateRelationship": {
+        "candidateCommit": "b1e49daf6ecf47e5b821a0c78488e43268b833ee",
+        "candidateIsAncestorOfLockedBase": false,
+        "candidateChangesBrandAssetsAndManifest": true
+      },
+      "candidate": {
+        "approvals": { "designSelection": "pending", "publicRights": "pending" },
+        "selected": false,
+        "publiclyCleared": false
+      },
+      "approved": {
+        "approvals": { "designSelection": "approved", "publicRights": "approved" },
+        "selected": true,
+        "publiclyCleared": true
+      },
+      "independentGateRules": [
+        "The root and every file entry must agree on each approval and its corresponding selected/publiclyCleared boolean.",
+        "Each boolean is true only when its matching D03b/D03c approval is approved; pending or unknown approval states fail validation.",
+        "A D03b-approved/D03c-pending intermediate state is valid only as selected=true/publiclyCleared=false.",
+        "License status and export provenance remain separate from D03c public-rights clearance."
+      ],
+      "pendingReleaseGates": {
+        "D02": "PENDING",
+        "D07a-platform": "PENDING",
+        "D07b": "PENDING",
+        "productionReady": false,
+        "publicLaunchAuthorized": false,
+        "nativeVerified": false,
+        "oorvaBrandFeature": "OFF"
+      }
     },
     "palette": {
       "primary": "#006D77",
@@ -756,6 +799,11 @@
       "outlined/self-contained SVG security checks"
     ],
     "scope": {
+      "changedPaths": [
+        "scripts\\brand\\asset-tests.mjs",
+        "app\\src\\branding\\__tests__\\executionInfrastructure.test.ts",
+        "docs\\design\\oorva\\evidence\\o37a.json"
+      ],
       "suppliedPngsCopiedOrRegenerated": false,
       "appManifestOrAssetDestinationsEdited": false,
       "oorvaBrandActivated": false,
@@ -764,9 +812,31 @@
     },
     "validation": {
       "codespaceApp": {
-        "status": "UNAVAILABLE_AUTH_SCOPE",
+        "status": "PASS",
         "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
-        "error": "GitHub Codespaces API returned HTTP 404 for the repository list; response stated the token requires the codespace scope. No auth refresh/workaround was attempted."
+        "helperSource": "current-origin/main cs-test-current-main.ps1",
+        "snapshotBranch": "wip/qs-o37a-d-approved-state",
+        "snapshotCommit": "bfa83863",
+        "suite": "app",
+        "typescript": "PASS",
+        "selectedJestSuites": 1,
+        "testsPassed": 8,
+        "zeroSelected": false,
+        "approvedStateSelftest": "PASS"
+      },
+      "assetsSuite": {
+        "status": "FAIL_BASE_ASSET_INTEGRITY",
+        "selector": "oorva",
+        "snapshotCommit": "59a3fdd8",
+        "findingCount": 54,
+        "approvalStateFindings": 0,
+        "failureCategories": [
+          "manifest toolchain exporter SHA-256 differs from the checked-out exporter",
+          "declared SVG source SHA-256 differs from checked-out source bytes",
+          "pinned Resvg regeneration differs from supplied PNG bytes",
+          "dark-symbol recolor assertions fail against the checked-out source"
+        ],
+        "cause": "The locked base does not contain O01X candidate b1e49daf6ecf47e5b821a0c78488e43268b833ee; its asset/manifest changes are outside this O37A write scope. The 54 findings are retained and not suppressed."
       },
       "laneCi": {
         "status": "PENDING",
