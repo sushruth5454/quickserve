@@ -1,4 +1,9 @@
-import type { SportsBookingStatus, SportsPaymentMode, SportsSlotAvailability } from './api';
+import type {
+  CustomerSportsBookingDetail,
+  SportsBookingStatus,
+  SportsPaymentMode,
+  SportsSlotAvailability,
+} from './api';
 import { formatINR } from '../../lib/money';
 
 export type { SportsPaymentMode, SportsSlotAvailability } from './api';
@@ -85,6 +90,94 @@ export function getAvailableSportsPaymentModes(
 
 export function canContinueSportsCheckout(status: SportsBookingStatus | string): boolean {
   return status === 'pending_payment' || status === 'awaiting_payment';
+}
+
+export type SportsBookingDeadlineKind = 'request' | 'hold' | 'payment' | null;
+export type SportsBookingNextAction = 'pay' | 'view_request' | 'view_booking';
+
+export interface SportsBookingActions {
+  canPay: boolean;
+  canDecide: boolean;
+  canCancel: boolean;
+  applicableDeadline: string | null;
+  deadlineKind: SportsBookingDeadlineKind;
+  nextAction: SportsBookingNextAction;
+}
+
+export function getSportsBookingActions(input: {
+  booking: Pick<
+    CustomerSportsBookingDetail,
+    | 'status'
+    | 'customer_id'
+    | 'owner_id'
+    | 'payment_mode'
+    | 'paid_at'
+    | 'hold_expires_at'
+    | 'pay_by'
+    | 'expires_at'
+    | 'starts_at'
+  > | null;
+  viewerId: string | null | undefined;
+  now: Date;
+}): SportsBookingActions {
+  const { booking, viewerId, now } = input;
+  if (!booking) {
+    return {
+      canPay: false,
+      canDecide: false,
+      canCancel: false,
+      applicableDeadline: null,
+      deadlineKind: null,
+      nextAction: 'view_booking',
+    };
+  }
+
+  const nowMs = now.getTime();
+  const finiteDate = (value: string | null | undefined): number | null => {
+    if (typeof value !== 'string' || value.trim() === '') return null;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const isCustomer = !!viewerId && booking.customer_id === viewerId;
+  const isOwner = !!viewerId && booking.owner_id === viewerId;
+  const isActive = ['requested', 'pending_payment', 'awaiting_payment', 'accepted'].includes(booking.status);
+
+  let deadlineValue: string | null | undefined = null;
+  let deadlineKind: SportsBookingDeadlineKind = null;
+  if (booking.status === 'requested') {
+    deadlineValue = booking.expires_at;
+    deadlineKind = 'request';
+  } else if (booking.status === 'pending_payment') {
+    deadlineValue = booking.hold_expires_at;
+    deadlineKind = 'hold';
+  } else if (booking.status === 'awaiting_payment') {
+    deadlineValue = booking.pay_by;
+    deadlineKind = 'payment';
+  }
+
+  const deadlineMs = finiteDate(deadlineValue);
+  const applicableDeadline = deadlineMs == null ? null : deadlineValue ?? null;
+  const liveDeadline = Number.isFinite(nowMs) && deadlineMs != null && deadlineMs > nowMs;
+  const startsAtMs = finiteDate(booking.starts_at);
+  const canPay = isCustomer
+    && booking.payment_mode === 'online'
+    && booking.paid_at == null
+    && canContinueSportsCheckout(booking.status)
+    && liveDeadline;
+  const canDecide = isOwner && booking.status === 'requested' && liveDeadline;
+  const canCancel = isActive && (
+    isOwner
+    || (isCustomer && Number.isFinite(nowMs) && startsAtMs != null && startsAtMs > nowMs)
+  );
+
+  return {
+    canPay,
+    canDecide,
+    canCancel,
+    applicableDeadline,
+    deadlineKind,
+    nextAction: canPay ? 'pay' : booking.status === 'requested' ? 'view_request' : 'view_booking',
+  };
 }
 
 export function getSportsBookingActionLabel(bookingMode: 'instant' | 'approval', instantBookingEnabled: boolean): string {
