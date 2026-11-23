@@ -1,0 +1,77 @@
+{
+  "stageId": "O06B",
+  "workPackage": "O06",
+  "sourceTaskId": "PF-T08",
+  "findingIds": [
+    "PF-F09",
+    "PF-F10"
+  ],
+  "status": "implemented",
+  "base": {
+    "branch": "lane/oorva-o06b",
+    "commit": "0b7747cc25195cc7e36b5bbd325edfc45656f6cf"
+  },
+  "prerequisites": {
+    "O05A": "91ac27fbe028101abdc620739d48e1bd8b1b11a6",
+    "O06A": "91102872e6a089829679c71209759b59dbb4a68f"
+  },
+  "ownedFiles": [
+    "app\\src\\components\\ui\\Text.tsx",
+    "app\\src\\components\\ui\\Button.tsx",
+    "app\\src\\components\\ui\\Input.tsx",
+    "app\\src\\components\\ui\\OTPInput.tsx",
+    "app\\src\\components\\ui\\IconButton.tsx",
+    "app\\src\\components\\ui\\Badge.tsx",
+    "app\\src\\components\\ui\\CountBadge.tsx",
+    "app\\src\\components\\ui\\SegmentedControl.tsx",
+    "app\\src\\components\\ui\\Stepper.tsx",
+    "app\\src\\components\\ui\\__tests__\\brandingPrimitives.test.tsx",
+    "docs\\design\\oorva\\evidence\\o06b.json"
+  ],
+  "implementation": {
+    "reflow": "Button content and its action row can shrink to the available width while preserving wrap and auto-height behavior.",
+    "identity": "Primitive Text styles continue to use the active Theme typography and color tokens; the brand-off baseline remains the legacy palette, while Manrope is applied only by an effective branded theme with font readiness.",
+    "preserved": "O06A danger/onDanger, primary/onPrimary, CountBadge overlay, large-text, progress, reduced-motion, and native interaction repairs are covered without changing feature, financial, auth, role, or quantity logic.",
+    "featureFlagsOrMigrationsChanged": false
+  },
+  "testCoverage": [
+    "Brand OFF/ON A/B and theme-selected heading typography",
+    "Rendered primitive color pairs >=4.5:1 for legacy light/dark and custom Oorva light/dark",
+    "Unread zero/99+, numeric IconButton overlay, and destructive pressed state",
+    "Long action, amount, chip, status, and segment labels at 320px with 200% font scaling",
+    "Seven-step long-label progress and reduced-motion static rails",
+    "Button, segment, native submit/value, OTP, and quantity interaction preservation"
+  ],
+  "validation": {
+    "codespace": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.brandingPrimitives[.]test[.]tsx$'",
+      "status": "unavailable_before_test_selection",
+      "selectionAttempted": false,
+      "selectedTestFiles": null,
+      "selectedTests": null,
+      "csTestResult": "NOT_RUN",
+      "reason": "GitHub Codespaces API returned HTTP 404 before test selection; the current-main helper reported that the session lacks the codespace OAuth scope."
+    },
+    "fallback": {
+      "environment": "exact-head Lane CI",
+      "status": "PASS",
+      "runId": 45194709969,
+      "validatedCommit": "2dd0bed233077e156ec79cc359293349ff62dba5",
+      "results": {
+        "uiLint": "PASS",
+        "typecheck": "PASS",
+        "unitTests": "PASS"
+      }
+    },
+    "gitDiffCheck": "PASS"
+  },
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "releaseStatus": {
+    "E0": "approved",
+    "E1": "not approved",
+    "featureFlagsAddedOrChanged": false,
+    "oorva_brand": "remains OFF",
+    "productionOrDeploymentActions": "not performed"
+  },
+  "reviewRequired": []
+}

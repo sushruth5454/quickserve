@@ -81,15 +81,25 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
               if (!selected) haptics.select();
               onChange(o.value);
             }}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, minHeight: 38, paddingHorizontal: 6 }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              gap: 6,
+              minHeight: 38,
+              paddingHorizontal: 6,
+              paddingVertical: 6,
+            }}
           >
             {o.icon ? <Ionicons name={o.icon} size={16} color={selected ? t.colors.text : t.colors.muted} /> : null}
             <Text
               variant={selected ? 'subheadStrong' : 'subhead'}
               color={selected ? 'text' : 'muted'}
-              numberOfLines={1}
-              maxFontSizeMultiplier={1.3}
-              style={{ flexShrink: 1 }}
+              critical
+              style={{ flexShrink: 1, minWidth: 0 }}
             >
               {o.label}
             </Text>
@@ -97,15 +107,16 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
               <View
                 style={{
                   minWidth: 18,
-                  height: 18,
+                  minHeight: 18,
                   paddingHorizontal: 5,
+                  paddingVertical: 2,
                   borderRadius: 9,
                   backgroundColor: selected ? t.colors.primary : t.colors.borderStrong,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Text variant="micro" style={{ color: selected ? '#FFFFFF' : t.colors.textSecondary }}>
+                <Text variant="micro" style={{ color: selected ? t.colors.onPrimary : t.colors.textSecondary }} critical>
                   {o.badge}
                 </Text>
               </View>
