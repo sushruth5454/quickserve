@@ -6,7 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 import { validatePng } from './validate.mjs';
 
-const APPROVED_COLORS = new Set(['#173d39', '#f7f5ef', '#000000', '#ffffff']);
+const APPROVED_COLORS = new Set([
+  '#173d39',
+  '#f7f5ef',
+  '#000000',
+  '#ffffff',
+  '#006d77',
+  '#e8b772',
+  '#80d4d4',
+  '#0c1b21',
+]);
+const APPROVED_SOLID_BACKGROUNDS = new Set(['#173d39', '#ffffff', '#006d77', '#0c1b21']);
 const TRANSFORM_KEYS = new Set(['mode', 'canvas', 'density', 'recolor', 'background', 'safeArea']);
 const SYMBOL_VIEWBOX_SIZE = 256;
 const SYMBOL_INK_SAFEBOX_SIZE = 208;
@@ -129,6 +139,14 @@ function normalizeColor(color, label) {
   return normalized;
 }
 
+function normalizeSolidBackground(color, label) {
+  const normalized = normalizeColor(color, label);
+  if (!APPROVED_SOLID_BACKGROUNDS.has(normalized)) {
+    throw new Error(`${label} is not an approved solid background: actual=${JSON.stringify(color)} expected=${JSON.stringify([...APPROVED_SOLID_BACKGROUNDS])}`);
+  }
+  return normalized;
+}
+
 function validateCanvas(canvas) {
   if (!canvas || typeof canvas !== 'object' || Array.isArray(canvas) ||
     !Number.isSafeInteger(canvas.width) || !Number.isSafeInteger(canvas.height) ||
@@ -176,10 +194,7 @@ function validateTransform(svgSource, transform) {
     if (svgSource !== null) throw new Error(`solid-background mode must not receive SVG geometry: actual=SVG source supplied expected=null`);
     if (transform.recolor !== undefined) throw new Error(`solid-background mode cannot recolor geometry: actual=${JSON.stringify(transform.recolor)} expected=omitted`);
     if (transform.safeArea !== undefined) throw new Error(`solid-background mode cannot declare a symbol safe area: actual=${JSON.stringify(transform.safeArea)} expected=omitted`);
-    const background = normalizeColor(transform.background, 'solid-background color');
-    if (background !== '#173d39') {
-      throw new Error(`solid-background mode is restricted to the approved forest background: actual=${JSON.stringify(transform.background)} expected="#173D39"`);
-    }
+    const background = normalizeSolidBackground(transform.background, 'solid-background color');
     return { mode: transform.mode, canvas, density: transform.density, background };
   }
 
@@ -235,8 +250,7 @@ function validateTransform(svgSource, transform) {
 
 export function solidBackgroundSvg(canvas, color) {
   const size = validateCanvas(canvas);
-  const background = normalizeColor(color, 'solid-background color');
-  if (background !== '#173d39') throw new Error(`solid background is not approved: actual=${JSON.stringify(color)} expected="#173D39"`);
+  const background = normalizeSolidBackground(color, 'solid-background color');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}"><rect x="0" y="0" width="${size.width}" height="${size.height}" fill="${background}"/></svg>`;
 }
 
