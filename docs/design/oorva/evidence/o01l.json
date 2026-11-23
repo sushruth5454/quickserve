@@ -37,7 +37,7 @@
     },
     "D03c": "NOT_APPROVED",
     "D03cScope": "Blocks public launch/store listing only; it does not block development, private integration, main promotion, or owner testing.",
-    "provenance": "The exact current-main app-assets drop-ins were copied byte-for-byte. This revision did not redraw, derive, or trace geometry and did not copy or embed PNGs."
+    "provenance": "The exact current-main app-assets drop-ins were copied byte-for-byte before this revision applied only the documented centered uniform safe-area transforms to six files. No redraw, raster trace, PNG copy, or bitmap embedding was performed."
   },
   "dropInProvenance": {
     "sourceCommit": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
@@ -57,22 +57,23 @@
     },
     "destinationSha256": {
       "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
-      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
-      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
-      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
-      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
+      "oorva-wordmark-light.svg": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+      "oorva-wordmark-dark.svg": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+      "logo-horizontal-light.svg": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+      "logo-horizontal-dark.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
       "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
       "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
-      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
-      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
     },
-    "byteForByteVerified": true,
-    "copiedFileCount": 9
+    "copiedFileCount": 9,
+    "initialCopyByteForByteVerified": true,
+    "postCopyTransform": "Six horizontal/wordmark variants received only the documented centered uniform safe-area transform; path d, color, fill rule, viewBox, aspect ratio, and centers are preserved."
   },
   "validation": {
     "codespace": {
       "status": "BLOCKED_BEFORE_TEST_SELECTION",
-      "failure": "GitHub CLI lacked the codespace scope. The helper's list and explicitly selected Codespace SSH paths returned HTTP 404; no test selection or typecheck ran.",
+      "failure": "The current-main helper could not reach Codespaces: GitHub CLI lacks the codespace scope and the API returned HTTP 404. Test selection and typecheck did not run; no app tooling was run locally.",
       "selectedFiles": null,
       "selectedCases": null,
       "typecheck": "NOT_RUN",
@@ -80,12 +81,12 @@
     }
   },
   "handoff": {
-    "O01X": "BLOCKED until this exact O01L lane head passes Lane CI; coordinator then re-exports the PNG set and records candidate-specific hashes."
+    "O01X": "BLOCKED until this exact O01L lane head passes Lane CI. The corrected source head must be green before O01X re-exports PNGs and runs the official asset selector."
   },
   "authorship": {
     "concept": "Connected O",
     "wordmark": "Supplied outlined lowercase oorva",
-    "authoringScope": "Exact source-master copy only; no PNG export, native asset copy, or runtime integration."
+    "authoringScope": "Source-master copy plus the documented centered uniform safe-margin fit only; no PNG export, native asset copy, or runtime integration."
   },
   "smallSizeEvidence": {
     "sourceViewBoxWidth": 256,
@@ -103,12 +104,12 @@
       {
         "sizePx": 32,
         "leftGapPx": 1.114534,
-        "rightGapPx": 1.072950,
+        "rightGapPx": 1.07295,
         "status": "open"
       },
       {
         "sizePx": 48,
-        "leftGapPx": 1.671800,
+        "leftGapPx": 1.6718,
         "rightGapPx": 1.609425,
         "status": "open"
       }
@@ -116,7 +117,11 @@
     "visualSource": {
       "path": "docs/design/oorva/logo/vector/app-assets-contact-sheet.png",
       "sha256": "3242d927c79c88acc90f5fc5d19605730cc2301946759924a162fe430531ab05",
-      "reviewedSizesPx": [48, 32, 20],
+      "reviewedSizesPx": [
+        48,
+        32,
+        20
+      ],
       "result": "Both openings are visually distinct at all supplied render sizes."
     },
     "limitation": "Measurement and visual review use the provided source master/contact sheet; no new raster export, device rendering, or runtime use is claimed."
@@ -148,5 +153,600 @@
     "D03cScope": "Blocks public launch/store listing only; not development, private integration, main promotion, or owner testing.",
     "finalSelection": false,
     "publicReleaseAllowed": false
+  },
+  "safeMarginCorrection": {
+    "method": "For each reported O01X raster margin m on a canvas with center c, project a centered uniform fit k as c - k * (c - m). The required margin is ceil(symbolDiameterPx / 4). Choose the largest hundredth-scale not above the tightest per-family limit while retaining one additional whole pixel after flooring projected margins.",
+    "transformScope": "Only horizontal light/dark/monochrome and standalone wordmark light/dark path transforms changed. The source path d data, fill colors, fill rules, viewBoxes, aspect ratios, and centers are preserved. The standalone symbol and both stacked masters remain byte-for-byte source copies.",
+    "officialValidationBeforeFit": {
+      "validator": "O01X official current-main Codespace assets selector",
+      "validatedO01LHead": "a5d42b45f7afd201b8c968229e9302b92c8ef9a1",
+      "candidateManifestSha256": "544df2f08d8e09ea1e3143c4363d29ed2801b5103caad69e76cbf900ef641877",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at f6c627bebf18ee8a4b488bdb802aa999c15281cb",
+      "command": "pwsh -NoProfile -File $Helper -Suite assets -Filter oorva",
+      "codespace": "qs-tests-g67pgv4xqj639gx5",
+      "wipSnapshotBranch": "wip/qs-o01x-fixforward-f6c627b",
+      "wipSnapshotSha": "bc228eda61e2c0d0f7f2df136f1bf42163c630ea",
+      "status": "FAIL",
+      "checkedFileCount": 26,
+      "findingCount": 12,
+      "findingTypes": [
+        "clear-space"
+      ],
+      "validateSafeZoneRan": true,
+      "otherAssetAssertions": "PASS; validator returned exactly these 12 findings."
+    },
+    "roundingBufferPx": 1,
+    "fits": {
+      "horizontal": {
+        "center": [
+          720,
+          200
+        ],
+        "scale": 0.88,
+        "maximumScaleWithOnePixelBuffer": 0.885714286,
+        "affectedFiles": [
+          "logo-horizontal-light.svg",
+          "logo-horizontal-dark.svg",
+          "logo-horizontal-mono-black.svg",
+          "logo-horizontal-mono-ivory.svg"
+        ]
+      },
+      "wordmark": {
+        "center": [
+          512,
+          128
+        ],
+        "scale": 0.86,
+        "maximumScaleWithOnePixelBuffer": 0.863636364,
+        "affectedFiles": [
+          "oorva-wordmark-light.svg",
+          "oorva-wordmark-dark.svg"
+        ]
+      }
+    },
+    "officialFindings": [
+      {
+        "path": "app/assets/brand/logo-horizontal-light.png",
+        "canvas": [
+          360,
+          100
+        ],
+        "margins": [
+          43,
+          15,
+          43,
+          15
+        ],
+        "symbolDiameterPx": 70
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@2x.png",
+        "canvas": [
+          720,
+          200
+        ],
+        "margins": [
+          87,
+          30,
+          87,
+          30
+        ],
+        "symbolDiameterPx": 140
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@3x.png",
+        "canvas": [
+          1080,
+          300
+        ],
+        "margins": [
+          130,
+          45,
+          130,
+          45
+        ],
+        "symbolDiameterPx": 210
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark.png",
+        "canvas": [
+          360,
+          100
+        ],
+        "margins": [
+          43,
+          15,
+          43,
+          15
+        ],
+        "symbolDiameterPx": 70
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "canvas": [
+          720,
+          200
+        ],
+        "margins": [
+          87,
+          30,
+          87,
+          30
+        ],
+        "symbolDiameterPx": 140
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "canvas": [
+          1080,
+          300
+        ],
+        "margins": [
+          130,
+          45,
+          130,
+          45
+        ],
+        "symbolDiameterPx": 210
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light.png",
+        "canvas": [
+          256,
+          64
+        ],
+        "margins": [
+          17,
+          10,
+          17,
+          10
+        ],
+        "symbolDiameterPx": 47
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "canvas": [
+          512,
+          128
+        ],
+        "margins": [
+          35,
+          20,
+          35,
+          20
+        ],
+        "symbolDiameterPx": 93
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "canvas": [
+          768,
+          192
+        ],
+        "margins": [
+          53,
+          30,
+          53,
+          30
+        ],
+        "symbolDiameterPx": 138
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark.png",
+        "canvas": [
+          256,
+          64
+        ],
+        "margins": [
+          17,
+          10,
+          17,
+          10
+        ],
+        "symbolDiameterPx": 47
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "canvas": [
+          512,
+          128
+        ],
+        "margins": [
+          35,
+          20,
+          35,
+          20
+        ],
+        "symbolDiameterPx": 93
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "canvas": [
+          768,
+          192
+        ],
+        "margins": [
+          53,
+          30,
+          53,
+          30
+        ],
+        "symbolDiameterPx": 138
+      }
+    ],
+    "projectedMargins": [
+      {
+        "path": "app/assets/brand/logo-horizontal-light.png",
+        "family": "horizontal",
+        "canvas": [
+          360,
+          100
+        ],
+        "beforeMarginsPx": [
+          43,
+          15,
+          43,
+          15
+        ],
+        "symbolDiameterPx": 70,
+        "minimumMarginPx": 18,
+        "scale": 0.88,
+        "projectedMarginsPx": [
+          59.44,
+          19.2,
+          59.44,
+          19.2
+        ],
+        "conservativeIntegerMarginsPx": [
+          59,
+          19,
+          59,
+          19
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.885714286
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@2x.png",
+        "family": "horizontal",
+        "canvas": [
+          720,
+          200
+        ],
+        "beforeMarginsPx": [
+          87,
+          30,
+          87,
+          30
+        ],
+        "symbolDiameterPx": 140,
+        "minimumMarginPx": 35,
+        "scale": 0.88,
+        "projectedMarginsPx": [
+          119.76,
+          38.4,
+          119.76,
+          38.4
+        ],
+        "conservativeIntegerMarginsPx": [
+          119,
+          38,
+          119,
+          38
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.914285714
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light@3x.png",
+        "family": "horizontal",
+        "canvas": [
+          1080,
+          300
+        ],
+        "beforeMarginsPx": [
+          130,
+          45,
+          130,
+          45
+        ],
+        "symbolDiameterPx": 210,
+        "minimumMarginPx": 53,
+        "scale": 0.88,
+        "projectedMarginsPx": [
+          179.2,
+          57.6,
+          179.2,
+          57.6
+        ],
+        "conservativeIntegerMarginsPx": [
+          179,
+          57,
+          179,
+          57
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.914285714
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark.png",
+        "family": "horizontal",
+        "canvas": [
+          360,
+          100
+        ],
+        "beforeMarginsPx": [
+          43,
+          15,
+          43,
+          15
+        ],
+        "symbolDiameterPx": 70,
+        "minimumMarginPx": 18,
+        "scale": 0.88,
+        "projectedMarginsPx": [
+          59.44,
+          19.2,
+          59.44,
+          19.2
+        ],
+        "conservativeIntegerMarginsPx": [
+          59,
+          19,
+          59,
+          19
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.885714286
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@2x.png",
+        "family": "horizontal",
+        "canvas": [
+          720,
+          200
+        ],
+        "beforeMarginsPx": [
+          87,
+          30,
+          87,
+          30
+        ],
+        "symbolDiameterPx": 140,
+        "minimumMarginPx": 35,
+        "scale": 0.88,
+        "projectedMarginsPx": [
+          119.76,
+          38.4,
+          119.76,
+          38.4
+        ],
+        "conservativeIntegerMarginsPx": [
+          119,
+          38,
+          119,
+          38
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.914285714
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark@3x.png",
+        "family": "horizontal",
+        "canvas": [
+          1080,
+          300
+        ],
+        "beforeMarginsPx": [
+          130,
+          45,
+          130,
+          45
+        ],
+        "symbolDiameterPx": 210,
+        "minimumMarginPx": 53,
+        "scale": 0.88,
+        "projectedMarginsPx": [
+          179.2,
+          57.6,
+          179.2,
+          57.6
+        ],
+        "conservativeIntegerMarginsPx": [
+          179,
+          57,
+          179,
+          57
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.914285714
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light.png",
+        "family": "wordmark",
+        "canvas": [
+          256,
+          64
+        ],
+        "beforeMarginsPx": [
+          17,
+          10,
+          17,
+          10
+        ],
+        "symbolDiameterPx": 47,
+        "minimumMarginPx": 12,
+        "scale": 0.86,
+        "projectedMarginsPx": [
+          32.54,
+          13.08,
+          32.54,
+          13.08
+        ],
+        "conservativeIntegerMarginsPx": [
+          32,
+          13,
+          32,
+          13
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.863636364
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@2x.png",
+        "family": "wordmark",
+        "canvas": [
+          512,
+          128
+        ],
+        "beforeMarginsPx": [
+          35,
+          20,
+          35,
+          20
+        ],
+        "symbolDiameterPx": 93,
+        "minimumMarginPx": 24,
+        "scale": 0.86,
+        "projectedMarginsPx": [
+          65.94,
+          26.16,
+          65.94,
+          26.16
+        ],
+        "conservativeIntegerMarginsPx": [
+          65,
+          26,
+          65,
+          26
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.886363636
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light@3x.png",
+        "family": "wordmark",
+        "canvas": [
+          768,
+          192
+        ],
+        "beforeMarginsPx": [
+          53,
+          30,
+          53,
+          30
+        ],
+        "symbolDiameterPx": 138,
+        "minimumMarginPx": 35,
+        "scale": 0.86,
+        "projectedMarginsPx": [
+          99.34,
+          39.24,
+          99.34,
+          39.24
+        ],
+        "conservativeIntegerMarginsPx": [
+          99,
+          39,
+          99,
+          39
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.909090909
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark.png",
+        "family": "wordmark",
+        "canvas": [
+          256,
+          64
+        ],
+        "beforeMarginsPx": [
+          17,
+          10,
+          17,
+          10
+        ],
+        "symbolDiameterPx": 47,
+        "minimumMarginPx": 12,
+        "scale": 0.86,
+        "projectedMarginsPx": [
+          32.54,
+          13.08,
+          32.54,
+          13.08
+        ],
+        "conservativeIntegerMarginsPx": [
+          32,
+          13,
+          32,
+          13
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.863636364
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
+        "family": "wordmark",
+        "canvas": [
+          512,
+          128
+        ],
+        "beforeMarginsPx": [
+          35,
+          20,
+          35,
+          20
+        ],
+        "symbolDiameterPx": 93,
+        "minimumMarginPx": 24,
+        "scale": 0.86,
+        "projectedMarginsPx": [
+          65.94,
+          26.16,
+          65.94,
+          26.16
+        ],
+        "conservativeIntegerMarginsPx": [
+          65,
+          26,
+          65,
+          26
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.886363636
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
+        "family": "wordmark",
+        "canvas": [
+          768,
+          192
+        ],
+        "beforeMarginsPx": [
+          53,
+          30,
+          53,
+          30
+        ],
+        "symbolDiameterPx": 138,
+        "minimumMarginPx": 35,
+        "scale": 0.86,
+        "projectedMarginsPx": [
+          99.34,
+          39.24,
+          99.34,
+          39.24
+        ],
+        "conservativeIntegerMarginsPx": [
+          99,
+          39,
+          99,
+          39
+        ],
+        "maximumScaleWithOnePixelBuffer": 0.909090909
+      }
+    ],
+    "destinationMasterSha256": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+      "oorva-wordmark-dark.svg": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+      "logo-horizontal-light.svg": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+      "logo-horizontal-dark.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+    },
+    "postFitO01XValidation": "PENDING; predicted margins are analytical only. O01X must re-export and run the official asset selector against the committed O01L source revision."
   }
 }

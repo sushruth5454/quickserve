@@ -68,6 +68,118 @@ const SOURCE_HASHES: Record<string, string> = {
   'logo-horizontal-mono-ivory.svg':
     'f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab',
 };
+const FIT_TRANSFORMS: Record<
+  string,
+  { center: [number, number]; scale: number; family: 'horizontal' | 'wordmark' }
+> = {
+  'logo-horizontal-light.svg': {
+    center: [720, 200],
+    scale: 0.88,
+    family: 'horizontal',
+  },
+  'logo-horizontal-dark.svg': {
+    center: [720, 200],
+    scale: 0.88,
+    family: 'horizontal',
+  },
+  'logo-horizontal-mono-black.svg': {
+    center: [720, 200],
+    scale: 0.88,
+    family: 'horizontal',
+  },
+  'logo-horizontal-mono-ivory.svg': {
+    center: [720, 200],
+    scale: 0.88,
+    family: 'horizontal',
+  },
+  'oorva-wordmark-light.svg': {
+    center: [512, 128],
+    scale: 0.86,
+    family: 'wordmark',
+  },
+  'oorva-wordmark-dark.svg': {
+    center: [512, 128],
+    scale: 0.86,
+    family: 'wordmark',
+  },
+};
+const O01X_SAFE_MARGIN_FINDINGS = [
+  {
+    path: 'app/assets/brand/logo-horizontal-light.png',
+    canvas: [360, 100],
+    margins: [43, 15, 43, 15],
+    symbolDiameterPx: 70,
+  },
+  {
+    path: 'app/assets/brand/logo-horizontal-light@2x.png',
+    canvas: [720, 200],
+    margins: [87, 30, 87, 30],
+    symbolDiameterPx: 140,
+  },
+  {
+    path: 'app/assets/brand/logo-horizontal-light@3x.png',
+    canvas: [1080, 300],
+    margins: [130, 45, 130, 45],
+    symbolDiameterPx: 210,
+  },
+  {
+    path: 'app/assets/brand/logo-horizontal-dark.png',
+    canvas: [360, 100],
+    margins: [43, 15, 43, 15],
+    symbolDiameterPx: 70,
+  },
+  {
+    path: 'app/assets/brand/logo-horizontal-dark@2x.png',
+    canvas: [720, 200],
+    margins: [87, 30, 87, 30],
+    symbolDiameterPx: 140,
+  },
+  {
+    path: 'app/assets/brand/logo-horizontal-dark@3x.png',
+    canvas: [1080, 300],
+    margins: [130, 45, 130, 45],
+    symbolDiameterPx: 210,
+  },
+  {
+    path: 'app/assets/brand/oorva-wordmark-light.png',
+    canvas: [256, 64],
+    margins: [17, 10, 17, 10],
+    symbolDiameterPx: 47,
+  },
+  {
+    path: 'app/assets/brand/oorva-wordmark-light@2x.png',
+    canvas: [512, 128],
+    margins: [35, 20, 35, 20],
+    symbolDiameterPx: 93,
+  },
+  {
+    path: 'app/assets/brand/oorva-wordmark-light@3x.png',
+    canvas: [768, 192],
+    margins: [53, 30, 53, 30],
+    symbolDiameterPx: 138,
+  },
+  {
+    path: 'app/assets/brand/oorva-wordmark-dark.png',
+    canvas: [256, 64],
+    margins: [17, 10, 17, 10],
+    symbolDiameterPx: 47,
+  },
+  {
+    path: 'app/assets/brand/oorva-wordmark-dark@2x.png',
+    canvas: [512, 128],
+    margins: [35, 20, 35, 20],
+    symbolDiameterPx: 93,
+  },
+  {
+    path: 'app/assets/brand/oorva-wordmark-dark@3x.png',
+    canvas: [768, 192],
+    margins: [53, 30, 53, 30],
+    symbolDiameterPx: 138,
+  },
+];
+const O01X_MANIFEST_SHA256 =
+  '544df2f08d8e09ea1e3143c4363d29ed2801b5103caad69e76cbf900ef641877';
+const SAFE_MARGIN_ROUNDING_BUFFER_PX = 1;
 const ALLOWED_ELEMENTS = new Set(['svg', 'g', 'path']);
 const NUMERIC_TOKEN = /-?(?:\d+(?:\.\d*)?|\.\d+)/g;
 
@@ -443,7 +555,71 @@ function getTransform(node: SvgNode, label: string) {
   };
 }
 
-function boundsFor(node: SvgNode, label: string): Bounds {
+function centeredFitTransform(
+  source: ReturnType<typeof getTransform>,
+  center: [number, number],
+  factor: number,
+) {
+  return {
+    translateX: center[0] + factor * (source.translateX - center[0]),
+    translateY: center[1] + factor * (source.translateY - center[1]),
+    scaleX: source.scaleX * factor,
+    scaleY: source.scaleY * factor,
+  };
+}
+
+function projectedSafeMarginEvidence() {
+  return O01X_SAFE_MARGIN_FINDINGS.map((finding) => {
+    const family = finding.path.includes('logo-horizontal')
+      ? 'horizontal'
+      : 'wordmark';
+    const fit =
+      family === 'horizontal'
+        ? FIT_TRANSFORMS['logo-horizontal-light.svg']!
+        : FIT_TRANSFORMS['oorva-wordmark-light.svg']!;
+    const minimumMarginPx = Math.ceil(finding.symbolDiameterPx / 4);
+    const halfCanvas = [
+      finding.canvas[0]! / 2,
+      finding.canvas[1]! / 2,
+      finding.canvas[0]! / 2,
+      finding.canvas[1]! / 2,
+    ];
+    const projectedMargins = finding.margins.map(
+      (margin, index) =>
+        halfCanvas[index]! -
+        fit.scale * (halfCanvas[index]! - margin),
+    );
+    const requiredWithBufferPx =
+      minimumMarginPx + SAFE_MARGIN_ROUNDING_BUFFER_PX;
+    const maximumScaleWithBuffer = Math.min(
+      ...finding.margins.map((margin, index) => {
+        const extentFromCenter = halfCanvas[index]! - margin;
+        return extentFromCenter === 0
+          ? Number.POSITIVE_INFINITY
+          : (halfCanvas[index]! - requiredWithBufferPx) / extentFromCenter;
+      }),
+    );
+
+    return {
+      path: finding.path,
+      family,
+      canvas: finding.canvas,
+      beforeMarginsPx: finding.margins,
+      symbolDiameterPx: finding.symbolDiameterPx,
+      minimumMarginPx,
+      scale: fit.scale,
+      projectedMarginsPx: projectedMargins.map((margin) =>
+        Number(margin.toFixed(6)),
+      ),
+      conservativeIntegerMarginsPx: projectedMargins.map(Math.floor),
+      maximumScaleWithOnePixelBuffer: Number(
+        maximumScaleWithBuffer.toFixed(9),
+      ),
+    };
+  });
+}
+
+function boundsFor(node: SvgNode, label: string, role?: string): Bounds {
   const bounds: Bounds = {
     minX: Number.POSITIVE_INFINITY,
     minY: Number.POSITIVE_INFINITY,
@@ -452,6 +628,7 @@ function boundsFor(node: SvgNode, label: string): Bounds {
   };
 
   for (const pathNode of pathsIn(node)) {
+    if (role && pathNode.attributes['data-role'] !== role) continue;
     const d = pathNode.attributes.d;
     assertInvariant(d !== undefined, `${label} path is missing d`, pathNode);
     const transform = getTransform(pathNode, label);
@@ -539,6 +716,13 @@ describe('Oorva outlined SVG candidate masters', () => {
       SOURCE_HASHES,
       'manifest source hash inventory mismatch',
     );
+    assertEqual(
+      Object.keys(
+        manifest.safeMarginCorrection?.destinationMasterSha256 ?? {},
+      ).sort(),
+      Object.keys(MASTER_VIEW_BOXES).sort(),
+      'safe-margin evidence must hash every destination master',
+    );
 
     for (const [file, expectedViewBox] of Object.entries(MASTER_VIEW_BOXES)) {
       const sourceBytes = fs.readFileSync(path.join(DROP_IN_DIR, file));
@@ -552,20 +736,20 @@ describe('Oorva outlined SVG candidate masters', () => {
       );
       assertEqual(
         destinationHash,
-        sourceHash,
-        `${file} destination hash must match source`,
+        manifest.safeMarginCorrection?.destinationMasterSha256?.[file],
+        `${file} destination hash differs from the recorded final master`,
       );
-      assertInvariant(
-        sourceBytes.equals(destinationBytes),
-        `${file} must be copied byte-for-byte from current main`,
-        { sourceHash, destinationHash },
-      );
-
+      const sourceRoot = parseSvg(sourceBytes.toString('utf8'), `${file} source`);
       const root = parseSvg(destinationBytes.toString('utf8'), file);
       assertEqual(
         root.attributes.viewBox,
         expectedViewBox,
         `${file} viewBox mismatch`,
+      );
+      assertEqual(
+        root.attributes.viewBox,
+        sourceRoot.attributes.viewBox,
+        `${file} viewBox changed from its supplied master`,
       );
       assertEqual(
         root.attributes.xmlns,
@@ -591,6 +775,75 @@ describe('Oorva outlined SVG candidate masters', () => {
         expectedRoles,
         `${file} source role sequence mismatch`,
       );
+      const fit = FIT_TRANSFORMS[file];
+      if (!fit) {
+        assertInvariant(
+          sourceBytes.equals(destinationBytes),
+          `${file} must remain a byte-for-byte source master`,
+          { sourceHash, destinationHash },
+        );
+      } else {
+        const sourcePaths = pathsIn(sourceRoot);
+        const destinationPaths = pathsIn(root);
+        assertEqual(
+          destinationPaths.map((node) => node.attributes.d),
+          sourcePaths.map((node) => node.attributes.d),
+          `${file} path contours changed`,
+        );
+        for (let index = 0; index < sourcePaths.length; index += 1) {
+          const sourcePath = sourcePaths[index]!;
+          const destinationPath = destinationPaths[index]!;
+          for (const attribute of ['data-role', 'fill', 'fill-rule']) {
+            assertEqual(
+              destinationPath.attributes[attribute],
+              sourcePath.attributes[attribute],
+              `${file} ${attribute} changed`,
+            );
+          }
+          const sourceTransform = getTransform(
+            sourcePath,
+            `${file} source path`,
+          );
+          const destinationTransform = getTransform(
+            destinationPath,
+            `${file} fitted path`,
+          );
+          const expectedTransform = centeredFitTransform(
+            sourceTransform,
+            fit.center,
+            fit.scale,
+          );
+          assertNear(
+            destinationTransform.translateX,
+            expectedTransform.translateX,
+            0.0000001,
+            `${file} centered-fit x translation mismatch`,
+          );
+          assertNear(
+            destinationTransform.translateY,
+            expectedTransform.translateY,
+            0.0000001,
+            `${file} centered-fit y translation mismatch`,
+          );
+          assertNear(
+            destinationTransform.scaleX,
+            expectedTransform.scaleX,
+            0.0000001,
+            `${file} uniform-fit x scale mismatch`,
+          );
+          assertNear(
+            destinationTransform.scaleY,
+            expectedTransform.scaleY,
+            0.0000001,
+            `${file} uniform-fit y scale mismatch`,
+          );
+          assertEqual(
+            destinationTransform.scaleX,
+            destinationTransform.scaleY,
+            `${file} fit must preserve aspect ratio`,
+          );
+        }
+      }
 
       for (const node of nodes) {
         const forbiddenAttributes = Object.keys(node.attributes).filter(
@@ -630,6 +883,129 @@ describe('Oorva outlined SVG candidate masters', () => {
         coordinatePairs(d, file);
       }
     }
+
+    for (const family of ['horizontal', 'wordmark'] as const) {
+      assertEqual(
+        manifest.safeMarginCorrection?.fits?.[family]?.scale,
+        FIT_TRANSFORMS[
+          family === 'horizontal'
+            ? 'logo-horizontal-light.svg'
+            : 'oorva-wordmark-light.svg'
+        ]?.scale,
+        `${family} fit factor differs from its test contract`,
+      );
+      assertEqual(
+        manifest.safeMarginCorrection?.fits?.[family]?.center,
+        FIT_TRANSFORMS[
+          family === 'horizontal'
+            ? 'logo-horizontal-light.svg'
+            : 'oorva-wordmark-light.svg'
+        ]?.center,
+        `${family} fit center differs from its test contract`,
+      );
+    }
+  });
+
+  it('records the official A.4.1 findings and a rounded-margin-safe centered fit', () => {
+    const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+    const correction = manifest.safeMarginCorrection;
+    const projectedMargins = projectedSafeMarginEvidence();
+    assertEqual(
+      correction?.officialValidationBeforeFit,
+      {
+        validator: 'O01X official current-main Codespace assets selector',
+        validatedO01LHead: 'a5d42b45f7afd201b8c968229e9302b92c8ef9a1',
+        candidateManifestSha256: O01X_MANIFEST_SHA256,
+        helperSource:
+          'origin/main:scripts/cs-test.ps1 at f6c627bebf18ee8a4b488bdb802aa999c15281cb',
+        command: 'pwsh -NoProfile -File $Helper -Suite assets -Filter oorva',
+        codespace: 'qs-tests-g67pgv4xqj639gx5',
+        wipSnapshotBranch: 'wip/qs-o01x-fixforward-f6c627b',
+        wipSnapshotSha: 'bc228eda61e2c0d0f7f2df136f1bf42163c630ea',
+        status: 'FAIL',
+        checkedFileCount: 26,
+        findingCount: 12,
+        findingTypes: ['clear-space'],
+        validateSafeZoneRan: true,
+        otherAssetAssertions:
+          'PASS; validator returned exactly these 12 findings.',
+      },
+      'manifest must identify the official pre-fit clear-space failure',
+    );
+    assertEqual(
+      correction?.roundingBufferPx,
+      SAFE_MARGIN_ROUNDING_BUFFER_PX,
+      'safe-margin fit must retain its pixel-rounding buffer',
+    );
+    assertEqual(
+      correction?.officialFindings,
+      O01X_SAFE_MARGIN_FINDINGS,
+      'manifest must preserve the exact per-density official findings',
+    );
+    assertEqual(
+      correction?.projectedMargins,
+      projectedMargins,
+      'manifest projected margins differ from the deterministic calculation',
+    );
+
+    for (const projected of projectedMargins) {
+      assertInvariant(
+        projected.scale <= projected.maximumScaleWithOnePixelBuffer,
+        'uniform fit exceeds the maximum scale that preserves one-pixel raster buffer',
+        projected,
+      );
+      assertInvariant(
+        projected.conservativeIntegerMarginsPx.every(
+          (margin) =>
+            margin >=
+            projected.minimumMarginPx + SAFE_MARGIN_ROUNDING_BUFFER_PX,
+        ),
+        'projected raster margins do not clear the A.4.1 threshold plus buffer',
+        projected,
+      );
+    }
+
+    for (const family of ['horizontal', 'wordmark'] as const) {
+      const familyMargins = projectedMargins.filter(
+        (projected) => projected.family === family,
+      );
+      const maximumScale = Math.min(
+        ...familyMargins.map(
+          (projected) => projected.maximumScaleWithOnePixelBuffer,
+        ),
+      );
+      const selectedScale =
+        correction.fits[family].scale as number;
+      assertInvariant(
+        selectedScale + 0.01 > maximumScale,
+        'selected scale is not the largest hundredth that fits every density with the buffer',
+        { family, selectedScale, maximumScale, familyMargins },
+      );
+      assertEqual(
+        correction.fits[family].maximumScaleWithOnePixelBuffer,
+        maximumScale,
+        `${family} documented tightest scale limit mismatch`,
+      );
+    }
+
+    const evidence = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          REPO_ROOT,
+          'docs',
+          'design',
+          'oorva',
+          'evidence',
+          'o01l.json',
+        ),
+        'utf8',
+      ),
+    );
+    assertEqual(
+      evidence.safeMarginCorrection,
+      correction,
+      'O01L evidence must mirror the manifest safe-margin calculations',
+    );
   });
 
   it('keeps the symbol and wordmark inside their authored safe zones', () => {
@@ -655,12 +1031,12 @@ describe('Oorva outlined SVG candidate masters', () => {
       });
       const bounds = boundsFor(wordmark, file);
       assertInvariant(
-        bounds.minX >= 0 &&
-          bounds.minY >= 0 &&
-          bounds.maxX <= 1024 &&
-          bounds.maxY <= 256,
-        `${file} wordmark ink must remain inside its exact viewBox`,
-        bounds,
+        bounds.minX >= 52 &&
+          bounds.minY >= 52 &&
+          bounds.maxX <= 972 &&
+          bounds.maxY <= 204,
+        `${file} wordmark must retain one-quarter-symbol clear space in its viewBox`,
+        { bounds, minimum: 52 },
       );
     }
 
@@ -847,12 +1223,12 @@ describe('Oorva outlined SVG candidate masters', () => {
     assertEqual(letterPaths.length, 1, 'source wordmark must remain one outlined compound path');
     const bounds = boundsFor(wordmark, 'owner-directed wordmark');
     assertInvariant(
-      bounds.minX >= 0 &&
-        bounds.minY >= 0 &&
-        bounds.maxX <= 1024 &&
-        bounds.maxY <= 256,
-      'supplied wordmark outline must remain inside its master viewBox',
-      bounds,
+      bounds.minX >= 52 &&
+        bounds.minY >= 52 &&
+        bounds.maxX <= 972 &&
+        bounds.maxY <= 204,
+      'fitted wordmark must retain one-quarter-symbol clear space',
+      { bounds, minimum: 52 },
     );
     assertEqual(
       letterPaths[0]?.attributes['fill-rule'],
@@ -1132,13 +1508,20 @@ describe('Oorva outlined SVG candidate masters', () => {
     );
     assertEqual(
       evidence.dropInProvenance?.destinationSha256,
-      SOURCE_HASHES,
-      'evidence destination hash inventory mismatch',
+      manifest.safeMarginCorrection?.destinationMasterSha256,
+      'evidence fitted-master hash inventory mismatch',
     );
     assertEqual(
-      evidence.dropInProvenance?.byteForByteVerified,
+      evidence.dropInProvenance?.initialCopyByteForByteVerified,
       true,
-      'evidence must confirm exact source copies',
+      'evidence must confirm the initial exact source copies',
+    );
+    assertInvariant(
+      evidence.dropInProvenance?.postCopyTransform?.includes(
+        'centered uniform safe-area transform',
+      ),
+      'evidence must record the bounded post-copy transform',
+      evidence.dropInProvenance?.postCopyTransform,
     );
     assertEqual(
       evidence.dropInProvenance?.copiedFileCount,
