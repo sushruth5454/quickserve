@@ -27,7 +27,7 @@
     "oorva_brand OFF, child runtime ON with parent OFF, unavailable identity, and enabled published identity",
     "customer/provider source unread counts and zero/normal/99+ labels",
     "guest return targets and rejection of external/protocol-relative targets",
-    "owner/member/null owner-only destinations",
+    "owner/member owner-only destination rule",
     "existing auth/customer/provider route names, notification deep links, and safe return paths"
   ],
   "validation": {

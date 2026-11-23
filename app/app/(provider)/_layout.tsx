@@ -60,7 +60,7 @@ export default function ProviderTabs() {
   if (currentAccess.status !== 'resolved') return <FullScreenLoader />;
   const businessRole = currentAccess.value;
   if (activeRole === 'customer' && !businessRole) return <Redirect href="/" />;
-  const ownerTabHref = ownerOnlyTabHref(businessRole);
+  const isOwner = businessRole === 'owner';
   return (
     <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
@@ -75,7 +75,7 @@ export default function ProviderTabs() {
       <Tabs.Screen
         name="earnings"
         options={{
-          href: ownerTabHref,
+          href: isOwner ? undefined : null,
           title: 'Earnings',
           tabBarIcon: ({ color, focused }) => <TabIcon name="wallet-outline" activeName="wallet" focused={focused} color={color as string} />,
         }}
@@ -83,7 +83,7 @@ export default function ProviderTabs() {
       <Tabs.Screen
         name="pro-account"
         options={{
-          href: ownerTabHref,
+          href: isOwner ? undefined : null,
           title: 'Me',
           tabBarIcon: ({ color, focused }) => <TabIcon name="person-circle-outline" activeName="person-circle" focused={focused} color={color as string} />,
         }}

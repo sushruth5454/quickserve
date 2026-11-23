@@ -11,18 +11,10 @@ import { tabBarHeight, Text } from './ui';
 type TabOptions = Extract<NonNullable<ComponentProps<typeof Tabs>['screenOptions']>, object>;
 type IonName = ComponentProps<typeof Ionicons>['name'];
 
-export function navigationIdentityVisible(source: ResolvedBrandIdentity['source']): boolean {
-  return source !== 'legacy';
-}
-
-export function ownerOnlyTabHref(businessRole: string | null): undefined | null {
-  return businessRole === 'owner' ? undefined : null;
-}
-
 export function useNavigationIdentityOptions(context: BrandContext) {
   const t = useTheme();
   const identity = useBrandIdentity(context);
-  const visible = navigationIdentityVisible(identity.source);
+  const visible = identity.source !== 'legacy';
   return useMemo(
     () => ({
       headerShown: visible,

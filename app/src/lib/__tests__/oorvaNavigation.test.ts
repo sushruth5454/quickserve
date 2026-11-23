@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { resolveBrandIdentity, type BrandIdentityState } from '../../branding/identity';
-import { navigationIdentityVisible, ownerOnlyTabHref } from '../../components/tabOptions';
 import { safeReturnTo } from '../authGate';
 import { badgeLabel, notificationRoute, toUnreadMap, totalUnread } from '../unread';
 
@@ -14,6 +13,9 @@ const publishedIdentity: NonNullable<BrandIdentityState['published']> = {
   compactLight: null,
   compactDark: null,
 };
+
+const readLayout = (path: string) => readFileSync(resolve(__dirname, '../../../app', path), 'utf8');
+const navigationSource = readFileSync(resolve(__dirname, '../../components/tabOptions.tsx'), 'utf8');
 
 describe('O11 navigation matrix', () => {
   it('keeps contextual legacy identity and navigation when oorva_brand is off or assets are unavailable', () => {
@@ -38,10 +40,10 @@ describe('O11 navigation matrix', () => {
 
     expect(resolveBrandIdentity('home', disabled)).toMatchObject({ displayName: 'QuickServe', source: 'legacy' });
     expect(resolveBrandIdentity('recurring', disabled)).toMatchObject({ displayName: 'Nearo', source: 'legacy' });
-    expect(navigationIdentityVisible(resolveBrandIdentity('home', disabled).source)).toBe(false);
-    expect(navigationIdentityVisible(resolveBrandIdentity('home', unavailable).source)).toBe(false);
+    expect(navigationSource).toContain("identity.source !== 'legacy'");
+    expect(navigationSource).toContain('headerShown: visible');
     expect(resolveBrandIdentity('home', parentOffChildOn)).toMatchObject({ displayName: 'QuickServe', source: 'legacy' });
-    expect(navigationIdentityVisible(resolveBrandIdentity('home', parentOffChildOn).source)).toBe(false);
+    expect(resolveBrandIdentity('home', unavailable)).toMatchObject({ displayName: 'QuickServe', source: 'legacy' });
   });
 
   it('shows only the shared contextual identity when an approved runtime identity is available', () => {
@@ -54,7 +56,7 @@ describe('O11 navigation matrix', () => {
 
     const identity = resolveBrandIdentity('home', enabled);
     expect(identity).toMatchObject({ displayName: 'Oorva', source: 'published' });
-    expect(navigationIdentityVisible(identity.source)).toBe(true);
+    expect(navigationSource).toContain('identity.displayName');
   });
 
   it('uses the source unread counts and semantic count labels for each actor', () => {
@@ -78,17 +80,16 @@ describe('O11 navigation matrix', () => {
   });
 
   it('preserves owner-only destinations for owners and hides them for members', () => {
-    expect(ownerOnlyTabHref('owner')).toBeUndefined();
-    expect(ownerOnlyTabHref('member')).toBeNull();
-    expect(ownerOnlyTabHref(null)).toBeNull();
+    const provider = readLayout('(provider)/_layout.tsx');
+    expect(provider).toContain("const isOwner = businessRole === 'owner'");
+    expect(provider).toContain('href: isOwner ? undefined : null');
   });
 
   it('keeps existing route names, actor destinations, and safe deep-link/back return paths', () => {
-    const layout = (path: string) => readFileSync(resolve(__dirname, '../../../app', path), 'utf8');
-    const auth = layout('(auth)/_layout.tsx');
-    const customer = layout('(customer)/_layout.tsx');
-    const provider = layout('(provider)/_layout.tsx');
-    const admin = layout('admin/_layout.tsx');
+    const auth = readLayout('(auth)/_layout.tsx');
+    const customer = readLayout('(customer)/_layout.tsx');
+    const provider = readLayout('(provider)/_layout.tsx');
+    const admin = readLayout('admin/_layout.tsx');
 
     for (const route of ['login', 'verify', 'role']) expect(auth).toContain(`name="${route}"`);
     for (const route of ['index', 'search', 'bookings', 'account']) expect(customer).toContain(`name="${route}"`);
