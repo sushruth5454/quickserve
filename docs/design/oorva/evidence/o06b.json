@@ -1,0 +1,82 @@
+{
+  "stageId": "O06B",
+  "workPackage": "O06",
+  "sourceTaskId": "PF-T08",
+  "findingIds": [
+    "PF-F09",
+    "PF-F10"
+  ],
+  "status": "implemented",
+  "historicalCodeGreen": {
+    "branch": "lane/oorva-o06b",
+    "head": "39c2bd14f82e2e59e87e8d2ca4bb7c778f427d66",
+    "latestLaneCi": {
+      "runId": 45195853763,
+      "head": "39c2bd14f82e2e59e87e8d2ca4bb7c778f427d66",
+      "status": "PASS"
+    },
+    "branchChangedByFixForward": false
+  },
+  "fixForward": {
+    "branch": "lane/oorva-o06b-d-badge-b914",
+    "base": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "ownedFiles": [
+      "app/src/components/ui/SegmentedControl.tsx",
+      "app/src/components/ui/__tests__/brandingPrimitives.test.tsx",
+      "docs/design/oorva/evidence/o06b.json"
+    ],
+    "semanticRoles": {
+      "selectedBadge": {
+        "background": "primary",
+        "foreground": "onPrimary"
+      },
+      "neutralBadge": {
+        "background": "surfaceAlt",
+        "foreground": "textSecondary"
+      },
+      "approvedColorValuesChanged": false
+    },
+    "focusedTests": [
+      "uses onPrimary text on the selected primary badge",
+      "uses textSecondary on surfaceAlt for the neutral badge"
+    ],
+    "validation": {
+      "codespace": {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.brandingPrimitives[.]test[.]tsx$'",
+        "status": "PASS",
+        "selectedTestFiles": 1,
+        "selectedTests": 2,
+        "passedTests": 2,
+        "csTestResult": "PASS"
+      },
+      "redPhase": {
+        "selectedTestFiles": 1,
+        "selectedTests": 2,
+        "expectedFailures": 2,
+        "result": "expected red before component fix"
+      },
+      "gitDiffCheck": "PASS",
+      "laneCi": {
+        "status": "PASS",
+        "runId": 45217259126,
+        "validatedCommit": "b8ff6972069a603755cd4c53cf5136f4dfc5604e"
+      }
+    }
+  },
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "releaseStatus": {
+    "D03a": "approved",
+    "D03b": "approved",
+    "D03c": "approved",
+    "E0": "approved",
+    "E1": "approved",
+    "D02": "pending",
+    "D07a": "pending",
+    "D07b": "pending",
+    "featureFlagsChanged": false,
+    "oorva_brand": "remains OFF",
+    "nativeOrPublicCutover": "not performed",
+    "productionActions": "not performed"
+  },
+  "reviewRequired": []
+}

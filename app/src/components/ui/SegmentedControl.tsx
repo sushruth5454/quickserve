@@ -100,12 +100,12 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
                   height: 18,
                   paddingHorizontal: 5,
                   borderRadius: 9,
-                  backgroundColor: selected ? t.colors.primary : t.colors.borderStrong,
+                  backgroundColor: selected ? t.colors.primary : t.colors.surfaceAlt,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Text variant="micro" style={{ color: selected ? '#FFFFFF' : t.colors.textSecondary }}>
+                <Text variant="micro" style={{ color: selected ? t.colors.onPrimary : t.colors.textSecondary }}>
                   {o.badge}
                 </Text>
               </View>
