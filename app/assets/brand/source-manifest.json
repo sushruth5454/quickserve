@@ -2,10 +2,10 @@
   "brand": "Oorva",
   "wordmark": "oorva",
   "concept": "Connected O",
-  "conceptRationale": "The owner-approved visual direction is the Connected O paired with the compact, bold lowercase oorva wordmark shown in the light reference. The symbol reads as two rounded opposing arcs with open side breaks; the letterforms use close, even spacing and a single-storey a.",
-  "geometryRationale": "The symbol uses original cubic Bézier arcs with rounded ends and two controlled side openings. The custom lowercase o-o-r-v-a paths use broad rounded counters, a compact r shoulder, a rounded V join, and a single-storey a. The paths are independently authored vector geometry, not a raster trace or live font rendering.",
+  "conceptRationale": "The owner-approved Connected O artwork, compact lowercase oorva wordmark, and lockup proportions are supplied in the exact O01L app-asset vector masters.",
+  "geometryRationale": "This revision starts from the nine current-main O01L drop-in SVG masters. After the official O01X A.4.1 check found only clear-space failures, it applies the smallest centered uniform safe-area fit to the four horizontal and two wordmark variants. All supplied path contours, fill colors, viewBoxes, aspect ratios, and centers are preserved; the symbol and stacked masters remain byte-for-byte unchanged. No redraw, trace, alternate geometry, or raster embedding was performed.",
   "originalityProvenance": {
-    "authorship": "Original Bézier symbol and custom lowercase letter paths authored for this Oorva candidate. No third-party mark was copied or traced.",
+    "authorship": "The supplied masters are the owner-approved Connected O artwork; the source README documents their upstream vectorization from the owner's own approved PNGs. This revision begins with the supplied SVG masters, then applies only the documented centered uniform safe-area transforms to six files; it does not redraw or trace raster artwork.",
     "directionalInputs": [
       "oorva-logo-concept.png",
       "oorva-logo-light.png",
@@ -24,8 +24,24 @@
       "scope": "Approval establishes visual direction and a standing D03b selection rule; this O01L source revision is not itself a selected O01X export. D03c public rights clearance and PNG export approval are not granted."
     },
     "inputManifest": "docs/design/oorva/logo/manifest.json",
-    "inputUse": "The light reference is owner-approved visual direction; related dark, transparent, monochrome, and symbol exports provide supplemental visual direction. No PNG paths were copied or traced, and no raster was embedded.",
-    "wordmarkConstruction": "Hand-authored lowercase vector paths; all master files contain no live text, font, or external resource."
+    "sourceReadme": "docs/design/oorva/logo/vector/README.md",
+    "sourceReadmeSha256": "4137e340929fcd75c9fa21e3b83265cd109091ca81928738426325bf8df0ed4f",
+    "sourceCommit": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
+    "sourceDirectory": "docs/design/oorva/logo/vector/app-assets/",
+    "copyMethod": "The nine approved app-assets SVGs were copied byte-for-byte first. This safe-margin revision changes only the transform attribute on the six affected horizontal and wordmark variants; their path d values, colors, fill rules, viewBoxes, and relative placement remain unchanged.",
+    "sourceMasterSha256": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
+      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
+      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
+      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
+      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+    },
+    "inputUse": "The light PNG remains the owner-approved visual reference. The supplied SVG masters are authoritative drop-ins; this revision copies no PNG path, does no raster trace, and embeds no bitmap.",
+    "wordmarkConstruction": "The wordmark is the supplied outlined vector path; no live text, font, external href, script, or external resource is used."
   },
   "masters": [
     {
@@ -84,41 +100,125 @@
     }
   ],
   "smallSizeEvidence": {
-    "method": "The symbol SVG's actual M/C path endpoints are paired at each open side. Euclidean endpoint distance is reduced by the sum of the round-cap radii, then scaled by logicalSize / 256.",
+    "method": "The supplied symbol is two filled cubic-Bezier subpaths. Each subpath is sampled at 120 equal t-intervals per cubic; the minimum Euclidean distance between the subpaths is measured separately in the left and right halves after the SVG path transform. logicalGapPx = minimumTransformedGapUnits * logicalSizePx / 256.",
     "sourceViewBoxWidth": 256,
-    "upperArcEndpoints": [
-      [44, 164],
-      [212, 164]
-    ],
-    "lowerArcEndpoints": [
-      [44, 92],
-      [212, 92]
-    ],
-    "upperStrokeWidth": 40,
-    "lowerStrokeWidth": 40,
-    "gapFormula": "gapUnits = hypot(upperEndpointX - lowerEndpointX, upperEndpointY - lowerEndpointY) - (upperStrokeWidth + lowerStrokeWidth) / 2; gapPx = gapUnits * logicalSizePx / sourceViewBoxWidth",
-    "gapUnitsAtBothOpenings": 32,
+    "subpaths": 2,
+    "samplesPerCubic": 120,
+    "sourceTransform": "translate(0.65 -3.75) scale(0.86225)",
+    "minimumGapUnitsAfterTransform": {
+      "left": 8.916269262736144,
+      "right": 8.583600766361336
+    },
     "logicalPixelChecks": [
       {
         "sizePx": 20,
-        "leftGapPx": 2.5,
-        "rightGapPx": 2.5,
+        "leftGapPx": 0.696584,
+        "rightGapPx": 0.670594,
         "status": "open"
       },
       {
         "sizePx": 32,
-        "leftGapPx": 4,
-        "rightGapPx": 4,
+        "leftGapPx": 1.114534,
+        "rightGapPx": 1.072950,
         "status": "open"
       },
       {
         "sizePx": 48,
-        "leftGapPx": 6,
-        "rightGapPx": 6,
+        "leftGapPx": 1.671800,
+        "rightGapPx": 1.609425,
         "status": "open"
       }
     ],
-    "visualInspection": "The two side openings remain distinct at each requested size; the 20px master retains a 2.5px computed gap on each side. The reference PNG remains visual direction only; no raster export or device rendering is claimed by this stage."
+    "visualSource": {
+      "path": "docs/design/oorva/logo/vector/app-assets-contact-sheet.png",
+      "sha256": "3242d927c79c88acc90f5fc5d19605730cc2301946759924a162fe430531ab05",
+      "sizesPx": [48, 32, 20],
+      "result": "Both openings are visually open at all three supplied render sizes."
+    },
+    "renderingClaim": "This source contact sheet was visually inspected; no new raster export or device rendering was performed by O01L."
+  },
+  "safeMarginCorrection": {
+    "method": "For each reported O01X raster margin m on a canvas with center c, project a centered uniform fit k as c - k * (c - m). The required margin is ceil(symbolDiameterPx / 4). Choose the largest hundredth-scale not above the tightest per-family limit while retaining one additional whole pixel after flooring projected margins.",
+    "transformScope": "Only horizontal light/dark/monochrome and standalone wordmark light/dark path transforms changed. The source path d data, fill colors, fill rules, viewBoxes, aspect ratios, and centers are preserved. The standalone symbol and both stacked masters remain byte-for-byte source copies.",
+    "officialValidationBeforeFit": {
+      "validator": "O01X official current-main Codespace assets selector",
+      "validatedO01LHead": "a5d42b45f7afd201b8c968229e9302b92c8ef9a1",
+      "candidateManifestSha256": "544df2f08d8e09ea1e3143c4363d29ed2801b5103caad69e76cbf900ef641877",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at f6c627bebf18ee8a4b488bdb802aa999c15281cb",
+      "command": "pwsh -NoProfile -File $Helper -Suite assets -Filter oorva",
+      "codespace": "qs-tests-g67pgv4xqj639gx5",
+      "wipSnapshotBranch": "wip/qs-o01x-fixforward-f6c627b",
+      "wipSnapshotSha": "bc228eda61e2c0d0f7f2df136f1bf42163c630ea",
+      "status": "FAIL",
+      "checkedFileCount": 26,
+      "findingCount": 12,
+      "findingTypes": ["clear-space"],
+      "validateSafeZoneRan": true,
+      "otherAssetAssertions": "PASS; validator returned exactly these 12 findings."
+    },
+    "roundingBufferPx": 1,
+    "fits": {
+      "horizontal": {
+        "center": [720, 200],
+        "scale": 0.88,
+        "maximumScaleWithOnePixelBuffer": 0.885714286,
+        "affectedFiles": [
+          "logo-horizontal-light.svg",
+          "logo-horizontal-dark.svg",
+          "logo-horizontal-mono-black.svg",
+          "logo-horizontal-mono-ivory.svg"
+        ]
+      },
+      "wordmark": {
+        "center": [512, 128],
+        "scale": 0.86,
+        "maximumScaleWithOnePixelBuffer": 0.863636364,
+        "affectedFiles": [
+          "oorva-wordmark-light.svg",
+          "oorva-wordmark-dark.svg"
+        ]
+      }
+    },
+    "officialFindings": [
+      {"path":"app/assets/brand/logo-horizontal-light.png","canvas":[360,100],"margins":[43,15,43,15],"symbolDiameterPx":70},
+      {"path":"app/assets/brand/logo-horizontal-light@2x.png","canvas":[720,200],"margins":[87,30,87,30],"symbolDiameterPx":140},
+      {"path":"app/assets/brand/logo-horizontal-light@3x.png","canvas":[1080,300],"margins":[130,45,130,45],"symbolDiameterPx":210},
+      {"path":"app/assets/brand/logo-horizontal-dark.png","canvas":[360,100],"margins":[43,15,43,15],"symbolDiameterPx":70},
+      {"path":"app/assets/brand/logo-horizontal-dark@2x.png","canvas":[720,200],"margins":[87,30,87,30],"symbolDiameterPx":140},
+      {"path":"app/assets/brand/logo-horizontal-dark@3x.png","canvas":[1080,300],"margins":[130,45,130,45],"symbolDiameterPx":210},
+      {"path":"app/assets/brand/oorva-wordmark-light.png","canvas":[256,64],"margins":[17,10,17,10],"symbolDiameterPx":47},
+      {"path":"app/assets/brand/oorva-wordmark-light@2x.png","canvas":[512,128],"margins":[35,20,35,20],"symbolDiameterPx":93},
+      {"path":"app/assets/brand/oorva-wordmark-light@3x.png","canvas":[768,192],"margins":[53,30,53,30],"symbolDiameterPx":138},
+      {"path":"app/assets/brand/oorva-wordmark-dark.png","canvas":[256,64],"margins":[17,10,17,10],"symbolDiameterPx":47},
+      {"path":"app/assets/brand/oorva-wordmark-dark@2x.png","canvas":[512,128],"margins":[35,20,35,20],"symbolDiameterPx":93},
+      {"path":"app/assets/brand/oorva-wordmark-dark@3x.png","canvas":[768,192],"margins":[53,30,53,30],"symbolDiameterPx":138}
+    ],
+    "projectedMargins": [
+      {"path":"app/assets/brand/logo-horizontal-light.png","family":"horizontal","canvas":[360,100],"beforeMarginsPx":[43,15,43,15],"symbolDiameterPx":70,"minimumMarginPx":18,"scale":0.88,"projectedMarginsPx":[59.44,19.2,59.44,19.2],"conservativeIntegerMarginsPx":[59,19,59,19],"maximumScaleWithOnePixelBuffer":0.885714286},
+      {"path":"app/assets/brand/logo-horizontal-light@2x.png","family":"horizontal","canvas":[720,200],"beforeMarginsPx":[87,30,87,30],"symbolDiameterPx":140,"minimumMarginPx":35,"scale":0.88,"projectedMarginsPx":[119.76,38.4,119.76,38.4],"conservativeIntegerMarginsPx":[119,38,119,38],"maximumScaleWithOnePixelBuffer":0.914285714},
+      {"path":"app/assets/brand/logo-horizontal-light@3x.png","family":"horizontal","canvas":[1080,300],"beforeMarginsPx":[130,45,130,45],"symbolDiameterPx":210,"minimumMarginPx":53,"scale":0.88,"projectedMarginsPx":[179.2,57.6,179.2,57.6],"conservativeIntegerMarginsPx":[179,57,179,57],"maximumScaleWithOnePixelBuffer":0.914285714},
+      {"path":"app/assets/brand/logo-horizontal-dark.png","family":"horizontal","canvas":[360,100],"beforeMarginsPx":[43,15,43,15],"symbolDiameterPx":70,"minimumMarginPx":18,"scale":0.88,"projectedMarginsPx":[59.44,19.2,59.44,19.2],"conservativeIntegerMarginsPx":[59,19,59,19],"maximumScaleWithOnePixelBuffer":0.885714286},
+      {"path":"app/assets/brand/logo-horizontal-dark@2x.png","family":"horizontal","canvas":[720,200],"beforeMarginsPx":[87,30,87,30],"symbolDiameterPx":140,"minimumMarginPx":35,"scale":0.88,"projectedMarginsPx":[119.76,38.4,119.76,38.4],"conservativeIntegerMarginsPx":[119,38,119,38],"maximumScaleWithOnePixelBuffer":0.914285714},
+      {"path":"app/assets/brand/logo-horizontal-dark@3x.png","family":"horizontal","canvas":[1080,300],"beforeMarginsPx":[130,45,130,45],"symbolDiameterPx":210,"minimumMarginPx":53,"scale":0.88,"projectedMarginsPx":[179.2,57.6,179.2,57.6],"conservativeIntegerMarginsPx":[179,57,179,57],"maximumScaleWithOnePixelBuffer":0.914285714},
+      {"path":"app/assets/brand/oorva-wordmark-light.png","family":"wordmark","canvas":[256,64],"beforeMarginsPx":[17,10,17,10],"symbolDiameterPx":47,"minimumMarginPx":12,"scale":0.86,"projectedMarginsPx":[32.54,13.08,32.54,13.08],"conservativeIntegerMarginsPx":[32,13,32,13],"maximumScaleWithOnePixelBuffer":0.863636364},
+      {"path":"app/assets/brand/oorva-wordmark-light@2x.png","family":"wordmark","canvas":[512,128],"beforeMarginsPx":[35,20,35,20],"symbolDiameterPx":93,"minimumMarginPx":24,"scale":0.86,"projectedMarginsPx":[65.94,26.16,65.94,26.16],"conservativeIntegerMarginsPx":[65,26,65,26],"maximumScaleWithOnePixelBuffer":0.886363636},
+      {"path":"app/assets/brand/oorva-wordmark-light@3x.png","family":"wordmark","canvas":[768,192],"beforeMarginsPx":[53,30,53,30],"symbolDiameterPx":138,"minimumMarginPx":35,"scale":0.86,"projectedMarginsPx":[99.34,39.24,99.34,39.24],"conservativeIntegerMarginsPx":[99,39,99,39],"maximumScaleWithOnePixelBuffer":0.909090909},
+      {"path":"app/assets/brand/oorva-wordmark-dark.png","family":"wordmark","canvas":[256,64],"beforeMarginsPx":[17,10,17,10],"symbolDiameterPx":47,"minimumMarginPx":12,"scale":0.86,"projectedMarginsPx":[32.54,13.08,32.54,13.08],"conservativeIntegerMarginsPx":[32,13,32,13],"maximumScaleWithOnePixelBuffer":0.863636364},
+      {"path":"app/assets/brand/oorva-wordmark-dark@2x.png","family":"wordmark","canvas":[512,128],"beforeMarginsPx":[35,20,35,20],"symbolDiameterPx":93,"minimumMarginPx":24,"scale":0.86,"projectedMarginsPx":[65.94,26.16,65.94,26.16],"conservativeIntegerMarginsPx":[65,26,65,26],"maximumScaleWithOnePixelBuffer":0.886363636},
+      {"path":"app/assets/brand/oorva-wordmark-dark@3x.png","family":"wordmark","canvas":[768,192],"beforeMarginsPx":[53,30,53,30],"symbolDiameterPx":138,"minimumMarginPx":35,"scale":0.86,"projectedMarginsPx":[99.34,39.24,99.34,39.24],"conservativeIntegerMarginsPx":[99,39,99,39],"maximumScaleWithOnePixelBuffer":0.909090909}
+    ],
+    "destinationMasterSha256": {
+      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "oorva-wordmark-light.svg": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+      "oorva-wordmark-dark.svg": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+      "logo-horizontal-light.svg": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+      "logo-horizontal-dark.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
+      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+    },
+    "postFitO01XValidation": "PENDING; predicted margins are analytical only. O01X must re-export and run the official asset selector against the committed O01L source revision."
   },
   "tagline": {
     "text": "Your world, closer.",
@@ -141,18 +241,19 @@
     }
   },
   "license": {
-    "customArtwork": "Original project candidate authored in this task from owner-approved visual direction; no third-party vector or raster paths were copied. The owner-approved selection rule does not provide ownership, trademark, public-use or redistribution clearance; D03c is NOT APPROVED.",
+    "customArtwork": "The supplied SVG paths are the owner's approved artwork direction documented by the source README. No third-party artwork was used per that README. Trademark, public-use, ownership, and redistribution clearance are not asserted; D03c is NOT_APPROVED.",
     "taglineFont": "Bundled Inter Regular 400 is referenced only as a separate app text recommendation; no font file is embedded in the SVG masters.",
-    "explorationPngs": "The light PNG is owner-approved visual direction only. The PNG and related exports are not vector masters or approved public assets. D03b's standing rule selects an O01X set only after A.4.1 fidelity and validation; this source revision is not that export. D03c is NOT APPROVED."
+    "explorationPngs": "The PNGs remain references, not copied assets in this revision. O01L copied the supplied SVG drop-ins byte-for-byte before applying the documented six safe-area transforms. D03c is NOT_APPROVED and continues to block public/store release only."
   },
   "approvalStatus": {
     "status": "draft-candidate-only",
     "candidateOnly": true,
     "visualDirection": "OWNER_APPROVED_REFERENCE_ONLY",
-    "D03a": "APPROVED_AUTHORING_ONLY",
-    "D03b": "APPROVED_STANDING_CONDITIONAL_ON_O01X_A4_1_VALIDATION",
-    "D03bSelectionRule": "Any O01X set faithfully reproducing the owner-approved docs/design/oorva/logo/ Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
-    "D03bCandidateEvidence": "O01X re-export and candidate-specific hashes/validation are not yet recorded.",
+    "D03a": "APPROVED",
+    "D03b": "APPROVED",
+    "D03bCandidateSelected": false,
+    "D03bSelectionRule": "Any O01X set faithfully reproducing the owner-approved Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
+    "D03bCandidateEvidence": "O01X candidate export and candidate-specific hashes/validation will be recorded after this source revision is green.",
     "D03c": "NOT_APPROVED",
     "D03cScope": "Blocks public launch/store listing only; it does not block development, private integration, main promotion, or owner testing.",
     "finalSelection": false,
