@@ -82,13 +82,12 @@ function useRecurringNewDetailController() {
   const t = useTheme();
   const translate = useT();
   const toast = useToast();
-  const { providerServiceId, packageId, packageQty, durationMin: durationMinParam, archetype: archetypeParam, description: descriptionParam, source } =
+  const { providerServiceId, packageId, packageQty, durationMin: durationMinParam, description: descriptionParam, source } =
     useLocalSearchParams<{
       providerServiceId: string;
       packageId?: string;
       packageQty?: string;
       durationMin?: string;
-      archetype?: string;
       description?: string;
       source?: string;
     }>();
@@ -102,6 +101,7 @@ function useRecurringNewDetailController() {
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [packageSelectionError, setPackageSelectionError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [description, setDescription] = useState(descriptionParam ?? '');
   const [frequency, setFrequency] = useState<Frequency>('weekly');
@@ -117,6 +117,7 @@ function useRecurringNewDetailController() {
   const [endDateMonthOffset, setEndDateMonthOffset] = useState(0);
   const [maxOccurrences, setMaxOccurrences] = useState('');
   const [quote, setQuote] = useState<RecurringQuote | null>(null);
+  const [quoteContextKey, setQuoteContextKey] = useState('');
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -127,32 +128,89 @@ function useRecurringNewDetailController() {
   useEffect(() => {
     if (!providerServiceId) return;
     let active = true;
+    setService(null);
+    setPackages([]);
+    setSelectedPackage(null);
+    setPackageSelectionError(null);
+    setPackagesLoading(false);
     setLoadError(null);
+    setRequestError(null);
     getProviderService(providerServiceId)
       .then((row) => active && setService(row))
       .catch((error: Error) => active && setLoadError(error.message));
-    if (archetypeParam === 'fixed') {
-      setPackagesLoading(true);
-      listFixedPackages(providerServiceId)
-        .then((rows) => {
-          if (!active) return;
-          setPackages(rows);
-          const preferred = rows.find((row) => row.id === packageId) ?? rows[0] ?? null;
-          setSelectedPackage(preferred);
-          const requestedQty = Number(packageQty);
-          setQuantity(
-            preferred
-              ? Math.min(preferred.qty_max, Math.max(preferred.qty_min, Number.isInteger(requestedQty) ? requestedQty : preferred.qty_min))
-              : 1,
-          );
-        })
-        .catch((error: Error) => active && setLoadError(error.message))
-        .finally(() => active && setPackagesLoading(false));
-    }
     return () => {
       active = false;
     };
-  }, [providerServiceId, archetypeParam, packageId, packageQty]);
+  }, [providerServiceId]);
+
+  const currentService = service?.id === providerServiceId ? service : null;
+  const category = currentService?.categories;
+  const archetype: Archetype | null =
+    category?.archetype === 'fixed' || category?.archetype === 'time_based'
+      ? category.archetype
+      : null;
+  const requestedSessionPackage = packageId
+    ? currentService?.service_packages?.find((row) =>
+        row.id === packageId &&
+        row.provider_service_id === providerServiceId &&
+        row.active &&
+        row.price_type === 'fixed' &&
+        row.unit === 'session',
+      ) ?? null
+    : null;
+
+  useEffect(() => {
+    if (!providerServiceId || !currentService || archetype !== 'fixed') {
+      setPackages([]);
+      setSelectedPackage(null);
+      setPackageSelectionError(null);
+      setPackagesLoading(false);
+      return;
+    }
+
+    let active = true;
+    setPackages([]);
+    setSelectedPackage(null);
+    setPackageSelectionError(null);
+    setPackagesLoading(true);
+    setLoadError(null);
+    listFixedPackages(providerServiceId)
+      .then((rows) => {
+        if (!active) return;
+        const ownedPackages = rows.filter((row) =>
+          row.provider_service_id === providerServiceId &&
+          row.active &&
+          row.price_type === 'fixed',
+        );
+        setPackages(ownedPackages);
+        const requestedPackage = packageId
+          ? ownedPackages.find((row) => row.id === packageId) ?? null
+          : null;
+        const preferred = packageId ? requestedPackage : ownedPackages[0] ?? null;
+        setSelectedPackage(preferred);
+        setPackageSelectionError(
+          packageId && !requestedPackage
+            ? 'The selected package is not available for this service.'
+            : null,
+        );
+        const requestedQty = Number(packageQty);
+        const quantityIsValid =
+          Number.isFinite(requestedQty) &&
+          (Number.isInteger(requestedQty) || !!preferred && preferred.qty_max > 1);
+        setQuantity(
+          preferred
+            ? quantityIsValid
+              ? Math.min(preferred.qty_max, Math.max(preferred.qty_min, requestedQty))
+              : preferred.qty_min
+            : 1,
+        );
+      })
+      .catch((error: Error) => active && setLoadError(error.message))
+      .finally(() => active && setPackagesLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [providerServiceId, currentService?.id, archetype, packageId, packageQty]);
 
   useEffect(() => {
     if (!startDate && days.length) setStartDate(istDateKey(days[1]?.date ?? days[0]!.date));
@@ -163,13 +221,6 @@ function useRecurringNewDetailController() {
     setEndDate('');
   }, [startDate]);
 
-  const category = service?.categories;
-  const archetype: Archetype | null =
-    archetypeParam === 'fixed' || category?.archetype === 'fixed'
-      ? 'fixed'
-      : archetypeParam === 'time_based' || category?.archetype === 'time_based'
-        ? 'time_based'
-        : null;
   const allowedFrequencies = (category?.allowed_frequencies ?? []).filter((value): value is Frequency =>
     FREQUENCIES.includes(value as Frequency),
   );
@@ -197,7 +248,7 @@ function useRecurringNewDetailController() {
     if (!providerServiceId || !archetype || !startDate || !allowedFrequencies.includes(frequency)) return null;
     return {
       provider_service_id: providerServiceId,
-      package_id: archetype === 'fixed' ? selectedPackage?.id ?? null : packageId || null,
+      package_id: archetype === 'fixed' ? selectedPackage?.id ?? null : requestedSessionPackage?.id ?? null,
       archetype,
       frequency,
       interval_count: frequency === 'weekly' || frequency === 'monthly' ? parsedInterval : 1,
@@ -217,6 +268,7 @@ function useRecurringNewDetailController() {
   }, [
     providerServiceId,
     archetype,
+    currentService?.id,
     startDate,
     allowedFrequencies,
     frequency,
@@ -233,25 +285,57 @@ function useRecurringNewDetailController() {
     quantity,
     allowedBillingFrequencies,
     location.addressId,
+    requestedSessionPackage?.id,
     description,
   ]);
+  const selectedFixedPackageIsCurrent =
+    archetype !== 'fixed' ||
+    (!!selectedPackage &&
+      selectedPackage.provider_service_id === providerServiceId &&
+      selectedPackage.active &&
+      selectedPackage.price_type === 'fixed' &&
+      packages.some((row) => row.id === selectedPackage.id));
+  const effectivePackageSelectionError =
+    packageSelectionError ??
+    (packageId && archetype === 'time_based' && !requestedSessionPackage
+      ? 'The selected package is not available for this service.'
+      : null);
+  const optionalPackageIsCurrent =
+    !packageId || archetype === 'fixed' || !!requestedSessionPackage;
   const canQuote =
     recurringEnabled &&
     categoryEligible &&
     archetypeEnabled &&
+    currentService?.id === providerServiceId &&
     !!planInput &&
     recurrenceValid &&
-    (archetype !== 'fixed' || (!!selectedPackage && !packagesLoading)) &&
+    selectedFixedPackageIsCurrent &&
+    optionalPackageIsCurrent &&
+    !effectivePackageSelectionError &&
+    (archetype !== 'fixed' || !packagesLoading) &&
     allowedBillingFrequencies.includes('per_visit') &&
     (archetype !== 'time_based' || Number.isInteger(parsedDuration) && parsedDuration > 0);
   const quoteKey = planInput
     ? JSON.stringify({
         ...planInput,
-        address_id: undefined,
         description: undefined,
+        requested_package_id: packageId ?? null,
+        requested_package_quantity: packageQty ?? null,
+        eligibility: {
+          address_id: location.addressId,
+          city: location.city.trim(),
+          line1: location.line1?.trim() ?? '',
+          lat: location.lat,
+          lng: location.lng,
+          category_id: currentService?.category_id ?? '',
+          recurrence_allowed: category?.recurrence_allowed === true,
+          archetype: category?.archetype ?? null,
+          allowed_frequencies: allowedFrequencies,
+        },
       })
     : '';
-  const quoteSummary = quote ? getRecurringQuoteSummary(quote) : null;
+  const quoteForCurrentContext = canQuote && quote && quoteKey === quoteContextKey ? quote : null;
+  const quoteSummary = quoteForCurrentContext ? getRecurringQuoteSummary(quoteForCurrentContext) : null;
   const fourWeekEstimate = quoteSummary && planInput
     ? recurringFourWeekEstimate(quoteSummary, planInput)
     : null;
@@ -263,22 +347,32 @@ function useRecurringNewDetailController() {
   useEffect(() => {
     if (!canQuote || !planInput) {
       setQuote(null);
+      setQuoteContextKey('');
       setQuoteError(null);
+      setRequestError(null);
       setQuoteLoading(false);
       return;
     }
     let active = true;
     setQuote(null);
+    setQuoteContextKey('');
     setQuoteError(null);
+    setRequestError(null);
+    setQuoteLoading(false);
+    const requestedQuoteKey = quoteKey;
     const timer = setTimeout(() => {
       setQuoteLoading(true);
       void quoteRecurringPlan(planInput)
         .then((next) => {
-          if (active) setQuote(next);
+          if (active) {
+            setQuote(next);
+            setQuoteContextKey(requestedQuoteKey);
+          }
         })
         .catch((error: Error) => {
           if (active) {
             setQuote(null);
+            setQuoteContextKey('');
             setQuoteError(error.message);
           }
         })
@@ -306,7 +400,15 @@ function useRecurringNewDetailController() {
   };
 
   const submit = async () => {
-    if (!planInput || !quote || !location.addressId || !location.line1 || !description.trim()) return;
+    if (
+      !planInput ||
+      !quoteForCurrentContext ||
+      !canQuote ||
+      quoteKey !== quoteContextKey ||
+      !location.addressId ||
+      !location.line1 ||
+      !description.trim()
+    ) return;
     if (!recurringEnabled) {
       setQuoteError('Recurring bookings are turned off right now.');
       return;
@@ -324,7 +426,7 @@ function useRecurringNewDetailController() {
     }
   };
 
-  if (!service) {
+  if (!currentService) {
     const loadingContent = loadError ? (
       <ErrorState message={loadError} onRetry={() => router.replace({ pathname: '/recurring/new/[providerServiceId]', params: { providerServiceId: providerServiceId ?? '' } })} />
     ) : (
@@ -341,7 +443,7 @@ function useRecurringNewDetailController() {
     );
   }
 
-  const providerName = service.providers?.profiles?.full_name ?? 'provider';
+  const providerName = currentService.providers?.profiles?.full_name ?? 'provider';
   if (!recurringEnabled || !categoryEligible || !archetype || !archetypeEnabled) {
     return (
       <Screen header={<Header title="Repeat service" onBack={backToBooking} />}>
@@ -350,7 +452,14 @@ function useRecurringNewDetailController() {
     );
   }
 
-  const requestDisabled = !quote || quoteLoading || !location.addressId || !location.line1 || !description.trim() || !planInput;
+  const requestDisabled =
+    !quoteForCurrentContext ||
+    quoteLoading ||
+    !location.addressId ||
+    !location.line1 ||
+    !description.trim() ||
+    !planInput ||
+    !canQuote;
   const footerAbove = (
     <>
       {quoteSummary ? (
@@ -554,7 +663,11 @@ function useRecurringNewDetailController() {
           <Text variant="title3">Package and quantity</Text>
           {packagesLoading ? <Skeleton height={120} radius={t.radii.lg} /> : null}
           {packages.map((item) => (
-            <Pressable key={item.id} accessibilityRole="button" onPress={() => { setSelectedPackage(item); setQuantity(item.qty_min); }}>
+            <Pressable key={item.id} accessibilityRole="button" onPress={() => {
+              setSelectedPackage(item);
+              setQuantity(item.qty_min);
+              setPackageSelectionError(null);
+            }}>
               <Card variant="outlined" gap={t.spacing.xs} style={{ borderColor: selectedPackage?.id === item.id ? t.colors.primary : t.colors.border }}>
                 <Text variant="subheadStrong">{item.title} · {formatINR(item.price ?? 0)}</Text>
                 {item.description ? <Text variant="footnote" color="textSecondary">{item.description}</Text> : null}
@@ -564,6 +677,9 @@ function useRecurringNewDetailController() {
           ))}
           {!packagesLoading && packages.length === 0 ? (
             <InlineAlert tone="warning" title="No fixed packages" message="This provider has no active fixed-price package for repeat plans." />
+          ) : null}
+          {effectivePackageSelectionError ? (
+            <InlineAlert tone="danger" title="Could not use package" message={effectivePackageSelectionError} />
           ) : null}
           {selectedPackage && selectedPackage.qty_max > selectedPackage.qty_min ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -680,10 +796,18 @@ function useRecurringNewDetailController() {
           title="Could not get a quote"
           message={quoteError}
           actionLabel="Retry quote"
-          onAction={() => setQuoteRetry((value) => value + 1)}
+          onAction={() => {
+            setQuote(null);
+            setQuoteContextKey('');
+            setQuoteLoading(false);
+            setQuoteRetry((value) => value + 1);
+          }}
         />
       ) : null}
       {loadError ? <InlineAlert tone="danger" title="Could not load service" message={loadError} /> : null}
+      {effectivePackageSelectionError && archetype !== 'fixed' ? (
+        <InlineAlert tone="danger" title="Could not use package" message={effectivePackageSelectionError} />
+      ) : null}
     </>
   );
   return steps ? (
