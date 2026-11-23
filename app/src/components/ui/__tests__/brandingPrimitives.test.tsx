@@ -118,14 +118,36 @@ function nativeText(element: TestElement) {
   return Text(element.props);
 }
 
+function expectWithContext(actual: unknown, expected: unknown, context: string, assertion: () => void) {
+  try {
+    assertion();
+  } catch (error) {
+    throw new Error(
+      `${context}: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}\n${String(error)}`,
+    );
+  }
+}
+
 function expectValue(actual: unknown, expected: unknown, context: string) {
-  expect(actual, `${context}: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`).toEqual(expected);
+  expectWithContext(actual, expected, context, () => expect(actual).toEqual(expected));
+}
+
+function expectContains(actual: string, expected: string, context: string) {
+  expectWithContext(actual, expected, context, () => expect(actual).toContain(expected));
+}
+
+function expectAtLeast(actual: number, threshold: number, context: string) {
+  expectWithContext(actual, threshold, context, () => expect(actual).toBeGreaterThanOrEqual(threshold));
 }
 
 function expectReadablePair(foreground: string, background: string, context: string) {
   const ratio = contrastRatio(foreground, background);
-  expect(ratio, `${context}: foreground=${foreground}, background=${background}, ratio=${ratio.toFixed(2)}:1, expected >=4.5:1`)
-    .toBeGreaterThanOrEqual(4.5);
+  expectWithContext(
+    { foreground, background, ratio: `${ratio.toFixed(2)}:1` },
+    'contrast >=4.5:1',
+    context,
+    () => expect(ratio).toBeGreaterThanOrEqual(4.5),
+  );
 }
 
 function appearanceForTest(headingFont: BrandingV1['headingFont'] = 'inter'): BrandingV1 {
@@ -331,10 +353,7 @@ describe('branding-aware primitive styling', () => {
     expectValue(pressStyle(button, false).minWidth, 0, 'full action shrinkable button');
     expectValue(flattenStyle(buttonRow.props.style).flexWrap, 'wrap', 'full action row wrapping');
     expectValue(flattenStyle(buttonRow.props.style).minWidth, 0, 'full action shrinkable row');
-    expect(
-      pressStyle(button, false).minHeight,
-      `full action button style=${JSON.stringify(pressStyle(button, false))}`,
-    ).toBeGreaterThanOrEqual(48);
+    expectAtLeast(pressStyle(button, false).minHeight, 48, 'full action minimum height');
 
     const amount = '$123,456.78 for the complete service';
     const onSubmitEditing = jest.fn();
@@ -404,11 +423,9 @@ describe('branding-aware primitive styling', () => {
     const activeLabel = findElements(compact, Text).find((node) => node.props.children === steps[2])!;
 
     expectValue(root.props.accessibilityRole, 'progressbar', 'step progress accessibility role');
-    expect(root.props.accessibilityLabel, `step label=${JSON.stringify(root.props.accessibilityLabel)}`)
-      .toContain('Step 3 of 7');
+    expectContains(root.props.accessibilityLabel, 'Step 3 of 7', 'seven-step progress current position');
     for (const step of steps) {
-      expect(root.props.accessibilityLabel, `step label=${JSON.stringify(root.props.accessibilityLabel)}`)
-        .toContain(step);
+      expectContains(root.props.accessibilityLabel, step, 'seven-step progress includes every label');
     }
     expectValue(flattenStyle(root.props.style).alignSelf, 'stretch', 'compact progress available width');
     expectValue(flattenStyle(root.props.style).flexDirection, 'column', 'compact progress auto-height layout');
