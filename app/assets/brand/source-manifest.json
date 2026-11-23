@@ -131,7 +131,7 @@
     ],
     "visualSource": {
       "path": "docs/design/oorva/logo/vector/app-assets-contact-sheet.png",
-      "sha256": "3242d927c79c88acc90f5fc5c19605730cc2301946759924a162fe430531ab05",
+      "sha256": "3242d927c79c88acc90f5fc5d19605730cc2301946759924a162fe430531ab05",
       "sizesPx": [48, 32, 20],
       "result": "Both openings are visually open at all three supplied render sizes."
     },

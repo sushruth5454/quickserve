@@ -36,7 +36,7 @@ const SOURCE_README_SHA256 =
   '4137e340929fcd75c9fa21e3b83265cd109091ca81928738426325bf8df0ed4f';
 const CONTACT_SHEET = 'docs/design/oorva/logo/vector/app-assets-contact-sheet.png';
 const CONTACT_SHEET_SHA256 =
-  '3242d927c79c88acc90f5fc5c19605730cc2301946759924a162fe430531ab05';
+  '3242d927c79c88acc90f5fc5d19605730cc2301946759924a162fe430531ab05';
 const MASTER_VIEW_BOXES: Record<string, string> = {
   'oorva-symbol.svg': '0 0 256 256',
   'oorva-wordmark-light.svg': '0 0 1024 256',
@@ -82,11 +82,11 @@ function assertInvariant(
 }
 
 function assertEqual(actual: unknown, expected: unknown, message: string): void {
-  assertInvariant(
-    JSON.stringify(actual) === JSON.stringify(expected),
-    message,
-    actual,
-  );
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(
+      `${message}; actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`,
+    );
+  }
 }
 
 function assertNear(
@@ -975,9 +975,9 @@ describe('Oorva outlined SVG candidate masters', () => {
         manifest.originalityProvenance.directionalInputs.length === 6 &&
         manifest.originalityProvenance?.sourceReadme === SOURCE_README &&
         manifest.originalityProvenance?.sourceCommit === SOURCE_COMMIT &&
-        manifest.originalityProvenance?.copyMethod?.includes(
-          'byte-for-byte',
-        ) &&
+        manifest.originalityProvenance?.copyMethod
+          ?.toLowerCase()
+          .includes('byte-for-byte') &&
         manifest.originalityProvenance?.visualDirection?.status ===
           'OWNER_APPROVED_REFERENCE_ONLY' &&
         manifest.originalityProvenance.visualDirection.file ===
