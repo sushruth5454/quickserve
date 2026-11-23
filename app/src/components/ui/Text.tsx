@@ -6,6 +6,7 @@ export type TextColor = keyof Palette;
 export interface TextProps extends RNTextProps {
   variant?: TypographyVariant;
   color?: TextColor;
+  critical?: boolean;
   align?: TextStyle['textAlign'];
   uppercase?: boolean;
   tabular?: boolean;
@@ -15,6 +16,7 @@ export interface TextProps extends RNTextProps {
 export function Text({
   variant = 'body',
   color = 'text',
+  critical = false,
   align,
   uppercase,
   tabular,
@@ -25,7 +27,7 @@ export function Text({
   const t = useTheme();
   return (
     <RNText
-      maxFontSizeMultiplier={maxFontSizeMultiplier ?? maxFontScale[variant]}
+      maxFontSizeMultiplier={maxFontSizeMultiplier ?? (critical ? 2 : maxFontScale[variant])}
       style={[
         t.typography[variant],
         { color: t.colors[color] },
