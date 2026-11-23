@@ -48,9 +48,22 @@ sed -i 's/^\[auth\.sms\]$/[auth.sms]\nmax_frequency = "1s"/' supabase/config.tom
 mkdir -p /tmp/qs-later-migrations
 find supabase/migrations -name '*.sql' ! -name '0001_*' -exec mv {} /tmp/qs-later-migrations/ \;
 
-if ! supabase start -x studio,imgproxy,logflare,vector >/dev/null 2>&1; then
-  echo "Failed to start throwaway local Supabase stack" >&2
-  exit 1
+redact_supabase_output() {
+  sed -E \
+    -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/[REDACTED-JWT]/g' \
+    -e 's/sb_(secret|publishable)_[A-Za-z0-9_-]+/[REDACTED-SUPABASE-KEY]/g' \
+    -e '/^[[:space:]]*((anon|service_role|secret|publishable) key|jwt secret):/I s/:.*/: [REDACTED]/' \
+    -e 's/((SERVICE_ROLE|SECRET|ANON|PUBLISHABLE)_KEY=)[^[:space:]]+/\1[REDACTED]/Ig'
+}
+
+start_output=''
+if start_output="$(supabase start -x studio,imgproxy,logflare,vector 2>&1)"; then
+  printf '%s\n' "$start_output" | redact_supabase_output
+else
+  start_status=$?
+  printf '%s\n' "$start_output" | redact_supabase_output >&2
+  echo "Failed to start throwaway local Supabase stack (exit $start_status)" >&2
+  exit "$start_status"
 fi
 
 unset SERVICE_ROLE_KEY
