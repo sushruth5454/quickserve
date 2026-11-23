@@ -311,10 +311,12 @@ async function runBookingFirstResponseContention(context) {
         await response.query('set role authenticated');
         await response.query('begin');
         responseTransactionOpen = true;
+        await response.query('reset role');
         await response.query(
           `select id from recurring_schedules where id = $1::uuid for update`,
           [fixture.schedule],
         );
+        await response.query('set role authenticated');
 
         await bookingFirst.query('begin');
         bookingFirstTransactionOpen = true;
