@@ -51,6 +51,10 @@ find supabase/migrations -name '*.sql' ! -name '0001_*' -exec mv {} /tmp/qs-late
 supabase start -x studio,imgproxy,logflare,vector
 
 eval "$(supabase status -o env)"
+if [[ -z "${SERVICE_ROLE_KEY:-}" ]]; then
+  echo "Local Supabase status did not provide SERVICE_ROLE_KEY; private Storage tests cannot run" >&2
+  exit 1
+fi
 psql_db() { psql "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 
 # seed.sql and seed-full.sql were written for 0001_init.sql and loaded into the hosted demo project
@@ -127,7 +131,13 @@ echo "== hosted demo admin settings"
 psql_db -f supabase/seed-e2e-settings.sql
 
 if [ -n "${GITHUB_ENV:-}" ]; then
-  { echo "LOCAL_API_URL=$API_URL"; echo "LOCAL_ANON_KEY=$ANON_KEY"; echo "LOCAL_DB_URL=$DB_URL"; } >> "$GITHUB_ENV"
+  printf '::add-mask::%s\n' "$SERVICE_ROLE_KEY"
+  {
+    echo "LOCAL_API_URL=$API_URL"
+    echo "LOCAL_ANON_KEY=$ANON_KEY"
+    echo "LOCAL_DB_URL=$DB_URL"
+    printf 'LOCAL_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+  } >> "$GITHUB_ENV"
 fi
 echo "== local Supabase ready at $API_URL"
 
