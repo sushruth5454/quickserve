@@ -1,8 +1,7 @@
 import { Redirect, router, Tabs } from 'expo-router';
 import { useAuth } from '../../src/lib/auth';
 import { badgeLabel } from '../../src/lib/unread';
-import { useTheme } from '../../src/theme';
-import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
+import { TabIcon, useTabScreenOptions, useUnreadCountBadgeStyle } from '../../src/components/tabOptions';
 import { ActivityUnreadProvider, useActivityUnread } from '../../src/features/activity/ActivityUnreadProvider';
 import { useAppFeatureFlags } from '../../src/lib/featureFlags';
 import { useT } from '../../src/i18n';
@@ -22,8 +21,8 @@ export default function CustomerTabs() {
 
 function CustomerTabsContent() {
   const { session } = useAuth();
-  const screenOptions = useTabScreenOptions();
-  const t = useTheme();
+  const screenOptions = useTabScreenOptions('home');
+  const unreadBadgeStyle = useUnreadCountBadgeStyle();
   const translate = useT();
   const flags = useAppFeatureFlags();
   const guestBrowse = flags.isOn('guest_browse');
@@ -56,7 +55,7 @@ function CustomerTabsContent() {
         listeners={{ tabPress: (event) => requireSignInForTab(event, '/bookings') }}
         options={{
           tabBarBadge: badgeLabel(unread),
-          tabBarBadgeStyle: { backgroundColor: t.colors.danger, color: '#FFFFFF', fontSize: 11 },
+          tabBarBadgeStyle: unreadBadgeStyle,
           title: 'Bookings',
           tabBarIcon: ({ color, focused }) => <TabIcon name="calendar-outline" activeName="calendar" focused={focused} color={color as string} />,
         }}

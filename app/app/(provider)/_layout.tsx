@@ -12,9 +12,8 @@ import {
 } from '../../src/lib/accessPresentation';
 import { badgeLabel } from '../../src/lib/unread';
 import { useUnread } from '../../src/lib/unreadContext';
-import { useTheme } from '../../src/theme';
 import { Button, FullScreenLoader, InlineAlert, Screen } from '../../src/components/ui';
-import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
+import { ownerOnlyTabHref, TabIcon, useTabScreenOptions, useUnreadCountBadgeStyle } from '../../src/components/tabOptions';
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
 
@@ -22,8 +21,8 @@ export default function ProviderTabs() {
   const { activeRole, userId, loading: authLoading } = useAuth();
   const [access, setAccess] = useState<AccessPresentation<string | null>>(() => loadingAccess(null));
   const [accessAttempt, setAccessAttempt] = useState(0);
-  const screenOptions = useTabScreenOptions();
-  const t = useTheme();
+  const screenOptions = useTabScreenOptions('providerShare');
+  const unreadBadgeStyle = useUnreadCountBadgeStyle();
   const unread = useUnread().total('provider');
   useEffect(() => {
     let active = true;
@@ -61,14 +60,14 @@ export default function ProviderTabs() {
   if (currentAccess.status !== 'resolved') return <FullScreenLoader />;
   const businessRole = currentAccess.value;
   if (activeRole === 'customer' && !businessRole) return <Redirect href="/" />;
-  const isOwner = businessRole === 'owner';
+  const ownerTabHref = ownerOnlyTabHref(businessRole);
   return (
     <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
         name="dashboard"
         options={{
           tabBarBadge: badgeLabel(unread),
-          tabBarBadgeStyle: { backgroundColor: t.colors.danger, color: '#FFFFFF', fontSize: 11 },
+          tabBarBadgeStyle: unreadBadgeStyle,
           title: 'Jobs',
           tabBarIcon: ({ color, focused }) => <TabIcon name="briefcase-outline" activeName="briefcase" focused={focused} color={color as string} />,
         }}
@@ -76,7 +75,7 @@ export default function ProviderTabs() {
       <Tabs.Screen
         name="earnings"
         options={{
-          href: isOwner ? undefined : null,
+          href: ownerTabHref,
           title: 'Earnings',
           tabBarIcon: ({ color, focused }) => <TabIcon name="wallet-outline" activeName="wallet" focused={focused} color={color as string} />,
         }}
@@ -84,7 +83,7 @@ export default function ProviderTabs() {
       <Tabs.Screen
         name="pro-account"
         options={{
-          href: isOwner ? undefined : null,
+          href: ownerTabHref,
           title: 'Me',
           tabBarIcon: ({ color, focused }) => <TabIcon name="person-circle-outline" activeName="person-circle" focused={focused} color={color as string} />,
         }}
