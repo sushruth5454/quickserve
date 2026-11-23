@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O03",
   "workPackage": "O03",
-  "status": "PAUSED_FOR_REGISTRATION",
+  "status": "READY_FOR_LANE_CI_FALLBACK",
   "base": {
     "planSourceSha": "ee97c5462efbddd31b7b03cc8864295a21d6012d",
     "implementationSha": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
@@ -111,8 +111,15 @@
     "businessLogicChanged": false
   },
   "registration": {
-    "state": "PAUSED_FOR_CURRENT_MAIN_REGISTRATION",
+    "state": "MERGED",
     "baseSha": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
+    "sha": "f564fd5c48434d1a0d58f5bbd894fc63b1caed95",
+    "parentSha": "cfe0357bf60b490ab57c494d1d9c099b41bacf0a",
+    "mergeMode": "fast-forward-only",
+    "changedFiles": [
+      "supabase\\tests\\package.json",
+      ".github\\workflows\\lane-ci.yml"
+    ],
     "priorLaneRegistrationsNotReused": [
       "3743b79b6f861dc2f510b9c243607e4d6d601221",
       "79ece5656a696e8141dfd5581934f175a25a2b3e"
@@ -129,40 +136,38 @@
     "privatePostgresIsPGlite": false
   },
   "validation": {
-    "gitDiffCheck": "PASS",
+    "gitDiffCheck": "PENDING_FINAL_WORKER_UPDATE",
     "windowsAppBuildOrTest": "NOT_RUN_BY_INSTRUCTION",
     "windowsSqlTestOrLocalDatabase": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceApp": {
-      "state": "PRIOR_GREEN_SOURCE_IDENTICAL",
+    "codespaceAuth": {
+      "state": "UNAVAILABLE",
       "helperSource": "origin/main:scripts/cs-test.ps1",
-      "originMainSha": "4a5eb144ee1570f1db131e5b116fd82af83af2f6",
-      "firstSelector": "src.lib.__tests__.featureFlagModel[.]test[.]ts$",
-      "selectedFiles": 1,
-      "testsPassed": 3,
-      "tsc": "PASS via app suite"
+      "originMainSha": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
+      "error": "HTTP 404 from GitHub Codespaces API; gh auth token lacks the codespace scope.",
+      "selection": "Helper failed before remote test selection; no PASS or zero-selection result claimed."
+    },
+    "codespaceApp": {
+      "state": "NOT_RUN_CODESPACE_AUTH_UNAVAILABLE",
+      "selector": "src.lib.__tests__.featureFlagModel[.]test[.]ts$",
+      "priorRun": "3 tests passed on prior green head; not current-main validation."
     },
     "codespaceAdminJest": {
-      "state": "PRIOR_GREEN_SOURCE_IDENTICAL",
-      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "state": "NOT_RUN_CODESPACE_AUTH_UNAVAILABLE",
       "selector": "src.lib.__tests__.adminFeaturePresentation[.]test[.]ts$",
-      "selectedFiles": 1,
-      "testsPassed": 6
+      "priorRun": "6 tests passed on prior green head; not current-main validation."
     },
     "codespaceSql": {
-      "state": "PENDING_CURRENT_MAIN_REGISTRATION",
+      "state": "NOT_RUN_CODESPACE_AUTH_UNAVAILABLE",
       "helperSource": "origin/main:scripts/cs-test.ps1",
-      "originMainSha": "ca6daa3a071f11033b85c9f3043617945f67a76e",
       "selector": "oorva_branding",
-      "selectedFiles": 1,
-      "priorRun": "PASS on the previous lane head; rerun against current-main migrations after registration."
+      "selectedFiles": "NOT_AVAILABLE"
     },
     "codespaceMigrationParser": {
-      "state": "PENDING_CURRENT_MAIN_REGISTRATION",
+      "state": "NOT_RUN_CODESPACE_AUTH_UNAVAILABLE",
       "helperSource": "origin/main:scripts/cs-test.ps1",
-      "originMainSha": "ca6daa3a071f11033b85c9f3043617945f67a76e",
       "selector": "o03_oorva.sql",
       "allocatedFilename": "supabase\\migrations\\0097_o03_oorva.sql",
-      "priorRun": "PASS on the previous lane head; rerun the exact allocated filename after registration."
+      "selectedParses": "NOT_AVAILABLE"
     },
     "privatePostgresConcurrency": {
       "state": "PENDING_EXACT_HEAD_LANE_CI_ON_BATCH28_BASE",
@@ -187,7 +192,7 @@
       "headSha": "41746b122d26e9cd0123409d66c8958835f568ae",
       "result": "PASS_ON_PRE_BATCH28_LANE; NOT_VALIDATION_OF_CURRENT_MAIN_FIXFORWARD"
     },
-    "laneCi": "PENDING_CURRENT_MAIN_REGISTRATION_AND_EXACT_HEAD_PUSH"
+    "laneCi": "PENDING_EXACT_HEAD_PUSH_CODESPACE_FALLBACK"
   },
   "releaseStatus": {
     "featureFlagsEnabled": false,
