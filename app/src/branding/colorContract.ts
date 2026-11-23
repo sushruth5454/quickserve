@@ -66,8 +66,8 @@ export const COLOR_OVERRIDE_KEYS = [
 export type ColorOverrideKey = (typeof COLOR_OVERRIDE_KEYS)[number];
 
 export interface ContrastPair {
-  foreground: string;
-  background: string;
+  foreground: ColorOverrideKey;
+  background: ColorOverrideKey;
   purpose: string;
 }
 
@@ -81,7 +81,7 @@ export const ACTUAL_USE_COLOR_PAIRS: readonly ContrastPair[] = [
   { foreground: 'text', background: 'bubbleTheirs', purpose: 'received message text' },
   { foreground: 'textSecondary', background: 'bg', purpose: 'supporting text on page' },
   { foreground: 'textSecondary', background: 'surface', purpose: 'supporting text on surface' },
-  { foreground: 'textSecondary', background: 'borderStrong', purpose: 'unselected count label' },
+  { foreground: 'textSecondary', background: 'surfaceAlt', purpose: 'unselected count label' },
   { foreground: 'muted', background: 'bg', purpose: 'muted text on page' },
   { foreground: 'muted', background: 'surface', purpose: 'muted text on surface' },
   { foreground: 'muted', background: 'surfaceAlt', purpose: 'muted text on alternate surface' },
@@ -114,7 +114,12 @@ export function getContrastFailures(colors: object): string[] {
   for (const pair of ACTUAL_USE_COLOR_PAIRS) {
     const foreground = values[pair.foreground];
     const background = values[pair.background];
-    if (typeof foreground !== 'string' || typeof background !== 'string') continue;
+    if (typeof foreground !== 'string' || typeof background !== 'string') {
+      failures.push(
+        `${pair.foreground}/${pair.background} for ${pair.purpose} does not have string colors for a required actual-use pair`,
+      );
+      continue;
+    }
 
     try {
       const ratio = contrastRatio(foreground, background);

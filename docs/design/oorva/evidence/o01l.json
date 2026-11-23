@@ -748,5 +748,178 @@
       "logo-horizontal-mono-ivory.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
     },
     "postFitO01XValidation": "PENDING; predicted margins are analytical only. O01X must re-export and run the official asset selector against the committed O01L source revision."
+  },
+  "ownerApprovedDDelta": {
+    "status": "OWNER_APPROVED_PALETTE_DELTA",
+    "canonicalStage": "O01L",
+    "canonicalStageStatus": "DONE",
+    "baseSha": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "branch": "lane/oorva-o01l-d-b914",
+    "paletteDirection": "D",
+    "paletteTokenSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "kitManifest": "docs/design/oorva/brand-kit/manifest.json",
+    "kitManifestSha256": "16e9889736f4e28b45f828af233e70cfaa84db08080556af32a1ad4b3fb62c7e",
+    "paletteApproval": "docs/design/oorva/colours/approval.json",
+    "paletteApprovalSha256": "51068c3d55c2406b68eb9f08a97ec57fc29642b57f2a0e9af5addc6af946a559",
+    "sourceReadme": "docs/design/oorva/brand-kit/README.md",
+    "sourceReadmeSha256": "ff368c4f9983c9ce8793181d5a3e245c891227c5b70bbb7acff5ade787af29f2",
+    "vectorProvenance": "docs/design/oorva/brand-kit/handoff/vector-provenance.json",
+    "vectorProvenanceSha256": "8c7075cd7f4962d5e20a9e8356ac7eb6b3cc765e23aab08035bde84a67717196",
+    "sourceSha": "7e0c7850002d595452cf609576a56f2397963714",
+    "sourceMasterSha256": {
+      "oorva-symbol.svg": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "oorva-wordmark-light.svg": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "oorva-wordmark-dark.svg": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "logo-horizontal-light.svg": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "logo-horizontal-dark.svg": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "logo-stacked-light.svg": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "logo-stacked-dark.svg": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5"
+    },
+    "destinationSha256": {
+      "oorva-symbol.svg": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "oorva-wordmark-light.svg": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "oorva-wordmark-dark.svg": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "logo-horizontal-light.svg": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "logo-horizontal-dark.svg": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "logo-stacked-light.svg": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "logo-stacked-dark.svg": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5"
+    },
+    "files": [
+      {
+        "path": "app/assets/brand/oorva-symbol.svg",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+        "destinationSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+        "bytes": 1536,
+        "colour": "#006D77",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-light.svg",
+        "sourceSha256": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+        "destinationSha256": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+        "bytes": 4727,
+        "colour": "#006D77",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/oorva-wordmark-dark.svg",
+        "sourceSha256": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+        "destinationSha256": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+        "bytes": 4727,
+        "colour": "#80D4D4",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-light.svg",
+        "sourceSha256": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+        "destinationSha256": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+        "bytes": 6139,
+        "colour": "#006D77",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-dark.svg",
+        "sourceSha256": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+        "destinationSha256": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+        "bytes": 6139,
+        "colour": "#80D4D4",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-mono-black.svg",
+        "sourceSha256": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+        "destinationSha256": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+        "bytes": 6139,
+        "colour": "#000000",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/logo-stacked-light.svg",
+        "sourceSha256": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+        "destinationSha256": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+        "bytes": 6123,
+        "colour": "#006D77",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/logo-stacked-dark.svg",
+        "sourceSha256": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+        "destinationSha256": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+        "bytes": 6123,
+        "colour": "#80D4D4",
+        "byteForByteMatch": true
+      },
+      {
+        "path": "app/assets/brand/logo-horizontal-mono-ivory.svg",
+        "sourceSha256": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5",
+        "destinationSha256": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5",
+        "bytes": 6139,
+        "colour": "#FFFFFF",
+        "byteForByteMatch": true
+      }
+    ],
+    "requiredExistingContractSvgCount": 9,
+    "byteForByteVerified": true,
+    "transformsApplied": false,
+    "rasterizationPerformed": false,
+    "fontOrExternalReferenceAdded": false,
+    "gates": {
+      "D03a": "APPROVED",
+      "D03b": "APPROVED",
+      "D03c": "APPROVED",
+      "D02": "PENDING",
+      "D07a": "PENDING",
+      "D07b": "PENDING"
+    },
+    "permissions": {
+      "publicDistributionAuthorized": false,
+      "nativeCutoverAuthorized": false,
+      "featureActivationAuthorized": false
+    },
+    "oorvaBrandEnabled": false,
+    "taglineContrast": {
+      "light": {
+        "standard": "WCAG relative luminance and contrast ratio for sRGB colors",
+        "channelLinearization": "cLinear = cSrgb / 12.92 when cSrgb <= 0.04045; otherwise ((cSrgb + 0.055) / 1.055) ^ 2.4, where cSrgb is the 0-1 channel value.",
+        "relativeLuminance": "L = 0.2126 * RLinear + 0.7152 * GLinear + 0.0722 * BLinear",
+        "ratioFormula": "(max(Lbackground, Ltext) + 0.05) / (min(Lbackground, Ltext) + 0.05)",
+        "backgroundRelativeLuminance": 1,
+        "textRelativeLuminance": 0.122691878511,
+        "ratio": 6.080193284455,
+        "minimum": 4.5,
+        "result": "pass"
+      },
+      "dark": {
+        "backgroundRelativeLuminance": 0.009718339432,
+        "textRelativeLuminance": 0.56429627345,
+        "ratio": 10.286559862417,
+        "minimum": 4.5,
+        "result": "pass"
+      }
+    },
+    "nextAction": "Do not integrate/promote; O01X may consume the exact D masters only after this branch validation is green.",
+    "featureActivationPerformed": false,
+    "validation": {
+      "codespace": {
+        "status": "BLOCKED_BEFORE_TEST_SELECTION",
+        "helperSource": "origin/main:scripts/cs-test.ps1 at b914532ba1be6527ea0e74202fe0c3833376329e",
+        "helperSha256": "d9c4b47e6093d04d15163b3993d14988c9424465bb295ca65f61c88cc3760c8b",
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.branding.__tests__.svgMasters[.]test[.]ts$'",
+        "failure": "GitHub CLI lacks the codespace scope; the Codespaces API returned HTTP 404 before test selection. No test cases were selected and tsc did not run.",
+        "selectedFiles": null,
+        "selectedTests": null,
+        "typecheck": "NOT_RUN",
+        "fallback": "Use exact-head Lane CI only; do not claim Codespace passed."
+      }
+    },
+    "handoffValidation": "docs/design/oorva/brand-kit/handoff-validation.json",
+    "handoffValidationSha256": "2f610a7f864bdd2ca13ecf826d170f85efbc254ba61157546cb34fe06a161041",
+    "handoffValidationResult": "PASS",
+    "handoffValidationCheckCount": 15,
+    "handoffValidationScope": "Ready artwork/document verification only; not application, native, Codespace, or Lane CI validation."
   }
 }
