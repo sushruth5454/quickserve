@@ -3,6 +3,12 @@ import { supabase } from '../../lib/supabase';
 export type RfqUnit = 'piece' | 'sqft' | 'box' | 'kg' | 'litre' | 'bag' | 'metre' | 'set';
 export type RfqStatus = 'open' | 'closed' | 'expired' | 'cancelled';
 export type SupplierQuoteStatus = 'sent' | 'withdrawn' | 'selected' | 'rejected' | 'expired';
+export type RfqSelectionBlockReason =
+  | 'closed'
+  | 'rfq_expired'
+  | 'quote_expired'
+  | 'shop_unavailable'
+  | 'feature_off';
 
 export interface RfqItem {
   id: string;
@@ -88,7 +94,12 @@ export interface RfqQuoteComparison {
   arrives_after_needed_by: boolean;
   delivery_terms_missing: boolean;
   items: RfqQuoteItemComparison[];
+  can_select?: boolean;
+  selection_block_reason?: RfqSelectionBlockReason | null;
 }
+
+export type RfqQuoteComparisonResult = RfqQuoteComparison
+  & Required<Pick<RfqQuoteComparison, 'can_select' | 'selection_block_reason'>>;
 
 export interface SupplierRfqSummary {
   shop_id: string;
@@ -193,9 +204,9 @@ export async function listMyCustomerRfqs(): Promise<CustomerRfqSummary[]> {
   return unwrap(data as CustomerRfqSummary[] | null, error);
 }
 
-export async function compareRfqQuotes(rfqId: string): Promise<RfqQuoteComparison[]> {
+export async function compareRfqQuotes(rfqId: string): Promise<RfqQuoteComparisonResult[]> {
   const { data, error } = await supabase.rpc('compare_rfq_quotes', { p_rfq_id: rfqId });
-  return unwrap(data as RfqQuoteComparison[] | null, error);
+  return unwrap(data as RfqQuoteComparisonResult[] | null, error);
 }
 
 export async function selectSupplierQuote(quoteId: string): Promise<{ rfq_id: string; enquiry_id: string }> {
