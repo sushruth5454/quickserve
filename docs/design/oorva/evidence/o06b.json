@@ -55,8 +55,8 @@
     "fallback": {
       "environment": "exact-head Lane CI",
       "status": "PASS",
-      "runId": 45194288684,
-      "validatedCommit": "30c583f7a797894ab0d91a1ee9d3f0b569c28ff6",
+      "runId": 45194709969,
+      "validatedCommit": "2dd0bed233077e156ec79cc359293349ff62dba5",
       "results": {
         "uiLint": "PASS",
         "typecheck": "PASS",
