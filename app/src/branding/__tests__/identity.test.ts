@@ -1,3 +1,7 @@
+import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
 jest.mock('../AppearanceProvider', () => ({
   useAppearance: jest.fn(),
 }));
@@ -11,7 +15,10 @@ jest.mock('expo-image', () => ({
 }));
 
 import { useAppearance, type AppearanceState } from '../AppearanceProvider';
-import { OORVA_BRANDING_CANDIDATE } from '../defaults';
+import {
+  OORVA_BRANDING_CANDIDATE,
+  OORVA_SELECTED_BRAND_EXPORTS,
+} from '../defaults';
 import {
   resolveBrandIdentity,
   type BrandContext,
@@ -26,6 +33,48 @@ const selectedExports = {
   logoDark: require('../../../assets/brand/logo-horizontal-dark.png') as number,
   compactLight: require('../../../assets/brand/logo-compact-light.png') as number,
   compactDark: require('../../../assets/brand/logo-compact-dark.png') as number,
+};
+type ExportKey = keyof typeof selectedExports;
+type SelectedExportBinding = {
+  source: number;
+  path: string;
+  role: string;
+  sha256: string;
+};
+const selectedBindings = OORVA_SELECTED_BRAND_EXPORTS as unknown as Record<
+  ExportKey,
+  SelectedExportBinding
+>;
+const selectedManifest = require('../../../assets/brand/manifest.json') as {
+  selected: boolean;
+  publiclyCleared: boolean;
+  files: Array<{
+    selected: boolean;
+    publiclyCleared: boolean;
+    export: { path: string; role: string; sha256: string };
+  }>;
+};
+const selectedEvidence = require('../../../../docs/design/oorva/evidence/o01x.json') as {
+  export: { status: string; fileCount: number; manifestSha256: string };
+};
+const appRoot = resolve(__dirname, '../../..');
+const selectedExportMetadata: Record<ExportKey, { path: string; role: string }> = {
+  logoLight: {
+    path: 'app/assets/brand/logo-horizontal-light.png',
+    role: 'horizontal-lockup',
+  },
+  logoDark: {
+    path: 'app/assets/brand/logo-horizontal-dark.png',
+    role: 'horizontal-lockup',
+  },
+  compactLight: {
+    path: 'app/assets/brand/logo-compact-light.png',
+    role: 'compact-symbol',
+  },
+  compactDark: {
+    path: 'app/assets/brand/logo-compact-dark.png',
+    role: 'compact-symbol',
+  },
 };
 type ExcludedIdentityFields = Extract<
   keyof BrandIdentityState | keyof ResolvedBrandIdentity,
@@ -148,6 +197,47 @@ describe('contextual brand identity', () => {
       ).toEqual(legacy(name));
     },
   );
+
+  it('binds only selected O01X exports with their manifest roles and hashes', () => {
+    expect(selectedManifest.selected).toBe(true);
+    expect(selectedManifest.publiclyCleared).toBe(false);
+    expect(selectedEvidence.export).toMatchObject({ status: 'PASS', fileCount: 26 });
+    expect(
+      createHash('sha256')
+        .update(readFileSync(resolve(appRoot, 'assets/brand/manifest.json')))
+        .digest('hex'),
+    ).toBe(selectedEvidence.export.manifestSha256);
+
+    for (const key of Object.keys(selectedExportMetadata) as ExportKey[]) {
+      const expected = selectedExportMetadata[key];
+      const binding = selectedBindings[key];
+      const manifestFile = selectedManifest.files.find(
+        (file) => file.export.path === expected.path,
+      );
+
+      expect(binding.path).toBe(expected.path);
+      expect(binding.role).toBe(expected.role);
+      expect(binding.source).toBe(selectedExports[key]);
+      expect(manifestFile).toMatchObject({
+        selected: true,
+        publiclyCleared: false,
+        export: {
+          path: expected.path,
+          role: expected.role,
+          sha256: binding.sha256,
+        },
+      });
+      expect(
+        createHash('sha256')
+          .update(
+            readFileSync(
+              resolve(appRoot, expected.path.replace(/^app\//, '')),
+            ),
+          )
+          .digest('hex'),
+      ).toBe(binding.sha256);
+    }
+  });
 
   it('uses the bundled identity only when its availability is approved', () => {
     const resolved = resolveBrandIdentity(
