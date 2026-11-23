@@ -1,5 +1,12 @@
 import type { BrandingV1 } from './types';
 
+export const OORVA_SELECTED_BRAND_EXPORTS = {
+  logoLight: require('../../assets/brand/logo-horizontal-light.png') as number,
+  logoDark: require('../../assets/brand/logo-horizontal-dark.png') as number,
+  compactLight: require('../../assets/brand/logo-compact-light.png') as number,
+  compactDark: require('../../assets/brand/logo-compact-dark.png') as number,
+} as const;
+
 /** Bundled appearance used only when the Oorva identity parent flag is explicitly enabled. */
 export const OORVA_BRANDING_CANDIDATE: BrandingV1 = {
   schemaVersion: 1,
