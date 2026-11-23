@@ -486,6 +486,8 @@ async function runPauseResponseRace(context) {
       try {
         await first.query(`set statement_timeout = '15000ms'`);
         await second.query(`set statement_timeout = '15000ms'`);
+        await second.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [fixture.manager]);
+        await second.query('set role authenticated');
         await first.query('begin');
         firstTransactionOpen = true;
         await first.query(
@@ -493,9 +495,7 @@ async function runPauseResponseRace(context) {
           [fixture.schedule],
         );
 
-        responsePromise = as(
-          second,
-          fixture.manager,
+        responsePromise = second.query(
           `select respond_visit_reschedule($1::uuid, true)`,
           [fixture.change],
         ).then(
