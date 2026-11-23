@@ -66,6 +66,12 @@ function findElement(elements: TestElement[], type: string, child?: ReactNode): 
   return match;
 }
 
+function invokeHandler(element: TestElement, name: string): void {
+  const handler = element.props[name];
+  if (typeof handler !== 'function') throw new Error(`Missing ${name} handler on ${String(element.type)}`);
+  handler();
+}
+
 function setWindow(width: number, fontScale: number): void {
   jest.mocked(useWindowDimensions).mockReturnValue({
     width,
@@ -122,7 +128,7 @@ describe('shared market presentation contract', () => {
     expect((stack?.props.style as { flexDirection?: string }).flexDirection).toBe('row');
     expect(title.props.numberOfLines).toBeUndefined();
     expect(subtitle.props.numberOfLines).toBeUndefined();
-    card.props.onPress();
+    invokeHandler(card, 'onPress');
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
@@ -257,7 +263,7 @@ describe('shared market presentation contract', () => {
     expect(supplier.props.numberOfLines).toBeUndefined();
     expect(detail.props.numberOfLines).toBeUndefined();
     expect(buttons).toHaveLength(1);
-    buttons[0].props.onPress();
+    invokeHandler(findElement(oorva, 'MockButton'), 'onPress');
     expect(props.onSelect).toHaveBeenCalledWith('quote-a');
     expect(oorva.filter((element) => element.type === 'MockBadge').map((element) => element.props.label)).toContain(
       'Requested quantity is rounded',
@@ -265,17 +271,21 @@ describe('shared market presentation contract', () => {
   });
 
   it('wraps Oorva trust items without clamping their labels while preserving the legacy row', () => {
+    const firstItem = {
+      icon: 'shield-checkmark' as const,
+      label: 'Identity checked for this specific service category',
+    };
     const items = [
-      { icon: 'shield-checkmark' as const, label: 'Identity checked for this specific service category' },
+      firstItem,
       { icon: 'time-outline' as const, label: 'Current availability confirmed by the provider' },
     ];
 
     const legacy = collectElements(TrustStrip({ items }));
     expect((findElement(legacy, 'View').props.style as { flexWrap?: string }).flexWrap).toBeUndefined();
-    expect(findElement(legacy, 'MockText', items[0].label).props.numberOfLines).toBe(2);
+    expect(findElement(legacy, 'MockText', firstItem.label).props.numberOfLines).toBe(2);
 
     const oorva = collectElements(TrustStrip({ items, presentation: 'oorva' }));
     expect((findElement(oorva, 'View').props.style as { flexWrap?: string }).flexWrap).toBe('wrap');
-    expect(findElement(oorva, 'MockText', items[0].label).props.numberOfLines).toBeUndefined();
+    expect(findElement(oorva, 'MockText', firstItem.label).props.numberOfLines).toBeUndefined();
   });
 });
