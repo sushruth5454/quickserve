@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
@@ -9,6 +9,7 @@ import { formatINR } from '../../lib/money';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { usePayment } from '../../lib/payments';
 import { useTheme } from '../../theme';
+import { useSportsReadRefresh } from '../sports/useSportsReadRefresh';
 
 function slotLabel(value: string) {
   return new Date(value).toLocaleString('en-IN', {
@@ -39,10 +40,11 @@ function useSportsCheckoutDetailController() {
   const refreshedDeadline = useRef<string | null>(null);
   const sportsDiscoveryEnabled = flags.isOn('sports');
 
-  const load = useCallback(async () => {
+  const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!id) return;
     try {
       const next = await getCustomerSportsBooking(id);
+      if (!guard.isCurrent()) return;
       if (!next) {
         setBooking(null);
         setError('This booking is not available.');
@@ -51,15 +53,14 @@ function useSportsCheckoutDetailController() {
       setBooking(next);
       setError(null);
     } catch (caught) {
-      setError((caught as Error).message);
+      if (guard.isCurrent()) setError((caught as Error).message);
     }
   }, [id]);
-
-  useFocusEffect(useCallback(() => {
-    void load();
-    const refresh = setInterval(() => void load(), 30_000);
-    return () => clearInterval(refresh);
-  }, [load]));
+  const { refresh: load } = useSportsReadRefresh(loadForRefresh, {
+    contextKey: `sports-checkout:${id ?? ''}:${userId ?? ''}`,
+    enabled: !!id,
+    intervalMs: 30_000,
+  });
 
   useEffect(() => {
     const clock = setInterval(() => setNow(Date.now()), 1000);

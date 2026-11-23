@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router, useFocusEffect, type Href } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { PriceFooter } from '../../components/market/PriceFooter';
@@ -29,6 +29,7 @@ import {
   slotCellState,
 } from './model';
 import { sportsVenueBookingReturnTo } from './bookingPresentation';
+import { useSportsReadRefresh } from './useSportsReadRefresh';
 
 function indiaDate(offsetDays = 0) {
   const date = new Date(Date.now() + offsetDays * 86400000);
@@ -92,6 +93,9 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const effectiveBookingMode = resource?.booking_mode === 'instant' && instantBookingEnabled ? 'instant' : 'approval';
   const estimatedTotal = getSportsEstimatedTotal(slots ?? [], selectedStart, duration);
   const cancellationPolicyLabel = getSportsCancellationPolicyLabel(venue?.cancellation_policy);
+  const refreshContextKey = `sports-venue:${venueId}:${resourceId}:${date}:${effectiveParticipants}:${multiSlotEnabled}`;
+  const refreshContextRef = useRef(refreshContextKey);
+  refreshContextRef.current = refreshContextKey;
   const slotCells = (slots ?? [])
     .map((slot) => ({
       slot,
@@ -112,51 +116,51 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
         }).format(new Date(`${indiaDate(offset)}T12:00:00+05:30`)),
   }));
 
-  const loadVenue = useCallback(async () => {
+  const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!sportsEnabled || !venueId) return;
     try {
-      const next = await getCustomerSportsVenue(venueId);
-      if (!next) {
+      const nextVenue = await getCustomerSportsVenue(venueId);
+      if (!guard.isCurrent()) return;
+      if (!nextVenue) {
         setVenue(null);
+        setResourceId('');
+        setSlots(null);
+        setSelectedStart(null);
         setError('This venue is not available.');
         return;
       }
-      setVenue(next);
-      setResourceId((current) => next.resources.some((item) => item.id === current) ? current : next.resources[0]?.id ?? '');
-      setError(null);
-    } catch (caught) {
-      setError((caught as Error).message);
-    }
-  }, [sportsEnabled, venueId]);
 
-  const loadSlots = useCallback(async () => {
-    if (!sportsEnabled || !resource?.id || !date) return;
-    try {
-      const next = await getSportsSlots(resource.id, date);
-      setSlots(next);
+      const nextResourceId = nextVenue.resources.some((item) => item.id === resourceId)
+        ? resourceId
+        : nextVenue.resources[0]?.id ?? '';
+      setVenue(nextVenue);
+      setResourceId((current) => current && !nextVenue.resources.some((item) => item.id === current) ? nextResourceId : current);
+      if (!nextResourceId || !date) {
+        setSlots([]);
+        setSelectedStart(null);
+        setError(null);
+        return;
+      }
+
+      const nextSlots = await getSportsSlots(nextResourceId, date);
+      if (!guard.isCurrent()) return;
+      setSlots(nextSlots);
       setSelectedStart((current) => current && getAvailableSportsDurations(
-        next,
+        nextSlots,
         current,
         effectiveParticipants,
         multiSlotEnabled ? 4 : 1,
       ).length > 0 ? current : null);
       setError(null);
     } catch (caught) {
-      setError((caught as Error).message);
+      if (guard.isCurrent()) setError((caught as Error).message);
     }
-  }, [date, effectiveParticipants, multiSlotEnabled, resource?.id, sportsEnabled]);
-
-  useFocusEffect(useCallback(() => {
-    if (!sportsEnabled) return;
-    void loadVenue();
-  }, [loadVenue, sportsEnabled]));
-
-  useFocusEffect(useCallback(() => {
-    if (!sportsEnabled) return;
-    void loadSlots();
-    const refresh = setInterval(() => void loadSlots(), 30_000);
-    return () => clearInterval(refresh);
-  }, [loadSlots, sportsEnabled]));
+  }, [date, effectiveParticipants, multiSlotEnabled, resourceId, sportsEnabled, venueId]);
+  const { refresh } = useSportsReadRefresh(loadForRefresh, {
+    contextKey: refreshContextKey,
+    enabled: sportsEnabled && !!venueId,
+    intervalMs: 30_000,
+  });
 
   const chooseResource = (nextResourceId: string) => {
     idempotencyKey.current = null;
@@ -177,7 +181,9 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
 
   const book = async () => {
     if (!resource || !selectedStart || durationOptions.length === 0 || !availablePaymentModes.includes(selectedPaymentMode) || loading) return;
+    const requestContextKey = refreshContextRef.current;
     if (!(await requireSignIn(sportsVenueBookingReturnTo(venueId)))) return;
+    if (refreshContextRef.current !== requestContextKey) return;
     setLoading(true);
     setError(null);
     try {
@@ -209,10 +215,12 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
     } catch (caught) {
       const message = (caught as Error).message;
       if (isSportsSlotTakenError(message)) {
-        await loadSlots();
+        if (refreshContextRef.current !== requestContextKey) return;
+        await refresh();
+        if (refreshContextRef.current !== requestContextKey) return;
         setSelectedStart(null);
         setError('That slot was just booked. Pick another time.');
-      } else {
+      } else if (refreshContextRef.current === requestContextKey) {
         setError(message);
       }
     } finally {
@@ -247,7 +255,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
       {!sportsEnabled ? (
         <InlineAlert message="Sports & venues are turned off right now." />
       ) : error && !venue ? (
-        <ErrorState message={error} onRetry={() => void loadVenue()} />
+        <ErrorState message={error} onRetry={() => void refresh()} />
       ) : !venue ? (
         <Skeleton height={280} radius={t.radii.lg} />
       ) : (
