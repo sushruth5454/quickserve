@@ -3,7 +3,16 @@
   "stage": "O05B",
   "logicalWorkPackage": "O05",
   "sourceFinding": "PF-F12",
-  "implementationBaseSha": "b2031c8f9c05fe6f75614f8e1333f6c26470f43e",
+  "implementationBaseSha": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+  "assetDependencySha": "f2d2191f9e22db4dde9a50fea186996bf1479973",
+  "assetSourceFixSha": "76e98fb8d871b5af9d0e38bc88f85042409986a6",
+  "fixForward": {
+    "branch": "lane/oorva-o05b-fixforward-f2d2191",
+    "currentMainSha": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+    "replayedO05BChangesFrom": "794408a522858aa8dd90b8a99425783c193c222c",
+    "rejectedHeadIsAncestor": false,
+    "oldRemoteLaneModified": false
+  },
   "sourceEvidence": {
     "path": "docs/audit/18-WS1-Platform-Auth-AI-Native.md",
     "section": "PF-T10",
@@ -14,27 +23,37 @@
     "D03b": "APPROVED",
     "D03c": "NOT_APPROVED"
   },
+  "assetEvidence": {
+    "path": "docs/design/oorva/evidence/o01x.json",
+    "exportStatus": "PASS",
+    "exportCount": 26,
+    "allExportedBytesMatched": true
+  },
   "selectedManifest": {
     "path": "app/assets/brand/manifest.json",
-    "sha256": "4f81d613e4d1001079777a7b5123a296318d36c6ca4b05cdd19548298dcc5095",
+    "sha256": "a8741e9810107d64394fcb21edb6dae63768e27d186ebb5ae86fefe3675cb945",
     "selected": true,
     "publiclyCleared": false,
     "exports": [
       {
         "path": "app/assets/brand/logo-horizontal-light.png",
-        "sha256": "75bbe5e343da5ec67d682b0b41415f629d19794f12cd84157056830e55e2ed8f"
+        "role": "horizontal-lockup",
+        "sha256": "c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d"
       },
       {
         "path": "app/assets/brand/logo-horizontal-dark.png",
-        "sha256": "ef3a1c3acc4a40f6a3292a28452f9d9fa2a4a33ef17bff4eff5c513af97d37bd"
+        "role": "horizontal-lockup",
+        "sha256": "30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c"
       },
       {
         "path": "app/assets/brand/logo-compact-light.png",
-        "sha256": "d376ef72421ddf1c229790ccb7d3fb5fd3b1565572eb79ccb0fe85d250dbb1de"
+        "role": "compact-symbol",
+        "sha256": "2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08"
       },
       {
         "path": "app/assets/brand/logo-compact-dark.png",
-        "sha256": "40016189f47ce69aaab70b6d935ad35be89cb0dc412cc242dc403d03354dab04"
+        "role": "compact-symbol",
+        "sha256": "2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3"
       }
     ]
   },
@@ -68,30 +87,39 @@
     "parentBrandOff": "Returns the exact context legacy identity before evaluating runtime or bundled state.",
     "bundledAssetUnavailable": "Returns the exact context legacy identity when bundledIdentityReady is false or any selected bundled export is absent.",
     "separateNearoOwnership": "Nearo receipt and checkout contexts remain Nearo even when the Oorva parent brand is enabled.",
-    "publishedSchema": "Accepts schema version 1 (or the already-validated provider projection without an explicit version); rejects an explicitly unsupported version and falls back safely.",
+    "publishedSchema": "Accepts schema version 1 (or the already-validated provider projection without an explicit version); rejects an explicitly unsupported version and falls back to legacy even if bundled assets are ready.",
     "noPlaceholderIdentity": "Bundled logo rendering uses only selected local exports; legacy and published identities retain their exact display label when no renderable bundled export applies.",
     "financialIdentityFields": "Issuer, account identifiers, receipt snapshots, contact URLs, historical text, payout narration, and technical identifiers are not part of the identity API."
   },
+  "testCoverage": [
+    "All legacy contexts with brand OFF and bundled assets unavailable",
+    "Parent brand OFF despite runtime and bundled state being ON",
+    "Separately owned Nearo receipt and checkout contexts remain Nearo",
+    "Selected O01X exports match manifest paths, real roles, SHA-256 values, and O01X evidence",
+    "Published identity display fields, null assets, invalid schema, and safe fallback",
+    "BrandLogo uses the selected dark export or the exact identity label without a placeholder"
+  ],
   "validation": {
     "codespaceHelperSource": "origin/main:scripts/cs-test.ps1",
-    "codespaceHelperSourceSha": "3cc8f1326537e872504fa84835e735e15bf17b7e",
+    "codespaceHelperSourceCommit": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
     "suite": "app",
     "filter": "src.branding.__tests__.identity[.]test[.]ts$",
     "command": "pwsh -NoProfile -File <current-main-cs-test.ps1> -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
     "runs": "TypeScript check and exact Jest path",
-    "selectedTestSuites": 1,
-    "selectedTestCount": 85,
-    "passedTestCount": 85,
-    "result": "PASS",
-    "codespaceSnapshot": "wip/qs-o05b@4d6fc3a0"
+    "result": "UNAVAILABLE_BEFORE_TEST_SELECTION",
+    "reason": "GitHub Codespaces API returned HTTP 404 because gh authentication lacks the codespace scope; the helper stopped before test selection.",
+    "selectedTestSuites": null,
+    "selectedTestCount": null,
+    "passedTestCount": null,
+    "fallback": "Run exact-head Lane CI after pushing only the new fix-forward branch; do not claim a Codespace PASS."
   },
   "scope": {
-    "nativeDestinationChanges": false,
-    "featureFlagActivation": false,
+    "o05bNativeDestinationChanges": false,
+    "o05bFeatureFlagActivation": false,
     "productionFeatureEnablement": false,
     "publicOrStoreRelease": false,
     "runtimeOrDeviceVerification": "NOT_PERFORMED",
     "historicalMoneyIdentityChanges": false,
-    "manifestOrAssetExportChanges": false
+    "o05bManifestOrAssetExportChanges": false
   }
 }

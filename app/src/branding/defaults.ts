@@ -1,10 +1,30 @@
 import type { BrandingV1 } from './types';
 
 export const OORVA_SELECTED_BRAND_EXPORTS = {
-  logoLight: require('../../assets/brand/logo-horizontal-light.png') as number,
-  logoDark: require('../../assets/brand/logo-horizontal-dark.png') as number,
-  compactLight: require('../../assets/brand/logo-compact-light.png') as number,
-  compactDark: require('../../assets/brand/logo-compact-dark.png') as number,
+  logoLight: {
+    source: require('../../assets/brand/logo-horizontal-light.png') as number,
+    path: 'app/assets/brand/logo-horizontal-light.png',
+    role: 'horizontal-lockup',
+    sha256: 'c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d',
+  },
+  logoDark: {
+    source: require('../../assets/brand/logo-horizontal-dark.png') as number,
+    path: 'app/assets/brand/logo-horizontal-dark.png',
+    role: 'horizontal-lockup',
+    sha256: '30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c',
+  },
+  compactLight: {
+    source: require('../../assets/brand/logo-compact-light.png') as number,
+    path: 'app/assets/brand/logo-compact-light.png',
+    role: 'compact-symbol',
+    sha256: '2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08',
+  },
+  compactDark: {
+    source: require('../../assets/brand/logo-compact-dark.png') as number,
+    path: 'app/assets/brand/logo-compact-dark.png',
+    role: 'compact-symbol',
+    sha256: '2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3',
+  },
 } as const;
 
 /** Bundled appearance used only when the Oorva identity parent flag is explicitly enabled. */

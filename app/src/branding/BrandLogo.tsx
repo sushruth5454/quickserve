@@ -6,11 +6,10 @@ import {
   type TextStyle,
 } from 'react-native';
 import { useBrandIdentity } from './useBrandIdentity';
-import type { BrandContext, ResolvedBrandIdentity } from './identity';
+import type { BrandContext } from './identity';
 
 export interface BrandLogoProps {
   context: BrandContext;
-  identity?: ResolvedBrandIdentity;
   variant?: 'full' | 'compact';
   colorScheme?: 'light' | 'dark';
   style?: StyleProp<TextStyle>;
@@ -20,15 +19,13 @@ export interface BrandLogoProps {
 
 export function BrandLogo({
   context,
-  identity,
   variant = 'full',
   colorScheme = 'light',
   style,
   imageStyle,
   testID,
 }: BrandLogoProps) {
-  const resolvedIdentity = useBrandIdentity(context);
-  const selectedIdentity = identity ?? resolvedIdentity;
+  const selectedIdentity = useBrandIdentity(context);
   const assetKey = variant === 'compact'
     ? colorScheme === 'dark' ? 'compactDark' : 'compactLight'
     : colorScheme === 'dark' ? 'logoDark' : 'logoLight';

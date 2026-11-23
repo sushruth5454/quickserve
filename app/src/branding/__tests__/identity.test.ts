@@ -1,6 +1,6 @@
-jest.mock('../AppearanceProvider', () => ({
-  useAppearance: jest.fn(),
-}));
+import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 jest.mock('react-native', () => ({
   Text: 'Text',
@@ -10,8 +10,14 @@ jest.mock('expo-image', () => ({
   Image: 'Image',
 }));
 
-import { useAppearance, type AppearanceState } from '../AppearanceProvider';
-import { OORVA_BRANDING_CANDIDATE } from '../defaults';
+jest.mock('../useBrandIdentity', () => ({
+  useBrandIdentity: jest.fn(),
+}));
+
+import {
+  OORVA_BRANDING_CANDIDATE,
+  OORVA_SELECTED_BRAND_EXPORTS,
+} from '../defaults';
 import {
   resolveBrandIdentity,
   type BrandContext,
@@ -19,13 +25,57 @@ import {
   type ResolvedBrandIdentity,
 } from '../identity';
 import { BrandLogo } from '../BrandLogo';
+import { useBrandIdentity } from '../useBrandIdentity';
 
-const mockUseAppearance = useAppearance as jest.MockedFunction<typeof useAppearance>;
+const mockUseBrandIdentity =
+  useBrandIdentity as jest.MockedFunction<typeof useBrandIdentity>;
 const selectedExports = {
   logoLight: require('../../../assets/brand/logo-horizontal-light.png') as number,
   logoDark: require('../../../assets/brand/logo-horizontal-dark.png') as number,
   compactLight: require('../../../assets/brand/logo-compact-light.png') as number,
   compactDark: require('../../../assets/brand/logo-compact-dark.png') as number,
+};
+type ExportKey = keyof typeof selectedExports;
+type SelectedExportBinding = {
+  source: number;
+  path: string;
+  role: string;
+  sha256: string;
+};
+const selectedBindings = OORVA_SELECTED_BRAND_EXPORTS as unknown as Record<
+  ExportKey,
+  SelectedExportBinding
+>;
+const selectedManifest = require('../../../assets/brand/manifest.json') as {
+  selected: boolean;
+  publiclyCleared: boolean;
+  files: Array<{
+    selected: boolean;
+    publiclyCleared: boolean;
+    export: { path: string; role: string; sha256: string };
+  }>;
+};
+const selectedEvidence = require('../../../../docs/design/oorva/evidence/o01x.json') as {
+  export: { status: string; fileCount: number; manifestSha256: string };
+};
+const appRoot = resolve(__dirname, '../../..');
+const selectedExportMetadata: Record<ExportKey, { path: string; role: string }> = {
+  logoLight: {
+    path: 'app/assets/brand/logo-horizontal-light.png',
+    role: 'horizontal-lockup',
+  },
+  logoDark: {
+    path: 'app/assets/brand/logo-horizontal-dark.png',
+    role: 'horizontal-lockup',
+  },
+  compactLight: {
+    path: 'app/assets/brand/logo-compact-light.png',
+    role: 'compact-symbol',
+  },
+  compactDark: {
+    path: 'app/assets/brand/logo-compact-dark.png',
+    role: 'compact-symbol',
+  },
 };
 type ExcludedIdentityFields = Extract<
   keyof BrandIdentityState | keyof ResolvedBrandIdentity,
@@ -99,16 +149,6 @@ function validPublished(
   };
 }
 
-function appearanceState(overrides: Partial<AppearanceState> = {}): AppearanceState {
-  return {
-    brandingEnabled: false,
-    runtimeEnabled: false,
-    config: null,
-    refresh: jest.fn().mockResolvedValue(undefined),
-    ...overrides,
-  };
-}
-
 describe('contextual brand identity', () => {
   it.each(contexts)('keeps the exact legacy identity for %s when branding is OFF', (context, name) => {
     expect(resolveBrandIdentity(context, state())).toEqual(legacy(name));
@@ -148,6 +188,47 @@ describe('contextual brand identity', () => {
       ).toEqual(legacy(name));
     },
   );
+
+  it('binds only selected O01X exports with their manifest roles and hashes', () => {
+    expect(selectedManifest.selected).toBe(true);
+    expect(selectedManifest.publiclyCleared).toBe(false);
+    expect(selectedEvidence.export).toMatchObject({ status: 'PASS', fileCount: 26 });
+    expect(
+      createHash('sha256')
+        .update(readFileSync(resolve(appRoot, 'assets/brand/manifest.json')))
+        .digest('hex'),
+    ).toBe(selectedEvidence.export.manifestSha256);
+
+    for (const key of Object.keys(selectedExportMetadata) as ExportKey[]) {
+      const expected = selectedExportMetadata[key];
+      const binding = selectedBindings[key];
+      const manifestFile = selectedManifest.files.find(
+        (file) => file.export.path === expected.path,
+      );
+
+      expect(binding.path).toBe(expected.path);
+      expect(binding.role).toBe(expected.role);
+      expect(binding.source).toBe(selectedExports[key]);
+      expect(manifestFile).toMatchObject({
+        selected: true,
+        publiclyCleared: false,
+        export: {
+          path: expected.path,
+          role: expected.role,
+          sha256: binding.sha256,
+        },
+      });
+      expect(
+        createHash('sha256')
+          .update(
+            readFileSync(
+              resolve(appRoot, expected.path.replace(/^app\//, '')),
+            ),
+          )
+          .digest('hex'),
+      ).toBe(binding.sha256);
+    }
+  });
 
   it('uses the bundled identity only when its availability is approved', () => {
     const resolved = resolveBrandIdentity(
@@ -225,7 +306,7 @@ describe('contextual brand identity', () => {
     ).toEqual(legacy('QuickServe'));
   });
 
-  it('uses approved bundled identity after runtime appearance rejection only when ready', () => {
+  it('falls back to legacy after runtime appearance rejection even when bundled assets are ready', () => {
     expect(
       resolveBrandIdentity(
         'auth',
@@ -235,8 +316,8 @@ describe('contextual brand identity', () => {
           bundledIdentityReady: true,
           published: { ...validPublished(), displayName: '' },
         }),
-      ).source,
-    ).toBe('bundled');
+      ),
+    ).toEqual(legacy('QuickServe'));
   });
 
   it('rejects a published identity with an unsupported schema version', () => {
@@ -251,6 +332,7 @@ describe('contextual brand identity', () => {
         state({
           brandOn: true,
           runtimeOn: true,
+          bundledIdentityReady: true,
           published,
         }),
       ),
@@ -262,14 +344,8 @@ describe('contextual brand identity', () => {
     expect(excludedFields).toBe(true);
   });
 
-  it('maps rejected provider appearance to legacy and exposes only the identity label', () => {
-    mockUseAppearance.mockReturnValue(
-      appearanceState({
-        brandingEnabled: true,
-        runtimeEnabled: true,
-        config: OORVA_BRANDING_CANDIDATE,
-      }),
-    );
+  it('renders the legacy identity supplied by useBrandIdentity', () => {
+    mockUseBrandIdentity.mockReturnValue(legacy('QuickServe'));
 
     const logo = BrandLogo({ context: 'onboardingAgreement', testID: 'brand-logo' });
 
@@ -280,19 +356,16 @@ describe('contextual brand identity', () => {
     });
   });
 
-  it('uses the provider-approved runtime identity without normalizing its display name', () => {
-    const config = {
-      ...OORVA_BRANDING_CANDIDATE,
+  it('renders the published identity without normalizing its display name', () => {
+    mockUseBrandIdentity.mockReturnValue({
       displayName: 'Oorva Business',
       tagline: 'A runtime-approved tagline',
-      assets: {
-        ...OORVA_BRANDING_CANDIDATE.assets,
-        logoLight: '00000000-0000-4000-8000-000000000011',
-      },
-    };
-    mockUseAppearance.mockReturnValue(
-      appearanceState({ brandingEnabled: true, runtimeEnabled: true, config }),
-    );
+      logoLight: '00000000-0000-4000-8000-000000000011',
+      logoDark: null,
+      compactLight: null,
+      compactDark: null,
+      source: 'published',
+    });
 
     const logo = BrandLogo({ context: 'home' });
 
@@ -307,9 +380,9 @@ describe('contextual brand identity', () => {
       'home',
       state({ brandOn: true, bundledIdentityReady: true }),
     );
+    mockUseBrandIdentity.mockReturnValue(identity);
     const logo = BrandLogo({
       context: 'home',
-      identity,
       variant: 'full',
       colorScheme: 'dark',
       testID: 'selected-brand-logo',

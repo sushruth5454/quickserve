@@ -98,11 +98,13 @@ function isValidPublishedIdentity(
 }
 
 function hasBundledAssets(): boolean {
-  return (Object.values(OORVA_SELECTED_BRAND_EXPORTS) as unknown[]).every(
-    (asset) =>
-      asset !== null &&
-      asset !== undefined &&
-      (typeof asset !== 'string' || asset.trim().length > 0),
+  return (
+    Object.values(OORVA_SELECTED_BRAND_EXPORTS) as Array<{ source: unknown }>
+  ).every(
+    ({ source }) =>
+      source !== null &&
+      source !== undefined &&
+      (typeof source !== 'string' || source.trim().length > 0),
   );
 }
 
@@ -114,10 +116,10 @@ function bundledIdentity(): ResolvedBrandIdentity | null {
   return {
     displayName,
     tagline,
-    logoLight: assets.logoLight,
-    logoDark: assets.logoDark,
-    compactLight: assets.compactLight,
-    compactDark: assets.compactDark,
+    logoLight: assets.logoLight.source,
+    logoDark: assets.logoDark.source,
+    compactLight: assets.compactLight.source,
+    compactDark: assets.compactDark.source,
     source: 'bundled',
   };
 }
@@ -129,7 +131,9 @@ export function resolveBrandIdentity(
   const legacy = legacyIdentity(context);
   if (state?.brandOn !== true || legacy.displayName === 'Nearo') return legacy;
 
-  if (state.runtimeOn === true && isValidPublishedIdentity(state.published)) {
+  if (state.runtimeOn === true) {
+    if (!isValidPublishedIdentity(state.published)) return legacy;
+
     const { displayName, tagline, logoLight, logoDark, compactLight, compactDark } =
       state.published;
     return {
