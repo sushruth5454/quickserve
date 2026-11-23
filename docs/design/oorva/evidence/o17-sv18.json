@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O17-SV18",
+  "workPackage": "O17",
+  "status": "VALIDATED_AWAITING_LANE_CI",
+  "base": {
+    "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationSha": "b7cb8911c15ef03100e407ff4385151cc2bf364a",
+    "sourceAuditSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "hostBlob": "6b3435cbada174887f80bccb5f132c2bd81f1b6d",
+    "routeBlob": "2b7ab05cfc1e87c4e3f607eea5cd258cae14cb7b"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O17-PLAN",
+      "sha": "f641f6267061d71f95a1fd86d718b0c71db6e342",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    }
+  ],
+  "sourceTaskIds": [
+    "SV-T18"
+  ],
+  "sourceFindingIds": [
+    "SV-F17"
+  ],
+  "migrationClaims": [],
+  "newFeatureFlagKeys": [],
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "NOT_IN_SCOPE"
+  },
+  "workerOwnedFiles": [
+    "app\\src\\features\\recurring\\__tests__\\creationReadiness.test.tsx",
+    "supabase\\tests\\oorva_o17_sv18.test.mjs",
+    "app\\src\\features\\serviceScreens\\RecurringNewDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o17-sv18.json"
+  ],
+  "coordinatorOwnedFiles": [
+    "supabase\\tests\\package.json"
+  ],
+  "routeOwnership": {
+    "route": "app\\app\\recurring\\new\\[providerServiceId].tsx",
+    "state": "UNCHANGED",
+    "host": "app\\src\\features\\serviceScreens\\RecurringNewDetailScreen.tsx",
+    "controller": "useRecurringNewDetailController"
+  },
+  "implementation": [
+    "Derive archetype from the loaded service category; load fixed packages only after the current service resolves.",
+    "Filter package results by current service, active status, and fixed price type; reject invalid selected package hints.",
+    "Clamp requested quantity to package bounds while preserving valid integer or server-supported fractional quantities.",
+    "Bind quote readiness to address identity and eligibility context; only display or submit a quote whose key matches the current context.",
+    "Ignore stale service, package, and quote responses after route or context changes."
+  ],
+  "requiredCases": {
+    "app": [
+      "no-hint fixed package loading and package ownership",
+      "forged route archetype cannot override the loaded category",
+      "quantity maximum clamping and valid integer/fractional preservation",
+      "address eligibility change clears readiness, fresh quote failure is visible, and stale address response is ignored",
+      "package-switch quote response is stale and cannot enable send",
+      "stale service and package responses are ignored after route change",
+      "service load and recurring send failures are explicit",
+      "recurring, archetype, and category OFF hide new-plan controls"
+    ],
+    "sql": [
+      "SV-RECURRING-PACKAGE-03: unrelated active package direct quote/create rejected",
+      "SV-RECURRING-PACKAGE-03: inactive package direct quote/create rejected",
+      "SV-RECURRING-PACKAGE-03: in-bound fractional quantity accepted; above-maximum quantity rejected"
+    ]
+  },
+  "registration": {
+    "state": "REGISTERED",
+    "path": "supabase\\tests\\package.json",
+    "selector": "oorva_o17_sv18",
+    "registrationSha": "1c6af7b54b41894ec18588970b46c87cc77bc268",
+    "selectionProof": "SELECTION PASS: supabase/tests/oorva_o17_sv18.test.mjs <- node oorva_o17_sv18.test.mjs"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "appTests": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.recurring.__tests__.creationReadiness[.]test[.]tsx$'",
+      "state": "PASS",
+      "wipSnapshotPrefix": "4696fa27",
+      "selectedFiles": 1,
+      "passedTests": 17,
+      "failedTests": 0
+    },
+    "sqlTests": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o17_sv18'",
+      "state": "PASS",
+      "wipSnapshotPrefix": "fb174c12",
+      "selectedFiles": 1,
+      "parseChecks": 0,
+      "passedChecks": 1,
+      "failedChecks": 0
+    },
+    "lanePush": "READY_AFTER_WORKER_FIX_COMMIT",
+    "laneCi": "PENDING_EXACT_HEAD_AUTHOR_RUN",
+    "mainPromotion": "NOT_IN_SCOPE"
+  }
+}
