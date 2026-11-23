@@ -65,22 +65,57 @@
     "SP11-TWO-SESSION-RESOURCE-ADVISORY-LOCK-RACE"
   ],
   "registration": {
-    "state": "PENDING_COORDINATOR_REGISTRATION",
+    "state": "MERGED",
+    "sha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
     "requiredSqlTestSelector": "oorva_o20_sp11",
     "requiredMigrationParserSelector": "0102_o20_sp11_oorva.sql",
     "requiredPrivatePostgreSqlStep": "node run.mjs --filter o20_sp11.pg.test.mjs",
-    "owner": "COORDINATOR"
+    "owner": "COORDINATOR",
+    "selectionProof": {
+      "sqlTest": "Selected exactly once",
+      "migrationParser": "Selected exactly once",
+      "privatePostgreSql": "Selected exactly once"
+    }
   },
   "validation": {
-    "status": "NOT_RUN_BEFORE_COORDINATOR_REGISTRATION",
-    "codespaceSqlTest": "PENDING",
-    "codespaceMigrationParser": "PENDING",
-    "privatePostgreSqlTwoSessionTest": "PENDING",
-    "laneCi": "PENDING_EXACT_HEAD"
+    "status": "PASS",
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "sqlTestSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o20_sp11'",
+        "result": "PASS",
+        "selected": "supabase/tests/oorva_o20_sp11.test.mjs",
+        "summary": "1/1 SQL checks passed; the seven SP11 request, capacity, and gate scenarios passed."
+      },
+      "migrationParserSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter '0102_o20_sp11_oorva.sql'",
+        "result": "PASS",
+        "selected": "supabase/migrations/0102_o20_sp11_oorva.sql",
+        "summary": "1/1 SQL checks passed; one top-level statement, one function body, zero errors."
+      }
+    },
+    "privatePostgreSql": {
+      "command": "node run.mjs --filter o20_sp11.pg.test.mjs",
+      "result": "PASS",
+      "selected": "o20_sp11.pg.test.mjs",
+      "summary": "Two independent backends contended on the resource advisory lock. The first request persisted; the second returned P0001 (slot is no longer available). Final occupancy was [2,2] at capacity 2, with three bookings, zero competing-request rows, one request notification, and zero payment rows."
+    },
+    "laneCi": {
+      "runId": 45246556909,
+      "headSha": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+      "status": "completed",
+      "conclusion": "success",
+      "privatePostgreSqlStep": "PASS: Test O20-SP11 private PostgreSQL capacity",
+      "sqlStep": "PASS",
+      "toolingStep": "PASS",
+      "denoStep": "PASS",
+      "appStep": "PASS"
+    },
+    "localBuildsTestsAndInstalls": "NOT_RUN_PER_DISPATCH"
   },
   "review": {
     "required": "CONCURRENCY",
-    "state": "PENDING_AFTER_GREEN_LANE_CI"
+    "state": "PENDING_COORDINATOR_REVIEW_AFTER_GREEN_LANE_CI"
   },
   "approvals": {
     "E0": "APPROVED",
@@ -88,6 +123,13 @@
   },
   "checkpoint": {
     "state": "WORKER_FILES_ONLY",
-    "stopPoint": "PAUSE_FOR_COORDINATOR_REGISTRATION"
+    "sha": "d97512edcca5ae8ff852f239167e5ccd2ddea569",
+    "postRegistrationHead": "dbbe4e8eb4dfd9a24c01c0f9de3cf918733fe149",
+    "stopPoint": "PAUSE_FOR_COORDINATOR_CONCURRENCY_REVIEW"
+  },
+  "integration": {
+    "state": "NOT_INTEGRATED",
+    "promotion": "NOT_PERFORMED",
+    "gate": "Await coordinator concurrency review and lower-claim clearance."
   }
 }
