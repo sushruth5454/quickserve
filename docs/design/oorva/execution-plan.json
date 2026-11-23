@@ -24626,6 +24626,11 @@
       ],
       "registrationRequests": [
         {
+          "path": "supabase\\tests\\package.json",
+          "owner": "coordinator",
+          "instruction": "Register only the allocated migration parser command in scripts.pretest, in numeric order; no future absent-file test entry."
+        },
+        {
           "path": ".github\\workflows\\lane-ci.yml",
           "owner": "coordinator",
           "instruction": "Before author validation, add the existing private-postgres test step for branding_asset_registration.pg.test.mjs with LOCAL_DB_URL and PRIVATE_TEST_STACK=true. Do not edit the worker branch."
@@ -24656,6 +24661,7 @@
       "sourceTestPathAllocations": {},
       "readOnlyRegressionTests": [],
       "coordinatorOwnedFiles": [
+        "supabase\\tests\\package.json",
         ".github\\workflows\\lane-ci.yml"
       ],
       "workerOwnedFiles": [
@@ -24664,6 +24670,11 @@
         "docs\\design\\oorva\\evidence\\o03-asset-registration.json"
       ],
       "requestedSharedEdits": [
+        {
+          "path": "supabase\\tests\\package.json",
+          "owner": "coordinator",
+          "instruction": "Append node parse.cjs <allocated migration filename> to scripts.pretest in numeric order; do not edit the worker branch."
+        },
         {
           "path": ".github\\workflows\\lane-ci.yml",
           "owner": "coordinator",
@@ -24824,7 +24835,10 @@
       ],
       "sourceTestPathAllocations": {},
       "readOnlyRegressionTests": [],
-      "coordinatorOwnedFiles": [],
+      "coordinatorOwnedFiles": [
+        "supabase\\tests-postgres\\package.json",
+        ".github\\workflows\\lane-ci.yml"
+      ],
       "workerOwnedFiles": [
         "supabase\\functions\\branding-assets\\index.ts",
         "supabase\\functions\\branding-assets\\logic.ts",
@@ -24834,7 +24848,18 @@
         "supabase\\tests-postgres\\branding_assets.http.test.mjs",
         "docs\\design\\oorva\\evidence\\o04.json"
       ],
-      "requestedSharedEdits": [],
+      "requestedSharedEdits": [
+        {
+          "path": "supabase\\tests-postgres\\package.json",
+          "owner": "coordinator",
+          "instruction": "Append only branding_assets.http.test.mjs to httpIntegrationTests after the worker-files-only checkpoint; preserve the O37A runner and dependencies."
+        },
+        {
+          "path": ".github\\workflows\\lane-ci.yml",
+          "owner": "coordinator",
+          "instruction": "Add node run.mjs --filter branding_assets.http.test.mjs to the private-postgres job with LOCAL_DB_URL and PRIVATE_TEST_STACK=true after the exact file exists."
+        }
+      ],
       "evidenceFile": "docs\\design\\oorva\\evidence\\o04.json",
       "dispatchOrder": 97,
       "locks": [
@@ -42264,10 +42289,11 @@
       "scripts\\ci\\local-supabase.sh",
       "scripts\\cs-test.ps1",
       "scripts\\cs\\run.sh",
-      "supabase\\tests\\package.json"
+      "supabase\\tests\\package.json",
+      "supabase\\tests-postgres\\package.json"
     ],
     "rule": "One coordinator writer, serialized per-lane registration roundtrip. Authors pause index/staging, coordinator uses separate worktree and exact already-existing-file additions only. Not a stage/aggregate readiness prerequisite; O37B verifies final registration.",
-    "includes": "CI/package/full-chain/deploy/locale/shared-barrel/E2E additions. Exact requested keys/values/patches and returned registration SHA/selection proof are recorded in the stage dispatch metadata; never speculative feature-code changes."
+    "includes": "CI/package/full-chain/deploy/locale/shared-barrel/E2E additions. The private-postgres package manifest is coordinator-owned for exact HTTP integration test registrations only; O37A retains runner/dependency implementation ownership. Exact requested keys/values/patches and returned registration SHA/selection proof are recorded in stage dispatch metadata; never speculative feature-code changes."
   },
   "approvedDesignInput": {
     "concept": "D",

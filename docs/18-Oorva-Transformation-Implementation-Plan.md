@@ -877,17 +877,21 @@ These specify actual files/steps/tests, not vague IDs. Source-only stages use th
 
 **Depends:** O00, O03, O37A. **Gates:** E0, O03-ASSET-REG-SCOPE, the launch-allocated `MIG-O03-ASSET-REG`.
 
-**Exact worker-owned files:** `supabase\migrations\UNASSIGNED__o03_asset_registration.sql`; `supabase\tests-postgres\branding_asset_registration.pg.test.mjs`; `docs\design\oorva\evidence\o03-asset-registration.json`. The coordinator owns the private-postgres `lane-ci.yml` registration and adds the migration to the deploy list only at E1 promotion.
+**Exact worker-owned files:** `supabase\migrations\UNASSIGNED__o03_asset_registration.sql`; `supabase\tests-postgres\branding_asset_registration.pg.test.mjs`; `docs\design\oorva\evidence\o03-asset-registration.json`. The coordinator owns the `supabase\tests\package.json` migration-parser registration and private-postgres `lane-ci.yml` test registration; the deploy list is updated only at E1 promotion.
 
 1. Implement only `public.admin_register_branding_asset` as a fixed-search-path `SECURITY DEFINER` function. Grant execution only to `service_role`; keep direct table writes and execution from `public`, `anon`, and `authenticated` revoked.
 2. Require the O04 Edge Function to verify the caller JWT/admin/effective flags and the complete PNG bytes before Storage upload and RPC invocation. The RPC rechecks `oorva_brand`, `branding_runtime`, and `branding_editor`, derives `branding/<uuid>.png`, checks PNG metadata bounds and the private Storage object, and records the verified actor in the audit log.
 3. Make identical registration retries idempotent and immutable. Reject mismatched duplicate metadata, revoked IDs, missing objects, invalid hash/MIME/path/dimensions, and disabled parent/child flags.
 4. Test service-role-only execution, flag-off rejection, object existence, metadata constraints, idempotency/conflict, and actor/audit behavior against the disposable private PostgreSQL stack. No feature activation, public/native cutover, or production data repair.
-5. Use the paused-author §0.4.3 roundtrip for the exact existing lane-CI test registration before author validation. Require the current-main Codespace migration parser selector and exact-head Lane CI. The stage requires focused auth review.
+5. Use the paused-author §0.4.3 roundtrip for the allocated migration parser and private-postgres lane-CI registrations before author validation. Require the current-main Codespace migration parser selector and exact-head Lane CI. The stage requires focused auth/concurrency review.
 
 #### O04 — Constrained immutable PNG upload, public serving and private preview
 
 **Depends:** O00, O37A, O03, O03-ASSET-REG. **Gates:** E0.
+
+**Coordinator registration:** After the O04 worker-files-only checkpoint exists, register exactly `branding_assets.http.test.mjs` in `supabase\tests-postgres\package.json`'s `httpIntegrationTests` and add its `node run.mjs --filter branding_assets.http.test.mjs` step to the private-postgres `lane-ci.yml` job using the existing private-stack environment. Complete the §0.4.3 paused-author roundtrip before author validation.
+
+**Coordinator registration:** After the O04 worker-files-only checkpoint exists, register exactly `branding_assets.http.test.mjs` in `supabase\tests-postgres\package.json`'s `httpIntegrationTests` and add its `node run.mjs --filter branding_assets.http.test.mjs` step to the private-postgres `lane-ci.yml` job using the existing private-stack environment. Complete the §0.4.3 paused-author roundtrip before author validation.
 
 **Exact owned files:** `supabase\functions\branding-assets\index.ts`; `supabase\functions\branding-assets\logic.ts`; `supabase\functions\branding-assets\logic_test.ts`; `supabase\functions\branding-assets\png.ts`; `supabase\functions\branding-assets\png_test.ts`; `supabase\tests-postgres\branding_assets.http.test.mjs`; `docs\design\oorva\evidence\o04.json`.
 
