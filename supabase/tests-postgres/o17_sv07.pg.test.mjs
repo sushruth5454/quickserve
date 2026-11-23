@@ -305,6 +305,10 @@ async function runBookingFirstResponseContention(context) {
       try {
         await bookingFirst.query(`set statement_timeout = '15000ms'`);
         await response.query(`set statement_timeout = '15000ms'`);
+        await bookingFirst.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [fixture.manager]);
+        await bookingFirst.query('set role authenticated');
+        await response.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [fixture.manager]);
+        await response.query('set role authenticated');
         await response.query('begin');
         responseTransactionOpen = true;
         await response.query(
@@ -314,9 +318,7 @@ async function runBookingFirstResponseContention(context) {
 
         await bookingFirst.query('begin');
         bookingFirstTransactionOpen = true;
-        operationPromise = as(
-          bookingFirst,
-          fixture.manager,
+        operationPromise = bookingFirst.query(
           `select report_provider_absence($1::uuid, $2::text)`,
           [fixture.booking, 'SV07 booking-first lock barrier'],
         ).then(
@@ -336,8 +338,6 @@ async function runBookingFirstResponseContention(context) {
           response, bookingFirstPid, responsePid, operationResult, fixture,
         );
 
-        await response.query(`select set_config('request.jwt.claim.sub', $1::text, false)`, [fixture.manager]);
-        await response.query('set role authenticated');
         await response.query('savepoint response_attempt');
         const responseStartedAt = Date.now();
         let responseAttempt;
@@ -425,6 +425,7 @@ async function runBookingFirstResponseContention(context) {
         if (responseTransactionOpen) await response.query('rollback').catch(() => undefined);
         if (bookingFirstTransactionOpen) await bookingFirst.query('rollback').catch(() => undefined);
         await response.query('reset role').catch(() => undefined);
+        await bookingFirst.query('reset role').catch(() => undefined);
       }
     });
   } finally {
