@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O03-ASSET-REG",
+  "workPackage": "O03",
+  "status": "IMPLEMENTATION_CHECKPOINT_PENDING_REGISTRATION",
+  "scope": {
+    "ownerApprovedGate": "O03-ASSET-REG-SCOPE",
+    "planAmendmentSha": "94bdeaf394658be637d27a24a22a1d0bb18ebfce",
+    "migrationClaim": "MIG-O03-ASSET-REG",
+    "allocatedMigration": "supabase\\migrations\\0103_o03_asset_registration.sql",
+    "o03Status": "DONE",
+    "immutableMigration": "supabase\\migrations\\0097_o03_oorva.sql",
+    "workerOwnedFiles": [
+      "supabase\\migrations\\0103_o03_asset_registration.sql",
+      "supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs",
+      "docs\\design\\oorva\\evidence\\o03-asset-registration.json"
+    ],
+    "function": "public.admin_register_branding_asset"
+  },
+  "base": {
+    "branch": "lane/oorva-o03-asset-reg",
+    "implementationBaseSha": "94bdeaf394658be637d27a24a22a1d0bb18ebfce",
+    "currentMainSha": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "doneDependencies": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O03": "99a9f22bb39fb159637852bf2eaffa797401abe9",
+      "O37A": "e48422e85d11e1bcfd97efa1eba54338d608d3d7"
+    },
+    "lowerMigrationBarrier": {
+      "owner": "O20-SP11",
+      "version": "0102",
+      "promotion": "Wait for integration or explicit release."
+    }
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "O03-ASSET-REG-SCOPE": "APPROVED",
+    "MIG-O03-ASSET-REG": "ALLOCATED_AS_0103",
+    "E1": "CONDITIONAL_AFTER_TESTED_INTEGRATION",
+    "D02": "PENDING",
+    "D07": "PENDING"
+  },
+  "contract": {
+    "execution": "SECURITY DEFINER, fixed search_path; EXECUTE granted only to service_role",
+    "actor": "Actor is accepted only from service_role and must exist in the O03 public.admins role table; recorded as uploaded_by and admin_audit_log.admin_id.",
+    "validationBoundary": "O04 Edge authenticates the caller and validates the complete PNG bytes before Storage upload/RPC. SQL checks normalized metadata and does not decode PNG bytes.",
+    "object": "Path is derived as branding/<asset UUID>.png; registration requires the private branding-assets Storage row.",
+    "limits": "New registrations use byte, dimension, and pixel limits from the validated branding_policy and remain subject to the existing hard table constraints.",
+    "idempotency": "Exact immutable metadata retries return the same ID without duplicate audit rows; conflicts, revoked IDs, missing objects, invalid actors/metadata, and any effective Oorva brand/runtime/editor OFF state fail closed.",
+    "unchanged": [
+      "No direct app_branding_assets privileges are granted.",
+      "Existing O03 draft, publication, rollback, snapshot, and revocation behavior is unchanged.",
+      "No feature flag is enabled; no public/native cutover or production repair is performed."
+    ]
+  },
+  "validation": {
+    "testFile": "supabase\\tests-postgres\\branding_asset_registration.pg.test.mjs",
+    "scenarios": [
+      "service_role-only RPC execution and denied anon/authenticated execution",
+      "no direct service_role access to app_branding_assets",
+      "effective parent/runtime/editor OFF rejection",
+      "fixed private path, valid registration, actor attribution, and idempotent retry",
+      "invalid hash, configured byte/dimension/pixel ceilings, and missing Storage object",
+      "unlisted actor, conflicting retry, and revoked asset rejection",
+      "concurrent identical registration with distinct backend PIDs and one audit event"
+    ],
+    "registrationCommit": "PENDING_COORDINATOR",
+    "codespaceSelection": "PENDING_COORDINATOR_REGISTRATION",
+    "privatePostgresLaneCi": "PENDING_COORDINATOR_REGISTRATION",
+    "focusedAuthConcurrencyReview": "PENDING"
+  },
+  "rollout": {
+    "featureFlagsEnabled": false,
+    "productionDataRepair": false,
+    "publicNativeCutover": false,
+    "promotion": "Not authorized from this lane; wait for 0102 integration or explicit release."
+  }
+}
