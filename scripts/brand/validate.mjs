@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const PROFILE_KINDS = new Set(['sRGB', 'iCCP']);
 const CRC_TABLE = new Uint32Array(256);
 for (let value = 0; value < CRC_TABLE.length; value += 1) {
   let crc = value;
@@ -224,6 +225,35 @@ export function inspectAssetPng(buffer) {
     uniformColor,
     rgba,
   };
+}
+
+export function validateColorProfile(actual, expected, label = 'PNG') {
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected) || !PROFILE_KINDS.has(expected.kind)) {
+    throw new Error(`${label} colorProfile declaration is invalid: actual=${JSON.stringify(expected)} expected=sRGB or validated iCCP evidence`);
+  }
+  if (!actual || actual.kind === 'NOT VERIFIED' || !PROFILE_KINDS.has(actual.kind)) {
+    throw new Error(`${label} colorProfile NOT VERIFIED: actual=${JSON.stringify(actual)} expected=embedded sRGB or iCCP chunk`);
+  }
+  if (actual.kind !== expected.kind) {
+    throw new Error(`${label} colorProfile kind: actual=${JSON.stringify(actual.kind)} expected=${JSON.stringify(expected.kind)}`);
+  }
+  if (actual.kind === 'sRGB' && expected.renderingIntent !== undefined &&
+    actual.renderingIntent !== expected.renderingIntent) {
+    throw new Error(`${label} colorProfile.renderingIntent: actual=${JSON.stringify(actual.renderingIntent)} expected=${JSON.stringify(expected.renderingIntent)}`);
+  }
+  if (actual.kind === 'iCCP') {
+    if (typeof expected.name !== 'string' || expected.name.length === 0 ||
+      !/^[a-f0-9]{64}$/.test(expected.sha256 ?? '')) {
+      throw new Error(`${label} colorProfile iCCP declaration is invalid: actual=${JSON.stringify(expected)} expected=name and lowercase SHA-256`);
+    }
+    if (actual.name !== expected.name) {
+      throw new Error(`${label} colorProfile.name: actual=${JSON.stringify(actual.name)} expected=${JSON.stringify(expected.name)}`);
+    }
+    if (actual.sha256 !== expected.sha256) {
+      throw new Error(`${label} colorProfile.sha256: actual=${JSON.stringify(actual.sha256)} expected=${JSON.stringify(expected.sha256)}`);
+    }
+  }
+  return actual;
 }
 
 export function inspectPng(buffer) {
