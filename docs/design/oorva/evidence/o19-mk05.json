@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O19-MK05",
+  "workPackage": "O19",
+  "status": "WORKER_FILES_IMPLEMENTED_AWAITING_REGISTRATION",
+  "base": {
+    "branch": "lane/oorva-o19-mk05",
+    "implementationSha": "763eebefebbaf81a666c4b4a6fe90128947a8de7",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK04",
+      "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+      "mainPromotion": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O37A",
+      "sha": "e48422e85d11e1bcfd97efa1eba54338d608d3d7",
+      "mainPromotion": "3cc8f1326537e872504fa84835e735e15bf17b7e",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T05",
+    "findingIds": [
+      "MK-F05",
+      "MK-F06"
+    ],
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md",
+    "stageCard": "docs/design/oorva/execution-plan.json#O19-MK05"
+  },
+  "migrationClaim": {
+    "id": "MIG-O19-MK05",
+    "filename": "supabase/migrations/0104_o19_mk05_oorva.sql",
+    "acknowledged": true,
+    "promotion": "BLOCKED_UNTIL_0103_OWNER_CLAIM_RESOLVED"
+  },
+  "workerOwnedFiles": [
+    "app/src/features/rfq/api.ts",
+    "supabase/migrations/0104_o19_mk05_oorva.sql",
+    "supabase/tests/oorva_o19_mk05.test.mjs",
+    "supabase/tests-postgres/o19_mk05.pg.test.mjs",
+    "docs/design/oorva/evidence/o19-mk05.json"
+  ],
+  "implementation": [
+    "Added a stable, private product-enquiry eligibility predicate and applied it after shop locking in product-enquiry start, quote selection, and quote comparison.",
+    "Serialized supplier send and selection using RFQ -> shop -> quote row locks; selection validates the current verified-shop state before any write.",
+    "Comparison preserves the latest quote-difference fields and adds can_select plus only the documented block reasons.",
+    "Added focused SQL and private PostgreSQL coverage for suspended selection atomicity, public product eligibility, partial selection, role denials, and two-backend lock interleavings."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "PAUSED_FOR_COORDINATOR_REGISTRATION",
+    "sqlTestFilter": "oorva_o19_mk05",
+    "migrationParserFilter": "o19_mk05_oorva.sql",
+    "tscSelector": "tsc",
+    "privatePostgresFilter": "o19_mk05.pg.test.mjs",
+    "requiredPrivateE2eScenario": "MK-SELECT-private-concurrent-revise-select-suspend",
+    "sharedFilesTouched": []
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "BLOCKED",
+      "source": "Coordinator-provided stage context",
+      "reason": "The documented Codespace token lacks the codespace scope; the helper returned HTTP 404 requesting that scope.",
+      "credentialRefresh": "PROHIBITED_NOT_RETRIED"
+    },
+    "windowsBuildsAndTests": "NOT_RUN",
+    "privatePostgres": "NOT_RUN",
+    "laneCi": "NOT_RUN",
+    "focusedAuthConcurrencyReview": "PENDING",
+    "exactHeadLaneCiFallback": "REQUIRED_AFTER_REGISTRATION"
+  },
+  "featureFlags": {
+    "oorvaBrand": "UNCHANGED_OFF",
+    "flagsAddedOrEnabled": []
+  },
+  "productionActions": "NONE"
+}
