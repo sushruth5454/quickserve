@@ -94,20 +94,6 @@ export async function run({ withClient, withTwoClients }) {
     pixelCeiling: randomUUID(),
   };
   const allAssetIds = Object.values(assetIds);
-  const objectAssetIds = [
-    assetIds.valid,
-    assetIds.invalidActor,
-    assetIds.parentOff,
-    assetIds.runtimeOff,
-    assetIds.editorOff,
-    assetIds.revoked,
-    assetIds.concurrent,
-    assetIds.invalidHash,
-    assetIds.oversizedBytes,
-    assetIds.undersizedWidth,
-    assetIds.oversizedDimension,
-    assetIds.pixelCeiling,
-  ];
 
   await withClient(async (client) => {
     const originalFlags = (await client.query(
@@ -476,12 +462,6 @@ export async function run({ withClient, withTwoClients }) {
       await client.query(
         `delete from public.app_branding_assets where id = any($1::uuid[])`,
         [allAssetIds],
-      );
-      await client.query(
-        `delete from storage.objects
-          where bucket_id = 'branding-assets'
-            and name = any($1::text[])`,
-        [objectAssetIds.map((id) => `branding/${id}.png`)],
       );
       await client.query(`delete from public.admins where user_id = $1::uuid`, [actorId]);
       await client.query(
