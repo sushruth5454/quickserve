@@ -1,0 +1,24 @@
+{
+  "stage": "O31-MK01",
+  "work_package": "O31",
+  "source_task": "MK-T01",
+  "finding": "MK-F01",
+  "source_report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t01",
+  "implementation_base": "2a1f30f9fecb104c701ecbaec6d5e957603e6867",
+  "validation": {
+    "codespace_helper_commit": "3cc8f1326537e872504fa84835e735e15bf17b7e",
+    "codespace_snapshot_commit": "0858c3d80260b28ee9755a38464484625ae02ff1",
+    "suite": "app",
+    "filter": "src.features.shops.__tests__.shopReviewPresentation[.]test[.]ts$",
+    "result": "PASS",
+    "selected_test_suites": 1,
+    "selected_test_count": 2,
+    "test_cases": [
+      "MK-ADMIN-six-state-actions",
+      "MK-ADMIN-reason-and-cancel"
+    ],
+    "typescript_typecheck": "PASS",
+    "jest": "PASS",
+    "diff_check": "PASS"
+  }
+}
