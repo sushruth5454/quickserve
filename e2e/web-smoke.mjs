@@ -1736,7 +1736,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       }
 
       await go('/bookings');
-      const activityNavigationActual = async () => page.evaluate(() => {
+      const activityNavigationActual = async (expectedText = null) => page.evaluate((expected) => {
         const describeElement = (element) => {
           const style = window.getComputedStyle(element);
           const rect = element.getBoundingClientRect();
@@ -1750,34 +1750,93 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
             color: style.color,
           };
         };
+        const tablists = Array.from(document.querySelectorAll('[role="tablist"]')).map(describeElement);
+        const tabs = Array.from(document.querySelectorAll('[role="tab"]')).map(describeElement);
+        const panels = Array.from(document.querySelectorAll('[data-testid^="my-activity-panel-"]')).map(describeElement);
+        const matchingTextNodes = expected == null
+          ? []
+          : Array.from(document.querySelectorAll('body *'))
+            .filter((element) => element.children.length === 0 && (element.textContent ?? '').trim() === expected)
+            .slice(0, 20)
+            .map(describeElement);
         return {
           url: window.location.href,
-          tablists: Array.from(document.querySelectorAll('[role="tablist"]')).map(describeElement),
-          tabs: Array.from(document.querySelectorAll('[role="tab"]')).map(describeElement),
-          panels: Array.from(document.querySelectorAll('[data-testid^="my-activity-panel-"]')).map(describeElement),
+          counts: {
+            tablists: tablists.length,
+            visibleTablists: tablists.filter((element) => element.visible).length,
+            tabs: tabs.length,
+            visibleTabs: tabs.filter((element) => element.visible).length,
+            panels: panels.length,
+            visiblePanels: panels.filter((element) => element.visible).length,
+            matchingTextNodes: matchingTextNodes.length,
+            visibleMatchingTextNodes: matchingTextNodes.filter((element) => element.visible).length,
+          },
+          tablists,
+          tabs,
+          panels,
+          matchingTextNodes,
           body: (document.body?.innerText ?? '').slice(0, 2400),
         };
-      });
+      }, expectedText);
       const activityTabList = page.getByRole('tablist', { name: 'Activity segments' });
       const shopTab = activityTabList.getByRole('tab', { name: /^Shop/ });
       const productRfqsHeading = page.getByText('Product RFQs', { exact: true }).filter({ visible: true }).first();
+      let clickTarget = null;
+      let postClick = null;
       let rfqCard;
       try {
         await activityTabList.waitFor({ state: 'visible' });
         await shopTab.waitFor({ state: 'visible' });
+        clickTarget = {
+          tablistLocator: {
+            matches: await activityTabList.count(),
+            visible: await activityTabList.isVisible(),
+          },
+          shopTabLocator: {
+            matches: await shopTab.count(),
+            visible: await shopTab.isVisible(),
+          },
+          element: await shopTab.evaluate((element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return {
+              role: element.getAttribute('role'),
+              name: element.getAttribute('aria-label'),
+              testId: element.getAttribute('data-testid'),
+              text: (element.innerText ?? '').replace(/\s+/g, ' ').trim(),
+              visible: style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0,
+              bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            };
+          }),
+        };
         await shopTab.click();
         await productRfqsHeading.waitFor({ state: 'visible' });
         rfqCard = page.getByText(rfqTitle, { exact: true }).filter({ visible: true }).first();
         await rfqCard.waitFor({ state: 'visible' });
+        postClick = await activityNavigationActual();
+        console.log(`O18 Shop tab DOM diagnostics: ${JSON.stringify({ clickTarget, postClick })}`);
       } catch (error) {
         throw new Error(`Accessible Shop tab did not show the RFQ history: ${JSON.stringify({
+          clickTarget,
+          postClick,
           actual: await activityNavigationActual(),
           waitError: String(error?.message ?? error),
         })}`);
       }
       await rfqCard.click();
       await page.waitForURL((url) => new URL(url).pathname === `/rfq/${rfqId}`);
-      await visible(rfqTitle);
+      const rfqDetailTitle = page.getByText(rfqTitle, { exact: true }).filter({ visible: true }).first();
+      try {
+        await rfqDetailTitle.waitFor({ state: 'visible' });
+      } catch (error) {
+        throw new Error(`Same-ID RFQ detail title was not visible: ${JSON.stringify({
+          rfqId,
+          clickTarget,
+          postClick,
+          actual: await activityNavigationActual(rfqTitle),
+          waitError: String(error?.message ?? error),
+        })}`);
+      }
       await page.getByText(/History/).first().waitFor({ state: 'visible' });
       await visible('Existing RFQ history is read-only while new RFQs are turned off.');
       await visible('You may cancel your own open request.');
