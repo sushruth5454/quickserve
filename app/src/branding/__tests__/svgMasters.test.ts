@@ -25,14 +25,36 @@ const DROP_IN_DIR = path.join(
   'docs',
   'design',
   'oorva',
-  'logo',
-  'vector',
-  'app-assets',
+  'brand-kit',
+  'bundle',
+  'app',
+  'assets',
+  'brand',
 );
 const MANIFEST_PATH = path.join(BRAND_DIR, 'source-manifest.json');
-const SOURCE_COMMIT = 'f6c627bebf18ee8a4b488bdb802aa999c15281cb';
-const SOURCE_README = 'docs/design/oorva/logo/vector/README.md';
+const SOURCE_COMMIT = 'b914532ba1be6527ea0e74202fe0c3833376329e';
+const SOURCE_README = 'docs/design/oorva/brand-kit/README.md';
 const SOURCE_README_SHA256 =
+  'ff368c4f9983c9ce8793181d5a3e245c891227c5b70bbb7acff5ade787af29f2';
+const VECTOR_PROVENANCE =
+  'docs/design/oorva/brand-kit/handoff/vector-provenance.json';
+const VECTOR_PROVENANCE_SHA256 =
+  '8c7075cd7f4962d5e20a9e8356ac7eb6b3cc765e23aab08035bde84a67717196';
+const VECTOR_SOURCE_SHA = '7e0c7850002d595452cf609576a56f2397963714';
+const D_KIT_MANIFEST = 'docs/design/oorva/brand-kit/manifest.json';
+const D_KIT_MANIFEST_SHA256 =
+  '16e9889736f4e28b45f828af233e70cfaa84db08080556af32a1ad4b3fb62c7e';
+const D_COLOUR_APPROVAL_SHA256 =
+  '51068c3d55c2406b68eb9f08a97ec57fc29642b57f2a0e9af5addc6af946a559';
+const D_HANDOFF_VALIDATION =
+  'docs/design/oorva/brand-kit/handoff-validation.json';
+const D_HANDOFF_VALIDATION_SHA256 =
+  '2f610a7f864bdd2ca13ecf826d170f85efbc254ba61157546cb34fe06a161041';
+const D_PALETTE_TOKEN_SHA256 =
+  '02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1';
+const PREVIOUS_SOURCE_COMMIT = 'f6c627bebf18ee8a4b488bdb802aa999c15281cb';
+const PREVIOUS_SOURCE_README = 'docs/design/oorva/logo/vector/README.md';
+const PREVIOUS_SOURCE_README_SHA256 =
   '4137e340929fcd75c9fa21e3b83265cd109091ca81928738426325bf8df0ed4f';
 const CONTACT_SHEET = 'docs/design/oorva/logo/vector/app-assets-contact-sheet.png';
 const CONTACT_SHEET_SHA256 =
@@ -49,6 +71,26 @@ const MASTER_VIEW_BOXES: Record<string, string> = {
   'logo-horizontal-mono-ivory.svg': '0 0 1440 400',
 };
 const SOURCE_HASHES: Record<string, string> = {
+  'oorva-symbol.svg':
+    '529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284',
+  'oorva-wordmark-light.svg':
+    '40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82',
+  'oorva-wordmark-dark.svg':
+    'd536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f',
+  'logo-horizontal-light.svg':
+    '61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66',
+  'logo-horizontal-dark.svg':
+    '9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06',
+  'logo-stacked-light.svg':
+    'c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8',
+  'logo-stacked-dark.svg':
+    'f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c',
+  'logo-horizontal-mono-black.svg':
+    '331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e',
+  'logo-horizontal-mono-ivory.svg':
+    '03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5',
+};
+const PREVIOUS_SOURCE_HASHES: Record<string, string> = {
   'oorva-symbol.svg':
     '2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73',
   'oorva-wordmark-light.svg':
@@ -555,19 +597,6 @@ function getTransform(node: SvgNode, label: string) {
   };
 }
 
-function centeredFitTransform(
-  source: ReturnType<typeof getTransform>,
-  center: [number, number],
-  factor: number,
-) {
-  return {
-    translateX: center[0] + factor * (source.translateX - center[0]),
-    translateY: center[1] + factor * (source.translateY - center[1]),
-    scaleX: source.scaleX * factor,
-    scaleY: source.scaleY * factor,
-  };
-}
-
 function projectedSafeMarginEvidence() {
   return O01X_SAFE_MARGIN_FINDINGS.map((finding) => {
     const family = finding.path.includes('logo-horizontal')
@@ -689,12 +718,13 @@ function relativeLuminance(hex: string): number {
 }
 
 describe('Oorva outlined SVG candidate masters', () => {
-  it('matches the exact current-main drop-ins as well-formed self-contained SVGs', () => {
+  it('matches the exact approved D bundle masters as self-contained SVGs', () => {
     const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+    const dDelta = manifest.currentOwnerDDelta;
     assertEqual(
       manifest.originalityProvenance?.sourceCommit,
       SOURCE_COMMIT,
-      'drop-in source commit mismatch',
+      'D bundle source commit mismatch',
     );
     assertEqual(
       manifest.originalityProvenance?.sourceReadme,
@@ -712,16 +742,224 @@ describe('Oorva outlined SVG candidate masters', () => {
       'source README bytes differ from recorded provenance',
     );
     assertEqual(
+      manifest.originalityProvenance?.vectorProvenance,
+      VECTOR_PROVENANCE,
+      'D vector provenance path mismatch',
+    );
+    assertEqual(
+      manifest.originalityProvenance?.vectorProvenanceSha256,
+      VECTOR_PROVENANCE_SHA256,
+      'D vector provenance hash mismatch',
+    );
+    const vectorProvenance = JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, VECTOR_PROVENANCE), 'utf8'),
+    );
+    assertEqual(
+      sha256(fs.readFileSync(path.join(REPO_ROOT, VECTOR_PROVENANCE))),
+      VECTOR_PROVENANCE_SHA256,
+      'D vector provenance bytes differ from the recorded hash',
+    );
+    assertEqual(
+      vectorProvenance.sourceSha,
+      VECTOR_SOURCE_SHA,
+      'D vector source SHA mismatch',
+    );
+    const kitManifest = JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, D_KIT_MANIFEST), 'utf8'),
+    );
+    assertEqual(
+      sha256(fs.readFileSync(path.join(REPO_ROOT, D_KIT_MANIFEST))),
+      D_KIT_MANIFEST_SHA256,
+      'D kit manifest bytes differ from the recorded hash',
+    );
+    const requiredDRecords = kitManifest.files.filter(
+      (record: {
+        group: string;
+        requiredForExistingAppContract: boolean;
+        file: string;
+      }) =>
+        record.group === 'bundle' &&
+        record.requiredForExistingAppContract === true &&
+        record.file.endsWith('.svg'),
+    );
+    assertEqual(
+      kitManifest.requiredExistingContract.svgMasters,
+      9,
+      'D kit existing-contract SVG count mismatch',
+    );
+    assertEqual(
+      requiredDRecords.length,
+      9,
+      'D kit must flag exactly nine required existing-contract SVG records',
+    );
+    const requiredDHashEntries: Array<[string, string]> = requiredDRecords.map(
+      (record: { target: string; sha256: string }) => [
+        path.basename(record.target),
+        record.sha256,
+      ],
+    );
+    const requiredDHashes = Object.fromEntries(
+      requiredDHashEntries.sort(([first], [second]) =>
+        first.localeCompare(second),
+      ),
+    );
+    const expectedDHashEntries: Array<[string, string]> =
+      Object.entries(SOURCE_HASHES);
+    const expectedDHashes = Object.fromEntries(
+      expectedDHashEntries.sort(([first], [second]) =>
+        first.localeCompare(second),
+      ),
+    );
+    assertEqual(
+      requiredDHashes,
+      expectedDHashes,
+      'required D SVG source hashes differ from the kit manifest',
+    );
+    const colourApproval = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          REPO_ROOT,
+          'docs',
+          'design',
+          'oorva',
+          'colours',
+          'approval.json',
+        ),
+        'utf8',
+      ),
+    );
+    assertEqual(
+      colourApproval.approvedTokenValuesSha256,
+      D_PALETTE_TOKEN_SHA256,
+      'D palette approval token hash mismatch',
+    );
+    assertEqual(
+      sha256(
+        fs.readFileSync(
+          path.join(
+            REPO_ROOT,
+            'docs',
+            'design',
+            'oorva',
+            'colours',
+            'approval.json',
+          ),
+        ),
+      ),
+      D_COLOUR_APPROVAL_SHA256,
+      'D colour approval file hash mismatch',
+    );
+    assertEqual(
+      dDelta?.paletteTokens,
+      colourApproval.values,
+      'D delta palette values differ from the owner-approved tokens',
+    );
+    assertEqual(
+      dDelta?.handoffValidation,
+      D_HANDOFF_VALIDATION,
+      'D handoff validation path mismatch',
+    );
+    assertEqual(
+      dDelta?.handoffValidationSha256,
+      D_HANDOFF_VALIDATION_SHA256,
+      'D handoff validation hash mismatch',
+    );
+    const handoffValidation = JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, D_HANDOFF_VALIDATION), 'utf8'),
+    );
+    assertEqual(
+      sha256(fs.readFileSync(path.join(REPO_ROOT, D_HANDOFF_VALIDATION))),
+      D_HANDOFF_VALIDATION_SHA256,
+      'D handoff validation bytes differ from the recorded hash',
+    );
+    assertEqual(
+      handoffValidation.result,
+      'PASS',
+      'D source kit handoff validation must be ready',
+    );
+    assertEqual(
+      handoffValidation.checks.length,
+      15,
+      'D source kit handoff validation check count mismatch',
+    );
+    assertEqual(
+      dDelta?.handoffValidationResult,
+      handoffValidation.result,
+      'D handoff validation result differs from the source record',
+    );
+    assertEqual(
+      dDelta?.handoffValidationCheckCount,
+      handoffValidation.checks.length,
+      'D handoff validation count differs from the source record',
+    );
+    assertInvariant(
+      handoffValidation.scope?.includes(
+        'not application/native/Codespace/lane validation',
+      ),
+      'D source kit PASS must not be misrepresented as app or lane validation',
+      handoffValidation.scope,
+    );
+    assertEqual(
       manifest.originalityProvenance?.sourceMasterSha256,
       SOURCE_HASHES,
-      'manifest source hash inventory mismatch',
+      'manifest D source hash inventory mismatch',
     );
     assertEqual(
       Object.keys(
-        manifest.safeMarginCorrection?.destinationMasterSha256 ?? {},
+        dDelta?.destinationMasterSha256 ?? {},
       ).sort(),
       Object.keys(MASTER_VIEW_BOXES).sort(),
-      'safe-margin evidence must hash every destination master',
+      'D delta must hash every destination master',
+    );
+    assertEqual(
+      dDelta?.paletteTokenSha256,
+      D_PALETTE_TOKEN_SHA256,
+      'D delta palette token hash mismatch',
+    );
+    assertEqual(
+      dDelta?.handoffValidationResult,
+      'PASS',
+      'sealed D kit validation result mismatch',
+    );
+    assertEqual(
+      dDelta?.handoffValidationCheckCount,
+      15,
+      'sealed D kit validation count mismatch',
+    );
+    assertEqual(
+      dDelta?.kitManifestSha256,
+      D_KIT_MANIFEST_SHA256,
+      'D delta kit manifest hash mismatch',
+    );
+    assertEqual(
+      dDelta?.paletteApprovalSha256,
+      D_COLOUR_APPROVAL_SHA256,
+      'D delta approval file hash mismatch',
+    );
+    assertEqual(
+      dDelta?.sourceSha,
+      VECTOR_SOURCE_SHA,
+      'D delta vector source SHA mismatch',
+    );
+    assertEqual(
+      dDelta?.sourceMasterSha256,
+      SOURCE_HASHES,
+      'D delta source hash inventory mismatch',
+    );
+    assertEqual(
+      dDelta?.destinationMasterSha256,
+      SOURCE_HASHES,
+      'D delta destination hash inventory mismatch',
+    );
+    assertEqual(
+      dDelta?.byteForByteVerified,
+      true,
+      'D import must be verified byte-for-byte',
+    );
+    assertEqual(
+      dDelta?.transformsApplied,
+      false,
+      'D import must not apply any transform',
     );
 
     for (const [file, expectedViewBox] of Object.entries(MASTER_VIEW_BOXES)) {
@@ -736,8 +974,13 @@ describe('Oorva outlined SVG candidate masters', () => {
       );
       assertEqual(
         destinationHash,
-        manifest.safeMarginCorrection?.destinationMasterSha256?.[file],
-        `${file} destination hash differs from the recorded final master`,
+        dDelta?.destinationMasterSha256?.[file],
+        `${file} destination hash differs from the D bundle record`,
+      );
+      assertInvariant(
+        sourceBytes.equals(destinationBytes),
+        `${file} must be a byte-for-byte copy of the approved D master`,
+        { sourceHash, destinationHash },
       );
       const sourceRoot = parseSvg(sourceBytes.toString('utf8'), `${file} source`);
       const root = parseSvg(destinationBytes.toString('utf8'), file);
@@ -775,75 +1018,6 @@ describe('Oorva outlined SVG candidate masters', () => {
         expectedRoles,
         `${file} source role sequence mismatch`,
       );
-      const fit = FIT_TRANSFORMS[file];
-      if (!fit) {
-        assertInvariant(
-          sourceBytes.equals(destinationBytes),
-          `${file} must remain a byte-for-byte source master`,
-          { sourceHash, destinationHash },
-        );
-      } else {
-        const sourcePaths = pathsIn(sourceRoot);
-        const destinationPaths = pathsIn(root);
-        assertEqual(
-          destinationPaths.map((node) => node.attributes.d),
-          sourcePaths.map((node) => node.attributes.d),
-          `${file} path contours changed`,
-        );
-        for (let index = 0; index < sourcePaths.length; index += 1) {
-          const sourcePath = sourcePaths[index]!;
-          const destinationPath = destinationPaths[index]!;
-          for (const attribute of ['data-role', 'fill', 'fill-rule']) {
-            assertEqual(
-              destinationPath.attributes[attribute],
-              sourcePath.attributes[attribute],
-              `${file} ${attribute} changed`,
-            );
-          }
-          const sourceTransform = getTransform(
-            sourcePath,
-            `${file} source path`,
-          );
-          const destinationTransform = getTransform(
-            destinationPath,
-            `${file} fitted path`,
-          );
-          const expectedTransform = centeredFitTransform(
-            sourceTransform,
-            fit.center,
-            fit.scale,
-          );
-          assertNear(
-            destinationTransform.translateX,
-            expectedTransform.translateX,
-            0.0000001,
-            `${file} centered-fit x translation mismatch`,
-          );
-          assertNear(
-            destinationTransform.translateY,
-            expectedTransform.translateY,
-            0.0000001,
-            `${file} centered-fit y translation mismatch`,
-          );
-          assertNear(
-            destinationTransform.scaleX,
-            expectedTransform.scaleX,
-            0.0000001,
-            `${file} uniform-fit x scale mismatch`,
-          );
-          assertNear(
-            destinationTransform.scaleY,
-            expectedTransform.scaleY,
-            0.0000001,
-            `${file} uniform-fit y scale mismatch`,
-          );
-          assertEqual(
-            destinationTransform.scaleX,
-            destinationTransform.scaleY,
-            `${file} fit must preserve aspect ratio`,
-          );
-        }
-      }
 
       for (const node of nodes) {
         const forbiddenAttributes = Object.keys(node.attributes).filter(
@@ -1237,7 +1411,8 @@ describe('Oorva outlined SVG candidate masters', () => {
     );
   });
 
-  it('keeps exact light, dark, and monochrome variants on matching geometry', () => {
+  it('keeps the approved D palette on exact light, dark, and mono geometry', () => {
+    const symbol = readMaster('oorva-symbol.svg').root;
     const wordmarkLight = readMaster('oorva-wordmark-light.svg').root;
     const wordmarkDark = readMaster('oorva-wordmark-dark.svg').root;
     const horizontalLight = readMaster('logo-horizontal-light.svg').root;
@@ -1246,6 +1421,10 @@ describe('Oorva outlined SVG candidate masters', () => {
     const horizontalIvory = readMaster('logo-horizontal-mono-ivory.svg').root;
     const stackedLight = readMaster('logo-stacked-light.svg').root;
     const stackedDark = readMaster('logo-stacked-dark.svg').root;
+    const stackedLightSymbol = groupsByRole(stackedLight, 'symbol')[0];
+    const stackedDarkSymbol = groupsByRole(stackedDark, 'symbol')[0];
+    const stackedLightWordmark = groupsByRole(stackedLight, 'wordmark')[0];
+    const stackedDarkWordmark = groupsByRole(stackedDark, 'wordmark')[0];
 
     const pathData = (root: SvgNode) =>
       pathsIn(root).map((node) => node.attributes.d);
@@ -1302,12 +1481,21 @@ describe('Oorva outlined SVG candidate masters', () => {
     const horizontalDarkSymbol = groupsByRole(horizontalDark, 'symbol')[0];
     const horizontalBlackWordmark = groupsByRole(horizontalBlack, 'wordmark')[0];
     const horizontalIvoryWordmark = groupsByRole(horizontalIvory, 'wordmark')[0];
-    assertEqual(firstWordmarkColor, '#173D39', 'light wordmark color mismatch');
-    assertEqual(darkWordmarkColor, '#F7F5EF', 'dark wordmark color mismatch');
-    assertEqual(horizontalLightSymbol?.attributes.fill, '#173D39', 'light symbol color mismatch');
+    assertEqual(
+      pathsIn(symbol)[0]?.attributes.fill,
+      '#006D77',
+      'standalone D symbol color mismatch',
+    );
+    assertEqual(firstWordmarkColor, '#006D77', 'light wordmark color mismatch');
+    assertEqual(darkWordmarkColor, '#80D4D4', 'dark wordmark color mismatch');
+    assertEqual(
+      horizontalLightSymbol?.attributes.fill,
+      '#006D77',
+      'light symbol color mismatch',
+    );
     assertEqual(
       horizontalDarkSymbol?.attributes.fill,
-      '#F7F5EF',
+      '#80D4D4',
       'dark symbol color mismatch',
     );
     assertEqual(
@@ -1317,8 +1505,28 @@ describe('Oorva outlined SVG candidate masters', () => {
     );
     assertEqual(
       horizontalIvoryWordmark?.attributes.fill,
-      '#F7F5EF',
-      'monochrome ivory wordmark color mismatch',
+      '#FFFFFF',
+      'compatibility monochrome-ivory filename must contain white',
+    );
+    assertEqual(
+      stackedLightSymbol?.attributes.fill,
+      '#006D77',
+      'stacked light symbol color mismatch',
+    );
+    assertEqual(
+      stackedLightWordmark?.attributes.fill,
+      '#006D77',
+      'stacked light wordmark color mismatch',
+    );
+    assertEqual(
+      stackedDarkSymbol?.attributes.fill,
+      '#80D4D4',
+      'stacked dark symbol color mismatch',
+    );
+    assertEqual(
+      stackedDarkWordmark?.attributes.fill,
+      '#80D4D4',
+      'stacked dark wordmark color mismatch',
     );
     assertInvariant(
       groupsByRole(horizontalLight, 'tagline').length === 0 &&
@@ -1331,7 +1539,7 @@ describe('Oorva outlined SVG candidate masters', () => {
     );
   });
 
-  it('records original candidate provenance and pending selection and rights gates', () => {
+  it('records D provenance and approved input gates without enabling release', () => {
     const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
     assertInvariant(
       typeof manifest.conceptRationale === 'string' &&
@@ -1351,6 +1559,13 @@ describe('Oorva outlined SVG candidate masters', () => {
         manifest.originalityProvenance.directionalInputs.length === 6 &&
         manifest.originalityProvenance?.sourceReadme === SOURCE_README &&
         manifest.originalityProvenance?.sourceCommit === SOURCE_COMMIT &&
+        manifest.originalityProvenance?.vectorProvenance ===
+          VECTOR_PROVENANCE &&
+        manifest.originalityProvenance?.vectorProvenanceSha256 ===
+          VECTOR_PROVENANCE_SHA256 &&
+        manifest.originalityProvenance?.sourceSha === VECTOR_SOURCE_SHA &&
+        manifest.originalityProvenance?.paletteTokenSha256 ===
+          D_PALETTE_TOKEN_SHA256 &&
         manifest.originalityProvenance?.copyMethod
           ?.toLowerCase()
           .includes('byte-for-byte') &&
@@ -1370,15 +1585,69 @@ describe('Oorva outlined SVG candidate masters', () => {
     assertEqual(
       manifest.originalityProvenance?.sourceMasterSha256,
       SOURCE_HASHES,
-      'manifest must retain exact current-main source hashes',
+      'manifest must retain exact D bundle source hashes',
     );
     assertInvariant(
       typeof manifest.license?.customArtwork === 'string' &&
         manifest.license.customArtwork.length > 10 &&
-        manifest.license.customArtwork.includes('D03c is NOT_APPROVED') &&
+        manifest.license.customArtwork.includes('D03c is APPROVED') &&
+        manifest.license.customArtwork.includes(
+          'not permission for store/public distribution',
+        ) &&
         typeof manifest.license?.taglineFont === 'string',
-      'manifest must record artwork and tagline font license status',
+      'manifest must record provenance without treating D03c as release permission',
       manifest.license,
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.paletteTokenSha256,
+      D_PALETTE_TOKEN_SHA256,
+      'current D delta token hash mismatch',
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.sourceMasterSha256,
+      SOURCE_HASHES,
+      'current D delta source hashes mismatch',
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.destinationMasterSha256,
+      SOURCE_HASHES,
+      'current D delta destination hashes mismatch',
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.byteForByteVerified,
+      true,
+      'current D delta must preserve byte-for-byte import verification',
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.transformsApplied,
+      false,
+      'current D delta must not apply transforms',
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.featureActivationPerformed,
+      false,
+      'current D delta must not activate oorva_brand',
+    );
+    assertEqual(
+      manifest.currentOwnerDDelta?.gates,
+      {
+        D03a: 'APPROVED',
+        D03b: 'APPROVED',
+        D03c: 'APPROVED',
+        D02: 'PENDING',
+        D07a: 'PENDING',
+        D07b: 'PENDING',
+      },
+      'current D delta gate evidence mismatch',
+    );
+    assertEqual(
+      [
+        manifest.currentOwnerDDelta?.publicDistributionAuthorized,
+        manifest.currentOwnerDDelta?.nativeCutoverAuthorized,
+        manifest.currentOwnerDDelta?.runtimeFeatureActivated,
+      ],
+      [false, false, false],
+      'D delta must not authorize public distribution, native cutover, or feature activation',
     );
     assertEqual(
       manifest.masters?.map((master: { file: string; viewBox: string }) => [
@@ -1387,6 +1656,28 @@ describe('Oorva outlined SVG candidate masters', () => {
       ]),
       Object.entries(MASTER_VIEW_BOXES),
       'manifest master inventory or viewBoxes differ from the authored contract',
+    );
+    assertEqual(
+      Object.fromEntries(
+        manifest.masters?.map(
+          (master: { file: string; color: string }) => [
+            master.file,
+            master.color,
+          ],
+        ),
+      ),
+      {
+        'oorva-symbol.svg': '#006D77',
+        'oorva-wordmark-light.svg': '#006D77',
+        'oorva-wordmark-dark.svg': '#80D4D4',
+        'logo-horizontal-light.svg': '#006D77',
+        'logo-horizontal-dark.svg': '#80D4D4',
+        'logo-stacked-light.svg': '#006D77',
+        'logo-stacked-dark.svg': '#80D4D4',
+        'logo-horizontal-mono-black.svg': '#000000',
+        'logo-horizontal-mono-ivory.svg': '#FFFFFF',
+      },
+      'manifest master colors must match the D palette and white compatibility alias',
     );
     assertEqual(
       manifest.approvalStatus?.status,
@@ -1433,16 +1724,25 @@ describe('Oorva outlined SVG candidate masters', () => {
     );
     assertEqual(
       manifest.approvalStatus?.D03c,
-      'NOT_APPROVED',
-      'D03c public rights must remain not approved',
+      'APPROVED',
+      'current D03c gate status mismatch',
     );
     assertInvariant(
       manifest.approvalStatus?.D03cScope?.includes(
-        'does not block development, private integration, main promotion',
-      ),
-      'D03c scope must distinguish public release from development gates',
+        'not permission for store/public distribution',
+      ) &&
+        manifest.approvalStatus.D03cScope.includes('native cutover') &&
+        manifest.approvalStatus.D03cScope.includes('feature activation'),
+      'D03c approval must not authorize public distribution, native cutover, or feature activation',
       manifest.approvalStatus?.D03cScope,
     );
+    for (const gate of ['D02', 'D07a', 'D07b']) {
+      assertEqual(
+        manifest.approvalStatus?.[gate],
+        'PENDING',
+        `${gate} must remain pending`,
+      );
+    }
     assertEqual(
       manifest.approvalStatus?.visualDirection,
       'OWNER_APPROVED_REFERENCE_ONLY',
@@ -1457,6 +1757,21 @@ describe('Oorva outlined SVG candidate masters', () => {
       manifest.approvalStatus?.publicReleaseAllowed,
       false,
       'public release must remain disabled',
+    );
+    assertEqual(
+      manifest.approvalStatus?.publiclyCleared,
+      false,
+      'D03c approval must not be interpreted as public clearance',
+    );
+    assertEqual(
+      manifest.approvalStatus?.nativeCutoverAllowed,
+      false,
+      'native cutover must remain disabled',
+    );
+    assertEqual(
+      manifest.approvalStatus?.featureActivationAllowed,
+      false,
+      'feature activation must remain disabled',
     );
 
     const evidence = JSON.parse(
@@ -1480,31 +1795,35 @@ describe('Oorva outlined SVG candidate masters', () => {
       manifest.smallSizeEvidence.logicalPixelChecks,
       'evidence small-size measurements differ from manifest',
     );
-    assertNear(
-      evidence.taglineContrast?.ratio,
-      manifest.tagline.contrastEvidence.ratio,
-      0.0000005,
-      'evidence tagline contrast differs from manifest',
+    assertEqual(
+      evidence.ownerApprovedDDelta?.taglineContrast?.light,
+      manifest.tagline.contrastEvidence,
+      'D light tagline contrast evidence differs from the manifest',
+    );
+    assertEqual(
+      evidence.ownerApprovedDDelta?.taglineContrast?.dark,
+      manifest.tagline.darkContrastEvidence,
+      'D dark tagline contrast evidence differs from the manifest',
     );
     assertEqual(
       evidence.dropInProvenance?.sourceCommit,
-      SOURCE_COMMIT,
-      'evidence source commit mismatch',
+      PREVIOUS_SOURCE_COMMIT,
+      'historical source commit mismatch',
     );
     assertEqual(
       evidence.dropInProvenance?.sourceReadme,
-      SOURCE_README,
-      'evidence source README mismatch',
+      PREVIOUS_SOURCE_README,
+      'historical source README mismatch',
     );
     assertEqual(
       evidence.dropInProvenance?.sourceReadmeSha256,
-      SOURCE_README_SHA256,
-      'evidence source README hash mismatch',
+      PREVIOUS_SOURCE_README_SHA256,
+      'historical source README hash mismatch',
     );
     assertEqual(
       evidence.dropInProvenance?.sourceMasterSha256,
-      SOURCE_HASHES,
-      'evidence source hash inventory mismatch',
+      PREVIOUS_SOURCE_HASHES,
+      'historical source hash inventory mismatch',
     );
     assertEqual(
       evidence.dropInProvenance?.destinationSha256,
@@ -1585,11 +1904,88 @@ describe('Oorva outlined SVG candidate masters', () => {
     assertEqual(
       evidence.ownerDirectedRevision?.D03c,
       'NOT_APPROVED',
-      'evidence must keep public-rights clearance unapproved',
+      'historical D03c status must remain unchanged',
+    );
+    const dDelta = evidence.ownerApprovedDDelta;
+    assertEqual(
+      dDelta?.baseSha,
+      SOURCE_COMMIT,
+      'D delta base SHA mismatch',
+    );
+    assertEqual(
+      dDelta?.paletteTokenSha256,
+      D_PALETTE_TOKEN_SHA256,
+      'D delta palette token hash mismatch',
+    );
+    assertEqual(
+      dDelta?.sourceSha,
+      VECTOR_SOURCE_SHA,
+      'D delta vector source SHA mismatch',
+    );
+    assertEqual(
+      dDelta?.sourceMasterSha256,
+      SOURCE_HASHES,
+      'D delta source hash evidence mismatch',
+    );
+    assertEqual(
+      dDelta?.destinationSha256,
+      SOURCE_HASHES,
+      'D delta destination hash evidence mismatch',
+    );
+    assertEqual(
+      dDelta?.byteForByteVerified,
+      true,
+      'D delta byte-for-byte import evidence missing',
+    );
+    assertEqual(
+      dDelta?.transformsApplied,
+      false,
+      'D delta must state that no transforms were applied',
+    );
+    assertEqual(
+      dDelta?.featureActivationPerformed,
+      false,
+      'D delta must not activate oorva_brand',
+    );
+    assertEqual(
+      dDelta?.gates,
+      {
+        D03a: 'APPROVED',
+        D03b: 'APPROVED',
+        D03c: 'APPROVED',
+        D02: 'PENDING',
+        D07a: 'PENDING',
+        D07b: 'PENDING',
+      },
+      'D delta gate evidence mismatch',
+    );
+    assertEqual(
+      dDelta?.permissions,
+      {
+        publicDistributionAuthorized: false,
+        nativeCutoverAuthorized: false,
+        featureActivationAuthorized: false,
+      },
+      'D approval must not authorize public distribution, native cutover, or feature activation',
+    );
+    assertEqual(
+      dDelta?.validation?.codespace?.status,
+      'BLOCKED_BEFORE_TEST_SELECTION',
+      'D delta must record the Codespace authorization blocker',
+    );
+    assertEqual(
+      dDelta?.validation?.codespace?.selectedTests,
+      null,
+      'D delta must not invent a Codespace test selection count',
+    );
+    assertEqual(
+      dDelta?.validation?.codespace?.typecheck,
+      'NOT_RUN',
+      'D delta must not claim Codespace typecheck ran',
     );
   });
 
-  it('measures bundled Inter 400 tagline contrast against ivory at WCAG AA', () => {
+  it('measures D-palette tagline contrast on light and dark surfaces at WCAG AA', () => {
     const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
     const tagline = manifest.tagline;
     const backgroundLuminance = relativeLuminance(tagline.background);
@@ -1597,12 +1993,19 @@ describe('Oorva outlined SVG candidate masters', () => {
     const contrast =
       (Math.max(backgroundLuminance, textLuminance) + 0.05) /
       (Math.min(backgroundLuminance, textLuminance) + 0.05);
+    const darkBackgroundLuminance = relativeLuminance(tagline.darkBackground);
+    const darkTextLuminance = relativeLuminance(tagline.darkColor);
+    const darkContrast =
+      (Math.max(darkBackgroundLuminance, darkTextLuminance) + 0.05) /
+      (Math.min(darkBackgroundLuminance, darkTextLuminance) + 0.05);
 
     assertEqual(tagline.text, 'Your world, closer.', 'tagline copy mismatch');
     assertEqual(tagline.fontFamily, 'Inter', 'tagline font mismatch');
     assertEqual(tagline.fontWeight, 400, 'tagline weight mismatch');
-    assertEqual(tagline.background, '#F7F5EF', 'tagline background mismatch');
-    assertEqual(tagline.color, '#344B65', 'tagline color mismatch');
+    assertEqual(tagline.background, '#FFFFFF', 'D light tagline background mismatch');
+    assertEqual(tagline.color, '#006D77', 'D light tagline color mismatch');
+    assertEqual(tagline.darkBackground, '#0C1B21', 'D dark tagline background mismatch');
+    assertEqual(tagline.darkColor, '#80D4D4', 'D dark tagline color mismatch');
     assertNear(
       backgroundLuminance,
       tagline.contrastEvidence.backgroundRelativeLuminance,
@@ -1621,10 +2024,28 @@ describe('Oorva outlined SVG candidate masters', () => {
       0.0000005,
       'tagline contrast formula/result mismatch',
     );
+    assertNear(
+      darkBackgroundLuminance,
+      tagline.darkContrastEvidence.backgroundRelativeLuminance,
+      0.0000005,
+      'dark tagline background luminance formula/result mismatch',
+    );
+    assertNear(
+      darkTextLuminance,
+      tagline.darkContrastEvidence.textRelativeLuminance,
+      0.0000005,
+      'dark tagline text luminance formula/result mismatch',
+    );
+    assertNear(
+      darkContrast,
+      tagline.darkContrastEvidence.ratio,
+      0.0000005,
+      'dark tagline contrast formula/result mismatch',
+    );
     assertInvariant(
-      contrast >= 4.5,
-      'tagline contrast must meet WCAG AA 4.5:1 on ivory',
-      { contrast, minimum: 4.5, tagline },
+      contrast >= 4.5 && darkContrast >= 4.5,
+      'D-palette tagline contrast must meet WCAG AA 4.5:1 on both surfaces',
+      { contrast, darkContrast, minimum: 4.5, tagline },
     );
   });
 });

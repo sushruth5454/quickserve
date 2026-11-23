@@ -2,16 +2,13 @@
   "schemaVersion": 1,
   "stage": "O05B",
   "logicalWorkPackage": "O05",
+  "sourceTask": "PF-T10",
   "sourceFinding": "PF-F12",
-  "implementationBaseSha": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
-  "assetDependencySha": "f2d2191f9e22db4dde9a50fea186996bf1479973",
-  "assetSourceFixSha": "76e98fb8d871b5af9d0e38bc88f85042409986a6",
-  "fixForward": {
-    "branch": "lane/oorva-o05b-fixforward-f2d2191",
-    "currentMainSha": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
-    "replayedO05BChangesFrom": "794408a522858aa8dd90b8a99425783c193c222c",
-    "rejectedHeadIsAncestor": false,
-    "oldRemoteLaneModified": false
+  "implementationBaseSha": "4f1e92ce44edd43e48a93919d381ef09c8b1c748",
+  "dependencies": {
+    "O01X_D": "b1e49daf6ecf47e5b821a0c78488e43268b833ee",
+    "O02_D": "2dc1b60b3a2175c4c57793bebaddf2f4f600ba3a",
+    "O37A_D_State": "a2efce254c0502bb6d60609bc1f4bbe2206b99c1"
   },
   "sourceEvidence": {
     "path": "docs/audit/18-WS1-Platform-Auth-AI-Native.md",
@@ -21,45 +18,74 @@
   "gates": {
     "E0": "APPROVED",
     "D03b": "APPROVED",
-    "D03c": "NOT_APPROVED"
+    "D03c": {
+      "status": "APPROVED",
+      "scope": "Rights only; D02, D07, native, and release gates remain separate."
+    },
+    "D02": "PENDING",
+    "D07aPlatform": "PENDING",
+    "D07bPlatform": "PENDING"
   },
-  "assetEvidence": {
-    "path": "docs/design/oorva/evidence/o01x.json",
-    "exportStatus": "PASS",
-    "exportCount": 26,
-    "allExportedBytesMatched": true
+  "o01xDCandidate": {
+    "status": "CANDIDATE_A4.1_PASS_WAITING_O05B_BINDINGS",
+    "assetsSelector": "PASS_CANDIDATE_ONLY",
+    "assetCount": 26,
+    "bindingDataMatchesO01XEvidence": true,
+    "fourBoundAssetBytesMatch": true
   },
-  "selectedManifest": {
+  "manifestAtCheckpoint": {
     "path": "app/assets/brand/manifest.json",
-    "sha256": "a8741e9810107d64394fcb21edb6dae63768e27d186ebb5ae86fefe3675cb945",
+    "sha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
+    "selected": false,
+    "publiclyCleared": true,
+    "selectionStatus": "O01X must set selected=true after this binding checkpoint."
+  },
+  "approvedSelectedIdentityTarget": {
     "selected": true,
-    "publiclyCleared": false,
+    "publiclyCleared": true,
+    "rightsGate": "D03c APPROVED",
+    "productionReady": false,
+    "publicReleaseAllowed": false,
+    "nativeReleaseAuthorized": false,
+    "nativeAssetsInstalled": false,
+    "oorvaBrandEnabled": false
+  },
+  "selectedExports": {
+    "bindingDataPath": "docs/design/oorva/brand-kit/handoff/binding-data.json",
     "exports": [
       {
+        "key": "logoLight",
+        "modulePath": "../../assets/brand/logo-horizontal-light.png",
         "path": "app/assets/brand/logo-horizontal-light.png",
         "role": "horizontal-lockup",
-        "sha256": "c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d"
+        "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e"
       },
       {
+        "key": "logoDark",
+        "modulePath": "../../assets/brand/logo-horizontal-dark.png",
         "path": "app/assets/brand/logo-horizontal-dark.png",
         "role": "horizontal-lockup",
-        "sha256": "30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c"
+        "sha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b"
       },
       {
+        "key": "compactLight",
+        "modulePath": "../../assets/brand/logo-compact-light.png",
         "path": "app/assets/brand/logo-compact-light.png",
         "role": "compact-symbol",
-        "sha256": "2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08"
+        "sha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69"
       },
       {
+        "key": "compactDark",
+        "modulePath": "../../assets/brand/logo-compact-dark.png",
         "path": "app/assets/brand/logo-compact-dark.png",
         "role": "compact-symbol",
-        "sha256": "2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3"
+        "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
       }
     ]
   },
-  "identityFallbackEvidence": {
+  "legacyFallback": {
     "contextCount": 21,
-    "quickServeLegacyContexts": [
+    "quickServeContexts": [
       "login",
       "auth",
       "home",
@@ -74,7 +100,7 @@
       "statusTimeline",
       "onboardingAgreement"
     ],
-    "nearoLegacyContexts": [
+    "nearoContexts": [
       "recurring",
       "rfq",
       "nearoReceipt",
@@ -84,42 +110,34 @@
       "checkoutPage",
       "gatewayDescription"
     ],
-    "parentBrandOff": "Returns the exact context legacy identity before evaluating runtime or bundled state.",
-    "bundledAssetUnavailable": "Returns the exact context legacy identity when bundledIdentityReady is false or any selected bundled export is absent.",
-    "separateNearoOwnership": "Nearo receipt and checkout contexts remain Nearo even when the Oorva parent brand is enabled.",
-    "publishedSchema": "Accepts schema version 1 (or the already-validated provider projection without an explicit version); rejects an explicitly unsupported version and falls back to legacy even if bundled assets are ready.",
-    "noPlaceholderIdentity": "Bundled logo rendering uses only selected local exports; legacy and published identities retain their exact display label when no renderable bundled export applies.",
-    "financialIdentityFields": "Issuer, account identifiers, receipt snapshots, contact URLs, historical text, payout narration, and technical identifiers are not part of the identity API."
+    "brandOff": "Returns the exact context legacy identity before evaluating bundled or runtime identity.",
+    "unsupportedOrInvalidRuntimeIdentity": "Falls back to the exact context legacy identity.",
+    "bundledAssetUnavailable": "Falls back to the exact context legacy identity.",
+    "financialIdentityFields": "Issuer, account identifiers, receipt snapshots, contact URLs, historical text, payout narration, and technical identifiers are outside the identity API."
   },
   "testCoverage": [
-    "All legacy contexts with brand OFF and bundled assets unavailable",
+    "Contextual legacy identities with brand OFF and bundled assets unavailable",
     "Parent brand OFF despite runtime and bundled state being ON",
     "Separately owned Nearo receipt and checkout contexts remain Nearo",
-    "Selected O01X exports match manifest paths, real roles, SHA-256 values, and O01X evidence",
-    "Published identity display fields, null assets, invalid schema, and safe fallback",
-    "BrandLogo uses the selected dark export or the exact identity label without a placeholder"
+    "Four D bindings match current manifest paths, roles, O01X D binding hashes, and file SHA-256 values",
+    "Approved selected/public-rights manifest state with D03c approved and D02/D07/native/release gates separate",
+    "Published identity schema, null asset, invalid identity, and legacy fallback cases",
+    "BrandLogo uses selected exports or the exact identity label without a placeholder"
   ],
   "validation": {
-    "codespaceHelperSource": "origin/main:scripts/cs-test.ps1",
-    "codespaceHelperSourceCommit": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+    "selector": "src.branding.__tests__.identity[.]test[.]ts$",
     "suite": "app",
-    "filter": "src.branding.__tests__.identity[.]test[.]ts$",
-    "command": "pwsh -NoProfile -File <current-main-cs-test.ps1> -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
-    "runs": "TypeScript check and exact Jest path",
-    "result": "UNAVAILABLE_BEFORE_TEST_SELECTION",
-    "reason": "GitHub Codespaces API returned HTTP 404 because gh authentication lacks the codespace scope; the helper stopped before test selection.",
-    "selectedTestSuites": null,
-    "selectedTestCount": null,
-    "passedTestCount": null,
-    "fallback": "Run exact-head Lane CI after pushing only the new fix-forward branch; do not claim a Codespace PASS."
+    "status": "NOT_RUN_WAITING_O01X_SELECTION",
+    "reason": "The current manifest is intentionally selected=false. O01X must set selected=true after the binding checkpoint; run current-main Codespace selector and exact-head Lane CI only after that selection."
   },
   "scope": {
-    "o05bNativeDestinationChanges": false,
-    "o05bFeatureFlagActivation": false,
+    "o05bOwnedChangesOnly": true,
+    "manifestOrAssetChanges": false,
+    "nativeDestinationChanges": false,
+    "featureFlagActivation": false,
     "productionFeatureEnablement": false,
-    "publicOrStoreRelease": false,
-    "runtimeOrDeviceVerification": "NOT_PERFORMED",
     "historicalMoneyIdentityChanges": false,
-    "o05bManifestOrAssetExportChanges": false
+    "publicOrStoreRelease": false,
+    "runtimeOrDeviceVerification": "NOT_PERFORMED"
   }
 }

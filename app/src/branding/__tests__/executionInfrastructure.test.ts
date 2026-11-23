@@ -99,10 +99,17 @@ describe('isolated execution infrastructure', () => {
   if (process.env.CS_EXPECT) {
     test('runs the pinned O37A transform selftest in Codespace', () => {
       const result = runNode(assetTests, ['--selftest']);
-      expectCommand(result, { status: 0, stdout: '"invalidCasesRejected":8' });
+      expectCommand(result, { status: 0, stdout: '"invalidCasesRejected":9' });
       expectCommand(result, { stdout: '"profileCrcVerified":true' });
       const selftestReport = JSON.parse(result.stdout.trim()) as {
         hexBorderSelftest?: { color: string; borderMismatch: number; measuredCanvas: string };
+        manifestStateSelftest?: {
+          approvedSelectedAndClearedAccepted: boolean;
+          selectionOnlyStateAccepted: boolean;
+          pendingClaimsRejected: boolean;
+          pendingReleaseGatesBlocked: boolean;
+        };
+        assetIntegrityTamperRejected?: boolean;
       };
       const hexBorder = selftestReport.hexBorderSelftest;
       if (!hexBorder || hexBorder.color !== '#173d39' || hexBorder.borderMismatch !== 0) {
@@ -111,9 +118,50 @@ describe('isolated execution infrastructure', () => {
           borderMismatch: 0,
         })}`);
       }
+      const manifestState = selftestReport.manifestStateSelftest;
+      if (!manifestState || manifestState.approvedSelectedAndClearedAccepted !== true ||
+        manifestState.selectionOnlyStateAccepted !== true ||
+        manifestState.pendingClaimsRejected !== true || manifestState.pendingReleaseGatesBlocked !== true ||
+        selftestReport.assetIntegrityTamperRejected !== true) {
+        throw new Error(`O37A approved-state selftest failed; actual=${JSON.stringify({
+          manifestState,
+          assetIntegrityTamperRejected: selftestReport.assetIntegrityTamperRejected,
+        })} expected=${JSON.stringify({
+          manifestStateSelftest: {
+            approvedSelectedAndClearedAccepted: true,
+            selectionOnlyStateAccepted: true,
+            pendingClaimsRejected: true,
+            pendingReleaseGatesBlocked: true,
+          },
+          assetIntegrityTamperRejected: true,
+        })}`);
+      }
       console.info(`PNG RGB byte/border evidence: ${JSON.stringify(hexBorder)}`);
       const report = JSON.parse(result.stdout.trim()) as {
+        suppliedDProfile?: {
+          provenance?: {
+            renderer?: string;
+            version?: string;
+            pngEncoder?: string;
+            systemFontsUsed?: boolean;
+          };
+          file?: string;
+          sha256?: string;
+          colorProfile?: string;
+          manifest?: string;
+          manifestSha256?: string;
+        };
+        rawRendererProfile?: string;
         transformSelftest?: {
+          dPalette?: {
+            primary: string;
+            backgroundLight: string;
+            accent: string;
+            darkPrimary: string;
+            backgroundDark: string;
+            recolorAndBackgroundPixels: boolean;
+            sRgbProfile: { kind: string; renderingIntent: number };
+          };
           circleSafeAreaFit?: {
             token: string;
             inkSizePx: number;
@@ -133,6 +181,47 @@ describe('isolated execution infrastructure', () => {
           };
         };
       };
+      const suppliedDProfile = report.suppliedDProfile;
+      const expectedSuppliedDProfile = {
+        file: 'app/assets/brand/logo-horizontal-light.png',
+        sha256: 'e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e',
+        colorProfile: 'sRGB',
+        manifest: 'docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json',
+        provenance: {
+          renderer: 'Chromium SVG rasterization',
+          version: '158.0.4370.33',
+          pngEncoder: 'Pillow',
+          systemFontsUsed: false,
+        },
+      };
+      if (report.rawRendererProfile !== 'NOT VERIFIED' || !suppliedDProfile ||
+        suppliedDProfile.file !== expectedSuppliedDProfile.file ||
+        suppliedDProfile.sha256 !== expectedSuppliedDProfile.sha256 ||
+        suppliedDProfile.colorProfile !== expectedSuppliedDProfile.colorProfile ||
+        suppliedDProfile.manifest !== expectedSuppliedDProfile.manifest ||
+        !/^[a-f0-9]{64}$/.test(suppliedDProfile.manifestSha256 ?? '') ||
+        JSON.stringify(suppliedDProfile.provenance) !== JSON.stringify(expectedSuppliedDProfile.provenance)) {
+        throw new Error(`supplied D PNG profile/provenance must remain distinct from generated Resvg output; actual=${JSON.stringify({
+          rawRendererProfile: report.rawRendererProfile,
+          suppliedDProfile,
+        })} expected=${JSON.stringify({
+          rawRendererProfile: 'NOT VERIFIED',
+          suppliedDProfile: { ...expectedSuppliedDProfile, manifestSha256: '<64 lowercase hexadecimal characters>' },
+        })}`);
+      }
+      const dPalette = report.transformSelftest?.dPalette;
+      const expectedDPalette = {
+        primary: '#006d77',
+        backgroundLight: '#ffffff',
+        accent: '#e8b772',
+        darkPrimary: '#80d4d4',
+        backgroundDark: '#0c1b21',
+        recolorAndBackgroundPixels: true,
+        sRgbProfile: { kind: 'sRGB', renderingIntent: 0 },
+      };
+      if (!dPalette || JSON.stringify(dPalette) !== JSON.stringify(expectedDPalette)) {
+        throw new Error(`approved D palette transform/profile assertions missing or mismatched; actual=${JSON.stringify(dPalette)} expected=${JSON.stringify(expectedDPalette)}`);
+      }
       const circleFit = report.transformSelftest?.circleSafeAreaFit;
       if (!circleFit || circleFit.token !== 'symbol-circle-624' || circleFit.inkSizePx !== 576 ||
         circleFit.predictedMaxRadiusPx >= 312 || circleFit.measuredMaxRadiusPx >= 312 ||
