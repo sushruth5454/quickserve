@@ -2,10 +2,10 @@
   "brand": "Oorva",
   "wordmark": "oorva",
   "concept": "Connected O",
-  "conceptRationale": "The owner-approved Connected O artwork, compact lowercase oorva wordmark, and lockup proportions are supplied in the exact O01L app-asset vector masters.",
-  "geometryRationale": "This revision starts from the nine current-main O01L drop-in SVG masters. After the official O01X A.4.1 check found only clear-space failures, it applies the smallest centered uniform safe-area fit to the four horizontal and two wordmark variants. All supplied path contours, fill colors, viewBoxes, aspect ratios, and centers are preserved; the symbol and stacked masters remain byte-for-byte unchanged. No redraw, trace, alternate geometry, or raster embedding was performed.",
+  "conceptRationale": "The approved D kit supplies exact outlined SVG masters retaining the selected Connected O artwork, lowercase oorva wordmark, and existing lockup proportions.",
+  "geometryRationale": "The D palette delta copies the nine existing-app-contract SVG files byte-for-byte from the approved brand-kit bundle. It applies no path, transform, viewBox, color, or geometry changes beyond the values already sealed in those source files. No redraw, tracing, rasterization, font dependency, or substitution was performed.",
   "originalityProvenance": {
-    "authorship": "The supplied masters are the owner-approved Connected O artwork; the source README documents their upstream vectorization from the owner's own approved PNGs. This revision begins with the supplied SVG masters, then applies only the documented centered uniform safe-area transforms to six files; it does not redraw or trace raster artwork.",
+    "authorship": "The selected Connected O outlines are supplied by the approved D brand kit and its vector-provenance record. This delta imports the nine sealed existing-app-contract SVGs exactly; no new drawing, tracing, or raster-derived paths are authored.",
     "directionalInputs": [
       "oorva-logo-concept.png",
       "oorva-logo-light.png",
@@ -21,26 +21,32 @@
       "sha256": "4fae9ecb3019efaf0bc1b641728a338408660b649138af922bf66e6ba4179150",
       "dimensions": "1007x322",
       "ownerFeedback": "The previous logo was rejected as different; use this design as the visual direction.",
-      "scope": "Approval establishes visual direction and a standing D03b selection rule; this O01L source revision is not itself a selected O01X export. D03c public rights clearance and PNG export approval are not granted."
+      "scope": "This visual-reference record is historical. The D palette and supplied assets are separately approved inputs; neither approval nor this O01L delta authorizes store/public distribution, native cutover, or feature activation."
     },
-    "inputManifest": "docs/design/oorva/logo/manifest.json",
-    "sourceReadme": "docs/design/oorva/logo/vector/README.md",
-    "sourceReadmeSha256": "4137e340929fcd75c9fa21e3b83265cd109091ca81928738426325bf8df0ed4f",
-    "sourceCommit": "f6c627bebf18ee8a4b488bdb802aa999c15281cb",
-    "sourceDirectory": "docs/design/oorva/logo/vector/app-assets/",
-    "copyMethod": "The nine approved app-assets SVGs were copied byte-for-byte first. This safe-margin revision changes only the transform attribute on the six affected horizontal and wordmark variants; their path d values, colors, fill rules, viewBoxes, and relative placement remain unchanged.",
+    "inputManifest": "docs/design/oorva/brand-kit/manifest.json",
+    "sourceReadme": "docs/design/oorva/brand-kit/README.md",
+    "sourceReadmeSha256": "ff368c4f9983c9ce8793181d5a3e245c891227c5b70bbb7acff5ade787af29f2",
+    "vectorProvenance": "docs/design/oorva/brand-kit/handoff/vector-provenance.json",
+    "vectorProvenanceSha256": "8c7075cd7f4962d5e20a9e8356ac7eb6b3cc765e23aab08035bde84a67717196",
+    "sourceSha": "7e0c7850002d595452cf609576a56f2397963714",
+    "paletteTokenSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "kitManifestSha256": "16e9889736f4e28b45f828af233e70cfaa84db08080556af32a1ad4b3fb62c7e",
+    "paletteApprovalSha256": "51068c3d55c2406b68eb9f08a97ec57fc29642b57f2a0e9af5addc6af946a559",
+    "sourceCommit": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "sourceDirectory": "docs/design/oorva/brand-kit/bundle/app/assets/brand/",
+    "copyMethod": "Byte-for-byte copy of the nine required existing-app-contract SVGs from the verified D bundle; no source or destination transform, recolor, rasterization, font, external reference, or substitution.",
     "sourceMasterSha256": {
-      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
-      "oorva-wordmark-light.svg": "b31229342972163a3f8f026b4dd65238fd88b8b533976be2abce234b9c08df0f",
-      "oorva-wordmark-dark.svg": "c5b4eba1a14f78ca39f43c366b913dc9b469b0a7cb60f429674fb6580eab7b55",
-      "logo-horizontal-light.svg": "9a466913e211e2670c0652d8db859bbc1cd7d678c4e5ff156746805d42f25e2f",
-      "logo-horizontal-dark.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab",
-      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
-      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
-      "logo-horizontal-mono-black.svg": "b8629fcffdc7c0921bcaebfe5e0812d851f147dc45359fe21ce49c9539b7b322",
-      "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
+      "oorva-symbol.svg": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "oorva-wordmark-light.svg": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "oorva-wordmark-dark.svg": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "logo-horizontal-light.svg": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "logo-horizontal-dark.svg": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "logo-stacked-light.svg": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "logo-stacked-dark.svg": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5"
     },
-    "inputUse": "The light PNG remains the owner-approved visual reference. The supplied SVG masters are authoritative drop-ins; this revision copies no PNG path, does no raster trace, and embeds no bitmap.",
+    "inputUse": "The approved D bundle SVGs are the authoritative input. This delta copies no PNG path, performs no raster trace, embeds no bitmap, and activates no runtime feature.",
     "wordmarkConstruction": "The wordmark is the supplied outlined vector path; no live text, font, external href, script, or external resource is used."
   },
   "masters": [
@@ -48,43 +54,44 @@
       "file": "oorva-symbol.svg",
       "viewBox": "0 0 256 256",
       "role": "symbol",
-      "inkSafeBox": "24 24 232 232"
+      "inkSafeBox": "24 24 232 232",
+      "color": "#006D77"
     },
     {
       "file": "oorva-wordmark-light.svg",
       "viewBox": "0 0 1024 256",
       "role": "wordmark",
-      "color": "#173D39"
+      "color": "#006D77"
     },
     {
       "file": "oorva-wordmark-dark.svg",
       "viewBox": "0 0 1024 256",
       "role": "wordmark",
-      "color": "#F7F5EF"
+      "color": "#80D4D4"
     },
     {
       "file": "logo-horizontal-light.svg",
       "viewBox": "0 0 1440 400",
       "role": "horizontal",
-      "color": "#173D39"
+      "color": "#006D77"
     },
     {
       "file": "logo-horizontal-dark.svg",
       "viewBox": "0 0 1440 400",
       "role": "horizontal",
-      "color": "#F7F5EF"
+      "color": "#80D4D4"
     },
     {
       "file": "logo-stacked-light.svg",
       "viewBox": "0 0 720 720",
       "role": "stacked",
-      "color": "#173D39"
+      "color": "#006D77"
     },
     {
       "file": "logo-stacked-dark.svg",
       "viewBox": "0 0 720 720",
       "role": "stacked",
-      "color": "#F7F5EF"
+      "color": "#80D4D4"
     },
     {
       "file": "logo-horizontal-mono-black.svg",
@@ -96,7 +103,7 @@
       "file": "logo-horizontal-mono-ivory.svg",
       "viewBox": "0 0 1440 400",
       "role": "horizontal-monochrome",
-      "color": "#F7F5EF"
+      "color": "#FFFFFF"
     }
   ],
   "smallSizeEvidence": {
@@ -220,30 +227,100 @@
     },
     "postFitO01XValidation": "PENDING; predicted margins are analytical only. O01X must re-export and run the official asset selector against the committed O01L source revision."
   },
+  "currentOwnerDDelta": {
+    "status": "OWNER_APPROVED_PALETTE_DELTA",
+    "baseSha": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "paletteDirection": "D",
+    "paletteTokenSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1",
+    "kitManifestSha256": "16e9889736f4e28b45f828af233e70cfaa84db08080556af32a1ad4b3fb62c7e",
+    "paletteApprovalSha256": "51068c3d55c2406b68eb9f08a97ec57fc29642b57f2a0e9af5addc6af946a559",
+    "paletteTokens": {
+      "primary": "#006D77",
+      "backgroundLight": "#FFFFFF",
+      "accent": "#E8B772",
+      "darkPrimary": "#80D4D4",
+      "backgroundDark": "#0C1B21",
+      "defaultTheme": "system"
+    },
+    "sourceReadme": "docs/design/oorva/brand-kit/README.md",
+    "sourceReadmeSha256": "ff368c4f9983c9ce8793181d5a3e245c891227c5b70bbb7acff5ade787af29f2",
+    "vectorProvenance": "docs/design/oorva/brand-kit/handoff/vector-provenance.json",
+    "vectorProvenanceSha256": "8c7075cd7f4962d5e20a9e8356ac7eb6b3cc765e23aab08035bde84a67717196",
+    "sourceSha": "7e0c7850002d595452cf609576a56f2397963714",
+    "sourceMasterSha256": {
+      "oorva-symbol.svg": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "oorva-wordmark-light.svg": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "oorva-wordmark-dark.svg": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "logo-horizontal-light.svg": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "logo-horizontal-dark.svg": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "logo-stacked-light.svg": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "logo-stacked-dark.svg": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5"
+    },
+    "destinationMasterSha256": {
+      "oorva-symbol.svg": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "oorva-wordmark-light.svg": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "oorva-wordmark-dark.svg": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "logo-horizontal-light.svg": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "logo-horizontal-dark.svg": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "logo-stacked-light.svg": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "logo-stacked-dark.svg": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
+      "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
+      "logo-horizontal-mono-ivory.svg": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5"
+    },
+    "requiredExistingContractSvgCount": 9,
+    "byteForByteVerified": true,
+    "transformsApplied": false,
+    "rasterizationPerformed": false,
+    "fontOrExternalReferenceAdded": false,
+    "featureActivationPerformed": false,
+    "gates": {
+      "D03a": "APPROVED",
+      "D03b": "APPROVED",
+      "D03c": "APPROVED",
+      "D02": "PENDING",
+      "D07a": "PENDING",
+      "D07b": "PENDING"
+    },
+    "runtimeFeatureActivated": false,
+    "publicDistributionAuthorized": false,
+    "nativeCutoverAuthorized": false
+  },
   "tagline": {
     "text": "Your world, closer.",
     "placement": "Separate app text; not part of SVG wordmark geometry or any SVG master.",
     "fontFamily": "Inter",
     "fontWeight": 400,
     "fontSource": "Bundled Inter 400 for separate tagline rendering; runtime font loading is not validated by O01L.",
-    "background": "#F7F5EF",
-    "color": "#344B65",
+    "background": "#FFFFFF",
+    "color": "#006D77",
+    "darkBackground": "#0C1B21",
+    "darkColor": "#80D4D4",
+    "colorRationale": "Separate tagline text uses approved D primary/dark-primary tokens against the matching approved light/dark backgrounds; these remain app text, not SVG geometry.",
     "contrastEvidence": {
       "standard": "WCAG relative luminance and contrast ratio for sRGB colors",
       "channelLinearization": "cLinear = cSrgb / 12.92 when cSrgb <= 0.04045; otherwise ((cSrgb + 0.055) / 1.055) ^ 2.4, where cSrgb is the 0-1 channel value.",
       "relativeLuminance": "L = 0.2126 * RLinear + 0.7152 * GLinear + 0.0722 * BLinear",
       "ratioFormula": "(max(Lbackground, Ltext) + 0.05) / (min(Lbackground, Ltext) + 0.05)",
-      "backgroundRelativeLuminance": 0.913109675065,
-      "textRelativeLuminance": 0.067018036987,
-      "ratio": 8.230437801426,
+      "backgroundRelativeLuminance": 1,
+      "textRelativeLuminance": 0.122691878511,
+      "ratio": 6.080193284455,
+      "minimum": 4.5,
+      "result": "pass"
+    },
+    "darkContrastEvidence": {
+      "backgroundRelativeLuminance": 0.009718339432,
+      "textRelativeLuminance": 0.56429627345,
+      "ratio": 10.286559862417,
       "minimum": 4.5,
       "result": "pass"
     }
   },
   "license": {
-    "customArtwork": "The supplied SVG paths are the owner's approved artwork direction documented by the source README. No third-party artwork was used per that README. Trademark, public-use, ownership, and redistribution clearance are not asserted; D03c is NOT_APPROVED.",
+    "customArtwork": "The D kit vector-provenance record identifies the supplied selected outlined artwork and owner-approved palette. This delta makes no separate legal conclusion. D03c is APPROVED as recorded, but is not permission for store/public distribution, native cutover, or feature activation.",
     "taglineFont": "Bundled Inter Regular 400 is referenced only as a separate app text recommendation; no font file is embedded in the SVG masters.",
-    "explorationPngs": "The PNGs remain references, not copied assets in this revision. O01L copied the supplied SVG drop-ins byte-for-byte before applying the documented six safe-area transforms. D03c is NOT_APPROVED and continues to block public/store release only."
+    "explorationPngs": "No PNGs are copied by this D delta. The nine approved D bundle SVGs are imported byte-for-byte with no further transform or recolor; D03c approval does not authorize public/store distribution."
   },
   "approvalStatus": {
     "status": "draft-candidate-only",
@@ -254,11 +331,17 @@
     "D03bCandidateSelected": false,
     "D03bSelectionRule": "Any O01X set faithfully reproducing the owner-approved Connected O artwork and passing all A.4.1 checks is selected without further owner choice.",
     "D03bCandidateEvidence": "O01X candidate export and candidate-specific hashes/validation will be recorded after this source revision is green.",
-    "D03c": "NOT_APPROVED",
-    "D03cScope": "Blocks public launch/store listing only; it does not block development, private integration, main promotion, or owner testing.",
+    "D03c": "APPROVED",
+    "D03cScope": "Approved as recorded in the supplied handoff; this is not permission for store/public distribution, native cutover, or feature activation.",
+    "D02": "PENDING",
+    "D07a": "PENDING",
+    "D07b": "PENDING",
     "finalSelection": false,
     "production_ready": false,
-    "publicReleaseAllowed": false
+    "publiclyCleared": false,
+    "publicReleaseAllowed": false,
+    "nativeCutoverAllowed": false,
+    "featureActivationAllowed": false
   },
   "delivery": {
     "taglineIncludedInSvgMasters": false,
