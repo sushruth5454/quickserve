@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O20-SP11",
+  "workPackage": "O20",
+  "sourceTaskIds": [
+    "SP-T11"
+  ],
+  "sourceFindingIds": [
+    "SP-F16"
+  ],
+  "base": {
+    "planningBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseSha": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "originMainSha": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O20-SP06",
+        "sha": "dc233b136906754c12e277ad4ef9232ea4d54292",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O37A",
+        "sha": "e48422e85d11e1bcfd97efa1eba54338d608d3d7",
+        "state": "DONE_IN_BASE"
+      }
+    ],
+    "sourceBlobShas": {
+      "supabase/migrations/0080_s2_sports_ops_ux.sql": "039c95f3c9ef57202f6351bcf77434be38e7c30d"
+    }
+  },
+  "scope": {
+    "allocatedMigration": "supabase/migrations/0102_o20_sp11_oorva.sql",
+    "workerOwnedFiles": [
+      "supabase/migrations/0102_o20_sp11_oorva.sql",
+      "supabase/tests-postgres/o20_sp11.pg.test.mjs",
+      "supabase/tests/oorva_o20_sp11.test.mjs",
+      "docs/design/oorva/evidence/o20-sp11.json"
+    ],
+    "coordinatorOwnedFilesNotEdited": [
+      "supabase/tests/package.json",
+      ".github/workflows/lane-ci.yml",
+      ".github/workflows/deploy-backend.yml"
+    ],
+    "liveMoneyOperations": false,
+    "productionOperations": false,
+    "deploymentOrPromotion": false
+  },
+  "implementation": [
+    "Replaced only request_sports_slot's interval-wide occupancy sum with the maximum of the participant sums for each requested slot. Preserved the original overlap and live-booking predicates, resource/customer advisory-lock order, all existing gates, one-participant pay-at-venue request insertion, price loop, and notification handling.",
+    "The change does not modify flags, money calculations, payment functions, or any other SQL object."
+  ],
+  "testCases": [
+    "SP-LEGACY-ADJACENT-SLOTS-USE-MAX-OCCUPANCY",
+    "SP-LEGACY-FULL-SEGMENT-REJECTS-SPAN",
+    "SP-LEGACY-PARENT-FEATURE-OFF-REJECTS",
+    "SP-LEGACY-MULTI-SLOT-FEATURE-OFF-REJECTS",
+    "SP-LEGACY-OWNER-SELF-BOOKING-REJECTS",
+    "SP-LEGACY-ONLINE-ONLY-VENUE-REJECTS-PAY-AT-VENUE",
+    "SP-LEGACY-ACTIVE-HOLD-LIMIT-REJECTS",
+    "SP11-TWO-SESSION-RESOURCE-ADVISORY-LOCK-RACE"
+  ],
+  "registration": {
+    "state": "PENDING_COORDINATOR_REGISTRATION",
+    "requiredSqlTestSelector": "oorva_o20_sp11",
+    "requiredMigrationParserSelector": "0102_o20_sp11_oorva.sql",
+    "requiredPrivatePostgreSqlStep": "node run.mjs --filter o20_sp11.pg.test.mjs",
+    "owner": "COORDINATOR"
+  },
+  "validation": {
+    "status": "NOT_RUN_BEFORE_COORDINATOR_REGISTRATION",
+    "codespaceSqlTest": "PENDING",
+    "codespaceMigrationParser": "PENDING",
+    "privatePostgreSqlTwoSessionTest": "PENDING",
+    "laneCi": "PENDING_EXACT_HEAD"
+  },
+  "review": {
+    "required": "CONCURRENCY",
+    "state": "PENDING_AFTER_GREEN_LANE_CI"
+  },
+  "approvals": {
+    "E0": "APPROVED",
+    "E1": "CONDITIONAL_NO_DEPLOYMENT_OR_PROMOTION"
+  },
+  "checkpoint": {
+    "state": "WORKER_FILES_ONLY",
+    "stopPoint": "PAUSE_FOR_COORDINATOR_REGISTRATION"
+  }
+}
