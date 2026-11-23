@@ -1113,12 +1113,12 @@
     "D03b": "APPROVED",
     "D03bCandidateSelected": true,
     "D03bSelectionRule": "Standing selection applies only to faithful O01X outputs that pass all A.4.1 checks.",
-    "D03c": "NOT_APPROVED",
-    "D03cScope": "Blocks public/store launch only.",
+    "D03c": "APPROVED",
+    "D03cScope": "Rights clearance approved; D02/D07 and native/public release authorizations remain separate and pending.",
     "finalSelection": true,
     "production_ready": false,
     "publicReleaseAllowed": false,
-    "D03bCandidateEvidence": "Standing D03b selection applied after the official 26-file A.4.1 candidate selector returned PASS_CANDIDATE_ONLY; final manifest and all asset SHA-256 values are recorded in this evidence."
+    "D03bCandidateEvidence": "D03b/D03c selected/cleared for all 26 D exports. Prior candidate A.4.1 PASS is recorded; approved-state asset and app identity selectors are pending O20 lock release. Final selected manifest SHA-256: 25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b."
   },
   "runtimeInstallation": "NOT PERFORMED; native candidates remain under app/assets/brand/native and are not installed.",
   "safeZoneDiameterMapping": {
@@ -1153,7 +1153,7 @@
   "dAssetDelta": {
     "id": "O01X-D",
     "palette": "D",
-    "status": "CANDIDATE_A4.1_PASS_WAITING_O05B_BINDINGS",
+    "status": "D03B_D03C_SELECTED_AWAITING_O20_VALIDATION",
     "previousDStackBase": "b914532ba1be6527ea0e74202fe0c3833376329e",
     "currentO01XBase": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
     "currentMainMergeCommitSha": "06f722b94a95846b4adf73fc66dab106085d01b2",
@@ -1335,7 +1335,7 @@
         "sha256": "d1211584c40b5bfe2c13253311f3d3cf375239bcad0582e616e62f3cfef4fe6d"
       }
     ],
-    "appManifestCandidateSha256": "0f21fa1a44b94bad0ec5bdf192ef5246930a0bb5b59faacc1680d57a3db4010f",
+    "appManifestCandidateSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
     "validation": {
       "codespaceTsc": {
         "status": "PASS",
@@ -1373,33 +1373,42 @@
       "TOOL_ASSETS_MAIN": "APPROVED",
       "D02": "PENDING",
       "D07aPlatform": "PENDING",
-      "D07b": "PENDING"
+      "D07bPlatform": "PENDING"
     },
     "candidateState": {
-      "selected": false,
-      "publiclyCleared": false,
-      "designSelection": "pending",
-      "publicRights": "pending"
+      "selected": true,
+      "publiclyCleared": true,
+      "designSelection": "approved",
+      "publicRights": "approved"
     },
     "releaseState": {
+      "productionReady": false,
       "publicReleaseAllowed": false,
+      "nativeVerified": false,
       "nativeReleaseAuthorized": false,
       "nativeAssetsInstalled": false,
       "oorvaBrandEnabled": false,
-      "productionReady": false
+      "oorvaBrandFeature": "OFF",
+      "pendingGates": [
+        "D02",
+        "D07a-platform",
+        "D07b"
+      ]
     },
     "validatedCandidateManifestSha256": "0f21fa1a44b94bad0ec5bdf192ef5246930a0bb5b59faacc1680d57a3db4010f",
     "appManifestState": {
-      "selected": false,
+      "selected": true,
       "publiclyCleared": true,
-      "designSelection": "pending",
+      "designSelection": "approved",
       "publicRights": "approved",
       "licenseStatus": "pending (separate provenance field; not D03c clearance)",
       "productionReady": false,
       "publicReleaseAllowed": false,
+      "nativeVerified": false,
       "nativeReleaseAuthorized": false,
       "nativeAssetsInstalled": false,
-      "oorvaBrandEnabled": false
+      "oorvaBrandEnabled": false,
+      "oorvaBrandFeature": "OFF"
     },
     "publicRightsMapping": "D03c is APPROVED and reflected in approvals.publicRights/publiclyCleared. D02 and D07a-platform/D07b remain PENDING, so public/native release remains unauthorized. license.status remains pending as a separate provenance field under the O37A app-manifest contract. O01X selection remains pending until O05B consumes the matching four D hashes.",
     "finalApprovalStatus": {
@@ -1409,12 +1418,12 @@
       "E0": "APPROVED",
       "E1": "APPROVED",
       "TOOL_ASSETS_MAIN": "APPROVED",
-      "O05BFourHashBinding": "PENDING",
+      "O05BFourHashBinding": "MATCHED_PENDING_O20_VALIDATION",
       "D02": "PENDING",
       "D07aPlatform": "PENDING",
       "D07b": "PENDING"
     },
-    "currentManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
+    "currentManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
     "supersededSelectionManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
     "a41Validation": {
       "status": "PASS_CANDIDATE_ONLY",
@@ -2873,52 +2882,50 @@
       "wipSnapshotSha": "0f31df51e0cbc741b12cb1b4789bcaf3d725e18"
     },
     "bindingReadiness": {
-      "status": "BLOCKED_STALE_O05B_EVIDENCE",
+      "status": "READY_MATCHED_PENDING_O20_VALIDATION",
       "suppliedKitBindingsMatchApp": "4/4",
-      "o05bRecordedBindingsMatchApp": "0/4",
-      "o05bSelectedManifestSha256": "a8741e9810107d64394fcb21edb6dae63768e27d186ebb5ae86fefe3675cb945",
-      "currentCandidateManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
-      "o05bManifestShaMatchesCurrent": false,
+      "o05bDefaultsBindingsMatchApp": "4/4",
+      "o05bEvidenceBindingsMatchApp": "4/4",
+      "o05bCheckpointManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
+      "currentSelectedManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+      "o05bCheckpointPredatesSelection": true,
       "bindings": [
         {
           "key": "logoLight",
           "path": "app/assets/brand/logo-horizontal-light.png",
-          "appSha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e",
-          "handoffSha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e",
-          "o05bRecordedSha256": "c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d",
-          "handoffMatchesApp": true,
-          "o05bMatchesApp": false
+          "role": "horizontal-lockup",
+          "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e"
         },
         {
           "key": "logoDark",
           "path": "app/assets/brand/logo-horizontal-dark.png",
-          "appSha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b",
-          "handoffSha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b",
-          "o05bRecordedSha256": "30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c",
-          "handoffMatchesApp": true,
-          "o05bMatchesApp": false
+          "role": "horizontal-lockup",
+          "sha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b"
         },
         {
           "key": "compactLight",
           "path": "app/assets/brand/logo-compact-light.png",
-          "appSha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69",
-          "handoffSha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69",
-          "o05bRecordedSha256": "2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08",
-          "handoffMatchesApp": true,
-          "o05bMatchesApp": false
+          "role": "compact-symbol",
+          "sha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69"
         },
         {
           "key": "compactDark",
           "path": "app/assets/brand/logo-compact-dark.png",
-          "appSha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2",
-          "handoffSha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2",
-          "o05bRecordedSha256": "2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3",
-          "handoffMatchesApp": true,
-          "o05bMatchesApp": false
+          "role": "compact-symbol",
+          "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
         }
       ],
-      "nextAction": "O05B owner must consume the D kit four-hash set and current candidate manifest; do not mark O01X selected until the binding set is refreshed.",
-      "o05bCurrentSource": "docs/design/oorva/evidence/o05b.json and app/src/branding/defaults.ts still carry the previous four export hashes and manifest binding."
+      "nextAction": "After O20 releases the Codespace lock, run the current-main O01X approved-state assets and app identity selectors; then hand the exact selected manifest SHA to O05B for atomic lane validation."
+    },
+    "finalManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+    "previousUnselectedManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
+    "approvedStateValidation": {
+      "status": "WAITING_FOR_O20_CODESPACE_LOCK",
+      "assetCommand": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite assets -Filter oorva",
+      "identityCommand": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite app -Filter 'src.branding.__tests__.identity[.]test[.]ts$'",
+      "targetManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+      "priorCandidateA41Status": "PASS_CANDIDATE_ONLY",
+      "currentApprovedStateResult": "NOT_RUN"
     }
   }
 }
