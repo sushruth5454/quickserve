@@ -3,7 +3,7 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import { haptics } from '../../lib/haptics';
 import { useTheme, type Palette } from '../../theme';
 import type { IconName } from './Button';
-import { Text } from './Text';
+import { CountBadge } from './CountBadge';
 
 interface Props {
   icon: IconName;
@@ -78,27 +78,7 @@ export function IconButton({
     >
       <Ionicons name={icon} size={size ?? (d <= 32 ? 18 : 20)} color={fg} />
       {typeof badge === 'number' && badge > 0 ? (
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -4,
-            right: -6,
-            minWidth: 20,
-            height: 20,
-            paddingHorizontal: 5,
-            borderRadius: 10,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: t.colors.danger,
-            borderWidth: 2,
-            borderColor: t.colors.bg,
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontFamily: t.fontFamily.semibold }} tabular maxFontSizeMultiplier={1.2}>
-            {badge > 99 ? '99+' : badge}
-          </Text>
-        </View>
+        <CountBadge count={badge} label="notifications" overlay style={{ right: -6, borderColor: t.colors.bg }} />
       ) : badge === true ? (
         <View
           style={{

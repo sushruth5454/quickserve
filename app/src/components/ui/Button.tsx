@@ -60,7 +60,7 @@ export function Button({
     secondary: { bg: c.primarySoft, bgPressed: c.primarySoft, fg: c.primaryText, border: c.primarySoft },
     outline: { bg: c.surface, bgPressed: c.surfaceAlt, fg: c.text, border: c.borderStrong },
     ghost: { bg: 'transparent', bgPressed: c.surfaceAlt, fg: c.primaryText, border: 'transparent' },
-    destructive: { bg: c.dangerStrong, bgPressed: c.dangerText, fg: '#FFFFFF', border: c.dangerStrong },
+    destructive: { bg: c.dangerStrong, bgPressed: c.dangerPressed, fg: c.onDanger, border: c.dangerStrong },
     destructiveGhost: { bg: 'transparent', bgPressed: c.dangerSoft, fg: c.dangerText, border: 'transparent' },
   };
   const ghostLike = variant === 'ghost' || variant === 'destructiveGhost';
@@ -111,9 +111,8 @@ export function Button({
             {leftIcon ? <Ionicons name={leftIcon} size={iconSize} color={p.fg} /> : null}
             <Text
               variant={size === 'sm' ? 'subheadStrong' : 'button'}
-              style={{ color: p.fg, flexShrink: 1 }}
-              numberOfLines={1}
-              maxFontSizeMultiplier={1.3}
+              style={{ color: p.fg, flexShrink: 1, maxWidth: '100%' }}
+              critical
             >
               {title}
             </Text>
@@ -126,7 +125,15 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' },
+  base: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, minWidth: 0 },
+  row: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    maxWidth: '100%',
+    minWidth: 0,
+  },
   full: { alignSelf: 'stretch' },
 });

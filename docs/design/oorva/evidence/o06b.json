@@ -6,61 +6,94 @@
     "PF-F09",
     "PF-F10"
   ],
-  "status": "implemented",
-  "historicalCodeGreen": {
-    "branch": "lane/oorva-o06b",
-    "head": "39c2bd14f82e2e59e87e8d2ca4bb7c778f427d66",
-    "latestLaneCi": {
-      "runId": 45195853763,
-      "head": "39c2bd14f82e2e59e87e8d2ca4bb7c778f427d66",
-      "status": "PASS"
-    },
-    "branchChangedByFixForward": false
+  "status": "combined_current_base_validation_pending",
+  "target": {
+    "branch": "lane/oorva-o06b-d-combined-current",
+    "base": "2dc1b60b3a2175c4c57793bebaddf2f4f600ba3a",
+    "currentMain": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
+    "batch32": "3671fbac6205ba6c7d99299dc976f8295a01ca0e",
+    "O02D": "2dc1b60b3a2175c4c57793bebaddf2f4f600ba3a"
   },
-  "fixForward": {
-    "branch": "lane/oorva-o06b-d-badge-b914",
-    "base": "b914532ba1be6527ea0e74202fe0c3833376329e",
-    "ownedFiles": [
+  "preservedCodeGreenHistory": {
+    "O06A": {
+      "commit": "91102872e6a089829679c71209759b59dbb4a68f",
+      "includedViaTestedBase6": "24ac5c0748f1decd853cde279f69ad098960b4d0"
+    },
+    "O06B": {
+      "historicalBranch": "lane/oorva-o06b",
+      "historicalHead": "39c2bd14f82e2e59e87c8d2ca4bb7c778f427d66",
+      "laneCiRun": 45195853763,
+      "laneCiStatus": "PASS"
+    },
+    "O06B-D": {
+      "historicalBranch": "lane/oorva-o06b-d-badge-b914",
+      "historicalHead": "0fdaa5d4e5acea9ecf9db78993a5ff388dc1e180",
+      "laneCiRun": 45217855750,
+      "laneCiStatus": "PASS"
+    },
+    "testedBase6": {
+      "commit": "24ac5c0748f1decd853cde279f69ad098960b4d0",
+      "laneCiRun": 45200478930,
+      "laneCiStatus": "PASS",
+      "privateE2ERun": 45200479194,
+      "privateE2EStatus": "PASS",
+      "O06BMembershipSource": "oorva_batch_members"
+    },
+    "priorBranchesRewritten": false
+  },
+  "reconciliation": {
+    "commonAncestor": "7e0c7850002d595452cf609576a56f2397963714",
+    "overlapPaths": [
       "app/src/components/ui/SegmentedControl.tsx",
       "app/src/components/ui/__tests__/brandingPrimitives.test.tsx",
       "docs/design/oorva/evidence/o06b.json"
     ],
-    "semanticRoles": {
-      "selectedBadge": {
-        "background": "primary",
-        "foreground": "onPrimary"
-      },
-      "neutralBadge": {
-        "background": "surfaceAlt",
-        "foreground": "textSecondary"
-      },
-      "approvedColorValuesChanged": false
+    "outsideO06BLocks": [],
+    "manualResolutions": {
+      "SegmentedControl.tsx": "Preserved O06A critical scaling/reflow and D selected primary/onPrimary plus neutral surfaceAlt/textSecondary roles; approved color values remain unchanged.",
+      "brandingPrimitives.test.tsx": "Preserved the six canonical CodeGreen cases and added two focused D selected/neutral badge-role cases.",
+      "evidence/o06b.json": "Retained CodeGreen, O06B-D, and tested-base6 history while recording this combined target."
     },
-    "focusedTests": [
-      "uses onPrimary text on the selected primary badge",
-      "uses textSecondary on surfaceAlt for the neutral badge"
-    ],
-    "validation": {
-      "codespace": {
-        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.brandingPrimitives[.]test[.]tsx$'",
-        "status": "PASS",
-        "selectedTestFiles": 1,
-        "selectedTests": 2,
-        "passedTests": 2,
-        "csTestResult": "PASS"
-      },
-      "redPhase": {
-        "selectedTestFiles": 1,
-        "selectedTests": 2,
-        "expectedFailures": 2,
-        "result": "expected red before component fix"
-      },
-      "gitDiffCheck": "PASS",
-      "laneCi": {
-        "status": "PASS",
-        "runId": 45217259126,
-        "validatedCommit": "b8ff6972069a603755cd4c53cf5136f4dfc5604e"
-      }
+    "sourceOnlyO06ADependencyArtifacts": [
+      "app/src/components/ui/__tests__/oorvaPrimitives.test.tsx",
+      "docs/design/oorva/evidence/o06a.json"
+    ]
+  },
+  "ownedFiles": [
+    "app/src/components/ui/Text.tsx",
+    "app/src/components/ui/Button.tsx",
+    "app/src/components/ui/Input.tsx",
+    "app/src/components/ui/OTPInput.tsx",
+    "app/src/components/ui/IconButton.tsx",
+    "app/src/components/ui/Badge.tsx",
+    "app/src/components/ui/CountBadge.tsx",
+    "app/src/components/ui/SegmentedControl.tsx",
+    "app/src/components/ui/Stepper.tsx",
+    "app/src/components/ui/__tests__/brandingPrimitives.test.tsx",
+    "docs/design/oorva/evidence/o06b.json"
+  ],
+  "DContrastRoles": {
+    "selectedBadge": {
+      "background": "primary",
+      "foreground": "onPrimary"
+    },
+    "neutralBadge": {
+      "background": "surfaceAlt",
+      "foreground": "textSecondary"
+    },
+    "approvedColorValuesChanged": false
+  },
+  "validation": {
+    "codespace": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.ui.__tests__.brandingPrimitives[.]test[.]tsx$'",
+      "status": "PENDING",
+      "selectedTestFiles": null,
+      "selectedTests": null,
+      "csTestResult": "NOT_RUN"
+    },
+    "gitDiffCheck": "PENDING",
+    "laneCI": {
+      "status": "PENDING"
     }
   },
   "runtimeDeviceEvidence": "NOT_VERIFIED",
