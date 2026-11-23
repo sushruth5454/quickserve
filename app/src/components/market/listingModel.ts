@@ -1,3 +1,5 @@
+export type CardPresentation = 'legacy' | 'oorva';
+
 export interface ListingA11yLabelProps {
   title: string;
   subtitle?: string;
@@ -24,6 +26,6 @@ export function listingA11yLabel({
     .join(', ');
 }
 
-export function visibleTags(tags: string[]): string[] {
-  return tags.slice(0, 2);
+export function visibleTags(tags: string[], presentation: CardPresentation = 'legacy'): string[] {
+  return presentation === 'oorva' ? tags : tags.slice(0, 2);
 }
