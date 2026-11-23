@@ -1,4 +1,3 @@
-import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   getSportsVenueSettingsVisibility,
@@ -10,6 +9,7 @@ import { useAppFeatureFlags } from '../../../lib/featureFlags';
 import { useAuth } from '../../../lib/auth';
 import { useSelectedLocation } from '../../../lib/locationContext';
 import { supabase } from '../../../lib/supabase';
+import { useSportsReadRefresh } from '../useSportsReadRefresh';
 import type { Activity, ManagementVenue, Resource, SportsBookingRow } from './types';
 
 const localTomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() + 86400000));
@@ -218,7 +218,7 @@ export function useSportsVenueManagementState() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const hasLoadedRef = useRef(false);
-  const loadPromise = useRef<Promise<boolean> | null>(null);
+  const lastLoadSucceeded = useRef(false);
 
   const selectedId = selectedIdState;
   const selected = useMemo(() => venues.find((item) => item.venue.id === selectedId) ?? null, [selectedId, venues]);
@@ -312,63 +312,67 @@ export function useSportsVenueManagementState() {
   const clearResourceDraftDirty = useCallback(() => resourceDirtyFields.current.clear(), []);
   const clearHoursDraftDirty = useCallback(() => hoursDirtyFields.current.clear(), []);
 
-  const load = useCallback((): Promise<boolean> => {
-    if (loadPromise.current) return loadPromise.current;
+  const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }): Promise<void> => {
     if (!hasLoadedRef.current) setInitialLoading(true);
     setError(null);
-    const request = (async () => {
-      try {
-        if (!enabled) {
-          const bookingResult = await supabase.rpc('get_my_business_sports_bookings');
-          if (bookingResult.error) throw new Error(bookingResult.error.message);
-          setBookings((bookingResult.data ?? []) as SportsBookingRow[]);
-          setVenues([]);
-          setActivities([]);
-          selectedIdRef.current = '';
-          setSelectedIdState('');
-          isCreatingVenueRef.current = false;
-          setIsCreatingVenue(false);
-          hasLoadedRef.current = true;
-          setHasLoaded(true);
-          return true;
-        }
-
-        const [venueResult, activityResult, bookingResult] = await Promise.all([
-          supabase.rpc('get_my_business_sports_venues'),
-          supabase.rpc('list_sports_activities'),
-          supabase.rpc('get_my_business_sports_bookings'),
-        ]);
-        if (venueResult.error) throw new Error(venueResult.error.message);
-        if (activityResult.error) throw new Error(activityResult.error.message);
+    try {
+      if (!enabled) {
+        const bookingResult = await supabase.rpc('get_my_business_sports_bookings');
+        if (!guard.isCurrent()) return;
         if (bookingResult.error) throw new Error(bookingResult.error.message);
-
-        const nextVenues = (venueResult.data ?? []) as ManagementVenue[];
-        const nextSelectedId = resolveSelectedVenueId(nextVenues, selectedIdRef.current, isCreatingVenueRef.current);
-        setVenues(nextVenues);
-        setActivities((activityResult.data ?? []) as Activity[]);
         setBookings((bookingResult.data ?? []) as SportsBookingRow[]);
-        selectedIdRef.current = nextSelectedId;
-        setSelectedIdState(nextSelectedId);
-        isCreatingVenueRef.current = isCreatingVenueRef.current && nextSelectedId === '';
-        setIsCreatingVenue(isCreatingVenueRef.current);
+        setVenues([]);
+        setActivities([]);
+        selectedIdRef.current = '';
+        setSelectedIdState('');
+        isCreatingVenueRef.current = false;
+        setIsCreatingVenue(false);
         hasLoadedRef.current = true;
         setHasLoaded(true);
-        return true;
-      } catch (e) {
-        setError((e as Error).message);
-        return false;
-      } finally {
-        setInitialLoading(false);
+        lastLoadSucceeded.current = true;
+        return;
       }
-    })();
-    loadPromise.current = request;
-    void request.then(() => {
-      if (loadPromise.current === request) loadPromise.current = null;
-    });
-    return request;
+
+      const [venueResult, activityResult, bookingResult] = await Promise.all([
+        supabase.rpc('get_my_business_sports_venues'),
+        supabase.rpc('list_sports_activities'),
+        supabase.rpc('get_my_business_sports_bookings'),
+      ]);
+      if (!guard.isCurrent()) return;
+      if (venueResult.error) throw new Error(venueResult.error.message);
+      if (activityResult.error) throw new Error(activityResult.error.message);
+      if (bookingResult.error) throw new Error(bookingResult.error.message);
+
+      const nextVenues = (venueResult.data ?? []) as ManagementVenue[];
+      const nextSelectedId = resolveSelectedVenueId(nextVenues, selectedIdRef.current, isCreatingVenueRef.current);
+      setVenues(nextVenues);
+      setActivities((activityResult.data ?? []) as Activity[]);
+      setBookings((bookingResult.data ?? []) as SportsBookingRow[]);
+      selectedIdRef.current = nextSelectedId;
+      setSelectedIdState(nextSelectedId);
+      isCreatingVenueRef.current = isCreatingVenueRef.current && nextSelectedId === '';
+      setIsCreatingVenue(isCreatingVenueRef.current);
+      hasLoadedRef.current = true;
+      setHasLoaded(true);
+      lastLoadSucceeded.current = true;
+    } catch (e) {
+      if (!guard.isCurrent()) return;
+      lastLoadSucceeded.current = false;
+      setError((e as Error).message);
+    } finally {
+      if (guard.isCurrent()) setInitialLoading(false);
+    }
   }, [enabled]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  const { refresh } = useSportsReadRefresh(loadForRefresh, {
+    contextKey: `sports-management:${userId ?? 'anonymous'}:${enabled ? 'on' : 'off'}`,
+    enabled: true,
+    intervalMs: 60_000,
+  });
+  const load = useCallback(async (): Promise<boolean> => {
+    await refresh();
+    return lastLoadSucceeded.current;
+  }, [refresh]);
 
   useEffect(() => {
     if (!enabled) return;
