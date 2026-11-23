@@ -68,6 +68,7 @@ jest.mock('../../../branding/FeatureFlagsProvider', () => ({
 }));
 
 jest.mock('../../../theme', () => ({
+  maxFontScale: jest.requireActual('../../../theme/tokens').maxFontScale,
   useTheme: () => ({
     colors: mockColors,
     ['fontFamily']: { semibold: 'semibold' },
