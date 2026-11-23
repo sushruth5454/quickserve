@@ -6,7 +6,7 @@
     "PF-F09",
     "PF-F10"
   ],
-  "status": "fix_forward_validation_pending",
+  "status": "implemented",
   "historicalCodeGreen": {
     "branch": "lane/oorva-o06b",
     "head": "39c2bd14f82e2e59e87e8d2ca4bb7c778f427d66",
@@ -57,7 +57,9 @@
       },
       "gitDiffCheck": "PASS",
       "laneCi": {
-        "status": "PENDING"
+        "status": "PASS",
+        "runId": 45217259126,
+        "validatedCommit": "b8ff6972069a603755cd4c53cf5136f4dfc5604e"
       }
     }
   },
