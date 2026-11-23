@@ -12,9 +12,8 @@ import {
 } from '../../src/lib/accessPresentation';
 import { badgeLabel } from '../../src/lib/unread';
 import { useUnread } from '../../src/lib/unreadContext';
-import { useTheme } from '../../src/theme';
 import { Button, FullScreenLoader, InlineAlert, Screen } from '../../src/components/ui';
-import { TabIcon, useTabScreenOptions } from '../../src/components/tabOptions';
+import { TabIcon, useTabScreenOptions, useUnreadCountBadgeStyle } from '../../src/components/tabOptions';
 
 export const unstable_settings = { initialRouteName: 'dashboard' };
 
@@ -22,8 +21,8 @@ export default function ProviderTabs() {
   const { activeRole, userId, loading: authLoading } = useAuth();
   const [access, setAccess] = useState<AccessPresentation<string | null>>(() => loadingAccess(null));
   const [accessAttempt, setAccessAttempt] = useState(0);
-  const screenOptions = useTabScreenOptions();
-  const t = useTheme();
+  const screenOptions = useTabScreenOptions('providerShare');
+  const unreadBadgeStyle = useUnreadCountBadgeStyle();
   const unread = useUnread().total('provider');
   useEffect(() => {
     let active = true;
@@ -68,7 +67,7 @@ export default function ProviderTabs() {
         name="dashboard"
         options={{
           tabBarBadge: badgeLabel(unread),
-          tabBarBadgeStyle: { backgroundColor: t.colors.danger, color: '#FFFFFF', fontSize: 11 },
+          tabBarBadgeStyle: unreadBadgeStyle,
           title: 'Jobs',
           tabBarIcon: ({ color, focused }) => <TabIcon name="briefcase-outline" activeName="briefcase" focused={focused} color={color as string} />,
         }}

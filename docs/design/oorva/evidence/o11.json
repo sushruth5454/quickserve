@@ -1,0 +1,39 @@
+{
+  "stage": "O11",
+  "workPackage": "O11",
+  "baseSha": "de989f95e5d57f78540417587023318afef123c6",
+  "sourceTaskIds": [],
+  "featureKeys": [
+    "oorva_brand"
+  ],
+  "featureOffBehavior": {
+    "oorva_brand": "The shared contextual identity resolver returns the existing per-context legacy identity; navigation identity headers remain hidden."
+  },
+  "changedFiles": [
+    "app\\app\\(auth)\\_layout.tsx",
+    "app\\app\\(customer)\\_layout.tsx",
+    "app\\app\\(provider)\\_layout.tsx",
+    "app\\app\\admin\\_layout.tsx",
+    "app\\src\\components\\tabOptions.tsx",
+    "app\\src\\lib\\__tests__\\oorvaNavigation.test.ts",
+    "docs\\design\\oorva\\evidence\\o11.json"
+  ],
+  "behavior": {
+    "identity": "Displays only the identity returned by useBrandIdentity for each navigation context; no role or authorization labels are added.",
+    "unreadCounts": "Keeps customer ActivityUnreadProvider and provider useUnread totals; uses badgeLabel and dangerStrong/onDanger semantic tokens.",
+    "routesAndGuards": "Preserves route names, guest safeReturnTo tab guards, unified_search visibility, provider role redirect, and owner-only tabs."
+  },
+  "testMatrix": [
+    "oorva_brand OFF, child runtime ON with parent OFF, unavailable identity, and enabled published identity",
+    "customer/provider source unread counts and zero/normal/99+ labels",
+    "guest return targets and rejection of external/protocol-relative targets",
+    "owner/member owner-only destination rule",
+    "existing auth/customer/provider route names, notification deep links, and safe return paths"
+  ],
+  "validation": {
+    "codespaceSelector": "src.lib.__tests__.oorvaNavigation[.]test[.]ts$",
+    "status": "CODESPACE_UNAVAILABLE_LANE_CI_FALLBACK",
+    "evidence": "The saved current-main helper attempted gh codespace list for sushruth5454/quickserve and received HTTP 404: Not Found; the response states the API operation needs the codespace scope. The helper then failed on null .Trim(). No Codespace test selection or TSC/Jest execution occurred. Credentials were not refreshed; exact-head Lane CI is the fallback."
+  },
+  "runtimeDeviceEvidence": "NOT VERIFIED"
+}

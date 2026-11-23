@@ -4,18 +4,52 @@ import { useMemo, type ComponentProps } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
-import { tabBarHeight } from './ui';
+import { useBrandIdentity } from '../branding/useBrandIdentity';
+import type { BrandContext, ResolvedBrandIdentity } from '../branding/identity';
+import { tabBarHeight, Text } from './ui';
 
 type TabOptions = Extract<NonNullable<ComponentProps<typeof Tabs>['screenOptions']>, object>;
 type IonName = ComponentProps<typeof Ionicons>['name'];
 
-export function useTabScreenOptions(): TabOptions {
+export function useNavigationIdentityOptions(context: BrandContext) {
+  const t = useTheme();
+  const identity = useBrandIdentity(context);
+  const visible = identity.source !== 'legacy';
+  return useMemo(
+    () => ({
+      headerShown: visible,
+      headerTitle: visible
+        ? () => <Text variant="title3" color="text">{identity.displayName}</Text>
+        : undefined,
+      headerTitleAlign: 'left' as const,
+      headerStyle: { backgroundColor: t.colors.surface },
+      headerTintColor: t.colors.primaryText,
+      headerShadowVisible: false,
+    }),
+    [context, identity.displayName, t, visible],
+  );
+}
+
+export function useUnreadCountBadgeStyle() {
+  const t = useTheme();
+  return useMemo(
+    () => ({
+      ...t.typography.micro,
+      backgroundColor: t.colors.dangerStrong,
+      color: t.colors.onDanger,
+    }),
+    [t.colors.dangerStrong, t.colors.onDanger, t.typography.micro],
+  );
+}
+
+export function useTabScreenOptions(context: BrandContext = 'home'): TabOptions {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const height = tabBarHeight(insets);
+  const identityOptions = useNavigationIdentityOptions(context);
   return useMemo<TabOptions>(
     () => ({
-      headerShown: false,
+      ...identityOptions,
       tabBarActiveTintColor: t.colors.primaryText,
       tabBarInactiveTintColor: t.colors.muted,
       tabBarLabelStyle: { fontFamily: t.fontFamily.medium, fontSize: 11, lineHeight: 13 },
@@ -30,7 +64,7 @@ export function useTabScreenOptions(): TabOptions {
       sceneStyle: { backgroundColor: t.colors.bg },
       animation: 'fade',
     }),
-    [t, height, insets.bottom],
+    [t, height, insets.bottom, identityOptions],
   );
 }
 
