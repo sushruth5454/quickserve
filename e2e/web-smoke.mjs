@@ -1838,8 +1838,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         })}`);
       }
       await page.getByText(/History/).first().waitFor({ state: 'visible' });
-      await visible('Existing RFQ history is read-only while new RFQs are turned off.');
-      await visible('You may cancel your own open request.');
+      await visible('Existing RFQ history is read-only while new RFQs are turned off. You may cancel your own open request.');
       const cancelButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
       if (!(await cancelButtons.count())) throw new Error(`RFQ owner cannot see Cancel request for ${JSON.stringify({ rfqId })}`);
       const chooseButtons = page.getByRole('button', { name: 'Choose this supplier', exact: true });
