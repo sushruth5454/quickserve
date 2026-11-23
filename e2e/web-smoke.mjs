@@ -2,6 +2,7 @@
 // Run by .github/workflows/e2e-web.yml and e2e-local.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR,
 // E2E_CUSTOMER_PHONE, NEW_PRO_PHONE, GUEST_E2E_PHONE (required when E2E_FLAGS=on).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { chromium, devices } from 'playwright';
 import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
@@ -1378,6 +1379,608 @@ await step('my-activity-shop-segment', async () => {
   await visible('Product enquiries');
   await visible('Product RFQs');
 });
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('MK-OFF-same-entity-history-cancel-private-backend', async () => {
+    const featureKeys = ['products', 'product_enquiries', 'product_rfq'];
+    const featureOn = { products: true, product_enquiries: true, product_rfq: true };
+    const featureOff = { products: false, product_enquiries: true, product_rfq: true };
+    const sqlLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`;
+    const sqlUuid = (value) => `${sqlLiteral(value)}::uuid`;
+    const privateQuery = async (query) => {
+      if (
+        !PRIVATE_LOCAL_E2E
+        || process.env.DEMO_PROJECT !== '1'
+        || process.env.PROJECT_REF !== 'local'
+        || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+      ) {
+        throw new Error('O18 fixture/flag management is restricted to the disposable local E2E backend');
+      }
+      const token = process.env.SUPABASE_ACCESS_TOKEN;
+      if (!token) throw new Error('Local Management API token is missing');
+      const response = await fetch('http://127.0.0.1:54399/v1/projects/local/database/query', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'quickserve-oorva-private-e2e',
+        },
+        body: JSON.stringify({ query }),
+      });
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(`Local database query failed (${response.status}): ${responseText.slice(0, 500)}`);
+      }
+      let result = [];
+      if (responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          throw new Error('Local Management API returned invalid JSON');
+        }
+      }
+      if (result?.error || (Array.isArray(result) && result.some((row) => row?.error))) {
+        throw new Error(`Local database query returned an error: ${JSON.stringify(result?.error ?? result)}`);
+      }
+      return result;
+    };
+    const readFlags = async () => {
+      const rows = await privateQuery(
+        "select key, enabled from public.feature_flags where key in ('products', 'product_enquiries', 'product_rfq')",
+      );
+      if (!Array.isArray(rows)) throw new Error(`Feature flag query returned an unexpected shape: ${JSON.stringify(rows)}`);
+      return Object.fromEntries(rows.map((row) => [row.key, row.enabled]));
+    };
+    const applyFlags = async (values) => {
+      const payload = JSON.stringify(values);
+      if (payload.includes('$flags$')) throw new Error('Unsafe feature flag snapshot payload');
+      await privateQuery(
+        'update public.feature_flags f set enabled = v.value::boolean, updated_at = now() '
+        + `from json_each_text($flags$${payload}$flags$::json) v where f.key = v.key`,
+      );
+      const actual = await readFlags();
+      const mismatches = Object.fromEntries(
+        Object.entries(values).filter(([key, value]) => actual[key] !== value).map(([key, value]) => [key, { expected: value, actual: actual[key] }]),
+      );
+      if (Object.keys(mismatches).length) {
+        throw new Error(`Feature flag update/readback mismatch: ${JSON.stringify({ mismatches, actual })}`);
+      }
+    };
+    const refreshFeatureState = async (expected) => {
+      const responsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features'),
+      );
+      await page.reload();
+      const response = await responsePromise;
+      if (!response.ok()) throw new Error(`get_app_features failed after local toggle (${response.status()}): ${await response.text()}`);
+      const actual = await response.json();
+      const mismatches = Object.fromEntries(
+        Object.entries(expected).filter(([key, value]) => actual?.[key] !== value).map(([key, value]) => [key, { expected: value, actual: actual?.[key] }]),
+      );
+      if (Object.keys(mismatches).length) {
+        throw new Error(`App feature state did not refresh: ${JSON.stringify({ expected, actual, mismatches })}`);
+      }
+    };
+    const rpc = async (token, name, args = {}) => {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+      const body = await response.text();
+      let data = null;
+      try {
+        data = body ? JSON.parse(body) : null;
+      } catch {
+        data = null;
+      }
+      return { ok: response.ok, status: response.status, body, data };
+    };
+    const requireRpcSuccess = (name, result) => {
+      if (!result.ok) {
+        throw new Error(`${name} RPC expected success; actual=${JSON.stringify({ status: result.status, body: result.body })}`);
+      }
+      return result.data;
+    };
+    const requireFeatureDenial = (name, result) => {
+      const actual = { ok: result.ok, status: result.status, body: result.body };
+      if (result.ok || !/feature|product|disabled|turned off|not enabled/i.test(result.body)) {
+        throw new Error(`${name} was not rejected by the capability-off guard; actual=${JSON.stringify(actual)} expected=non-2xx capability-off error`);
+      }
+    };
+    const requireNotFoundDenial = (name, result, expectedText) => {
+      const actual = { ok: result.ok, status: result.status, body: result.body };
+      if (result.ok || !result.body.toLowerCase().includes(expectedText)) {
+        throw new Error(`${name} did not hide the same entity from an outsider; actual=${JSON.stringify(actual)} expectedError=${JSON.stringify(expectedText)}`);
+      }
+    };
+    const currentAccessToken = async () => page.evaluate(() => {
+      for (const key of Object.keys(localStorage)) {
+        try {
+          const value = JSON.parse(localStorage.getItem(key) ?? 'null');
+          const sessions = [value, value?.currentSession, value?.session, value?.data?.session];
+          const session = sessions.find((candidate) => typeof candidate?.access_token === 'string');
+          if (session) return session.access_token;
+        } catch {
+          continue;
+        }
+      }
+      return null;
+    });
+    const userIdFromAccessToken = (token, role) => {
+      const payload = token.split('.')[1];
+      if (!payload) throw new Error(`Authenticated ${role} token has no JWT payload`);
+      let claims;
+      try {
+        claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+      } catch {
+        throw new Error(`Authenticated ${role} token payload is invalid JSON`);
+      }
+      const id = claims?.sub;
+      if (typeof id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)) {
+        throw new Error(`Authenticated ${role} token has an invalid subject: ${JSON.stringify({ role, subject: id ?? null })}`);
+      }
+      return id;
+    };
+    const phoneE164 = (phone) => {
+      const digits = phoneKey(phone);
+      if (!/^[6-9]\d{9}$/.test(digits)) throw new Error(`Invalid E2E test phone configuration: ${JSON.stringify({ validIndianMobile: false })}`);
+      return `+91${digits}`;
+    };
+    const readRfqQuoteState = async (rfqId, quoteId) => {
+      const rows = await privateQuery(
+        `select r.status as rfq_status, q.status as quote_status `
+        + `from public.rfqs r join public.supplier_quotes q on q.rfq_id = r.id `
+        + `where r.id = ${sqlUuid(rfqId)} and q.id = ${sqlUuid(quoteId)}`,
+      );
+      if (!Array.isArray(rows) || rows.length !== 1) {
+        throw new Error(`Expected one RFQ/quote state row; actual=${JSON.stringify(rows)} expected={rfqId:${JSON.stringify(rfqId)},quoteId:${JSON.stringify(quoteId)}}`);
+      }
+      return rows[0];
+    };
+
+    let snapshot = null;
+    let testError = null;
+    const cleanupErrors = [];
+    let shopId = null;
+    let productId = null;
+    let enquiryId = null;
+    let quoteId = null;
+    const rfqIds = [];
+    try {
+      const initialFlags = await readFlags();
+      const missingFlags = featureKeys.filter((key) => typeof initialFlags[key] !== 'boolean');
+      if (missingFlags.length) throw new Error(`Required local feature flags are missing: ${JSON.stringify({ missingFlags, actual: initialFlags })}`);
+      snapshot = Object.fromEntries(featureKeys.map((key) => [key, initialFlags[key]]));
+      if (JSON.stringify(snapshot) !== JSON.stringify(featureOn)) {
+        throw new Error(`Pass B did not start with the expected product capabilities ON: ${JSON.stringify({ actual: snapshot, expected: featureOn })}`);
+      }
+
+      const customerPhone = phoneE164(PHONE);
+      const ownerPhone = getAdminPhone();
+      const outsiderPhone = phoneE164(NEW_PRO_PHONE);
+      const roleCollisions = phoneRoleCollisions([
+        ['customer', customerPhone],
+        ['shop owner/admin', ownerPhone],
+        ['outsider', outsiderPhone],
+      ]);
+      if (roleCollisions.length) throw new Error(`O18 test identities must be distinct: ${JSON.stringify({ roleCollisions })}`);
+
+      const customerToken = await currentAccessToken();
+      if (!customerToken) throw new Error('Signed-in customer session token is missing');
+      const ownerToken = await signInAs(ownerPhone);
+      await grantE2eAdminMembership(ownerPhone);
+      const outsiderToken = await signInAs(outsiderPhone);
+
+      const userIds = new Map([
+        ['customer', userIdFromAccessToken(customerToken, 'customer')],
+        ['shop owner/admin', userIdFromAccessToken(ownerToken, 'shop owner/admin')],
+        ['outsider', userIdFromAccessToken(outsiderToken, 'outsider')],
+      ]);
+      const userRows = await privateQuery(
+        `select id from auth.users where id in (${[...userIds.values()].map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(userRows)) throw new Error(`Test identity lookup returned an unexpected shape: ${JSON.stringify(userRows)}`);
+      const existingUserIds = new Set(userRows.map((row) => row.id));
+      const missingRoles = [...userIds].filter(([, id]) => !existingUserIds.has(id)).map(([role]) => role);
+      if (missingRoles.length) {
+        throw new Error(`Authenticated private E2E identities are absent from auth.users: ${JSON.stringify({
+          missingRoles,
+          expectedIds: Object.fromEntries(userIds),
+          actualIds: userRows.map((row) => row.id),
+        })}`);
+      }
+
+      const existingShop = requireRpcSuccess('get_my_shop', await rpc(ownerToken, 'get_my_shop'));
+      const hasExistingShop = Array.isArray(existingShop) ? existingShop.some(Boolean) : existingShop != null;
+      if (hasExistingShop) {
+        throw new Error(`Shop owner identity is not isolated; refusing to reuse an existing shop: ${JSON.stringify({ existingShop })}`);
+      }
+      const categoryRows = await privateQuery(
+        "select id from public.product_categories where slug = 'tiles' and active = true limit 1",
+      );
+      if (!Array.isArray(categoryRows) || !categoryRows[0]?.id) {
+        throw new Error(`Active Tiles product category is missing: ${JSON.stringify(categoryRows)}`);
+      }
+
+      shopId = randomUUID();
+      productId = randomUUID();
+      const shopName = `${QA_MARKER} O18 private history shop`;
+      const productName = `${QA_MARKER} O18 history product`;
+      await privateQuery(
+        'insert into public.shops '
+        + '(id, owner_id, name, description, address_line, city, area, lat, lng, delivery_radius_km, offers_delivery, offers_pickup, status) '
+        + `values (${sqlUuid(shopId)}, ${sqlUuid(userIds.get('shop owner/admin'))}, ${sqlLiteral(shopName)}, `
+        + `${sqlLiteral(`${QA_MARKER} isolated local-only fixture`)}, ${sqlLiteral('88 QA Demo Market Road')}, `
+        + `${sqlLiteral('Vijayawada')}, ${sqlLiteral('Benz Circle')}, 16.5, 80.6, 20, true, true, 'verified')`,
+      );
+      await privateQuery(
+        `insert into public.shop_categories (shop_id, category_id) values (${sqlUuid(shopId)}, ${sqlUuid(categoryRows[0].id)})`,
+      );
+      await privateQuery(
+        'insert into public.products (id, shop_id, category_id, name, brand, model, description, specs, unit) '
+        + `values (${sqlUuid(productId)}, ${sqlUuid(shopId)}, ${sqlUuid(categoryRows[0].id)}, `
+        + `${sqlLiteral(productName)}, 'O18', 'History', `
+        + `${sqlLiteral(`${QA_MARKER} private E2E product`)}, '{"size":"10x10"}'::jsonb, 'box')`,
+      );
+      const ownerShop = requireRpcSuccess('get_my_shop fixture read', await rpc(ownerToken, 'get_my_shop'));
+      const ownerShopRecord = Array.isArray(ownerShop) ? ownerShop[0] : ownerShop;
+      if (ownerShopRecord?.id !== shopId) {
+        throw new Error(`Shop owner could not read the generated fixture: ${JSON.stringify({ expectedShopId: shopId, actual: ownerShopRecord })}`);
+      }
+
+      const enquiryText = `${QA_MARKER} existing enquiry history ${randomUUID()}`;
+      const ownerReplyText = `${QA_MARKER} existing owner reply ${randomUUID()}`;
+      const enquiryData = requireRpcSuccess(
+        'start_product_enquiry',
+        await rpc(customerToken, 'start_product_enquiry', { p_shop_id: shopId, p_product_id: productId, p_body: enquiryText }),
+      );
+      enquiryId = Array.isArray(enquiryData) ? enquiryData[0]?.id : enquiryData?.id ?? enquiryData;
+      if (typeof enquiryId !== 'string' || !enquiryId) {
+        throw new Error(`start_product_enquiry returned no enquiry ID: ${JSON.stringify(enquiryData)}`);
+      }
+      requireRpcSuccess(
+        'send_enquiry_message',
+        await rpc(ownerToken, 'send_enquiry_message', { p_enquiry_id: enquiryId, p_body: ownerReplyText }),
+      );
+
+      const neededBy = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const createRfq = async (title) => {
+        const data = requireRpcSuccess('create_rfq', await rpc(customerToken, 'create_rfq', {
+          p_category_id: categoryRows[0].id,
+          p_title: title,
+          p_items: [{ description: 'Existing material', specs: { size: '10x10' }, quantity: 2, unit: 'box' }],
+          p_city: 'Vijayawada',
+          p_area: 'Benz Circle',
+          p_lat: 16.5,
+          p_lng: 80.6,
+          p_needs_delivery: true,
+          p_needed_by: neededBy,
+          p_notes: `${QA_MARKER} existing RFQ history`,
+        }));
+        const id = typeof data === 'string' ? data : data?.id;
+        if (typeof id !== 'string' || !id) throw new Error(`create_rfq returned no RFQ ID: ${JSON.stringify(data)}`);
+        rfqIds.push(id);
+        return id;
+      };
+      const rfqTitle = `${QA_MARKER} O18 same-entity history RFQ ${randomUUID()}`;
+      const rfqId = await createRfq(rfqTitle);
+      const quoteProbeId = await createRfq(`${QA_MARKER} O18 quote capability probe ${randomUUID()}`);
+      const getRfqItemId = async (id) => {
+        const rows = await privateQuery(`select id from public.rfq_items where rfq_id = ${sqlUuid(id)} limit 1`);
+        if (!Array.isArray(rows) || !rows[0]?.id) throw new Error(`RFQ item is missing: ${JSON.stringify({ rfqId: id, rows })}`);
+        return rows[0].id;
+      };
+      const rfqItemId = await getRfqItemId(rfqId);
+      const quoteProbeItemId = await getRfqItemId(quoteProbeId);
+      const quoteData = requireRpcSuccess(
+        'send_supplier_quote_for_business',
+        await rpc(ownerToken, 'send_supplier_quote_for_business', {
+          p_rfq_id: rfqId,
+          p_shop_id: shopId,
+          p_items: [{ rfq_item_id: rfqItemId, brand: 'O18', model: 'History', specs: { size: '10x10' }, unit_price_paise: 1000, gst_rate_bp: 0, available: true }],
+          p_delivery_charge_paise: 0,
+          p_delivery_days: null,
+          p_valid_until: null,
+          p_notes: `${QA_MARKER} existing quote history`,
+        }),
+      );
+      quoteId = typeof quoteData === 'string' ? quoteData : quoteData?.id;
+      if (typeof quoteId !== 'string' || !quoteId) throw new Error(`Quote RPC returned no quote ID: ${JSON.stringify(quoteData)}`);
+      const initialState = await readRfqQuoteState(rfqId, quoteId);
+      if (initialState.rfq_status !== 'open' || initialState.quote_status !== 'sent') {
+        throw new Error(`Initial same-entity state is not open/sent: ${JSON.stringify({ actual: initialState, expected: { rfq_status: 'open', quote_status: 'sent' } })}`);
+      }
+
+      await applyFlags(featureOff);
+      await refreshFeatureState(featureOff);
+
+      const ownerEnquiryRows = requireRpcSuccess(
+        'get_product_enquiry owner same-ID read',
+        await rpc(ownerToken, 'get_product_enquiry', { p_enquiry_id: enquiryId }),
+      );
+      const ownerEnquiry = Array.isArray(ownerEnquiryRows)
+        ? ownerEnquiryRows.find((row) => row?.id === enquiryId)
+        : ownerEnquiryRows?.id === enquiryId ? ownerEnquiryRows : null;
+      if (!ownerEnquiry || ownerEnquiry.business_role !== 'owner') {
+        throw new Error(`Shop owner did not read the same enquiry ID with owner context: ${JSON.stringify({
+          expected: { enquiryId, business_role: 'owner' },
+          actual: ownerEnquiryRows,
+        })}`);
+      }
+      const customerRfq = requireRpcSuccess(
+        'get_rfq customer history read',
+        await rpc(customerToken, 'get_rfq', { p_rfq_id: rfqId }),
+      );
+      if (!JSON.stringify(customerRfq).includes(rfqId)) {
+        throw new Error(`RFQ owner did not read the same RFQ ID: ${JSON.stringify({ expectedRfqId: rfqId, actual: customerRfq })}`);
+      }
+
+      await go('/bookings');
+      await page.getByTestId('activity-segment-shop').click();
+      const enquiryPanel = page.getByTestId('my-activity-panel-shop');
+      await enquiryPanel.waitFor();
+      const enquiryCard = enquiryPanel.getByText(productName, { exact: true });
+      await enquiryCard.waitFor({ state: 'visible' });
+      await enquiryCard.click();
+      await page.waitForURL((url) => new URL(url).pathname === `/enquiry/${enquiryId}`);
+
+      await visible(enquiryText);
+      await visible(ownerReplyText);
+      await visible('Existing enquiry history is read-only while product enquiries are turned off.');
+      if (await page.getByLabel('Message', { exact: true }).count()) {
+        throw new Error(`Read-only enquiry still exposes a message composer: ${JSON.stringify({ enquiryId, messageInputs: await page.getByLabel('Message', { exact: true }).count() })}`);
+      }
+      if (await page.getByLabel('Send message', { exact: true }).count()) {
+        throw new Error(`Read-only enquiry still exposes Send message: ${JSON.stringify({ enquiryId, sendButtons: await page.getByLabel('Send message', { exact: true }).count() })}`);
+      }
+
+      await go('/bookings');
+      const activityNavigationActual = async (expectedText = null) => page.evaluate((expected) => {
+        const describeElement = (element) => {
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return {
+            role: element.getAttribute('role'),
+            label: element.getAttribute('aria-label'),
+            testId: element.getAttribute('data-testid'),
+            text: (element.innerText ?? '').replace(/\s+/g, ' ').slice(0, 500),
+            visible: style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0,
+            backgroundColor: style.backgroundColor,
+            color: style.color,
+          };
+        };
+        const tablists = Array.from(document.querySelectorAll('[role="tablist"]')).map(describeElement);
+        const tabs = Array.from(document.querySelectorAll('[role="tab"]')).map(describeElement);
+        const panels = Array.from(document.querySelectorAll('[data-testid^="my-activity-panel-"]')).map(describeElement);
+        const matchingTextNodes = expected == null
+          ? []
+          : Array.from(document.querySelectorAll('body *'))
+            .filter((element) => element.children.length === 0 && (element.textContent ?? '').trim() === expected)
+            .slice(0, 20)
+            .map(describeElement);
+        return {
+          url: window.location.href,
+          counts: {
+            tablists: tablists.length,
+            visibleTablists: tablists.filter((element) => element.visible).length,
+            tabs: tabs.length,
+            visibleTabs: tabs.filter((element) => element.visible).length,
+            panels: panels.length,
+            visiblePanels: panels.filter((element) => element.visible).length,
+            matchingTextNodes: matchingTextNodes.length,
+            visibleMatchingTextNodes: matchingTextNodes.filter((element) => element.visible).length,
+          },
+          tablists,
+          tabs,
+          panels,
+          matchingTextNodes,
+          body: (document.body?.innerText ?? '').slice(0, 2400),
+        };
+      }, expectedText);
+      const activityTabList = page.getByRole('tablist', { name: 'Activity segments' });
+      const shopTab = activityTabList.getByRole('tab', { name: /^Shop/ });
+      const productRfqsHeading = page.getByText('Product RFQs', { exact: true }).filter({ visible: true }).first();
+      let clickTarget = null;
+      let postClick = null;
+      let rfqCard;
+      try {
+        await activityTabList.waitFor({ state: 'visible' });
+        await shopTab.waitFor({ state: 'visible' });
+        clickTarget = {
+          tablistLocator: {
+            matches: await activityTabList.count(),
+            visible: await activityTabList.isVisible(),
+          },
+          shopTabLocator: {
+            matches: await shopTab.count(),
+            visible: await shopTab.isVisible(),
+          },
+          element: await shopTab.evaluate((element) => {
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return {
+              role: element.getAttribute('role'),
+              name: element.getAttribute('aria-label'),
+              testId: element.getAttribute('data-testid'),
+              text: (element.innerText ?? '').replace(/\s+/g, ' ').trim(),
+              visible: style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0,
+              bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            };
+          }),
+        };
+        await shopTab.click();
+        await productRfqsHeading.waitFor({ state: 'visible' });
+        rfqCard = page.getByText(rfqTitle, { exact: true }).filter({ visible: true }).first();
+        await rfqCard.waitFor({ state: 'visible' });
+        postClick = await activityNavigationActual();
+        console.log(`O18 Shop tab DOM diagnostics: ${JSON.stringify({ clickTarget, postClick })}`);
+      } catch (error) {
+        throw new Error(`Accessible Shop tab did not show the RFQ history: ${JSON.stringify({
+          clickTarget,
+          postClick,
+          actual: await activityNavigationActual(),
+          waitError: String(error?.message ?? error),
+        })}`);
+      }
+      await rfqCard.click();
+      await page.waitForURL((url) => new URL(url).pathname === `/rfq/${rfqId}`);
+      const rfqDetailTitle = page.getByText(rfqTitle, { exact: true }).filter({ visible: true }).first();
+      try {
+        await rfqDetailTitle.waitFor({ state: 'visible' });
+      } catch (error) {
+        throw new Error(`Same-ID RFQ detail title was not visible: ${JSON.stringify({
+          rfqId,
+          clickTarget,
+          postClick,
+          actual: await activityNavigationActual(rfqTitle),
+          waitError: String(error?.message ?? error),
+        })}`);
+      }
+      await page.getByText(/History/).first().waitFor({ state: 'visible' });
+      await visible('Existing RFQ history is read-only while new RFQs are turned off. You may cancel your own open request.');
+      const cancelButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
+      if (!(await cancelButtons.count())) throw new Error(`RFQ owner cannot see Cancel request for ${JSON.stringify({ rfqId })}`);
+      const chooseButtons = page.getByRole('button', { name: 'Choose this supplier', exact: true });
+      if (!(await chooseButtons.count()) || !(await chooseButtons.first().isDisabled())) {
+        throw new Error(`Choose this supplier was not disabled while products are OFF: ${JSON.stringify({ rfqId, count: await chooseButtons.count(), disabled: await chooseButtons.first().isDisabled().catch(() => null) })}`);
+      }
+
+      requireNotFoundDenial(
+        'outsider get_product_enquiry',
+        await rpc(outsiderToken, 'get_product_enquiry', { p_enquiry_id: enquiryId }),
+        'enquiry not found',
+      );
+      requireNotFoundDenial(
+        'outsider get_rfq',
+        await rpc(outsiderToken, 'get_rfq', { p_rfq_id: rfqId }),
+        'rfq not found',
+      );
+      requireNotFoundDenial(
+        'outsider cancel_rfq',
+        await rpc(outsiderToken, 'cancel_rfq', { p_rfq_id: rfqId }),
+        'rfq not found',
+      );
+      const afterOutsider = await readRfqQuoteState(rfqId, quoteId);
+      if (afterOutsider.rfq_status !== 'open' || afterOutsider.quote_status !== 'sent') {
+        throw new Error(`Outsider changed same-entity RFQ/quote state: ${JSON.stringify({ actual: afterOutsider, expected: { rfq_status: 'open', quote_status: 'sent' } })}`);
+      }
+
+      requireFeatureDenial(
+        'new start_product_enquiry',
+        await rpc(customerToken, 'start_product_enquiry', { p_shop_id: shopId, p_product_id: productId, p_body: `${QA_MARKER} denied new enquiry` }),
+      );
+      requireFeatureDenial(
+        'new create_rfq',
+        await rpc(customerToken, 'create_rfq', {
+          p_category_id: categoryRows[0].id,
+          p_title: `${QA_MARKER} denied new RFQ ${randomUUID()}`,
+          p_items: [{ description: 'New material', specs: { size: '10x10' }, quantity: 2, unit: 'box' }],
+          p_city: 'Vijayawada',
+          p_area: 'Benz Circle',
+          p_lat: 16.5,
+          p_lng: 80.6,
+          p_needs_delivery: true,
+          p_needed_by: neededBy,
+          p_notes: `${QA_MARKER} denied new RFQ`,
+        }),
+      );
+      requireFeatureDenial(
+        'new send_enquiry_message',
+        await rpc(ownerToken, 'send_enquiry_message', { p_enquiry_id: enquiryId, p_body: `${QA_MARKER} denied new reply` }),
+      );
+      requireFeatureDenial(
+        'new send_supplier_quote_for_business',
+        await rpc(ownerToken, 'send_supplier_quote_for_business', {
+          p_rfq_id: quoteProbeId,
+          p_shop_id: shopId,
+          p_items: [{ rfq_item_id: quoteProbeItemId, brand: 'O18', model: 'Off probe', specs: { size: '10x10' }, unit_price_paise: 1000, gst_rate_bp: 0, available: true }],
+          p_delivery_charge_paise: 0,
+          p_delivery_days: null,
+          p_valid_until: null,
+          p_notes: `${QA_MARKER} denied new quote`,
+        }),
+      );
+      requireFeatureDenial(
+        'select_supplier_quote',
+        await rpc(customerToken, 'select_supplier_quote', { p_quote_id: quoteId }),
+      );
+
+      let cancelDialogMessage = '';
+      const handleCancelDialog = async (dialog) => {
+        cancelDialogMessage = dialog.message();
+        await dialog.accept();
+      };
+      const cancelResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/cancel_rfq'),
+      );
+      page.on('dialog', handleCancelDialog);
+      try {
+        await cancelButtons.first().click();
+      } finally {
+        page.off('dialog', handleCancelDialog);
+      }
+      if (cancelDialogMessage) {
+        if (!cancelDialogMessage.includes('Suppliers will be told that this request was cancelled.')) {
+          throw new Error(`Unexpected cancel confirmation dialog: ${JSON.stringify({ rfqId, message: cancelDialogMessage })}`);
+        }
+      } else {
+        await visible('Suppliers will be told that this request was cancelled.');
+        const confirmationButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
+        if (!(await confirmationButtons.count())) throw new Error(`Cancel confirmation action is missing for RFQ ${rfqId}`);
+        await confirmationButtons.last().click();
+      }
+      const cancelResponse = await cancelResponsePromise;
+      if (!cancelResponse.ok()) {
+        throw new Error(`Owner cancel_rfq failed (${cancelResponse.status()}): ${await cancelResponse.text()}`);
+      }
+      const afterOwnerCancel = await readRfqQuoteState(rfqId, quoteId);
+      if (afterOwnerCancel.rfq_status !== 'cancelled' || afterOwnerCancel.quote_status !== 'rejected') {
+        throw new Error(`Owner cancellation did not atomically resolve the same RFQ/quote: ${JSON.stringify({ actual: afterOwnerCancel, expected: { rfq_status: 'cancelled', quote_status: 'rejected' } })}`);
+      }
+    } catch (error) {
+      testError = error;
+    } finally {
+      if (snapshot) {
+        try {
+          await applyFlags(snapshot);
+          await refreshFeatureState(snapshot);
+        } catch (error) {
+          cleanupErrors.push(`flag restoration: ${String(error?.message ?? error)}`);
+        }
+      }
+      try {
+        if (rfqIds.length) {
+          await privateQuery(`delete from public.rfqs where id in (${rfqIds.map(sqlUuid).join(', ')})`);
+        }
+        if (shopId) await privateQuery(`delete from public.shops where id = ${sqlUuid(shopId)}`);
+        const remaining = await privateQuery(
+          `select (select count(*)::int from public.shops where id = ${shopId ? sqlUuid(shopId) : 'null::uuid'}) as shops, `
+          + ` (select count(*)::int from public.rfqs where id in (${rfqIds.length ? rfqIds.map(sqlUuid).join(', ') : 'null::uuid'})) as rfqs`,
+        );
+        if (!Array.isArray(remaining) || remaining[0]?.shops !== 0 || remaining[0]?.rfqs !== 0) {
+          throw new Error(`O18 fixture cleanup readback failed: ${JSON.stringify(remaining)}`);
+        }
+      } catch (error) {
+        cleanupErrors.push(`fixture cleanup: ${String(error?.message ?? error)}`);
+      }
+      try {
+        await go('/bookings');
+        await page.getByTestId('activity-segment-requests').click();
+        await page.getByTestId('my-activity-panel-requests').waitFor();
+      } catch (error) {
+        cleanupErrors.push(`return to customer activity: ${String(error?.message ?? error)}`);
+      }
+    }
+    if (testError || cleanupErrors.length) {
+      throw new Error(`O18 private capability scenario failed: ${JSON.stringify({
+        testError: testError ? String(testError?.message ?? testError) : null,
+        cleanupErrors,
+      })}`);
+    }
+  });
+}
 await step('my-activity-sports-segment', async () => {
   await page.getByTestId('activity-segment-sports').click();
   const sportsPanel = page.getByTestId('my-activity-panel-sports');

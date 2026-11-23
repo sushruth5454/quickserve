@@ -115,8 +115,58 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
       if (!accessibilityLabel) throw new Error(`missing ${label} price row`);
       return amountInPaise(accessibilityLabel);
     };
+    const scheduleActual = async () => page.evaluate(() => {
+      const describeButton = (button) => {
+        const style = window.getComputedStyle(button);
+        const rect = button.getBoundingClientRect();
+        return {
+          role: button.getAttribute('role') ?? (button.tagName.toLowerCase() === 'button' ? 'button' : null),
+          label: button.getAttribute('aria-label'),
+          text: (button.innerText ?? '').replace(/\s+/g, ' ').trim(),
+          selectedState: {
+            ariaPressed: button.getAttribute('aria-pressed'),
+            ariaSelected: button.getAttribute('aria-selected'),
+            ariaChecked: button.getAttribute('aria-checked'),
+            backgroundColor: style.backgroundColor,
+            borderColor: style.borderColor,
+          },
+          disabled: button.hasAttribute('disabled') || button.getAttribute('aria-disabled') === 'true',
+          visible: style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0,
+        };
+      };
+      const visibleButtons = Array.from(document.querySelectorAll('button, [role="button"]'))
+        .filter((button) => {
+          const style = window.getComputedStyle(button);
+          const rect = button.getBoundingClientRect();
+          return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+        })
+        .map(describeButton);
+      return {
+        url: window.location.href,
+        visibleButtons,
+        body: (document.body?.innerText ?? '').slice(0, 2400),
+      };
+    });
+    const scheduleChoice = page.getByRole('button', { name: /Schedule\s+pick a time/ });
+    try {
+      await scheduleChoice.waitFor({ state: 'visible' });
+      await scheduleChoice.click();
+    } catch (error) {
+      throw new Error(`Could not select scheduled package booking: ${JSON.stringify({
+        actual: await scheduleActual(),
+        waitError: String(error?.message ?? error),
+      })}`);
+    }
     // Sweep later dates/windows deterministically; retry only the server's slot-conflict response.
     const days = page.locator('button >> visible=true').filter({ hasText: /(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{1,2} [A-Z][a-z]{2}$/ });
+    try {
+      await days.first().waitFor({ state: 'visible' });
+    } catch (error) {
+      throw new Error(`Schedule date choices did not appear after selecting Schedule: ${JSON.stringify({
+        actual: await scheduleActual(),
+        waitError: String(error?.message ?? error),
+      })}`);
+    }
     const slots = page.locator('text=/^\\d{1,2}( am| pm)?–\\d{1,2} (am|pm)$/ >> visible=true');
     const checkout = page.getByText('Secure checkout', { exact: true }).first();
     const slotConflictMessage = 'provider_unavailable: service window overlaps another booking';
@@ -126,7 +176,9 @@ export async function runAllServiceScenarios({ page, go, step, visible, qaMarker
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const dayCount = await days.count();
       const futureDayCount = dayCount - 2;
-      if (futureDayCount <= 0) throw new Error(`no later dates available: ${JSON.stringify({ dayCount })}`);
+      if (futureDayCount <= 0) {
+        throw new Error(`no later dates available: ${JSON.stringify({ dayCount, actual: await scheduleActual() })}`);
+      }
       const dayIndex = 2 + (attempt % futureDayCount);
       await days.nth(dayIndex).click();
       const slotCount = await slots.count();
