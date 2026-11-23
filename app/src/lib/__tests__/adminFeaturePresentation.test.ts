@@ -55,4 +55,44 @@ describe('admin feature presentation (H1-SC-01, H1-SC-04)', () => {
     expect(presentation.explanation).toBeNull();
     expect(presentation.parentLabel).toBe('Sports & venues');
   });
+
+  it('uses the shared parent map to explain a disabled intermediate ancestor', () => {
+    const rows = [
+      feature('oorva_brand', 'Oorva brand & colours'),
+      feature('branding_runtime', 'Published appearance'),
+      { ...feature('branding_editor', 'Branding editor'), enabled: true },
+    ];
+    const rawStates = { oorva_brand: false, branding_runtime: true, branding_editor: true };
+    const presentation = getAdminFeaturePresentation(rows[2]!, rows, rawStates);
+
+    expect(rows[2]!.enabled).toBe(true);
+    expect(rawStates.branding_runtime).toBe(true);
+    expect(rawStates.branding_editor).toBe(true);
+    expect(presentation.parentKey).toBe('branding_runtime');
+    expect(presentation.parentLabel).toBe('Published appearance');
+    expect(presentation.disabledByParent).toBe(true);
+    expect(presentation.switchDisabledByParent).toBe(false);
+    expect(presentation.explanation).toBe(
+      'You can turn this child off while Oorva brand & colours is off; enable it first to turn the child back on.',
+    );
+  });
+
+  it('prevents enabling an OFF child when an earlier ancestor is OFF', () => {
+    const rows = [
+      feature('oorva_brand', 'Oorva brand & colours'),
+      feature('branding_runtime', 'Published appearance'),
+      feature('branding_editor', 'Branding editor'),
+    ];
+    const presentation = getAdminFeaturePresentation(rows[2]!, rows, {
+      oorva_brand: false,
+      branding_runtime: true,
+      branding_editor: false,
+    });
+
+    expect(presentation.disabledByParent).toBe(true);
+    expect(presentation.switchDisabledByParent).toBe(true);
+    expect(presentation.explanation).toBe(
+      'Enable Oorva brand & colours first; this child switch cannot be turned on while its parent is off.',
+    );
+  });
 });
