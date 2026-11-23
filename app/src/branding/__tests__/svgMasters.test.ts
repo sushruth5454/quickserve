@@ -999,7 +999,7 @@ describe('Oorva outlined SVG candidate masters', () => {
     assertInvariant(
       typeof manifest.license?.customArtwork === 'string' &&
         manifest.license.customArtwork.length > 10 &&
-        manifest.license.customArtwork.includes('D03c is NOT APPROVED') &&
+        manifest.license.customArtwork.includes('D03c is NOT_APPROVED') &&
         typeof manifest.license?.taglineFont === 'string',
       'manifest must record artwork and tagline font license status',
       manifest.license,
