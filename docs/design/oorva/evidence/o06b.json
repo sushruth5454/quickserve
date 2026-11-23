@@ -6,7 +6,7 @@
     "PF-F09",
     "PF-F10"
   ],
-  "status": "implementation_complete_validation_pending",
+  "status": "implemented",
   "base": {
     "branch": "lane/oorva-o06b",
     "commit": "0b7747cc25195cc7e36b5bbd325edfc45656f6cf"
@@ -54,7 +54,14 @@
     },
     "fallback": {
       "environment": "exact-head Lane CI",
-      "status": "pending"
+      "status": "PASS",
+      "runId": 45194288684,
+      "validatedCommit": "30c583f7a797894ab0d91a1ee9d3f0b569c28ff6",
+      "results": {
+        "uiLint": "PASS",
+        "typecheck": "PASS",
+        "unitTests": "PASS"
+      }
     },
     "gitDiffCheck": "PASS"
   },
