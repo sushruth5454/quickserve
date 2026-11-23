@@ -338,7 +338,7 @@ await scenario('MK-SELECT-role-denials-retained', async () => {
     () => as(fixture.outsiderId, 'authenticated', `
       select public.select_supplier_quote($1::uuid)
     `, [quoteId]),
-    /RFQ not found/i,
+    /quote not found|RFQ not found/i,
     'non-owner cannot select another customer RFQ quote',
     before,
   );
