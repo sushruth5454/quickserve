@@ -416,7 +416,8 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
     mockRouter.push.mockClear();
     mockUserId = null;
     const protectedTree = render(() => ByoScreen({ token: 'invite-123' }));
-    const signInButton = elements(protectedTree, 'Button').find((button) => button.props.title === 'Log in to accept this booking');
+    const protectedFooter = elements(elements(protectedTree, 'Screen')[0]?.props.footer, 'Button');
+    const signInButton = protectedFooter.find((button) => button.props.title === 'Log in to accept this booking');
     (signInButton?.props.onPress as (() => void) | undefined)?.();
     expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/login', params: { inviteToken: 'invite-123' } });
   });
