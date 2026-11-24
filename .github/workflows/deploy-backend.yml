@@ -525,7 +525,7 @@ jobs:
           for f in create-payment ai-assistant provider-payout-account provider-service places; do
             supabase functions deploy "$f" --project-ref "$PROJECT_REF" --yes
           done
-          for f in razorpay-webhook release-payouts process-refunds reconcile-payments send-notifications review-insights verify-payment; do
+          for f in razorpay-webhook release-payouts process-refunds reconcile-payments send-notifications review-insights verify-payment branding-assets; do
             supabase functions deploy "$f" --no-verify-jwt --project-ref "$PROJECT_REF" --yes
           done
 
