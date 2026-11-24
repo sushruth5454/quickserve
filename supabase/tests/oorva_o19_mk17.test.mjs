@@ -85,7 +85,7 @@ async function makeFixture(label) {
     ) values (
       $1::uuid, $2::uuid, $3::text, 'MK17', '', 'Enquiry status fixture', true
     ) returning id
-  `, [shopId, `O19 MK17 product ${label} ${randomUUID()}`])).id;
+  `, [shopId, categoryId, `O19 MK17 product ${label} ${randomUUID()}`])).id;
   await db.query(`
     insert into public.business_members (owner_id, member_id, role, active)
     values
