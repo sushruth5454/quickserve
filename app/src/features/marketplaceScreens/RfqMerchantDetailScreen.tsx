@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import { SpecFields } from '../shops/SpecFields';
@@ -13,6 +13,7 @@ import {
   type SupplierQuoteSendBlockReason,
 } from '../rfq/api';
 import { RfqStatusLabel, useRfqFeatureFlags } from '../rfq/components';
+import { nearestFutureRfqDeadlineMs, rfqViewState } from '../rfq/rfqStateModel';
 import {
   reconcileSupplierQuoteDraft,
   supplierCategorySchema,
@@ -63,6 +64,8 @@ export default function MerchantRfqQuoteScreen() {
   const { rfq: enabled } = useRfqFeatureFlags();
   const { id, shopId } = useLocalSearchParams<{ id: string; shopId?: string }>();
   const requestId = useRef(0);
+  const focused = useRef(false);
+  const deadlineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [rfq, setRfq] = useState<SupplierRfq | null>(null);
   const [attributeSchema, setAttributeSchema] = useState<ProductCategory['attribute_schema']>({ properties: {} });
   const [draftState, setDraftState] = useState<SupplierQuoteDraftState | null>(null);
@@ -71,10 +74,12 @@ export default function MerchantRfqQuoteScreen() {
   const [loading, setLoading] = useState(true);
   const [hasRead, setHasRead] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     if (!id) return;
     const currentRequestId = ++requestId.current;
+    setNowMs(Date.now());
     setLoading(true);
     setError(null);
     try {
@@ -96,14 +101,55 @@ export default function MerchantRfqQuoteScreen() {
   }, [enabled, id, shopId]);
 
   useFocusEffect(useCallback(() => {
+    focused.current = true;
+    setNowMs(Date.now());
     void load();
-    return () => { requestId.current += 1; };
+    return () => {
+      focused.current = false;
+      requestId.current += 1;
+      if (deadlineTimer.current) clearTimeout(deadlineTimer.current);
+      deadlineTimer.current = null;
+    };
   }, [load]));
 
   const activeRfq = rfq && rfq.id === id && (!shopId || rfq.shop_id === shopId) ? rfq : null;
+  const viewState = activeRfq ? rfqViewState({
+    status: activeRfq.status,
+    expiresAt: activeRfq.expires_at,
+    quoteStatus: activeRfq.my_quote?.status ?? null,
+    myOutcome: activeRfq.my_quote?.status ?? null,
+    canSendQuote: activeRfq.can_send_quote,
+    nowMs,
+  }) : null;
   const activeContextKey = activeRfq ? supplierQuoteContextKey(activeRfq.id, activeRfq.shop_id) : null;
   const currentDraft = draftState?.contextKey === activeContextKey ? draftState : null;
-  const canQuote = !!activeRfq?.can_send_quote && enabled && !!currentDraft && !loading && !error;
+  const canQuote = !!viewState?.canReply && enabled && !!currentDraft && !loading && !error;
+
+  useEffect(() => {
+    if (deadlineTimer.current) clearTimeout(deadlineTimer.current);
+    deadlineTimer.current = null;
+    if (!focused.current || !activeRfq || activeRfq.status !== 'open') return;
+
+    const nextDeadline = nearestFutureRfqDeadlineMs([activeRfq.expires_at], nowMs);
+    if (nextDeadline === null) return;
+    const delayMs = nextDeadline - Date.now();
+    if (delayMs <= 0) {
+      setNowMs(Date.now());
+      void load();
+      return;
+    }
+
+    deadlineTimer.current = setTimeout(() => {
+      deadlineTimer.current = null;
+      if (!focused.current) return;
+      setNowMs(Date.now());
+      void load();
+    }, Math.min(delayMs, 2_147_483_647));
+    return () => {
+      if (deadlineTimer.current) clearTimeout(deadlineTimer.current);
+      deadlineTimer.current = null;
+    };
+  }, [activeRfq?.id, activeRfq?.shop_id, activeRfq?.status, activeRfq?.expires_at, nowMs, load]);
   const deliveryCharge = currentDraft?.deliveryChargeRupees ?? '0';
   const deliveryRupees = Number(deliveryCharge);
   const estimatedDeliveryPaise = Number.isFinite(deliveryRupees) && deliveryRupees >= 0
@@ -188,12 +234,30 @@ export default function MerchantRfqQuoteScreen() {
     }
   };
 
-  const blockMessage = sendBlockMessage(activeRfq?.send_block_reason, activeRfq?.business_role, enabled);
+  let blockMessage = sendBlockMessage(
+    activeRfq?.send_block_reason,
+    activeRfq?.business_role,
+    enabled,
+  );
+  if (viewState?.blockReason === 'deadline_unavailable') {
+    blockMessage = 'The RFQ deadline is unavailable. Refresh before sending a quote.';
+  }
+  if (viewState?.blockReason === 'rfq_expired' || activeRfq?.status === 'expired') {
+    blockMessage = 'This RFQ has passed its deadline. Your saved quote remains available to review.';
+  }
+  if (viewState?.blockReason === 'closed' && activeRfq?.status === 'closed') {
+    blockMessage = 'This RFQ is closed. Your saved quote remains available to review.';
+  }
+  if (activeRfq?.status === 'cancelled') {
+    blockMessage = 'This RFQ was cancelled. Your saved quote remains available to review.';
+  }
 
   return (
     <Screen
       header={<Header title={activeRfq?.title ?? 'Prepare supplier quote'} subtitle={activeRfq ? `${activeRfq.shop_name} · ${activeRfq.category_name} · ${activeRfq.area}, ${activeRfq.city}` : undefined} />}
       gap={t.spacing.md}
+      refreshing={loading}
+      onRefresh={() => void load()}
       footer={canQuote ? (
         <View style={{ gap: t.spacing.sm }}>
           <InlineAlert message={actionError} />
@@ -216,7 +280,7 @@ export default function MerchantRfqQuoteScreen() {
       {activeRfq ? (
         <>
           <Card style={{ gap: t.spacing.xs }}>
-            <RfqStatusLabel status={activeRfq.status} />
+            <RfqStatusLabel status={activeRfq.status} expiresAt={activeRfq.expires_at} nowMs={nowMs} />
             <Text variant="caption" color="muted">Needed by {new Date(`${activeRfq.needed_by}T00:00:00`).toLocaleDateString()}{activeRfq.needs_delivery ? ' · Delivery requested' : ' · Pickup okay'}</Text>
             {activeRfq.notes ? <Text>{activeRfq.notes}</Text> : null}
             <Text variant="caption" color="muted">Quote validity is capped at {new Date(activeRfq.expires_at).toLocaleDateString()}.</Text>

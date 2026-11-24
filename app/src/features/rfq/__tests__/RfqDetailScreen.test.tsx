@@ -129,6 +129,8 @@ function quote(status: 'sent' | 'rejected') {
     arrives_after_needed_by: false,
     delivery_terms_missing: false,
     items: [],
+    can_select: status === 'sent',
+    selection_block_reason: status === 'sent' ? null : 'closed',
   };
 }
 
@@ -341,12 +343,14 @@ describe('RFQ cancellation and read states', () => {
     let actual: Record<string, unknown> = {
       warning: container.querySelector('[role="alert"]')?.textContent ?? '',
       requestVisible: container.textContent?.includes('Kitchen tiles') ?? false,
+      quoteVisible: container.textContent?.includes('Tile Shop') ?? false,
       cancelDisabled: (container.querySelector('button[aria-label="Cancel request"]') as HTMLButtonElement | null)?.disabled,
       selectDisabled: (container.querySelector('button[aria-label="Choose this supplier"]') as HTMLButtonElement | null)?.disabled,
     };
     assertActual('Failed refresh must retain labeled RFQ history and disable cancellation/selection', actual, (state) =>
       String(state.warning).includes('Refresh failed') && String(state.warning).includes('RFQ refresh failed')
-      && state.requestVisible === true && state.cancelDisabled === true && state.selectDisabled === true);
+      && state.requestVisible === true && state.quoteVisible === true
+      && state.cancelDisabled === true && state.selectDisabled === true);
 
     await press('Retry');
     actual = {
