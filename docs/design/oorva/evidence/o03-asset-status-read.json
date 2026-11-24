@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O03",
+  "deltaId": "d-o03-asset-status-read-20261123",
+  "workPackage": "O03",
+  "status": "VALIDATION_PENDING_LANE_CI_FALLBACK",
+  "base": {
+    "branch": "lane/oorva-o03-asset-status-20261123",
+    "implementationBaseSha": "7cfc0cb541d87e5090fd8a12590ca365b7ad8def",
+    "frozenPlanSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "o03Status": "DONE",
+    "priorRegistrationMigration": "supabase\\migrations\\0103_o03_asset_registration.sql"
+  },
+  "migration": {
+    "claim": "MIG-O03-ASSET-STATUS",
+    "filename": "supabase\\migrations\\0105_o03_asset_status_read.sql",
+    "function": "public.service_get_branding_asset_status(uuid)",
+    "numericOrder": "0105 after current main 0104"
+  },
+  "workerOwnedFiles": [
+    "supabase\\migrations\\0105_o03_asset_status_read.sql",
+    "supabase\\tests\\oorva_branding.test.mjs",
+    "supabase\\tests-postgres\\branding_asset_status_read.pg.test.mjs",
+    "docs\\design\\oorva\\evidence\\o03-asset-status-read.json"
+  ],
+  "contract": {
+    "execution": "Read-only SECURITY DEFINER RPC with fixed search_path; EXECUTE only for service_role.",
+    "directTableAccess": "No SELECT grant on app_branding_assets is added to any role.",
+    "resultFields": [
+      "id",
+      "object_path",
+      "sha256",
+      "mime_type",
+      "byte_length",
+      "width",
+      "height",
+      "validated_at",
+      "published_once",
+      "revoked_at"
+    ],
+    "privacy": "Uploader, revocation actor, revocation reason, and other actor data are not returned.",
+    "missingId": "Unknown IDs return no row.",
+    "featureFlags": "No feature-flag gate; existing asset status remains resolvable while branding flags are OFF."
+  },
+  "validation": {
+    "pgliteTest": "supabase/tests/oorva_branding.test.mjs",
+    "privatePostgresTest": "supabase/tests-postgres/branding_asset_status_read.pg.test.mjs",
+    "genericDiscovery": "Private PostgreSQL test is selected by *.pg.test.mjs discovery.",
+    "parserCommand": "node parse.cjs ../migrations/0105_o03_asset_status_read.sql",
+    "registrationCommit": "4d66f1074c5cebcdf80a3fe4abd6c3fb74aabf13",
+    "parserCommandRegistrationCount": 1,
+    "parserCommandOrder": "After node parse.cjs ../migrations/0104_o19_mk05_oorva.sql",
+    "codespace": {
+      "result": "NOT_RUN_BEFORE_SELECTION",
+      "selectionCount": 0,
+      "failure": "HTTP 404: Not Found; Codespaces API requires the codespace scope.",
+      "credentialRefresh": "NOT_PERFORMED"
+    },
+    "privatePostgresLaneCi": "PENDING_EXACT_HEAD_FALLBACK",
+    "focusedAuthConcurrencyReview": "PENDING"
+  },
+  "release": {
+    "featureFlagsEnabled": false,
+    "productionDataOperations": false,
+    "mainPromotion": "Not authorized until the tested DB batch and separate E1 check."
+  }
+}
