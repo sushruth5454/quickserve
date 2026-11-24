@@ -2394,6 +2394,293 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
     }
   });
 }
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('MK-BUSINESS-inbox-context', async () => {
+    const sqlLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`;
+    const sqlUuid = (value) => `${sqlLiteral(value)}::uuid`;
+    const privateQuery = async (query) => {
+      if (
+        !PRIVATE_LOCAL_E2E
+        || process.env.DEMO_PROJECT !== '1'
+        || process.env.PROJECT_REF !== 'local'
+        || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+      ) {
+        throw new Error('MK-BUSINESS fixtures are restricted to the disposable local E2E backend');
+      }
+      const token = process.env.SUPABASE_ACCESS_TOKEN;
+      if (!token) throw new Error('Local Management API token is missing for MK-BUSINESS');
+      const response = await fetch('http://127.0.0.1:54399/v1/projects/local/database/query', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'quickserve-oorva-private-e2e',
+        },
+        body: JSON.stringify({ query }),
+      });
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(`Local database query failed (${response.status}): ${responseText.slice(0, 500)}`);
+      }
+      let result = [];
+      if (responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          throw new Error('Local Management API returned invalid JSON');
+        }
+      }
+      if (result?.error || (Array.isArray(result) && result.some((row) => row?.error))) {
+        throw new Error(`Local database query returned an error: ${JSON.stringify(result?.error ?? result)}`);
+      }
+      return result;
+    };
+    const rpc = async (token, name, args = {}) => {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+      const body = await response.text();
+      let data = null;
+      try {
+        data = body ? JSON.parse(body) : null;
+      } catch {
+        data = null;
+      }
+      return { ok: response.ok, status: response.status, body, data };
+    };
+    const requireRpcSuccess = (name, result) => {
+      if (!result.ok) {
+        throw new Error(`${name} RPC expected success; actual=${JSON.stringify({ status: result.status, body: result.body })}`);
+      }
+      return result.data;
+    };
+
+    let memberId = null;
+    let ownerIds = [];
+    let shopIds = [];
+    let rfqId = null;
+    let testError = null;
+    const cleanupErrors = [];
+    try {
+      if (!localE2eCustomerToken) throw new Error('MK-BUSINESS member session is missing');
+      const memberClaims = JSON.parse(Buffer.from(localE2eCustomerToken.split('.')[1], 'base64url').toString('utf8'));
+      memberId = memberClaims?.sub;
+      if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(memberId ?? '')) {
+        throw new Error(`MK-BUSINESS member token has an invalid subject: ${JSON.stringify({ memberId: memberId ?? null })}`);
+      }
+
+      const ownerPhones = [getAdminPhone(), phoneE164(NEW_PRO_PHONE)];
+      const phoneCollisions = phoneRoleCollisions([
+        ['member', PHONE],
+        ['shop A owner', ownerPhones[0]],
+        ['shop B owner', ownerPhones[1]],
+      ]);
+      if (phoneCollisions.length) {
+        throw new Error(`MK-BUSINESS test identities must be distinct: ${JSON.stringify({ phoneCollisions })}`);
+      }
+      const ownerRows = await privateQuery(
+        `select case when phone = ${sqlLiteral(ownerPhones[0])} then 'shop-a' else 'shop-b' end as owner_key, id `
+        + `from auth.users where phone in (${ownerPhones.map(sqlLiteral).join(', ')})`,
+      );
+      if (!Array.isArray(ownerRows) || ownerRows.length !== 2) {
+        throw new Error(`MK-BUSINESS owner identities are not isolated: ${JSON.stringify({ expectedOwnerCount: 2, actual: ownerRows })}`);
+      }
+      const ownerByKey = Object.fromEntries(ownerRows.map((row) => [row.owner_key, row.id]));
+      ownerIds = [ownerByKey['shop-a'], ownerByKey['shop-b']];
+      if (ownerIds.some((id) => !id) || new Set(ownerIds).size !== 2 || ownerIds.includes(memberId)) {
+        throw new Error(`MK-BUSINESS owner/member identities collided: ${JSON.stringify({ ownerIds, memberId })}`);
+      }
+      const profileRows = await privateQuery(
+        `select id from public.profiles where id in (${[...ownerIds, memberId].map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(profileRows) || profileRows.length !== 3) {
+        throw new Error(`MK-BUSINESS fixture profiles are missing: ${JSON.stringify({ expectedIds: [...ownerIds, memberId], actual: profileRows })}`);
+      }
+      const existingShops = await privateQuery(
+        `select id, owner_id from public.shops where owner_id in (${ownerIds.map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(existingShops) || existingShops.length) {
+        throw new Error(`MK-BUSINESS owners already have shops; refusing to overwrite: ${JSON.stringify({ existingShops })}`);
+      }
+      const existingMemberships = await privateQuery(
+        `select owner_id, member_id from public.business_members `
+        + `where member_id = ${sqlUuid(memberId)} and owner_id in (${ownerIds.map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(existingMemberships) || existingMemberships.length) {
+        throw new Error(`MK-BUSINESS memberships are not isolated: ${JSON.stringify({ existingMemberships })}`);
+      }
+      const categories = await privateQuery(
+        "select id from public.product_categories where slug = 'tiles' and active = true limit 1",
+      );
+      if (!Array.isArray(categories) || !categories[0]?.id) {
+        throw new Error(`MK-BUSINESS active Tiles category is missing: ${JSON.stringify(categories)}`);
+      }
+      const flags = await privateQuery(
+        "select key, enabled from public.feature_flags where key in ('merchant_staff', 'products', 'product_rfq')",
+      );
+      const flagValues = Object.fromEntries((Array.isArray(flags) ? flags : []).map((row) => [row.key, row.enabled]));
+      if (flagValues.merchant_staff !== true || flagValues.products !== true || flagValues.product_rfq !== true) {
+        throw new Error(`MK-BUSINESS required capabilities are not ON: ${JSON.stringify({ expected: { merchant_staff: true, products: true, product_rfq: true }, actual: flagValues })}`);
+      }
+
+      shopIds = [randomUUID(), randomUUID()];
+      const shopNames = [
+        `${QA_MARKER} O28 shop A ${randomUUID().slice(0, 8)}`,
+        `${QA_MARKER} O28 shop B ${randomUUID().slice(0, 8)}`,
+      ];
+      for (let index = 0; index < shopIds.length; index += 1) {
+        await privateQuery(
+          'insert into public.shops '
+          + '(id, owner_id, name, description, address_line, city, area, lat, lng, delivery_radius_km, offers_delivery, offers_pickup, status) '
+          + `values (${sqlUuid(shopIds[index])}, ${sqlUuid(ownerIds[index])}, ${sqlLiteral(shopNames[index])}, `
+          + `${sqlLiteral(`${QA_MARKER} isolated O28 shop fixture`)}, ${sqlLiteral('88 QA Demo Market Road')}, `
+          + `${sqlLiteral('Vijayawada')}, ${sqlLiteral('Benz Circle')}, 16.5, 80.6, 50, true, true, 'verified')`,
+        );
+        await privateQuery(
+          `insert into public.shop_categories (shop_id, category_id) values (${sqlUuid(shopIds[index])}, ${sqlUuid(categories[0].id)})`,
+        );
+      }
+      await privateQuery(
+        'insert into public.business_members (owner_id, member_id, role, active) values '
+        + `(${sqlUuid(ownerIds[0])}, ${sqlUuid(memberId)}, 'staff', true), `
+        + `(${sqlUuid(ownerIds[1])}, ${sqlUuid(memberId)}, 'staff', true)`,
+      );
+
+      const rfqTitle = `${QA_MARKER} O28 two-shop RFQ ${randomUUID()}`;
+      const createdRfq = requireRpcSuccess('create_rfq', await rpc(localE2eCustomerToken, 'create_rfq', {
+        p_category_id: categories[0].id,
+        p_title: rfqTitle,
+        p_items: [{ description: 'Two-shop inbox test material', specs: { size: '10x10' }, quantity: 1, unit: 'box' }],
+        p_city: 'Vijayawada',
+        p_area: 'Benz Circle',
+        p_lat: 16.5,
+        p_lng: 80.6,
+        p_needs_delivery: true,
+        p_needed_by: '2099-12-31',
+        p_notes: `${QA_MARKER} two-shop inbox context`,
+      }));
+      rfqId = typeof createdRfq === 'string' ? createdRfq : createdRfq?.id;
+      if (typeof rfqId !== 'string' || !rfqId) {
+        throw new Error(`MK-BUSINESS create_rfq returned no RFQ ID: ${JSON.stringify(createdRfq)}`);
+      }
+      const recipients = await privateQuery(
+        `select shop_id from public.rfq_recipients where rfq_id = ${sqlUuid(rfqId)}`,
+      );
+      const recipientIds = Array.isArray(recipients) ? recipients.map((row) => row.shop_id) : [];
+      const missingRecipients = shopIds.filter((id) => !recipientIds.includes(id));
+      if (missingRecipients.length) {
+        throw new Error(`MK-BUSINESS RFQ did not reach both fixture shops: ${JSON.stringify({
+          rfqId,
+          expectedShopIds: shopIds,
+          actualRecipients: recipients,
+          missingRecipients,
+        })}`);
+      }
+
+      const listResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/list_my_supplier_rfqs'),
+      );
+      await go('/merchant-rfqs');
+      const listResponse = await listResponsePromise;
+      if (!listResponse.ok()) {
+        throw new Error(`MK-BUSINESS supplier list failed: ${JSON.stringify({ status: listResponse.status(), body: await listResponse.text() })}`);
+      }
+      const listRows = await listResponse.json();
+      const expectedByShop = new Map(shopIds.map((id, index) => [id, shopNames[index]]));
+      const actualRows = Array.isArray(listRows)
+        ? listRows.filter((row) => row.rfq_id === rfqId && expectedByShop.has(row.shop_id))
+        : [];
+      const actualByShop = new Map(actualRows.map((row) => [row.shop_id, row.shop_name]));
+      const mismatches = shopIds.filter((id, index) => actualByShop.get(id) !== shopNames[index]);
+      if (actualRows.length !== 2 || mismatches.length) {
+        throw new Error(`MK-BUSINESS list did not retain both named business contexts: ${JSON.stringify({
+          rfqId,
+          expected: shopIds.map((shopId, index) => ({ shop_id: shopId, shop_name: shopNames[index] })),
+          actual: actualRows.map((row) => ({ shop_id: row.shop_id, shop_name: row.shop_name, rfq_id: row.rfq_id })),
+          mismatches,
+        })}`);
+      }
+
+      for (let index = 0; index < shopIds.length; index += 1) {
+        const row = page.getByRole('button', { name: `${rfqTitle}. ${shopNames[index]}` });
+        await row.waitFor({ state: 'visible' });
+        const detailResponsePromise = page.waitForResponse((response) => {
+          const request = response.request();
+          if (request.method() !== 'POST' || !new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_supplier_rfq_for_business')) {
+            return false;
+          }
+          try {
+            const body = request.postDataJSON();
+            return body?.p_rfq_id === rfqId && body?.p_shop_id === shopIds[index];
+          } catch {
+            return false;
+          }
+        });
+        await row.click();
+        const detailResponse = await detailResponsePromise;
+        if (!detailResponse.ok()) {
+          throw new Error(`MK-BUSINESS detail read failed: ${JSON.stringify({ shopId: shopIds[index], status: detailResponse.status(), body: await detailResponse.text() })}`);
+        }
+        const detailRows = await detailResponse.json();
+        const detail = Array.isArray(detailRows) ? detailRows[0] : detailRows;
+        if (detail?.shop_id !== shopIds[index] || detail?.shop_name !== shopNames[index]) {
+          throw new Error(`MK-BUSINESS route changed shop identity: ${JSON.stringify({
+            rfqId,
+            expected: { shop_id: shopIds[index], shop_name: shopNames[index] },
+            actual: { shop_id: detail?.shop_id ?? null, shop_name: detail?.shop_name ?? null },
+          })}`);
+        }
+        await page.getByText(shopNames[index], { exact: false }).first().waitFor({ state: 'visible' });
+        if (new URL(page.url()).pathname !== `/rfq/merchant/${rfqId}`) {
+          throw new Error(`MK-BUSINESS detail route used a different RFQ: ${JSON.stringify({ expectedRfqId: rfqId, actualUrl: page.url(), shopId: shopIds[index] })}`);
+        }
+        await go('/merchant-rfqs');
+      }
+    } catch (error) {
+      testError = error;
+    } finally {
+      try {
+        if (rfqId) await privateQuery(`delete from public.rfqs where id = ${sqlUuid(rfqId)}`);
+        if (memberId && ownerIds.length) {
+          await privateQuery(
+            `delete from public.business_members where member_id = ${sqlUuid(memberId)} `
+            + `and owner_id in (${ownerIds.map(sqlUuid).join(', ')})`,
+          );
+        }
+        if (shopIds.length) {
+          await privateQuery(`delete from public.shops where id in (${shopIds.map(sqlUuid).join(', ')})`);
+        }
+        const remaining = await privateQuery(
+          `select (select count(*)::int from public.shops where id in (${shopIds.length ? shopIds.map(sqlUuid).join(', ') : 'null::uuid'})) as shops, `
+          + ` (select count(*)::int from public.rfqs where id = ${rfqId ? sqlUuid(rfqId) : 'null::uuid'}) as rfqs, `
+          + ` (select count(*)::int from public.business_members where member_id = ${memberId ? sqlUuid(memberId) : 'null::uuid'} `
+          + `and owner_id in (${ownerIds.length ? ownerIds.map(sqlUuid).join(', ') : 'null::uuid'})) as memberships`,
+        );
+        if (!Array.isArray(remaining) || remaining[0]?.shops !== 0 || remaining[0]?.rfqs !== 0 || remaining[0]?.memberships !== 0) {
+          throw new Error(`MK-BUSINESS fixture cleanup readback failed: ${JSON.stringify(remaining)}`);
+        }
+      } catch (error) {
+        cleanupErrors.push(String(error?.message ?? error));
+      }
+      try {
+        await go('/bookings');
+        await page.getByTestId('activity-segment-requests').click();
+        await page.getByTestId('my-activity-panel-requests').waitFor();
+      } catch (error) {
+        cleanupErrors.push(`return to customer activity: ${String(error?.message ?? error)}`);
+      }
+    }
+    if (testError || cleanupErrors.length) {
+      throw new Error(`MK-BUSINESS inbox context failed: ${JSON.stringify({
+        testError: testError ? String(testError?.message ?? testError) : null,
+        cleanupErrors,
+      })}`);
+    }
+  });
+}
 await step('my-activity-sports-segment', async () => {
   const sportsBookingsResponsePromise = page.waitForResponse((response) =>
     response.request().method() === 'POST'
