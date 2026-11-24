@@ -1,0 +1,55 @@
+{
+  "stage": "O28-ID16",
+  "sourceTask": "ID-T16",
+  "finding": "ID-F16",
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "branch": "lane/oorva-o28-id16",
+  "implementationBase": "bad24764cc52e262e0a5814ee4c4977c27124a17",
+  "implementation": {
+    "byoInvites": "Share is the primary post-create action using server share_url; Create another is subordinate. The UI displays server expires_at and each returned invite status with server created_at. Open-invite cancellation requires confirmation. No token reconstruction or fee calculation change.",
+    "businessStaff": "Owner-wide scope is explicit; current and inactive members retain stable member IDs and show role-specific rights. Remove access requires confirmation naming the member and owner. UUID-only add remains.",
+    "businessContext": "Membership business_id is passed as shopId or venueId; owner_id is passed as ownerId. Provider navigation retains providerId. Route context never replaces server authorization.",
+    "shopEnquiriesAndRfqs": "Existing authorized lists are filtered by their returned shop_id. Unscoped lists are labelled All businesses. Manage shop navigation retains ownerId/shopId.",
+    "merchantShop": "Selected context uses the existing owner-aware getMyShop(ownerId) read and is checked against returned owner/shop IDs. Existing business_role read-only behavior and owner-only product editing remain.",
+    "sports": "Initial venueId is resolved only against the authorized server-returned venue list; unavailable selection remains empty and visibly reports the unavailable request. Manual selection also rejects IDs outside that list.",
+    "identityAndFlags": "protectedInvite retains its existing useBrandIdentity('protectedInvite') consumer. RFQ identity uses useBrandIdentity('rfq') independently from oorva_business_staff_ux. Business presentation requires the effective oorva_brand parent and oorva_business_staff_ux leaf; no flag is enabled."
+  },
+  "workerFiles": [
+    "app\\src\\features\\sports\\manage\\useSportsVenueManagementState.ts",
+    "app\\src\\features\\merchantStaff\\__tests__\\workspaceComposition.test.tsx",
+    "app\\src\\features\\identityScreens\\ProviderBusinessToolsScreen.tsx",
+    "app\\src\\features\\marketplaceScreens\\MerchantEnquiriesScreen.tsx",
+    "app\\src\\features\\marketplaceScreens\\MerchantRfqsScreen.tsx",
+    "app\\src\\features\\marketplaceScreens\\MerchantShopScreen.tsx",
+    "app\\src\\features\\identityScreens\\MerchantStaffScreen.tsx",
+    "app\\src\\features\\identityScreens\\MerchantWorkScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o28-id16.json"
+  ],
+  "assertionCases": [
+    "ID-BYO-SHARE-FIRST",
+    "ID-BYO-CANCEL-CONFIRM",
+    "ID-STAFF-REMOVE-CONFIRM",
+    "ID-SELECT-SHOP-B",
+    "ID-SELECT-VENUE-B",
+    "ID-SPOOFED-SELECTION",
+    "ID-BUSINESS-FLAG-PARENTS"
+  ],
+  "validation": {
+    "codespace": {
+      "status": "UNAVAILABLE",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.merchantStaff.__tests__.workspaceComposition[.]test[.]tsx$'",
+      "selectedTests": "NOT RUN; the helper failed before Codespace selection.",
+      "failure": "GitHub Codespaces API returned HTTP 404 for /codespaces?per_page=30 and reported the gh auth token needs the codespace scope. The helper then failed at line 45 with a null-valued expression and exited 1.",
+      "fallback": "Use exact-head Lane CI; do not report the Codespace test as passed."
+    },
+    "laneCiAndFocusedAuthReview": "Final exact-head results are returned in the stage handoff."
+  },
+  "scope": {
+    "migrationOrSqlChange": false,
+    "featureFlagActivation": false,
+    "mainPromotion": false,
+    "productionDeployment": false,
+    "liveMoneyOperation": false,
+    "publicOrNativeCutover": false
+  }
+}

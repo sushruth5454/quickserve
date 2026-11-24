@@ -76,6 +76,7 @@ function errorMessage(error: unknown): string {
 
 function useMerchantWorkController() {
   const flags = useAppFeatureFlags();
+  const businessStaffUxEnabled = flags.isOn('oorva_brand') && flags.isOn('oorva_business_staff_ux');
   const features: BusinessWorkFeatures = {
     merchantStaff: flags.isOn('merchant_staff'),
     products: flags.isOn('products'),
@@ -116,7 +117,7 @@ function useMerchantWorkController() {
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  return { features, load, read };
+  return { businessStaffUxEnabled, features, load, read };
 }
 
 export default function MerchantWorkScreen() {
@@ -128,7 +129,13 @@ export default function MerchantWorkScreen() {
   }
 
   return (
-    <Screen header={<Header title="Business work" subtitle="Jobs and requests assigned to you" />} gap={t.spacing.md}>
+    <Screen
+      header={<Header
+        title="Business work"
+        subtitle={state.businessStaffUxEnabled ? 'All businesses' : 'Jobs and requests assigned to you'}
+      />}
+      gap={t.spacing.md}
+    >
       {state.read.value === null && state.read.error ? (
         <ErrorState message={state.read.error} onRetry={() => void state.load()} />
       ) : state.read.value === null ? (
@@ -161,13 +168,35 @@ export default function MerchantWorkScreen() {
                   />
                 ) : null}
                 {presentation.actions.includes('shop-enquiries') ? (
-                  <Button title="Open shop enquiries" disabled={!!state.read.error} onPress={() => router.push('/merchant-enquiries')} />
+                  <Button
+                    title="Open shop enquiries"
+                    disabled={!!state.read.error}
+                    onPress={() => router.push({
+                      pathname: '/merchant-enquiries',
+                      params: { ownerId: membership.owner_id, shopId: membership.business_id },
+                    })}
+                  />
                 ) : null}
                 {presentation.actions.includes('shop-rfqs') ? (
-                  <Button title="Open supplier RFQs" variant="outline" disabled={!!state.read.error} onPress={() => router.push('/merchant-rfqs')} />
+                  <Button
+                    title="Open supplier RFQs"
+                    variant="outline"
+                    disabled={!!state.read.error}
+                    onPress={() => router.push({
+                      pathname: '/merchant-rfqs',
+                      params: { ownerId: membership.owner_id, shopId: membership.business_id },
+                    })}
+                  />
                 ) : null}
                 {presentation.actions.includes('sports-bookings') ? (
-                  <Button title="Open sports bookings" disabled={!!state.read.error} onPress={() => router.push('/sports/manage')} />
+                  <Button
+                    title="Open sports bookings"
+                    disabled={!!state.read.error}
+                    onPress={() => router.push({
+                      pathname: '/sports/manage',
+                      params: { ownerId: membership.owner_id, venueId: membership.business_id },
+                    })}
+                  />
                 ) : null}
                 {presentation.message ? <Text variant="footnote" color="muted">{presentation.message}</Text> : null}
               </Card>

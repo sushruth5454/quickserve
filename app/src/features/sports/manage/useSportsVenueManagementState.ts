@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   getSportsVenueSettingsVisibility,
@@ -13,6 +14,11 @@ import { useSportsReadRefresh } from '../useSportsReadRefresh';
 import type { Activity, ManagementVenue, Resource, SportsBookingRow } from './types';
 
 const localTomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(Date.now() + 86400000));
+
+function readRouteParams<T extends object>(): T {
+  const routeHook = useLocalSearchParams as unknown as (() => T) | undefined;
+  return (routeHook ?? (() => ({} as T)))();
+}
 
 export interface VenueDraftValues {
   name: string;
@@ -122,6 +128,15 @@ export function resolveSelectedVenueId(venues: readonly ManagementVenue[], curre
   return venues.some((item) => item.venue.id === currentId) ? currentId : venues[0]?.venue.id ?? '';
 }
 
+export function resolveInitialVenueSelection(
+  venues: readonly ManagementVenue[],
+  initialVenueId: string,
+): { venueId: string; unavailable: boolean } {
+  if (!initialVenueId) return { venueId: '', unavailable: false };
+  const authorized = venues.some((item) => item.venue.id === initialVenueId);
+  return { venueId: authorized ? initialVenueId : '', unavailable: !authorized };
+}
+
 export function isActualVenueOwner(venue: ManagementVenue['venue'] | null, userId: string | null): boolean {
   return Boolean(venue && userId && venue.owner_id === userId);
 }
@@ -154,6 +169,10 @@ export function getManagementLoadPresentation(
 }
 
 export function useSportsVenueManagementState() {
+  const params = readRouteParams<{ venueId?: string | string[] }>();
+  const routeVenueId = Array.isArray(params.venueId) ? params.venueId[0] : params.venueId;
+  const previousRouteVenueId = useRef(routeVenueId);
+  const requestedVenueId = useRef(routeVenueId ?? '');
   const flags = useAppFeatureFlags();
   const enabled = flags.isOn('sports');
   const instantBookingEnabled = flags.isOn('sports_instant_booking');
@@ -260,12 +279,18 @@ export function useSportsVenueManagementState() {
   }, []);
 
   const setSelectedId = useCallback((id: string) => {
+    if (!venues.some((item) => item.venue.id === id)) {
+      setError('That venue is not in your authorized venue list. Choose one of the listed venues.');
+      return;
+    }
+    requestedVenueId.current = '';
+    setError(null);
     selectedIdRef.current = id;
     isCreatingVenueRef.current = false;
     setIsCreatingVenue(false);
     setSelectedIdState(id);
     newResourceDraftRef.current = false;
-  }, []);
+  }, [venues]);
 
   const setResourceId = useCallback((id: string) => {
     newResourceDraftRef.current = false;
@@ -275,6 +300,7 @@ export function useSportsVenueManagementState() {
   const startNewVenue = useCallback(() => {
     const canCreate = isActualVenueOwner(selected?.venue ?? null, userId) || (hasLoaded && venues.length === 0);
     if (!canCreate) return;
+    requestedVenueId.current = '';
     selectedIdRef.current = '';
     isCreatingVenueRef.current = true;
     venueContext.current = '__new__';
@@ -344,7 +370,13 @@ export function useSportsVenueManagementState() {
       if (bookingResult.error) throw new Error(bookingResult.error.message);
 
       const nextVenues = (venueResult.data ?? []) as ManagementVenue[];
-      const nextSelectedId = resolveSelectedVenueId(nextVenues, selectedIdRef.current, isCreatingVenueRef.current);
+      const requestedId = requestedVenueId.current;
+      const initialSelection = requestedId
+        ? resolveInitialVenueSelection(nextVenues, requestedId)
+        : null;
+      const nextSelectedId = initialSelection
+        ? initialSelection.venueId
+        : resolveSelectedVenueId(nextVenues, selectedIdRef.current, isCreatingVenueRef.current);
       setVenues(nextVenues);
       setActivities((activityResult.data ?? []) as Activity[]);
       setBookings((bookingResult.data ?? []) as SportsBookingRow[]);
@@ -352,6 +384,9 @@ export function useSportsVenueManagementState() {
       setSelectedIdState(nextSelectedId);
       isCreatingVenueRef.current = isCreatingVenueRef.current && nextSelectedId === '';
       setIsCreatingVenue(isCreatingVenueRef.current);
+      setError(initialSelection?.unavailable
+        ? `Requested venue ${requestedId} is not available in your authorized venue list.`
+        : null);
       hasLoadedRef.current = true;
       setHasLoaded(true);
       lastLoadSucceeded.current = true;
@@ -369,6 +404,18 @@ export function useSportsVenueManagementState() {
     enabled: true,
     intervalMs: 60_000,
   });
+  useEffect(() => {
+    if (previousRouteVenueId.current === routeVenueId) return;
+    previousRouteVenueId.current = routeVenueId;
+    requestedVenueId.current = routeVenueId ?? '';
+    if (routeVenueId) {
+      selectedIdRef.current = '';
+      setSelectedIdState('');
+      isCreatingVenueRef.current = false;
+      setIsCreatingVenue(false);
+    }
+    void refresh();
+  }, [refresh, routeVenueId]);
   const load = useCallback(async (): Promise<boolean> => {
     await refresh();
     return lastLoadSucceeded.current;
