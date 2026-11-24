@@ -6,6 +6,8 @@ import { locateWithGps } from '../lib/locationContext';
 import type { SelectedLocation } from '../lib/locationModel';
 import type { SavedAddress } from '../lib/types';
 import { useTheme } from '../theme';
+import { useBrandIdentity } from '../branding/useBrandIdentity';
+import { useFeature } from '../branding/FeatureFlagsProvider';
 import { BottomSheet, Button, Chip, InlineAlert, Input, Text } from './ui';
 
 const LABELS = [
@@ -34,9 +36,13 @@ interface Props {
 /** "Add address" sheet: label chips, house/street line, city, and the pin used for distance matching. */
 export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved, title = 'Add address', ownerId }: Props) {
   const t = useTheme();
+  const identity = useBrandIdentity('auth');
+  const authUx = useFeature('oorva_auth_ux');
   const ownerIdRef = useRef(ownerId);
+  const initialPinRef = useRef(initialPin);
   const editorEpochRef = useRef(0);
   ownerIdRef.current = ownerId;
+  initialPinRef.current = initialPin;
   const [label, setLabel] = useState<string>('Home');
   const [line1, setLine1] = useState('');
   const [city, setCity] = useState('');
@@ -55,16 +61,16 @@ export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved,
       }
       return;
     }
-    setPin(initialPin);
+    setPin(initialPinRef.current);
     if (ownerId !== undefined) setLabel('Home');
-    setLine1(initialPin.line1 ?? '');
-    setCity(initialPin.city);
+    setLine1(initialPinRef.current.line1 ?? '');
+    setCity(initialPinRef.current.city);
     setError(null);
     setTouched(false);
     return () => {
       if (ownerId !== undefined) editorEpochRef.current += 1;
     };
-  }, [visible, initialPin, ownerId]);
+  }, [visible, ownerId]);
 
   const repin = async () => {
     const epoch = editorEpochRef.current;
@@ -115,6 +121,12 @@ export function AddressEditorSheet({ visible, onClose, pin: initialPin, onSaved,
       subtitle="Shared with your pro only after they accept"
       footer={<Button title="Save address" onPress={() => void save()} loading={busy} size="lg" fullWidth />}
     >
+      {authUx ? (
+        <View testID="o13c-auth-ux" style={{ gap: t.spacing.xs }}>
+          <Text variant="overline">{identity.displayName}</Text>
+          {identity.tagline ? <Text variant="footnote" color="muted">{identity.tagline}</Text> : null}
+        </View>
+      ) : null}
       <View style={{ gap: t.spacing.sm }}>
         <Text variant="subheadStrong" color="textSecondary">
           Save as
