@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, Chip, ErrorState, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, TextArea, useConfirm, useToast } from '../../components/ui';
+import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { pickPhoto } from '../providerOnboarding/media';
 import {
   deleteProduct,
@@ -14,15 +14,14 @@ import {
   signedProductImage,
   submitShop,
   type ProductCategory,
-  type ProductPhoto,
   type ProductUnit,
   type ShopProfile,
   type ShopProduct,
 } from '../shops/api';
 import { IndicativePrice, ShopStatusLabel, useShopFeatureFlags } from '../shops/components';
+import ProductEditorSection, { type ProductDraft } from '../shops/manage/ProductEditorSection';
+import ShopDetailsSection, { type ShopDraft } from '../shops/manage/ShopDetailsSection';
 import { shopManageActions } from '../shops/manage/shopManageModel';
-import { SpecFields } from '../shops/SpecFields';
-import { UNIT_LABELS } from '../shops/format';
 import { cleanSpecs } from '../shops/specs';
 import { useSelectedLocation, resolvePlace, searchPlaces, type PlaceResult } from '../../lib/locationContext';
 import { newPlacesSession } from '../../lib/places';
@@ -31,23 +30,7 @@ import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useRfqFeatureFlags } from '../rfq/components';
 import { useTheme } from '../../theme';
 
-type ShopDraft = Omit<ShopProfile, 'id' | 'owner_id' | 'business_role' | 'status' | 'status_reason'>;
-type ProductDraft = {
-  id: string | null;
-  categoryId: string;
-  name: string;
-  brand: string;
-  model: string;
-  description: string;
-  specs: Record<string, string>;
-  unit: ProductUnit;
-  priceText: string;
-  inStock: boolean;
-  active: boolean;
-  existingPaths: string[];
-  previousPaths: string[];
-  newPhotos: ProductPhoto[];
-};
+type ShopWorkspaceSection = 'readiness' | 'details' | 'catalogue';
 
 const emptyShop = (): ShopDraft => ({
   name: '',
@@ -82,7 +65,20 @@ const emptyProduct = (categoryId = ''): ProductDraft => ({
   newPhotos: [],
 });
 
-const UNITS: ProductUnit[] = ['piece', 'sqft', 'box', 'kg', 'litre', 'bag', 'metre', 'set'];
+export function getShopWorkspaceSectionOrder({
+  hasShop,
+  canSetUpShop,
+  workspaceEnabled,
+}: {
+  hasShop: boolean;
+  canSetUpShop: boolean;
+  workspaceEnabled: boolean;
+}): ShopWorkspaceSection[] {
+  if (!hasShop) return canSetUpShop ? ['details'] : [];
+  return workspaceEnabled
+    ? ['readiness', 'catalogue', 'details']
+    : ['readiness', 'details', 'catalogue'];
+}
 
 export function getShopManagementLinks(
   role: ShopProfile['business_role'],
@@ -100,6 +96,7 @@ export default function MerchantShopScreen() {
   const confirm = useConfirm();
   const features = useShopFeatureFlags();
   const appFeatures = useAppFeatureFlags();
+  const workspaceEnabled = appFeatures.isOn('oorva_merchant_shop_ux') && appFeatures.isOn('oorva_brand');
   const { rfq: rfqEnabled } = useRfqFeatureFlags();
   const { location } = useSelectedLocation();
   const sessionRef = useRef(newPlacesSession());
@@ -116,6 +113,7 @@ export default function MerchantShopScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [hasRead, setHasRead] = useState(false);
+  const [shopDetailsExpanded, setShopDetailsExpanded] = useState(false);
   const readsCurrent = hasRead && !loading && !error;
   const manageActions = shopManageActions({
     shop,
@@ -445,127 +443,89 @@ export default function MerchantShopScreen() {
     );
   }
 
+  const workspaceSections = getShopWorkspaceSectionOrder({
+    hasShop: shop !== null,
+    canSetUpShop: readsCurrent,
+    workspaceEnabled,
+  });
+  const shopDetailsCollapsed = Boolean(shop && workspaceEnabled && !shopDetailsExpanded);
+
   return (
     <Screen header={<Header title="My shop" subtitle="Manage your local shop and catalogue" />} gap={t.spacing.md} refreshing={loading} onRefresh={() => void load()}>
       {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved shop data; changes are disabled until a successful refresh. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
       <InlineAlert message={actionError} />
       {loading ? <Skeleton height={160} radius={t.radii.lg} /> : null}
-      {shop ? (
-        <Card>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text variant="title3">{shop.name}</Text>
-            <ShopStatusLabel status={shop.status} />
-          </View>
-          {shop.status_reason || shop.status === 'suspended' ? <Text color="dangerText">{shop.status_reason ?? 'Product editing is unavailable while this shop is suspended.'}</Text> : null}
-          <Text variant="footnote" color="muted">Shop details and catalogues are public only after verification.</Text>
-          {getShopManagementLinks(shop.business_role, {
-            merchantStaff: appFeatures.isOn('merchant_staff'),
-            rfq: rfqEnabled,
-          }).staffManagement ? <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} /> : null}
-          {manageActions.canSubmit ? <Button title="Submit for verification" variant="outline" loading={busy} onPress={() => void submitForReview()} disabled={!readsCurrent || !shop.id} /> : null}
-        </Card>
-      ) : null}
-
-      {shop || readsCurrent ? (
-        <Card gap={t.spacing.md}>
-          <Text variant="title3">{shop ? 'Shop details' : 'Set up your shop'}</Text>
-          <Input label="Shop name" value={draft.name} onChangeText={(value) => updateShop('name', value)} maxLength={100} />
-          <TextArea label="Description" value={draft.description} onChangeText={(value) => updateShop('description', value)} maxLength={1500} placeholder="What does your shop specialise in?" />
-          <Input label="Find shop address" value={addressQuery} onChangeText={setAddressQuery} placeholder="Search a shop, street or landmark" />
-          {placeResults.map((result, index) => (
-            <ListItem key={`${result.title}-${index}`} title={result.title} subtitle={result.subtitle} chevron onPress={() => void choosePlace(result)} />
-          ))}
-          <Input label="Address line" value={draft.address_line} onChangeText={(value) => updateShop('address_line', value)} maxLength={220} />
-          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-            <View style={{ flex: 1 }}><Input label="City" value={draft.city} onChangeText={(value) => updateShop('city', value)} maxLength={100} /></View>
-            <View style={{ flex: 1 }}><Input label="Area" value={draft.area} onChangeText={(value) => updateShop('area', value)} maxLength={100} /></View>
-          </View>
-          <Input label="GSTIN (optional)" value={draft.gstin ?? ''} onChangeText={(value) => updateShop('gstin', value.trim().toUpperCase() || null)} autoCapitalize="characters" maxLength={15} />
-          <Text variant="calloutStrong">Product categories</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-            {categories.map((category) => {
-              const selected = draft.category_slugs.includes(category.slug);
-              return <Chip key={category.id} label={category.name} selected={selected} onPress={() => updateShop('category_slugs', selected ? draft.category_slugs.filter((slug) => slug !== category.slug) : [...draft.category_slugs, category.slug])} />;
-            })}
-          </View>
-          <Input
-            label="Delivery radius (km)"
-            value={String(draft.delivery_radius_km)}
-            onChangeText={(value) => updateShop('delivery_radius_km', Number(value) || 0)}
-            keyboardType="number-pad"
-          />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-            <Chip label="Offers delivery" selected={draft.offers_delivery} onPress={() => updateShop('offers_delivery', !draft.offers_delivery)} />
-            <Chip label="Pickup available" selected={draft.offers_pickup} onPress={() => updateShop('offers_pickup', !draft.offers_pickup)} />
-          </View>
-          <Button title="Save shop details" loading={busy} disabled={!readsCurrent || !manageActions.canSaveDetails} onPress={() => void saveShopDetails()} />
-        </Card>
-      ) : null}
-
-      {shop ? (
-        <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text variant="title3">Product catalogue ({products.length}/500)</Text>
-            <Button title="Add product" size="sm" disabled={!readsCurrent || !manageActions.canEditProducts || products.length >= 500} onPress={() => editProduct()} />
-          </View>
-          <Button title="Open enquiries" variant="outline" onPress={() => router.push('/merchant-enquiries')} />
-          <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
-
-          {productDraft && manageActions.canEditProducts ? (
-            <Card gap={t.spacing.md}>
-              <Text variant="title3">{productDraft.id ? 'Edit product' : 'New product'}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                {categories.filter((category) => draft.category_slugs.includes(category.slug)).map((category) => <Chip key={category.id} label={category.name} selected={productDraft.categoryId === category.id} onPress={() => { if (manageActions.canEditProducts) setProductDraft((current) => current ? { ...current, categoryId: category.id, specs: {} } : current); }} />)}
+      {workspaceSections.map((section) => {
+        if (section === 'readiness' && shop) {
+          return (
+            <Card key="readiness">
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text variant="title3">{shop.name}</Text>
+                <ShopStatusLabel status={shop.status} />
               </View>
-              <Input label="Product name" value={productDraft.name} onChangeText={(value) => updateProduct('name', value)} maxLength={120} />
-              <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                <View style={{ flex: 1 }}><Input label="Brand" value={productDraft.brand} onChangeText={(value) => updateProduct('brand', value)} maxLength={80} /></View>
-                <View style={{ flex: 1 }}><Input label="Model" value={productDraft.model} onChangeText={(value) => updateProduct('model', value)} maxLength={80} /></View>
-              </View>
-              <TextArea label="Description" value={productDraft.description} onChangeText={(value) => updateProduct('description', value)} maxLength={2000} />
-              <SpecFields
-                schema={categories.find((category) => category.id === productDraft.categoryId)?.attribute_schema ?? { properties: {} }}
-                value={productDraft.specs}
-                onChange={(value) => updateProduct('specs', value)}
-              />
-              <Text variant="calloutStrong">Unit</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                {UNITS.map((unit) => <Chip key={unit} label={unit} selected={productDraft.unit === unit} onPress={() => updateProduct('unit', unit)} />)}
-              </View>
-              <Input label={`Indicative price per ${UNIT_LABELS[productDraft.unit]} (₹, optional)`} value={productDraft.priceText} onChangeText={(value) => updateProduct('priceText', value)} keyboardType="decimal-pad" placeholder="Leave blank if not set" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                <Chip label="In stock" selected={productDraft.inStock} onPress={() => updateProduct('inStock', !productDraft.inStock)} />
-                <Chip label="Visible in catalogue" selected={productDraft.active} onPress={() => updateProduct('active', !productDraft.active)} />
-              </View>
-              <Text variant="footnote" color="muted">{productDraft.existingPaths.length + productDraft.newPhotos.length}/6 product photos</Text>
-              {productDraft.existingPaths.map((path, index) => (
-                <ListItem key={path} title={`Saved photo ${index + 1}`} subtitle={path.split('/').pop()} right={<Button title="Remove" size="sm" variant="ghost" onPress={() => updateProduct('existingPaths', productDraft.existingPaths.filter((item) => item !== path))} />} />
-              ))}
-              {productDraft.newPhotos.map((_, index) => <Text key={index} variant="caption" color="muted">{`New photo ${index + 1}`}</Text>)}
-              <Button title="Add photo" variant="outline" disabled={productDraft.existingPaths.length + productDraft.newPhotos.length >= 6} onPress={() => void addProductPhoto()} />
-              <Button title="Save product" loading={busy} onPress={() => void saveProductDraft()} disabled={!readsCurrent || !manageActions.canEditProducts || !productDraft.categoryId} />
-              <Button title="Cancel" variant="ghost" onPress={() => setProductDraft(null)} />
+              {shop.status_reason || shop.status === 'suspended' ? <Text color="dangerText">{shop.status_reason ?? 'Product editing is unavailable while this shop is suspended.'}</Text> : null}
+              <Text variant="footnote" color="muted">Shop details and catalogues are public only after verification.</Text>
+              {getShopManagementLinks(shop.business_role, {
+                merchantStaff: appFeatures.isOn('merchant_staff'),
+                rfq: rfqEnabled,
+              }).staffManagement ? <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} /> : null}
+              {manageActions.canSubmit ? <Button title="Submit for verification" variant="outline" loading={busy} onPress={() => void submitForReview()} disabled={!readsCurrent || !shop.id} /> : null}
             </Card>
-          ) : null}
-
-          {products.map((product) => (
-            <Card key={product.id} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-              {productImages[product.id] ? <Image source={{ uri: productImages[product.id] ?? undefined }} style={{ width: 58, height: 58, borderRadius: t.radii.sm, backgroundColor: t.colors.surfaceAlt }} contentFit="cover" /> : null}
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text variant="calloutStrong">{product.name}</Text>
-                <Text variant="caption" color="muted">{product.category_name} · {product.active ? 'Listed' : 'Paused'} · {product.in_stock ? 'In stock' : 'Out of stock'}</Text>
-                <IndicativePrice pricePaise={product.indicative_price_paise} unit={product.unit} updatedAt={product.price_updated_at} />
-              </View>
-              <View style={{ gap: t.spacing.xs }}>
-                <Button title="Edit" size="sm" variant="outline" disabled={!readsCurrent || !manageActions.canEditProducts} onPress={() => editProduct(product)} />
-                <Button title="Remove" size="sm" variant="ghost" loading={busy} disabled={!readsCurrent} onPress={() => void removeProduct(product)} />
-              </View>
-            </Card>
-          ))}
-          {!products.length && !loading ? <Text variant="footnote" color="muted">No catalogue items yet. Add your first product after saving the shop.</Text> : null}
-        </>
-      ) : null}
+          );
+        }
+        if (section === 'details') {
+          return (
+            <ShopDetailsSection
+              key="details"
+              shop={shop}
+              draft={draft}
+              categories={categories}
+              addressQuery={addressQuery}
+              placeResults={placeResults}
+              collapsed={shopDetailsCollapsed}
+              collapsible={Boolean(shop && workspaceEnabled)}
+              readsCurrent={readsCurrent}
+              canSaveDetails={manageActions.canSaveDetails}
+              busy={busy}
+              onToggle={() => setShopDetailsExpanded((current) => !current)}
+              onUpdateShop={updateShop}
+              onAddressQueryChange={setAddressQuery}
+              onChoosePlace={(result) => void choosePlace(result)}
+              onSave={() => void saveShopDetails()}
+            />
+          );
+        }
+        if (section === 'catalogue' && shop) {
+          return (
+            <ProductEditorSection
+              key="catalogue"
+              products={products}
+              productImages={productImages}
+              productDraft={productDraft}
+              categories={categories}
+              selectedCategorySlugs={draft.category_slugs}
+              loading={loading}
+              readsCurrent={readsCurrent}
+              canEditProducts={manageActions.canEditProducts}
+              busy={busy}
+              onOpenEnquiries={() => router.push('/merchant-enquiries')}
+              onOpenSupplierRfqs={() => router.push('/merchant-rfqs')}
+              onEditProduct={editProduct}
+              onUpdateProduct={updateProduct}
+              onSelectCategory={(categoryId) => {
+                if (!manageActions.canEditProducts) return;
+                setProductDraft((current) => current ? { ...current, categoryId, specs: {} } : current);
+              }}
+              onAddPhoto={() => void addProductPhoto()}
+              onSaveProduct={() => void saveProductDraft()}
+              onCancelProduct={() => setProductDraft(null)}
+              onRemoveProduct={(product) => void removeProduct(product)}
+            />
+          );
+        }
+        return null;
+      })}
     </Screen>
   );
 }
