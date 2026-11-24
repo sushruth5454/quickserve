@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O31-CM10",
+  "workPackage": "O31",
+  "sourceTaskIds": [
+    "CM-T10"
+  ],
+  "sourceFindingIds": [
+    "CM-F04",
+    "CM-F13"
+  ],
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t10",
+  "placementProjection": "docs/design/oorva/audit/communications.json",
+  "base": {
+    "implementationSha": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O38R",
+        "sha": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+        "state": "DONE"
+      }
+    ]
+  },
+  "workerOwnedFiles": [
+    "app/app/admin/geography.tsx",
+    "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+    "app/src/features/communicationScreens/AdminGeographyScreen.tsx",
+    "docs/design/oorva/evidence/o31-cm10.json"
+  ],
+  "changedFiles": [
+    "app/app/admin/geography.tsx",
+    "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+    "app/src/features/communicationScreens/AdminGeographyScreen.tsx",
+    "docs/design/oorva/evidence/o31-cm10.json"
+  ],
+  "implementation": [
+    "Extract the existing geography route body into the S22 host and leave the route as a thin default re-export.",
+    "Represent loading, initial error, loaded data, and stale loaded data explicitly; initial failure removes the skeleton and offers Retry.",
+    "Use the shared focus/foreground refresh only while the screen is clean, preserving active node and area drafts.",
+    "Bind place searches, resolves, and pending areas to city, query, Places session, and request generation; invalidate ownership on selection, query change, and unmount.",
+    "Require pendingArea.cityId to equal the selected city before save, persist its originating city and coordinates, ignore stale UI completions, and refetch after a successful write.",
+    "Bind node and area save completions to the exact submitted draft version so a late success or error cannot clear or overwrite newer edits."
+  ],
+  "acceptance": [
+    {
+      "case": "CM_GEO_INITIAL_ERROR",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PASS"
+    },
+    {
+      "case": "CM_GEO_STALE_PLACE",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PASS"
+    },
+    {
+      "case": "CM_GEO_STALE_QUERY",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PASS"
+    },
+    {
+      "case": "CM_GEO_SAVE_PARENT_MATCH",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PASS"
+    },
+    {
+      "case": "CM_GEO_NODE_SAVE_VERSION",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PASS"
+    },
+    {
+      "case": "CM_GEO_AREA_SAVE_VERSION",
+      "test": "app/src/components/__tests__/AdminGeographyScreen.test.tsx",
+      "result": "PASS"
+    }
+  ],
+  "sqlFunctions": [],
+  "sqlObjects": [],
+  "migrationClaims": [],
+  "allocatedMigrationFilenames": [],
+  "featureKeys": [],
+  "approvals": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "E1": "PENDING"
+  },
+  "validation": {
+    "codespaceApp": {
+      "result": "UNAVAILABLE",
+      "phase": "before_selection",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.AdminGeographyScreen[.]test[.]tsx$'",
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "snapshotBranch": "wip/qs-oorva-o31-cm10",
+      "snapshotCommit": "133478a7",
+      "testsExecuted": false,
+      "reason": "The Codespace could not authenticate to fetch the pushed WIP ref; failure occurred before test selection, so no cases ran."
+    },
+    "laneCi": {
+      "result": "PASS",
+      "priorRunId": 44914587502,
+      "priorHeadSha": "7eeb88505f67be01fae77b7625a4a1b5aec56bc8",
+      "priorConclusion": "FAILURE",
+      "priorFailures": [
+        "The AdminGeographyScreen test suite was rejected by the Jest mock hoister because its updater parameter name was not mock-prefixed; 78 suites and 519 tests passed, while this suite did not start."
+      ],
+      "priorFix": "Rename the updater parameter to mockCurrent.",
+      "priorFixStatus": "RESOLVED",
+      "secondPriorRunId": 44915302525,
+      "secondPriorHeadSha": "ae89e45bf9d80ce57804e6a7f5285e60dd40047c",
+      "secondPriorConclusion": "FAILURE",
+      "secondPriorFailures": [
+        "All four new cases failed in afterEach because the fake hook-slot array is sparse and cleanup dereferenced an undefined slot; 78 suites and 519 tests passed."
+      ],
+      "secondPriorFixStatus": "RESOLVED",
+      "fix": "Use optional chaining for sparse hook-slot cleanup.",
+      "fixStatus": "RESOLVED",
+      "previousSuccessfulRunId": 44916760416,
+      "previousSuccessfulHeadSha": "333b1f56637747fcf0c80cba7bd79193623b05ce",
+      "previousSuccessfulConclusion": "SUCCESS",
+      "runId": 44919576948,
+      "headSha": "4be2527fa5a1047ea79d4e2a864f4ea494c4f937",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "PASS",
+        "app": "PASS (typecheck; 79 suites and 525 tests, including both save-version tests)",
+        "sql": "PASS",
+        "privatePostgres": "PASS",
+        "tooling": "PASS",
+        "deno": "PASS"
+      }
+    },
+    "diffCheck": "PASS"
+  },
+  "reviewRequired": "concurrency",
+  "reviewStatus": "pending_coordinator",
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "productionActions": "none",
+  "mainActions": "none"
+}

@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O31-CM14",
+  "workPackage": "O31",
+  "sourceTaskIds": [
+    "CM-T14"
+  ],
+  "sourceFindingIds": [
+    "CM-F18"
+  ],
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t14",
+  "placementProjection": "docs/design/oorva/audit/communications.json",
+  "base": {
+    "implementationSha": "5036119b9a2de1d0401e69c457c88aa0bef7a49a",
+    "planSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O31-CM08",
+        "sha": "a0edf997f6e334f9b6a2f20b1c33a09c5aa8d690",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O31-CM09",
+        "sha": "e8ee45152f790240a54126e67f1d83eabb9416f3",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O31-CM10",
+        "sha": "d0c4f8c9cc807e1a8da6df55b7ef646e6c0cc88c",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O31-CM11",
+        "sha": "00a234e529f2edeaca62aabd44cc41d5127635d7",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O03",
+        "sha": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O05I",
+        "sha": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O06B",
+        "sha": "de989f95e5d57f78540417587023318afef123c6",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O08",
+        "sha": "7479864f743024b8e80ac26fea071a8962ed6265",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O10",
+        "sha": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+        "state": "DONE"
+      }
+    ]
+  },
+  "workerOwnedFiles": [
+    "app/app/admin/ai.tsx",
+    "app/src/components/__tests__/AdminConfigPresentation.test.tsx",
+    "app/src/features/communicationScreens/AdminAiScreen.tsx",
+    "app/src/features/communicationScreens/AdminCategoryDetailScreen.tsx",
+    "app/src/features/communicationScreens/AdminFeaturesScreen.tsx",
+    "app/src/features/communicationScreens/AdminGeographyScreen.tsx",
+    "app/src/features/communicationScreens/AdminRulesScreen.tsx",
+    "app/src/features/communicationScreens/AdminServicesScreen.tsx",
+    "docs/design/oorva/evidence/o31-cm14.json"
+  ],
+  "changedFiles": [
+    "app/app/admin/ai.tsx",
+    "app/src/components/__tests__/AdminConfigPresentation.test.tsx",
+    "app/src/features/communicationScreens/AdminAiScreen.tsx",
+    "app/src/features/communicationScreens/AdminCategoryDetailScreen.tsx",
+    "app/src/features/communicationScreens/AdminFeaturesScreen.tsx",
+    "app/src/features/communicationScreens/AdminGeographyScreen.tsx",
+    "app/src/features/communicationScreens/AdminRulesScreen.tsx",
+    "app/src/features/communicationScreens/AdminServicesScreen.tsx",
+    "docs/design/oorva/evidence/o31-cm14.json"
+  ],
+  "implementation": [
+    "Extracted the existing AI usage screen into the O31-CM14 host, left the route as a thin default export, and retained request/error/zero and cost/token calculations.",
+    "Consumed the effective oorva_admin_config_ux state for presentation-only changes; no flag internals or shared Screen defaults were changed.",
+    "Added compact category hierarchy and a persistent Screen.footer that keeps category write, canonical-readback, dirty, and error states together.",
+    "Added dynamic feature-registry search and complete service archetype/group filters while preserving unknown registry keys.",
+    "Added geography search, UUID-backed ancestry navigation, contextual child creation, effective-visibility explanations, and raw child toggles.",
+    "Added booking-rules section navigation and persistent save/error footer without changing sequential partial-save behavior."
+  ],
+  "requiredCases": [
+    "CM_AI_PERIOD_CONTEXT",
+    "CM_AI_REQUEST_VS_EVENT",
+    "CM_AI_UNITS",
+    "CM_CATEGORY_SAVE_FOOTER",
+    "CM_RULES_FOOTER",
+    "CM_FLAGS_SEARCH_DYNAMIC",
+    "CM_GEO_ANCESTRY",
+    "CM_GEO_PARENT_OFF",
+    "CM_GEO_DISABLE_RETAIN_CHILDREN",
+    "CM_SERVICES_FILTERS",
+    "CM_ADMIN_CONFIG_PRESENTATION_MATRIX"
+  ],
+  "scope": {
+    "newFeatureFlags": [],
+    "featureKeysConsumed": [
+      "oorva_admin_config_ux"
+    ],
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "coordinatorOwnedFiles": [],
+    "publicNativeOrLiveMoneyCutover": "none"
+  },
+  "validation": {
+    "codespaceApp": {
+      "result": "UNAVAILABLE",
+      "phase": "before_selection",
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "suite": "app",
+      "filter": "src.components.__tests__.AdminConfigPresentation[.]test[.]tsx$",
+      "testsExecuted": false,
+      "reason": "error getting codespaces: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30)\nThis API operation needs the \"codespace\" scope. To request it, run:  gh auth refresh -h github.com -s codespace"
+    },
+    "gitDiffCheck": "PASS",
+    "laneCi": "Fallback required because Codespace test selection was unavailable; final run details are reported in the author handoff."
+  },
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "gateStatus": {
+    "E0": "APPROVED",
+    "E1": "COORDINATOR_ONLY"
+  },
+  "productionActions": "none",
+  "mainActions": "none"
+}
