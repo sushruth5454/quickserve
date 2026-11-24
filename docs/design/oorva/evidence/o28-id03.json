@@ -8,7 +8,7 @@
     "ID-F16"
   ],
   "dispatchOrder": 55,
-  "status": "WORKER_FILES_IMPLEMENTED_AWAITING_REGISTRATION",
+  "status": "VALIDATION_PENDING_LANE_CI",
   "base": {
     "branch": "lane/oorva-o28-id03",
     "implementationBaseHead": "24ca793c69e8dcac5d93761ac2232c1957ee71fc",
@@ -64,37 +64,43 @@
   ],
   "registration": {
     "owner": "coordinator",
-    "status": "PAUSED_FOR_REGISTRATION",
-    "checkpointCommit": "worker-owned files-only checkpoint; exact SHA reported in handoff",
+    "status": "COMPLETE",
+    "checkpointCommit": "eef5629e32d1ef702b3a7a6f87712db998a1a6c7",
+    "registrationCommit": "ef6642c452ec7eedf125a002c1a40190920ee331",
+    "mergeMethod": "FF_ONLY_SUCCESS",
+    "registeredChanges": [
+      "supabase/tests/package.json"
+    ],
     "sharedFilesTouched": [],
     "testSelector": "id_business_context",
     "migrationParserSelector": "o28_id03_oorva.sql"
   },
   "validation": {
-    "gitDiffCheck": "PENDING_CHECKPOINT",
+    "gitDiffCheck": "PASS_AFTER_REGISTRATION_MERGE",
     "codespace": {
-      "status": "PENDING_REGISTRATION_MERGE",
-      "detail": "The required selectors are deferred until the coordinator registration commit is merged; no Windows app or SQL tests were run."
+      "status": "UNAVAILABLE_NO_SELECTION",
+      "detail": "The current-main helper's gh codespace list call returned HTTP 404 for https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30 and reported that the GitHub token needs the codespace scope. The helper then emitted InvalidOperation because no Codespace value was returned. No selector ran; no auth scope change was attempted."
     },
     "selectors": [
       {
         "suite": "app",
         "selector": "src.features.merchantStaff.__tests__.api[.]test[.]ts$",
-        "status": "PENDING_REGISTRATION_MERGE"
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE"
       },
       {
         "suite": "sql",
         "selector": "id_business_context",
-        "status": "PENDING_REGISTRATION_MERGE"
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE"
       },
       {
         "suite": "sql",
         "selector": "o28_id03_oorva.sql",
-        "status": "PENDING_REGISTRATION_MERGE"
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE"
       }
     ],
     "laneCi": {
-      "status": "PENDING_REGISTRATION_AND_CODESPACE_VALIDATION",
+      "status": "PENDING_PERMITTED_CODESPACE_FALLBACK",
+      "fallback": "Exact-head Lane CI only",
       "exactHeadRunId": null
     },
     "focusedAuthReview": {
