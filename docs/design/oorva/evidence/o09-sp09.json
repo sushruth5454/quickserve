@@ -1,0 +1,33 @@
+{
+  "stageId": "O09-SP09",
+  "workPackage": "O09",
+  "sourceTaskId": "SP-T09",
+  "findingId": "SP-F13",
+  "status": "implemented",
+  "implementationBase": "4846fb136ac242cc3d00369fc0b2dce1fb15f5ba",
+  "currentMainBase": "4846fb136ac242cc3d00369fc0b2dce1fb15f5ba",
+  "fixForwardBranch": "lane/oorva-o09-sp09-fixforward-d5ed",
+  "preservedDependency": "O20-SP05 f642f93903c0a23aea7d507295edd9bda7a71fe6",
+  "migrations": [],
+  "featureFlagsChanged": [],
+  "oorvaBrand": "OFF",
+  "implemented": [
+    "useSportsReadRefresh directly aliases shared useEntityRefresh with its contextKey/enabled/intervalMs contract",
+    "AdminSportsScreen uses guarded 60-second focused review refresh; the route remains a thin host export and unsaved review reasons remain local",
+    "Owner management, activity discovery, customer booking list, venue slot selection, booking detail, and checkout use guarded focused reads",
+    "Existing 60-second management/list/detail and 30-second slot/checkout read cadences use the shared refresh controller; prior slot/checkout read intervals were removed",
+    "Activity discovery and booking-list route bodies were extracted to feature hosts while preserving route paths and navigation intent",
+    "Stale async reads are ignored after guard invalidation; owner form draft merge behavior and selection/idempotency handling are retained"
+  ],
+  "codespaceValidation": {
+    "status": "blocked",
+    "helperSource": "origin/main at 4846fb136ac242cc3d00369fc0b2dce1fb15f5ba",
+    "attemptedSelector": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.sports.sports.__tests__.readRefresh[.]test[.]ts$'",
+    "error": "HTTP 404: Not Found for the Codespaces API; the operation requires the codespace scope. The helper then failed because its Codespace selection result was null.",
+    "followUp": "Did not refresh credentials. Codespace discovery failed before selector execution; use the lane-CI fallback. The remaining selectors were not run."
+  },
+  "adminHostResolved": "O09-SP02 AdminSportsScreen host is present on the fix-forward base and was edited without changing app/app/admin/sports.tsx.",
+  "validationNotes": "Lane CI fallback is required; passing validation is reported against the exact pushed head separately.",
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "liveMoneyOrHistoricalOperations": false
+}

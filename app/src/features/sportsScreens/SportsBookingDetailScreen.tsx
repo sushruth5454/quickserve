@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useToast } from '../../components/ui';
@@ -12,6 +12,7 @@ import {
 import { useAuth } from '../../lib/auth';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
+import { useSportsReadRefresh } from '../sports/useSportsReadRefresh';
 
 function slotLabel(value: string) {
   return new Date(value).toLocaleString('en-IN', {
@@ -35,20 +36,22 @@ function useSportsBookingDetailController() {
   const [now, setNow] = useState(Date.now());
   const refreshedBoundaries = useRef(new Set<string>());
 
-  const load = useCallback(async () => {
+  const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!id) return;
     try {
       const next = await getCustomerSportsBooking(id);
+      if (!guard.isCurrent()) return;
       setBooking(next);
       setError(next ? null : 'This booking is not available.');
     } catch (caught) {
-      setError((caught as Error).message);
+      if (guard.isCurrent()) setError((caught as Error).message);
     }
   }, [id]);
-
-  useFocusEffect(useCallback(() => {
-    void load();
-  }, [load]));
+  const { refresh: load } = useSportsReadRefresh(loadForRefresh, {
+    contextKey: `sports-booking:${id ?? ''}:${userId ?? ''}`,
+    enabled: !!id,
+    intervalMs: 60_000,
+  });
 
   useEffect(() => {
     refreshedBoundaries.current.clear();
