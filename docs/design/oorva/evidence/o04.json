@@ -52,7 +52,9 @@
     "privateHttpTest": {
       "packageFile": "supabase\\tests-postgres\\package.json",
       "addition": "Append branding_assets.http.test.mjs to httpIntegrationTests.",
-      "selector": "node run.mjs --filter branding_assets.http.test.mjs"
+      "selector": "node run.mjs --filter branding_assets.http.test.mjs",
+      "registrationCommit": "2e17b0751ebc67a55c2aa9cccb41383d54c378df",
+      "selectionProof": "PASS: branding_assets.http.test.mjs appears exactly once in httpIntegrationTests and the exact filter selects one HTTP test; selection proof only, not execution."
     },
     "laneCi": {
       "file": ".github\\workflows\\lane-ci.yml",
@@ -84,9 +86,14 @@
         "status": "NOT_RUN_PENDING_REGISTRATION"
       }
     ],
-    "codespaceDeno": "NOT_RUN_PENDING_REGISTRATION",
-    "privateHttpSelection": "PENDING_COORDINATOR_REGISTRATION",
-    "laneCi": "NOT_PUSHED",
+    "codespaceDeno": {
+      "status": "FAILED_BEFORE_TEST_SELECTION",
+      "error": "HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then raised InvalidOperation because the Codespace list was null.",
+      "credentialRefresh": "NOT_ATTEMPTED",
+      "fallback": "Exact-head Lane CI required; no Codespace PASS claimed."
+    },
+    "privateHttpSelection": "COORDINATOR_SELECTION_PASS; actual execution pending Lane CI fallback.",
+    "laneCi": "PENDING_EXACT_HEAD",
     "focusedAuthReview": "PENDING",
     "gitDiffCheck": "PASS",
     "evidenceJsonParse": "PASS",
