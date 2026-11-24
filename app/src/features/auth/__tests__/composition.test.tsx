@@ -383,8 +383,18 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
     const inviteTree = render(() => ByoScreen({ token: 'invite-123' }));
     const inviteText = elements(inviteTree, 'Text')
       .map((text) => Array.isArray(text.props.children) ? text.props.children.join('') : text.props.children);
-    expect(inviteText, JSON.stringify(inviteText) ?? '').toContain('OORVA PROTECTED BOOKING');
-    expect(mockIdentityContexts, JSON.stringify(mockIdentityContexts) ?? '').toContain('protectedInvite');
+    expect({
+      values: inviteText,
+      json: JSON.stringify(inviteText) ?? 'null',
+    }).toMatchObject({
+      values: expect.arrayContaining(['OORVA PROTECTED BOOKING']),
+    });
+    expect({
+      contexts: mockIdentityContexts,
+      json: JSON.stringify(mockIdentityContexts) ?? 'null',
+    }).toMatchObject({
+      contexts: expect.arrayContaining(['protectedInvite']),
+    });
 
     mockRuntime.hookIndex = 0;
     mockRuntime.states = [];
