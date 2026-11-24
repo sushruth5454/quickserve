@@ -129,6 +129,8 @@ function quote(status: 'sent' | 'rejected') {
     arrives_after_needed_by: false,
     delivery_terms_missing: false,
     items: [],
+    can_select: status === 'sent',
+    selection_block_reason: status === 'sent' ? null : 'closed',
   };
 }
 

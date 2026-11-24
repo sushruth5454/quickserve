@@ -174,7 +174,7 @@ describe('RFQ quote comparison presentation', () => {
     ], beforeDeadlines);
 
     expect(presentation.selectableQuoteIds).toEqual([]);
-    expect(presentation.rows[0].pricePaise).toBe(144);
+    expect(presentation.rows[0]?.pricePaise).toBe(144);
   });
 
   it('keeps a live incomplete offer selectable but never lowest complete', () => {

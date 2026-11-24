@@ -79,7 +79,7 @@ async function createRfq(fixture, title) {
   `, [
     fixture.categoryId,
     `O19 MK06 ${title} ${randomUUID()}`,
-    JSON.stringify([{ description: 'Ceramic tile', specs: { finish: 'matte' }, quantity: 2, unit: 'box' }]),
+    JSON.stringify([{ description: 'Ceramic tile', specs: {}, quantity: 2, unit: 'box' }]),
     'Vijayawada',
     'Benz Circle',
     16.5,
@@ -99,7 +99,7 @@ async function sendQuote(fixture, rfqId) {
     rfq_item_id: item.id,
     brand: 'Aster',
     model: 'A-7',
-    specs: { finish: 'matte' },
+    specs: {},
     unit_price_paise: 1234,
     gst_rate_bp: 1800,
     available: true,
