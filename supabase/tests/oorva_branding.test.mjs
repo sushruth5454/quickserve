@@ -11,6 +11,16 @@ const OORVA_KEYS = [
   'oorva_venue_ops_ux', 'oorva_admin_ops_ux', 'oorva_admin_config_ux',
   'oorva_admin_money_ux', 'oorva_ai_ux', 'oorva_external_brand',
 ];
+const STATUS_FLAGS = ['oorva_brand', 'branding_runtime', 'branding_editor'];
+const ASSET_STATUS_FIELDS = [
+  'id', 'object_path', 'sha256', 'mime_type', 'byte_length',
+  'width', 'height', 'validated_at', 'published_once', 'revoked_at',
+];
+const ASSET_STATUS_FLAGS = ['oorva_brand', 'branding_runtime', 'branding_editor'];
+const ASSET_STATUS_FIELDS = [
+  'id', 'object_path', 'sha256', 'mime_type', 'byte_length',
+  'width', 'height', 'validated_at', 'published_once', 'revoked_at',
+];
 const ADMIN_ID = '00000000-0000-4000-8000-000000000031';
 const NON_ADMIN_ID = '00000000-0000-4000-8000-000000000032';
 const uuid = (number) => `00000000-0000-4000-8000-${String(number).padStart(12, '0')}`;
@@ -575,6 +585,359 @@ await scenario('O03-assets-revocation-recovery-and-money-safety', async () => {
     'existing payment/refund/payout/expiry/cancellation routines have no Oorva appearance gate',
     moneyGates.rows,
   );
+});
+
+await scenario('O03-asset-status-service-role-only-works-with-flags-off', async () => {
+  const uploadedBy = uuid(9510);
+  const activeAssetId = uuid(9511);
+  const revokedAssetId = uuid(9512);
+  const missingAssetId = uuid(9513);
+  const previousFlags = (await db.query(
+    `select key, enabled
+       from public.feature_flags
+      where key = any($1::text[])
+      order by key`,
+    [OORVA_KEYS],
+  )).rows;
+  check(
+    previousFlags.length === OORVA_KEYS.length,
+    'asset-status fixture can snapshot all O03 flag values',
+    previousFlags,
+  );
+
+  try {
+    await ensureUser(uploadedBy);
+    await db.query(
+      `insert into public.app_branding_assets (
+         id, object_path, sha256, mime_type, byte_length, width, height,
+         uploaded_by, validated_at, published_once
+       ) values (
+         $1::uuid, $2::text, $3::text, 'image/png', $4::bigint, $5::integer, $6::integer,
+         $7::uuid, now(), true
+       )`,
+      [activeAssetId, `branding/${activeAssetId}.png`, 'a'.repeat(64), 256, 64, 64, uploadedBy],
+    );
+    await db.query(
+      `insert into public.app_branding_assets (
+         id, object_path, sha256, mime_type, byte_length, width, height,
+         uploaded_by, validated_at, published_once, revoked_at, revoked_by, revoke_reason
+       ) values (
+         $1::uuid, $2::text, $3::text, 'image/png', $4::bigint, $5::integer, $6::integer,
+         $7::uuid, now(), true, now(), $7::uuid, $8::text
+       )`,
+      [revokedAssetId, `branding/${revokedAssetId}.png`, 'b'.repeat(64), 512, 64, 64, uploadedBy, 'status fixture'],
+    );
+
+    await setFlags([]);
+    const effectiveStatusFlags = await db.query(
+      `select key, public._oorva_feature_enabled(key) as effective
+         from public.feature_flags
+        where key = any($1::text[])
+        order by key`,
+      [STATUS_FLAGS],
+    );
+    check(
+      effectiveStatusFlags.rows.length === STATUS_FLAGS.length
+        && effectiveStatusFlags.rows.every((row) => row.effective === false),
+      'branding status is queried with every effective O03 flag OFF',
+      effectiveStatusFlags.rows,
+    );
+
+    const privileges = await db.query(`
+      select
+        has_function_privilege(
+          'service_role',
+          'public.service_get_branding_asset_status(uuid)',
+          'EXECUTE'
+        ) as service_execute,
+        has_function_privilege(
+          'anon',
+          'public.service_get_branding_asset_status(uuid)',
+          'EXECUTE'
+        ) as anon_execute,
+        has_function_privilege(
+          'authenticated',
+          'public.service_get_branding_asset_status(uuid)',
+          'EXECUTE'
+        ) as authenticated_execute,
+        has_table_privilege('service_role', 'public.app_branding_assets', 'SELECT') as service_table_select,
+        has_table_privilege('anon', 'public.app_branding_assets', 'SELECT') as anon_table_select,
+        has_table_privilege('authenticated', 'public.app_branding_assets', 'SELECT') as authenticated_table_select
+    `);
+    check(
+      JSON.stringify(privileges.rows[0]) === JSON.stringify({
+        service_execute: true,
+        anon_execute: false,
+        authenticated_execute: false,
+        service_table_select: false,
+        anon_table_select: false,
+        authenticated_table_select: false,
+      }),
+      'only service_role may execute status RPC and no role receives direct table SELECT',
+      privileges.rows,
+    );
+
+    const activeStatus = await as(
+      '',
+      'service_role',
+      `select * from public.service_get_branding_asset_status($1::uuid)`,
+      [activeAssetId],
+    );
+    check(
+      activeStatus.length === 1
+        && activeStatus[0].id === activeAssetId
+        && activeStatus[0].object_path === `branding/${activeAssetId}.png`
+        && activeStatus[0].sha256 === 'a'.repeat(64)
+        && activeStatus[0].mime_type === 'image/png'
+        && Number(activeStatus[0].byte_length) === 256
+        && activeStatus[0].width === 64
+        && activeStatus[0].height === 64
+        && Boolean(activeStatus[0].validated_at)
+        && activeStatus[0].published_once === true
+        && activeStatus[0].revoked_at === null,
+      'service status resolves a published asset while all O03 flags are OFF',
+      activeStatus,
+    );
+    check(
+      JSON.stringify(Object.keys(activeStatus[0] ?? {}).sort()) === JSON.stringify([...ASSET_STATUS_FIELDS].sort()),
+      'asset status exposes only the safe O04 fields and no uploader or revocation actor',
+      { keys: Object.keys(activeStatus[0] ?? {}).sort(), row: activeStatus },
+    );
+
+    const revokedStatus = await as(
+      '',
+      'service_role',
+      `select * from public.service_get_branding_asset_status($1::uuid)`,
+      [revokedAssetId],
+    );
+    check(
+      revokedStatus.length === 1
+        && revokedStatus[0].id === revokedAssetId
+        && revokedStatus[0].published_once === true
+        && Boolean(revokedStatus[0].revoked_at),
+      'service status returns revocation state without returning its actor or reason',
+      revokedStatus,
+    );
+    const missingStatus = await as(
+      '',
+      'service_role',
+      `select * from public.service_get_branding_asset_status($1::uuid)`,
+      [missingAssetId],
+    );
+    check(
+      missingStatus.length === 0,
+      'unknown asset IDs return no status row',
+      { missingAssetId, rows: missingStatus },
+    );
+
+    for (const role of ['anon', 'authenticated']) {
+      await expectRejected(
+        () => as('', role, `select * from public.service_get_branding_asset_status($1::uuid)`, [activeAssetId]),
+        /permission denied/,
+        `${role} cannot execute the service asset-status RPC`,
+      );
+      await expectRejected(
+        () => as('', role, `select id from public.app_branding_assets where id = $1::uuid`, [activeAssetId]),
+        /permission denied/,
+        `${role} cannot directly read asset metadata`,
+      );
+    }
+    await expectRejected(
+      () => as('', 'service_role', `select id from public.app_branding_assets where id = $1::uuid`, [activeAssetId]),
+      /permission denied/,
+      'service_role cannot directly read asset metadata',
+    );
+  } finally {
+    for (const flag of previousFlags) {
+      await db.query(
+        `update public.feature_flags set enabled = $2::boolean where key = $1::text`,
+        [flag.key, flag.enabled],
+      );
+    }
+    await db.query(
+      `delete from public.app_branding_assets where id = any($1::uuid[])`,
+      [[activeAssetId, revokedAssetId]],
+    );
+    await db.query(
+      `delete from auth.users where id = $1::uuid`,
+      [uploadedBy],
+    );
+  }
+});
+
+await scenario('O03-asset-status-service-role-only-works-with-flags-off', async () => {
+  const uploadedBy = uuid(9510);
+  const activeAssetId = uuid(9511);
+  const revokedAssetId = uuid(9512);
+  const missingAssetId = uuid(9513);
+  const previousFlags = (await db.query(
+    `select key, enabled
+       from public.feature_flags
+      where key = any($1::text[])
+      order by key`,
+    [OORVA_KEYS],
+  )).rows;
+  check(
+    previousFlags.length === OORVA_KEYS.length,
+    'asset-status fixture can snapshot all O03 flag values',
+    previousFlags,
+  );
+
+  try {
+    await ensureUser(uploadedBy);
+    await db.query(
+      `insert into public.app_branding_assets (
+         id, object_path, sha256, mime_type, byte_length, width, height,
+         uploaded_by, validated_at, published_once
+       ) values (
+         $1::uuid, $2::text, $3::text, 'image/png', $4::bigint, $5::integer, $6::integer,
+         $7::uuid, now(), true
+       )`,
+      [activeAssetId, `branding/${activeAssetId}.png`, 'a'.repeat(64), 256, 64, 64, uploadedBy],
+    );
+    await db.query(
+      `insert into public.app_branding_assets (
+         id, object_path, sha256, mime_type, byte_length, width, height,
+         uploaded_by, validated_at, published_once, revoked_at, revoked_by, revoke_reason
+       ) values (
+         $1::uuid, $2::text, $3::text, 'image/png', $4::bigint, $5::integer, $6::integer,
+         $7::uuid, now(), true, now(), $7::uuid, $8::text
+       )`,
+      [revokedAssetId, `branding/${revokedAssetId}.png`, 'b'.repeat(64), 512, 64, 64, uploadedBy, 'status fixture'],
+    );
+
+    await setFlags([]);
+    const effectiveStatusFlags = await db.query(
+      `select key, public._oorva_feature_enabled(key) as effective
+         from public.feature_flags
+        where key = any($1::text[])
+        order by key`,
+      [ASSET_STATUS_FLAGS],
+    );
+    check(
+      effectiveStatusFlags.rows.length === ASSET_STATUS_FLAGS.length
+        && effectiveStatusFlags.rows.every((row) => row.effective === false),
+      'branding status is queried with every effective O03 flag OFF',
+      effectiveStatusFlags.rows,
+    );
+
+    const privileges = await db.query(`
+      select
+        has_function_privilege(
+          'service_role',
+          'public.service_get_branding_asset_status(uuid)',
+          'EXECUTE'
+        ) as service_execute,
+        has_function_privilege(
+          'anon',
+          'public.service_get_branding_asset_status(uuid)',
+          'EXECUTE'
+        ) as anon_execute,
+        has_function_privilege(
+          'authenticated',
+          'public.service_get_branding_asset_status(uuid)',
+          'EXECUTE'
+        ) as authenticated_execute,
+        has_table_privilege('service_role', 'public.app_branding_assets', 'SELECT') as service_table_select,
+        has_table_privilege('anon', 'public.app_branding_assets', 'SELECT') as anon_table_select,
+        has_table_privilege('authenticated', 'public.app_branding_assets', 'SELECT') as authenticated_table_select
+    `);
+    check(
+      JSON.stringify(privileges.rows[0]) === JSON.stringify({
+        service_execute: true,
+        anon_execute: false,
+        authenticated_execute: false,
+        service_table_select: false,
+        anon_table_select: false,
+        authenticated_table_select: false,
+      }),
+      'only service_role may execute status RPC and no role receives direct table SELECT',
+      privileges.rows,
+    );
+
+    const activeStatus = await as(
+      '',
+      'service_role',
+      `select * from public.service_get_branding_asset_status($1::uuid)`,
+      [activeAssetId],
+    );
+    check(
+      activeStatus.length === 1
+        && activeStatus[0].id === activeAssetId
+        && activeStatus[0].object_path === `branding/${activeAssetId}.png`
+        && activeStatus[0].sha256 === 'a'.repeat(64)
+        && activeStatus[0].mime_type === 'image/png'
+        && Number(activeStatus[0].byte_length) === 256
+        && activeStatus[0].width === 64
+        && activeStatus[0].height === 64
+        && Boolean(activeStatus[0].validated_at)
+        && activeStatus[0].published_once === true
+        && activeStatus[0].revoked_at === null,
+      'service status resolves a published asset while all O03 flags are OFF',
+      activeStatus,
+    );
+    check(
+      JSON.stringify(Object.keys(activeStatus[0] ?? {}).sort()) === JSON.stringify([...ASSET_STATUS_FIELDS].sort()),
+      'asset status exposes only the safe O04 fields and no uploader or revocation actor',
+      { keys: Object.keys(activeStatus[0] ?? {}).sort(), row: activeStatus },
+    );
+
+    const revokedStatus = await as(
+      '',
+      'service_role',
+      `select * from public.service_get_branding_asset_status($1::uuid)`,
+      [revokedAssetId],
+    );
+    check(
+      revokedStatus.length === 1
+        && revokedStatus[0].id === revokedAssetId
+        && revokedStatus[0].published_once === true
+        && Boolean(revokedStatus[0].revoked_at),
+      'service status returns revocation state without returning its actor or reason',
+      revokedStatus,
+    );
+    const missingStatus = await as(
+      '',
+      'service_role',
+      `select * from public.service_get_branding_asset_status($1::uuid)`,
+      [missingAssetId],
+    );
+    check(
+      missingStatus.length === 0,
+      'unknown asset IDs return no status row',
+      { missingAssetId, rows: missingStatus },
+    );
+
+    for (const role of ['anon', 'authenticated']) {
+      await expectRejected(
+        () => as('', role, `select * from public.service_get_branding_asset_status($1::uuid)`, [activeAssetId]),
+        /permission denied/,
+        `${role} cannot execute the service asset-status RPC`,
+      );
+      await expectRejected(
+        () => as('', role, `select id from public.app_branding_assets where id = $1::uuid`, [activeAssetId]),
+        /permission denied/,
+        `${role} cannot directly read asset metadata`,
+      );
+    }
+    await expectRejected(
+      () => as('', 'service_role', `select id from public.app_branding_assets where id = $1::uuid`, [activeAssetId]),
+      /permission denied/,
+      'service_role cannot directly read asset metadata',
+    );
+  } finally {
+    for (const flag of previousFlags) {
+      await db.query(
+        `update public.feature_flags set enabled = $2::boolean where key = $1::text`,
+        [flag.key, flag.enabled],
+      );
+    }
+    await db.query(
+      `delete from public.app_branding_assets where id = any($1::uuid[])`,
+      [[activeAssetId, revokedAssetId]],
+    );
+    await db.query(`delete from auth.users where id = $1::uuid`, [uploadedBy]);
+  }
 });
 
 finish();
