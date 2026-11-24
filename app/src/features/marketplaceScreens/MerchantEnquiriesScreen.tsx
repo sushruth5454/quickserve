@@ -34,7 +34,6 @@ export default function MerchantEnquiriesScreen() {
       {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved enquiry history. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
       {!features.enquiries ? <Text variant="caption" color="muted">Existing enquiry history is read-only while product enquiries are turned off.</Text> : null}
-      <Button title="Manage my shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
       {loading && !hasRead ? <Skeleton height={80} radius={t.radii.lg} /> : enquiries.length ? enquiries.map((enquiry) => (
         <ListItem
           key={enquiry.id}
@@ -48,6 +47,7 @@ export default function MerchantEnquiriesScreen() {
       )) : hasRead ? (
         <EmptyState title="No enquiries yet" message="Customer questions will appear here." />
       ) : null}
+      <Button title="Manage my shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
     </Screen>
   );
 }
