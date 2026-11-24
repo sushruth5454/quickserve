@@ -81,10 +81,10 @@
       "credentialRefresh": "PROHIBITED"
     },
     "windowsBuildsAndTests": "NOT_RUN_BY_INSTRUCTION",
-    "privatePostgres": "PASS; lane CI run 45310161657, job 138163652007, implementation SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
-    "laneCi": "SUCCESS; run 45310161657 on implementation SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
-    "focusedConcurrencyReview": "PASS at implementation SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
-    "exactHeadLaneCiFallback": "SATISFIED_BY_RUN_45310161657"
+    "privatePostgres": "PASS for the original O19-MK26 implementation only; lane CI run 45310161657, job 138163652007, SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21. Does not validate the test-only follow-up.",
+    "laneCi": "SUCCESS for the original O19-MK26 implementation only; run 45310161657 at SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21. Does not validate the test-only follow-up.",
+    "focusedConcurrencyReview": "PASS for the original O19-MK26 implementation only at SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21. The test-only follow-up has not passed review.",
+    "exactHeadLaneCiFallback": "Original implementation only: run 45310161657 SUCCESS at SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21. No PASS for follow-up commits a8c37f9 or 74ee467; a new exact-head private-Postgres Lane CI run is pending review."
   },
   "testOnlyConcurrencyFollowUp": {
     "failedRun": {
@@ -103,13 +103,15 @@
     },
     "priorPassingRun": {
       "runId": 45310161657,
-      "privatePostgresJobId": 138163652007
+      "privatePostgresJobId": 138163652007,
+      "headSha": "66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+      "scope": "Original O19-MK26 implementation only; does not validate the test-only follow-up."
     },
     "rootCause": "The owned test launched as(second, ...) after acquiring the shop lock, but as() performs JWT-claim and role setup before the target RPC. waitForLockWait accepted any Lock event without verifying the query; the captured set_config query proves the observed backend had not reached start_product_enquiry. run.mjs and helpers.mjs were unchanged between the lane base and failed-run head.",
     "testOnlyFix": "Prepare the second backend's role before opening the first transaction, and only accept a Lock wait whose query is start_product_enquiry. The two-backend barrier and same-context reuse assertions remain.",
-    "testOnlyFixValidation": "NOT_YET_VALIDATED; coordinator review required before author validation",
-    "postFixPrivatePostgres": "NOT_RUN; coordinator review required before push, then author validation",
-    "review": "AWAITING_COORDINATOR_REVIEW"
+    "testOnlyFixValidation": "NOT_VALIDATED; pending focused-review re-check, then a new exact-head private-Postgres Lane CI run.",
+    "postFixPrivatePostgres": "NOT_RUN; a new exact-head private-Postgres Lane CI run is required after review. The original implementation PASS does not apply.",
+    "review": "NEEDS_CHANGES; evidence clarification pending focused-review re-check"
   },
   "featureFlags": {
     "flagsAddedOrEnabled": []
