@@ -24,6 +24,7 @@ jest.mock('../../../../components/ui', () => ({
   useConfirm: () => jest.fn().mockResolvedValue(true),
   useToast: () => jest.fn(),
 }));
+jest.mock('../../../../theme', () => ({ useTheme: jest.fn(() => ({})) }));
 jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
 jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../../lib/locationContext', () => ({ useSelectedLocation: jest.fn() }));
