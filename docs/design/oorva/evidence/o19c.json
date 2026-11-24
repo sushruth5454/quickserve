@@ -65,6 +65,14 @@
       "status": "PASS"
     },
     {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.rfq.__tests__.composition[.]test[.]tsx$'",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at ec2b3148a1d1765f70dba777ba9d3cf282e16995",
+      "snapshot": "wip/quickserve-new-o19c @ 6437985f",
+      "selectedTestFiles": 1,
+      "testsPassed": 5,
+      "status": "PASS"
+    },
+    {
       "command": "git diff --check",
       "status": "PASS"
     },
