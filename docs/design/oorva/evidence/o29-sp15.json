@@ -61,10 +61,12 @@
       "selectionReached": false,
       "fallback": "Exact-head Lane CI"
     },
-    "laneCi": {
-      "status": "PENDING",
-      "exactHead": null,
-      "runId": null
+    "implementationLaneCi": {
+      "status": "PASS",
+      "testedHead": "854b1400c751e1a00c1aa9476e9cbf0acc6a69c7",
+      "runId": 45335405486,
+      "appJob": "PASS",
+      "otherJobs": "Skipped because this stage adds no backend, SQL, Deno, tooling or private-Postgres changes."
     },
     "runtimeDeviceEvidence": "NOT_VERIFIED"
   }
