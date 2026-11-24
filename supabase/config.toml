@@ -37,3 +37,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.places]
 verify_jwt = true
+
+[functions.branding-assets]
+verify_jwt = false

@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O04",
+  "workPackage": "O04",
+  "status": "CODE_GREEN",
+  "base": {
+    "implementationBaseSha": "1f0128e9eb03f445cb1d9e33e59dc7e128170377",
+    "currentMainShaAtStart": "7479864f743024b8e80ac26fea071a8962ed6265",
+    "approvedO03StatusReadHead": "da9e3c8c1a275239fc5be982221235cc269492a8",
+    "doneDependencies": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O03": "99a9f22bb39fb159637852bf2eaffa797401abe9",
+      "O37A": "e48422e85d11e1bcfd97efa1eba54338d608d3d7"
+    },
+    "approvedO03AssetRegistration": "0103_o03_asset_registration.sql",
+    "approvedO03AssetStatusRead": "0105_o03_asset_status_read.sql"
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "E1": "APPROVED_FOR_DEVELOPMENT_AND_PROMOTION_SCOPE_ONLY",
+    "D02": "PENDING",
+    "D07": "PENDING"
+  },
+  "scope": {
+    "workerOwnedFiles": [
+      "supabase\\functions\\branding-assets\\index.ts",
+      "supabase\\functions\\branding-assets\\logic.ts",
+      "supabase\\functions\\branding-assets\\logic_test.ts",
+      "supabase\\functions\\branding-assets\\png.ts",
+      "supabase\\functions\\branding-assets\\png_test.ts",
+      "supabase\\tests-postgres\\branding_assets.http.test.mjs",
+      "docs\\design\\oorva\\evidence\\o04.json"
+    ],
+    "coordinatorApprovedConfigFile": "supabase\\config.toml",
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "featureKeys": [
+      "oorva_brand",
+      "branding_runtime",
+      "branding_editor"
+    ]
+  },
+  "implementation": {
+    "upload": "Raw image/png only; server-generated UUID and fixed branding/<uuid>.png path; complete PNG validation and metadata stripping precede upsert:false Storage upload; O03 service-role registration RPC is called only after verified user, admin role, and all parent flags are ON.",
+    "statusRead": "Calls service_get_branding_asset_status before Storage reads; public GET requires published_once and not revoked, preview requires validated and not revoked; fixed path/MIME/hash/size/dimensions must match.",
+    "preview": "Admin-only no-store JSON response with a same-project signed URL requested for 240 seconds; no caller JWT is placed in URL or persistent cache. The private-stack HTTP test uses the local Kong gateway authority to fetch URLs whose configured Edge origin is http://kong:8000.",
+    "publicServing": "Published asset response includes a content-hash ETag and public max-age/s-maxage of 300 seconds; revocation cannot recall already-downloaded or offline copies and may propagate through existing public caches until their bounded TTL expires. Already-issued private preview URLs may remain usable until their at-most-240-second expiry.",
+    "failureCleanup": "After a successful immutable Storage upload, registration failure removes only that request's generated object path. An upload error does not delete a possibly pre-existing collision path."
+  },
+  "coordinatorRegistration": {
+    "privateHttpTest": {
+      "packageFile": "supabase\\tests-postgres\\package.json",
+      "addition": "Append branding_assets.http.test.mjs to httpIntegrationTests.",
+      "selector": "node run.mjs --filter branding_assets.http.test.mjs",
+      "registrationCommit": "2e17b0751ebc67a55c2aa9cccb41383d54c378df",
+      "selectionProof": "PASS: branding_assets.http.test.mjs appears exactly once in httpIntegrationTests and the exact filter selects one HTTP test; selection proof only, not execution."
+    },
+    "laneCi": {
+      "file": ".github\\workflows\\lane-ci.yml",
+      "addition": "Existing generic private-postgres step runs node run.mjs and auto-discovers the registered HTTP test; local stack environment supplies loopback API/anon/service-role values."
+    },
+    "publicGateway": {
+      "file": "supabase\\config.toml",
+      "requiredEntry": "[functions.branding-assets]\\nverify_jwt = false",
+      "status": "ADDED_IN_THIS_CHECKPOINT; the gateway passes through anonymous GET so the handler can apply the published/non-revoked and parent-feature checks. Every admin POST still performs its own JWT/user/admin/parent validation before service-role Storage access."
+    },
+    "deployment": {
+      "file": ".github\\workflows\\deploy-backend.yml",
+      "status": "NOT_EDITED; production deployment/cutover is outside this stage and remains coordinator-controlled."
+    }
+  },
+  "validation": {
+    "workerTests": [
+      {
+        "path": "supabase\\functions\\branding-assets\\logic_test.ts",
+        "status": "Lane CI 45305774345 ran 9 logic tests successfully."
+      },
+      {
+        "path": "supabase\\functions\\branding-assets\\png_test.ts",
+        "status": "Lane CI 45305774345 ran 5 PNG tests successfully."
+      },
+      {
+        "path": "supabase\\tests-postgres\\branding_assets.http.test.mjs",
+        "selector": "node run.mjs --filter branding_assets.http.test.mjs",
+        "status": "AUTO_DISCOVERED_AND_PASS_IN_LANE_CI_45305774345 within 7 private tests."
+      }
+    ],
+    "codespaceDeno": {
+      "status": "FAILED_BEFORE_TEST_SELECTION",
+      "error": "HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then raised InvalidOperation because the Codespace list was null.",
+      "credentialRefresh": "NOT_ATTEMPTED",
+      "fallback": "Exact-head Lane CI required; no Codespace PASS claimed."
+    },
+    "privateHttpSelection": "COORDINATOR_SELECTION_PASS: exact filter selects one HTTP test; Lane CI auto-discovery selected and passed the O04 HTTP test in run 45305774345.",
+    "laneCi": "Run 45305774345 SUCCESS on exact head c977f28c8838502d13f3f0fa9333b4442b6f6dd3: Deno 161 passed/0 failed and checked 14 functions; private-postgres 7/7 passed, including branding_assets.http.test.mjs; SQL job passed.",
+    "focusedAuthReview": "PASS on exact head c977f28c8838502d13f3f0fa9333b4442b6f6dd3; no high/medium findings.",
+    "authReviewFinding": "Review found that an RPC response failure or a single absent status read could race a committed/in-flight registration. The adapter now classifies only O03's definite rejection SQLSTATEs (22023, 55000, 42501, P0002, 40001, 23505) as rejected; every unknown error, including 08007 and 40003, is ambiguous. Ambiguous results never delete based on an absent/mismatched/unavailable status and preserve bytes with deferred 503; cleanup follows only a definite rejection and successful status reconciliation.",
+    "firstLaneCiFailure": {
+      "run": "45302534185",
+      "deno": "TypeScript errors: ArrayBufferLike passed to crypto.subtle.digest/Response/Request body; Adam7 geometry tuple inference mismatch; DecompressionStream pipeThrough type mismatch.",
+      "privateHttp": "HTTP test selected and began; signed preview origin was http://kong:8000 while the runner reaches the local stack through http://127.0.0.1:54321. Test now verifies the configured origin and substitutes only the authority for the private loopback fetch.",
+      "authReview": "Initial registration reconciliation addressed the first review finding; second review required deferring cleanup for ambiguous in-flight outcomes.",
+      "fixes": "Byte views are copied to ArrayBuffer for WebCrypto/Request/Response; Adam7 geometry and the decompressor transform are explicitly typed; the private-stack test adapts only the signed URL authority for loopback fetch."
+    },
+    "gitDiffCheck": "PASS",
+    "evidenceJsonParse": "PASS",
+    "httpModuleSyntax": "NOT_RUN_NODE_NOT_ON_PATH",
+    "secondLaneCiRun": {
+      "run": "45303755182",
+      "denoTestSummary": "159 passed, 1 failed; missing-token test expected an auth lookup although the handler correctly rejects before lookup.",
+      "privatePostgresSummary": "7 passed; branding_assets.http.test.mjs selected and passed."
+    },
+    "thirdLaneCiRun": {
+      "run": "45304958141",
+      "head": "262f61c596dabe99ca03489f3e692c827d9482eb",
+      "deno": "160 passed, 0 failed; deno check completed for 14 functions.",
+      "privatePostgres": "7 passed; branding_assets.http.test.mjs selected and passed.",
+      "sql": "Passed."
+    },
+    "finalLaneCiRun": {
+      "run": "45305774345",
+      "head": "c977f28c8838502d13f3f0fa9333b4442b6f6dd3",
+      "conclusion": "SUCCESS",
+      "deno": "161 passed, 0 failed; deno check completed for 14 functions.",
+      "privatePostgres": "7 passed; branding_assets.http.test.mjs selected and passed.",
+      "sql": "Passed."
+    }
+  },
+  "rollout": {
+    "featureFlagsEnabled": false,
+    "publicAssetPublication": false,
+    "nativeInstalledDestinationChanges": false,
+    "hostedCredentialsOrLiveDataUsed": false,
+    "promotion": "Not authorized from this lane."
+  }
+}

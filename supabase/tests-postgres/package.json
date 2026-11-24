@@ -10,7 +10,9 @@
     "selftest": "node run.mjs --selftest",
     "selftest:guards": "node run.mjs --selftest-guards"
   },
-  "httpIntegrationTests": [],
+  "httpIntegrationTests": [
+    "branding_assets.http.test.mjs"
+  ],
   "dependencies": {
     "pg": "8.16.3"
   }
