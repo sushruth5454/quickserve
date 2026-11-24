@@ -264,7 +264,7 @@ describe('merchant workspace read and capability state', () => {
       && state.sameName === true
       && state.firstKey === 'sports:venue-1'
       && state.secondKey === 'sports:venue-2'
-      && state.firstKey !== state.secondKey);
+      && String(state.firstKey) !== String(state.secondKey));
   });
 
   it('ID-WORK-PARENT-OFF: hides child actions when a domain parent is off but preserves owner work under its parent', () => {
