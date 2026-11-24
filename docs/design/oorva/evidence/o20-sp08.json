@@ -123,7 +123,19 @@
       "localAppTests": "NOT_RUN"
     },
     "laneCi": {
-      "status": "PENDING_EXACT_HEAD_LANE_CI"
+      "status": "PENDING_RETRY_AFTER_TEST_FIX",
+      "previousRun": {
+        "runId": 45325927039,
+        "headSha": "12f2220675dc3c1c1bde7123fda80b99df3f7463",
+        "result": "FAIL",
+        "failedSuites": [
+          "app/src/features/sports/__tests__/bookingCardPresentation.test.ts",
+          "app/src/features/sports/sports/__tests__/bookingCardPresentation.test.ts"
+        ],
+        "summary": "126 suites passed and 2 failed; 888 tests passed, 1 skipped.",
+        "failure": "Both new suites failed to load because importing the React Native UI barrel reached expo-asset and React Native's Image mock, then Jest could not resolve react-native/react-private-interface.",
+        "fix": "Mock only React Native View and the Card/Badge/Text/Button UI primitives in the two presentation suites; assertions still inspect the shared card's returned element tree."
+      }
     },
     "privateE2E": "NOT_RUN_BY_WORKER"
   },

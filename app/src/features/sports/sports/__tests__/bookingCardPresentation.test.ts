@@ -3,6 +3,25 @@ import { Button, Card } from '../../../../components/ui';
 import { getSportsBookingCardPresentation, SportsBookingCard, type SportsBookingCardBooking } from '../../SportsBookingCard';
 import { getSportsBookingDeadline, getSportsBookingStatusLabel } from '../../model';
 
+jest.mock('react-native', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    View: (props: any) => React.createElement('View', props, props.children),
+  };
+});
+
+jest.mock('../../../../components/ui', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const createComponent = (name: string) => (props: any) =>
+    React.createElement(name, props, props.children);
+  return {
+    Badge: createComponent('Badge'),
+    Button: createComponent('Button'),
+    Card: createComponent('Card'),
+    Text: createComponent('Text'),
+  };
+});
+
 const booking: SportsBookingCardBooking = {
   id: 'sports-booking-known-pk',
   venue_name: 'North Court',
