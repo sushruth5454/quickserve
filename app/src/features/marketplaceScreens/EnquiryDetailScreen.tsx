@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { AppState, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import {
   getProductEnquiry,
@@ -11,6 +11,7 @@ import {
   type EnquiryMessage,
   type EnquiryThread,
 } from '../shops/api';
+import { enquiryPresentation } from '../shops/enquiryPresentation';
 import { useShopFeatureFlags } from '../shops/components';
 import { useAuth } from '../../lib/auth';
 import { useTheme } from '../../theme';
@@ -29,26 +30,66 @@ export default function ProductEnquiryScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hasRead, setHasRead] = useState(false);
+  const loadSequence = useRef(0);
+  const lastUserId = useRef(userId);
+  const lastEnquiryId = useRef(id);
 
   const load = useCallback(async () => {
     if (!id) return;
+    const request = ++loadSequence.current;
+    if (lastUserId.current !== userId || lastEnquiryId.current !== id) {
+      lastUserId.current = userId;
+      lastEnquiryId.current = id;
+      setThread(null);
+      setMessages(null);
+      setBody('');
+      setHasRead(false);
+    }
+    if (!userId) {
+      setThread(null);
+      setMessages(null);
+      setBody('');
+      setHasRead(false);
+      setError('Sign in to view this enquiry.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const [nextThread, nextMessages] = await Promise.all([getProductEnquiry(id), listProductEnquiryMessages(id)]);
+      if (request !== loadSequence.current) return;
       setThread(nextThread);
       setMessages(nextMessages);
       setHasRead(true);
       if (nextThread) void markEnquiryRead(id).catch(() => undefined);
     } catch (e) {
-      setError((e as Error).message);
+      if (request === loadSequence.current) {
+        const message = (e as Error).message;
+        if (/enquiry not found|authentication required/i.test(message)) {
+          setThread(null);
+          setMessages(null);
+          setBody('');
+          setHasRead(false);
+        }
+        setError(message);
+      }
     }
     finally {
-      setLoading(false);
+      if (request === loadSequence.current) setLoading(false);
     }
-  }, [id]);
+  }, [id, userId]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    void load();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void load();
+    });
+    return () => {
+      loadSequence.current += 1;
+      subscription.remove();
+    };
+  }, [load]));
 
   const send = async () => {
     if (!features.enquiries || !hasRead || loading || error || !body.trim() || !thread || thread.status !== 'open') return;
@@ -65,9 +106,26 @@ export default function ProductEnquiryScreen() {
     }
   };
 
-  const toggleStatus = async () => {
-    if (!features.enquiries || !hasRead || loading || error || !thread) return;
-    const status = thread.status === 'open' ? 'closed' : 'open';
+  const presentation = thread ? enquiryPresentation({
+    status: thread.status,
+    fromShopUser: thread.from_shop_user,
+    businessRole: thread.business_role,
+    canChangeStatus: thread.can_change_status,
+    canReopen: thread.can_reopen,
+    activeEnquiryId: thread.active_enquiry_id,
+  }) : null;
+  const statusAction = presentation?.statusAction ?? null;
+  const canShowStatusAction = statusAction?.type === 'open_active'
+    || (features.enquiries && !!statusAction);
+
+  const performStatusAction = async () => {
+    if (!statusAction || !hasRead || loading || error || !thread) return;
+    if (statusAction.type === 'open_active') {
+      router.replace(`/enquiry/${statusAction.targetId}`);
+      return;
+    }
+    if (!features.enquiries) return;
+    const status = statusAction.type === 'close' ? 'closed' : 'open';
     setBusy(true);
     setActionError(null);
     try {
@@ -75,20 +133,36 @@ export default function ProductEnquiryScreen() {
       await load();
       toast({ message: status === 'open' ? 'Enquiry reopened' : 'Enquiry closed', tone: 'success' });
     } catch (e) {
-      setActionError((e as Error).message);
+      const message = (e as Error).message;
+      if (status === 'open' && /another open enquiry already exists for this product context/i.test(message)) {
+        await load();
+        setActionError('An active conversation already exists. Open the active conversation instead.');
+      } else {
+        setActionError(message);
+      }
     } finally {
       setBusy(false);
     }
   };
-  const canChangeStatus = features.enquiries && !!thread && (!thread.from_shop_user || thread.business_role === 'owner');
 
   return (
     <Screen
+      refreshing={loading && hasRead}
+      onRefresh={() => void load()}
       header={
         <Header
           title={thread?.shop_name ?? 'Product enquiry'}
           subtitle={thread?.product_name ?? 'Shop conversation'}
-          right={canChangeStatus ? <Button title={thread.status === 'open' ? 'Close' : 'Reopen'} size="sm" variant="outline" loading={busy} disabled={!hasRead || loading || !!error} onPress={() => void toggleStatus()} /> : undefined}
+          right={canShowStatusAction && statusAction ? (
+            <Button
+              title={statusAction.label}
+              size="sm"
+              variant="outline"
+              loading={busy}
+              disabled={!hasRead || loading || !!error}
+              onPress={() => void performStatusAction()}
+            />
+          ) : undefined}
         />
       }
       gap={t.spacing.md}
@@ -97,21 +171,27 @@ export default function ProductEnquiryScreen() {
           {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
           {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved conversation history; replies are disabled until a successful refresh. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
           <InlineAlert message={actionError} />
-          {features.enquiries ? (
+          {features.enquiries && thread?.status === 'open' ? (
             <>
               <TextArea
-                label={thread?.status === 'closed' ? 'Reopen this enquiry to reply' : 'Message'}
+                label="Message"
                 placeholder="Type your message…"
                 value={body}
                 onChangeText={setBody}
-                editable={hasRead && !loading && !error && thread?.status === 'open'}
+                editable={hasRead && !loading && !error}
                 maxLength={2000}
               />
-              <Button title="Send message" fullWidth loading={busy} disabled={!body.trim() || !hasRead || loading || !!error || thread?.status !== 'open'} onPress={() => void send()} />
+              <Button title="Send message" fullWidth loading={busy} disabled={!body.trim() || !hasRead || loading || !!error} onPress={() => void send()} />
             </>
-          ) : (
-            <Text variant="caption" color="muted">Existing enquiry history is read-only while product enquiries are turned off.</Text>
-          )}
+          ) : !features.enquiries ? (
+            <Text variant="caption" color="muted">
+              {thread?.status === 'closed' && presentation?.closedExplanation
+                ? `${presentation.closedExplanation} Existing enquiry history is read-only while product enquiries are turned off.`
+                : 'Existing enquiry history is read-only while product enquiries are turned off.'}
+            </Text>
+          ) : thread?.status === 'closed' ? (
+            <Text variant="caption" color="muted">{presentation?.closedExplanation}</Text>
+          ) : null}
         </View>
       }
     >
