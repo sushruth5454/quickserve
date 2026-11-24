@@ -413,6 +413,7 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
 
     mockRuntime.hookIndex = 0;
     mockRuntime.states = [];
+    mockRouter.push.mockClear();
     mockUserId = null;
     const protectedTree = render(() => ByoScreen({ token: 'invite-123' }));
     const signInButton = elements(protectedTree, 'Button').find((button) => button.props.title === 'Log in to accept this booking');
