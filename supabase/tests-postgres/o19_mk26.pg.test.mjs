@@ -1,12 +1,24 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-async function as(client, uid, sql, params = []) {
+async function prepareAs(client, uid) {
   await client.query(
     'select set_config(\'request.jwt.claim.sub\', $1::text, false)',
     [uid],
   );
   await client.query('set role authenticated');
+}
+
+async function as(client, uid, sql, params = []) {
+  await prepareAs(client, uid);
+  try {
+    return await client.query(sql, params);
+  } finally {
+    await client.query('reset role');
+  }
+}
+
+async function asPrepared(client, sql, params = []) {
   try {
     return await client.query(sql, params);
   } finally {
@@ -68,7 +80,10 @@ async function waitForLockWait(observer, blockedPid, timeoutMs = 4000) {
         from pg_stat_activity
        where pid = $1::int
     `, [blockedPid])).rows[0] ?? null;
-    if (actual?.wait_event_type === 'Lock') return actual;
+    if (
+      actual?.wait_event_type === 'Lock'
+      && /start_product_enquiry/i.test(actual.query ?? '')
+    ) return actual;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   return actual;
@@ -95,14 +110,16 @@ async function runConcurrentStart(context) {
     await first.query(`set statement_timeout = '15000ms'`);
     await second.query(`set statement_timeout = '15000ms'`);
 
-    await first.query('begin');
-    let firstTransactionOpen = true;
+    let firstTransactionOpen = false;
     let secondStartPromise;
     try {
+      await prepareAs(second, fixture.customerId);
+      await first.query('begin');
+      firstTransactionOpen = true;
       await first.query(`
         select id from public.shops where id = $1::uuid for update
       `, [fixture.shopId]);
-      secondStartPromise = capture(as(second, fixture.customerId, `
+      secondStartPromise = capture(asPrepared(second, `
         select public.start_product_enquiry(
           $1::uuid, $2::uuid, $3::text
         ) as id

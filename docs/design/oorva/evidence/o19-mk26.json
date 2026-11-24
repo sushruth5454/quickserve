@@ -75,6 +75,30 @@
     "focusedConcurrencyReview": "PENDING_COORDINATOR_GATE",
     "exactHeadLaneCiFallback": "REQUIRED_AFTER_REGISTRATION"
   },
+  "testOnlyConcurrencyFollowUp": {
+    "failedRun": {
+      "runId": 45437822174,
+      "headSha": "4d4a6c7a154cdb677bfaae476c1c65ac21f1435e",
+      "privatePostgresJobId": 138600435471,
+      "test": "o19_mk26.pg.test.mjs",
+      "observed": {
+        "firstPid": 360,
+        "secondPid": 361,
+        "state": "idle",
+        "waitEventType": "Lock",
+        "waitEvent": "transactionid",
+        "query": "select set_config('request.jwt.claim.sub', $1::text, false)"
+      }
+    },
+    "priorPassingRun": {
+      "runId": 45310161657,
+      "privatePostgresJobId": 138163652007
+    },
+    "rootCause": "The owned test launched as(second, ...) after acquiring the shop lock, but as() performs JWT-claim and role setup before the target RPC. waitForLockWait accepted any Lock event without verifying the query; the captured set_config query proves the observed backend had not reached start_product_enquiry. run.mjs and helpers.mjs were unchanged between the lane base and failed-run head.",
+    "testOnlyFix": "Prepare the second backend's role before opening the first transaction, and only accept a Lock wait whose query is start_product_enquiry. The two-backend barrier and same-context reuse assertions remain.",
+    "postFixPrivatePostgres": "NOT_RUN_BY_INSTRUCTION; coordinator review required before push",
+    "review": "AWAITING_COORDINATOR_REVIEW"
+  },
   "featureFlags": {
     "flagsAddedOrEnabled": []
   },
