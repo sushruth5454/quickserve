@@ -99,21 +99,21 @@ export default function AuthLoginScreen() {
                   width: 48,
                   height: 48,
                   borderRadius: 14,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: t.colors.onHero,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <MaterialCommunityIcons name="hammer-wrench" size={26} color="#1E5EFF" />
+                <MaterialCommunityIcons name="hammer-wrench" size={26} color={t.colors.primary} />
               </View>
-              <Text variant="title1" style={{ color: '#FFFFFF' }}>
+              <Text variant="title1" style={{ color: t.colors.onHero }}>
                 {identity.displayName}
               </Text>
             </View>
-            <Text variant="title2" accessibilityRole="header" style={{ color: '#FFFFFF' }}>
+            <Text variant="title2" accessibilityRole="header" style={{ color: t.colors.onHero }}>
               {tr('login.title')}
             </Text>
-            <Text variant="body" style={{ color: 'rgba(255,255,255,0.92)' }}>
+            <Text variant="body" style={{ color: t.colors.onHero, opacity: 0.92 }}>
               {identity.tagline ?? tr('login.tagline')}
             </Text>
           </View>
@@ -125,18 +125,18 @@ export default function AuthLoginScreen() {
                   width: 48,
                   height: 48,
                   borderRadius: 14,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: t.colors.onHero,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <MaterialCommunityIcons name="hammer-wrench" size={26} color="#1E5EFF" />
+                <MaterialCommunityIcons name="hammer-wrench" size={26} color={t.colors.primary} />
               </View>
-              <Text variant="title1" style={{ color: '#FFFFFF' }}>
+              <Text variant="title1" style={{ color: t.colors.onHero }}>
                 {identity.displayName}
               </Text>
             </View>
-            <Text variant="body" style={{ color: 'rgba(255,255,255,0.92)' }}>
+            <Text variant="body" style={{ color: t.colors.onHero, opacity: 0.92 }}>
               {tr('login.tagline')}
             </Text>
           </>
