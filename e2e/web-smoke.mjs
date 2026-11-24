@@ -745,6 +745,177 @@ await step('home-family-drilldown-and-marketplace-entry-points', async () => {
     await go('/');
   }
 });
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('SP-T14-sports-selection-detail-before-after', async () => {
+    if (
+      process.env.DEMO_PROJECT !== '1'
+      || process.env.PROJECT_REF !== 'local'
+      || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+    ) {
+      throw new Error('SP-T14 flag comparison is restricted to the disposable local E2E backend');
+    }
+    const token = process.env.SUPABASE_ACCESS_TOKEN;
+    if (!token) throw new Error('Local Management API token is missing for SP-T14');
+
+    const privateQuery = async (query) => {
+      const response = await fetch('http://127.0.0.1:54399/v1/projects/local/database/query', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'quickserve-oorva-private-e2e',
+        },
+        body: JSON.stringify({ query }),
+      });
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(`Local database query failed (${response.status}): ${responseText.slice(0, 500)}`);
+      }
+      let result = [];
+      if (responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          throw new Error('Local Management API returned invalid JSON');
+        }
+      }
+      if (result?.error || (Array.isArray(result) && result.some((row) => row?.error))) {
+        throw new Error(`Local database query returned an error: ${JSON.stringify(result?.error ?? result)}`);
+      }
+      return result;
+    };
+    const readFlags = async () => {
+      const rows = await privateQuery(
+        "select key, enabled from public.feature_flags where key in ('oorva_brand', 'oorva_sports_ux')",
+      );
+      if (!Array.isArray(rows)) {
+        throw new Error(`SP-T14 feature flag query returned an unexpected shape: ${JSON.stringify(rows)}`);
+      }
+      const actual = Object.fromEntries(rows.map((row) => [row.key, row.enabled]));
+      const missing = ['oorva_brand', 'oorva_sports_ux'].filter((key) => typeof actual[key] !== 'boolean');
+      if (missing.length) {
+        throw new Error(`SP-T14 required feature flags are missing: ${JSON.stringify({ missing, actual })}`);
+      }
+      return actual;
+    };
+    const applyFlags = async (values) => {
+      const payload = JSON.stringify(values);
+      if (payload.includes('$flags$')) throw new Error('Unsafe SP-T14 feature flag snapshot payload');
+      await privateQuery(
+        'update public.feature_flags f set enabled = v.value::boolean, updated_at = now() '
+        + `from json_each_text($flags$${payload}$flags$::json) v where f.key = v.key`,
+      );
+      const actual = await readFlags();
+      const mismatches = Object.fromEntries(
+        Object.entries(values)
+          .filter(([key, value]) => actual[key] !== value)
+          .map(([key, value]) => [key, { expected: value, actual: actual[key] }]),
+      );
+      if (Object.keys(mismatches).length) {
+        throw new Error(`SP-T14 feature flag update/readback mismatch: ${JSON.stringify({ mismatches, actual })}`);
+      }
+    };
+    const captureState = async (name, familyEnabled) => {
+      const featuresPromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features'),
+      );
+      await go('/');
+      const featuresResponse = await featuresPromise;
+      if (!featuresResponse.ok()) {
+        throw new Error(`SP-T14 get_app_features failed (${featuresResponse.status()}): ${await featuresResponse.text()}`);
+      }
+      const features = await featuresResponse.json();
+      const actualFlags = {
+        oorva_brand: features?.oorva_brand,
+        oorva_sports_ux: features?.oorva_sports_ux,
+      };
+      const expectedFlags = { oorva_brand: familyEnabled, oorva_sports_ux: familyEnabled };
+      const flagMismatches = Object.fromEntries(
+        Object.entries(expectedFlags)
+          .filter(([key, value]) => actualFlags[key] !== value)
+          .map(([key, value]) => [key, { expected: value, actual: actualFlags[key] }]),
+      );
+      if (Object.keys(flagMismatches).length) {
+        throw new Error(`SP-T14 app feature state mismatch: ${JSON.stringify({ expectedFlags, actualFlags, flagMismatches })}`);
+      }
+
+      await go('/sports');
+      const expectedHome = `sports-home-${familyEnabled ? 'family' : 'legacy'}`;
+      await page.getByTestId(expectedHome).waitFor({ state: 'visible' });
+      await snap(`sp-t14-${name}-selection`);
+      const activity = page.getByRole('button', { name: 'Badminton sports venues', exact: true });
+      await activity.waitFor({ state: 'visible' });
+      const venueResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/search_sports_venues')
+        && response.request().postDataJSON()?.p_activity_slug === 'badminton',
+      );
+      await activity.click();
+      await page.waitForURL((url) => new URL(url).pathname === '/sports/badminton');
+      const venueResponse = await venueResponsePromise;
+      if (!venueResponse.ok()) {
+        throw new Error(`SP-T14 search_sports_venues failed (${venueResponse.status()}): ${await venueResponse.text()}`);
+      }
+      const rows = await venueResponse.json();
+      const venue = Array.isArray(rows) ? rows.find((row) => row.id === DEMO_IDS.sportsVenue) : null;
+      if (!venue) {
+        throw new Error(`SP-T14 expected the same seeded venue in the detail state: ${JSON.stringify({
+          expectedVenueId: DEMO_IDS.sportsVenue,
+          actualRows: rows,
+          url: page.url(),
+          body: await page.locator('body').innerText(),
+        })}`);
+      }
+      const venueName = 'Benz Circle Demo Badminton Courts';
+      await page.getByText(venueName, { exact: true }).first().waitFor({ state: 'visible' });
+      const priceLabel = (await page.locator('body').innerText())
+        .split('\n')
+        .find((line) => line.startsWith('From ₹') && line.endsWith('/ slot'));
+      if (!priceLabel) {
+        throw new Error(`SP-T14 venue price was not visible in the detail state: ${JSON.stringify({
+          venueId: venue.id,
+          expectedMinimumPricePaise: venue.min_price_paise,
+          body: await page.locator('body').innerText(),
+        })}`);
+      }
+      await snap(`sp-t14-${name}-detail`);
+      return {
+        appFlags: actualFlags,
+        activitySlug: 'badminton',
+        homeComposition: familyEnabled ? 'family' : 'legacy',
+        priceLabel,
+        venueId: venue.id,
+        venueName,
+      };
+    };
+
+    const originalFlags = await readFlags();
+    let restoreRequired = false;
+    try {
+      restoreRequired = true;
+      await applyFlags({ oorva_brand: false, oorva_sports_ux: false });
+      const before = await captureState('before', false);
+      await applyFlags({ oorva_brand: true, oorva_sports_ux: true });
+      const after = await captureState('after', true);
+      if (
+        before.activitySlug !== after.activitySlug
+        || before.venueId !== after.venueId
+        || before.venueName !== after.venueName
+        || before.priceLabel !== after.priceLabel
+        || before.homeComposition === after.homeComposition
+      ) {
+        throw new Error(`SP-T14 before/after states did not match the same selection/detail data: ${JSON.stringify({
+          before,
+          after,
+        })}`);
+      }
+      console.log(`SP-T14 matching actual selection/detail states: ${JSON.stringify({ before, after })}`);
+    } finally {
+      if (restoreRequired) await applyFlags(originalFlags);
+    }
+  });
+}
 await optional('home-top-rated', async () => {
   await go('/');
   await page.getByText(TOP_RATED_HOME_TITLE, { exact: true }).first().scrollIntoViewIfNeeded();
