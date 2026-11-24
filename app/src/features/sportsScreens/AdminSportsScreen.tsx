@@ -5,7 +5,11 @@ import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Scree
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../theme';
-import { getVenueReviewPresentation, type VenueReviewAction } from '../sports/venueReviewPresentation';
+import {
+  getVenueReviewPresentation,
+  type SportsVenueReviewStatus,
+  type VenueReviewAction,
+} from '../sports/venueReviewPresentation';
 import { useSportsReadRefresh } from '../sports/useSportsReadRefresh';
 
 interface VenueReview {
@@ -25,13 +29,47 @@ interface Activity {
   active: boolean;
 }
 
+export type AdminVenueReviewFilter = SportsVenueReviewStatus | 'all';
+
+export const ADMIN_VENUE_REVIEW_FILTERS: ReadonlyArray<{
+  key: AdminVenueReviewFilter;
+  label: string;
+}> = [
+  { key: 'submitted', label: 'Submitted' },
+  { key: 'all', label: 'All' },
+  { key: 'verified', label: 'Verified' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'suspended', label: 'Suspended' },
+  { key: 'draft', label: 'Draft' },
+];
+
+export function getAdminVenueReviewCounts(venues: readonly VenueReview[]) {
+  return {
+    all: venues.length,
+    submitted: venues.filter((venue) => venue.status === 'submitted').length,
+    verified: venues.filter((venue) => venue.status === 'verified').length,
+    rejected: venues.filter((venue) => venue.status === 'rejected').length,
+    suspended: venues.filter((venue) => venue.status === 'suspended').length,
+    draft: venues.filter((venue) => venue.status === 'draft').length,
+  };
+}
+
+export function filterAdminVenueReviews(
+  venues: readonly VenueReview[],
+  filter: AdminVenueReviewFilter,
+): VenueReview[] {
+  return filter === 'all' ? [...venues] : venues.filter((venue) => venue.status === filter);
+}
+
 export function useAdminSportsController() {
   const confirm = useConfirm();
   const toast = useToast();
   const flags = useAppFeatureFlags();
   const enabled = flags.isOn('sports');
+  const adminOpsUxEnabled = flags.isOn('oorva_admin_ops_ux');
   const [venues, setVenues] = useState<VenueReview[] | null>(null);
   const [activities, setActivities] = useState<Activity[] | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<AdminVenueReviewFilter>('submitted');
   const [reason, setReason] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,15 +143,32 @@ export function useAdminSportsController() {
     }
   }, [load, toast]);
 
-  return { enabled, venues, activities, reason, setReason, busyId, error, load, setVenueStatus, toggleActivity };
+  return {
+    enabled,
+    adminOpsUxEnabled,
+    venues,
+    activities,
+    reviewFilter,
+    setReviewFilter,
+    reason,
+    setReason,
+    busyId,
+    error,
+    load,
+    setVenueStatus,
+    toggleActivity,
+  };
 }
 
 export default function AdminSportsScreen() {
   const t = useTheme();
   const {
     enabled,
+    adminOpsUxEnabled,
     venues,
     activities,
+    reviewFilter,
+    setReviewFilter,
     reason,
     setReason,
     busyId,
@@ -122,6 +177,12 @@ export default function AdminSportsScreen() {
     setVenueStatus,
     toggleActivity,
   } = useAdminSportsController();
+  const reviewCounts = venues ? getAdminVenueReviewCounts(venues) : null;
+  const visibleVenues = venues
+    ? adminOpsUxEnabled
+      ? filterAdminVenueReviews(venues, reviewFilter)
+      : venues
+    : null;
 
   return (
     <Screen header={<Header title="Sports venues" subtitle="Review submitted venues and activities" onBack={() => router.back()} />}>
@@ -137,10 +198,33 @@ export default function AdminSportsScreen() {
       ) : (
         <>
           {error ? <InlineAlert message={error} /> : null}
-          <Text variant="title3">Venue review</Text>
-          {venues.length === 0 ? (
-            <EmptyState icon="business-outline" title="No venues submitted" message="Submitted venues will appear here for review." compact />
-          ) : venues.map((venue) => {
+          {adminOpsUxEnabled ? (
+            <>
+              <Text variant="title3">Venue review queue</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+                {ADMIN_VENUE_REVIEW_FILTERS.map((filter) => (
+                  <Button
+                    key={filter.key}
+                    title={`${filter.label} (${reviewCounts?.[filter.key] ?? 0})`}
+                    accessibilityLabel={`${filter.label} venues, ${reviewCounts?.[filter.key] ?? 0}`}
+                    testID={`admin-sports-review-filter-${filter.key}`}
+                    variant={reviewFilter === filter.key ? 'primary' : 'outline'}
+                    onPress={() => setReviewFilter(filter.key)}
+                  />
+                ))}
+              </View>
+            </>
+          ) : <Text variant="title3">Venue review</Text>}
+          {visibleVenues?.length === 0 ? (
+            <EmptyState
+              icon="business-outline"
+              title={adminOpsUxEnabled ? 'No venues in this view' : 'No venues submitted'}
+              message={adminOpsUxEnabled
+                ? 'Choose another current status to view more venues.'
+                : 'Submitted venues will appear here for review.'}
+              compact
+            />
+          ) : visibleVenues?.map((venue) => {
             const venueReason = reason[venue.id] ?? '';
             const review = getVenueReviewPresentation(venue.status, 'admin');
             const reviewActions = review.actions.filter((action) => action.kind === 'admin');

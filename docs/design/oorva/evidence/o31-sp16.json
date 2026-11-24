@@ -1,0 +1,46 @@
+{
+  "stageId": "O31-SP16",
+  "status": "implemented",
+  "planSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+  "sourceTaskId": "SP-T16",
+  "sourceFindingId": "SP-F19",
+  "ownedFiles": [
+    "app/src/features/sports/__tests__/venueReviewPresentation.test.ts",
+    "app/src/features/sports/sports/__tests__/venueReviewPresentation.test.ts",
+    "app/src/features/sportsScreens/AdminSportsScreen.tsx",
+    "docs/design/oorva/evidence/o31-sp16.json"
+  ],
+  "implementation": {
+    "summary": [
+      "Added a submitted-first admin review queue with current-state filters and counts; All retains server order.",
+      "Placed activities after venue review and retained the corrected all-state composition when the admin family selector is off.",
+      "Consumed the effective oorva_admin_ops_ux selector without changing flag registration or runtime configuration.",
+      "Kept the existing single controller, route host, status predicates, reason and confirmation checks, RPC sequence, and inline errors."
+    ],
+    "serverOrSchemaChanges": [],
+    "featureFlagsEnabledOrRegistered": false,
+    "moneySafetyOrPermissionChanges": false
+  },
+  "acceptanceCoverage": [
+    "SP-QUEUE-FILTER-COUNTS",
+    "SP-RESTORE-NOT-VERIFY",
+    "SP-ADMIN-FAMILY-OFF",
+    "SP-ADMIN-PARENT-OFF",
+    "SP-SPORTS-PARENT-OFF"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "BLOCKED_BEFORE_TEST_SELECTION",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceSha": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+      "attemptedCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.sports.sports.__tests__.venueReviewPresentation[.]test[.]ts$'",
+      "error": "HTTP 404: Not Found from the Codespaces API; the operation requires the codespace scope. The helper then failed because its Codespace selection result was null.",
+      "selectorsExecuted": false,
+      "remainingSelectorRun": false
+    },
+    "laneCiFallback": "Required after push; exact-head result is reported separately.",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
