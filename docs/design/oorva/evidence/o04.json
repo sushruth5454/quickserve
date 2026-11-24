@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O04",
+  "workPackage": "O04",
+  "status": "PAUSED_FOR_REGISTRATION",
+  "base": {
+    "implementationBaseSha": "1f0128e9eb03f445cb1d9e33e59dc7e128170377",
+    "currentMainShaAtStart": "7479864f743024b8e80ac26fea071a8962ed6265",
+    "approvedO03StatusReadHead": "da9e3c8c1a275239fc5be982221235cc269492a8",
+    "doneDependencies": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O03": "99a9f22bb39fb159637852bf2eaffa797401abe9",
+      "O37A": "e48422e85d11e1bcfd97efa1eba54338d608d3d7"
+    },
+    "approvedO03AssetRegistration": "0103_o03_asset_registration.sql",
+    "approvedO03AssetStatusRead": "0105_o03_asset_status_read.sql"
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "E1": "APPROVED_FOR_DEVELOPMENT_AND_PROMOTION_SCOPE_ONLY",
+    "D02": "PENDING",
+    "D07": "PENDING"
+  },
+  "scope": {
+    "workerOwnedFiles": [
+      "supabase\\functions\\branding-assets\\index.ts",
+      "supabase\\functions\\branding-assets\\logic.ts",
+      "supabase\\functions\\branding-assets\\logic_test.ts",
+      "supabase\\functions\\branding-assets\\png.ts",
+      "supabase\\functions\\branding-assets\\png_test.ts",
+      "supabase\\tests-postgres\\branding_assets.http.test.mjs",
+      "docs\\design\\oorva\\evidence\\o04.json"
+    ],
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "featureKeys": [
+      "oorva_brand",
+      "branding_runtime",
+      "branding_editor"
+    ]
+  },
+  "implementation": {
+    "upload": "Raw image/png only; server-generated UUID and fixed branding/<uuid>.png path; complete PNG validation and metadata stripping precede upsert:false Storage upload; O03 service-role registration RPC is called only after verified user, admin role, and all parent flags are ON.",
+    "statusRead": "Calls service_get_branding_asset_status before Storage reads; public GET requires published_once and not revoked, preview requires validated and not revoked; fixed path/MIME/hash/size/dimensions must match.",
+    "preview": "Admin-only no-store JSON response with a same-project signed URL requested for 240 seconds; no caller JWT is placed in URL or persistent cache.",
+    "publicServing": "Published asset response includes a content-hash ETag and public max-age/s-maxage of 300 seconds; revocation cannot recall already-downloaded or offline copies and may propagate through existing public caches until their bounded TTL expires. Already-issued private preview URLs may remain usable until their at-most-240-second expiry.",
+    "failureCleanup": "After a successful immutable Storage upload, registration failure removes only that request's generated object path. An upload error does not delete a possibly pre-existing collision path."
+  },
+  "coordinatorRegistration": {
+    "privateHttpTest": {
+      "packageFile": "supabase\\tests-postgres\\package.json",
+      "addition": "Append branding_assets.http.test.mjs to httpIntegrationTests.",
+      "selector": "node run.mjs --filter branding_assets.http.test.mjs"
+    },
+    "laneCi": {
+      "file": ".github\\workflows\\lane-ci.yml",
+      "addition": "Private-postgres step runs node run.mjs --filter branding_assets.http.test.mjs with LOCAL_DB_URL and PRIVATE_TEST_STACK=true; local stack environment also supplies loopback API/anon/service-role values."
+    },
+    "publicGateway": {
+      "file": "supabase\\config.toml",
+      "requiredEntry": "[functions.branding-assets]\\nverify_jwt = false",
+      "status": "NOT_EDITED; outside O04 worker lock. Required so an Image request without Authorization can reach the public GET handler; coordinator authorization/registration is needed before claiming anonymous-gateway behavior."
+    },
+    "deployment": {
+      "file": ".github\\workflows\\deploy-backend.yml",
+      "status": "NOT_EDITED; production deployment/cutover is outside this stage and remains coordinator-controlled."
+    }
+  },
+  "validation": {
+    "workerTests": [
+      {
+        "path": "supabase\\functions\\branding-assets\\logic_test.ts",
+        "status": "NOT_RUN_PENDING_REGISTRATION"
+      },
+      {
+        "path": "supabase\\functions\\branding-assets\\png_test.ts",
+        "status": "NOT_RUN_PENDING_REGISTRATION"
+      },
+      {
+        "path": "supabase\\tests-postgres\\branding_assets.http.test.mjs",
+        "selector": "node run.mjs --filter branding_assets.http.test.mjs",
+        "status": "NOT_RUN_PENDING_REGISTRATION"
+      }
+    ],
+    "codespaceDeno": "NOT_RUN_PENDING_REGISTRATION",
+    "privateHttpSelection": "PENDING_COORDINATOR_REGISTRATION",
+    "laneCi": "NOT_PUSHED",
+    "focusedAuthReview": "PENDING",
+    "gitDiffCheck": "PASS",
+    "evidenceJsonParse": "PASS",
+    "httpModuleSyntax": "NOT_RUN_NODE_NOT_ON_PATH"
+  },
+  "rollout": {
+    "featureFlagsEnabled": false,
+    "publicAssetPublication": false,
+    "nativeInstalledDestinationChanges": false,
+    "hostedCredentialsOrLiveDataUsed": false,
+    "promotion": "Not authorized from this lane."
+  }
+}
