@@ -3,7 +3,7 @@
   "stageId": "O03",
   "deltaId": "d-o03-asset-status-read-20261123",
   "workPackage": "O03",
-  "status": "IMPLEMENTATION_CHECKPOINT_PENDING_REGISTRATION",
+  "status": "VALIDATION_PENDING_LANE_CI_FALLBACK",
   "base": {
     "branch": "lane/oorva-o03-asset-status-20261123",
     "implementationBaseSha": "7cfc0cb541d87e5090fd8a12590ca365b7ad8def",
@@ -47,9 +47,16 @@
     "privatePostgresTest": "supabase/tests-postgres/branding_asset_status_read.pg.test.mjs",
     "genericDiscovery": "Private PostgreSQL test is selected by *.pg.test.mjs discovery.",
     "parserCommand": "node parse.cjs ../migrations/0105_o03_asset_status_read.sql",
-    "registration": "PENDING_COORDINATOR",
-    "codespaceSelector": "PENDING_REGISTRATION",
-    "privatePostgresLaneCi": "PENDING_REGISTRATION",
+    "registrationCommit": "4d66f1074c5cebcdf80a3fe4abd6c3fb74aabf13",
+    "parserCommandRegistrationCount": 1,
+    "parserCommandOrder": "After node parse.cjs ../migrations/0104_o19_mk05_oorva.sql",
+    "codespace": {
+      "result": "NOT_RUN_BEFORE_SELECTION",
+      "selectionCount": 0,
+      "failure": "HTTP 404: Not Found; Codespaces API requires the codespace scope.",
+      "credentialRefresh": "NOT_PERFORMED"
+    },
+    "privatePostgresLaneCi": "PENDING_EXACT_HEAD_FALLBACK",
     "focusedAuthConcurrencyReview": "PENDING"
   },
   "release": {
