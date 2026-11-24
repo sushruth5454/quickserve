@@ -1,0 +1,97 @@
+{
+  "date": "2026-11-23",
+  "sourceSha": "128c9595472b92589ff5407246df1aadde4dc7cb",
+  "briefDocumentId": "15vk-anmnAsYjYWWAOg-2Ze27fhM8MmxrOmY3VYhZZWc",
+  "briefSha256": "00E4C800BCC1EB8A4DF61AEAAE6930110F136F411374BD8515D544642D3CEAC8",
+  "reconstruction": "Original static HTML/CSS concepts informed by current source, not a running app or screenshot recolour.",
+  "fixedAcrossConcepts": [
+    "DOM",
+    "screen order",
+    "hierarchy",
+    "sample content",
+    "fonts",
+    "font sizes",
+    "spacing",
+    "geometry",
+    "icons",
+    "illustration",
+    "viewport",
+    "category and status tokens"
+  ],
+  "varies": [
+    "primary identity",
+    "pressed/light/link roles",
+    "secondary identity",
+    "small warm accent"
+  ],
+  "backgroundExperiment": "D is held fixed; only page bg is changed among white/ivory/cool neutral.",
+  "font": "Existing licensed Manrope600/700 headings (embedded from source); Arial/Segoe UI body held identical in concepts. Production Inter not changed.",
+  "mark": "Existing source SVG geometry held fixed and recoloured for study; no new final mark approval or trademark claim.",
+  "illustrations": "Original simple court placeholder, no stock/competitor photography.",
+  "runtimeChanges": false,
+  "readFiles": [
+    {
+      "path": "app/src/features/home/HomeV2.tsx",
+      "ranges": [
+        "135-165",
+        "189-295",
+        "296-420"
+      ],
+      "use": "Header/search/active-work/pillars/AI/popular source hierarchy."
+    },
+    {
+      "path": "app/src/components/ProviderCard.tsx",
+      "ranges": [
+        "82-129"
+      ],
+      "use": "Provider metadata/card plus separate CTA."
+    },
+    {
+      "path": "app/src/features/sports/SportsVenueBookingScreen.tsx",
+      "ranges": [
+        "223-365"
+      ],
+      "use": "Venue/slot selection/persistent footer."
+    },
+    {
+      "path": "app/src/features/providerDashboard/ProviderDashboardView.tsx",
+      "ranges": [
+        "82-210"
+      ],
+      "use": "Availability, stats, request and next-work sections; empty optional modules omitted in this sample."
+    },
+    {
+      "path": "app/app/assistant.tsx",
+      "ranges": [
+        "1-1"
+      ],
+      "use": "Thin current route wrapper."
+    },
+    {
+      "path": "app/src/features/platformScreens/AssistantScreen.tsx",
+      "ranges": [
+        "625-748"
+      ],
+      "use": "Header/location/messages/draft/footer, advisory not transaction authority."
+    },
+    {
+      "path": "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "ranges": [
+        "415-477"
+      ],
+      "use": "Shop identity/status, form/save and catalogue/enquiry/RFQ source hierarchy; form condensed for study."
+    },
+    {
+      "path": "app/src/branding/defaults.ts",
+      "ranges": [
+        "41-169"
+      ],
+      "use": "Existing forest candidate; compatible Palette role inventory."
+    }
+  ],
+  "colourSelection": {
+    "state": "owner-approved-D",
+    "approvalRecord": "approval.json",
+    "tokenValuesSha256": "02648AC61D7CAB888D2AD8F9F21AA0A8ED5479BC42F87636A393F8067A6111A1"
+  }
+}

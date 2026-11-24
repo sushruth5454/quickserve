@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "status": "APPROVED_DESIGN_NOT_APP_INTEGRATED",
+  "recommendedConcept": "D",
+  "approvedConcept": "D",
+  "sourceSha": "128c9595472b92589ff5407246df1aadde4dc7cb",
+  "date": "2026-11-23",
+  "files": [
+    {
+      "file": "approval.json",
+      "bytes": 1722,
+      "sha256": "51068c3d55c2406b68eb9f08a97ec57fc29642b57f2a0e9af5addc6af946a559"
+    },
+    {
+      "file": "benchmark-sources.json",
+      "bytes": 10595,
+      "sha256": "66b37419767eb473c841aef548d2a030866481b9a95e737d805063730b1e757f"
+    },
+    {
+      "file": "compare-ai.png",
+      "bytes": 128404,
+      "sha256": "fffceac4f6f546e166d88c6efe86ed16446170300b92803c7c6461f631e53592"
+    },
+    {
+      "file": "compare-backgrounds.png",
+      "bytes": 92855,
+      "sha256": "29c3d21fae534de18ba5a0e17862044098c711b5753b5a41961c4249ba069f8a"
+    },
+    {
+      "file": "compare-home.png",
+      "bytes": 111539,
+      "sha256": "e5c0619ea04aea941bb7c44667e82a0c5eeb15086eb72fb972e47eb4a5c36c6a"
+    },
+    {
+      "file": "compare-identity.png",
+      "bytes": 65238,
+      "sha256": "47028d70f58406d4c7833f64c024cec93b3b0a0c3072ec01522c1b36e708603e"
+    },
+    {
+      "file": "compare-merchant.png",
+      "bytes": 97872,
+      "sha256": "61d03a535f8dfd82093c2baa23bc425434221d7c77d2763702515de11c316fbb"
+    },
+    {
+      "file": "compare-service.png",
+      "bytes": 101885,
+      "sha256": "d3dce89cb1f4392e561bc679f943134de821d08e228f9308d238431781ff6b30"
+    },
+    {
+      "file": "compare-shop.png",
+      "bytes": 108899,
+      "sha256": "c5f0c45565f455f572fbf89cea57e498f0b0e740df7070499d701b86baad9cb3"
+    },
+    {
+      "file": "compare-sports.png",
+      "bytes": 103159,
+      "sha256": "5a6614f2640401f6f79b8046d9368b8ea7d780cb7e7325de222aeac11f5835a0"
+    },
+    {
+      "file": "contrast-results.json",
+      "bytes": 87467,
+      "sha256": "8f38ee3d3b5ba6e7fbfe3e19ed8caab74e629eb01d5de8f03742203a9c10518a"
+    },
+    {
+      "file": "design-tokens.json",
+      "bytes": 11256,
+      "sha256": "8ce7b174ac547f9b3037034425ce20ee900dcb9bb394d7d7d3325d7dc6b257b5"
+    },
+    {
+      "file": "FONT-LICENSE.txt",
+      "bytes": 4383,
+      "sha256": "f612090fb72b6dca3e807e66fa0d2b5def163cef86f1a3209b5c897cba5ee4b7"
+    },
+    {
+      "file": "index.html",
+      "bytes": 584711,
+      "sha256": "0bb8a78a862a4bf92ee350cca50afe72d59815a1ceba36c0d74e78a63c24bba3"
+    },
+    {
+      "file": "palettes.json",
+      "bytes": 21694,
+      "sha256": "33bf3ddaa67a03691e31d37bd3386e88ac577790408bca4a988208fd7697d8f2"
+    },
+    {
+      "file": "previews/A-ai.png",
+      "bytes": 46164,
+      "sha256": "18781041a9303cf19f15767ff52981b3000966cf1e58a3a24dbd269e9efb72ad"
+    },
+    {
+      "file": "previews/A-home.png",
+      "bytes": 53548,
+      "sha256": "82b72d290e439eae946eb21916a1cb8753a4a62ec873e93b7149cd5bb48eebe6"
+    },
+    {
+      "file": "previews/A-merchant.png",
+      "bytes": 49624,
+      "sha256": "0571ce2e3bb32310d521db3e33401cd5520fc4673863d0e90f907927212f266d"
+    },
+    {
+      "file": "previews/A-service.png",
+      "bytes": 45246,
+      "sha256": "296fe8681dff42b1eb8471eaf309975670b5cd6812be912730aca7d2091ff97f"
+    },
+    {
+      "file": "previews/A-shop.png",
+      "bytes": 49824,
+      "sha256": "0136d696f3564383408501f669f66168c62e93fcb3b9888f8dbad65c95122cfd"
+    },
+    {
+      "file": "previews/A-sports.png",
+      "bytes": 47666,
+      "sha256": "5776cc8e1cd3469e8ae42191e8db42c6d1afca859257d73d5810c4ca07e0e2d6"
+    },
+    {
+      "file": "previews/B-ai.png",
+      "bytes": 45473,
+      "sha256": "5d7dc9651e5e2eef8488e640b468f90c91de560025afa135cb468e233ab71daa"
+    },
+    {
+      "file": "previews/B-home.png",
+      "bytes": 53006,
+      "sha256": "d7d1859f062801eabb27b7b08503972ce6274a5f4da00c2ebe6f5b95624475eb"
+    },
+    {
+      "file": "previews/B-merchant.png",
+      "bytes": 49218,
+      "sha256": "f8e89ecbc2b55e16732c54268775867668375f1a024c95b50f9bcc0367f5dbf5"
+    },
+    {
+      "file": "previews/B-service.png",
+      "bytes": 44099,
+      "sha256": "0c30ccb3a5a912832414eeba7dd08a564d9f0a5233f9ffacf1966290ed9e1918"
+    },
+    {
+      "file": "previews/B-shop.png",
+      "bytes": 49431,
+      "sha256": "5c32ff99047cbbb70ce4761f9d1d05ae2e6a37276dfa1900aaa56603acfe97db"
+    },
+    {
+      "file": "previews/B-sports.png",
+      "bytes": 47263,
+      "sha256": "1e551fdfdc8b99d19d8e4f04ca836d4033a8c64192ee58f16538c06d292f6bc5"
+    },
+    {
+      "file": "previews/C-ai.png",
+      "bytes": 46135,
+      "sha256": "567a0865a016555d3362c040d97651784b79b9686861e9bc497655a86528402d"
+    },
+    {
+      "file": "previews/C-home.png",
+      "bytes": 53726,
+      "sha256": "d1d6b63a7873a7a102dddc1d437aefc6f82b56e09f3600c3b258530419fe7d23"
+    },
+    {
+      "file": "previews/C-merchant.png",
+      "bytes": 49863,
+      "sha256": "c28bd7d6fec6f3333b8ca52712614fbbd8c1f4ea33d64c343fbd18b36fc226a8"
+    },
+    {
+      "file": "previews/C-service.png",
+      "bytes": 45372,
+      "sha256": "b3fad35fd850832e736568dfb3e06ef58b323053b9a25013eea0488345f0027d"
+    },
+    {
+      "file": "previews/C-shop.png",
+      "bytes": 49876,
+      "sha256": "726c2e276726ac000c63327d8ce05d00e3c7f544699cada7c3879f0942b93658"
+    },
+    {
+      "file": "previews/C-sports.png",
+      "bytes": 47842,
+      "sha256": "3dded10909b100dcccee40ffb299867430d2a4ce835dda1952153a09de7a4b65"
+    },
+    {
+      "file": "previews/D-ai.png",
+      "bytes": 46439,
+      "sha256": "487f2c8b2d62b9d32f3e8c621fb3c6631ccedac86b4faf9778d2d9f5a428af35"
+    },
+    {
+      "file": "previews/D-dark-ai.png",
+      "bytes": 47594,
+      "sha256": "e0519e5508cc8b3e58bc2a4681767249b4bc20c48c74b4aa0d52853d2d347e24"
+    },
+    {
+      "file": "previews/D-dark-home.png",
+      "bytes": 55260,
+      "sha256": "ba3c2ec44c544d6d71641f4c05987d6c52c1d94cfb013405a0f6eea316acef74"
+    },
+    {
+      "file": "previews/D-dark-merchant.png",
+      "bytes": 51053,
+      "sha256": "e6479ee4605995126f43c7d27dc5ba548e67a7c9038b9a71350417905b854e78"
+    },
+    {
+      "file": "previews/D-dark-service.png",
+      "bytes": 46133,
+      "sha256": "24e9fd6d850a98191326478831af38c928b361f75ae37b433914b5db89d96426"
+    },
+    {
+      "file": "previews/D-dark-shop.png",
+      "bytes": 51071,
+      "sha256": "e8e015ae76ce8c1ee3ad5eff49deda7d6efe3e3fef52196277bba4cb42667d37"
+    },
+    {
+      "file": "previews/D-dark-sports.png",
+      "bytes": 49004,
+      "sha256": "30cd13e564745ebc548f43b5cbf236e3f87e156c9cb4d6ccd6fb5c0ba8cded39"
+    },
+    {
+      "file": "previews/D-home.png",
+      "bytes": 53832,
+      "sha256": "adbe438e1d39ab1c5b644b8df322755a1fb19d3c55b9f26afddda0de7979c319"
+    },
+    {
+      "file": "previews/D-merchant.png",
+      "bytes": 50074,
+      "sha256": "f62363a5fe078fa908de18d907a12f64c93015e737f1a5be5da10c2a1afd58c3"
+    },
+    {
+      "file": "previews/D-service.png",
+      "bytes": 45207,
+      "sha256": "05896036de32cccab5eb0fa59aac35bbc46e7c0f08be458bb0fd0d5949bad47d"
+    },
+    {
+      "file": "previews/D-shop.png",
+      "bytes": 50013,
+      "sha256": "99ba32574c7c962f7941438b821852d59398e11e82909674655146d942245b27"
+    },
+    {
+      "file": "previews/D-sports.png",
+      "bytes": 48068,
+      "sha256": "bf2539a911645a6f9d250afabf9aa7c19db002f8ced5364a1eaa14cd1f6fc1cc"
+    },
+    {
+      "file": "previews/E-ai.png",
+      "bytes": 45708,
+      "sha256": "7f95529aa2cf6487c5efc7bc9cc2975bcc834d0e2e93d32e32e74e0058302aa1"
+    },
+    {
+      "file": "previews/E-home.png",
+      "bytes": 53313,
+      "sha256": "eff56802a6966500cf59c88ae986f2bfc21f33ac33b6013ebdcdb49926a28614"
+    },
+    {
+      "file": "previews/E-merchant.png",
+      "bytes": 49307,
+      "sha256": "1359916c4cc409586a468853c3a80208b7e3fcf531c2455866e76aa648f37f30"
+    },
+    {
+      "file": "previews/E-service.png",
+      "bytes": 44290,
+      "sha256": "3c4e547afcfb6bf179b021eb02603d86dd11bc6e3d28e3281e6673b978ce6598"
+    },
+    {
+      "file": "previews/E-shop.png",
+      "bytes": 49466,
+      "sha256": "7ac5ecfa796c537cc5aac3790f3bf4a16de171343acd4cddd104d7dfda655d08"
+    },
+    {
+      "file": "previews/E-sports.png",
+      "bytes": 47345,
+      "sha256": "f1b578c9d00f67f627c48dfba0790ff94e74f4feea1696e846c85e66584b0244"
+    },
+    {
+      "file": "provenance.json",
+      "bytes": 3062,
+      "sha256": "b3ce12cae5c1bfc93f30cdf7fa32c3a46dd7a9a0c355d34af491c6b8c223ba52"
+    },
+    {
+      "file": "recommended-components-dark.png",
+      "bytes": 97830,
+      "sha256": "60943adb2c535a99d48df85f1ea854cfb681d474a87c1b33ba1675b50a86daea"
+    },
+    {
+      "file": "recommended-components-light.png",
+      "bytes": 97765,
+      "sha256": "1620b4021d9a89293c9d14b0a64f110f8e9b9e2ee8991a77a93b0076bdf41d33"
+    },
+    {
+      "file": "render-validation.json",
+      "bytes": 9734,
+      "sha256": "1959e57ca9b8c27c77bf22448ba8dc10d26da3935ec78ddf0653506cb4a374e4"
+    },
+    {
+      "file": "source-inputs.json",
+      "bytes": 3391,
+      "sha256": "ca7b9196814bf4d7c47a96ca89db938d1e6481e6b5e7c7d95bc9b444282956ef"
+    },
+    {
+      "file": "study-validation.json",
+      "bytes": 4933,
+      "sha256": "24bbe03bc967d8b1835845f72c62e156929522d47ce11aa13e24405b21dafb0e"
+    }
+  ]
+}
