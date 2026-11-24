@@ -123,7 +123,7 @@
       "localAppTests": "NOT_RUN"
     },
     "laneCi": {
-      "status": "PENDING_RETRY_AFTER_ASSERTION_FIX",
+      "status": "PENDING_RETRY_AFTER_BADGE_DIAGNOSTIC_FIX",
       "previousRun": {
         "runId": 45325927039,
         "headSha": "12f2220675dc3c1c1bde7123fda80b99df3f7463",
@@ -148,6 +148,17 @@
         "summary": "126 suites passed and 2 failed; 894 tests passed, 1 skipped.",
         "failure": "Tests expected trailing .00 for whole-dollar amounts, while the verified canonical formatINR omits a zero fractional part (for example 105000 paise renders as ₹1,050). No other cases failed.",
         "fix": "Match exact display values to formatINR's canonical zero-paise formatting without changing money calculations or the component."
+      },
+      "thirdRun": {
+        "runId": 45326928604,
+        "headSha": "517110f4ce83232c3d3cf5ea7eed376316aad736",
+        "result": "FAIL",
+        "failedCases": [
+          "SP-SAME-PK-CROSS-VIEW (both files)"
+        ],
+        "summary": "126 suites passed and 2 failed; 898 tests passed, 1 skipped.",
+        "failure": "Both cross-view assertions found all status helpers correct but the test element-tree text collector omitted Badge.label props, so its visible Confirmed diagnostic was false.",
+        "fix": "Include string label props in the test tree's visible-text collection; the production card continues to render the existing Badge."
       }
     },
     "privateE2E": "NOT_RUN_BY_WORKER"

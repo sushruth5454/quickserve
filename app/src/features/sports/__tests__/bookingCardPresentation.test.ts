@@ -50,7 +50,11 @@ function cardText(node: ReactNode): string[] {
   if (typeof node === 'string' || typeof node === 'number') return [String(node)];
   if (Array.isArray(node)) return node.flatMap(cardText);
   if (!isValidElement(node)) return [];
-  return cardText((node.props as { children?: ReactNode }).children);
+  const props = node.props as { children?: ReactNode; label?: unknown };
+  return [
+    ...(typeof props.label === 'string' ? [props.label] : []),
+    ...cardText(props.children),
+  ];
 }
 
 describe('sports booking card presentation', () => {
