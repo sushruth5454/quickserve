@@ -2721,6 +2721,446 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
     }
   });
 }
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  const o27Context = await browser.newContext({
+    ...devices['iPhone 15'],
+    geolocation: { latitude: 16.4995, longitude: 80.656 },
+    permissions: ['geolocation'],
+    timezoneId: 'Asia/Kolkata',
+  });
+  const o27Page = await o27Context.newPage();
+  o27Page.setDefaultTimeout(20000);
+  o27Page.on('pageerror', (e) => pageErrors.push(`[O27 ${o27Page.url()}] ${e.message}`));
+  o27Page.on('console', (m) => {
+    if (m.type() === 'error') consoleErrors.push(`[O27 ${o27Page.url()}] ${m.text()}`);
+  });
+  recordHttpFailures('O27 owner', o27Page);
+
+  try {
+    await step('MK-WORKSPACE-catalogue-before-after', async () => {
+      const sqlLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`;
+      const sqlUuid = (value) => `${sqlLiteral(value)}::uuid`;
+      const privateQuery = async (query) => {
+        if (
+          !PRIVATE_LOCAL_E2E
+          || process.env.DEMO_PROJECT !== '1'
+          || process.env.PROJECT_REF !== 'local'
+          || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+        ) {
+          throw new Error('O27 fixtures and flag changes are restricted to the disposable local E2E backend');
+        }
+        const token = process.env.SUPABASE_ACCESS_TOKEN;
+        if (!token) throw new Error('Local Management API token is missing for O27');
+        const response = await fetch('http://127.0.0.1:54399/v1/projects/local/database/query', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'quickserve-oorva-private-e2e',
+          },
+          body: JSON.stringify({ query }),
+        });
+        const responseText = await response.text();
+        if (!response.ok) {
+          throw new Error(`Local database query failed (${response.status}): ${responseText.slice(0, 500)}`);
+        }
+        let result = [];
+        if (responseText.trim()) {
+          try {
+            result = JSON.parse(responseText);
+          } catch {
+            throw new Error('Local Management API returned invalid JSON for O27');
+          }
+        }
+        if (result?.error || (Array.isArray(result) && result.some((row) => row?.error))) {
+          throw new Error(`Local O27 database query returned an error: ${JSON.stringify(result?.error ?? result)}`);
+        }
+        return result;
+      };
+      const rpc = async (token, name, args = {}) => {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+          method: 'POST',
+          headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(args),
+        });
+        const body = await response.text();
+        let data = null;
+        try {
+          data = body ? JSON.parse(body) : null;
+        } catch {
+          data = null;
+        }
+        return { ok: response.ok, status: response.status, body, data };
+      };
+      const requireRpcSuccess = (name, result) => {
+        if (!result.ok) {
+          throw new Error(`${name} RPC expected success; actual=${JSON.stringify({ status: result.status, body: result.body })}`);
+        }
+        return result.data;
+      };
+      const userIdFromToken = (token, role) => {
+        const payload = token.split('.')[1];
+        if (!payload) throw new Error(`O27 ${role} token has no JWT payload`);
+        let claims;
+        try {
+          claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+        } catch {
+          throw new Error(`O27 ${role} token payload is invalid JSON`);
+        }
+        const id = claims?.sub;
+        if (typeof id !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(id)) {
+          throw new Error(`O27 ${role} token has an invalid subject: ${JSON.stringify({ id: id ?? null })}`);
+        }
+        return id;
+      };
+      const privateFlags = async () => {
+        const rows = await privateQuery(
+          "select key, enabled from public.feature_flags where key in ('oorva_brand', 'oorva_merchant_shop_ux', 'products', 'product_enquiries')",
+        );
+        if (!Array.isArray(rows) || rows.length !== 4) {
+          throw new Error(`O27 feature flag rows are missing: ${JSON.stringify(rows)}`);
+        }
+        return Object.fromEntries(rows.map((row) => [row.key, row.enabled]));
+      };
+      const applyLocalFlags = async (values) => {
+        const payload = JSON.stringify(values);
+        if (payload.includes('$flags$')) throw new Error('Unsafe O27 feature flag snapshot payload');
+        await privateQuery(
+          'update public.feature_flags f set enabled = v.value::boolean, updated_at = now() '
+          + `from json_each_text($flags$${payload}$flags$::json) v where f.key = v.key`,
+        );
+        const actual = await privateFlags();
+        const mismatches = Object.fromEntries(
+          Object.entries(values)
+            .filter(([key, value]) => actual[key] !== value)
+            .map(([key, value]) => [key, { expected: value, actual: actual[key] }]),
+        );
+        if (Object.keys(mismatches).length) {
+          throw new Error(`O27 local feature flag update did not persist: ${JSON.stringify({ mismatches, actual })}`);
+        }
+      };
+      const refreshOwnerFeatures = async () => {
+        const responsePromise = o27Page.waitForResponse((response) =>
+          response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features'),
+        );
+        await o27Page.reload();
+        const response = await responsePromise;
+        if (!response.ok()) {
+          throw new Error(`O27 get_app_features failed after local toggle (${response.status()}): ${await response.text()}`);
+        }
+        await o27Page.waitForLoadState('networkidle').catch(() => undefined);
+      };
+
+      let flagSnapshot = null;
+      let ownerId = null;
+      let customerId = null;
+      let shopId = null;
+      let productId = null;
+      let enquiryId = null;
+      let identitySetWasFresh = false;
+      let ownerToken = null;
+      let customerToken = null;
+      let phoneKeys = [];
+      let testError = null;
+      const cleanupErrors = [];
+
+      try {
+        const ownerPhoneInput = process.env.O27_OWNER_PHONE?.trim() ?? '';
+        const customerPhoneInput = process.env.O27_CUSTOMER_PHONE?.trim() ?? '';
+        if (!ownerPhoneInput || !customerPhoneInput) {
+          throw new Error(`O27 local test phone settings are missing: ${JSON.stringify({
+            ownerConfigured: Boolean(ownerPhoneInput),
+            customerConfigured: Boolean(customerPhoneInput),
+          })}`);
+        }
+        const ownerPhone = phoneE164(ownerPhoneInput);
+        const customerPhone = phoneE164(customerPhoneInput);
+        const collisions = phoneRoleCollisions([
+          ['O27 shop owner', ownerPhone],
+          ['O27 enquiry customer', customerPhone],
+          ['E2E_CUSTOMER_PHONE', PHONE],
+          ['NEW_PRO_PHONE', NEW_PRO_PHONE],
+          ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
+          ['GUEST_E2E_PHONE', GUEST_E2E_PHONE],
+          ['ADMIN_E2E_PHONE', ADMIN_E2E_PHONE ?? ''],
+          ['O28_OWNER_A_PHONE', process.env.O28_OWNER_A_PHONE ?? ''],
+          ['O28_OWNER_B_PHONE', process.env.O28_OWNER_B_PHONE ?? ''],
+        ]);
+        if (collisions.length) {
+          throw new Error(`O27 identities must be distinct from other E2E roles: ${JSON.stringify({ collisions })}`);
+        }
+        const phoneDigits = [ownerPhone, customerPhone].map(phoneKey);
+        phoneKeys = phoneDigits.flatMap((digits) => [digits, `91${digits}`]);
+        const existingUsers = await privateQuery(
+          `select id, regexp_replace(phone, '[^0-9]', '', 'g') as phone_digits from auth.users `
+          + `where regexp_replace(phone, '[^0-9]', '', 'g') in (${phoneKeys.map(sqlLiteral).join(', ')})`,
+        );
+        if (!Array.isArray(existingUsers) || existingUsers.length) {
+          throw new Error(`O27 test identities are not fresh: ${JSON.stringify({ expected: [], actual: existingUsers })}`);
+        }
+        identitySetWasFresh = true;
+
+        await goOn(o27Page, '/login');
+        await sendOtpFromUi(o27Page, ownerPhoneInput, 'O27-shop-owner');
+        await o27Page.getByLabel('6-digit verification code').fill(OTP);
+        await o27Page.waitForURL((url) => new URL(url).pathname === '/role');
+        await o27Page.getByText('Welcome to QuickServe', { exact: true }).waitFor({ state: 'visible' });
+        await o27Page.getByLabel('Your name').fill(`${QA_MARKER} O27 shop owner`);
+        await o27Page.getByRole('radio', { name: /^I need a service\./ }).click();
+        await o27Page.getByText('Continue', { exact: true }).last().click();
+        await o27Page.waitForURL((url) => ['/', '/dashboard'].includes(new URL(url).pathname));
+        ownerToken = await o27Page.evaluate(() => {
+          for (const key of Object.keys(localStorage)) {
+            try {
+              const value = JSON.parse(localStorage.getItem(key) ?? 'null');
+              const sessions = [value, value?.currentSession, value?.session, value?.data?.session];
+              const session = sessions.find((candidate) => typeof candidate?.access_token === 'string');
+              if (session) return session.access_token;
+            } catch {
+              continue;
+            }
+          }
+          return null;
+        });
+        if (!ownerToken) throw new Error('O27 owner login did not persist a browser access token');
+        ownerId = userIdFromToken(ownerToken, 'shop owner');
+        customerToken = await signInAs(customerPhone);
+        customerId = userIdFromToken(customerToken, 'enquiry customer');
+        if (ownerId === customerId) throw new Error(`O27 owner and customer IDs collided: ${JSON.stringify({ ownerId, customerId })}`);
+
+        const identityRows = await privateQuery(
+          `select id from auth.users where id in (${sqlUuid(ownerId)}, ${sqlUuid(customerId)})`,
+        );
+        const profileRows = await privateQuery(
+          `select id from public.profiles where id in (${sqlUuid(ownerId)}, ${sqlUuid(customerId)})`,
+        );
+        if (!Array.isArray(identityRows) || identityRows.length !== 2 || !Array.isArray(profileRows) || profileRows.length !== 2) {
+          throw new Error(`O27 fresh auth/profile identities are incomplete: ${JSON.stringify({ identityRows, profileRows })}`);
+        }
+        const existingShop = requireRpcSuccess('get_my_shop before O27 fixture', await rpc(ownerToken, 'get_my_shop'));
+        const existingShopRows = Array.isArray(existingShop) ? existingShop.filter(Boolean) : existingShop ? [existingShop] : [];
+        if (existingShopRows.length) {
+          throw new Error(`O27 owner already has a shop; refusing to reuse it: ${JSON.stringify(existingShopRows)}`);
+        }
+
+        flagSnapshot = await privateFlags();
+        if (flagSnapshot.oorva_brand !== false || flagSnapshot.oorva_merchant_shop_ux !== false) {
+          throw new Error(`O27 local baseline must start with brand and leaf OFF: ${JSON.stringify({ actual: flagSnapshot })}`);
+        }
+        if (flagSnapshot.products !== true || flagSnapshot.product_enquiries !== true) {
+          throw new Error(`O27 local capability flags must be ON for product/inbox fixtures: ${JSON.stringify({ actual: flagSnapshot })}`);
+        }
+
+        await applyLocalFlags({ oorva_brand: false, oorva_merchant_shop_ux: false });
+        await goOn(o27Page, '/merchant-shop');
+        await o27Page.getByText('Set up your shop', { exact: true }).waitFor({ state: 'visible' });
+        const setupButton = o27Page.getByRole('button', { name: 'Save shop details', exact: true });
+        await setupButton.waitFor({ state: 'visible' });
+        if (!(await setupButton.isEnabled()) || await o27Page.getByText(/^Product catalogue \(/).count()) {
+          throw new Error(`New shop setup was not the primary action with both brand/leaf OFF: ${JSON.stringify({
+            saveEnabled: await setupButton.isEnabled(),
+            body: await o27Page.locator('body').innerText(),
+          })}`);
+        }
+        await applyLocalFlags({ oorva_brand: true, oorva_merchant_shop_ux: true });
+        await refreshOwnerFeatures();
+        await o27Page.getByText('Set up your shop', { exact: true }).waitFor({ state: 'visible' });
+        await o27Page.getByRole('button', { name: 'Save shop details', exact: true }).waitFor({ state: 'visible' });
+
+        const categoryRows = await privateQuery(
+          "select id from public.product_categories where slug = 'tiles' and active = true limit 1",
+        );
+        if (!Array.isArray(categoryRows) || !categoryRows[0]?.id) {
+          throw new Error(`O27 active Tiles category is missing: ${JSON.stringify(categoryRows)}`);
+        }
+        shopId = randomUUID();
+        productId = randomUUID();
+        const shopName = `${QA_MARKER} O27 isolated shop ${randomUUID().slice(0, 8)}`;
+        const productName = `${QA_MARKER} O27 catalogue item ${randomUUID().slice(0, 8)}`;
+        await privateQuery(
+          'insert into public.shops '
+          + '(id, owner_id, name, description, address_line, city, area, lat, lng, delivery_radius_km, offers_delivery, offers_pickup, status) '
+          + `values (${sqlUuid(shopId)}, ${sqlUuid(ownerId)}, ${sqlLiteral(shopName)}, `
+          + `${sqlLiteral(`${QA_MARKER} isolated O27 local-only shop`)}, ${sqlLiteral('88 QA O27 Market Road')}, `
+          + `${sqlLiteral('Vijayawada')}, ${sqlLiteral('Benz Circle')}, 16.5, 80.6, 20, true, true, 'verified')`,
+        );
+        await privateQuery(
+          `insert into public.shop_categories (shop_id, category_id) values (${sqlUuid(shopId)}, ${sqlUuid(categoryRows[0].id)})`,
+        );
+        await privateQuery(
+          'insert into public.products (id, shop_id, category_id, name, brand, model, description, specs, unit, active, in_stock) '
+          + `values (${sqlUuid(productId)}, ${sqlUuid(shopId)}, ${sqlUuid(categoryRows[0].id)}, `
+          + `${sqlLiteral(productName)}, 'O27', 'Workspace', ${sqlLiteral(`${QA_MARKER} O27 local catalogue product`)}, `
+          + `${sqlLiteral(JSON.stringify({ size: '10x10' }))}::jsonb, 'box', true, true)`,
+        );
+        const ownerShopResult = requireRpcSuccess('get_my_shop O27 fixture read', await rpc(ownerToken, 'get_my_shop'));
+        const ownerShop = Array.isArray(ownerShopResult) ? ownerShopResult[0] : ownerShopResult;
+        if (ownerShop?.id !== shopId || ownerShop?.business_role !== 'owner') {
+          throw new Error(`O27 shop owner readback mismatched: ${JSON.stringify({
+            expected: { id: shopId, business_role: 'owner' },
+            actual: ownerShop,
+          })}`);
+        }
+
+        const assertExistingShopOrder = async (workspaceEnabled) => {
+          const body = await o27Page.locator('body').innerText();
+          const catalogueIndex = body.indexOf('Product catalogue (1/500)');
+          const detailsIndex = body.indexOf('Shop details');
+          const shopNameIndex = body.indexOf(shopName);
+          const editDetailsCount = await o27Page.getByRole('button', { name: 'Edit shop details', exact: true }).count();
+          const shopNameFieldCount = await o27Page.getByLabel('Shop name', { exact: true }).count();
+          const actual = { shopNameIndex, catalogueIndex, detailsIndex, editDetailsCount, shopNameFieldCount };
+          if (shopNameIndex < 0 || catalogueIndex < 0 || detailsIndex < 0) {
+            throw new Error(`O27 existing shop sections are missing: ${JSON.stringify({ actual, body })}`);
+          }
+          if (workspaceEnabled) {
+            if (!(shopNameIndex < catalogueIndex && catalogueIndex < detailsIndex) || editDetailsCount !== 1 || shopNameFieldCount !== 0) {
+              throw new Error(`O27 enabled existing-shop order is wrong: ${JSON.stringify({ actual, expected: 'readiness < catalogue < collapsed details' })}`);
+            }
+          } else if (!(shopNameIndex < detailsIndex && detailsIndex < catalogueIndex) || editDetailsCount !== 0 || shopNameFieldCount < 1) {
+            throw new Error(`O27 legacy existing-shop order is wrong: ${JSON.stringify({ actual, expected: 'readiness < expanded details < catalogue' })}`);
+          }
+        };
+
+        await goOn(o27Page, '/merchant-shop');
+        await o27Page.getByText(productName, { exact: true }).waitFor({ state: 'visible' });
+        await applyLocalFlags({ oorva_brand: false, oorva_merchant_shop_ux: false });
+        await refreshOwnerFeatures();
+        await assertExistingShopOrder(false);
+
+        await applyLocalFlags({ oorva_brand: true, oorva_merchant_shop_ux: false });
+        await refreshOwnerFeatures();
+        await assertExistingShopOrder(false);
+
+        await applyLocalFlags({ oorva_brand: false, oorva_merchant_shop_ux: true });
+        await refreshOwnerFeatures();
+        await assertExistingShopOrder(false);
+
+        await applyLocalFlags({ oorva_brand: true, oorva_merchant_shop_ux: true });
+        await refreshOwnerFeatures();
+        await assertExistingShopOrder(true);
+
+        const enquiryText = `${QA_MARKER} O27 unique customer asks about catalogue ${randomUUID()}`;
+        const createdEnquiry = requireRpcSuccess(
+          'start_product_enquiry O27 fixture',
+          await rpc(customerToken, 'start_product_enquiry', { p_shop_id: shopId, p_product_id: productId, p_body: enquiryText }),
+        );
+        enquiryId = Array.isArray(createdEnquiry) ? createdEnquiry[0]?.id : createdEnquiry?.id ?? createdEnquiry;
+        if (typeof enquiryId !== 'string' || !enquiryId) {
+          throw new Error(`O27 start_product_enquiry returned no ID: ${JSON.stringify(createdEnquiry)}`);
+        }
+        const inboxRows = requireRpcSuccess('list_shop_product_enquiries O27 readback', await rpc(ownerToken, 'list_shop_product_enquiries'));
+        const inbox = Array.isArray(inboxRows) ? inboxRows.find((row) => row?.id === enquiryId) : null;
+        if (
+          !inbox
+          || inbox.shop_id !== shopId
+          || inbox.shop_name !== shopName
+          || inbox.product_name !== productName
+          || Number(inbox.shop_unread) < 1
+        ) {
+          throw new Error(`O27 inbox API lost business-labelled unread work: ${JSON.stringify({
+            expected: { id: enquiryId, shop_id: shopId, shop_name: shopName, product_name: productName, shop_unread: 1 },
+            actual: inbox,
+            rows: inboxRows,
+          })}`);
+        }
+        await goOn(o27Page, '/merchant-enquiries');
+        await o27Page.getByText('Shop enquiries', { exact: true }).waitFor({ state: 'visible' });
+        const inboxItem = o27Page.getByRole('button').filter({ hasText: productName }).first();
+        await inboxItem.waitFor({ state: 'visible' });
+        const inboxItemText = await inboxItem.innerText();
+        const inboxBody = await o27Page.locator('body').innerText();
+        const workIndex = inboxBody.indexOf(productName);
+        const manageIndex = inboxBody.indexOf('Manage my shop');
+        if (
+          !inboxItemText.includes(shopName)
+          || !/\b1 new\b/.test(inboxItemText)
+          || workIndex < 0
+          || manageIndex <= workIndex
+        ) {
+          throw new Error(`O27 inbox did not place business-labelled unread work before the secondary Manage link: ${JSON.stringify({
+            expected: { shopName, productName, unread: '1 new', manageAfterWork: true },
+            actual: { inboxItemText, workIndex, manageIndex, inboxBody },
+          })}`);
+        }
+      } catch (error) {
+        testError = error;
+      } finally {
+        if (flagSnapshot) {
+          try {
+            await applyLocalFlags(flagSnapshot);
+            await refreshOwnerFeatures();
+            const restored = await privateFlags();
+            const mismatches = Object.fromEntries(
+              Object.entries(flagSnapshot)
+                .filter(([key, value]) => restored[key] !== value)
+                .map(([key, value]) => [key, { expected: value, actual: restored[key] }]),
+            );
+            if (Object.keys(mismatches).length) {
+              throw new Error(`O27 local flag restoration mismatch: ${JSON.stringify({ mismatches, restored })}`);
+            }
+          } catch (error) {
+            cleanupErrors.push(`local feature flag restore: ${String(error?.message ?? error)}`);
+          }
+        }
+        try {
+          if (shopId) await privateQuery(`delete from public.shops where id = ${sqlUuid(shopId)}`);
+          if (identitySetWasFresh && phoneKeys.length) {
+            const usersByPhone = await privateQuery(
+              `select id from auth.users where regexp_replace(phone, '[^0-9]', '', 'g') in (${phoneKeys.map(sqlLiteral).join(', ')})`,
+            );
+            const cleanupIds = [...new Set([
+              ownerId,
+              customerId,
+              ...(Array.isArray(usersByPhone) ? usersByPhone.map((row) => row.id) : []),
+            ].filter(Boolean))];
+            if (cleanupIds.length) {
+              await privateQuery(`delete from auth.users where id in (${cleanupIds.map(sqlUuid).join(', ')})`);
+            }
+            const idsSql = cleanupIds.length ? cleanupIds.map(sqlUuid).join(', ') : 'null::uuid';
+            const shopSql = shopId ? sqlUuid(shopId) : 'null::uuid';
+            const productSql = productId ? sqlUuid(productId) : 'null::uuid';
+            const enquirySql = enquiryId ? sqlUuid(enquiryId) : 'null::uuid';
+            const remaining = await privateQuery(
+              `select (select count(*)::int from auth.users where id in (${idsSql})) as users, `
+              + `(select count(*)::int from public.profiles where id in (${idsSql})) as profiles, `
+              + `(select count(*)::int from public.shops where id = ${shopSql}) as shops, `
+              + `(select count(*)::int from public.products where id = ${productSql}) as products, `
+              + `(select count(*)::int from public.product_enquiries where id = ${enquirySql}) as enquiries, `
+              + `(select count(*)::int from public.product_enquiry_messages where enquiry_id = ${enquirySql}) as messages`,
+            );
+            if (
+              !Array.isArray(remaining)
+              || Number(remaining[0]?.users) !== 0
+              || Number(remaining[0]?.profiles) !== 0
+              || Number(remaining[0]?.shops) !== 0
+              || Number(remaining[0]?.products) !== 0
+              || Number(remaining[0]?.enquiries) !== 0
+              || Number(remaining[0]?.messages) !== 0
+            ) {
+              throw new Error(`O27 local fixture cleanup readback failed: ${JSON.stringify(remaining)}`);
+            }
+          }
+        } catch (error) {
+          cleanupErrors.push(`local fixture cleanup: ${String(error?.message ?? error)}`);
+        }
+      }
+      if (testError || cleanupErrors.length) {
+        throw new Error(`MK-WORKSPACE catalogue before/after failed: ${JSON.stringify({
+          testError: testError ? String(testError?.message ?? testError) : null,
+          cleanupErrors,
+        })}`);
+      }
+    }, o27Page);
+  } finally {
+    try {
+      await o27Context.close();
+    } catch (error) {
+      failures.push(`O27 owner context cleanup: ${String(error?.message ?? error)}`);
+    }
+  }
+}
 await step('my-activity-sports-segment', async () => {
   const sportsBookingsResponsePromise = page.waitForResponse((response) =>
     response.request().method() === 'POST'
