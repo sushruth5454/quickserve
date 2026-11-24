@@ -81,3 +81,38 @@ describe('SP-REVIEW-DIRTY-FIELDS', () => {
     expect(hasSportsVenueReviewChanges(saved, { ...saved, payment_modes: ['online'] } as typeof saved)).toBe(false);
   });
 });
+
+describe('SP-RESTORE-NOT-VERIFY', () => {
+  it('keeps restore reachable without offering same-state review actions', () => {
+    const actual = Object.fromEntries(
+      ['submitted', 'verified', 'rejected', 'suspended'].map((status) => [
+        status,
+        getVenueReviewPresentation(status, 'admin').actions.map(({ label, target }) => ({ label, target })),
+      ]),
+    );
+    const expected = {
+      submitted: [
+        { label: 'Verify venue', target: 'verified' },
+        { label: 'Reject', target: 'rejected' },
+        { label: 'Suspend', target: 'suspended' },
+      ],
+      verified: [
+        { label: 'Reject', target: 'rejected' },
+        { label: 'Suspend', target: 'suspended' },
+      ],
+      rejected: [
+        { label: 'Restore / Re-verify', target: 'verified' },
+        { label: 'Suspend', target: 'suspended' },
+      ],
+      suspended: [
+        { label: 'Restore / Re-verify', target: 'verified' },
+        { label: 'Reject', target: 'rejected' },
+      ],
+    };
+
+    expect({ actual, json: JSON.stringify(actual) }).toEqual({
+      actual: expected,
+      json: JSON.stringify(expected),
+    });
+  });
+});
