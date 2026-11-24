@@ -69,7 +69,10 @@ export async function run({ withClient, withTwoClients }) {
       select public.get_app_branding_snapshot() as snapshot,
              (select count(*)::integer from public.app_branding_publications) as publication_count
     `);
-    return result.rows[0];
+    return {
+      snapshot: result.rows[0]?.snapshot,
+      publicationCount: result.rows[0]?.publication_count,
+    };
   });
   assert.match(
     baseline.snapshot?.generation ?? '',
