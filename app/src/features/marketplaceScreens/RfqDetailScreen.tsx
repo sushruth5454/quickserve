@@ -1,7 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, View } from 'react-native';
-import { Badge, Button, Card, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
+import { Badge, Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { QuoteCompareTable } from '../../components/market/QuoteCompareTable';
 import { cancelRfq, compareRfqQuotes, getRfq, selectSupplierQuote, type Rfq, type RfqQuoteComparison } from '../rfq/api';
 import { buildComparePresentation } from '../rfq/comparePresentation';
@@ -26,15 +26,19 @@ export default function RfqDetailScreen() {
   const [busyQuoteId, setBusyQuoteId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [hasRead, setHasRead] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setError(null);
     try {
       const [nextRfq, nextQuotes] = await Promise.all([getRfq(id), compareRfqQuotes(id)]);
       setRfq(nextRfq);
       setQuotes(nextQuotes);
       setError(null);
+      setHasRead(true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -57,30 +61,30 @@ export default function RfqDetailScreen() {
   );
 
   const chooseQuote = async (quoteId: string) => {
-    if (!enabled || !enquiriesEnabled) return;
+    if (!enabled || !enquiriesEnabled || !hasRead || loading || error) return;
     setBusyQuoteId(quoteId);
-    setError(null);
+    setActionError(null);
     try {
       const result = await selectSupplierQuote(quoteId);
       toast({ message: 'Supplier selected. Continue in your enquiry; no payment was taken.', tone: 'success' });
       router.replace(`/enquiry/${result.enquiry_id}`);
     } catch (e) {
-      setError((e as Error).message);
+      setActionError((e as Error).message);
     } finally {
       setBusyQuoteId(null);
     }
   };
 
   const cancelRequest = async () => {
-    if (!id) return;
+    if (!id || !hasRead || loading || error) return;
     setCancelling(true);
-    setError(null);
+    setActionError(null);
     try {
       await cancelRfq(id);
       toast({ message: 'RFQ cancelled.', tone: 'success' });
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      setActionError((e as Error).message);
     } finally {
       setCancelling(false);
     }
@@ -112,9 +116,12 @@ export default function RfqDetailScreen() {
       refreshing={loading}
       onRefresh={() => void load()}
     >
-      <InlineAlert message={error} />
+      {error && !hasRead ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved RFQ history; selection and cancellation are disabled until a successful refresh. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
+      <InlineAlert message={actionError} />
       {!enabled ? <Text variant="caption" color="muted">Existing RFQ history is read-only while new RFQs are turned off. You may cancel your own open request.</Text> : null}
-      {loading && !rfq ? <Skeleton height={180} radius={t.radii.lg} /> : null}
+      {loading && !hasRead ? <Skeleton height={180} radius={t.radii.lg} /> : null}
+      {hasRead && !loading && !error && !rfq ? <EmptyState title="RFQ unavailable" message="This request is no longer available." /> : null}
       {rfq ? (
         <>
           <Card style={{ gap: t.spacing.sm }}>
@@ -131,7 +138,7 @@ export default function RfqDetailScreen() {
               title="Cancel request"
               variant="outline"
               loading={cancelling}
-              disabled={!!busyQuoteId}
+              disabled={!!busyQuoteId || !hasRead || loading || !!error}
               onPress={confirmCancel}
             />
           ) : null}
@@ -153,7 +160,7 @@ export default function RfqDetailScreen() {
               onSelect={(quoteId) => void chooseQuote(quoteId)}
               warnings={comparePresentation.warnings}
               selectable={(quoteId) => (
-                enabled && enquiriesEnabled && !busyQuoteId && !cancelling
+                enabled && enquiriesEnabled && hasRead && !loading && !error && !busyQuoteId && !cancelling
                 && comparePresentation.selectableQuoteIds.includes(quoteId)
               )}
               excludeFromLowest={(quoteId) => comparePresentation.excludedFromLowestQuoteIds.includes(quoteId)}
@@ -206,7 +213,7 @@ export default function RfqDetailScreen() {
                         title="Choose this supplier"
                         fullWidth
                         loading={busyQuoteId === quote.quote_id}
-                        disabled={!!busyQuoteId || cancelling || !enabled || !enquiriesEnabled}
+                        disabled={!!busyQuoteId || cancelling || !enabled || !enquiriesEnabled || !hasRead || loading || !!error}
                         onPress={() => void chooseQuote(quote.quote_id)}
                       />
                       {!enquiriesEnabled ? <Text variant="caption" color="muted">Product enquiries must be enabled before a supplier can be selected.</Text> : null}
