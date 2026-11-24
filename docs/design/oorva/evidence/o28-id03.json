@@ -8,7 +8,7 @@
     "ID-F16"
   ],
   "dispatchOrder": 55,
-  "status": "VALIDATION_PENDING_LANE_CI",
+  "status": "VALIDATION_PENDING_EXACT_HEAD_LANE_CI",
   "base": {
     "branch": "lane/oorva-o28-id03",
     "implementationBaseHead": "24ca793c69e8dcac5d93761ac2232c1957ee71fc",
@@ -54,7 +54,7 @@
     "Kept get_my_business_shop() unchanged; getMyShop(ownerId) calls the new RPC only when ownerId is explicitly supplied."
   ],
   "testCoverageAuthored": [
-    "ID-MEM-BUSINESS-PKS: actual provider, shop and venue PKs are returned.",
+    "ID-MEM-BUSINESS-PKS: actual provider, shop and venue PKs are returned; missing-user and merchant_staff-OFF denials plus authenticated-only RPC grants are asserted.",
     "ID-MULTI-VENUE-SAME-NAME: two same-name venues remain distinct under one owner-wide membership.",
     "ID-SHOP-SELECT-B: explicit owner B returns B, not the first eligible shop A, with only safe fields.",
     "ID-SHOP-DENY: stranger, inactive member and delegated member with merchant_staff OFF are denied; owner remains authorized with owner-rank GSTIN.",
@@ -99,12 +99,19 @@
       }
     ],
     "laneCi": {
-      "status": "PENDING_PERMITTED_CODESPACE_FALLBACK",
+      "status": "PENDING_EXACT_HEAD_LANE_CI_AFTER_AUTH_COVERAGE_UPDATE",
       "fallback": "Exact-head Lane CI only",
-      "exactHeadRunId": null
+      "exactHeadRunId": null,
+      "priorRun": {
+        "runId": "45395800934",
+        "headSha": "7d8a901dc0e07a0a595711559fd46c181a272d84",
+        "result": "PASS",
+        "note": "The focused AUTH reviewer requested direct membership-list no-UID, merchant_staff-OFF and RPC ACL assertions; these tests were added after this run."
+      }
     },
     "focusedAuthReview": {
-      "status": "REQUIRED_AFTER_CODE_GREEN",
+      "status": "PENDING_AFTER_NEXT_CODE_GREEN",
+      "priorReview": "No significant issues; coverage note addressed by added assertions.",
       "findings": []
     }
   },

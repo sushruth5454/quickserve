@@ -128,6 +128,39 @@ await scenario('ID-MEM-BUSINESS-PKS', async () => {
     'ID-MEM-BUSINESS-PKS: provider, shop and venue identities use their actual primary keys',
     { rows, expected: { providerId, shopId, venueId, ownerId } },
   );
+
+  const privileges = await one(`
+    select has_function_privilege('anon', 'public.list_my_business_memberships()', 'execute') as anon_memberships,
+           has_function_privilege('authenticated', 'public.list_my_business_memberships()', 'execute') as authenticated_memberships,
+           has_function_privilege('anon', 'public.get_business_shop_context(uuid)', 'execute') as anon_shop_context,
+           has_function_privilege('authenticated', 'public.get_business_shop_context(uuid)', 'execute') as authenticated_shop_context
+  `);
+  check(
+    privileges.anon_memberships === false
+      && privileges.authenticated_memberships === true
+      && privileges.anon_shop_context === false
+      && privileges.authenticated_shop_context === true,
+    'ID-MEM-BUSINESS-PKS: private context RPCs retain authenticated-only execution grants',
+    privileges,
+  );
+  await expectDenied(
+    () => as(null, 'authenticated', `
+      select * from public.list_my_business_memberships()
+    `),
+    'ID-MEM-BUSINESS-PKS: membership listing rejects a missing authenticated user',
+    'not authenticated',
+    { memberId: null, merchantStaff: true },
+  );
+
+  await setFlags(false, true);
+  await expectDenied(
+    () => as(memberId, 'authenticated', `
+      select * from public.list_my_business_memberships()
+    `),
+    'ID-MEM-BUSINESS-PKS: membership listing remains feature-gated',
+    'merchant staff is disabled',
+    { memberId, merchantStaff: false },
+  );
 });
 
 await scenario('ID-MULTI-VENUE-SAME-NAME', async () => {
