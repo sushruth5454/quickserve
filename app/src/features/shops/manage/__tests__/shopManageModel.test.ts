@@ -201,6 +201,11 @@ function collectElements(node: unknown, elements: ScreenElement[] = []): ScreenE
     const element = node as ScreenElement;
     elements.push(element);
     collectElements(element.props.children, elements);
+    if (element.type === ShopDetailsSection) {
+      collectElements((ShopDetailsSection as (props: never) => unknown)(element.props as never), elements);
+    } else if (element.type === ProductEditorSection) {
+      collectElements((ProductEditorSection as (props: never) => unknown)(element.props as never), elements);
+    }
   }
   return elements;
 }
@@ -456,8 +461,9 @@ it('MK-WORKSPACE-new-existing-priority', () => {
   const manageButton = enquiryElements.find((element) => element.type === 'Button' && element.props.title === 'Manage my shop');
   const inboxIndex = enquiryElements.findIndex((element) => element.type === 'ListItem');
   const manageIndex = enquiryElements.findIndex((element) => element.type === 'Button' && element.props.title === 'Manage my shop');
+  const unreadChildren = (inboxRow?.props.right as ScreenElement | undefined)?.props.children;
   expect(inboxRow?.props.subtitle).toContain('Existing shop');
-  expect((inboxRow?.props.right as ScreenElement | undefined)?.props.children).toBe('2 new');
+  expect(Array.isArray(unreadChildren) ? unreadChildren.join('') : unreadChildren).toBe('2 new');
   expect(manageButton).toBeDefined();
   expect(inboxIndex).toBeGreaterThanOrEqual(0);
   expect(inboxIndex).toBeLessThan(manageIndex);

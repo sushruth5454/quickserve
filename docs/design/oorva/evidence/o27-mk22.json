@@ -99,7 +99,31 @@
     "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
     "gitDiffCheck": "PASS",
     "laneCi": {
-      "status": "PENDING_EXACT_HEAD_PUSH"
+      "status": "FIXES_READY_FOR_RETRY",
+      "previousAttempt": {
+        "runId": 45436398191,
+        "headSha": "567b49ec5eb4f1f22838006439a8a890742ad84f",
+        "result": "FAILED",
+        "jobs": {
+          "changes": "PASS",
+          "appTypecheck": "PASS",
+          "appUnitTests": "FAIL",
+          "deno": "PASS",
+          "tooling": "PASS",
+          "sql": "PASS",
+          "privatePostgres": "PASS"
+        },
+        "testSummary": "2 failed, 1009 passed, 1 skipped; no uncaught errors.",
+        "failures": [
+          "MK-HOST-refreshed-suspension assertion lacked rendered controls because the test tree walker did not expand the extracted ProductEditorSection.",
+          "MK-WORKSPACE-new-existing-priority expected a string unread badge, while React supplies numeric and text children as [2, ' new']."
+        ]
+      },
+      "fixesForRetry": [
+        "Teach the focused test tree walker to expand the two extracted presentation components.",
+        "Normalize the unread badge's React children before asserting its displayed text."
+      ],
+      "nextAttempt": "PENDING_FIX_COMMIT_PUSH"
     }
   },
   "gates": {
