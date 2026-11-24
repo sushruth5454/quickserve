@@ -2938,7 +2938,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         if (!Array.isArray(identityRows) || identityRows.length !== 2 || !Array.isArray(profileRows) || profileRows.length !== 2) {
           throw new Error(`O27 fresh auth/profile identities are incomplete: ${JSON.stringify({ identityRows, profileRows })}`);
         }
-        const existingShop = requireRpcSuccess('get_my_shop before O27 fixture', await rpc(ownerToken, 'get_my_shop'));
+        const existingShop = requireRpcSuccess('get_my_business_shop before O27 fixture', await rpc(ownerToken, 'get_my_business_shop'));
         const existingShopRows = Array.isArray(existingShop) ? existingShop.filter(Boolean) : existingShop ? [existingShop] : [];
         if (existingShopRows.length) {
           throw new Error(`O27 owner already has a shop; refusing to reuse it: ${JSON.stringify(existingShopRows)}`);
@@ -2994,7 +2994,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
           + `${sqlLiteral(productName)}, 'O27', 'Workspace', ${sqlLiteral(`${QA_MARKER} O27 local catalogue product`)}, `
           + `${sqlLiteral(JSON.stringify({ size: '10x10' }))}::jsonb, 'box', true, true)`,
         );
-        const ownerShopResult = requireRpcSuccess('get_my_shop O27 fixture read', await rpc(ownerToken, 'get_my_shop'));
+        const ownerShopResult = requireRpcSuccess('get_my_business_shop O27 fixture read', await rpc(ownerToken, 'get_my_business_shop'));
         const ownerShop = Array.isArray(ownerShopResult) ? ownerShopResult[0] : ownerShopResult;
         if (ownerShop?.id !== shopId || ownerShop?.business_role !== 'owner') {
           throw new Error(`O27 shop owner readback mismatched: ${JSON.stringify({
