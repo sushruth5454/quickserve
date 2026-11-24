@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { CategoryIcon, iconForCategory } from '../../components/CategoryIcon';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
 import { getCatalogue } from '../catalogue/api';
@@ -69,16 +69,16 @@ export function CreatorsScreen() {
                   onSecondary={() => router.push('/')}
                 />
               ) : categories.map((category) => (
-                <Card key={category.id} gap={theme.spacing.md}>
-                  <Pressable
-                    accessibilityRole="button"
+                <View key={category.id} style={{ gap: theme.spacing.md }}>
+                  <Card
                     accessibilityLabel={category.name}
                     onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } })}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, minHeight: 56 }}
                   >
-                    <CategoryIcon icon={iconForCategory(category)} size={48} />
-                    <Text variant="bodyStrong" numberOfLines={2} style={{ flex: 1 }}>{category.name}</Text>
-                  </Pressable>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, minHeight: 56 }}>
+                      <CategoryIcon icon={iconForCategory(category)} size={48} />
+                      <Text variant="bodyStrong" numberOfLines={2} style={{ flex: 1 }}>{category.name}</Text>
+                    </View>
+                  </Card>
                   {creatorCompositionEnabled && category.archetype === 'proposal' ? (
                     <Button
                       title={`Start a brief for ${category.name}`}
@@ -90,7 +90,7 @@ export function CreatorsScreen() {
                       fullWidth
                     />
                   ) : null}
-                </Card>
+                </View>
               ))}
             </View>
           )}

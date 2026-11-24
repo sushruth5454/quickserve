@@ -28,7 +28,7 @@ jest.mock('react', () => {
         mockRuntime.states[index],
         (next: unknown) => {
           mockRuntime.states[index] = typeof next === 'function'
-            ? (next as (current: unknown) => unknown)(mockRuntime.states[index])
+            ? (next as (mockCurrent: unknown) => unknown)(mockRuntime.states[index])
             : next;
         },
       ];
@@ -36,7 +36,7 @@ jest.mock('react', () => {
   };
 });
 
-jest.mock('react-native', () => ({ Pressable: 'Pressable', View: 'View' }));
+jest.mock('react-native', () => ({ View: 'View' }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
 jest.mock('../../../components/CategoryIcon', () => ({
   CategoryIcon: 'CategoryIcon',
@@ -209,7 +209,7 @@ describe('creator discovery composition', () => {
     await loadAndSettle();
 
     const tree = renderScreen();
-    const categoryPress = findElements(tree, 'Pressable').find(
+    const categoryCard = findElements(tree, 'Card').find(
       (element) => element.props.accessibilityLabel === photography.name,
     );
     const brief = findElements(tree, 'Button').find(
@@ -218,14 +218,14 @@ describe('creator discovery composition', () => {
     const header = findElements(tree, 'Header')[0];
 
     expect(header?.props.subtitle).toBe('Hyderabad');
-    expect(categoryPress).toBeTruthy();
-    expect(findElements(tree, 'Pressable')).toHaveLength(2);
+    expect(categoryCard).toBeTruthy();
+    expect(findElements(tree, 'Card').filter((element) => element.props.accessibilityLabel)).toHaveLength(2);
     expect(findElements(tree, 'Button').map((element) => element.props.title)).toEqual([
       `Start a brief for ${photography.name}`,
       `Start a brief for ${weddingFilms.name}`,
     ]);
     expect(textContent(tree).join(' ')).not.toMatch(/Plumbing|rating|followers|portfolio|verified|work photos/i);
-    (categoryPress?.props.onPress as (() => void) | undefined)?.();
+    (categoryCard?.props.onPress as (() => void) | undefined)?.();
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/category/[slug]',
       params: { slug: photography.slug, name: photography.name },
@@ -246,10 +246,10 @@ describe('creator discovery composition', () => {
     await loadAndSettle();
 
     const tree = renderScreen();
-    const categoryPress = findElements(tree, 'Pressable')[0];
+    const categoryCard = findElements(tree, 'Card').find((element) => element.props.accessibilityLabel === photography.name);
 
     expect(findElements(tree, 'Button')).toHaveLength(0);
-    (categoryPress?.props.onPress as (() => void) | undefined)?.();
+    (categoryCard?.props.onPress as (() => void) | undefined)?.();
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/category/[slug]',
       params: { slug: photography.slug, name: photography.name },
@@ -266,8 +266,8 @@ describe('creator discovery composition', () => {
     const tree = renderScreen();
 
     expect(findElements(tree, 'Button')).toHaveLength(0);
-    expect(findElements(tree, 'Pressable')).toHaveLength(1);
-    expect(findElements(tree, 'Pressable')[0]?.props.accessibilityLabel).toBe(photography.name);
+    const categoryCard = findElements(tree, 'Card').find((element) => element.props.accessibilityLabel === photography.name);
+    expect(categoryCard).toBeTruthy();
   });
 
   it('preserves the existing Home fallback when the creators landing leaf is off', () => {
