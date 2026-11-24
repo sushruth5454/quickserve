@@ -16,7 +16,9 @@ const CREATOR_STEPS = ['creators.step1', 'creators.step2', 'creators.step3', 'cr
 export function CreatorsScreen() {
   const theme = useTheme();
   const t = useT();
-  const enabled = useAppFeatureFlags().isOn('creators_landing');
+  const flags = useAppFeatureFlags();
+  const enabled = flags.isOn('creators_landing');
+  const creatorCompositionEnabled = flags.isOn('oorva_creators_ux');
   const { location } = useSelectedLocation();
   const [catalogue, setCatalogue] = useState<Catalogue | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -39,7 +41,7 @@ export function CreatorsScreen() {
   const categories = catalogue == null ? [] : creatorCategories(catalogue);
 
   return (
-    <Screen header={<Header title={t('creators.title')} />}>
+    <Screen header={<Header title={t('creators.title')} subtitle={location.city} />}>
       {!enabled ? (
         <>
           <InlineAlert tone="info" message={t('feature.off', { feature: t('creators.title') })} />
@@ -67,16 +69,28 @@ export function CreatorsScreen() {
                   onSecondary={() => router.push('/')}
                 />
               ) : categories.map((category) => (
-                <Card
-                  key={category.id}
-                  accessibilityLabel={category.name}
-                  onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } })}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, minHeight: 56 }}>
-                    <CategoryIcon icon={iconForCategory(category)} size={48} />
-                    <Text variant="bodyStrong" numberOfLines={2} style={{ flex: 1 }}>{category.name}</Text>
-                  </View>
-                </Card>
+                <View key={category.id} style={{ gap: theme.spacing.md }}>
+                  <Card
+                    accessibilityLabel={category.name}
+                    onPress={() => router.push({ pathname: '/category/[slug]', params: { slug: category.slug, name: category.name } })}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, minHeight: 56 }}>
+                      <CategoryIcon icon={iconForCategory(category)} size={48} />
+                      <Text variant="bodyStrong" numberOfLines={2} style={{ flex: 1 }}>{category.name}</Text>
+                    </View>
+                  </Card>
+                  {creatorCompositionEnabled && category.archetype === 'proposal' ? (
+                    <Button
+                      title={`Start a brief for ${category.name}`}
+                      variant="outline"
+                      onPress={() => router.push({
+                        pathname: '/request/new',
+                        params: { categoryId: category.id, name: category.name },
+                      })}
+                      fullWidth
+                    />
+                  ) : null}
+                </View>
               ))}
             </View>
           )}

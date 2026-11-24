@@ -1,0 +1,45 @@
+{
+  "stageId": "O21C",
+  "workPackage": "O21",
+  "base": {
+    "frozenPlan": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "currentMain": "7cfc0cb541d87e5090fd8a12590ca365b7ad8def",
+    "implementationBase": "b585c25d3ef00fe8658e8cdd879781ec2b262622"
+  },
+  "sourceEvidence": [
+    "docs/design/oorva/execution-plan.json#O21C",
+    "docs/design/oorva/audit/marketplace.json#S43",
+    "docs/design/oorva/evidence/o21-mk24.json#MK-T24/MK-F26",
+    "app/src/components/ProviderCard.tsx",
+    "app/src/features/providerProfile/ProviderPortfolioSection.tsx"
+  ],
+  "changedFiles": [
+    "app/src/features/creators/CreatorsScreen.tsx",
+    "app/src/features/creators/__tests__/composition.test.tsx",
+    "docs/design/oorva/evidence/o21c.json"
+  ],
+  "implementation": [
+    "Shows the selected city and only categories returned by the existing creator-category catalogue projection.",
+    "Keeps loading, retryable error, successful-empty recovery and successful-category states distinct.",
+    "Preserves ordinary category drill-down. The contextual brief action appears only when creators_landing and the effective oorva_creators_ux flag are on, and only for a returned proposal category; it hands categoryId and name to the existing request route without submitting a brief.",
+    "Leaves provider facts and portfolio samples to the existing provider card/profile flows; the creator landing adds no names, samples, ratings, follower counts or verification claims.",
+    "No feature-flag configuration was changed or activated."
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "result": "BLOCKED_BEFORE_TEST_EXECUTION",
+      "helperSource": "origin/main at 7cfc0cb541d87e5090fd8a12590ca365b7ad8def",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.creators.__tests__.composition[.]test[.]tsx$'",
+      "selectedTestCount": "NOT_REPORTED; helper stopped before test execution",
+      "error": [
+        "error getting codespaces: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30)",
+        "This API operation needs the \"codespace\" scope. To request it, run: gh auth refresh -h github.com -s codespace",
+        "InvalidOperation: C:\\Users\\snizampuram\\.copilot\\session-state\\d7b13c1d-8de4-4776-9917-8cc5575e83a7\\cs-test-current-main.ps1:45",
+        "You cannot call a method on a null-valued expression."
+      ],
+      "fallback": "Lane CI required; Codespace PASS not claimed."
+    },
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
