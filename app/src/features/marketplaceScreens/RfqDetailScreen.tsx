@@ -1,14 +1,25 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Alert, Platform, useWindowDimensions, View } from 'react-native';
 import { Badge, Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { sortByPrice } from '../../components/market/compareModel';
 import { cancelRfq, compareRfqQuotes, getRfq, selectSupplierQuote, type Rfq, type RfqQuoteComparison } from '../rfq/api';
 import { buildComparePresentation } from '../rfq/comparePresentation';
-import { RfqStatusLabel, useRfqFeatureFlags } from '../rfq/components';
+import * as RfqComponents from '../rfq/components';
 import { nearestFutureRfqDeadlineMs, rfqViewState } from '../rfq/rfqStateModel';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
+
+const RfqCompositionSection = RfqComponents.RfqCompositionSection
+  ?? (({ children }: { children: ReactNode }) => children);
+const RfqSupplierComparisonLayout = RfqComponents.RfqSupplierComparisonLayout
+  ?? (({ children }: { children: ReactNode }) => <View>{children}</View>);
+const rfqQuoteValidityWarning = RfqComponents.rfqQuoteValidityWarning ?? (() => null);
+
+function ResponsiveRfqComparison({ children }: { children: ReactNode }) {
+  const { width } = useWindowDimensions();
+  return <RfqSupplierComparisonLayout wide={width >= 760}>{children}</RfqSupplierComparisonLayout>;
+}
 
 function describeSpecs(specs: Record<string, unknown>) {
   const entries = Object.entries(specs ?? {});
@@ -19,7 +30,7 @@ export default function RfqDetailScreen() {
   const t = useTheme();
   const confirm = useConfirm();
   const toast = useToast();
-  const { rfq: enabled, enquiries: enquiriesEnabled } = useRfqFeatureFlags();
+  const { rfq: enabled, enquiries: enquiriesEnabled, composition } = RfqComponents.useRfqFeatureFlags();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [rfq, setRfq] = useState<Rfq | null>(null);
   const [quotes, setQuotes] = useState<RfqQuoteComparison[]>([]);
@@ -94,6 +105,81 @@ export default function RfqDetailScreen() {
     canSendQuote: false,
     nowMs,
   }) : null;
+  const quoteCards = sortedQuotes.map((quote) => {
+    const quoteView = rfqViewState({
+      status: activeRfq?.status ?? 'closed',
+      expiresAt: activeRfq?.expires_at ?? '',
+      quoteStatus: quote.status,
+      myOutcome: quote.status,
+      canSendQuote: false,
+      nowMs,
+    });
+    const expanded = !!expandedQuoteIds[quote.quote_id];
+    const warnings = comparePresentation.warnings[quote.quote_id] ?? [];
+    const selectable = comparePresentation.selectableQuoteIds.includes(quote.quote_id);
+    const validityWarning = rfqQuoteValidityWarning(quote.valid_until, nowMs);
+    return (
+      <Card key={quote.quote_id} style={{ gap: t.spacing.sm }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.xs }}>
+          <Text variant="subheadStrong" style={{ flex: 1 }}>{quote.shop_name}</Text>
+          <Badge
+            label={quoteView.quoteLabel}
+            tone={quote.status === 'selected' ? 'success' : quote.status === 'sent' ? 'primary' : 'neutral'}
+          />
+        </View>
+        {quote.quote_id === comparePresentation.lowestQuoteId ? <Badge label="Lowest complete live total" tone="success" /> : null}
+        {composition && validityWarning ? <Badge label={validityWarning} tone="warning" /> : null}
+        <Text variant="title3">{formatINR(quote.total_paise)}</Text>
+        <Text variant="caption" color="muted">
+          Items {formatINR(quote.subtotal_paise)} · {composition ? 'Tax (GST)' : 'GST'} {formatINR(quote.gst_paise)} · Delivery {formatINR(quote.delivery_charge_paise)}
+        </Text>
+        {composition ? (
+          <Text variant="caption" color="muted">
+            Tax is shown as quoted; confirm applicable GST with the supplier.
+          </Text>
+        ) : null}
+        <Text variant="caption" color="muted">
+          {quote.delivery_days == null ? 'Delivery time not specified' : `${quote.delivery_days} delivery days`} · Valid until {new Date(quote.valid_until).toLocaleDateString()}
+        </Text>
+        {warnings.map((warning, index) => (
+          <Badge key={`${quote.quote_id}-warning-${index}`} label={warning} tone="warning" />
+        ))}
+        {quote.notes ? <Text variant="caption" color="muted">{quote.notes}</Text> : null}
+        <Button
+          title={expanded ? 'Hide offer lines' : 'Show offer lines'}
+          variant="outline"
+          onPress={() => setExpandedQuoteIds((current) => ({ ...current, [quote.quote_id]: !current[quote.quote_id] }))}
+        />
+        {expanded ? quote.items.map((item) => (
+          <View key={item.rfq_item_id} style={{ gap: 3, paddingTop: t.spacing.xs, borderTopWidth: 1, borderTopColor: t.colors.border }}>
+            <Text variant="captionStrong">{item.seq}. {item.description}</Text>
+            <Text variant="caption" color="muted">
+              Requested: {activeRfq?.items.find((requested) => requested.id === item.rfq_item_id)?.quantity ?? item.quantity} {item.unit}
+              {item.requested_brand ? ` · ${item.requested_brand}` : ''}
+            </Text>
+            <Text variant="caption" color="muted">Requested specifications: {describeSpecs(item.requested_specs)}</Text>
+            <Text variant="caption">{item.available ? `Offered: ${item.brand || 'Brand not specified'} ${item.model}`.trim() : 'Unavailable'}</Text>
+            <Text variant="caption" color="muted">Offered specifications: {describeSpecs(item.specs)}</Text>
+            <Text variant="caption" color="muted">
+              {item.quantity} {item.unit} · Unit price {formatINR(item.unit_price_paise)}{composition ? ` · GST ${item.gst_rate_bp / 100}%` : ''} · Line total {formatINR(item.line_total_paise)}
+            </Text>
+          </View>
+        )) : null}
+        {selectable ? (
+          <>
+            {!enquiriesEnabled ? <Text variant="caption" color="muted">Product enquiries must be enabled before a supplier can be selected.</Text> : null}
+            <Button
+              title="Choose this supplier"
+              fullWidth
+              loading={busyQuoteId === quote.quote_id}
+              disabled={!!busyQuoteId || cancelling || !enabled || !enquiriesEnabled || !hasRead || loading || !!error}
+              onPress={() => void chooseQuote(quote.quote_id)}
+            />
+          </>
+        ) : null}
+      </Card>
+    );
+  });
 
   useEffect(() => {
     if (deadlineTimer.current) clearTimeout(deadlineTimer.current);
@@ -126,7 +212,7 @@ export default function RfqDetailScreen() {
     };
   }, [activeRfq?.id, activeRfq?.status, activeRfq?.expires_at, quotes, nowMs, load]);
 
-  const chooseQuote = async (quoteId: string) => {
+  async function chooseQuote(quoteId: string) {
     if (!enabled || !enquiriesEnabled || !activeRfq || !hasRead || loading || error) return;
     const currentPresentation = buildComparePresentation(quotes, {
       rfqStatus: activeRfq.status,
@@ -149,7 +235,7 @@ export default function RfqDetailScreen() {
     } finally {
       setBusyQuoteId(null);
     }
-  };
+  }
 
   const cancelRequest = async () => {
     if (!id || !hasRead || loading || error) return;
@@ -200,94 +286,37 @@ export default function RfqDetailScreen() {
       {hasRead && !loading && !error && !activeRfq ? <EmptyState title="RFQ unavailable" message="This request is no longer available." /> : null}
       {activeRfq ? (
         <>
-          <Card style={{ gap: t.spacing.sm }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: t.spacing.sm, alignItems: 'center' }}>
-              <RfqStatusLabel status={activeRfq.status} expiresAt={activeRfq.expires_at} nowMs={nowMs} />
-              <Text variant="caption" color="muted">{activeRfq.recipient_count} shops contacted</Text>
-            </View>
-            <Text variant="subheadStrong">{activeRfq.area}, {activeRfq.city}{activeRfq.needs_delivery ? ' · Delivery needed' : ' · Pickup okay'}</Text>
-            <Text variant="caption" color="muted">Needed by {new Date(`${activeRfq.needed_by}T00:00:00`).toLocaleDateString()}</Text>
-            <Text variant="caption" color="muted">Quote deadline {new Date(activeRfq.expires_at).toLocaleDateString()}</Text>
-            {activeRfq.notes ? <Text>{activeRfq.notes}</Text> : null}
-          </Card>
-          <Text variant="title3">Requested items</Text>
-          {activeRfq.items.map((item) => (
-            <Card key={item.id} style={{ gap: t.spacing.xs }}>
-              <Text variant="subheadStrong">{item.seq}. {item.description}</Text>
-              <Text color="muted">{item.quantity} {item.unit}{item.brand_pref ? ` · Preferred brand: ${item.brand_pref}` : ''}</Text>
-              <Text variant="caption">{describeSpecs(item.specs)}</Text>
+          <RfqCompositionSection enabled={composition} title="Your request">
+            <Card style={{ gap: t.spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: t.spacing.sm, alignItems: 'center' }}>
+                <RfqComponents.RfqStatusLabel status={activeRfq.status} expiresAt={activeRfq.expires_at} nowMs={nowMs} />
+                <Text variant="caption" color="muted">{activeRfq.recipient_count} shops contacted</Text>
+              </View>
+              <Text variant="subheadStrong">{activeRfq.area}, {activeRfq.city}{activeRfq.needs_delivery ? ' · Delivery needed' : ' · Pickup okay'}</Text>
+              <Text variant="caption" color="muted">Needed by {new Date(`${activeRfq.needed_by}T00:00:00`).toLocaleDateString()}</Text>
+              <Text variant="caption" color="muted">Quote deadline {new Date(activeRfq.expires_at).toLocaleDateString()}</Text>
+              {activeRfq.notes ? <Text>{activeRfq.notes}</Text> : null}
             </Card>
-          ))}
-          <Text variant="title3">Supplier comparison</Text>
-          <Text variant="caption" color="muted">Quotes describe each supplier's offer. A similar-looking item is never treated as equivalent.</Text>
-          {sortedQuotes.length ? sortedQuotes.map((quote) => {
-            const quoteView = rfqViewState({
-              status: activeRfq.status,
-              expiresAt: activeRfq.expires_at,
-              quoteStatus: quote.status,
-              myOutcome: quote.status,
-              canSendQuote: false,
-              nowMs,
-            });
-            const expanded = !!expandedQuoteIds[quote.quote_id];
-            const warnings = comparePresentation.warnings[quote.quote_id] ?? [];
-            const selectable = comparePresentation.selectableQuoteIds.includes(quote.quote_id);
-            return (
-              <Card key={quote.quote_id} style={{ gap: t.spacing.sm }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.xs }}>
-                  <Text variant="subheadStrong" style={{ flex: 1 }}>{quote.shop_name}</Text>
-                  <Badge
-                    label={quoteView.quoteLabel}
-                    tone={quote.status === 'selected' ? 'success' : quote.status === 'sent' ? 'primary' : 'neutral'}
-                  />
-                </View>
-                {quote.quote_id === comparePresentation.lowestQuoteId ? <Badge label="Lowest complete live total" tone="success" /> : null}
-                <Text variant="title3">{formatINR(quote.total_paise)}</Text>
-                <Text variant="caption" color="muted">
-                  Items {formatINR(quote.subtotal_paise)} · GST {formatINR(quote.gst_paise)} · Delivery {formatINR(quote.delivery_charge_paise)}
-                </Text>
-                <Text variant="caption" color="muted">
-                  {quote.delivery_days == null ? 'Delivery time not specified' : `${quote.delivery_days} delivery days`} · Valid until {new Date(quote.valid_until).toLocaleDateString()}
-                </Text>
-                {warnings.map((warning, index) => (
-                  <Badge key={`${quote.quote_id}-warning-${index}`} label={warning} tone="warning" />
-                ))}
-                {quote.notes ? <Text variant="caption" color="muted">{quote.notes}</Text> : null}
-                <Button
-                  title={expanded ? 'Hide offer lines' : 'Show offer lines'}
-                  variant="outline"
-                  onPress={() => setExpandedQuoteIds((current) => ({ ...current, [quote.quote_id]: !current[quote.quote_id] }))}
-                />
-                {expanded ? quote.items.map((item) => (
-                  <View key={item.rfq_item_id} style={{ gap: 3, paddingTop: t.spacing.xs, borderTopWidth: 1, borderTopColor: t.colors.border }}>
-                    <Text variant="captionStrong">{item.seq}. {item.description}</Text>
-                    <Text variant="caption" color="muted">
-                      Requested: {activeRfq.items.find((requested) => requested.id === item.rfq_item_id)?.quantity ?? item.quantity} {item.unit}
-                      {item.requested_brand ? ` · ${item.requested_brand}` : ''}
-                    </Text>
-                    <Text variant="caption" color="muted">Requested specifications: {describeSpecs(item.requested_specs)}</Text>
-                    <Text variant="caption">{item.available ? `Offered: ${item.brand || 'Brand not specified'} ${item.model}`.trim() : 'Unavailable'}</Text>
-                    <Text variant="caption" color="muted">Offered specifications: {describeSpecs(item.specs)}</Text>
-                    <Text variant="caption" color="muted">
-                      {item.quantity} {item.unit} · Unit price {formatINR(item.unit_price_paise)} · Line total {formatINR(item.line_total_paise)}
-                    </Text>
-                  </View>
-                )) : null}
-                {selectable ? (
-                  <>
-                    {!enquiriesEnabled ? <Text variant="caption" color="muted">Product enquiries must be enabled before a supplier can be selected.</Text> : null}
-                    <Button
-                      title="Choose this supplier"
-                      fullWidth
-                      loading={busyQuoteId === quote.quote_id}
-                      disabled={!!busyQuoteId || cancelling || !enabled || !enquiriesEnabled || !hasRead || loading || !!error}
-                      onPress={() => void chooseQuote(quote.quote_id)}
-                    />
-                  </>
-                ) : null}
+          </RfqCompositionSection>
+          <RfqCompositionSection enabled={composition} title="Requested items">
+            {!composition ? <Text variant="title3">Requested items</Text> : null}
+            {activeRfq.items.map((item) => (
+              <Card key={item.id} style={{ gap: t.spacing.xs }}>
+                <Text variant="subheadStrong">{item.seq}. {item.description}</Text>
+                <Text color="muted">{item.quantity} {item.unit}{item.brand_pref ? ` · Preferred brand: ${item.brand_pref}` : ''}</Text>
+                <Text variant="caption">{describeSpecs(item.specs)}</Text>
               </Card>
-            );
-          }) : null}
+            ))}
+          </RfqCompositionSection>
+          <RfqCompositionSection enabled={composition} title="Supplier comparison">
+            {!composition ? <Text variant="title3">Supplier comparison</Text> : null}
+            <Text variant="caption" color="muted">Quotes describe each supplier's offer. A similar-looking item is never treated as equivalent.</Text>
+            {quoteCards.length ? (
+              composition
+                ? <ResponsiveRfqComparison>{quoteCards}</ResponsiveRfqComparison>
+                : quoteCards
+            ) : null}
+          </RfqCompositionSection>
           {!sortedQuotes.length ? (
             <Card>
               <Text color="muted">

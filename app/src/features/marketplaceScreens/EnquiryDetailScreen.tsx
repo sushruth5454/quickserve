@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { AppState, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import {
@@ -13,13 +13,18 @@ import {
 } from '../shops/api';
 import { enquiryPresentation } from '../shops/enquiryPresentation';
 import { useShopFeatureFlags } from '../shops/components';
+import * as RfqComponents from '../rfq/components';
 import { useAuth } from '../../lib/auth';
 import { useTheme } from '../../theme';
+
+const RfqCompositionSection = RfqComponents.RfqCompositionSection
+  ?? (({ children }: { children: ReactNode }) => children);
 
 export default function ProductEnquiryScreen() {
   const t = useTheme();
   const toast = useToast();
   const features = useShopFeatureFlags();
+  const { composition } = RfqComponents.useRfqFeatureFlags();
   const { userId } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [thread, setThread] = useState<EnquiryThread | null>(null);
@@ -172,7 +177,7 @@ export default function ProductEnquiryScreen() {
           {error && hasRead ? <InlineAlert message={`Refresh failed. Showing saved conversation history; replies are disabled until a successful refresh. ${error}`} actionLabel="Retry" onAction={() => void load()} /> : null}
           <InlineAlert message={actionError} />
           {features.enquiries && thread?.status === 'open' ? (
-            <>
+            <RfqCompositionSection enabled={composition} title="Reply to the shop">
               <TextArea
                 label="Message"
                 placeholder="Type your message…"
@@ -182,7 +187,7 @@ export default function ProductEnquiryScreen() {
                 maxLength={2000}
               />
               <Button title="Send message" fullWidth loading={busy} disabled={!body.trim() || !hasRead || loading || !!error} onPress={() => void send()} />
-            </>
+            </RfqCompositionSection>
           ) : !features.enquiries ? (
             <Text variant="caption" color="muted">
               {thread?.status === 'closed' && presentation?.closedExplanation
@@ -198,30 +203,36 @@ export default function ProductEnquiryScreen() {
       {loading && !hasRead ? <Skeleton height={280} radius={t.radii.lg} /> : null}
       {hasRead && !loading && !error && !thread ? <EmptyState title="Enquiry unavailable" message="This enquiry is no longer available." /> : null}
       {thread ? (
-        <Card>
-          <Text variant="caption" color="muted">{thread.from_shop_user ? 'You are replying as this shop.' : 'You are chatting with the shop.'}</Text>
-          <Text variant="caption" color="muted">Conversation status: {thread.status}</Text>
-        </Card>
+        <RfqCompositionSection enabled={composition} title="Enquiry details">
+          <Card>
+            <Text variant="caption" color="muted">{thread.from_shop_user ? 'You are replying as this shop.' : 'You are chatting with the shop.'}</Text>
+            <Text variant="caption" color="muted">Conversation status: {thread.status}</Text>
+          </Card>
+        </RfqCompositionSection>
       ) : null}
       {thread && messages == null && !error ? <Skeleton height={280} radius={t.radii.lg} /> : null}
       {thread && messages?.length === 0 ? <EmptyState title="No messages yet" message="Messages in this conversation will appear here." /> : null}
-      {thread && messages?.length ? messages.map((message) => {
-        const mine = thread?.from_shop_user ? message.from_shop : message.sender_id === userId;
-        return (
-          <Card
-            key={message.id}
-            style={{
-              alignSelf: mine ? 'flex-end' : 'flex-start',
-              width: '88%',
-              backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
-            }}
-          >
-            <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{message.from_shop ? thread?.shop_name ?? 'Shop' : mine ? 'You' : 'Customer'}</Text>
-            <Text>{message.body}</Text>
-            <Text variant="caption" color="muted" align="right">{new Date(message.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</Text>
-          </Card>
-        );
-      }) : null}
+      {thread && messages?.length ? (
+        <RfqCompositionSection enabled={composition} title="Conversation">
+          {messages.map((message) => {
+            const mine = thread?.from_shop_user ? message.from_shop : message.sender_id === userId;
+            return (
+              <Card
+                key={message.id}
+                style={{
+                  alignSelf: mine ? 'flex-end' : 'flex-start',
+                  width: '88%',
+                  backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
+                }}
+              >
+                <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{message.from_shop ? thread?.shop_name ?? 'Shop' : mine ? 'You' : 'Customer'}</Text>
+                <Text>{message.body}</Text>
+                <Text variant="caption" color="muted" align="right">{new Date(message.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</Text>
+              </Card>
+            );
+          })}
+        </RfqCompositionSection>
+      ) : null}
       {thread ? <Button title="Open shop" variant="ghost" onPress={() => router.push(`/shop/${thread.shop_id}`)} /> : null}
     </Screen>
   );

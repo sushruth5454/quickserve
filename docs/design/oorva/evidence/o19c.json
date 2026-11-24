@@ -1,0 +1,68 @@
+{
+  "stageId": "O19C",
+  "planningInput": {
+    "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "sourceTaskIds": [],
+    "sourceCards": []
+  },
+  "implementationBase": {
+    "sha": "ae899a02a1cf0200bcdad336777d9655f6b18807",
+    "branch": "lane/oorva-o19c",
+    "worktree": "C:\\Users\\snizampuram\\source\\quickserve-new-o19c"
+  },
+  "dependencyHeads": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O18-MK15": "21f51989e1948057e5694f9689c0912e7aab3a7a",
+    "O19-MK25": "619821772b0ea44b53efc62a8c093aff6e1fea80",
+    "O19-MK26": "66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+    "O19-MK17": "4da36127260304650f1d27ff49c3cbba96ea67c6",
+    "O19-MK06": "611d54a1d0cd586c102a7e79a7bb0f90273af15b",
+    "O28-MK18": "82919c255b80cba1078afa832029b9ca2c912ca1",
+    "O03": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+    "O05I": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "O06B": "de989f95e5d57f78540417587023318afef123c6",
+    "O08": "7479864f743024b8e80ac26fea071a8962ed6265"
+  },
+  "gateEvidence": {
+    "E0": "APPROVED"
+  },
+  "scope": {
+    "featureKey": "oorva_rfq_ux",
+    "parentFeatureKey": "oorva_brand",
+    "default": "OFF",
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "files": [
+      "app\\src\\features\\rfq\\components.tsx",
+      "app\\src\\features\\rfq\\__tests__\\composition.test.tsx",
+      "app\\src\\features\\marketplaceScreens\\EnquiryDetailScreen.tsx",
+      "app\\src\\features\\marketplaceScreens\\RfqDetailScreen.tsx",
+      "app\\src\\features\\marketplaceScreens\\RfqMerchantDetailScreen.tsx",
+      "app\\src\\features\\marketplaceScreens\\RfqNewScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o19c.json"
+    ]
+  },
+  "implementation": [
+    "Added a fail-closed RFQ composition gate requiring both oorva_brand and oorva_rfq_ux; the legacy screens remain the fallback.",
+    "Added RFQ/enquiry/supplier-quotation section hierarchy and a mobile-stacked versus wide-column supplier comparison.",
+    "Exposed quote tax, validity and existing server-provided coverage, quantity, specification and delivery terms before the eligible enquiry-selection action.",
+    "Kept host controllers, current route parameters, saved draft/business context, paise totals, role checks and existing cancellation/history paths in place. Supplier selection continues to replace into the enquiry route."
+  ],
+  "validation": [
+    {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.rfq.__tests__.composition[.]test[.]tsx$'",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at dd969a4061b8bbf115356c63e645365358eade37",
+      "status": "BLOCKED_BEFORE_SELECTION",
+      "exactFailure": "error getting codespaces: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30); GitHub reported that this API operation needs the codespace scope. The helper then failed because no Codespace value was available. No test selection or Codespace result was produced."
+    },
+    {
+      "command": "git diff --check",
+      "status": "PASS"
+    },
+    {
+      "command": "Lane CI exact pushed head",
+      "status": "PENDING_CODESPACE_FALLBACK"
+    }
+  ]
+}

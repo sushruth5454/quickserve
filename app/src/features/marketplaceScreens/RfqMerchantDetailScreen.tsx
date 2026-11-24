@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import { SpecFields } from '../shops/SpecFields';
@@ -12,7 +12,7 @@ import {
   type SupplierRfq,
   type SupplierQuoteSendBlockReason,
 } from '../rfq/api';
-import { RfqStatusLabel, useRfqFeatureFlags } from '../rfq/components';
+import * as RfqComponents from '../rfq/components';
 import { nearestFutureRfqDeadlineMs, rfqViewState } from '../rfq/rfqStateModel';
 import {
   reconcileSupplierQuoteDraft,
@@ -27,6 +27,10 @@ import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
 
 const gstRates = [0, 500, 1200, 1800, 2800];
+
+const RfqCompositionSection = RfqComponents.RfqCompositionSection
+  ?? (({ children }: { children: ReactNode }) => children);
+const RfqStatusLabel = RfqComponents.RfqStatusLabel ?? (() => null);
 
 function sendBlockMessage(
   reason: SupplierQuoteSendBlockReason | null | undefined,
@@ -61,7 +65,7 @@ function specsSummary(specs: Record<string, unknown>): string {
 export default function MerchantRfqQuoteScreen() {
   const t = useTheme();
   const toast = useToast();
-  const { rfq: enabled } = useRfqFeatureFlags();
+  const { rfq: enabled, composition } = RfqComponents.useRfqFeatureFlags();
   const { id, shopId } = useLocalSearchParams<{ id: string; shopId?: string }>();
   const requestId = useRef(0);
   const focused = useRef(false);
@@ -285,101 +289,107 @@ export default function MerchantRfqQuoteScreen() {
       ) : null}
       {activeRfq ? (
         <>
-          <Card style={{ gap: t.spacing.xs }}>
-            <RfqStatusLabel status={activeRfq.status} expiresAt={activeRfq.expires_at} nowMs={nowMs} />
-            <Text variant="caption" color="muted">Needed by {new Date(`${activeRfq.needed_by}T00:00:00`).toLocaleDateString()}{activeRfq.needs_delivery ? ' · Delivery requested' : ' · Pickup okay'}</Text>
-            {activeRfq.notes ? <Text>{activeRfq.notes}</Text> : null}
-            <Text variant="caption" color="muted">Quote validity is capped at {new Date(activeRfq.expires_at).toLocaleDateString()}.</Text>
-            {activeRfq.my_quote ? <Text variant="caption" color="muted">Your latest saved quote is version {activeRfq.my_quote.version} ({activeRfq.my_quote.status}).</Text> : null}
-            {canQuote && activeRfq.my_quote?.status === 'sent' ? <Text variant="caption" color="muted">Sending a new quote version withdraws your previous sent quote.</Text> : null}
-          </Card>
+          <RfqCompositionSection enabled={composition} title="Supplier quotation">
+            <Card style={{ gap: t.spacing.xs }}>
+              <RfqStatusLabel status={activeRfq.status} expiresAt={activeRfq.expires_at} nowMs={nowMs} />
+              <Text variant="caption" color="muted">Needed by {new Date(`${activeRfq.needed_by}T00:00:00`).toLocaleDateString()}{activeRfq.needs_delivery ? ' · Delivery requested' : ' · Pickup okay'}</Text>
+              {activeRfq.notes ? <Text>{activeRfq.notes}</Text> : null}
+              <Text variant="caption" color="muted">Quote validity is capped at {new Date(activeRfq.expires_at).toLocaleDateString()}.</Text>
+              {activeRfq.my_quote ? <Text variant="caption" color="muted">Your latest saved quote is version {activeRfq.my_quote.version} ({activeRfq.my_quote.status}).</Text> : null}
+              {canQuote && activeRfq.my_quote?.status === 'sent' ? <Text variant="caption" color="muted">Sending a new quote version withdraws your previous sent quote.</Text> : null}
+            </Card>
+          </RfqCompositionSection>
 
           {activeRfq.my_quote ? (
-            <Card style={{ gap: t.spacing.sm }}>
-              <Text variant="subheadStrong">Saved quote · Version {activeRfq.my_quote.version} · {activeRfq.my_quote.status}</Text>
-              {activeRfq.my_quote.items.map((item) => (
-                <View key={item.rfq_item_id} style={{ gap: t.spacing.xs }}>
-                  <Text variant="bodyStrong">{item.seq}. {item.description}</Text>
-                  <Text variant="caption" color="muted">
-                    {item.available ? 'Available' : 'Unavailable'} · {item.quantity} {item.unit}
-                    {item.brand ? ` · ${item.brand}` : ''}{item.model ? ` · ${item.model}` : ''}
-                  </Text>
-                  <Text variant="caption" color="muted">Specifications: {specsSummary(item.specs)}</Text>
-                  <Text variant="caption" color="muted">
-                    Unit price {formatINR(item.unit_price_paise)} · GST {item.gst_rate_bp / 100}% · Line total {formatINR(item.line_total_paise)}
-                  </Text>
-                </View>
-              ))}
-              <Text variant="caption" color="muted">
-                Items {formatINR(activeRfq.my_quote.subtotal_paise)} + GST {formatINR(activeRfq.my_quote.gst_paise)} + delivery {formatINR(activeRfq.my_quote.delivery_charge_paise)}
-              </Text>
-              <Text variant="subheadStrong">Saved total {formatINR(activeRfq.my_quote.total_paise)}</Text>
-              <Text variant="caption" color="muted">
-                {activeRfq.my_quote.delivery_days == null ? 'Delivery timing not specified' : `${activeRfq.my_quote.delivery_days} delivery days`}
-                {' · Valid until '}{new Date(activeRfq.my_quote.valid_until).toLocaleDateString()}
-              </Text>
-              {activeRfq.my_quote.notes ? <Text>{activeRfq.my_quote.notes}</Text> : null}
-            </Card>
+            <RfqCompositionSection enabled={composition} title="Saved supplier terms">
+              <Card style={{ gap: t.spacing.sm }}>
+                <Text variant="subheadStrong">Saved quote · Version {activeRfq.my_quote.version} · {activeRfq.my_quote.status}</Text>
+                {activeRfq.my_quote.items.map((item) => (
+                  <View key={item.rfq_item_id} style={{ gap: t.spacing.xs }}>
+                    <Text variant="bodyStrong">{item.seq}. {item.description}</Text>
+                    <Text variant="caption" color="muted">
+                      {item.available ? 'Available' : 'Unavailable'} · {item.quantity} {item.unit}
+                      {item.brand ? ` · ${item.brand}` : ''}{item.model ? ` · ${item.model}` : ''}
+                    </Text>
+                    <Text variant="caption" color="muted">Specifications: {specsSummary(item.specs)}</Text>
+                    <Text variant="caption" color="muted">
+                      Unit price {formatINR(item.unit_price_paise)} · GST {item.gst_rate_bp / 100}% · Line total {formatINR(item.line_total_paise)}
+                    </Text>
+                  </View>
+                ))}
+                <Text variant="caption" color="muted">
+                  Items {formatINR(activeRfq.my_quote.subtotal_paise)} + GST {formatINR(activeRfq.my_quote.gst_paise)} + delivery {formatINR(activeRfq.my_quote.delivery_charge_paise)}
+                </Text>
+                <Text variant="subheadStrong">Saved total {formatINR(activeRfq.my_quote.total_paise)}</Text>
+                <Text variant="caption" color="muted">
+                  {activeRfq.my_quote.delivery_days == null ? 'Delivery timing not specified' : `${activeRfq.my_quote.delivery_days} delivery days`}
+                  {' · Valid until '}{new Date(activeRfq.my_quote.valid_until).toLocaleDateString()}
+                </Text>
+                {activeRfq.my_quote.notes ? <Text>{activeRfq.my_quote.notes}</Text> : null}
+              </Card>
+            </RfqCompositionSection>
           ) : null}
 
-          {activeRfq.items.map((item) => {
-            const draft = currentDraft?.lines.find((entry) => entry.rfqItemId === item.id);
-            return (
-              <Card key={item.id} style={{ gap: t.spacing.sm }}>
-                <Text variant="subheadStrong">{item.seq}. {item.description}</Text>
-                <Text variant="caption" color="muted">
-                  Requested: {item.quantity} {item.unit}{item.brand_pref ? ` · Brand: ${item.brand_pref}` : ''}
-                </Text>
-                <Text variant="caption" color="muted">Specifications: {specsSummary(item.specs)}</Text>
-                {canQuote && draft ? (
-                  <>
-                    <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
-                      <Chip label="Available" selected={draft.available} onPress={() => updateLine(item.id, { available: true })} />
-                      <Chip label="Unavailable" selected={!draft.available} onPress={() => updateLine(item.id, { available: false })} />
-                    </View>
-                    {draft.available ? (
-                      <>
-                        <Input
-                          label={`Quantity you will supply (${item.unit}, optional)`}
-                          keyboardType="decimal-pad"
-                          value={draft.offeredQuantity}
-                          onChangeText={(value) => updateLine(item.id, { offeredQuantity: value })}
-                        />
-                        <Input
-                          label={`Unit price before GST (₹ per ${item.unit})`}
-                          prefix="₹"
-                          keyboardType="decimal-pad"
-                          value={draft.unitPriceRupees}
-                          onChangeText={(value) => updateLine(item.id, { unitPriceRupees: value })}
-                        />
-                        <Input label="Brand offered" value={draft.brand} onChangeText={(value) => updateLine(item.id, { brand: value })} maxLength={80} />
-                        <Input label="Model (optional)" value={draft.model} onChangeText={(value) => updateLine(item.id, { model: value })} maxLength={80} />
-                        <SpecFields
-                          schema={attributeSchema}
-                          value={draft.specs}
-                          onChange={(value) => updateLine(item.id, { specs: value })}
-                        />
-                        <View style={{ gap: t.spacing.xs }}>
-                          <Text variant="subhead" color="textSecondary">GST rate</Text>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
-                            {(activeRfq.shop_has_gstin ? gstRates : [0]).map((rate) => (
-                              <Chip key={rate} label={`${rate / 100}%`} selected={Number(draft.gstRate) === rate} onPress={() => updateLine(item.id, { gstRate: String(rate) })} />
-                            ))}
+          <RfqCompositionSection enabled={composition} title="Requested quantities and specifications">
+            {activeRfq.items.map((item) => {
+              const draft = currentDraft?.lines.find((entry) => entry.rfqItemId === item.id);
+              return (
+                <Card key={item.id} style={{ gap: t.spacing.sm }}>
+                  <Text variant="subheadStrong">{item.seq}. {item.description}</Text>
+                  <Text variant="caption" color="muted">
+                    Requested: {item.quantity} {item.unit}{item.brand_pref ? ` · Brand: ${item.brand_pref}` : ''}
+                  </Text>
+                  <Text variant="caption" color="muted">Specifications: {specsSummary(item.specs)}</Text>
+                  {canQuote && draft ? (
+                    <>
+                      <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
+                        <Chip label="Available" selected={draft.available} onPress={() => updateLine(item.id, { available: true })} />
+                        <Chip label="Unavailable" selected={!draft.available} onPress={() => updateLine(item.id, { available: false })} />
+                      </View>
+                      {draft.available ? (
+                        <>
+                          <Input
+                            label={`Quantity you will supply (${item.unit}, optional)`}
+                            keyboardType="decimal-pad"
+                            value={draft.offeredQuantity}
+                            onChangeText={(value) => updateLine(item.id, { offeredQuantity: value })}
+                          />
+                          <Input
+                            label={`Unit price before GST (₹ per ${item.unit})`}
+                            prefix="₹"
+                            keyboardType="decimal-pad"
+                            value={draft.unitPriceRupees}
+                            onChangeText={(value) => updateLine(item.id, { unitPriceRupees: value })}
+                          />
+                          <Input label="Brand offered" value={draft.brand} onChangeText={(value) => updateLine(item.id, { brand: value })} maxLength={80} />
+                          <Input label="Model (optional)" value={draft.model} onChangeText={(value) => updateLine(item.id, { model: value })} maxLength={80} />
+                          <SpecFields
+                            schema={attributeSchema}
+                            value={draft.specs}
+                            onChange={(value) => updateLine(item.id, { specs: value })}
+                          />
+                          <View style={{ gap: t.spacing.xs }}>
+                            <Text variant="subhead" color="textSecondary">GST rate</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                              {(activeRfq.shop_has_gstin ? gstRates : [0]).map((rate) => (
+                                <Chip key={rate} label={`${rate / 100}%`} selected={Number(draft.gstRate) === rate} onPress={() => updateLine(item.id, { gstRate: String(rate) })} />
+                              ))}
+                            </View>
+                            {!activeRfq.shop_has_gstin ? (
+                              <Text variant="caption" color="muted">Add your GSTIN in My shop to charge GST.</Text>
+                            ) : null}
                           </View>
-                          {!activeRfq.shop_has_gstin ? (
-                            <Text variant="caption" color="muted">Add your GSTIN in My shop to charge GST.</Text>
-                          ) : null}
-                        </View>
-                      </>
-                    ) : <Text color="muted">This line will be marked unavailable and excluded from the quote subtotal.</Text>}
-                  </>
-                ) : null}
-              </Card>
-            );
-          })}
+                        </>
+                      ) : <Text color="muted">This line will be marked unavailable and excluded from the quote subtotal.</Text>}
+                    </>
+                  ) : null}
+                </Card>
+              );
+            })}
+          </RfqCompositionSection>
 
           {canQuote && currentDraft ? (
-            <>
+            <RfqCompositionSection enabled={composition} title="Delivery and tax terms">
               <Input
                 label="Delivery charge"
                 prefix="₹"
@@ -403,7 +413,7 @@ export default function MerchantRfqQuoteScreen() {
                   You receive this directly from the customer — Nearo charges no commission on product quotes.
                 </Text>
               </Card>
-            </>
+            </RfqCompositionSection>
           ) : null}
         </>
       ) : null}

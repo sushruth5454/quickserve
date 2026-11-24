@@ -1,5 +1,8 @@
+import { Children, type ReactNode } from 'react';
+import { View } from 'react-native';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { Badge, Card, Text } from '../../components/ui';
+import { useTheme } from '../../theme';
 import type { RfqStatus } from './api';
 import { rfqViewState } from './rfqStateModel';
 
@@ -8,7 +11,66 @@ export function useRfqFeatureFlags() {
   return {
     rfq: flags.isOn('products') && flags.isOn('product_rfq'),
     enquiries: flags.isOn('products') && flags.isOn('product_enquiries'),
+    composition: flags.isOn('oorva_brand') && flags.isOn('oorva_rfq_ux'),
   };
+}
+
+export function RfqCompositionSection({
+  enabled,
+  title,
+  children,
+}: {
+  enabled: boolean;
+  title: string;
+  children: ReactNode;
+}) {
+  const t = useTheme();
+  if (!enabled) return children;
+
+  return (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+export function RfqSupplierComparisonLayout({
+  wide,
+  children,
+}: {
+  wide: boolean;
+  children: ReactNode;
+}) {
+  const t = useTheme();
+  return (
+    <View
+      testID="rfq-supplier-comparison"
+      accessibilityLabel={`Supplier comparison, ${wide ? 'columns' : 'stacked'}`}
+      style={{
+        flexDirection: wide ? 'row' : 'column',
+        flexWrap: wide ? 'wrap' : 'nowrap',
+        alignItems: 'stretch',
+        gap: t.spacing.md,
+      }}
+    >
+      {Children.map(children, (child, index) => (
+        <View
+          key={index}
+          style={wide ? { flexGrow: 1, flexBasis: 320, minWidth: 280 } : undefined}
+        >
+          {child}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+export function rfqQuoteValidityWarning(validUntil: string, nowMs: number): string | null {
+  const expiryMs = Date.parse(validUntil);
+  if (!Number.isFinite(expiryMs)) return 'Quote validity is unavailable; refresh before selecting.';
+  if (expiryMs <= nowMs) return 'Quote validity has ended; this supplier can no longer be selected.';
+  return null;
 }
 
 export function RfqFeatureUnavailable() {

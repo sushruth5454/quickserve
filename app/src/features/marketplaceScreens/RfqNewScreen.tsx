@@ -1,14 +1,17 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Chip, ErrorState, Header, InlineAlert, Input, Screen, Text, TextArea, useToast } from '../../components/ui';
 import { SpecFields } from '../shops/SpecFields';
 import { listProductCategories, type ProductCategory } from '../shops/api';
 import { cleanSpecs } from '../shops/specs';
 import { createRfq, type NewRfqItem, type RfqUnit } from '../rfq/api';
-import { RfqFeatureUnavailable, useRfqFeatureFlags } from '../rfq/components';
+import * as RfqComponents from '../rfq/components';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { useTheme } from '../../theme';
+
+const RfqCompositionSection = RfqComponents.RfqCompositionSection
+  ?? (({ children }: { children: ReactNode }) => children);
 
 type ItemDraft = {
   key: string;
@@ -38,7 +41,7 @@ function defaultNeededBy(days = 7) {
 export default function RfqNewScreen() {
   const t = useTheme();
   const toast = useToast();
-  const { rfq: enabled } = useRfqFeatureFlags();
+  const { rfq: enabled, composition } = RfqComponents.useRfqFeatureFlags();
   const { location, ready } = useSelectedLocation();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [categoryId, setCategoryId] = useState('');
@@ -121,7 +124,7 @@ export default function RfqNewScreen() {
   };
 
   if (!enabled) {
-    return <Screen header={<Header title="Request product quotes" />}><RfqFeatureUnavailable /></Screen>;
+    return <Screen header={<Header title="Request product quotes" />}><RfqComponents.RfqFeatureUnavailable /></Screen>;
   }
 
   return (
@@ -141,100 +144,104 @@ export default function RfqNewScreen() {
         </View>
       }
     >
-      <Text variant="caption" color="muted">
-        Shops are routed by category and distance. Each supplier decides independently which items they can quote.
-      </Text>
-      <Text variant="subheadStrong">Product category</Text>
-      {loadingCategories ? <Text color="muted">Loading categories…</Text> : (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
-          {categories.map((category) => (
-            <Chip key={category.id} label={category.name} selected={category.id === categoryId} onPress={() => selectCategory(category.id)} />
-          ))}
-        </View>
-      )}
-      {error && !categoriesCurrent ? <ErrorState message={error} onRetry={() => void loadCategories()} /> : null}
-      {error && categoriesCurrent ? <InlineAlert message={error} actionLabel="Retry" onAction={() => void loadCategories()} /> : null}
-      {!loadingCategories && categoriesCurrent && !categories.length ? <Text color="muted">No product categories are available.</Text> : null}
-      <Input
-        label="Request title"
-        placeholder="e.g. Floor tiles for 2BHK"
-        value={title}
-        onChangeText={setTitle}
-        maxLength={120}
-      />
-      <Text variant="subheadStrong">Items ({items.length}/20)</Text>
-      {items.map((item, index) => (
-        <View key={item.key} style={{ gap: t.spacing.sm, paddingVertical: t.spacing.sm }}>
-          <Text variant="captionStrong" color="muted">Item {index + 1}</Text>
-          <Input
-            label="Description"
-            placeholder="For example, anti-skid floor tiles"
-            value={item.description}
-            onChangeText={(value) => updateItem(item.key, { description: value })}
-            maxLength={500}
-          />
-          <Input
-            label="Preferred brand (optional)"
-            value={item.brand}
-            onChangeText={(value) => updateItem(item.key, { brand: value })}
-            maxLength={80}
-          />
-          <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+      <RfqCompositionSection enabled={composition} title="Request details">
+        <Text variant="caption" color="muted">
+          Shops are routed by category and distance. Each supplier decides independently which items they can quote.
+        </Text>
+        <Text variant="subheadStrong">Product category</Text>
+        {loadingCategories ? <Text color="muted">Loading categories…</Text> : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+            {categories.map((category) => (
+              <Chip key={category.id} label={category.name} selected={category.id === categoryId} onPress={() => selectCategory(category.id)} />
+            ))}
+          </View>
+        )}
+        {error && !categoriesCurrent ? <ErrorState message={error} onRetry={() => void loadCategories()} /> : null}
+        {error && categoriesCurrent ? <InlineAlert message={error} actionLabel="Retry" onAction={() => void loadCategories()} /> : null}
+        {!loadingCategories && categoriesCurrent && !categories.length ? <Text color="muted">No product categories are available.</Text> : null}
+        <Input
+          label="Request title"
+          placeholder="e.g. Floor tiles for 2BHK"
+          value={title}
+          onChangeText={setTitle}
+          maxLength={120}
+        />
+        <Text variant="subheadStrong">Items ({items.length}/20)</Text>
+        {items.map((item, index) => (
+          <View key={item.key} style={{ gap: t.spacing.sm, paddingVertical: t.spacing.sm }}>
+            <Text variant="captionStrong" color="muted">Item {index + 1}</Text>
             <Input
-              label="Quantity"
-              value={item.quantity}
-              onChangeText={(value) => updateItem(item.key, { quantity: value })}
-              keyboardType="decimal-pad"
-              containerStyle={{ flex: 1 }}
+              label="Description"
+              placeholder="For example, anti-skid floor tiles"
+              value={item.description}
+              onChangeText={(value) => updateItem(item.key, { description: value })}
+              maxLength={500}
             />
-            <View style={{ flex: 1, gap: t.spacing.xs }}>
-              <Text variant="subhead" color="textSecondary">Unit</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
-                {units.map((unit) => (
-                  <Chip key={unit} label={unit} selected={item.unit === unit} onPress={() => updateItem(item.key, { unit })} />
-                ))}
+            <Input
+              label="Preferred brand (optional)"
+              value={item.brand}
+              onChangeText={(value) => updateItem(item.key, { brand: value })}
+              maxLength={80}
+            />
+            <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+              <Input
+                label="Quantity"
+                value={item.quantity}
+                onChangeText={(value) => updateItem(item.key, { quantity: value })}
+                keyboardType="decimal-pad"
+                containerStyle={{ flex: 1 }}
+              />
+              <View style={{ flex: 1, gap: t.spacing.xs }}>
+                <Text variant="subhead" color="textSecondary">Unit</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                  {units.map((unit) => (
+                    <Chip key={unit} label={unit} selected={item.unit === unit} onPress={() => updateItem(item.key, { unit })} />
+                  ))}
+                </View>
               </View>
             </View>
+            <SpecFields
+              schema={selectedCategory?.attribute_schema ?? { properties: {} }}
+              value={item.specs}
+              onChange={(value) => updateItem(item.key, { specs: value })}
+            />
+            {items.length > 1 ? (
+              <Button title="Remove item" size="sm" variant="ghost" onPress={() => setItems((current) => current.filter((entry) => entry.key !== item.key))} />
+            ) : null}
           </View>
-          <SpecFields
-            schema={selectedCategory?.attribute_schema ?? { properties: {} }}
-            value={item.specs}
-            onChange={(value) => updateItem(item.key, { specs: value })}
+        ))}
+        <Button title="Add item" variant="outline" disabled={items.length >= 20} onPress={() => setItems((current) => [...current, newItem()])} />
+      </RfqCompositionSection>
+      <RfqCompositionSection enabled={composition} title="Timing and fulfilment">
+        <View style={{ gap: t.spacing.xs }}>
+          <Text variant="subheadStrong">Needed by</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+            <Chip label="In 3 days" selected={neededBy === defaultNeededBy(3)} onPress={() => setNeededBy(defaultNeededBy(3))} />
+            <Chip label="In 1 week" selected={neededBy === defaultNeededBy(7)} onPress={() => setNeededBy(defaultNeededBy(7))} />
+            <Chip label="In 2 weeks" selected={neededBy === defaultNeededBy(14)} onPress={() => setNeededBy(defaultNeededBy(14))} />
+            <Chip label="In 1 month" selected={neededBy === defaultNeededBy(30)} onPress={() => setNeededBy(defaultNeededBy(30))} />
+          </View>
+          <Text variant="caption" color="muted">
+            Needed by {new Date(`${neededBy}T00:00:00`).toLocaleDateString()}
+          </Text>
+        </View>
+        <View style={{ gap: t.spacing.xs }}>
+          <Text variant="subheadStrong">Delivery</Text>
+          <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
+            <Chip label="Delivery needed" selected={needsDelivery} onPress={() => setNeedsDelivery(true)} />
+            <Chip label="Pickup is okay" selected={!needsDelivery} onPress={() => setNeedsDelivery(false)} />
+          </View>
+          <Text color="muted">{location.area}, {location.city}</Text>
+          <Button
+            title="Change location"
+            size="sm"
+            variant="ghost"
+            onPress={() => router.push('/location')}
           />
-          {items.length > 1 ? (
-            <Button title="Remove item" size="sm" variant="ghost" onPress={() => setItems((current) => current.filter((entry) => entry.key !== item.key))} />
-          ) : null}
         </View>
-      ))}
-      <Button title="Add item" variant="outline" disabled={items.length >= 20} onPress={() => setItems((current) => [...current, newItem()])} />
-      <View style={{ gap: t.spacing.xs }}>
-        <Text variant="subheadStrong">Needed by</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
-          <Chip label="In 3 days" selected={neededBy === defaultNeededBy(3)} onPress={() => setNeededBy(defaultNeededBy(3))} />
-          <Chip label="In 1 week" selected={neededBy === defaultNeededBy(7)} onPress={() => setNeededBy(defaultNeededBy(7))} />
-          <Chip label="In 2 weeks" selected={neededBy === defaultNeededBy(14)} onPress={() => setNeededBy(defaultNeededBy(14))} />
-          <Chip label="In 1 month" selected={neededBy === defaultNeededBy(30)} onPress={() => setNeededBy(defaultNeededBy(30))} />
-        </View>
-        <Text variant="caption" color="muted">
-          Needed by {new Date(`${neededBy}T00:00:00`).toLocaleDateString()}
-        </Text>
-      </View>
-      <View style={{ gap: t.spacing.xs }}>
-        <Text variant="subheadStrong">Delivery</Text>
-        <View style={{ flexDirection: 'row', gap: t.spacing.xs }}>
-          <Chip label="Delivery needed" selected={needsDelivery} onPress={() => setNeedsDelivery(true)} />
-          <Chip label="Pickup is okay" selected={!needsDelivery} onPress={() => setNeedsDelivery(false)} />
-        </View>
-        <Text color="muted">{location.area}, {location.city}</Text>
-        <Button
-          title="Change location"
-          size="sm"
-          variant="ghost"
-          onPress={() => router.push('/location')}
-        />
-      </View>
-      <Input label="Notes for suppliers (optional)" value={notes} onChangeText={setNotes} maxLength={2000} multiline />
-      {selectedCategory ? <Text variant="caption" color="muted">Category: {selectedCategory.name}. No product matching or equivalence is assumed.</Text> : null}
+        <Input label="Notes for suppliers (optional)" value={notes} onChangeText={setNotes} maxLength={2000} multiline />
+        {selectedCategory ? <Text variant="caption" color="muted">Category: {selectedCategory.name}. No product matching or equivalence is assumed.</Text> : null}
+      </RfqCompositionSection>
     </Screen>
   );
 }
