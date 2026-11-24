@@ -62,7 +62,27 @@
     },
     {
       "command": "Lane CI exact pushed head",
-      "status": "PENDING_CODESPACE_FALLBACK"
+      "status": "PASS",
+      "runId": 45436544922,
+      "headSha": "c46925a7a124d113d524f0c046d82704a98b4c63",
+      "conclusion": "success"
+    },
+    {
+      "command": "Batch37 combined validation: Lane CI and private e2e-local",
+      "status": "PASS",
+      "headSha": "578694f0499d31362c9b1568d6bd6e105a9fe02a",
+      "checks": [
+        {
+          "runId": 45449593800,
+          "workflowName": "Lane CI (tests only)",
+          "conclusion": "success"
+        },
+        {
+          "runId": 45449593857,
+          "workflowName": "E2E web (local Supabase)",
+          "conclusion": "success"
+        }
+      ]
     }
   ]
 }
