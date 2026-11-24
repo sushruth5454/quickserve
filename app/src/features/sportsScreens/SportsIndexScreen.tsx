@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { ListingCard } from '../../components/market/ListingCard';
 import { Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
 import {
@@ -26,6 +26,14 @@ interface Activity {
   sort_order: number;
 }
 
+export function isSportsFamilyUxEnabled(sportsUxEnabled: boolean, brandEnabled: boolean): boolean {
+  return sportsUxEnabled && brandEnabled;
+}
+
+export function getSportsActivityGridColumns(width: number, fontScale: number): 1 | 2 {
+  return width < 360 || fontScale >= 1.3 ? 1 : 2;
+}
+
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
@@ -37,7 +45,10 @@ function getErrorMessage(error: unknown, fallback: string): string {
 function useSportsIndexController() {
   const flags = useAppFeatureFlags();
   const sportsEnabled = flags.isOn('sports');
-  const familyUxEnabled = flags.isOn('oorva_sports_ux');
+  const familyUxEnabled = isSportsFamilyUxEnabled(
+    flags.isOn('oorva_sports_ux'),
+    flags.isOn('oorva_brand'),
+  );
   const merchantStaffEnabled = flags.isOn('merchant_staff');
   const onlinePaymentsEnabled = flags.isOn('sports_online_payments');
   const { userId } = useAuth();
@@ -101,6 +112,7 @@ function useSportsIndexController() {
 
 export default function SportsIndexScreen() {
   const t = useTheme();
+  const { width, fontScale } = useWindowDimensions();
   const state = useSportsIndexController();
   const presentation = getSportsHomePresentation({
     userId: state.userId,
@@ -117,6 +129,9 @@ export default function SportsIndexScreen() {
     businessVenuesLoaded: state.businessVenuesLoaded,
     businessVenues: state.businessVenues,
   });
+  const activityColumns = presentation.composition === 'family'
+    ? getSportsActivityGridColumns(width, fontScale)
+    : 2;
 
   return (
     <Screen header={<Header title="Sports & venues" subtitle="Find a court and request a slot" />}>
@@ -126,6 +141,7 @@ export default function SportsIndexScreen() {
             variant="venue"
             title="My sports requests"
             subtitle="View your sports bookings and requests"
+            presentation={presentation.composition === 'family' ? 'oorva' : 'legacy'}
             onPress={() => router.push('/sports/bookings' as Href)}
           />
         ) : null}
@@ -135,6 +151,7 @@ export default function SportsIndexScreen() {
             variant="venue"
             title={action.title}
             subtitle={action.subtitle}
+            presentation={presentation.composition === 'family' ? 'oorva' : 'legacy'}
             onPress={() => router.push(action.href as Href)}
           />
         ))}
@@ -154,7 +171,11 @@ export default function SportsIndexScreen() {
                 <Card
                   key={activity.id}
                   variant="outlined"
-                  style={{ width: '48%', minHeight: 132, justifyContent: 'center' }}
+                  style={{
+                    width: activityColumns === 1 ? '100%' : '48%',
+                    minHeight: 132,
+                    justifyContent: 'center',
+                  }}
                   onPress={() => router.push({
                     pathname: '/sports/[activity]',
                     params: { activity: activity.slug, name: activity.name },
@@ -172,7 +193,7 @@ export default function SportsIndexScreen() {
                     }}>
                       <Ionicons name={activity.icon as never} size={t.iconSize.lg} color={t.colors.catSports} />
                     </View>
-                    <Text variant="calloutStrong" numberOfLines={2}>{activity.name}</Text>
+                    <Text variant="calloutStrong">{activity.name}</Text>
                   </View>
                 </Card>
               ))}

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O18-MK15",
+  "workPackage": "O18",
+  "status": "CODESPACE_UNAVAILABLE_AWAITING_LANE_CI_FALLBACK",
+  "base": {
+    "branch": "main",
+    "implementationSha": "dd969a4061b8bbf115356c63e645365358eade37",
+    "currentMainShaAtDriftCheck": "dd969a4061b8bbf115356c63e645365358eade37"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O12-MK16",
+      "sha": "f34c127e322fd7475de4239751335b2ac2f9e8bd",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O38R",
+      "sha": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK04",
+      "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+      "state": "DONE_GREEN_IN_CURRENT_MAIN"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T15",
+    "findingId": "MK-F17",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t15"
+  },
+  "preservedBaseDrift": [
+    {
+      "paths": [
+        "app/src/features/marketplaceScreens/RfqDetailScreen.tsx"
+      ],
+      "change": "Replayed only O18-MK15 over current main; retained O18-MK04 web useConfirm and native Alert behavior while keeping fresh-read/error/retry gating."
+    }
+  ],
+  "migrationClaim": null,
+  "sqlFunctions": [],
+  "implementation": [
+    "Resource reads distinguish fresh success and empty results from failures; failed initial reads expose Retry and failed refreshes retain labeled stale state.",
+    "Shop catalogue, nearby shops, and authorized enquiry history load independently; authorized enquiry history remains readable with its capability disabled.",
+    "Merchant shop setup is rendered only after a successful current no-shop read; shop mutations are disabled until fresh eligibility data is available.",
+    "RFQ category retry preserves the entered draft and blocks submission until categories are refreshed.",
+    "Enquiry and RFQ histories remain readable while capability switches are OFF; new or unsafe commits remain gated."
+  ],
+  "workerOwnedFiles": [
+    "app/app/admin/rfqs.tsx",
+    "app/app/admin/shops.tsx",
+    "app/app/product/[id].tsx",
+    "app/app/rfq/new.tsx",
+    "app/app/shop/[id].tsx",
+    "app/src/features/shops/__tests__/readStates.test.tsx",
+    "app/src/features/rfq/__tests__/readStates.test.tsx",
+    "app/src/features/marketplaceScreens/AdminRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/AdminShopsScreen.tsx",
+    "app/src/features/marketplaceScreens/EnquiryDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+    "app/src/features/marketplaceScreens/ProductDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/ProductsScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqNewScreen.tsx",
+    "app/src/features/marketplaceScreens/ShopDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/ShopIndexScreen.tsx",
+    "docs/design/oorva/evidence/o18-mk15.json"
+  ],
+  "coordinatorOwnedFiles": [
+    "e2e/web-smoke.mjs"
+  ],
+  "requiredCases": [
+    "MK-READ-product-shop-error-empty",
+    "MK-READ-merchant-failed-setup",
+    "MK-READ-independent-shop-sections",
+    "MK-READ-RFQ-category-retry-draft",
+    "MK-READ-supplier-history-error"
+  ],
+  "approvals": {
+    "requiredReviews": [],
+    "mainPromotion": "NOT_GRANTED",
+    "featureActivation": "NOT_GRANTED",
+    "publicOrNativeRelease": "NOT_GRANTED",
+    "liveMoneyOperations": "NOT_GRANTED"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "UNAVAILABLE_HTTP_404_NO_SELECTED_TESTS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "638e211a9bb20ddb511f39b69700911680cb0c21",
+      "typescript": "NOT_RUN",
+      "error": "HTTP 404 from /repos/sushruth5454/quickserve/codespaces?per_page=30; gh reports the codespace scope is unavailable.",
+      "selectors": [
+        {
+          "suite": "app",
+          "filter": "src.features.shops.__tests__.readStates[.]test[.]tsx$",
+          "selectedFiles": 0,
+          "selectedTests": 0,
+          "cases": [
+            "MK-READ-product-shop-error-empty",
+            "MK-READ-merchant-failed-setup",
+            "MK-READ-independent-shop-sections"
+          ],
+          "result": "UNAVAILABLE",
+          "error": "HTTP 404; no Codespace selected; 0 files/tests selected."
+        },
+        {
+          "suite": "jest",
+          "filter": "src.features.rfq.__tests__.readStates[.]test[.]tsx$",
+          "selectedFiles": 0,
+          "selectedTests": 0,
+          "cases": [
+            "MK-READ-RFQ-category-retry-draft",
+            "MK-READ-supplier-history-error"
+          ],
+          "result": "UNAVAILABLE",
+          "error": "HTTP 404; no Codespace selected; 0 files/tests selected."
+        }
+      ]
+    },
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_PUSH"
+    }
+  },
+  "productionActions": "NONE"
+}

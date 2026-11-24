@@ -4,6 +4,54 @@ import {
   type SportsHomeBusinessVenue,
 } from '../api';
 import { supabase } from '../../../lib/supabase';
+import { getSportsVenueCardPresentation } from '../../sportsScreens/SportsDetailScreen';
+import { getSportsActivityGridColumns } from '../../sportsScreens/SportsIndexScreen';
+import { getSportsVenueGalleryPresentation } from '../SportsVenueBookingScreen';
+
+jest.mock('expo-router', () => ({
+  router: {
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+    push: jest.fn(),
+    replace: jest.fn(),
+  },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: jest.fn(() => ({})),
+}));
+jest.mock('react-native', () => ({
+  Pressable: 'Pressable',
+  ScrollView: 'ScrollView',
+  View: 'View',
+  useWindowDimensions: () => ({ width: 390, fontScale: 1 }),
+}));
+jest.mock('expo-image', () => ({ Image: 'Image' }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+jest.mock('../../../components/market/ChipRow', () => ({ ChipRow: 'ChipRow' }));
+jest.mock('../../../components/market/ListingCard', () => ({ ListingCard: 'ListingCard' }));
+jest.mock('../../../components/market/PriceFooter', () => ({ PriceFooter: 'PriceFooter' }));
+jest.mock('../../../components/ui', () => ({
+  Badge: 'Badge',
+  Button: 'Button',
+  Card: 'Card',
+  EmptyState: 'EmptyState',
+  ErrorState: 'ErrorState',
+  Header: 'Header',
+  InlineAlert: 'InlineAlert',
+  Input: 'Input',
+  Screen: 'Screen',
+  Skeleton: 'Skeleton',
+  Text: 'Text',
+  TextArea: 'TextArea',
+  useToast: jest.fn(),
+}));
+jest.mock('../../../i18n', () => ({ useT: jest.fn() }));
+jest.mock('../../../lib/auth', () => ({ useAuth: jest.fn() }));
+jest.mock('../../../lib/authGate', () => ({ requireSignIn: jest.fn() }));
+jest.mock('../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
+jest.mock('../../../lib/locationContext', () => ({ useSelectedLocation: jest.fn() }));
+jest.mock('../../../theme', () => ({ useTheme: jest.fn() }));
+jest.mock('../bookingPresentation', () => ({ sportsVenueBookingReturnTo: jest.fn() }));
+jest.mock('../useSportsReadRefresh', () => ({ useSportsReadRefresh: jest.fn() }));
 
 jest.mock('../../../lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
@@ -123,5 +171,92 @@ describe('sports home business navigation', () => {
     const calls = rpc.mock.calls;
     expectJson(calls, [['get_my_business_sports_venues']]);
     expectJson(result, venues);
+  });
+
+  it('SP-T14: keeps sports venue titles and per-slot prices explicit with real compact metadata', () => {
+    const title = 'North Court Sports and Recreation Association - Indoor Badminton Centre';
+    const familyCard = getSportsVenueCardPresentation({
+      id: 'venue-1',
+      name: title,
+      description: '',
+      address_line: '7 Sample Road',
+      city: 'Hyderabad',
+      area: 'Madhapur',
+      photos: ['hero.jpg'],
+      distance_km: 0.9,
+      min_price_paise: 123456,
+    }, true);
+    const legacyCard = getSportsVenueCardPresentation({
+      id: 'venue-1',
+      name: title,
+      description: '',
+      address_line: '7 Sample Road',
+      city: 'Hyderabad',
+      area: 'Madhapur',
+      photos: ['hero.jpg'],
+      distance_km: 0.9,
+      min_price_paise: 123456,
+    }, false);
+
+    expectJson({
+      family: familyCard,
+      legacy: {
+        presentation: legacyCard.presentation,
+        title: legacyCard.title,
+        priceLabel: legacyCard.priceLabel,
+      },
+    }, {
+      family: {
+        title,
+        subtitle: 'Madhapur, Hyderabad · 0.9 km away',
+        imageUrl: 'hero.jpg',
+        verified: true,
+        priceLabel: 'From ₹1,234.56 / slot',
+        presentation: 'oorva',
+      },
+      legacy: {
+        presentation: 'legacy',
+        title,
+        priceLabel: 'From ₹1,234.56 / slot',
+      },
+    });
+  });
+
+  it('SP-T14: keeps booking choice ahead of the expandable gallery and adapts activity cards to narrow or large text', () => {
+    const photos = Array.from({ length: 12 }, (_, index) => `photo-${index + 1}.jpg`);
+    const familyGallery = getSportsVenueGalleryPresentation(photos, true);
+    const legacyGallery = getSportsVenueGalleryPresentation(photos, false);
+
+    expectJson({
+      familyGallery: {
+        heroImage: familyGallery.heroImage,
+        additionalCount: familyGallery.additionalImages.length,
+        expandable: familyGallery.expandable,
+        legacyImageCount: familyGallery.legacyImages.length,
+      },
+      legacyGallery: {
+        heroImage: legacyGallery.heroImage,
+        expandable: legacyGallery.expandable,
+        imageCount: legacyGallery.legacyImages.length,
+      },
+      gridColumns: [
+        getSportsActivityGridColumns(320, 1),
+        getSportsActivityGridColumns(390, 1),
+        getSportsActivityGridColumns(390, 1.4),
+      ],
+    }, {
+      familyGallery: {
+        heroImage: 'photo-1.jpg',
+        additionalCount: 11,
+        expandable: true,
+        legacyImageCount: 0,
+      },
+      legacyGallery: {
+        heroImage: null,
+        expandable: false,
+        imageCount: 12,
+      },
+      gridColumns: [1, 2, 1],
+    });
   });
 });

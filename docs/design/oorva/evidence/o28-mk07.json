@@ -1,0 +1,121 @@
+{
+  "stageId": "O28-MK07",
+  "workPackage": "O28",
+  "sourceTaskId": "MK-T07",
+  "findingId": "MK-F08",
+  "placementProjection": "docs/design/oorva/audit/marketplace.json",
+  "base": {
+    "implementationBaseSha": "e640ea1224107a1741c6634118dbfc05f447e42f",
+    "frozenPlanningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE"
+      },
+      {
+        "stageId": "O18-MK04",
+        "commit": "15096b4613cee27746175501e2cd56f19da0f62f",
+        "status": "DONE"
+      },
+      {
+        "stageId": "O19-MK05",
+        "commit": "86a50275dc74ce267644a00e8b9cdd40f1b1a303",
+        "status": "DONE"
+      },
+      {
+        "stageId": "O18-MK15",
+        "commit": "21f51989e1948057e5694f9689c0912e7aab3a7a",
+        "status": "DONE"
+      }
+    ]
+  },
+  "migrationClaim": {
+    "id": "MIG-O28-MK07",
+    "version": "0128",
+    "path": "supabase/migrations/0128_o28_mk07_oorva.sql"
+  },
+  "functionLock": "public.get_supplier_rfq_for_business",
+  "implementation": [
+    "Expanded only the selected-shop supplier detail projection with category/shop identity, actual role and send eligibility, plus the latest own quote of any status with persisted line and aggregate amounts.",
+    "Kept participant/member read checks while allowing authorized own-shop saved history with effective RFQ feature flags OFF; send eligibility remains false and the existing send RPC's feature, role, shop, raw-state, deadline, quantity, GST and money checks are unchanged.",
+    "Added context- and revision-keyed draft hydration from persisted paise and quantity, preserving dirty same-context drafts and resetting on RFQ/shop context switch.",
+    "Resolved category schemas by category UUID and rendered stored quote terms read-only separately from eligible quote inputs; no competitor terms or customer coordinates are projected."
+  ],
+  "changedFiles": [
+    "app/src/features/rfq/api.ts",
+    "app/src/features/rfq/supplierQuoteModel.ts",
+    "app/src/features/rfq/__tests__/supplierQuoteModel.test.ts",
+    "supabase/migrations/0128_o28_mk07_oorva.sql",
+    "supabase/tests/oorva_o28_mk07.test.mjs",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "docs/design/oorva/evidence/o28-mk07.json"
+  ],
+  "testCoverageAuthored": [
+    "Saved quote identity, version, status, item IDs, persisted quantities/line totals, aggregate amounts, and delivery.",
+    "Manager send eligibility, staff read-only access plus direct RPC denial, inactive-member and cross-shop denial, selected/rejected/expired terminal quote history, and competitor/customer-coordinate privacy.",
+    "Feature-off and parent-off history reads with send rejection; expired raw-open RFQ and unavailable shop block reasons.",
+    "Persisted paise/quantity hydration, dirty same-context refetch preservation, context-switch ID reset, and duplicate category-name UUID selection."
+  ],
+  "validation": {
+    "status": "LANE_CI_PENDING",
+    "codespace": {
+      "status": "UNAVAILABLE_NO_SELECTION",
+      "detail": "Current-main helper discovery returned HTTP 404 before test selection because the token lacks the Codespaces OAuth scope. No credential or scope changes were made; cs-test PASS is not claimed."
+    },
+    "validationFallback": "Lane CI only; no app, SQL, parser, install, or build commands run on Windows.",
+    "selectors": [
+      {
+        "selector": "src.features.rfq.__tests__.supplierQuoteModel[.]test[.]ts$",
+        "status": "NOT_RUN_ON_WINDOWS_POLICY"
+      },
+      {
+        "selector": "oorva_o28_mk07",
+        "status": "NOT_RUN_ON_WINDOWS_POLICY",
+        "registrationCommand": "node oorva_o28_mk07.test.mjs",
+        "selectionProof": "exactly one intended command"
+      },
+      {
+        "selector": "o28_mk07_oorva.sql",
+        "status": "NOT_RUN_ON_WINDOWS_POLICY",
+        "registrationCommand": "node parse.cjs ../migrations/0128_o28_mk07_oorva.sql",
+        "selectionProof": "exactly one intended command"
+      }
+    ],
+    "laneCi": {
+      "status": "PENDING_TYPECHECK_FIX_PUSH",
+      "ref": "refs/heads/lane/oorva-o28-mk07",
+      "exactHeadRunId": null,
+      "priorRuns": [
+        {
+          "runId": "45360899706",
+          "headSha": "30a50ae46fd3c1a0a4eaa1e3d1b2236da0c75297",
+          "result": "FAIL",
+          "failedCheck": "app Typecheck",
+          "failure": "TS2322: spreading original.items[0] produced optional RfqItem fields under noUncheckedIndexedAccess.",
+          "successfulChecks": [
+            "SQL tests job",
+            "Deno tests and type checks",
+            "app UI lint",
+            "app unit tests"
+          ],
+          "fix": "Use a fully specified RfqItem fixture for the switched context."
+        }
+      ]
+    },
+    "reviewRequired": "AUTH",
+    "reviewStatus": "PASS_INDEPENDENT_FOCUSED_AUTH_REVIEW",
+    "reviewerId": "9388b08d-077d-40fb-bdfd-16a0a8a74dd7",
+    "reviewedCommit": "a54e14431e80633b5d7e92b4aaf37f48b677752a",
+    "reviewFindings": [],
+    "reviewNote": "No significant authorization issues. Reviewer did not run tests because Node.js was unavailable in that shell."
+  },
+  "releaseStatus": {
+    "checkpointCommit": "worker-only checkpoint commit containing this evidence; exact SHA recorded in handoff",
+    "coordinatorRegistrationCommit": "ab73a086c768f0566199fe0c30d60d2d1f6b8f39",
+    "mainMerge": "not performed",
+    "featureFlags": "not activated",
+    "deployment": "not performed",
+    "productionActions": "none"
+  }
+}

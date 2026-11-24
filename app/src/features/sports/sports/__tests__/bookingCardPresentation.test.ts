@@ -1,7 +1,11 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { Button, Card } from '../../../../components/ui';
+import { Button, Card, Text } from '../../../../components/ui';
 import { getSportsBookingCardPresentation, SportsBookingCard, type SportsBookingCardBooking } from '../../SportsBookingCard';
 import { getSportsBookingDeadline, getSportsBookingStatusLabel } from '../../model';
+import {
+  getSportsBookingsCardComposition,
+  SportsBookingsHistoryCard,
+} from '../../../sportsScreens/SportsBookingsScreen';
 
 jest.mock('react-native', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -9,6 +13,25 @@ jest.mock('react-native', () => {
     View: (props: any) => React.createElement('View', props, props.children),
   };
 });
+
+jest.mock('expo-router', () => ({
+  router: {
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+    push: jest.fn(),
+    replace: jest.fn(),
+  },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: jest.fn(() => ({})),
+}));
+
+jest.mock('../../../../lib/supabase', () => ({
+  supabase: { rpc: jest.fn() },
+}));
+jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
+jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
+jest.mock('../../../../theme', () => ({ useTheme: jest.fn() }));
+jest.mock('../../useSportsReadRefresh', () => ({ useSportsReadRefresh: jest.fn() }));
 
 jest.mock('../../../../components/ui', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -143,6 +166,48 @@ describe('sports booking card presentation', () => {
       due: ['Online payment due', 'Online payment due', 'Online payment due'],
       amount: '₹1,050',
       payAtVenue: 'Pay at venue',
+    }));
+  });
+
+  it('SP-FULL-TITLE-PRICE: keeps full booking title, INR amount, and actual range visible', () => {
+    const longTitle = 'North Court Sports and Recreation Association - Indoor Badminton Centre';
+    const longBooking = {
+      ...booking,
+      venue_name: longTitle,
+      total_paise: 123456789,
+    };
+    const card = SportsBookingsHistoryCard({
+      booking: longBooking,
+      onPress: () => undefined,
+    });
+    const visibleText = cardText(card).join(' ');
+    const rows = cardElements(card)
+      .filter((element) => element.type === Text)
+      .map((element) => ({
+        variant: (element.props as { variant?: string }).variant,
+        text: cardText(element).join(' '),
+      }));
+    const rangeRow = rows.findIndex((row) => row.text === getSportsBookingCardPresentation(longBooking).timeRange);
+    const amountRow = rows.findIndex((row) => row.text.includes('₹12,34,567.89'));
+
+    expect(JSON.stringify({
+      titleVisible: visibleText.includes(longTitle),
+      fullAmountVisible: visibleText.includes('₹12,34,567.89'),
+      actualRangeVisible: rangeRow >= 0,
+      rangeProminent: rows[rangeRow]?.variant === 'calloutStrong',
+      rangeBeforeAmount: rangeRow >= 0 && amountRow > rangeRow,
+      locationInvented: visibleText.includes('km away') || visibleText.includes('Address'),
+      parentOffComposition: getSportsBookingsCardComposition(true, false),
+      bothOffComposition: getSportsBookingsCardComposition(false, false),
+    })).toBe(JSON.stringify({
+      titleVisible: true,
+      fullAmountVisible: true,
+      actualRangeVisible: true,
+      rangeProminent: true,
+      rangeBeforeAmount: true,
+      locationInvented: false,
+      parentOffComposition: 'legacy',
+      bothOffComposition: 'legacy',
     }));
   });
 

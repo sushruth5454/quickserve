@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O19-MK06",
+  "workPackage": "O19",
+  "status": "LANE_CI_RETRY_PENDING",
+  "base": {
+    "branch": "lane/oorva-o19-mk06",
+    "sha": "4b7224a0b3acfc14fe6828dbce0039a28532e06c",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "stackApproval": "APPROVED_EXACT_STAGE_SPECIFIC_GREEN_STACK"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK15",
+      "sha": "21f51989e1948057e5694f9689c0912e7aab3a7a",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O19-MK05",
+      "sha": "86a50275dc74ce267644a00e8b9cdd40f1b1a303",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O19-MK25",
+      "sha": "619821772b0ea44b53efc62a8c093aff6e1fea80",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O19-MK26",
+      "sha": "66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O28-MK07",
+      "sha": "4b7224a0b3acfc14fe6828dbce0039a28532e06c",
+      "laneCiRun": "45361820036",
+      "state": "GREEN_STACK_BASE"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T06",
+    "findingIds": [
+      "MK-F07",
+      "MK-F09"
+    ],
+    "audit": "docs/design/oorva/audit/marketplace.json"
+  },
+  "migrationClaim": {
+    "id": "MIG-O19-MK06",
+    "filename": "supabase/migrations/0130_o19_mk06_oorva.sql",
+    "functions": [
+      "public.admin_rfq_dashboard",
+      "public.compare_rfq_quotes"
+    ],
+    "allocated": true
+  },
+  "workerOwnedFiles": [
+    "app/src/features/rfq/rfqStateModel.ts",
+    "app/src/features/rfq/components.tsx",
+    "app/src/features/rfq/comparePresentation.ts",
+    "app/src/features/rfq/__tests__/comparePresentation.test.ts",
+    "app/src/features/rfq/__tests__/rfqStateModel.test.ts",
+    "supabase/migrations/0130_o19_mk06_oorva.sql",
+    "supabase/tests/oorva_o19_mk06.test.mjs",
+    "app/src/features/marketplaceScreens/AdminRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "docs/design/oorva/evidence/o19-mk06.json"
+  ],
+  "implementation": [
+    "Added a fixed-clock parent/outcome/deadline state model and one nearest-future-deadline timer per active RFQ screen; timers are cleared on blur/context cleanup and reload also occurs on focus/pull.",
+    "Comparison now requires server can_select plus future RFQ and quote deadlines, shows coverage/specification/quantity/delivery warnings before the sole selection action, and only marks complete live sent offers as lowest.",
+    "Removed the duplicate selection/cheapest carousel; offers retain expandable line details and display server subtotal, GST, delivery, line total, and total values without recomputation.",
+    "Supplier list separates raw parent RFQ state from quote outcome; admin recent rows include expires_at and effective Open counts raw-open RFQs with a future deadline without persisting an expired state."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "MERGED_AND_SELECTOR_PROOF_VERIFIED",
+    "sha": "e54fdc9d85f13388509eced2f242a2156e2cd70f",
+    "appStateModelSelector": "src.features.rfq.__tests__.rfqStateModel[.]test[.]ts$",
+    "appCompareSelector": "src.features.rfq.__tests__.comparePresentation[.]test[.]ts$",
+    "sqlTestSelector": "oorva_o19_mk06",
+    "migrationParserSelector": "o19_mk06_oorva.sql",
+    "selectionProof": [
+      "node oorva_o19_mk06.test.mjs",
+      "node parse.cjs ../migrations/0130_o19_mk06_oorva.sql"
+    ],
+    "sharedFilesTouched": []
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "BLOCKED_NO_SELECTION",
+      "source": "Coordinator-provided stage context",
+      "reason": "The current-main Codespace helper returned HTTP 404 because its token lacks codespace scope; test selection was not reached.",
+      "credentialRefresh": "PROHIBITED_NOT_RETRIED"
+    },
+    "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
+    "laneCi": {
+      "runId": "45371907418",
+      "headSha": "e54fdc9d85f13388509eced2f242a2156e2cd70f",
+      "status": "FAILED",
+      "jobs": {
+        "deno": "PASS",
+        "appTypecheck": "FAIL_TS2532_COMPARE_TEST_ARRAY_INDEX",
+        "appUnitTests": "FAIL_RfqDetailScreen_stale_refresh_fixture_missing_can_select",
+        "sqlTests": "FAIL_TWO_SCENARIOS_UNSUPPORTED_PRODUCT_SPECIFICATION_finish"
+      }
+    },
+    "retryFixes": [
+      "Guarded the compare test's indexed row access for noUncheckedIndexedAccess.",
+      "Removed unsupported finish specs from SQL deadline fixtures.",
+      "Updated the RFQ screen test quote fixture to model the required server can_select projection."
+    ],
+    "latestAttempt": {
+      "runId": "45373730179",
+      "headSha": "b35953b248a3c8d02fa3810688f4dccceedb7679",
+      "status": "FAILED",
+      "jobs": {
+        "deno": "PASS",
+        "app": "PASS",
+        "sqlTests": "FAIL_MK-COMPARE-deadline-action-projection-preserves-money_GSTIN_REQUIRED"
+      }
+    },
+    "subsequentAttempt": {
+      "runId": "45374890567",
+      "headSha": "b053215b2821b96ca4e288ad93298cc22a41205d",
+      "status": "FAILED",
+      "jobs": {
+        "deno": "PASS",
+        "app": "PASS",
+        "sqlTests": "FAIL_FEATURE_OFF_EXPECTATION_WAS_MASKED_BY_EXPIRED_QUOTE"
+      }
+    },
+    "additionalChanges": [
+      "Added a valid-format GSTIN to the SQL fixture shop; production money logic is unchanged.",
+      "Restored a future quote deadline before verifying feature-off selection blocking, so the expected feature_off reason is not masked by quote_expired."
+    ],
+    "focusedMoneyReview": {
+      "status": "CLEAN",
+      "scope": "RFQ comparison, state model, migration, and new SQL test including untracked files",
+      "findings": []
+    }
+  },
+  "featureFlags": {
+    "oorvaBrand": "UNCHANGED_OFF",
+    "flagsAddedOrEnabled": []
+  },
+  "productionActions": "NONE"
+}

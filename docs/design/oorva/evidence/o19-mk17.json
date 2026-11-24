@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O19-MK17",
+  "workPackage": "O19",
+  "sourceTask": "MK-T17",
+  "findingId": "MK-F19",
+  "status": "WORKER_FILES_IMPLEMENTED_AWAITING_REGISTRATION",
+  "base": {
+    "branch": "lane/oorva-o19-mk17",
+    "stackBaseHead": "060c4ee71a8a5b7f656718712a6c9eaebaa5b02c",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "laneCiRun": "45365021723"
+  },
+  "ownership": {
+    "previousOwner": "O18-MK11",
+    "fileTransfer": "app\\src\\features\\shops\\api.ts",
+    "status": "PAUSED_CLEAN_EXPLICITLY_TRANSFERRED"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK04",
+      "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK15",
+      "sha": "21f51989e1948057e5694f9689c0912e7aab3a7a",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O19-MK26",
+      "sha": "66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK11",
+      "sha": "060c4ee71a8a5b7f656718712a6c9eaebaa5b02c",
+      "laneCiRun": "45365021723",
+      "state": "GREEN_STACK_BASE"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T17",
+    "findingIds": ["MK-F19"],
+    "stageCard": "docs/design/oorva/audit/marketplace.json#MK-T17"
+  },
+  "migrationClaim": {
+    "id": "MIG-O19-MK17",
+    "filename": "supabase\\migrations\\0129_o19_mk17_oorva.sql",
+    "numericVersion": "0129",
+    "functions": [
+      "public.get_product_enquiry",
+      "public.set_product_enquiry_status"
+    ],
+    "acknowledged": true
+  },
+  "workerOwnedFiles": [
+    "app\\src\\features\\shops\\api.ts",
+    "app\\src\\features\\shops\\enquiryPresentation.ts",
+    "app\\src\\features\\shops\\__tests__\\enquiryPresentation.test.ts",
+    "supabase\\migrations\\0129_o19_mk17_oorva.sql",
+    "supabase\\tests\\oorva_o19_mk17.test.mjs",
+    "app\\src\\features\\marketplaceScreens\\EnquiryDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o19-mk17.json"
+  ],
+  "implementation": [
+    "Readback adds server-derived can_change_status and can_reopen for the actual customer or shop owner, plus only the active twin id for the same stable context; it adds no sibling contents or identity.",
+    "Status changes remain feature-gated and limited to the actual customer or shop owner. Existing stable-context collision checks and unique-index conflict normalization are retained.",
+    "The presentation helper gates state controls on server canChangeStatus, directs closed participants to an active twin, and gives closed staff/manager a read-only no-reopen instruction.",
+    "The enquiry screen supports pull refresh and foreground refresh only while focused; participant-specific mark-read remains safe when the capability is OFF."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "PAUSED_FOR_COORDINATOR_REGISTRATION",
+    "appSelector": "src.features.shops.__tests__.enquiryPresentation[.]test[.]ts$",
+    "sqlSelector": "oorva_o19_mk17",
+    "migrationParserSelector": "o19_mk17_oorva.sql",
+    "e2eCaseOwner": "coordinator",
+    "coordinatorE2eCase": "MK-ENQUIRY-same-PK-counterpart-refresh",
+    "sharedFilesTouched": []
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "evidenceJsonParse": "PASS",
+    "codespace": {
+      "status": "UNAVAILABLE_NO_SELECTION",
+      "details": "Current-main helper discovery returned HTTP 404 before test selection; no credential or scope changes authorized."
+    },
+    "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
+    "laneCi": "PENDING_COORDINATOR_REGISTRATION_SHA_AND_EXACT_SELECTION_PROOF",
+    "requiredFallback": "Exact-head Lane CI after coordinator registration and focused AUTH review.",
+    "authorizationReview": {
+      "status": "PASS",
+      "method": "Focused source review",
+      "findings": [],
+      "checks": [
+        "Participant readback is guarded by the existing active-membership/customer predicate and exposes only the active sibling id for the same stable context.",
+        "Status capability is computed from actual customer/owner identity; the status RPC independently enforces the same scope and normalizes the unique-index conflict.",
+        "Presentation controls use server capability fields; closed staff/manager remain read-only, and mark-read remains participant-scoped with feature OFF."
+      ]
+    }
+  },
+  "featureFlags": {
+    "flagsAddedOrEnabled": []
+  },
+  "productionActions": "NONE",
+  "workerCheckpoint": "included in the worker-owned checkpoint commit"
+}

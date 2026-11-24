@@ -1,0 +1,50 @@
+{
+  "stage": "O18-MK11",
+  "work_package": "O18",
+  "source_task": "MK-T11",
+  "finding": "MK-F13",
+  "migration_claim": "MIG-O18-MK11",
+  "migration": "supabase\\migrations\\0127_o18_mk11_oorva.sql",
+  "branch": "lane/oorva-o18-mk11",
+  "tested_integration_base": "e640ea1224107a1741c6634118dbfc05f447e42f",
+  "planning_commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "dependencies": {
+    "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O18-MK04": "15096b4613cee27746175501e2cd56f19da0f62f",
+    "O19-MK05": "86a50275dc74ce267644a00e8b9cdd40f1b1a303",
+    "O19-MK26": "66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+    "O18-MK15": "21f51989e1948057e5694f9689c0912e7aab3a7a"
+  },
+  "function_locks": [
+    "public.get_product(uuid)",
+    "public.get_shop(uuid)"
+  ],
+  "behavior": [
+    "Public get_product/get_shop projections add can_enquire and enquiry_block_reason from the existing server predicate without exposing owner/admin fields.",
+    "Anonymous shop detail reads redact address_line, lat and lng.",
+    "Guest enquiry and AI composers are withheld until sign-in; sign-in handoffs carry only safe browse routes.",
+    "Action projections and in-memory composer drafts are scoped to the current auth identity; sign-out hides cached address/action state and clears private composer text.",
+    "Owners see Manage shop rather than an enquiry composer; authenticated eligible customers retain the existing composer.",
+    "Enquiry RPC authorization remains server-enforced; no private draft storage or data-bearing URL parameters were added."
+  ],
+  "worker_owned_paths": [
+    "app\\src\\features\\shops\\api.ts",
+    "app\\src\\features\\shops\\__tests__\\customerActions.test.tsx",
+    "supabase\\migrations\\0127_o18_mk11_oorva.sql",
+    "supabase\\tests\\oorva_o18_mk11.test.mjs",
+    "app\\src\\features\\marketplaceScreens\\ProductDetailScreen.tsx",
+    "app\\src\\features\\marketplaceScreens\\ProductsScreen.tsx",
+    "app\\src\\features\\marketplaceScreens\\ShopDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o18-mk11.json"
+  ],
+  "validation": {
+    "app_selector": "src.features.shops.__tests__.customerActions[.]test[.]tsx$",
+    "sql_selector": "oorva_o18_mk11",
+    "migration_parser_selector": "o18_mk11_oorva.sql",
+    "pre_handshake_status": "not_run",
+    "codespace": "unavailable: current-main helper discovery returned HTTP 404 before test selection; no credential or scope changes authorized",
+    "lane_ci": "pending coordinator registration commit and focused AUTH review"
+  },
+  "authorization_review": "passed: final focused review found no issues; initial cached-address finding was fixed and re-reviewed",
+  "worker_checkpoint": "included in the worker-owned checkpoint commit"
+}

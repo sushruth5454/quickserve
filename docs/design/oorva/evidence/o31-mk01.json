@@ -1,0 +1,23 @@
+{
+  "stage": "O31-MK01",
+  "work_package": "O31",
+  "source_task": "MK-T01",
+  "finding": "MK-F01",
+  "source_report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t01",
+  "implementation_base": "21f51989e1948057e5694f9689c0912e7aab3a7",
+  "validation": {
+    "codespace_helper_commit": "dd969a4061b8bbf115356c63e645365358eade37",
+    "codespace_snapshot_commit": "d02249466bc95a2d13e4a2404275ad0da3eb4cb6",
+    "suite": "app",
+    "filter": "src.features.shops.__tests__.shopReviewPresentation[.]test[.]ts$",
+    "result": "UNAVAILABLE",
+    "codespace_error": "HTTP 404: Not Found from the GitHub Codespaces list API; the response states that the codespace authentication scope is required.",
+    "cs_test_result": "UNAVAILABLE: helper exited before the remote test runner; no tests were selected.",
+    "selected_test_suites": 0,
+    "selected_test_count": 0,
+    "typescript_typecheck": "NOT_RUN",
+    "jest": "NOT_RUN",
+    "fallback": "Exact-head Lane CI",
+    "diff_check": "PASS"
+  }
+}
