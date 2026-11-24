@@ -74,16 +74,16 @@
     "workerTests": [
       {
         "path": "supabase\\functions\\branding-assets\\logic_test.ts",
-        "status": "RAN_IN_LANE_CI_45303755182; one missing-token call-order assertion failed and is corrected in the current fix."
+        "status": "Lane CI 45304958141 ran 8 logic tests successfully; the SQLSTATE-classifier test added after that run is pending final-head CI."
       },
       {
         "path": "supabase\\functions\\branding-assets\\png_test.ts",
-        "status": "RAN_IN_LANE_CI_45303755182; selected among 159 passing Deno tests."
+        "status": "Lane CI 45304958141 ran 5 PNG tests successfully; final-head CI pending."
       },
       {
         "path": "supabase\\tests-postgres\\branding_assets.http.test.mjs",
         "selector": "node run.mjs --filter branding_assets.http.test.mjs",
-        "status": "AUTO_DISCOVERED_AND_PASS_IN_LANE_CI_45303755182; final-head rerun pending."
+        "status": "AUTO_DISCOVERED_AND_PASS_IN_LANE_CI_45304958141 within 7 private tests; final-head rerun pending."
       }
     ],
     "codespaceDeno": {
@@ -92,8 +92,8 @@
       "credentialRefresh": "NOT_ATTEMPTED",
       "fallback": "Exact-head Lane CI required; no Codespace PASS claimed."
     },
-    "privateHttpSelection": "COORDINATOR_SELECTION_PASS: exact filter selects one HTTP test; Lane CI auto-discovery selected and passed the O04 HTTP test in run 45303755182.",
-    "laneCi": "Run 45303755182 FAILED: Deno unit tests reported 159 passed/1 failed; Deno type-check stage completed without additional type errors. Private-postgres passed all 7 discovered tests, including branding_assets.http.test.mjs. Call-order assertion and auth reconciliation fixes are included in the next exact-head rerun.",
+    "privateHttpSelection": "COORDINATOR_SELECTION_PASS: exact filter selects one HTTP test; Lane CI auto-discovery selected and passed the O04 HTTP test in run 45304958141.",
+    "laneCi": "Run 45304958141 PASS on head 262f61c596dabe99ca03489f3e692c827d9482eb: Deno 160 passed/0 failed and checked 14 functions; private-postgres 7/7 passed, including branding_assets.http.test.mjs; SQL job passed. A final SQLSTATE-classifier fix was added after that run; exact-head rerun pending.",
     "focusedAuthReview": "INITIAL_AND_SECOND_REVIEW_NEEDS_FIX_MEDIUM; fixes applied in current worktree; final focused re-review pending.",
     "authReviewFinding": "The first review found that an RPC response failure can occur after commit; the handler now reconciles with the service-only status RPC. The second review noted a single absent status read may race an in-flight commit. Registration returns a tri-state outcome; completed SQLSTATE rejection may clean only after a successful status read, while ambiguous outcomes never delete on absent/mismatched status and preserve bytes when reconciliation is unavailable.",
     "firstLaneCiFailure": {
@@ -110,6 +110,13 @@
       "run": "45303755182",
       "denoTestSummary": "159 passed, 1 failed; missing-token test expected an auth lookup although the handler correctly rejects before lookup.",
       "privatePostgresSummary": "7 passed; branding_assets.http.test.mjs selected and passed."
+    },
+    "thirdLaneCiRun": {
+      "run": "45304958141",
+      "head": "262f61c596dabe99ca03489f3e692c827d9482eb",
+      "deno": "160 passed, 0 failed; deno check completed for 14 functions.",
+      "privatePostgres": "7 passed; branding_assets.http.test.mjs selected and passed.",
+      "sql": "Passed."
     }
   },
   "rollout": {

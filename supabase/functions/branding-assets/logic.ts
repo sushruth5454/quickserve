@@ -8,6 +8,7 @@ const BUCKET = "branding-assets";
 const PARENT_FLAGS = ["oorva_brand", "branding_runtime", "branding_editor"] as const;
 const PUBLIC_FLAGS = ["oorva_brand", "branding_runtime"] as const;
 const PREVIEW_TTL_SECONDS = 240;
+const DEFINITE_REGISTRATION_SQLSTATES = new Set(["22023", "55000", "42501", "P0002", "40001", "23505"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const PUBLIC_CACHE = "public, max-age=300, s-maxage=300, must-revalidate";
@@ -35,6 +36,17 @@ export interface AssetRegistration {
 }
 
 export type AssetRegistrationResult = "registered" | "rejected" | "ambiguous";
+
+export function classifyAssetRegistrationResult(
+  errorCode: unknown,
+  data: unknown,
+  assetId: string,
+): AssetRegistrationResult {
+  if (typeof errorCode === "string" && errorCode.length > 0) {
+    return DEFINITE_REGISTRATION_SQLSTATES.has(errorCode) ? "rejected" : "ambiguous";
+  }
+  return typeof data === "string" && data.toLowerCase() === assetId ? "registered" : "ambiguous";
+}
 
 function registrationMetadataMatches(status: BrandingAssetStatus | null, metadata: AssetRegistration): status is BrandingAssetStatus {
   return status !== null &&

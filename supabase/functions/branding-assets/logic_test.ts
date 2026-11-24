@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertMatch } from "jsr:@std/assert@1";
 import { deflateSync } from "node:zlib";
 import {
+  classifyAssetRegistrationResult,
   handleBrandingAssetsRequest,
   type BrandingAssetDependencies,
   type BrandingAssetStatus,
@@ -131,6 +132,25 @@ function bufferCopy(bytes: Uint8Array): ArrayBuffer {
   new Uint8Array(buffer).set(bytes);
   return buffer;
 }
+
+Deno.test("registration RPC classifier distinguishes definite O03 rejections from unknown outcomes", () => {
+  for (const code of ["22023", "55000", "42501", "P0002", "40001", "23505"]) {
+    assertEquals(
+      classifyAssetRegistrationResult(code, null, ASSET_ID),
+      "rejected",
+      `completed SQLSTATE=${code}; actual=${classifyAssetRegistrationResult(code, null, ASSET_ID)}`,
+    );
+  }
+  for (const code of ["08007", "40003", "PGRST116", "ECONNRESET", "XX999"]) {
+    assertEquals(
+      classifyAssetRegistrationResult(code, null, ASSET_ID),
+      "ambiguous",
+      `unknown completion SQLSTATE/error=${code}; actual=${classifyAssetRegistrationResult(code, null, ASSET_ID)}`,
+    );
+  }
+  assertEquals(classifyAssetRegistrationResult(undefined, ASSET_ID, ASSET_ID), "registered");
+  assertEquals(classifyAssetRegistrationResult(undefined, null, ASSET_ID), "ambiguous");
+});
 
 function previewRequest(body: unknown, token = "admin-session-token"): Request {
   return new Request(`${PROJECT_URL}/functions/v1/branding-assets?action=preview`, {
