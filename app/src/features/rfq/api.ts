@@ -109,6 +109,7 @@ export type RfqQuoteComparisonResult = RfqQuoteComparison
 
 export interface SupplierRfqSummary {
   shop_id: string;
+  shop_name: string;
   rfq_id: string;
   title: string;
   category_name: string;
@@ -123,6 +124,12 @@ export interface SupplierRfqSummary {
   rfq_status: RfqStatus;
   my_outcome: SupplierQuoteStatus | null;
   business_role: 'owner' | 'manager' | 'staff';
+}
+
+export function supplierRfqDetailRouteParams(
+  rfq: Pick<SupplierRfqSummary, 'rfq_id' | 'shop_id'>,
+): { id: string; shopId: string } {
+  return { id: rfq.rfq_id, shopId: rfq.shop_id };
 }
 
 export interface SupplierQuoteSavedItem {
@@ -254,10 +261,10 @@ export async function listMySupplierRfqs(): Promise<SupplierRfqSummary[]> {
   return unwrap(data as SupplierRfqSummary[] | null, error);
 }
 
-export async function getSupplierRfq(rfqId: string, shopId?: string): Promise<SupplierRfq> {
+export async function getSupplierRfq(rfqId: string, shopId: string): Promise<SupplierRfq> {
   const { data, error } = await supabase.rpc('get_supplier_rfq_for_business', {
     p_rfq_id: rfqId,
-    p_shop_id: shopId ?? null,
+    p_shop_id: shopId,
   });
   return unwrap(data as SupplierRfq | null, error);
 }

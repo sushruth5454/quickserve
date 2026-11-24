@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O28-MK18",
+  "workPackage": "O28",
+  "title": "Business work lists lose business identity for multi-business members",
+  "source": {
+    "taskId": "MK-T18",
+    "findingId": "MK-F20",
+    "dispatchOrder": 62,
+    "frozenPlanningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "frozenAuditSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "currentMainAtDispatch": "dd969a4061b8bbf115356c63e645365358eade37"
+  },
+  "base": {
+    "branch": "lane/oorva-o28-mk18",
+    "implementationBaseSha": "24ca793c69e8dcac5d93761ac2232c1957ee71fc",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O18-MK04",
+        "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O18-MK15",
+        "sha": "21f51989e1948057e5694f9689c0912e7aab3a7",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O19-MK06",
+        "sha": "611d54a1d0cd586c102a7e79a7bb0f90273af15b",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O28-MK07",
+        "sha": "4b7224a0b3acfc14fe6828dbce0039a28532e06c",
+        "state": "DONE"
+      }
+    ]
+  },
+  "migrationClaim": {
+    "id": "MIG-O28-MK18",
+    "version": "0132",
+    "path": "supabase/migrations/0132_o28_mk18_oorva.sql",
+    "functions": [
+      "public.list_my_supplier_rfqs"
+    ]
+  },
+  "workerOwnedFiles": [
+    "app/src/features/rfq/api.ts",
+    "supabase/migrations/0132_o28_mk18_oorva.sql",
+    "app/src/features/rfq/__tests__/supplierQuoteModel.test.ts",
+    "supabase/tests/oorva_o28_mk18.test.mjs",
+    "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "docs/design/oorva/evidence/o28-mk18.json"
+  ],
+  "implementation": [
+    "Added shop_name to the supplier-list RPC return and client summary type; recreated only public.list_my_supplier_rfqs with its existing recipient, membership, deadline, history, and authenticated-only authorization behavior.",
+    "Rendered authorized shop labels in merchant enquiry and supplier RFQ rows, kept shop_id:rfq_id list identity, and made RFQ detail RPC calls require the row-selected shopId; missing route context now fails closed.",
+    "Added focused app route-context and SQL assertions for two shops assigned the same RFQ, duplicate visible names, inactive-member denial, own-business quote privacy, feature-off historic labels, and RPC grants.",
+    "Kept all existing route files as thin exports into the extracted marketplace screen hosts; no coordinator or E2E files changed."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "PAUSED_FOR_REGISTRATION",
+    "checkpointCommit": "Recorded in stage handoff; exact SHA is intentionally not self-referenced here.",
+    "registrationCommit": null,
+    "sharedFilesTouched": []
+  },
+  "validation": {
+    "status": "NOT_RUN_AWAITING_REGISTRATION_MERGE",
+    "codespace": {
+      "status": "NOT_RUN_BY_INSTRUCTION"
+    },
+    "selectors": [
+      "src.features.rfq.__tests__.supplierQuoteModel[.]test[.]ts$",
+      "oorva_o28_mk18",
+      "o28_mk18_oorva.sql"
+    ],
+    "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
+    "diffCheck": "PENDING",
+    "laneCi": {
+      "status": "PENDING",
+      "exactHeadRunId": null
+    }
+  },
+  "reviewRequired": "AUTH",
+  "reviewStatus": "PENDING_AFTER_CODE_GREEN",
+  "releaseStatus": {
+    "mainPromotion": "not performed",
+    "deployment": "not performed",
+    "featureFlags": "unchanged",
+    "productionActions": "none"
+  }
+}
