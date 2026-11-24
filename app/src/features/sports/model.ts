@@ -360,6 +360,55 @@ export function getUpcomingVenueBookings<T extends { status: string; starts_at: 
     .sort((left, right) => Date.parse(left.starts_at) - Date.parse(right.starts_at));
 }
 
+export interface SportsVenueBookingSections<T> {
+  requests: T[];
+  current: T[];
+  upcoming: T[];
+  history: T[];
+}
+
+export function getVenueBookingSections<T extends { status: string; starts_at: string; ends_at: string }>(
+  rows: readonly T[],
+  now: Date,
+): SportsVenueBookingSections<T> {
+  const activeStatuses = new Set(['accepted', 'pending_payment', 'awaiting_payment']);
+  const nowMs = now.getTime();
+  const sections: SportsVenueBookingSections<T> = {
+    requests: [],
+    current: [],
+    upcoming: [],
+    history: [],
+  };
+
+  rows.forEach((row) => {
+    if (row.status === 'requested') {
+      sections.requests.push(row);
+      return;
+    }
+
+    const startsAtMs = Date.parse(row.starts_at);
+    const endsAtMs = Date.parse(row.ends_at);
+    const hasValidRange = Number.isFinite(startsAtMs)
+      && Number.isFinite(endsAtMs)
+      && endsAtMs > startsAtMs;
+
+    if (!activeStatuses.has(row.status) || !hasValidRange) {
+      sections.history.push(row);
+    } else if (startsAtMs <= nowMs && nowMs < endsAtMs) {
+      sections.current.push(row);
+    } else if (startsAtMs > nowMs) {
+      sections.upcoming.push(row);
+    } else {
+      sections.history.push(row);
+    }
+  });
+
+  const byStartTime = (left: T, right: T) => Date.parse(left.starts_at) - Date.parse(right.starts_at);
+  sections.current.sort(byStartTime);
+  sections.upcoming.sort(byStartTime);
+  return sections;
+}
+
 export function formatSportsDuration(slotCount: number, slotMinutes: number): string {
   if (!Number.isInteger(slotCount) || slotCount < 1 || !Number.isInteger(slotMinutes) || slotMinutes < 1) return '';
   const minutes = slotCount * slotMinutes;

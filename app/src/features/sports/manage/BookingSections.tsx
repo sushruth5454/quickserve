@@ -1,7 +1,9 @@
 import { router, type Href } from 'expo-router';
+import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, EmptyState, InlineAlert, Text } from '../../../components/ui';
 import { SportsBookingCard } from '../SportsBookingCard';
+import type { SportsVenueBookingSections } from '../model';
 import type { SportsBookingRow } from './types';
 
 export function renderAssignedBookings(venueName: string, venueBookings: SportsBookingRow[], gap: number) {
@@ -47,16 +49,26 @@ export function renderExistingBookings(bookings: SportsBookingRow[], error: stri
 }
 
 export function renderVenueBookingLists(
-  myRequests: SportsBookingRow[],
-  upcomingBookings: SportsBookingRow[],
+  bookings: SportsVenueBookingSections<SportsBookingRow>,
   gap: number,
 ) {
   return (
     <View style={{ gap }}>
       <Text variant="title3">Booking requests</Text>
-      {myRequests.length === 0 ? (
+      {bookings.requests.length === 0 ? (
         <EmptyState icon="mail-outline" title="No pending requests" message="New customer requests will appear here." compact />
-      ) : myRequests.map((booking) => (
+      ) : bookings.requests.map((booking) => (
+        <SportsBookingCard
+          key={booking.id}
+          booking={booking}
+          showCustomer
+          onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}
+        />
+      ))}
+      <Text variant="title3">Current bookings</Text>
+      {bookings.current.length === 0 ? (
+        <EmptyState icon="calendar-outline" title="No current bookings" message="Bookings in progress will appear here." compact />
+      ) : bookings.current.map((booking) => (
         <SportsBookingCard
           key={booking.id}
           booking={booking}
@@ -65,9 +77,23 @@ export function renderVenueBookingLists(
         />
       ))}
       <Text variant="title3">Upcoming bookings</Text>
-      {upcomingBookings.length === 0 ? (
-        <EmptyState icon="calendar-outline" title="No upcoming bookings" message="Confirmed and payment-due bookings will appear here." compact />
-      ) : upcomingBookings.map((booking) => (
+      {bookings.upcoming.some((booking) => booking.status === 'pending_payment' || booking.status === 'awaiting_payment') ? (
+        <Text variant="caption" color="muted">Payment-due bookings are held, not confirmed.</Text>
+      ) : null}
+      {bookings.upcoming.length === 0 ? (
+        <EmptyState icon="calendar-outline" title="No upcoming bookings" message="Accepted and payment-due bookings will appear here." compact />
+      ) : bookings.upcoming.map((booking) => (
+        <SportsBookingCard
+          key={booking.id}
+          booking={booking}
+          showCustomer
+          onPress={() => router.push(`/sports-booking/${booking.id}` as Href)}
+        />
+      ))}
+      <Text variant="title3">Booking history</Text>
+      {bookings.history.length === 0 ? (
+        <EmptyState icon="time-outline" title="No booking history" message="Past and terminal bookings will appear here." compact />
+      ) : bookings.history.map((booking) => (
         <SportsBookingCard
           key={booking.id}
           booking={booking}
@@ -77,4 +103,15 @@ export function renderVenueBookingLists(
       ))}
     </View>
   );
+}
+
+export function renderOwnerManagementSections(
+  selectorStatus: ReactNode,
+  bookingSections: ReactNode,
+  editorSections: ReactNode,
+  familyPresentationEnabled: boolean,
+) {
+  return familyPresentationEnabled
+    ? <>{selectorStatus}{bookingSections}{editorSections}</>
+    : <>{selectorStatus}{editorSections}{bookingSections}</>;
 }
