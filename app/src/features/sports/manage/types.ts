@@ -52,9 +52,15 @@ export interface SportsBookingRow {
   activity_name: string;
   customer_name: string;
   starts_at: string;
+  ends_at: string;
   status: string;
   price_paise: number;
   total_paise?: number;
   payment_mode?: 'online' | 'pay_at_venue';
   paid_at?: string | null;
+  participants?: number | null;
+  refund_paise?: number | null;
+  expires_at?: string | null;
+  hold_expires_at?: string | null;
+  pay_by?: string | null;
 }

@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O20-SP08",
+  "workPackage": "O20",
+  "sourceTaskIds": [
+    "SP-T08"
+  ],
+  "sourceFindingIds": [
+    "SP-F12"
+  ],
+  "base": {
+    "planningBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "implementationBaseSha": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O19-MK05",
+        "sha": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O20-SP05",
+        "sha": "d5edeb387107157a95214c97b8c5bf6c845ac119",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O29-STATE",
+        "sha": "5c37fc2691adf5cedaf5826131caff234711af95",
+        "state": "DONE_IN_BASE"
+      },
+      {
+        "stageId": "O09-SP09",
+        "sha": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+        "state": "DONE_IN_BASE"
+      }
+    ]
+  },
+  "scope": {
+    "workerOwnedFiles": [
+      "app/src/features/sports/SportsBookingCard.tsx",
+      "app/src/features/sports/model.ts",
+      "app/src/features/activity/segments/SportsSegment.tsx",
+      "app/src/features/sports/manage/BookingSections.tsx",
+      "app/src/features/sports/manage/types.ts",
+      "app/src/features/sports/__tests__/bookingCardPresentation.test.ts",
+      "app/src/features/sports/sports/__tests__/bookingCardPresentation.test.ts",
+      "app/src/features/sportsScreens/SportsBookingsScreen.tsx",
+      "docs/design/oorva/evidence/o20-sp08.json"
+    ],
+    "coordinatorOwnedFilesNotEdited": [
+      "e2e/web-smoke.mjs"
+    ],
+    "migrationClaims": [],
+    "sqlFunctions": [],
+    "featureKeys": [],
+    "familyFlagActivation": false,
+    "productionOperations": false,
+    "paymentOrBookingMutations": false
+  },
+  "sourceDrift": {
+    "comparisonBase": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "dependencyUpdatedFilesAtBase": [
+      "app/src/features/sports/model.ts (O20-SP05 action/payment helpers)",
+      "app/src/features/sports/manage/BookingSections.tsx (O29-STATE management/read-only projection)"
+    ],
+    "otherExistingOwnedFilesMatchingAuditAtBase": [
+      "app/src/features/activity/segments/SportsSegment.tsx",
+      "app/src/features/sports/manage/types.ts"
+    ],
+    "newAfterAuditAtBase": [
+      "app/src/features/sports/SportsBookingCard.tsx",
+      "app/src/features/sports/__tests__/bookingCardPresentation.test.ts",
+      "app/src/features/sports/sports/__tests__/bookingCardPresentation.test.ts",
+      "app/src/features/sportsScreens/SportsBookingsScreen.tsx",
+      "docs/design/oorva/evidence/o20-sp08.json"
+    ]
+  },
+  "routeHostBinding": {
+    "route": "app/app/sports/bookings.tsx",
+    "host": "app/src/features/sportsScreens/SportsBookingsScreen.tsx",
+    "controller": "useSportsBookingsController",
+    "routeEdited": false,
+    "routeBehavior": "unchanged"
+  },
+  "implementation": [
+    "Added a narrow sports booking card contract, shared by customer history, Activity, and business projections; it consumes only booking facts already returned by authorized reads.",
+    "Shows server total_paise with price_paise fallback, canonical status/payment labels, actual starts_at–ends_at range, and status-specific response/hold/pay-by deadline.",
+    "Pay-at-venue is never labeled Paid online; awaiting-payment online rows show Online payment due; queued refund aggregates are labeled Refund requested.",
+    "Kept Activity markRead/registerRefresh and exact booking-id navigation. Business cards provide navigation only; no payment, decision, or cancellation controls were added."
+  ],
+  "testCases": [
+    "SP-SAME-PK-CROSS-VIEW",
+    "SP-ONLINE-NONZERO-FEE",
+    "SP-STAFF-READONLY",
+    "SP-REFUND-REQUESTED",
+    "SP-TERMINAL-STATUSES-DISTINCT",
+    "SP-CARD-DEADLINES"
+  ],
+  "validation": {
+    "diffCheck": "PASS",
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "appSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.sports.sports.__tests__.bookingCardPresentation[.]test[.]ts$'",
+        "result": "BLOCKED",
+        "selectedFile": null,
+        "selectedCases": null,
+        "failure": "gh codespace list returned HTTP 404 for the repository because the authenticated GitHub token lacks the codespace scope; the helper then failed at line 45 on a null Codespace."
+      },
+      "jestSelector": {
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.sports.__tests__.bookingCardPresentation[.]test[.]ts$'",
+        "result": "BLOCKED",
+        "selectedFile": null,
+        "selectedCases": null,
+        "failure": "gh codespace list returned HTTP 404 for the repository because the authenticated GitHub token lacks the codespace scope; the helper then failed at line 45 on a null Codespace."
+      },
+      "localAppTests": "NOT_RUN"
+    },
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_LANE_CI"
+    },
+    "privateE2E": "NOT_RUN_BY_WORKER"
+  },
+  "coordinatorE2EHandoff": {
+    "file": "e2e/web-smoke.mjs",
+    "required": "Capture and assert the exact booking created by runAllServiceScenarios instead of selecting the first Activity card or accepting a generic status/payment regex. Include JSON expected/actual row and card text in failures.",
+    "fixture": {
+      "source": "supabase/seed-all-services.sql sports seed and e2e/all-services.mjs sports request flow",
+      "venue": "Benz Circle Demo Badminton Courts",
+      "activity": "Badminton",
+      "resource": "Demo Court 1",
+      "pricePaise": 30000,
+      "status": "requested",
+      "paymentMode": "pay_at_venue",
+      "customerFeePaise": 0,
+      "totalPaise": 30000,
+      "participants": 1,
+      "paidAt": null,
+      "refundPaise": 0,
+      "expectedVisible": [
+        "Waiting for venue",
+        "Pay at venue",
+        "₹300.00",
+        "actual start and end timestamps formatted in Asia/Kolkata"
+      ]
+    },
+    "diagnostics": [
+      "Capture the detail URL booking UUID immediately after runAllServiceScenarios returns.",
+      "Capture list_my_customer_sports_bookings and find the row by that UUID; assert its venue/resource, status, payment mode, price, fee, total, participants, paid_at, refund_paise, starts_at, and ends_at.",
+      "Match the Activity card to the row's venue/resource/time range and assert the exact visible status, amount, payment summary, and both actual endpoints.",
+      "On mismatch, throw one JSON diagnostic containing booking UUID, expected fixture values, actual list row, matched card accessible name, and card innerText."
+    ]
+  }
+}
