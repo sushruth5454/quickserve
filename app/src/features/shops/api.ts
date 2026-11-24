@@ -126,6 +126,9 @@ export interface EnquiryThread extends EnquirySummary {
   customer_unread: number;
   from_shop_user: boolean;
   business_role: 'owner' | 'manager' | 'staff' | null;
+  can_change_status: boolean;
+  can_reopen: boolean;
+  active_enquiry_id: string | null;
 }
 
 export interface EnquiryMessage {
