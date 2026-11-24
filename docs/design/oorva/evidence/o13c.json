@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O13C",
+  "title": "Flagged auth, location and protected-invite composition",
+  "planningBase": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "ce311ef65c7eb2a5502001ecc266fca9980ffe3b",
+  "gate": "E0",
+  "status": "implementation-complete",
+  "ownedFiles": [
+    "app/app/(auth)/login.tsx",
+    "app/src/components/AddressEditor.tsx",
+    "app/src/features/auth/__tests__/composition.test.tsx",
+    "app/src/features/platformScreens/AuthLoginScreen.tsx",
+    "app/src/features/platformScreens/AuthRoleScreen.tsx",
+    "app/src/features/platformScreens/AuthVerifyScreen.tsx",
+    "app/src/features/platformScreens/ByoDetailScreen.tsx",
+    "app/src/features/platformScreens/LocationScreen.tsx",
+    "docs/design/oorva/evidence/o13c.json"
+  ],
+  "implementation": [
+    "Moved the existing login screen/controller into AuthLoginScreen and left the existing route as a thin default export.",
+    "Added oorva_auth_ux composition branches to S01, S02, S03, S39, S48 and AddressEditorSheet; the effective feature hook keeps the oorva_brand parent gate.",
+    "Used auth identity on auth/location surfaces and protectedInvite identity outside the protected-invite composition branch.",
+    "Kept auth, location, invite claim, payment, amount, authorization and return-target controllers in place; no server or money-safety paths changed.",
+    "Initialized AddressEditor drafts when the editor opens or its owner changes, not when its location pin object refreshes."
+  ],
+  "validation": {
+    "codespaceCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.auth.__tests__.composition[.]test[.]tsx$'",
+    "codespace": "BLOCKED before test selection: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30); This API operation needs the \"codespace\" scope. To request it, run: gh auth refresh -h github.com -s codespace. Helper then reported: You cannot call a method on a null-valued expression at cs-test-current-main.ps1:45.",
+    "laneCi": "Exact-head result will be reported in the stage handoff; no promotion is implied.",
+    "runtimeDeviceEvidence": "NOT_VERIFIED",
+    "selectedTestCount": "NOT_CONFIRMED"
+  },
+  "releaseDisposition": {
+    "mainPromotion": "not-performed",
+    "featureActivation": "not-performed",
+    "nativeOrPublicRelease": "not-performed"
+  }
+}

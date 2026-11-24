@@ -7,6 +7,8 @@ import { useAuth } from '../../lib/auth';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { formatINR } from '../../lib/money';
 import { usePayment } from '../../lib/payments';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
+import { useFeature } from '../../branding/FeatureFlagsProvider';
 import {
   byoInviteAction,
   commitByoInviteClaim,
@@ -22,6 +24,8 @@ import { useTheme } from '../../theme';
 
 export default function ByoDetailScreen({ token }: { token: string }) {
   const t = useTheme();
+  const identity = useBrandIdentity('protectedInvite');
+  const authUx = useFeature('oorva_auth_ux');
   const { userId, presentation, address, city, claimBusy, paymentBusy, actionError, setAddress, setCity, retryPreview, claim, retryPayment } =
     useByoDetailController(token);
   const action = byoInviteAction(presentation, token, Boolean(userId));
@@ -73,6 +77,12 @@ export default function ByoDetailScreen({ token }: { token: string }) {
         ) : undefined
       }
     >
+      {authUx ? (
+        <View testID="o13c-protected-invite-composition" style={{ gap: t.spacing.xs }}>
+          <Text variant="overline">{identity.displayName}</Text>
+          {identity.tagline ? <Text variant="footnote" color="muted">{identity.tagline}</Text> : null}
+        </View>
+      ) : null}
       {presentation.status === 'loading' ? (
         <View style={{ gap: t.spacing.md }}><Skeleton width="70%" height={28} /><Skeleton width="100%" height={140} /></View>
       ) : presentation.status === 'error' ? (
@@ -89,7 +99,7 @@ export default function ByoDetailScreen({ token }: { token: string }) {
       ) : (
         <>
           <Card gap={t.spacing.md}>
-            <Text variant="overline" color="primaryText">QUICKSERVE PROTECTED BOOKING</Text>
+            <Text variant="overline" color="primaryText">{identity.displayName.toUpperCase()} PROTECTED BOOKING</Text>
             <Text variant="title2">{preview!.category_name}</Text>
             <Text variant="body" color="textSecondary">{preview!.description}</Text>
             <View style={{ height: 1, backgroundColor: t.colors.border }} />
@@ -104,7 +114,7 @@ export default function ByoDetailScreen({ token }: { token: string }) {
           <InlineAlert
             tone="success"
             icon="shield-checkmark-outline"
-            title="Protected by QuickServe"
+            title={`Protected by ${identity.displayName}`}
             message="Pay in-app, confirm work with a completion code, and qualify for the guarantee and a verified review."
           />
 

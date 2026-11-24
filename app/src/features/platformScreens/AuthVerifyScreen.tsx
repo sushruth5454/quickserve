@@ -12,6 +12,36 @@ import { useTheme } from '../../theme';
 
 const RESEND_SECONDS = 60;
 
+function loadAuthIdentityHook() {
+  try {
+    return (require('../../branding/useBrandIdentity') as {
+      useBrandIdentity: (context: 'auth') => { displayName: string; tagline: string | null };
+    }).useBrandIdentity;
+  } catch {
+    return null;
+  }
+}
+
+function useAuthIdentity() {
+  const hook = loadAuthIdentityHook();
+  return hook ? hook('auth') : { displayName: 'QuickServe', tagline: null };
+}
+
+function loadAuthUxHook() {
+  try {
+    return (require('../../branding/FeatureFlagsProvider') as {
+      useFeature: (key: string) => boolean;
+    }).useFeature;
+  } catch {
+    return null;
+  }
+}
+
+function useAuthUx() {
+  const hook = loadAuthUxHook();
+  return hook ? hook('oorva_auth_ux') : false;
+}
+
 function useAuthVerifyController() {
   const t = useTheme();
   const toast = useToast();
@@ -127,6 +157,8 @@ function useAuthVerifyController() {
 
 export default function AuthVerifyScreen() {
   const { t, phone, code, setCode, busy, error, setError, left, otpVerified, submit, resend } = useAuthVerifyController();
+  const identity = useAuthIdentity();
+  const authUx = useAuthUx();
 
   return (
     <Screen
@@ -146,6 +178,12 @@ export default function AuthVerifyScreen() {
       }
     >
       <View style={{ gap: t.spacing.sm }}>
+        {authUx ? (
+          <View testID="o13c-auth-ux" style={{ gap: t.spacing.xs }}>
+            <Text variant="overline">{identity.displayName}</Text>
+            {identity.tagline ? <Text variant="footnote" color="muted">{identity.tagline}</Text> : null}
+          </View>
+        ) : null}
         <Text variant="title1" accessibilityRole="header">
           Verify your number
         </Text>

@@ -24,6 +24,8 @@ import {
 } from '../../lib/locationModel';
 import type { SavedAddress } from '../../lib/types';
 import { useT } from '../../i18n';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
+import { useFeature } from '../../branding/FeatureFlagsProvider';
 import { useTheme } from '../../theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -31,6 +33,8 @@ type IconName = keyof typeof Ionicons.glyphMap;
 /** Swiggy / Urban Company style "Select location": search, GPS, saved addresses, popular areas. */
 export default function LocationScreen() {
   const controller = useLocationController();
+  const identity = useBrandIdentity('auth');
+  const authUx = useFeature('oorva_auth_ux');
   const {
     t,
     tr,
@@ -72,6 +76,12 @@ export default function LocationScreen() {
 
   return (
     <Screen header={<Header title={tr('location.title')} subtitle={tr('location.subtitle')} />} gap={t.spacing.section}>
+      {authUx ? (
+        <View testID="o13c-auth-ux" style={{ gap: t.spacing.xs }}>
+          <Text variant="overline">{identity.displayName}</Text>
+          {identity.tagline ? <Text variant="footnote" color="muted">{identity.tagline}</Text> : null}
+        </View>
+      ) : null}
       <View style={{ gap: t.spacing.md }}>
         <Input
           leftIcon="search"
