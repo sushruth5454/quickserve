@@ -2,11 +2,20 @@
   "schemaVersion": 1,
   "stageId": "O19-MK26",
   "workPackage": "O19",
-  "status": "WORKER_FILES_IMPLEMENTED_AWAITING_REGISTRATION",
+  "status": "DONE",
   "base": {
     "branch": "lane/oorva-o19-mk26",
-    "implementationSha": null,
+    "implementationSha": "66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
     "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "integration": {
+    "sha": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+    "backendRunId": 45326268906,
+    "migration0106": "APPLIED_AND_RECORDED",
+    "hostedPostDeployE2E": {
+      "runId": 45327096462,
+      "status": "PASS"
+    }
   },
   "dependencies": [
     {
@@ -42,7 +51,7 @@
     "id": "MIG-O19-MK26",
     "filename": "supabase/migrations/0106_o19_mk26_oorva.sql",
     "acknowledged": true,
-    "promotion": "BLOCKED_BEHIND_ACTIVE_0105"
+    "promotion": "APPLIED_AND_RECORDED"
   },
   "workerOwnedFiles": [
     "supabase/migrations/0106_o19_mk26_oorva.sql",
@@ -57,7 +66,7 @@
   ],
   "registration": {
     "owner": "coordinator",
-    "status": "PAUSED_FOR_COORDINATOR_REGISTRATION",
+    "status": "REGISTERED",
     "sqlTestFilter": "oorva_o19_mk26",
     "migrationParserFilter": "0106_o19_mk26_oorva.sql",
     "privatePostgresFilter": "o19_mk26.pg.test.mjs",
@@ -66,14 +75,16 @@
   "validation": {
     "gitDiffCheck": "PASS",
     "codespace": {
-      "status": "NOT_RUN_AWAITING_REGISTRATION",
+      "status": "BLOCKED_BEFORE_TEST_SELECTION",
+      "failure": "HTTP 404 from the Codespaces API because the GitHub CLI token lacked the codespace scope; helper failed during Codespace discovery before test selection.",
+      "selectorExecution": "NOT_REACHED",
       "credentialRefresh": "PROHIBITED"
     },
     "windowsBuildsAndTests": "NOT_RUN_BY_INSTRUCTION",
-    "privatePostgres": "NOT_RUN_AWAITING_REGISTRATION",
-    "laneCi": "NOT_RUN_AWAITING_REGISTRATION",
-    "focusedConcurrencyReview": "PENDING_COORDINATOR_GATE",
-    "exactHeadLaneCiFallback": "REQUIRED_AFTER_REGISTRATION"
+    "privatePostgres": "PASS; lane CI run 45310161657, job 138163652007, implementation SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+    "laneCi": "SUCCESS; run 45310161657 on implementation SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+    "focusedConcurrencyReview": "PASS at implementation SHA 66d2ab71bf548f1adc3ef1b46f81ea7290a27c21",
+    "exactHeadLaneCiFallback": "SATISFIED_BY_RUN_45310161657"
   },
   "testOnlyConcurrencyFollowUp": {
     "failedRun": {
@@ -96,7 +107,8 @@
     },
     "rootCause": "The owned test launched as(second, ...) after acquiring the shop lock, but as() performs JWT-claim and role setup before the target RPC. waitForLockWait accepted any Lock event without verifying the query; the captured set_config query proves the observed backend had not reached start_product_enquiry. run.mjs and helpers.mjs were unchanged between the lane base and failed-run head.",
     "testOnlyFix": "Prepare the second backend's role before opening the first transaction, and only accept a Lock wait whose query is start_product_enquiry. The two-backend barrier and same-context reuse assertions remain.",
-    "postFixPrivatePostgres": "NOT_RUN_BY_INSTRUCTION; coordinator review required before push",
+    "testOnlyFixValidation": "NOT_YET_VALIDATED; coordinator review required before author validation",
+    "postFixPrivatePostgres": "NOT_RUN; coordinator review required before push, then author validation",
     "review": "AWAITING_COORDINATOR_REVIEW"
   },
   "featureFlags": {
