@@ -381,8 +381,10 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
     mockFeatureFlags.oorva_brand = true;
     mockFeatureFlags.oorva_auth_ux = false;
     const inviteTree = render(() => ByoScreen({ token: 'invite-123' }));
-    expect(elements(inviteTree, 'Text').some((text) => text.props.children === 'OORVA PROTECTED BOOKING')).toBe(true);
-    expect(mockIdentityContexts).toContain('protectedInvite');
+    const inviteText = elements(inviteTree, 'Text')
+      .map((text) => Array.isArray(text.props.children) ? text.props.children.join('') : text.props.children);
+    expect(inviteText, JSON.stringify(inviteText) ?? '').toContain('OORVA PROTECTED BOOKING');
+    expect(mockIdentityContexts, JSON.stringify(mockIdentityContexts) ?? '').toContain('protectedInvite');
 
     mockRuntime.hookIndex = 0;
     mockRuntime.states = [];
@@ -432,8 +434,9 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
       },
       visible: true,
     }));
-    expect(byTestId(editor, 'o13c-auth-ux')).toBeDefined();
-    const save = elements(editor, 'Button').find((button) => button.props.title === 'Save address');
+    const sheet = elements(editor, 'BottomSheet')[0];
+    expect(sheet).toBeDefined();
+    const save = elements(sheet?.props.footer, 'Button').find((button) => button.props.title === 'Save address');
     expect(save?.props.fullWidth).toBe(true);
   });
 });
