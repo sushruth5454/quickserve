@@ -94,7 +94,7 @@ export default function RfqDetailScreen() {
     if (Platform.OS === 'web') {
       const accepted = await confirm({
         title: 'Cancel request',
-        message: 'Suppliers will be told that this request was cancelled.',
+        message: 'This closes your request. Outstanding quotes will not be selected. No payment will be taken.',
         confirmLabel: 'Cancel request',
         cancelLabel: 'Keep request',
         destructive: true,
@@ -103,7 +103,7 @@ export default function RfqDetailScreen() {
       return;
     }
 
-    Alert.alert('Cancel request', 'Suppliers will be told that this request was cancelled.', [
+    Alert.alert('Cancel request', 'This closes your request. Outstanding quotes will not be selected. No payment will be taken.', [
       { text: 'Keep request', style: 'cancel' },
       { text: 'Cancel request', style: 'destructive', onPress: () => void cancelRequest() },
     ]);
@@ -133,15 +133,6 @@ export default function RfqDetailScreen() {
             <Text variant="caption" color="muted">Needed by {new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString()}</Text>
             {rfq.notes ? <Text>{rfq.notes}</Text> : null}
           </Card>
-          {rfq.status === 'open' ? (
-            <Button
-              title="Cancel request"
-              variant="outline"
-              loading={cancelling}
-              disabled={!!busyQuoteId || !hasRead || loading || !!error}
-              onPress={confirmCancel}
-            />
-          ) : null}
           <Text variant="title3">Requested items</Text>
           {rfq.items.map((item) => (
             <Card key={item.id} style={{ gap: t.spacing.xs }}>
@@ -224,6 +215,19 @@ export default function RfqDetailScreen() {
             </ScrollView>
           )}
           <Text variant="caption" color="muted">Choosing a supplier opens an enquiry for next steps. Nearo does not take payment for this selection.</Text>
+          {rfq.status === 'open' ? (
+            <Card style={{ gap: t.spacing.sm }}>
+              <Text variant="captionStrong">Request actions</Text>
+              <Text variant="caption" color="muted">Canceling closes this request. Outstanding quotes will not be selected. No payment will be taken.</Text>
+              <Button
+                title="Cancel request"
+                variant="outline"
+                loading={cancelling}
+                disabled={!!busyQuoteId || !hasRead || loading || !!error}
+                onPress={confirmCancel}
+              />
+            </Card>
+          ) : null}
         </>
       ) : null}
     </Screen>
