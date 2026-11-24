@@ -36,6 +36,7 @@ const consoleErrors = [];
 const httpFailures = [];
 const appFeatureResponses = [];
 let qaProductEnquiryId = null;
+let localE2eCustomerToken = null;
 const failures = [];
 const softFailures = [];
 const skippedSteps = [];
@@ -612,6 +613,27 @@ const sportsScenarioBookingMatch = new URL(page.url()).pathname.match(/^\/sports
 const sportsScenarioBookingId = sportsScenarioBookingMatch?.[1] ?? null;
 if (!sportsScenarioBookingId) {
   throw new Error(`sports booking scenario did not finish on its detail route: ${JSON.stringify({ url: page.url() })}`);
+}
+if (PRIVATE_LOCAL_E2E) {
+  localE2eCustomerToken = await page.evaluate(() => {
+    for (const key of Object.keys(localStorage)) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) ?? 'null');
+        const sessions = [value, value?.currentSession, value?.session, value?.data?.session];
+        const session = sessions.find((candidate) => typeof candidate?.access_token === 'string');
+        if (session) return session.access_token;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  });
+  if (!localE2eCustomerToken) {
+    throw new Error(`MK-ADMIN authenticated customer token was not present after the customer journey: ${JSON.stringify({
+      url: page.url(),
+      storageKeys: await page.evaluate(() => Object.keys(localStorage)),
+    })}`);
+  }
 }
 if (PRIVATE_LOCAL_E2E) {
   await step('MK-READ-admin-and-enquiry-retry-customer', async () => {
@@ -2962,10 +2984,16 @@ await step('admin-feature-registry', async () => {
         ? adminRows.find((row) => row.id === qaApprovalShopId)
         : null;
       const ownerShop = await asPro('/rest/v1/rpc/get_my_shop', {});
-      const customerToken = await signInAs(PHONE);
+      if (!localE2eCustomerToken) {
+        throw new Error(`MK-ADMIN signed-in customer token was unavailable for public shop read: ${JSON.stringify({
+          shopId: qaApprovalShopId,
+          adminStatus: adminShop?.status ?? null,
+          ownerStatus: ownerShop?.status ?? null,
+        })}`);
+      }
       const customerPublicResponse = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/get_shop`, {
         method: 'POST',
-        headers: { apikey: ANON, Authorization: `Bearer ${customerToken}`, 'Content-Type': 'application/json' },
+        headers: { apikey: ANON, Authorization: `Bearer ${localE2eCustomerToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ p_id: qaApprovalShopId }),
       });
       const customerPublicBody = await customerPublicResponse.text();
