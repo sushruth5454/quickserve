@@ -231,6 +231,12 @@ function phoneKey(phone) {
   return digits;
 }
 
+function phoneE164(phone) {
+  const digits = phoneKey(phone);
+  if (!/^[6-9]\d{9}$/.test(digits)) throw new Error(`Invalid E2E test phone configuration: ${JSON.stringify({ validIndianMobile: false })}`);
+  return `+91${digits}`;
+}
+
 function phoneRoleCollisions(roles) {
   const firstRoleByPhone = new Map();
   const collisions = [];
@@ -1819,11 +1825,6 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         throw new Error(`Authenticated ${role} token has an invalid subject: ${JSON.stringify({ role, subject: id ?? null })}`);
       }
       return id;
-    };
-    const phoneE164 = (phone) => {
-      const digits = phoneKey(phone);
-      if (!/^[6-9]\d{9}$/.test(digits)) throw new Error(`Invalid E2E test phone configuration: ${JSON.stringify({ validIndianMobile: false })}`);
-      return `+91${digits}`;
     };
     const readRfqQuoteState = async (rfqId, quoteId) => {
       const rows = await privateQuery(
