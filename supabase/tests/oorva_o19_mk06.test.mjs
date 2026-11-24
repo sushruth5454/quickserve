@@ -183,6 +183,9 @@ await scenario('MK-COMPARE-deadline-action-projection-preserves-money', async ()
   await db.query('update public.supplier_quotes set valid_until = now() where id = $1::uuid', [quoteId]);
   const atQuoteDeadline = await readComparison();
 
+  await db.query(`
+    update public.supplier_quotes set valid_until = now() + interval '1 day' where id = $1::uuid
+  `, [quoteId]);
   await setFlags({ products: false, enquiries: true, rfq: true });
   const parentFeatureOff = await readComparison();
 

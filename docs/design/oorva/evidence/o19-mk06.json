@@ -128,8 +128,19 @@
         "sqlTests": "FAIL_MK-COMPARE-deadline-action-projection-preserves-money_GSTIN_REQUIRED"
       }
     },
+    "subsequentAttempt": {
+      "runId": "45374890567",
+      "headSha": "b053215b2821b96ca4e288ad93298cc22a41205d",
+      "status": "FAILED",
+      "jobs": {
+        "deno": "PASS",
+        "app": "PASS",
+        "sqlTests": "FAIL_FEATURE_OFF_EXPECTATION_WAS_MASKED_BY_EXPIRED_QUOTE"
+      }
+    },
     "additionalChanges": [
-      "Added a valid-format GSTIN to the SQL fixture shop; production money logic is unchanged."
+      "Added a valid-format GSTIN to the SQL fixture shop; production money logic is unchanged.",
+      "Restored a future quote deadline before verifying feature-off selection blocking, so the expected feature_off reason is not masked by quote_expired."
     ],
     "focusedMoneyReview": {
       "status": "CLEAN",
