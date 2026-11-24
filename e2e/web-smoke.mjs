@@ -2472,7 +2472,17 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         throw new Error(`MK-BUSINESS member token has an invalid subject: ${JSON.stringify({ memberId: memberId ?? null })}`);
       }
 
-      const ownerPhones = [getAdminPhone(), phoneE164(NEW_PRO_PHONE)];
+      const ownerPhoneInputs = [
+        process.env.O28_OWNER_A_PHONE?.trim() ?? '',
+        process.env.O28_OWNER_B_PHONE?.trim() ?? '',
+      ];
+      if (ownerPhoneInputs.some((phone) => !phone)) {
+        throw new Error(`MK-BUSINESS local owner phone settings are missing: ${JSON.stringify({
+          ownerAConfigured: Boolean(ownerPhoneInputs[0]),
+          ownerBConfigured: Boolean(ownerPhoneInputs[1]),
+        })}`);
+      }
+      const ownerPhones = ownerPhoneInputs.map(phoneE164);
       const phoneCollisions = phoneRoleCollisions([
         ['member', PHONE],
         ['shop A owner', ownerPhones[0]],
@@ -2481,16 +2491,37 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       if (phoneCollisions.length) {
         throw new Error(`MK-BUSINESS test identities must be distinct: ${JSON.stringify({ phoneCollisions })}`);
       }
-      const ownerRows = await privateQuery(
-        `select case when phone = ${sqlLiteral(ownerPhones[0])} then 'shop-a' else 'shop-b' end as owner_key, id `
-        + `from auth.users where phone in (${ownerPhones.map(sqlLiteral).join(', ')})`,
+      const ownerPhoneKeys = ownerPhones.flatMap((phone) => {
+        const digits = phoneKey(phone);
+        return [digits, `91${digits}`];
+      });
+      const existingOwnerRows = await privateQuery(
+        `select id, regexp_replace(phone, '[^0-9]', '', 'g') as phone_digits from auth.users `
+        + `where regexp_replace(phone, '[^0-9]', '', 'g') in (${ownerPhoneKeys.map(sqlLiteral).join(', ')})`,
       );
-      if (!Array.isArray(ownerRows) || ownerRows.length !== 2) {
-        throw new Error(`MK-BUSINESS owner identities are not isolated: ${JSON.stringify({ expectedOwnerCount: 2, actual: ownerRows })}`);
+      if (!Array.isArray(existingOwnerRows) || existingOwnerRows.length) {
+        throw new Error(`MK-BUSINESS owner identities are not fresh: ${JSON.stringify({ expected: [], actual: existingOwnerRows })}`);
       }
-      const ownerByKey = Object.fromEntries(ownerRows.map((row) => [row.owner_key, row.id]));
-      ownerIds = [ownerByKey['shop-a'], ownerByKey['shop-b']];
-      if (ownerIds.some((id) => !id) || new Set(ownerIds).size !== 2 || ownerIds.includes(memberId)) {
+      for (const phone of ownerPhones) {
+        const ownerToken = await signInAs(phone);
+        let ownerClaims;
+        try {
+          const ownerPayload = typeof ownerToken === 'string' ? ownerToken.split('.')[1] : '';
+          if (!ownerPayload) throw new Error('missing JWT payload');
+          ownerClaims = JSON.parse(Buffer.from(ownerPayload, 'base64url').toString('utf8'));
+        } catch {
+          throw new Error(`MK-BUSINESS owner token payload is invalid: ${JSON.stringify({
+            tokenPresent: typeof ownerToken === 'string',
+            payloadPresent: typeof ownerToken === 'string' && Boolean(ownerToken.split('.')[1]),
+          })}`);
+        }
+        const ownerId = ownerClaims?.sub;
+        if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(ownerId ?? '')) {
+          throw new Error(`MK-BUSINESS owner token has an invalid subject: ${JSON.stringify({ ownerId: ownerId ?? null })}`);
+        }
+        ownerIds.push(ownerId);
+      }
+      if (new Set(ownerIds).size !== 2 || ownerIds.includes(memberId)) {
         throw new Error(`MK-BUSINESS owner/member identities collided: ${JSON.stringify({ ownerIds, memberId })}`);
       }
       const profileRows = await privateQuery(
