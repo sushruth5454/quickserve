@@ -1,4 +1,5 @@
 import { getSportsHomePresentation, shouldLoadSportsBusinessVenues } from '../../api';
+import { isSportsFamilyUxEnabled } from '../../../sportsScreens/SportsIndexScreen';
 
 jest.mock('../../../../lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
@@ -79,5 +80,25 @@ describe('sports home independent sections', () => {
 
     expectJson(legacy.composition, 'legacy');
     expectJson(family.composition, 'family');
+  });
+
+  it('SP-FAMILY-PARENT-OFF: selects legacy when either sports UX or the brand parent is off', () => {
+    const actual = [
+      isSportsFamilyUxEnabled(false, false),
+      isSportsFamilyUxEnabled(true, false),
+      isSportsFamilyUxEnabled(false, true),
+      isSportsFamilyUxEnabled(true, true),
+    ];
+    const parentOff = presentation({
+      familyUxEnabled: isSportsFamilyUxEnabled(true, false),
+    });
+
+    expectJson({
+      effectiveFamilySelector: actual,
+      parentOffComposition: parentOff.composition,
+    }, {
+      effectiveFamilySelector: [false, false, false, true],
+      parentOffComposition: 'legacy',
+    });
   });
 });

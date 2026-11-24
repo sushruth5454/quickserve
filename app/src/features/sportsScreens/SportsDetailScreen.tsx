@@ -24,8 +24,24 @@ interface SportsVenueSummary {
   min_price_paise: number | null;
 }
 
+export function getSportsVenueCardPresentation(
+  venue: SportsVenueSummary,
+  familyUxEnabled: boolean,
+) {
+  return {
+    title: venue.name,
+    subtitle: `${venue.area}, ${venue.city} · ${venue.distance_km.toFixed(1)} km away`,
+    imageUrl: venue.photos?.[0] ?? null,
+    verified: true,
+    priceLabel: venue.min_price_paise == null
+      ? 'View slots'
+      : `From ${formatINR(venue.min_price_paise)} / slot`,
+    presentation: familyUxEnabled ? 'oorva' as const : 'legacy' as const,
+  };
+}
+
 export default function SportsDetailScreen() {
-  const { activity, name, enabled, radiusKm, setRadiusKm, location, venues, error, refresh } = useSportsDetailController();
+  const { activity, name, enabled, familyUxEnabled, radiusKm, setRadiusKm, location, venues, error, refresh } = useSportsDetailController();
   const t = useTheme();
   return (
     <Screen header={<Header title={name || (activity ? titleFromSlug(activity) : 'Sports venues')} subtitle={`Near ${location.area}, ${location.city}`} onBack={() => router.back()} />}>
@@ -51,18 +67,22 @@ export default function SportsDetailScreen() {
             <EmptyState icon="location-outline" title="No verified venues nearby" message="Try another area or check again later." />
           ) : (
             <View style={{ gap: t.spacing.md }}>
-              {venues.map((venue) => (
-                <ListingCard
-                  key={venue.id}
-                  variant="venue"
-                  title={venue.name}
-                  subtitle={`${venue.area}, ${venue.city} · ${venue.distance_km.toFixed(1)} km away`}
-                  imageUrl={venue.photos?.[0] ?? null}
-                  verified
-                  priceLabel={venue.min_price_paise == null ? 'View slots' : `From ${formatINR(venue.min_price_paise)}`}
-                  onPress={() => router.push(`/venue/${venue.id}` as Href)}
-                />
-              ))}
+              {venues.map((venue) => {
+                const card = getSportsVenueCardPresentation(venue, familyUxEnabled);
+                return (
+                  <ListingCard
+                    key={venue.id}
+                    variant="venue"
+                    title={card.title}
+                    subtitle={card.subtitle}
+                    imageUrl={card.imageUrl}
+                    verified={card.verified}
+                    priceLabel={card.priceLabel}
+                    presentation={card.presentation}
+                    onPress={() => router.push(`/venue/${venue.id}` as Href)}
+                  />
+                );
+              })}
             </View>
           )}
         </>
@@ -74,6 +94,7 @@ export default function SportsDetailScreen() {
 function useSportsDetailController() {
   const flags = useAppFeatureFlags();
   const enabled = flags.isOn('sports');
+  const familyUxEnabled = flags.isOn('oorva_sports_ux') && flags.isOn('oorva_brand');
   const { activity, name } = useLocalSearchParams<{ activity: string; name?: string }>();
   const [radiusKm, setRadiusKm] = useState<'5' | '10' | '15'>('15');
   const { location, coords } = useSelectedLocation();
@@ -105,5 +126,5 @@ function useSportsDetailController() {
     enabled: enabled && !!activity,
     intervalMs: 60_000,
   });
-  return { activity, name, enabled, radiusKm, setRadiusKm, location, venues, error, refresh };
+  return { activity, name, enabled, familyUxEnabled, radiusKm, setRadiusKm, location, venues, error, refresh };
 }
