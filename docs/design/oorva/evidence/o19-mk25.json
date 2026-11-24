@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O19-MK25",
+  "workPackage": "O19",
+  "status": "RUNNING",
+  "base": {
+    "branch": "lane/oorva-o18-mk15-fixforward-20261124",
+    "implementationSha": "21f51989e1948057e5694f9689c0912e7aab3a7",
+    "currentMainParentSha": "dd969a4061b8bbf115356c63e645365358eade37",
+    "previousO19GreenCandidate": "a15d136387c935b9b6ba1a98afc99c2abb3d0624"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "IN_AUTHORIZED_BASE"
+    },
+    {
+      "stageId": "O18-MK04",
+      "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+      "state": "IN_AUTHORIZED_BASE"
+    },
+    {
+      "stageId": "O18-MK15",
+      "sha": "21f51989e1948057e5694f9689c0912e7aab3a7",
+      "laneCiRun": 45342335356,
+      "laneCiResult": "PASS",
+      "state": "IN_AUTHORIZED_BASE"
+    }
+  ],
+  "lockHandoffEvidence": {
+    "path": "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+    "fromStage": "O18-MK15",
+    "toStage": "O19-MK25",
+    "status": "COORDINATOR_AUTHORIZED_AND_RECORDED",
+    "testAndEvidenceLocks": "RETAINED_BY_O19-MK25"
+  },
+  "source": {
+    "taskId": "MK-T25",
+    "findingId": "MK-F27",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t25"
+  },
+  "preservedBaseBehavior": [
+    "O18-MK04 web confirmation continues to use useConfirm; native confirmation continues to use Alert.alert.",
+    "O18-MK15 initial-read retry, stale-refresh retention and retry, separate action errors, and mutation gating are retained from the authorized base."
+  ],
+  "implementation": [
+    "Both web and native cancellation confirmations state that the request closes, outstanding quotes will not be selected, and no payment will be taken; no supplier-notification promise is added.",
+    "The destructive cancellation control is contextual after request items and supplier comparison.",
+    "Owner cancellation remains reachable when RFQ capability flags are OFF; confirmation awaits the existing canonical reload, and terminal RFQs do not repeat cancellation."
+  ],
+  "workerOwnedFiles": [
+    "app/src/features/rfq/__tests__/RfqDetailScreen.test.tsx",
+    "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
+    "docs/design/oorva/evidence/o19-mk25.json"
+  ],
+  "requiredCases": [
+    "MK-CANCEL-truthful-confirmation",
+    "MK-CANCEL-dismiss-no-call",
+    "MK-CANCEL-terminal-no-repeat"
+  ],
+  "additionalCases": [
+    "MK-CANCEL-web-confirm-provider",
+    "MK-READ-RFQ-initial-failure",
+    "MK-READ-RFQ-refresh-failure"
+  ],
+  "approvals": {
+    "E0": "APPROVED",
+    "requiredReviews": [],
+    "mainPromotion": "NOT_GRANTED",
+    "featureActivation": "NOT_GRANTED",
+    "publicOrNativeRelease": "NOT_GRANTED",
+    "liveMoneyOperations": "NOT_GRANTED"
+  },
+  "validation": {
+    "gitDiffCheck": "PENDING",
+    "codespace": {
+      "status": "PENDING",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "dd969a4061b8bbf115356c63e645365358eade37",
+      "selector": "src.features.rfq.__tests__.RfqDetailScreen[.]test[.]tsx$",
+      "selectedFiles": null,
+      "selectedTests": null
+    },
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_PUSH"
+    }
+  },
+  "productionActions": "NONE"
+}
