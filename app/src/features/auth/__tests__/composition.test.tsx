@@ -233,11 +233,11 @@ jest.mock('../../../lib/returningUser', () => ({
 }));
 
 const ReactRuntime = require('react') as typeof import('react');
-const LoginScreen = require('../platformScreens/AuthLoginScreen').default as () => React.ReactElement;
-const RoleScreen = require('../platformScreens/AuthRoleScreen').default as () => React.ReactElement;
-const VerifyScreen = require('../platformScreens/AuthVerifyScreen').default as () => React.ReactElement;
-const ByoScreen = require('../platformScreens/ByoDetailScreen').default as (props: { token: string }) => React.ReactElement;
-const LocationScreen = require('../platformScreens/LocationScreen').default as () => React.ReactElement;
+const LoginScreen = require('../../platformScreens/AuthLoginScreen').default as () => React.ReactElement;
+const RoleScreen = require('../../platformScreens/AuthRoleScreen').default as () => React.ReactElement;
+const VerifyScreen = require('../../platformScreens/AuthVerifyScreen').default as () => React.ReactElement;
+const ByoScreen = require('../../platformScreens/ByoDetailScreen').default as (props: { token: string }) => React.ReactElement;
+const LocationScreen = require('../../platformScreens/LocationScreen').default as () => React.ReactElement;
 const { AddressEditorSheet } = require('../../../components/AddressEditor') as typeof import('../../../components/AddressEditor');
 
 function resetRuntime() {
