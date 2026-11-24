@@ -57,12 +57,12 @@ async function makeFixture(label) {
   const shop = await one(`
     insert into public.shops (
       owner_id, name, address_line, city, area, lat, lng, delivery_radius_km,
-      offers_delivery, offers_pickup, status
+      offers_delivery, offers_pickup, status, gstin
     ) values (
       $1::uuid, $2::text, '1 O19 MK06 Market Road', 'Vijayawada', 'Benz Circle',
-      16.5::double precision, 80.6::double precision, 20::int, true, true, 'verified'
+      16.5::double precision, 80.6::double precision, 20::int, true, true, 'verified', $3::text
     ) returning id
-  `, [ownerId, `O19 MK06 ${label} ${randomUUID()}`]);
+  `, [ownerId, `O19 MK06 ${label} ${randomUUID()}`, '27ABCDE1234F1Z5']);
   await db.query(`
     insert into public.shop_categories (shop_id, category_id)
     values ($1::uuid, $2::uuid)

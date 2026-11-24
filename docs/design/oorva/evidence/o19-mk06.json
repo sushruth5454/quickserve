@@ -118,6 +118,19 @@
       "Removed unsupported finish specs from SQL deadline fixtures.",
       "Updated the RFQ screen test quote fixture to model the required server can_select projection."
     ],
+    "latestAttempt": {
+      "runId": "45373730179",
+      "headSha": "b35953b248a3c8d02fa3810688f4dccceedb7679",
+      "status": "FAILED",
+      "jobs": {
+        "deno": "PASS",
+        "app": "PASS",
+        "sqlTests": "FAIL_MK-COMPARE-deadline-action-projection-preserves-money_GSTIN_REQUIRED"
+      }
+    },
+    "additionalChanges": [
+      "Added a valid-format GSTIN to the SQL fixture shop; production money logic is unchanged."
+    ],
     "focusedMoneyReview": {
       "status": "CLEAN",
       "scope": "RFQ comparison, state model, migration, and new SQL test including untracked files",
