@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, Share, View } from 'react-native';
-import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Section, Skeleton, Text, TextArea, useToast } from '../../components/ui';
+import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Section, Skeleton, Text, TextArea, useConfirm, useToast } from '../../components/ui';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import {
   cancelByoInvite,
@@ -33,6 +33,7 @@ function errorMessage(error: unknown): string {
 
 function useProviderBusinessToolsController() {
   const toast = useToast();
+  const confirm = useConfirm();
   const flags = useAppFeatureFlags();
   const [services, setServices] = useState<ReadState<ProviderService>>(initialReadState);
   const [invites, setInvites] = useState<ReadState<ByoInviteSummary>>(initialReadState);
@@ -128,6 +129,16 @@ function useProviderBusinessToolsController() {
   }, [busy, customer, description, load, serviceId, services.error, services.value]);
 
   const cancel = useCallback(async (invite: ByoInviteSummary) => {
+    if (invite.status !== 'open' || busy) return;
+    const confirmed = await confirm({
+      title: 'Cancel this invite?',
+      message: `Cancel the open invite for ${invite.customer_label} (${invite.invite_id})?`,
+      confirmLabel: 'Cancel invite',
+      cancelLabel: 'Keep invite',
+      destructive: true,
+    });
+    if (!confirmed || busy) return;
+    setBusy(true);
     setActionError(null);
     try {
       await cancelByoInvite(invite.invite_id);
@@ -135,8 +146,12 @@ function useProviderBusinessToolsController() {
       toast({ message: 'Invite cancelled' });
     } catch (error) {
       setActionError(errorMessage(error));
+    } finally {
+      setBusy(false);
     }
-  }, [load, toast]);
+  }, [busy, confirm, load, toast]);
+
+  const createAnother = useCallback(() => setCreated(null), []);
 
   return {
     actionError,
@@ -144,6 +159,7 @@ function useProviderBusinessToolsController() {
     busy,
     cancel,
     created,
+    createAnother,
     create,
     customer,
     description,
@@ -170,7 +186,8 @@ export default function ProviderBusinessToolsScreen() {
     && !state.services.error
     && state.customer.trim().length >= 2
     && state.description.trim().length > 0
-    && amountPaise > 0;
+    && amountPaise > 0
+    && !state.created;
 
   const share = async (url: string) => {
     await Share.share({
@@ -277,21 +294,26 @@ export default function ProviderBusinessToolsScreen() {
         ) : null}
 
         <InlineAlert message={state.actionError} />
-        <Button
-          title="Create secure invite"
-          onPress={() => void state.create(amountPaise)}
-          loading={state.busy}
-          disabled={!canCreate}
-          fullWidth
-          leftIcon="link-outline"
-        />
+        {!state.created ? (
+          <Button
+            title="Create secure invite"
+            onPress={() => void state.create(amountPaise)}
+            loading={state.busy}
+            disabled={!canCreate || state.busy}
+            fullWidth
+            leftIcon="link-outline"
+          />
+        ) : null}
       </Card>
 
       {state.created ? (
         <Card gap={t.spacing.md}>
           <Text variant="title3">Invite ready</Text>
-          <Text variant="callout" color="muted">The secure token expires in 7 days. It cannot be recovered here after you leave this screen.</Text>
+          <Text variant="callout" color="muted">
+            Expires {new Date(state.created.expires_at).toLocaleString('en-IN')}. The secure token is not reconstructed after creation.
+          </Text>
           <Button title="Share invite" onPress={() => void share(state.created!.share_url)} leftIcon="share-outline" fullWidth />
+          <Button title="Create another" variant="outline" size="sm" onPress={state.createAnother} disabled={state.busy} />
         </Card>
       ) : null}
 
@@ -323,8 +345,12 @@ export default function ProviderBusinessToolsScreen() {
                       <Text variant="captionStrong" color={invite.status === 'claimed' ? 'successText' : 'muted'}>{invite.status.toUpperCase()}</Text>
                     </View>
                     <Text variant="footnote" color="muted">{invite.category_name} · {formatINR(invite.total_paise)}</Text>
+                    <Text variant="caption" color="muted">
+                      Status: {invite.status.toUpperCase()} · created {new Date(invite.created_at).toLocaleString('en-IN')}
+                    </Text>
+                    <Text variant="caption" color="muted">Expires {new Date(invite.expires_at).toLocaleString('en-IN')}</Text>
                     {invite.status === 'open' ? (
-                      <Button title="Cancel invite" variant="ghost" size="sm" onPress={() => void state.cancel(invite)} />
+                      <Button title="Cancel invite" variant="ghost" size="sm" loading={state.busy} onPress={() => void state.cancel(invite)} />
                     ) : invite.booking_id ? (
                       <Button title="View booking" variant="ghost" size="sm" onPress={() => router.push({ pathname: '/booking/[id]', params: { id: invite.booking_id! } })} />
                     ) : null}

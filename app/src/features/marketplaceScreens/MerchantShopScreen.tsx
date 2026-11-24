@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
@@ -31,6 +31,7 @@ import { useRfqFeatureFlags } from '../rfq/components';
 import { useTheme } from '../../theme';
 
 type ShopWorkspaceSection = 'readiness' | 'details' | 'catalogue';
+const SHOP_CONTEXT_MISMATCH_ERROR = 'The selected shop is not available in your authorized business context.';
 
 const emptyShop = (): ShopDraft => ({
   name: '',
@@ -65,6 +66,15 @@ const emptyProduct = (categoryId = ''): ProductDraft => ({
   newPhotos: [],
 });
 
+function routeParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function readRouteParams<T extends object>(): T {
+  const routeHook = useLocalSearchParams as unknown as (() => T) | undefined;
+  return (routeHook ?? (() => ({} as T)))();
+}
+
 export function getShopWorkspaceSectionOrder({
   hasShop,
   canSetUpShop,
@@ -92,6 +102,9 @@ export function getShopManagementLinks(
 
 export default function MerchantShopScreen() {
   const t = useTheme();
+  const params = readRouteParams<{ ownerId?: string | string[]; shopId?: string | string[] }>();
+  const ownerId = routeParam(params.ownerId);
+  const shopId = routeParam(params.shopId);
   const toast = useToast();
   const confirm = useConfirm();
   const features = useShopFeatureFlags();
@@ -114,6 +127,10 @@ export default function MerchantShopScreen() {
   const [busy, setBusy] = useState(false);
   const [hasRead, setHasRead] = useState(false);
   const [shopDetailsExpanded, setShopDetailsExpanded] = useState(false);
+  const requestSequence = useRef(0);
+  const readContext = useRef<{ ownerId?: string; shopId?: string } | null>(null);
+  const contextMismatch = error === SHOP_CONTEXT_MISMATCH_ERROR;
+  const readContextIsCurrent = readContext.current?.ownerId === ownerId && readContext.current?.shopId === shopId;
   const readsCurrent = hasRead && !loading && !error;
   const manageActions = shopManageActions({
     shop,
@@ -125,17 +142,56 @@ export default function MerchantShopScreen() {
     if (!manageActions.canEditProducts && productDraft) setProductDraft(null);
   }, [manageActions.canEditProducts, productDraft]);
 
+  useEffect(() => {
+    requestSequence.current += 1;
+    readContext.current = null;
+    setShop(null);
+    setDraft(emptyShop());
+    setCategories([]);
+    setProducts([]);
+    setProductImages({});
+    setHasRead(false);
+  }, [ownerId, shopId]);
+
   const load = useCallback(async (): Promise<ShopProfile | null> => {
+    const request = ++requestSequence.current;
     setLoading(true);
     setError(null);
     setActionError(null);
     try {
       const [nextShop, nextCategories] = await Promise.all([
-        getMyShop(),
+        getMyShop(ownerId),
         features.products ? listProductCategories() : Promise.resolve([]),
       ]);
+      if (request !== requestSequence.current) return null;
+      if (
+        (shopId && nextShop?.id !== shopId)
+        || (ownerId && nextShop?.owner_id !== ownerId)
+      ) {
+        setShop(null);
+        setProducts([]);
+        setProductImages({});
+        setError(SHOP_CONTEXT_MISMATCH_ERROR);
+        readContext.current = { ownerId, shopId };
+        setHasRead(true);
+        return null;
+      }
+      let nextProducts: ShopProduct[] = [];
+      let nextImages: Record<string, string | null> = {};
+      if (nextShop?.business_role === 'owner') {
+        nextProducts = await listMyProducts();
+        if (request !== requestSequence.current) return null;
+        const imageEntries = await Promise.all(nextProducts.map(async (product) => [
+          product.id,
+          await signedProductImage(product.image_paths[0]).catch(() => null),
+        ] as const));
+        if (request !== requestSequence.current) return null;
+        nextImages = Object.fromEntries(imageEntries);
+      }
+      if (request !== requestSequence.current) return null;
       setCategories(nextCategories);
       setShop(nextShop);
+      readContext.current = { ownerId, shopId };
       if (nextShop) {
         setDraft({
           name: nextShop.name,
@@ -152,13 +208,8 @@ export default function MerchantShopScreen() {
           gstin: nextShop.gstin,
           category_slugs: nextShop.category_slugs,
         });
-        const nextProducts = nextShop.business_role === 'owner' ? await listMyProducts() : [];
         setProducts(nextProducts);
-        const nextImages = await Promise.all(nextProducts.map(async (product) => [
-          product.id,
-          await signedProductImage(product.image_paths[0]).catch(() => null),
-        ] as const));
-        setProductImages(Object.fromEntries(nextImages));
+        setProductImages(nextImages);
       } else {
         setDraft(emptyShop());
         setProducts([]);
@@ -168,12 +219,12 @@ export default function MerchantShopScreen() {
       setHasRead(true);
       return nextShop;
     } catch (e) {
-      setError((e as Error).message);
+      if (request === requestSequence.current) setError((e as Error).message);
       return null;
     } finally {
-      setLoading(false);
+      if (request === requestSequence.current) setLoading(false);
     }
-  }, [features.products]);
+  }, [features.products, ownerId, shopId]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
@@ -371,6 +422,22 @@ export default function MerchantShopScreen() {
     }
   };
 
+  if (contextMismatch) {
+    return (
+      <Screen header={<Header title="Shop unavailable" onBack={() => router.back()} />} gap={t.spacing.md}>
+        <InlineAlert message={SHOP_CONTEXT_MISMATCH_ERROR} />
+      </Screen>
+    );
+  }
+
+  if (shop && !readContextIsCurrent) {
+    return (
+      <Screen header={<Header title="Loading selected shop" />} gap={t.spacing.md}>
+        <Skeleton height={160} radius={t.radii.lg} />
+      </Screen>
+    );
+  }
+
   if (shop && shop.business_role !== 'owner') {
     const managementLinks = getShopManagementLinks(shop.business_role, {
       merchantStaff: appFeatures.isOn('merchant_staff'),
@@ -387,9 +454,22 @@ export default function MerchantShopScreen() {
         <Text variant="footnote" color="muted">
           Staff can view shop enquiries and RFQs. Only the owner can change shop details, catalogue prices, or verification.
         </Text>
-        <Button title="All assigned business work" variant="outline" onPress={() => router.push('/merchant-work')} />
-        <Button title="Open enquiries" onPress={() => router.push('/merchant-enquiries')} />
-        <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
+        <Button title="All businesses" variant="outline" onPress={() => router.push('/merchant-work')} />
+        <Button
+          title="Open enquiries"
+          onPress={() => router.push({
+            pathname: '/merchant-enquiries',
+            params: { ownerId: shop.owner_id, shopId: shop.id },
+          })}
+        />
+        <Button
+          title="Open supplier RFQs"
+          variant="outline"
+          onPress={() => router.push({
+            pathname: '/merchant-rfqs',
+            params: { ownerId: shop.owner_id, shopId: shop.id },
+          })}
+        />
       </Screen>
     );
   }
@@ -420,8 +500,22 @@ export default function MerchantShopScreen() {
                 {shop.offers_delivery ? 'Delivery available' : 'No delivery'} · {shop.offers_pickup ? 'Pickup available' : 'No pickup'}
               </Text>
               <Text variant="footnote" color="muted">Existing shop details and catalogue are available for history only.</Text>
-              <Button title="Open enquiries" variant="outline" onPress={() => router.push('/merchant-enquiries')} />
-              <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
+              <Button
+                title="Open enquiries"
+                variant="outline"
+                onPress={() => router.push({
+                  pathname: '/merchant-enquiries',
+                  params: { ownerId: shop.owner_id, shopId: shop.id },
+                })}
+              />
+              <Button
+                title="Open supplier RFQs"
+                variant="outline"
+                onPress={() => router.push({
+                  pathname: '/merchant-rfqs',
+                  params: { ownerId: shop.owner_id, shopId: shop.id },
+                })}
+              />
             </Card>
             <Text variant="title3">Existing product catalogue ({products.length})</Text>
             {products.map((product) => (
@@ -509,8 +603,14 @@ export default function MerchantShopScreen() {
               readsCurrent={readsCurrent}
               canEditProducts={manageActions.canEditProducts}
               busy={busy}
-              onOpenEnquiries={() => router.push('/merchant-enquiries')}
-              onOpenSupplierRfqs={() => router.push('/merchant-rfqs')}
+              onOpenEnquiries={() => router.push({
+                pathname: '/merchant-enquiries',
+                params: { ownerId: shop.owner_id, shopId: shop.id },
+              })}
+              onOpenSupplierRfqs={() => router.push({
+                pathname: '/merchant-rfqs',
+                params: { ownerId: shop.owner_id, shopId: shop.id },
+              })}
               onEditProduct={editProduct}
               onUpdateProduct={updateProduct}
               onSelectCategory={(categoryId) => {

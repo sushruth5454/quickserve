@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Button, Card, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useToast } from '../../components/ui';
+import { Button, Card, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useAuth } from '../../lib/auth';
 import {
@@ -27,8 +27,11 @@ interface StaffReadState {
 
 function useMerchantStaffController() {
   const toast = useToast();
+  const confirm = useConfirm();
   const { userId, loading: authLoading } = useAuth();
-  const enabled = useAppFeatureFlags().isOn('merchant_staff');
+  const flags = useAppFeatureFlags();
+  const enabled = flags.isOn('merchant_staff');
+  const businessStaffUx = flags.isOn('oorva_brand') && flags.isOn('oorva_business_staff_ux');
   const [memberId, setMemberId] = useState('');
   const [role, setRole] = useState<Exclude<MerchantRole, 'owner'>>('staff');
   const [read, setRead] = useState<StaffReadState>({
@@ -104,6 +107,14 @@ function useMerchantStaffController() {
     setBusy(true);
     setActionError(null);
     try {
+      const confirmed = await confirm({
+        title: 'Remove business access?',
+        message: `Remove ${member.full_name || 'QuickServe user'} (${member.member_id}) from all businesses owned by ${userId}?`,
+        confirmLabel: 'Remove access',
+        cancelLabel: 'Keep access',
+        destructive: true,
+      });
+      if (!confirmed) return;
       await removeBusinessMember(userId, member.member_id);
       await load();
       toast({ message: 'Staff access removed', tone: 'success' });
@@ -119,6 +130,7 @@ function useMerchantStaffController() {
     add,
     authLoading,
     busy,
+    businessStaffUx,
     canManage,
     enabled,
     load,
@@ -137,10 +149,11 @@ function useMerchantStaffController() {
 export default function MerchantStaffScreen() {
   const t = useTheme();
   const state = useMerchantStaffController();
+  const title = state.businessStaffUx ? 'Owner-wide business access' : 'Business staff';
 
   if (!state.enabled) {
     return (
-      <Screen header={<Header title="Business staff" onBack={() => router.back()} />}>
+      <Screen header={<Header title={title} onBack={() => router.back()} />}>
         <InlineAlert message="Staff accounts are turned off right now." />
       </Screen>
     );
@@ -148,7 +161,7 @@ export default function MerchantStaffScreen() {
 
   if (!state.userId && !state.authLoading) {
     return (
-      <Screen header={<Header title="Business staff" onBack={() => router.back()} />}>
+      <Screen header={<Header title={title} onBack={() => router.back()} />}>
         <ErrorState message="Sign in to manage business staff." />
       </Screen>
     );
@@ -156,15 +169,18 @@ export default function MerchantStaffScreen() {
 
   if (state.members === null && state.readError) {
     return (
-      <Screen header={<Header title="Business staff" onBack={() => router.back()} />}>
+      <Screen header={<Header title={title} onBack={() => router.back()} />}>
         <ErrorState message={state.readError} onRetry={() => void state.load()} />
       </Screen>
     );
   }
 
   return (
-    <Screen header={<Header title="Business staff" subtitle="Manage access for existing QuickServe users" onBack={() => router.back()} />} gap={t.spacing.md}>
+    <Screen header={<Header title={title} subtitle="Manage access for existing QuickServe users" onBack={() => router.back()} />} gap={t.spacing.md}>
       {state.actionError ? <InlineAlert message={state.actionError} /> : null}
+      <Text variant="footnote" color="muted">
+        Membership is owner-wide: each member’s access covers all businesses owned by the business owner, not one shop or venue.
+      </Text>
       {state.members !== null && state.refreshing ? <Text variant="caption" color="muted">Refreshing staff access…</Text> : null}
       {state.members !== null && state.readError ? (
         <InlineAlert
@@ -201,12 +217,13 @@ export default function MerchantStaffScreen() {
               <Button title="Add staff access" onPress={() => void state.add()} loading={state.busy} disabled={state.busy || !state.memberId.trim()} />
             </Card>
           ) : null}
-          <Text variant="title3">Current staff</Text>
+          <Text variant="title3">Members (current and inactive)</Text>
           {state.members.length ? state.members.map((member) => (
             <Card key={member.member_id} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
               <View style={{ flex: 1 }}>
                 <Text variant="calloutStrong">{member.full_name || 'QuickServe user'}</Text>
                 <Text variant="caption" color="muted">{member.role} · {member.active ? 'Active' : 'Inactive'} · {member.member_id}</Text>
+                <Text variant="caption" color="muted">Rights: {getMemberRoleRights(member.role)}</Text>
               </View>
               {state.canManage && member.active ? (
                 <Button title="Remove" size="sm" variant="ghost" loading={state.busy} onPress={() => void state.remove(member)} />
@@ -219,6 +236,14 @@ export default function MerchantStaffScreen() {
       )}
     </Screen>
   );
+}
+
+function getMemberRoleRights(role: MerchantRole): string {
+  if (role === 'manager') {
+    return 'View jobs, RFQs and chat; send quotes. Cannot manage members, payouts, prices or verification.';
+  }
+  if (role === 'staff') return 'View jobs, RFQs and chat; cannot send quotes or change owner settings.';
+  return 'Owner account.';
 }
 
 function ViewRole({ role, onChange }: { role: Exclude<MerchantRole, 'owner'>; onChange: (value: Exclude<MerchantRole, 'owner'>) => void }) {
