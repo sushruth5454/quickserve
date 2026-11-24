@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, type Href } from 'expo-router';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { PriceFooter } from '../../components/market/PriceFooter';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
 import { useT } from '../../i18n';
@@ -46,6 +46,25 @@ function formatSlot(value: string) {
 
 function makeIdempotencyKey() {
   return `sports-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+export function getSportsVenueGalleryPresentation(
+  photos: readonly string[],
+  familyUxEnabled: boolean,
+) {
+  return familyUxEnabled
+    ? {
+      heroImage: photos[0] ?? null,
+      additionalImages: photos.slice(1),
+      expandable: photos.length > 1,
+      legacyImages: [] as string[],
+    }
+    : {
+      heroImage: null,
+      additionalImages: [] as string[],
+      expandable: false,
+      legacyImages: [...photos],
+    };
 }
 
 export type SportsSlotContextIdentity = {
@@ -149,6 +168,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const toast = useToast();
   const flags = useAppFeatureFlags();
   const sportsEnabled = flags.isOn('sports');
+  const familyUxEnabled = flags.isOn('oorva_sports_ux') && flags.isOn('oorva_brand');
   const onlinePaymentsEnabled = flags.isOn('sports_online_payments');
   const instantBookingEnabled = flags.isOn('sports_instant_booking');
   const capacitySlotsEnabled = flags.isOn('sports_capacity_slots');
@@ -163,6 +183,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const [selectedSlot, setSelectedSlot] = useState<SportsSlotSelection | null>(null);
   const [selectedDuration, setSelectedDuration] = useState(1);
   const [participants, setParticipants] = useState(1);
+  const [photosExpanded, setPhotosExpanded] = useState(false);
   const [paymentMode, setPaymentMode] = useState<SportsPaymentMode>('pay_at_venue');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
@@ -214,6 +235,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const effectiveBookingMode = resource?.booking_mode === 'instant' && instantBookingEnabled ? 'instant' : 'approval';
   const estimatedTotal = getSportsEstimatedTotal(slots ?? [], selectedStart, duration);
   const cancellationPolicyLabel = getSportsCancellationPolicyLabel(venue?.cancellation_policy);
+  const gallery = getSportsVenueGalleryPresentation(venue?.photos ?? [], familyUxEnabled);
   const currentBookingRequest = selectedStart ? {
     resourceId: currentSlotContext.resourceId,
     startsAt: selectedStart,
@@ -456,9 +478,18 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
         <Skeleton height={280} radius={t.radii.lg} />
       ) : (
         <>
-          {venue.photos?.length ? (
+          {familyUxEnabled ? (
+            gallery.heroImage ? (
+              <Image
+                source={{ uri: gallery.heroImage }}
+                contentFit="cover"
+                accessibilityLabel={`${venue.name} photo`}
+                style={{ width: '100%', height: 220, borderRadius: t.radii.lg }}
+              />
+            ) : null
+          ) : gallery.legacyImages.length ? (
             <View style={{ gap: t.spacing.sm }}>
-              {venue.photos.map((uri) => (
+              {gallery.legacyImages.map((uri) => (
                 <Image key={uri} source={{ uri }} contentFit="cover" style={{ height: 190, borderRadius: t.radii.lg }} />
               ))}
             </View>
@@ -466,8 +497,8 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
           <Card gap={t.spacing.sm}>
             <Text variant="title3">{venue.name}</Text>
             <Text variant="footnote" color="muted">{venue.address_line} · {venue.area}, {venue.city}</Text>
-            {venue.description ? <Text variant="callout" color="textSecondary">{venue.description}</Text> : null}
-            {venue.amenities?.length ? <Text variant="footnote">Amenities · {venue.amenities.join(' · ')}</Text> : null}
+            {!familyUxEnabled && venue.description ? <Text variant="callout" color="textSecondary">{venue.description}</Text> : null}
+            {!familyUxEnabled && venue.amenities?.length ? <Text variant="footnote">Amenities · {venue.amenities.join(' · ')}</Text> : null}
           </Card>
 
           <Card gap={t.spacing.md}>
@@ -636,6 +667,34 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
             }} maxLength={500} placeholder="Anything the venue should know?" />
             <InlineAlert message={error && venue ? error : null} />
           </Card>
+          {familyUxEnabled ? (
+            <View style={{ gap: t.spacing.sm }}>
+              {gallery.expandable ? (
+                <Button
+                  title={photosExpanded ? 'Hide additional photos' : `View ${gallery.additionalImages.length} more photos`}
+                  variant="outline"
+                  onPress={() => setPhotosExpanded((expanded) => !expanded)}
+                />
+              ) : null}
+              {photosExpanded ? (
+                <ScrollView horizontal accessibilityLabel={`${venue.name} additional photos`}>
+                  <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+                    {gallery.additionalImages.map((uri) => (
+                      <Image
+                        key={uri}
+                        source={{ uri }}
+                        contentFit="cover"
+                        accessibilityLabel={`${venue.name} photo`}
+                        style={{ width: 220, height: 160, borderRadius: t.radii.lg }}
+                      />
+                    ))}
+                  </View>
+                </ScrollView>
+              ) : null}
+              {venue.description ? <Text variant="callout" color="textSecondary">{venue.description}</Text> : null}
+              {venue.amenities?.length ? <Text variant="footnote">Amenities · {venue.amenities.join(' · ')}</Text> : null}
+            </View>
+          ) : null}
         </>
       )}
     </Screen>
