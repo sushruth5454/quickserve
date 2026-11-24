@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router, type Href } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { PriceFooter } from '../../components/market/PriceFooter';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, TextArea, useToast } from '../../components/ui';
@@ -48,6 +48,101 @@ function makeIdempotencyKey() {
   return `sports-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+export type SportsSlotContextIdentity = {
+  venueId: string;
+  resourceId: string;
+  date: string;
+  participants: number;
+  sportsEnabled: boolean;
+  multiSlotEnabled: boolean;
+};
+
+export type SportsSlotReadContext = SportsSlotContextIdentity & { generation: number };
+export type SportsSlotSelection = { startsAt: string; context: SportsSlotReadContext };
+
+type SportsSlotRequestGuard = { isCurrent: () => boolean };
+
+export function areSportsSlotContextIdentitiesEqual(
+  left: SportsSlotContextIdentity,
+  right: SportsSlotContextIdentity,
+): boolean {
+  return left.venueId === right.venueId
+    && left.resourceId === right.resourceId
+    && left.date === right.date
+    && left.participants === right.participants
+    && left.sportsEnabled === right.sportsEnabled
+    && left.multiSlotEnabled === right.multiSlotEnabled;
+}
+
+export function isSportsSlotSelectionCurrent(
+  selection: SportsSlotSelection | null,
+  bookingContext: SportsSlotContextIdentity,
+  currentRead: SportsSlotReadContext | null,
+): boolean {
+  return !!selection
+    && !!currentRead
+    && areSportsSlotContextIdentitiesEqual(selection.context, bookingContext)
+    && areSportsSlotContextIdentitiesEqual(currentRead, bookingContext);
+}
+
+export function createSportsSlotRequestTracker() {
+  let generation = 0;
+  let activeRequest: SportsSlotReadContext | null = null;
+  const isCurrent = (context: SportsSlotReadContext, guard: SportsSlotRequestGuard) =>
+    guard.isCurrent()
+    && activeRequest?.generation === context.generation
+    && areSportsSlotContextIdentitiesEqual(activeRequest, context);
+
+  return {
+    begin(identity: SportsSlotContextIdentity): SportsSlotReadContext {
+      activeRequest = { ...identity, generation: ++generation };
+      return activeRequest;
+    },
+    invalidate() {
+      generation += 1;
+      activeRequest = null;
+    },
+    isCurrent,
+    runIfCurrent(
+      context: SportsSlotReadContext,
+      guard: SportsSlotRequestGuard,
+      action: () => void,
+    ): boolean {
+      if (!isCurrent(context, guard)) return false;
+      action();
+      return true;
+    },
+  };
+}
+
+export function createSportsBookingIdempotencyKeyManager(
+  createKey: () => string = makeIdempotencyKey,
+) {
+  let requestIdentity: string | null = null;
+  let key: string | null = null;
+
+  return {
+    getFor(request: string): string {
+      if (requestIdentity !== request) {
+        requestIdentity = request;
+        key = null;
+      }
+      if (!key) key = createKey();
+      return key;
+    },
+    reset() {
+      requestIdentity = null;
+      key = null;
+    },
+  };
+}
+
+export function getSportsOnlineCheckoutDisclosure(paymentMode: SportsPaymentMode): string | null {
+  return paymentMode === 'online'
+    ? 'Any customer fee and the exact total will appear in secure checkout.'
+    : null;
+}
+
 export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const t = useTheme();
   const translate = useT();
@@ -61,15 +156,19 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const [venue, setVenue] = useState<CustomerSportsVenue | null>(null);
   const [resourceId, setResourceId] = useState('');
   const [date, setDate] = useState(() => indiaDate(1));
-  const [slots, setSlots] = useState<SportsSlotAvailability[] | null>(null);
-  const [selectedStart, setSelectedStart] = useState<string | null>(null);
+  const [slotRead, setSlotRead] = useState<{
+    context: SportsSlotReadContext;
+    slots: SportsSlotAvailability[];
+  } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<SportsSlotSelection | null>(null);
   const [selectedDuration, setSelectedDuration] = useState(1);
   const [participants, setParticipants] = useState(1);
   const [paymentMode, setPaymentMode] = useState<SportsPaymentMode>('pay_at_venue');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const idempotencyKey = useRef<string | null>(null);
+  const idempotencyKey = useRef(createSportsBookingIdempotencyKeyManager());
+  const slotRequestTracker = useRef(createSportsSlotRequestTracker());
 
   const resource = useMemo(
     () => venue?.resources.find((item) => item.id === resourceId) ?? venue?.resources[0],
@@ -78,6 +177,20 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const capacity = capacitySlotsEnabled ? Math.min(50, Math.max(1, resource?.capacity ?? 1)) : 1;
   const canChooseParticipants = capacitySlotsEnabled && capacity > 1;
   const effectiveParticipants = canChooseParticipants ? Math.min(participants, capacity) : 1;
+  const currentSlotContext: SportsSlotContextIdentity = {
+    venueId,
+    resourceId,
+    date,
+    participants: effectiveParticipants,
+    sportsEnabled,
+    multiSlotEnabled,
+  };
+  const currentSlotContextRef = useRef(currentSlotContext);
+  currentSlotContextRef.current = currentSlotContext;
+  const selectedSlotRef = useRef(selectedSlot);
+  selectedSlotRef.current = selectedSlot;
+  const slotReadRef = useRef(slotRead);
+  slotReadRef.current = slotRead;
   const availablePaymentModes = getAvailableSportsPaymentModes(venue?.payment_modes, {
     sportsEnabled,
     onlinePaymentsEnabled,
@@ -86,6 +199,14 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const selectedPaymentMode = availablePaymentModes.includes(paymentMode)
     ? paymentMode
     : availablePaymentModes[0] ?? 'pay_at_venue';
+  const selectedStart = selectedSlot
+    && areSportsSlotContextIdentitiesEqual(selectedSlot.context, currentSlotContext)
+    ? selectedSlot.startsAt
+    : null;
+  const slots = slotRead
+    && areSportsSlotContextIdentitiesEqual(slotRead.context, currentSlotContext)
+    ? slotRead.slots
+    : null;
   const durationOptions = selectedStart
     ? getAvailableSportsDurations(slots ?? [], selectedStart, effectiveParticipants, multiSlotEnabled ? 4 : 1)
     : [];
@@ -93,9 +214,41 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   const effectiveBookingMode = resource?.booking_mode === 'instant' && instantBookingEnabled ? 'instant' : 'approval';
   const estimatedTotal = getSportsEstimatedTotal(slots ?? [], selectedStart, duration);
   const cancellationPolicyLabel = getSportsCancellationPolicyLabel(venue?.cancellation_policy);
-  const refreshContextKey = `sports-venue:${venueId}:${resourceId}:${date}:${effectiveParticipants}:${multiSlotEnabled}`;
-  const refreshContextRef = useRef(refreshContextKey);
-  refreshContextRef.current = refreshContextKey;
+  const currentBookingRequest = selectedStart ? {
+    resourceId: currentSlotContext.resourceId,
+    startsAt: selectedStart,
+    slots: duration,
+    participants: currentSlotContext.participants,
+    paymentMode: selectedPaymentMode,
+    note: note.trim(),
+  } : null;
+  const currentBookingRequestIdentity = currentBookingRequest
+    ? JSON.stringify({ ...currentBookingRequest, venueId: currentSlotContext.venueId, date: currentSlotContext.date })
+    : null;
+  const bookingRequestIdentityRef = useRef(currentBookingRequestIdentity);
+  bookingRequestIdentityRef.current = currentBookingRequestIdentity;
+  const refreshContextKey = `sports-venue:${venueId}:${resourceId}:${date}:${effectiveParticipants}:${multiSlotEnabled}:${sportsEnabled}`;
+  const previousContextKeyRef = useRef(refreshContextKey);
+  const invalidateSlotContext = () => {
+    slotRequestTracker.current.invalidate();
+    selectedSlotRef.current = null;
+    slotReadRef.current = null;
+    setSelectedSlot(null);
+    setSlotRead(null);
+  };
+
+  useLayoutEffect(() => {
+    if (previousContextKeyRef.current === refreshContextKey) return;
+    previousContextKeyRef.current = refreshContextKey;
+    invalidateSlotContext();
+  }, [refreshContextKey]);
+
+  useEffect(() => () => {
+    slotRequestTracker.current.invalidate();
+    selectedSlotRef.current = null;
+    slotReadRef.current = null;
+  }, []);
+
   const slotCells = (slots ?? [])
     .map((slot) => ({
       slot,
@@ -118,44 +271,77 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
 
   const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!sportsEnabled || !venueId) return;
+    const requestContext = slotRequestTracker.current.begin(currentSlotContextRef.current);
+    const requestGuard = {
+      isCurrent: () => guard.isCurrent()
+        && areSportsSlotContextIdentitiesEqual(currentSlotContextRef.current, requestContext),
+    };
+    const runIfCurrent = (action: () => void) =>
+      slotRequestTracker.current.runIfCurrent(requestContext, requestGuard, action);
     try {
       const nextVenue = await getCustomerSportsVenue(venueId);
-      if (!guard.isCurrent()) return;
+      if (!slotRequestTracker.current.isCurrent(requestContext, requestGuard)) return;
       if (!nextVenue) {
-        setVenue(null);
-        setResourceId('');
-        setSlots(null);
-        setSelectedStart(null);
-        setError('This venue is not available.');
+        runIfCurrent(() => {
+          slotReadRef.current = null;
+          selectedSlotRef.current = null;
+          setVenue(null);
+          setResourceId('');
+          setSlotRead(null);
+          setSelectedSlot(null);
+          setError('This venue is not available.');
+        });
         return;
       }
 
-      const nextResourceId = nextVenue.resources.some((item) => item.id === resourceId)
-        ? resourceId
+      const currentResourceExists = nextVenue.resources.some((item) => item.id === requestContext.resourceId);
+      const nextResourceId = currentResourceExists
+        ? requestContext.resourceId
         : nextVenue.resources[0]?.id ?? '';
-      setVenue(nextVenue);
-      setResourceId((current) => current && !nextVenue.resources.some((item) => item.id === current) ? nextResourceId : current);
-      if (!nextResourceId || !date) {
-        setSlots([]);
-        setSelectedStart(null);
-        setError(null);
+      if (!currentResourceExists) {
+        runIfCurrent(() => {
+          slotReadRef.current = null;
+          selectedSlotRef.current = null;
+          setVenue(nextVenue);
+          setResourceId(nextResourceId);
+          setSlotRead(null);
+          setSelectedSlot(null);
+          setError(null);
+        });
         return;
       }
 
-      const nextSlots = await getSportsSlots(nextResourceId, date);
-      if (!guard.isCurrent()) return;
-      setSlots(nextSlots);
-      setSelectedStart((current) => current && getAvailableSportsDurations(
-        nextSlots,
-        current,
-        effectiveParticipants,
-        multiSlotEnabled ? 4 : 1,
-      ).length > 0 ? current : null);
-      setError(null);
+      runIfCurrent(() => setVenue(nextVenue));
+      const nextSlots = await getSportsSlots(requestContext.resourceId, requestContext.date);
+      runIfCurrent(() => {
+        const nextRead = { context: requestContext, slots: nextSlots };
+        slotReadRef.current = nextRead;
+        setSlotRead(nextRead);
+        setSelectedSlot((current) => {
+          if (!current
+            || !areSportsSlotContextIdentitiesEqual(current.context, requestContext)
+            || getAvailableSportsDurations(
+              nextSlots,
+              current.startsAt,
+              requestContext.participants,
+              requestContext.multiSlotEnabled ? 4 : 1,
+            ).length === 0) return null;
+          const nextSelection = { ...current, context: requestContext };
+          selectedSlotRef.current = nextSelection;
+          return nextSelection;
+        });
+        setError(null);
+      });
     } catch (caught) {
-      if (guard.isCurrent()) setError((caught as Error).message);
+      runIfCurrent(() => {
+        setSlotRead(null);
+        slotReadRef.current = null;
+        setSelectedSlot(null);
+        selectedSlotRef.current = null;
+        setError((caught as Error).message);
+      });
     }
-  }, [date, effectiveParticipants, multiSlotEnabled, resourceId, sportsEnabled, venueId]);
+  }, [sportsEnabled, venueId]);
   const { refresh } = useSportsReadRefresh(loadForRefresh, {
     contextKey: refreshContextKey,
     enabled: sportsEnabled && !!venueId,
@@ -163,40 +349,42 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
   });
 
   const chooseResource = (nextResourceId: string) => {
-    idempotencyKey.current = null;
+    idempotencyKey.current.reset();
+    invalidateSlotContext();
     setResourceId(nextResourceId);
-    setSelectedStart(null);
     setSelectedDuration(1);
     setParticipants(1);
-    setSlots(null);
   };
 
   const chooseDate = (nextDate: string) => {
-    idempotencyKey.current = null;
+    idempotencyKey.current.reset();
+    invalidateSlotContext();
     setDate(nextDate);
-    setSelectedStart(null);
     setSelectedDuration(1);
-    setSlots(null);
   };
 
   const book = async () => {
-    if (!resource || !selectedStart || durationOptions.length === 0 || !availablePaymentModes.includes(selectedPaymentMode) || loading) return;
-    const requestContextKey = refreshContextRef.current;
+    const chosenSlot = selectedSlotRef.current;
+    const bookingContext = currentSlotContextRef.current;
+    const currentRead = slotReadRef.current;
+    const request = currentBookingRequest;
+    const requestIdentity = bookingRequestIdentityRef.current;
+    if (!resource || !chosenSlot || !request || !requestIdentity || durationOptions.length === 0
+      || !availablePaymentModes.includes(selectedPaymentMode) || loading
+      || !isSportsSlotSelectionCurrent(chosenSlot, bookingContext, currentRead?.context ?? null)) return;
     if (!(await requireSignIn(sportsVenueBookingReturnTo(venueId)))) return;
-    if (refreshContextRef.current !== requestContextKey) return;
+    if (!areSportsSlotContextIdentitiesEqual(currentSlotContextRef.current, bookingContext)
+      || selectedSlotRef.current !== chosenSlot
+      || bookingRequestIdentityRef.current !== requestIdentity
+      || !isSportsSlotSelectionCurrent(chosenSlot, currentSlotContextRef.current, slotReadRef.current?.context ?? null)) return;
     setLoading(true);
     setError(null);
     try {
       const result = await bookSportsSlot({
-        resourceId: resource.id,
-        startsAt: selectedStart,
-        slots: duration,
-        participants: effectiveParticipants,
-        paymentMode: selectedPaymentMode,
-        note: note.trim(),
-        idempotencyKey: idempotencyKey.current ?? (idempotencyKey.current = makeIdempotencyKey()),
+        ...request,
+        idempotencyKey: idempotencyKey.current.getFor(requestIdentity),
       });
-      idempotencyKey.current = null;
+      idempotencyKey.current.reset();
       const successMessage = result.status === 'accepted'
         ? 'Your slot is confirmed.'
         : result.status === 'pending_payment'
@@ -215,12 +403,13 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
     } catch (caught) {
       const message = (caught as Error).message;
       if (isSportsSlotTakenError(message)) {
-        if (refreshContextRef.current !== requestContextKey) return;
+        if (!areSportsSlotContextIdentitiesEqual(currentSlotContextRef.current, bookingContext)) return;
         await refresh();
-        if (refreshContextRef.current !== requestContextKey) return;
-        setSelectedStart(null);
+        if (!areSportsSlotContextIdentitiesEqual(currentSlotContextRef.current, bookingContext)) return;
+        selectedSlotRef.current = null;
+        setSelectedSlot(null);
         setError('That slot was just booked. Pick another time.');
-      } else if (refreshContextRef.current === requestContextKey) {
+      } else if (areSportsSlotContextIdentitiesEqual(currentSlotContextRef.current, bookingContext)) {
         setError(message);
       }
     } finally {
@@ -237,7 +426,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
       />}
       footer={sportsEnabled && venue ? (
         <PriceFooter
-          caption="Estimated total"
+          caption="Slot subtotal (estimate)"
           amountLabel={estimatedTotal === null ? '—' : formatINR(estimatedTotal)}
           cta={{
             title: getSportsBookingActionLabel(effectiveBookingMode, instantBookingEnabled),
@@ -246,8 +435,15 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
             disabled: !resource || !selectedStart || durationOptions.length === 0 || availablePaymentModes.length === 0 || loading,
             leftIcon: 'calendar-outline',
           }}
-          above={selectedPaymentMode === 'online' && cancellationPolicyLabel ? (
-            <Text variant="caption" color="muted">{cancellationPolicyLabel}</Text>
+          above={selectedPaymentMode === 'online' ? (
+            <View style={{ gap: t.spacing.xs }}>
+              <Text variant="caption" color="muted">
+                {getSportsOnlineCheckoutDisclosure(selectedPaymentMode)}
+              </Text>
+              {cancellationPolicyLabel ? (
+                <Text variant="caption" color="muted">{cancellationPolicyLabel}</Text>
+              ) : null}
+            </View>
           ) : undefined}
         />
       ) : undefined}
@@ -341,8 +537,12 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                           accessibilityState={{ checked: selected, disabled: !selectable }}
                           disabled={!selectable}
                           onPress={() => {
-                            idempotencyKey.current = null;
-                            setSelectedStart(slot.starts_at);
+                            if (!slotRead
+                              || !areSportsSlotContextIdentitiesEqual(slotRead.context, currentSlotContext)) return;
+                            idempotencyKey.current.reset();
+                            const nextSelection = { startsAt: slot.starts_at, context: slotRead.context };
+                            selectedSlotRef.current = nextSelection;
+                            setSelectedSlot(nextSelection);
                             setSelectedDuration(1);
                           }}
                           style={{
@@ -376,7 +576,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                           variant={duration === count ? undefined : 'outline'}
                           size="sm"
                           onPress={() => {
-                            idempotencyKey.current = null;
+                            idempotencyKey.current.reset();
                             setSelectedDuration(count);
                           }}
                         />
@@ -389,12 +589,14 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                     <Text variant="footnoteStrong">Participants</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
                       <Button title="−" variant="outline" size="sm" disabled={participants <= 1} onPress={() => {
-                        idempotencyKey.current = null;
+                        idempotencyKey.current.reset();
+                        invalidateSlotContext();
                         setParticipants((value) => Math.max(1, value - 1));
                       }} />
                       <Text variant="calloutStrong">{participants}</Text>
                       <Button title="+" variant="outline" size="sm" disabled={participants >= capacity} onPress={() => {
-                        idempotencyKey.current = null;
+                        idempotencyKey.current.reset();
+                        invalidateSlotContext();
                         setParticipants((value) => Math.min(capacity, value + 1));
                       }} />
                       <Text variant="caption" color="muted">Up to {capacity}</Text>
@@ -414,7 +616,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
                       variant={selectedPaymentMode === mode ? undefined : 'outline'}
                       size="sm"
                       onPress={() => {
-                        idempotencyKey.current = null;
+                        idempotencyKey.current.reset();
                         setPaymentMode(mode);
                       }}
                     />
@@ -429,7 +631,7 @@ export function SportsVenueBookingScreen({ venueId }: { venueId: string }) {
               <InlineAlert message="This venue is not accepting bookings right now." />
             )}
             <TextArea label="Note (optional)" value={note} onChangeText={(value) => {
-              idempotencyKey.current = null;
+              idempotencyKey.current.reset();
               setNote(value);
             }} maxLength={500} placeholder="Anything the venue should know?" />
             <InlineAlert message={error && venue ? error : null} />
