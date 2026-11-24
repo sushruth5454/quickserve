@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O27-MK03",
+  "workPackage": "O27",
+  "status": "FIXFORWARD_AWAITING_LANE_CI",
+  "base": {
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseCommit": "21f51989e1948057e5694f9689c0912e7aab3a7a",
+    "branch": "lane/oorva-o27-mk03-fixforward-20261124",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "currentMainShaAtDriftCheck": "dd969a4061b8bbf115356c63e645365358eade37"
+  },
+  "source": {
+    "taskId": "MK-T03",
+    "findingId": "MK-F03",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t03"
+  },
+  "scope": {
+    "changedFiles": [
+      "app/src/features/shops/manage/shopManageModel.ts",
+      "app/src/features/shops/manage/__tests__/shopManageModel.test.ts",
+      "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "docs/design/oorva/evidence/o27-mk03.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "featureFlags": [],
+    "routeFileChanged": false
+  },
+  "sourceDriftReview": {
+    "currentRouteHost": "app/app/merchant-shop.tsx re-exports MerchantShopScreen; route and parameters unchanged.",
+    "preserved": [
+      "Existing save_shop suspended-status preservation was left unchanged.",
+      "Existing save_product, list_my_products, and delete_product server guards were left unchanged.",
+      "No payment or money-safety paths were changed."
+    ],
+    "fixForwardNote": "The prior O27 base is not an ancestor of the authorized O18 head. The four locked paths have no intervening base diff, and the O27 patch applied cleanly to the fresh worktree."
+  },
+  "implementation": [
+    "Added shopManageActions with explicit canEditProducts, canSubmit, and canSaveDetails actions based on actual-owner role, shop status, and products availability.",
+    "Gated product editor entry, edits, photos, and saves; closed and hid stale editors after a refreshed status or products capability disables editing.",
+    "Kept suspended-owner shop-detail save and existing product removal available; displayed the suspension reason or a suspension-specific fallback.",
+    "Kept existing read-only product catalogue behavior when products are disabled."
+  ],
+  "requiredCases": [
+    "MK-MANAGE-suspended-product-edit",
+    "MK-MANAGE-owner-member-actions",
+    "MK-MANAGE-refreshed-suspension",
+    "MK-HOST-refreshed-suspension"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "UNAVAILABLE_404_NO_SELECTED_TESTS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "638e211a9bb20ddb511f39b69700911680cb0c21",
+      "suite": "app",
+      "selector": "src.features.shops.manage.__tests__.shopManageModel[.]test[.]ts$",
+      "selectedFiles": 0,
+      "selectedTests": 0,
+      "typescript": "NOT_RUN",
+      "jest": "NOT_RUN",
+      "csTestResult": "NOT_REACHED; helper exited before test selection.",
+      "blocker": "HTTP 404 from /repos/sushruth5454/quickserve/codespaces?per_page=30; gh reports the operation requires the codespace scope. The helper then emitted a null-valued expression error. No tests were selected.",
+      "fallback": "Use exact-head Lane CI after author diff validation."
+    },
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_PUSH"
+    },
+    "authorValidation": {
+      "lockedFilesOnly": true,
+      "priorO27ScreenModelTestsPreserved": true,
+      "diffCheck": "PASS"
+    }
+  },
+  "gates": {
+    "E0_D01": "APPROVED_FOR_DEVELOPMENT",
+    "E1": "NOT_GRANTED",
+    "mainPromotion": "NOT_GRANTED",
+    "featureActivation": "NOT_GRANTED",
+    "publicOrNativeRelease": "NOT_GRANTED",
+    "liveMoneyOperations": "NOT_GRANTED"
+  },
+  "productionActions": "NONE",
+  "verifiedDate": "2026-11-24",
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O12-MK10",
+      "sha": "17fb512159c9b734b850ec1f819873390d949e49",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O18-MK15",
+      "sha": "21f51989e1948057e5694f9689c0912e7aab3a7a",
+      "state": "EXACT_FIXFORWARD_BASE"
+    }
+  ],
+  "fixForward": {
+    "sourceHead": "669b8b69129cc40a9ef5896422f36f4542a5deaf",
+    "sourceBase": "2a1f30f9fecb104c701ecbaec6d5e957603e6867",
+    "method": "Applied only the four-file O27 delta from sourceBase..sourceHead onto the exact O18 base; the prior O27 worktree and branch were preserved.",
+    "sourceBaseIsAncestorOfFixForwardBase": false,
+    "lockedPathDriftFromSourceBaseToFixForwardBase": []
+  },
+  "priorLaneValidation": {
+    "head": "669b8b69129cc40a9ef5896422f36f4542a5deaf",
+    "laneCiRunId": 45099627806,
+    "laneCiResult": "PASS",
+    "codespaceSelectedTests": 5,
+    "codespaceResult": "PASS"
+  }
+}
