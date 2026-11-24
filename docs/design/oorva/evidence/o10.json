@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O10",
+  "workPackage": "O10",
+  "status": "IMPLEMENTED",
+  "base": {
+    "planSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseSha": "4846fb136ac242cc3d00369fc0b2dce1fb15f5ba",
+    "branch": "lane/oorva-o10",
+    "dependencyShas": {
+      "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+      "O03": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+      "O04": "cfe3700f12c269f06a0ba8901dfbe179bab0c46d",
+      "O04-tested-batch32": "4846fb136ac242cc3d00369fc0b2dce1fb15f5ba",
+      "O05A": "19970058253143a5f82f68b2c97b725ed8b1529d",
+      "O05I": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+      "O06B": "de989f95e5d57f78540417587023318afef123c6",
+      "O07A": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+      "O31-CM09": "e8ee45152f790240a54126e67f1d83eabb9416f3"
+    }
+  },
+  "gates": {
+    "E0": "APPROVED"
+  },
+  "scope": {
+    "workerOwnedFiles": [
+      "app\\app\\admin\\settings\\index.tsx",
+      "app\\app\\admin\\settings\\branding.tsx",
+      "app\\src\\features\\adminBranding\\SettingsScreen.tsx",
+      "app\\src\\features\\adminBranding\\BrandingScreen.tsx",
+      "app\\src\\features\\adminBranding\\BrandingForm.tsx",
+      "app\\src\\features\\adminBranding\\BrandingPreview.tsx",
+      "app\\src\\features\\adminBranding\\BrandingHistory.tsx",
+      "app\\src\\features\\adminBranding\\model.ts",
+      "app\\src\\features\\adminBranding\\useBrandingController.ts",
+      "app\\src\\features\\adminBranding\\__tests__\\editor.test.tsx",
+      "app\\src\\features\\communicationScreens\\AdminFeaturesScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o10.json"
+    ],
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "featureKeys": [
+      "branding_editor",
+      "branding_runtime",
+      "oorva_brand"
+    ],
+    "sharedRegistrationsRequested": []
+  },
+  "implementation": {
+    "settings": "Added thin admin routes and a centralized settings page linking existing configuration routes. The ordinary Branding link requires oorva_brand and branding_runtime; it does not depend on oorva_admin_ops_ux or branding_editor.",
+    "historyAndRecovery": "Added an always-visible admin Features-host entry to Branding history/recovery. The controller reads admin history and current generation independently of editor/runtime availability; rollback uses admin_rollback_branding with the expected generation and a required reason.",
+    "draftAndPublish": "A single controller owns draft, immutable version, history, freshness, dirty-state reconciliation, save, publish, and recovery. Draft save validates the existing strict BrandingV1 schema and uses a fresh UUID; publish requires a saved clean draft, a reason, and the reviewed generation. Stale conflicts do not retry and preserve form edits.",
+    "assets": "Admin uploads convert selected images to PNG and call the existing branding-assets Edge Function. Admin preview uses its authenticated short-lived signed-URL action, verifies same-project/path/expiry, avoids image cache, and drops/reissues links at expiry.",
+    "preview": "Nested preview renders local draft colors and content without the global appearance provider, feature flags, theme context, cache, identity, or startup assets.",
+    "moneySafety": "No payment, refund, settlement, expiry, cancellation, or other money-safety paths were edited."
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "windowsAppBuildOrTest": "NOT_RUN_BY_INSTRUCTION",
+    "codespaceApp": {
+      "state": "FAILED_BEFORE_REMOTE_SELECTION",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "selector": "src.features.adminBranding.__tests__.editor[.]test[.]tsx$",
+      "requiredCommand": "pwsh -NoProfile -File $env:TEMP\\cs-test.ps1 -Suite app -Filter 'src.features.adminBranding.__tests__.editor[.]test[.]tsx$'",
+      "selectedFiles": "NOT_AVAILABLE",
+      "error": "HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then raised InvalidOperation because the Codespace list was null. Failure occurred before test selection; no PASS or zero-selection result is claimed."
+    },
+    "laneCi": "Triggered by the exact stage push; run ID and conclusion are recorded in the stage handoff.",
+    "deviceEvidence": "NOT_VERIFIED"
+  },
+  "releaseStatus": {
+    "featureFlagsEnabled": false,
+    "productionBrandingPublished": false,
+    "nativeIdentityChanged": false,
+    "activationOrPromotion": "NOT_PERFORMED"
+  }
+}

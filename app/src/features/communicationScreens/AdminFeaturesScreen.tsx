@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { useFeatureControlState } from '../../branding/FeatureFlagsProvider';
@@ -104,6 +104,20 @@ export default function AdminFeaturesScreen() {
               </View>
             </Card>
           ))}
+          <Card
+            onPress={() => router.push('/admin/settings')}
+            accessibilityLabel="Admin settings"
+          >
+            <Text variant="calloutStrong">Admin settings</Text>
+            <Text variant="footnote" color="muted">Open existing configuration pages and branding settings.</Text>
+          </Card>
+          <Card
+            onPress={() => router.push('/admin/settings/branding?section=history')}
+            accessibilityLabel="Branding history and recovery"
+          >
+            <Text variant="calloutStrong">Branding history & recovery</Text>
+            <Text variant="footnote" color="muted">Admin-only history and rollback remain available when branding controls are off.</Text>
+          </Card>
         </>
       )}
     </Screen>
