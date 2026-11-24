@@ -44,7 +44,7 @@
   "implementation": {
     "upload": "Raw image/png only; server-generated UUID and fixed branding/<uuid>.png path; complete PNG validation and metadata stripping precede upsert:false Storage upload; O03 service-role registration RPC is called only after verified user, admin role, and all parent flags are ON.",
     "statusRead": "Calls service_get_branding_asset_status before Storage reads; public GET requires published_once and not revoked, preview requires validated and not revoked; fixed path/MIME/hash/size/dimensions must match.",
-    "preview": "Admin-only no-store JSON response with a same-project signed URL requested for 240 seconds; no caller JWT is placed in URL or persistent cache.",
+    "preview": "Admin-only no-store JSON response with a same-project signed URL requested for 240 seconds; no caller JWT is placed in URL or persistent cache. The private-stack HTTP test uses the local Kong gateway authority to fetch URLs whose configured Edge origin is http://kong:8000.",
     "publicServing": "Published asset response includes a content-hash ETag and public max-age/s-maxage of 300 seconds; revocation cannot recall already-downloaded or offline copies and may propagate through existing public caches until their bounded TTL expires. Already-issued private preview URLs may remain usable until their at-most-240-second expiry.",
     "failureCleanup": "After a successful immutable Storage upload, registration failure removes only that request's generated object path. An upload error does not delete a possibly pre-existing collision path."
   },
@@ -93,8 +93,16 @@
       "fallback": "Exact-head Lane CI required; no Codespace PASS claimed."
     },
     "privateHttpSelection": "COORDINATOR_SELECTION_PASS; actual execution pending Lane CI fallback.",
-    "laneCi": "PENDING_EXACT_HEAD",
-    "focusedAuthReview": "PENDING",
+    "laneCi": "45302534185 FAILED: Deno type-check errors and private HTTP preview-origin assertion; O03 private tests passed and O04 HTTP test was selected; fixes applied, exact-head rerun pending.",
+    "focusedAuthReview": "INITIAL_REVIEW_NEEDS_FIX_MEDIUM; registration outcome reconciliation added; focused re-review pending on final head.",
+    "authReviewFinding": "A registration RPC can commit before a response failure; deleting its object on any false result could leave registered metadata without bytes. The handler now re-reads the service-only status RPC, accepts matching committed metadata, cleans only after confirmed absent/mismatched status, and preserves bytes if status reconciliation itself fails.",
+    "firstLaneCiFailure": {
+      "run": "45302534185",
+      "deno": "TypeScript errors: ArrayBufferLike passed to crypto.subtle.digest/Response/Request body; Adam7 geometry tuple inference mismatch; DecompressionStream pipeThrough type mismatch.",
+      "privateHttp": "HTTP test selected and began; signed preview origin was http://kong:8000 while the runner reaches the local stack through http://127.0.0.1:54321. Test now verifies the configured origin and substitutes only the authority for the private loopback fetch.",
+      "authReview": "A registration RPC may commit before its response fails. The handler now re-reads the service-only status RPC; it accepts matching committed metadata, removes only after a confirmed absent/mismatched row, and preserves bytes if status reconciliation fails.",
+      "fixes": "Copy byte views to ArrayBuffer for WebCrypto/Request/Response types; type Adam7 pass geometry and the decompressor transform explicitly; adapt only the private-stack signed-URL fetch authority."
+    },
     "gitDiffCheck": "PASS",
     "evidenceJsonParse": "PASS",
     "httpModuleSyntax": "NOT_RUN_NODE_NOT_ON_PATH"

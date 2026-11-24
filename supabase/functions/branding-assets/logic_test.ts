@@ -70,7 +70,9 @@ function validPng(): Uint8Array {
 }
 
 async function digest(bytes: Uint8Array): Promise<string> {
-  const value = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  const value = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer));
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -120,8 +122,14 @@ function uploadRequest(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       "Content-Type": contentType,
     },
-    body: bytes,
+    body: bufferCopy(bytes),
   });
+}
+
+function bufferCopy(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }
 
 function previewRequest(body: unknown, token = "admin-session-token"): Request {
@@ -259,6 +267,7 @@ Deno.test("registration failure removes only this request's known immutable obje
     uploadRequest(),
     makeDeps({
       registerAsset: async () => false,
+      getAssetStatus: async () => null,
       removePrivate: async (path) => {
         removed.push(path);
         return true;
@@ -283,10 +292,43 @@ Deno.test("registration failure removes only this request's known immutable obje
   assertEquals(failedUpload.status, 502);
   assertEquals(failedUploadRemoved, []);
 
+  const reconciledRemovals: string[] = [];
+  const reconciled = await handleBrandingAssetsRequest(
+    uploadRequest(),
+    makeDeps({
+      registerAsset: async () => false,
+      removePrivate: async (path) => {
+        reconciledRemovals.push(path);
+        return true;
+      },
+    }),
+  );
+  assertEquals(reconciled.status, 201);
+  assertEquals(reconciledRemovals, []);
+
+  const unknownOutcomeRemovals: string[] = [];
+  const unknownOutcome = await handleBrandingAssetsRequest(
+    uploadRequest(),
+    makeDeps({
+      registerAsset: async () => false,
+      getAssetStatus: async () => {
+        throw new Error("status read unavailable");
+      },
+      removePrivate: async (path) => {
+        unknownOutcomeRemovals.push(path);
+        return true;
+      },
+    }),
+  );
+  assertEquals(unknownOutcome.status, 503);
+  assertEquals((await unknownOutcome.json()).registrationStatus, "deferred");
+  assertEquals(unknownOutcomeRemovals, []);
+
   const cleanupFailure = await handleBrandingAssetsRequest(
     uploadRequest(),
     makeDeps({
       registerAsset: async () => false,
+      getAssetStatus: async () => null,
       removePrivate: async () => false,
     }),
   );

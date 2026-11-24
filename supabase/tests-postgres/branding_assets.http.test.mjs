@@ -336,7 +336,11 @@ export async function run({ withClient, localApiUrl, localServiceRoleKey }) {
       assert.equal(previewResponse.headers.get('Pragma'), 'no-cache');
       assert.equal(previewResponse.headers.get('Referrer-Policy'), 'no-referrer');
       const signed = new URL(preview.url);
-      assert.equal(signed.origin, new URL(apiUrl).origin, `preview must use configured project origin; actual=${JSON.stringify({ signedOrigin: signed.origin, apiOrigin: new URL(apiUrl).origin })}`);
+      assert.equal(
+        signed.origin,
+        'http://kong:8000',
+        `preview must use the local Edge runtime's configured Supabase origin; actual=${JSON.stringify({ signedOrigin: signed.origin })}`,
+      );
       assert.equal(
         signed.pathname,
         `/storage/v1/object/sign/${BUCKET}/${objectPath}`,
@@ -353,7 +357,9 @@ export async function run({ withClient, localApiUrl, localServiceRoleKey }) {
         false,
         'preview URL must not contain the caller bearer token',
       );
-      const signedImage = await fetch(preview.url);
+      // The Edge runtime's configured Supabase origin is the local Kong service, not the runner host.
+      const localSignedUrl = new URL(`${signed.pathname}${signed.search}`, apiUrl);
+      const signedImage = await fetch(localSignedUrl);
       const signedBytes = Buffer.from(await signedImage.arrayBuffer());
       assert.equal(
         signedImage.ok,

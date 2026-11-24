@@ -51,8 +51,8 @@ function rawImage(
   interlace = 0,
   firstRowByte?: number,
 ): Uint8Array {
-  const passes = interlace === 0
-    ? [[0, 0, 1, 1] as const]
+  const passes: readonly (readonly [number, number, number, number])[] = interlace === 0
+    ? [[0, 0, 1, 1]]
     : [
       [0, 0, 8, 8],
       [4, 0, 8, 8],

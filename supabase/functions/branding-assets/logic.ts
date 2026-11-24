@@ -34,6 +34,19 @@ export interface AssetRegistration {
   actorId: string;
 }
 
+function registrationMetadataMatches(status: BrandingAssetStatus | null, metadata: AssetRegistration): status is BrandingAssetStatus {
+  return status !== null &&
+    typeof status.id === "string" &&
+    status.id.toLowerCase() === metadata.assetId &&
+    status.object_path === fixedObjectPath(metadata.assetId) &&
+    status.sha256 === metadata.sha256 &&
+    status.mime_type === "image/png" &&
+    Number(status.byte_length) === metadata.byteLength &&
+    status.width === metadata.width &&
+    status.height === metadata.height &&
+    typeof status.validated_at === "string";
+}
+
 export interface BrandingAssetDependencies {
   verifyUser(token: string): Promise<{ id: string } | null>;
   isAdmin(token: string): Promise<boolean>;
@@ -124,7 +137,9 @@ function isValidStatus(status: BrandingAssetStatus | null, assetId: string, publ
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", buffer));
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
@@ -268,7 +283,9 @@ async function handlePublicGet(request: Request, url: URL, deps: BrandingAssetDe
   if (equalEtag(request.headers.get("If-None-Match"), etag)) {
     return new Response(null, { status: 304, headers });
   }
-  return new Response(image.bytes, { status: 200, headers });
+  const body = new ArrayBuffer(image.bytes.byteLength);
+  new Uint8Array(body).set(image.bytes);
+  return new Response(body, { status: 200, headers });
 }
 
 async function authenticateAdminPost(request: Request, deps: BrandingAssetDependencies): Promise<{ userId: string } | Response> {
@@ -346,6 +363,30 @@ async function handleUpload(request: Request, userId: string, deps: BrandingAsse
     registered = false;
   }
   if (!registered) {
+    let status: BrandingAssetStatus | null;
+    try {
+      status = await deps.getAssetStatus(assetId);
+    } catch {
+      return jsonResponse({
+        error: "asset registration outcome is unknown",
+        assetId,
+        registrationStatus: "deferred",
+      }, 503);
+    }
+    if (registrationMetadataMatches(status, metadata)) {
+      if (status.revoked_at !== null) {
+        return jsonResponse({ error: "asset became unavailable during upload", assetId }, 409);
+      }
+      return jsonResponse({
+        assetId,
+        sha256: metadata.sha256,
+        mimeType: "image/png",
+        byteLength: metadata.byteLength,
+        width: image.width,
+        height: image.height,
+      }, 201);
+    }
+
     let cleanupSucceeded = false;
     try {
       cleanupSucceeded = await deps.removePrivate(path);

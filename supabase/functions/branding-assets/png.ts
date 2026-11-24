@@ -15,7 +15,8 @@ const BIT_DEPTHS: Record<number, readonly number[]> = {
   4: [8, 16],
   6: [8, 16],
 };
-const ADAM7 = [
+type PassGeometry = readonly [number, number, number, number];
+const ADAM7: readonly PassGeometry[] = [
   [0, 0, 8, 8],
   [4, 0, 8, 8],
   [0, 4, 4, 8],
@@ -23,7 +24,7 @@ const ADAM7 = [
   [0, 2, 2, 4],
   [1, 0, 2, 2],
   [0, 1, 1, 2],
-] as const;
+];
 
 export interface PngLimits {
   maxBytes: number;
@@ -84,7 +85,7 @@ function ceilDiv(value: number, divisor: number): number {
   return Math.floor((value + divisor - 1) / divisor);
 }
 
-function getPassDimensions(width: number, height: number, pass: typeof ADAM7[number]): [number, number] {
+function getPassDimensions(width: number, height: number, pass: PassGeometry): [number, number] {
   const [xStart, yStart, xStep, yStep] = pass;
   return [
     width <= xStart ? 0 : ceilDiv(width - xStart, xStep),
@@ -101,7 +102,7 @@ interface ImagePass {
 
 function imagePasses(width: number, height: number, bitDepth: number, colorType: number, interlace: number): ImagePass[] {
   const bitsPerPixel = CHANNELS[colorType] * bitDepth;
-  const geometry = interlace === 0 ? [[0, 0, 1, 1] as const] : ADAM7;
+  const geometry: readonly PassGeometry[] = interlace === 0 ? [[0, 0, 1, 1]] : ADAM7;
   const passes: ImagePass[] = [];
   for (const pass of geometry) {
     const [passWidth, passHeight] = getPassDimensions(width, height, pass);
@@ -162,15 +163,21 @@ async function validateImageData(
   colorType: number,
   paletteEntries: number,
 ): Promise<void> {
-  const input = new ReadableStream<Uint8Array>({
+  const compressedCopy = new Uint8Array(compressed.length);
+  compressedCopy.set(compressed);
+  const input = new ReadableStream<Uint8Array<ArrayBuffer>>({
     start(controller) {
-      controller.enqueue(compressed);
+      controller.enqueue(compressedCopy);
       controller.close();
     },
   });
   let reader: ReadableStreamDefaultReader<Uint8Array>;
   try {
-    reader = input.pipeThrough(new DecompressionStream("deflate")).getReader();
+    const decompressor = new DecompressionStream("deflate") as unknown as TransformStream<
+      Uint8Array<ArrayBuffer>,
+      Uint8Array
+    >;
+    reader = input.pipeThrough(decompressor).getReader();
   } catch {
     throw new PngValidationError("PNG image data is not a valid zlib stream");
   }
