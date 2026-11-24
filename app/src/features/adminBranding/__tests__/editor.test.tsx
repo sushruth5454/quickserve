@@ -25,6 +25,7 @@ const mockInvoke = jest.fn();
 const mockGetAppFeatures = jest.fn();
 const mockListFeatures = jest.fn();
 const mockRefreshFlags = jest.fn();
+const mockToast = jest.fn();
 const mockUseFeatureControlState = jest.fn();
 const mockUseAppFeatureFlags = jest.fn();
 const mockUseTheme = jest.fn();
@@ -32,7 +33,7 @@ let mockSearchParams: Record<string, string> = {};
 let mockFlags: Record<string, unknown> = {};
 let mockVersions: Array<Record<string, unknown>> = [];
 let mockSnapshot: Record<string, unknown> = {};
-let mockVersionConfigs: Record<string, unknown> = {};
+let mockVersionConfigs: Record<string, { config: unknown }> = {};
 let mockUnauthorized = false;
 let mockPublishConflict = false;
 let mockRoot: TestRoot | undefined;
@@ -58,7 +59,9 @@ jest.doMock('expo-router', () => ({
       };
       mockFocusCallbacks.add(focus);
       focus();
-      return () => mockFocusCallbacks.delete(focus);
+      return () => {
+        mockFocusCallbacks.delete(focus);
+      };
     }, []);
   },
 }));
@@ -136,6 +139,7 @@ jest.doMock('../../../components/ui', () => ({
     return mockReact.createElement('label', null, label,
       mockReact.createElement('textarea', { 'aria-label': label, value, disabled: !editable }));
   },
+  useToast: () => mockToast,
 }));
 
 jest.doMock('../../../lib/featureFlags', () => ({
@@ -259,6 +263,7 @@ function resetServerState() {
   mockGetAppFeatures.mockReset().mockResolvedValue({ archetypes: {} });
   mockListFeatures.mockReset().mockResolvedValue([]);
   mockRefreshFlags.mockReset().mockResolvedValue(undefined);
+  mockToast.mockReset();
   mockUseFeatureControlState.mockReset().mockImplementation(() => ({ features: mockFlags, refresh: mockRefreshFlags }));
   mockUseAppFeatureFlags.mockReset().mockImplementation(() => mockFlags);
   mockUseTheme.mockReset().mockReturnValue({
@@ -287,12 +292,15 @@ async function flushMicrotasks() {
   for (let index = 0; index < 12; index += 1) await Promise.resolve();
 }
 
-async function mount<Props>(Component: React.ComponentType<Props>, props?: Props) {
+async function mount<Props extends object>(
+  Component: React.ComponentType<Props>,
+  props: Props = {} as Props,
+) {
   await mockAct(async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     mockRoot = require('react-dom/client').createRoot(container) as TestRoot;
-    mockRoot.render(React.createElement(Component, props));
+    mockRoot.render(React.createElement<Props>(Component, props));
     await flushMicrotasks();
   });
 }
