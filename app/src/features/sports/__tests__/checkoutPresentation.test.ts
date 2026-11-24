@@ -1,3 +1,8 @@
+jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('expo-router', () => ({
+  router: { back: jest.fn(), canGoBack: () => false, replace: jest.fn() },
+}));
+
 import { getSportsBookingActions, getSportsEstimatedTotal } from '../model';
 import { getCustomerSportsBooking } from '../api';
 import { getSportsOnlineCheckoutDisclosure } from '../SportsVenueBookingScreen';
