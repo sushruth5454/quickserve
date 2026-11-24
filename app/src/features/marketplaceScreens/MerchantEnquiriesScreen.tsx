@@ -40,7 +40,7 @@ export default function MerchantEnquiriesScreen() {
           key={enquiry.id}
           icon="chatbubble-ellipses-outline"
           title={enquiry.product_name ?? 'General shop enquiry'}
-          subtitle={`${enquiry.customer_name ?? 'Customer'} · ${enquiry.status} · ${new Date(enquiry.last_message_at).toLocaleDateString()}`}
+          subtitle={`${enquiry.shop_name} · ${enquiry.customer_name ?? 'Customer'} · ${enquiry.status} · ${new Date(enquiry.last_message_at).toLocaleDateString()}`}
           right={enquiry.shop_unread ? <Text variant="captionStrong" color="primaryText">{enquiry.shop_unread} new</Text> : undefined}
           chevron
           onPress={() => router.push(`/enquiry/${enquiry.id}`)}

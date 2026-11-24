@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, EmptyState, ErrorState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../components/ui';
-import { listMySupplierRfqs, type SupplierRfqSummary } from '../rfq/api';
+import { listMySupplierRfqs, supplierRfqDetailRouteParams, type SupplierRfqSummary } from '../rfq/api';
 import { useRfqFeatureFlags } from '../rfq/components';
 import { nearestFutureRfqDeadlineMs, rfqViewState } from '../rfq/rfqStateModel';
 import { useTheme } from '../../theme';
@@ -97,7 +97,7 @@ export default function MerchantRfqsScreen() {
             key={`${rfq.shop_id}:${rfq.rfq_id}`}
             icon="document-text-outline"
             title={rfq.title}
-            subtitle={`${rfq.category_name} · ${rfq.item_count} item(s) · ${rfq.area}, ${rfq.city} · Needed by ${new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString()}`}
+            subtitle={`${rfq.shop_name} · ${rfq.category_name} · ${rfq.item_count} item(s) · ${rfq.area}, ${rfq.city} · Needed by ${new Date(`${rfq.needed_by}T00:00:00`).toLocaleDateString()}`}
             right={
               <View style={{ alignItems: 'flex-end', gap: t.spacing.xs }}>
                 <Text variant="captionStrong">RFQ: {viewState.rfqLabel}</Text>
@@ -107,7 +107,7 @@ export default function MerchantRfqsScreen() {
             chevron
             onPress={() => router.push({
               pathname: '/rfq/merchant/[id]',
-              params: { id: rfq.rfq_id, shopId: rfq.shop_id },
+              params: supplierRfqDetailRouteParams(rfq),
             })}
           />
         );

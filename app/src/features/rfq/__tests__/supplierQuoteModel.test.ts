@@ -1,5 +1,6 @@
 import type { ProductCategory } from '../../shops/api';
 import type { SupplierRfq } from '../api';
+import { supplierRfqDetailRouteParams } from '../api';
 import {
   hydrateSupplierQuoteDraft,
   reconcileSupplierQuoteDraft,
@@ -7,6 +8,8 @@ import {
   updateSupplierQuoteDraftLine,
   updateSupplierQuoteDraftTerms,
 } from '../supplierQuoteModel';
+
+jest.mock('../../../lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 
 function supplierRfq(overrides: Partial<SupplierRfq> = {}): SupplierRfq {
   return {
@@ -162,6 +165,18 @@ describe('supplier quote draft model', () => {
       lines: [{ rfqItemId: 'item-2', unitPriceRupees: '', brand: '' }],
     });
     expect(reset.lines.some((line) => line.rfqItemId === 'item-1')).toBe(false);
+  });
+
+  it('MK-BUSINESS-explicit-shop-route: shared RFQ rows retain exact shop route context despite duplicate labels', () => {
+    const rows = [
+      { rfq_id: 'rfq-shared', shop_id: 'shop-alpha', shop_name: 'Same shop', category_name: 'Same category' },
+      { rfq_id: 'rfq-shared', shop_id: 'shop-beta', shop_name: 'Same shop', category_name: 'Same category' },
+    ];
+
+    expect(rows.map(supplierRfqDetailRouteParams)).toEqual([
+      { id: 'rfq-shared', shopId: 'shop-alpha' },
+      { id: 'rfq-shared', shopId: 'shop-beta' },
+    ]);
   });
 
   it('MK-SUPPLIER-category-id: duplicate display names resolve schema by category UUID', () => {

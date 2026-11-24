@@ -83,7 +83,13 @@ export default function MerchantRfqQuoteScreen() {
     setLoading(true);
     setError(null);
     try {
-      const next = await getSupplierRfq(id, shopId || undefined);
+      if (!shopId) {
+        setRfq(null);
+        setHasRead(false);
+        setDraftState(null);
+        throw new Error('Open this request from Supplier RFQs to choose a business.');
+      }
+      const next = await getSupplierRfq(id, shopId);
       if (currentRequestId !== requestId.current) return;
       setRfq(next);
       setHasRead(true);
@@ -112,7 +118,7 @@ export default function MerchantRfqQuoteScreen() {
     };
   }, [load]));
 
-  const activeRfq = rfq && rfq.id === id && (!shopId || rfq.shop_id === shopId) ? rfq : null;
+  const activeRfq = rfq && shopId && rfq.id === id && rfq.shop_id === shopId ? rfq : null;
   const viewState = activeRfq ? rfqViewState({
     status: activeRfq.status,
     expiresAt: activeRfq.expires_at,
