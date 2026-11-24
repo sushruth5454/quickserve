@@ -1,4 +1,11 @@
-import { getSportsBookingActions } from '../../model';
+import { getSportsBookingActions, getSportsEstimatedTotal } from '../../model';
+import { getCustomerSportsBooking } from '../../api';
+import { getSportsOnlineCheckoutDisclosure } from '../../SportsVenueBookingScreen';
+import { supabase } from '../../../../lib/supabase';
+
+jest.mock('../../../../lib/supabase', () => ({
+  supabase: { rpc: jest.fn() },
+}));
 
 const now = new Date('2026-11-21T00:00:00.000Z');
 
@@ -18,6 +25,57 @@ function dueBooking(status: 'pending_payment' | 'awaiting_payment') {
 }
 
 describe('sports checkout action presentation', () => {
+  it('SP-SUBTOTAL-NONZERO-FEE: the estimate stays at 100000 while checkout preserves the server total of 100500', async () => {
+    const startsAt = '2026-11-25T10:00:00.000Z';
+    const subtotal = getSportsEstimatedTotal([{
+      starts_at: startsAt,
+      ends_at: '2026-11-25T11:00:00.000Z',
+      state: 'free',
+      price_paise: 100000,
+    }], startsAt, 1);
+    (supabase.rpc as jest.Mock).mockResolvedValueOnce({
+      data: { participants: 3, price_paise: 100000, customer_fee_paise: 500, total_paise: 100500 },
+      error: null,
+    });
+
+    const checkout = await getCustomerSportsBooking('booking');
+    expect(JSON.stringify({
+      subtotal,
+      checkout: checkout && {
+        participants: checkout.participants,
+        price_paise: checkout.price_paise,
+        customer_fee_paise: checkout.customer_fee_paise,
+        total_paise: checkout.total_paise,
+      },
+      disclosure: getSportsOnlineCheckoutDisclosure('online'),
+    })).toBe(JSON.stringify({
+      subtotal: 100000,
+      checkout: { participants: 3, price_paise: 100000, customer_fee_paise: 500, total_paise: 100500 },
+      disclosure: 'Any customer fee and the exact total will appear in secure checkout.',
+    }));
+  });
+
+  it('SP-VENUE-NO-ONLINE-FEE: venue checkout preserves a zero server fee without online-fee disclosure', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValueOnce({
+      data: { participants: 3, price_paise: 100000, customer_fee_paise: 0, total_paise: 100000 },
+      error: null,
+    });
+
+    const checkout = await getCustomerSportsBooking('venue-booking');
+    expect(JSON.stringify({
+      checkout: checkout && {
+        participants: checkout.participants,
+        price_paise: checkout.price_paise,
+        customer_fee_paise: checkout.customer_fee_paise,
+        total_paise: checkout.total_paise,
+      },
+      disclosure: getSportsOnlineCheckoutDisclosure('pay_at_venue'),
+    })).toBe(JSON.stringify({
+      checkout: { participants: 3, price_paise: 100000, customer_fee_paise: 0, total_paise: 100000 },
+      disclosure: null,
+    }));
+  });
+
   it('SP-STAFF-NOT-PAYER: a business reader cannot pay a customer booking', () => {
     const actions = getSportsBookingActions({
       booking: dueBooking('pending_payment'),

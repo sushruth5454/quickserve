@@ -1,0 +1,78 @@
+{
+  "stageId": "O20-SLOTS",
+  "workPackage": "O20",
+  "sourceTaskIds": [
+    "SP-T10",
+    "SP-T12"
+  ],
+  "sourceFindingIds": [
+    "SP-F14",
+    "SP-F17"
+  ],
+  "approval": {
+    "gate": "E0",
+    "status": "APPROVED",
+    "evidenceSource": "Canonical planning ledger"
+  },
+  "base": {
+    "branch": "lane/oorva-o20-slots",
+    "commit": "502baebd91c0a39918dfba1bb393fe2e3859830a"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "commit": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+      "status": "DONE"
+    },
+    {
+      "stageId": "O20-SP05",
+      "commit": "d5edeb387107157a95214c97b8c5bf6c845ac119",
+      "status": "DONE"
+    },
+    {
+      "stageId": "O09-SP09",
+      "commit": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+      "status": "DONE"
+    }
+  ],
+  "implementation": {
+    "slotReads": "Venue/resource/date/participant/feature context and generation guard both stale success and stale error; choice, parent-context change and cleanup invalidate synchronously.",
+    "booking": "Selected slot and current booking request must share the same context identity before bookSportsSlot; unchanged transport retries reuse an idempotency key and semantic request changes reset it.",
+    "pricing": "Selection amount is labeled Slot subtotal (estimate); online fee and exact total are disclosed as checkout-only; existing cancellation-policy text remains.",
+    "moneyBehavior": "No client-side fee/total calculation or migration, SQL function, feature flag, payment, refund or cancellation-path change.",
+    "checkout": "Existing server-returned price, customer fee and total are preserved."
+  },
+  "ownedFiles": [
+    "app/src/features/sports/SportsVenueBookingScreen.tsx",
+    "app/src/features/sports/__tests__/slotReadContext.test.ts",
+    "app/src/features/sports/__tests__/checkoutPresentation.test.ts",
+    "app/src/features/sports/sports/__tests__/slotReadContext.test.ts",
+    "app/src/features/sports/sports/__tests__/checkoutPresentation.test.ts",
+    "docs/design/oorva/evidence/o20-slots.json"
+  ],
+  "requiredCases": [
+    "SP-OUT-OF-ORDER-SUCCESS",
+    "SP-OUT-OF-ORDER-ERROR",
+    "SP-SELECTED-CONTEXT-GUARD",
+    "SP-IDEMPOTENT-RETRY",
+    "SP-SUBTOTAL-NONZERO-FEE",
+    "SP-VENUE-NO-ONLINE-FEE"
+  ],
+  "validation": {
+    "codespace": {
+      "status": "BLOCKED",
+      "helperSource": "origin/main at 502baebd91c0a39918dfba1bb393fe2e3859830a",
+      "failure": "HTTP 404: Not Found for the Codespaces API; the operation requires the codespace scope. The helper then failed because its Codespace selection result was null.",
+      "selectors": [
+        "src.features.sports.sports.__tests__.slotReadContext[.]test[.]ts$",
+        "src.features.sports.__tests__.slotReadContext[.]test[.]ts$",
+        "src.features.sports.sports.__tests__.checkoutPresentation[.]test[.]ts$",
+        "src.features.sports.__tests__.checkoutPresentation[.]test[.]ts$"
+      ],
+      "selectorExecution": "Not reached; all four helper calls failed during Codespace discovery before test selection.",
+      "snapshots": [],
+      "fallback": "Lane CI"
+    },
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}
