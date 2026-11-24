@@ -1,11 +1,10 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { Card, EmptyState, ErrorState, Skeleton, Text } from '../../../components/ui';
-import { formatINR } from '../../../lib/money';
+import { EmptyState, ErrorState, Skeleton } from '../../../components/ui';
 import { listMyCustomerSportsBookings, type CustomerSportsBooking } from '../../sports/api';
+import { SportsBookingCard } from '../../sports/SportsBookingCard';
 import { useTheme } from '../../../theme';
-import { slotLabel } from '../model';
 import type { MarkRead, RegisterRefresh } from './types';
 
 export function SportsSegment({ registerRefresh, markRead }: { registerRefresh: RegisterRefresh; markRead: MarkRead }) {
@@ -34,28 +33,14 @@ export function SportsSegment({ registerRefresh, markRead }: { registerRefresh: 
   return (
     <View style={{ gap: t.spacing.sm }}>
       {bookings.map((booking) => (
-        <Card
+        <SportsBookingCard
           key={booking.id}
+          booking={booking}
           onPress={() => {
             void markRead('sports_booking', booking.id).catch(() => undefined);
             router.push({ pathname: '/sports-booking/[id]', params: { id: booking.id } } as Href);
           }}
-          gap={t.spacing.xs}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-            <Text variant="bodyStrong" style={{ flex: 1 }}>{booking.venue_name}</Text>
-            <Text variant="captionStrong" color={booking.status === 'accepted' ? 'successText' : 'muted'}>
-              {booking.status.toUpperCase()}
-            </Text>
-          </View>
-          <Text variant="footnote" color="muted">{booking.activity_name} · {booking.resource_name}</Text>
-          <Text variant="footnote">
-            {slotLabel(booking.starts_at)} · {formatINR(booking.price_paise)} · {booking.status === 'accepted' ? 'Pay at venue' : 'No online payment'}
-          </Text>
-          {booking.status === 'requested' ? (
-            <Text variant="caption" color="muted">Owner response due by {slotLabel(booking.expires_at)}</Text>
-          ) : null}
-        </Card>
+        />
       ))}
     </View>
   );
