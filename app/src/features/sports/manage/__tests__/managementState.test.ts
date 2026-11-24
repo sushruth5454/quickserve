@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  getVenueBookingSections,
   getBookingsForVenue,
   getHoursDraftFromRows,
   getManagementLoadPresentation,
@@ -16,7 +17,13 @@ import {
   type VenueDraftValues,
   useSportsVenueManagementState,
 } from '../useSportsVenueManagementState';
+import {
+  renderAssignedBookings,
+  renderOwnerManagementSections,
+  renderVenueBookingLists,
+} from '../BookingSections';
 import { useAdminSportsController } from '../../../sportsScreens/AdminSportsScreen';
+import { getSportsBookingStatusLabel } from '../../model';
 import type { ManagementVenue, Resource, SportsBookingRow } from '../types';
 
 jest.mock('expo-router', () => ({ router: { back: jest.fn() }, useFocusEffect: jest.fn() }));
@@ -381,6 +388,109 @@ describe('SP-REVOKED-MEMBER', () => {
     expect(getBookingsForVenue(bookings, 'venue-a').map((booking) => booking.id)).toEqual(['booking-a']);
     expect(getBookingsForVenue(bookings, '')).toEqual([]);
     expect(getBookingsForVenue(bookings, 'revoked-venue')).toEqual([]);
+  });
+});
+
+function booking(
+  id: string,
+  status: string,
+  startsAt: string,
+  endsAt: string,
+  venueId = 'venue-a',
+): SportsBookingRow {
+  return {
+    id,
+    owner_id: 'owner-a',
+    venue_id: venueId,
+    venue_name: 'East Court',
+    resource_name: 'Court 1',
+    activity_name: 'Tennis',
+    customer_name: `Customer ${id}`,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    status,
+    price_paise: 10000,
+  };
+}
+
+function collectText(value: unknown): string[] {
+  if (typeof value === 'string' || typeof value === 'number') return [String(value)];
+  if (Array.isArray(value)) return value.flatMap(collectText);
+  if (!React.isValidElement<{ children?: unknown }>(value)) return [];
+  return collectText(value.props.children);
+}
+
+function collectBookingIds(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(collectBookingIds);
+  if (!React.isValidElement<{ booking?: { id: string }; children?: unknown }>(value)) return [];
+  const ownId = value.props.booking?.id;
+  return [
+    ...(ownId ? [ownId] : []),
+    ...collectBookingIds(value.props.children),
+  ];
+}
+
+describe('SP-T15 owner booking presentation', () => {
+  const now = new Date('2026-11-24T10:00:00.000Z');
+  const allStatuses = [
+    booking('request', 'requested', '2026-11-25T10:00:00.000Z', '2026-11-25T11:00:00.000Z'),
+    booking('started', 'accepted', '2026-11-24T09:30:00.000Z', '2026-11-24T10:30:00.000Z'),
+    booking('future-accepted', 'accepted', '2026-11-24T12:00:00.000Z', '2026-11-24T13:00:00.000Z'),
+    booking('future-hold', 'pending_payment', '2026-11-24T13:00:00.000Z', '2026-11-24T14:00:00.000Z'),
+    booking('future-awaiting', 'awaiting_payment', '2026-11-24T14:00:00.000Z', '2026-11-24T15:00:00.000Z'),
+    booking('declined', 'declined', '2026-11-23T09:00:00.000Z', '2026-11-23T10:00:00.000Z'),
+    booking('cancelled', 'cancelled', '2026-11-23T10:00:00.000Z', '2026-11-23T11:00:00.000Z'),
+    booking('completed', 'completed', '2026-11-23T11:00:00.000Z', '2026-11-23T12:00:00.000Z'),
+    booking('expired', 'expired', '2026-11-23T12:00:00.000Z', '2026-11-23T13:00:00.000Z'),
+    booking('ended-accepted', 'accepted', '2026-11-23T13:00:00.000Z', '2026-11-23T14:00:00.000Z'),
+  ];
+
+  it('SP-REQUEST-FIRST places actionable requests before owner configuration only when family UX is on', () => {
+    const groups = getVenueBookingSections([allStatuses[0]!], now);
+    const bookingSections = renderVenueBookingLists(groups, 8);
+    const editors = React.createElement('section', null, 'Venue details and configuration');
+
+    const modernText = collectText(renderOwnerManagementSections(bookingSections, editors, true)).join(' ');
+    const legacyText = collectText(renderOwnerManagementSections(bookingSections, editors, false)).join(' ');
+
+    expect(modernText.indexOf('Booking requests')).toBeGreaterThanOrEqual(0);
+    expect(modernText.indexOf('Booking requests')).toBeLessThan(modernText.indexOf('Venue details and configuration'));
+    expect(legacyText.indexOf('Venue details and configuration')).toBeLessThan(legacyText.indexOf('Booking requests'));
+  });
+
+  it('SP-CURRENT-AND-HISTORY-ALL-STATUSES retains started accepted and every returned terminal row', () => {
+    const groups = getVenueBookingSections(allStatuses, now);
+    const allGroupedIds = [
+      ...groups.requests,
+      ...groups.current,
+      ...groups.upcoming,
+      ...groups.history,
+    ].map((row) => row.id);
+    const historyStatuses = groups.history.map((row) => row.status);
+    const renderedText = collectText(renderVenueBookingLists(groups, 8)).join(' ');
+
+    expect(groups.current.map((row) => row.id)).toEqual(['started']);
+    expect(groups.upcoming.map((row) => row.id)).toEqual(['future-accepted', 'future-hold', 'future-awaiting']);
+    expect(historyStatuses).toEqual(['declined', 'cancelled', 'completed', 'expired', 'accepted']);
+    expect(allGroupedIds.slice().sort()).toEqual(allStatuses.map((row) => row.id).sort());
+    expect(new Set(allGroupedIds).size).toBe(allStatuses.length);
+    expect(getSportsBookingStatusLabel('pending_payment')).not.toBe('Confirmed');
+    expect(getSportsBookingStatusLabel('awaiting_payment')).not.toBe('Confirmed');
+    expect(renderedText).toContain('Payment-due bookings are held, not confirmed.');
+  });
+
+  it('SP-OWNER-STAFF-PARITY keeps the same assigned booking rows visible without staff decision actions', () => {
+    const rows = [...allStatuses, booking('other-venue', 'accepted', '2026-11-25T15:00:00.000Z', '2026-11-25T16:00:00.000Z', 'venue-b')];
+    const selectedVenueRows = getBookingsForVenue(rows, 'venue-a');
+    const ownerRows = getVenueBookingSections(selectedVenueRows, now);
+    const ownerView = renderVenueBookingLists(ownerRows, 8);
+    const staffView = renderAssignedBookings('East Court', selectedVenueRows, 8);
+    const expectedIds = selectedVenueRows.map((row) => row.id);
+    const staffText = collectText(staffView).join(' ');
+
+    expect(collectBookingIds(ownerView).slice().sort()).toEqual(expectedIds.slice().sort());
+    expect(collectBookingIds(staffView)).toEqual(expectedIds);
+    expect(staffText).not.toMatch(/\b(approve|decline|cancel|refund)\b/i);
   });
 });
 
