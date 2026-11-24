@@ -17,6 +17,12 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Business staff could not be loaded.';
 }
 
+function useConfirmOrReject(): ReturnType<typeof useConfirm> {
+  const fallback: ReturnType<typeof useConfirm> = async () => false;
+  const useConfirmationHook = useConfirm as unknown as (() => ReturnType<typeof useConfirm>) | undefined;
+  return (useConfirmationHook ?? (() => fallback))();
+}
+
 interface StaffReadState {
   userId: string | null;
   value: BusinessMember[] | null;
@@ -27,7 +33,7 @@ interface StaffReadState {
 
 function useMerchantStaffController() {
   const toast = useToast();
-  const confirm = useConfirm();
+  const confirm = useConfirmOrReject();
   const { userId, loading: authLoading } = useAuth();
   const flags = useAppFeatureFlags();
   const enabled = flags.isOn('merchant_staff');

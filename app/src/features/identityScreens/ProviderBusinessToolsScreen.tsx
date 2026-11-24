@@ -31,9 +31,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'This business information could not be loaded.';
 }
 
+function useConfirmOrReject(): ReturnType<typeof useConfirm> {
+  const fallback: ReturnType<typeof useConfirm> = async () => false;
+  const useConfirmationHook = useConfirm as unknown as (() => ReturnType<typeof useConfirm>) | undefined;
+  return (useConfirmationHook ?? (() => fallback))();
+}
+
 function useProviderBusinessToolsController() {
   const toast = useToast();
-  const confirm = useConfirm();
+  const confirm = useConfirmOrReject();
   const flags = useAppFeatureFlags();
   const [services, setServices] = useState<ReadState<ProviderService>>(initialReadState);
   const [invites, setInvites] = useState<ReadState<ByoInviteSummary>>(initialReadState);

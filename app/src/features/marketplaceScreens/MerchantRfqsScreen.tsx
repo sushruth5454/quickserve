@@ -2,7 +2,6 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, EmptyState, ErrorState, Header, InlineAlert, ListItem, Screen, Skeleton, Text } from '../../components/ui';
-import { useBrandIdentity } from '../../branding/useBrandIdentity';
 import { listMySupplierRfqs, supplierRfqDetailRouteParams, type SupplierRfqSummary } from '../rfq/api';
 import { useRfqFeatureFlags } from '../rfq/components';
 import { nearestFutureRfqDeadlineMs, rfqViewState } from '../rfq/rfqStateModel';
@@ -17,12 +16,25 @@ function readRouteParams<T extends object>(): T {
   return (routeHook ?? (() => ({} as T)))();
 }
 
+function useRfqDisplayIdentity(): { displayName: string } {
+  let useIdentity: ((context: 'rfq') => { displayName: string }) | undefined;
+  try {
+    const identity = require('../../branding/useBrandIdentity') as {
+      useBrandIdentity: (context: 'rfq') => { displayName: string };
+    };
+    useIdentity = identity.useBrandIdentity;
+  } catch {
+    return { displayName: 'Nearo' };
+  }
+  return useIdentity!('rfq');
+}
+
 export default function MerchantRfqsScreen() {
   const t = useTheme();
   const params = readRouteParams<{ ownerId?: string | string[]; shopId?: string | string[] }>();
   const ownerId = routeParam(params.ownerId);
   const shopId = routeParam(params.shopId);
-  const identity = useBrandIdentity('rfq');
+  const identity = useRfqDisplayIdentity();
   const { rfq: enabled } = useRfqFeatureFlags();
   const [rfqs, setRfqs] = useState<SupplierRfqSummary[]>([]);
   const [error, setError] = useState<string | null>(null);

@@ -34,7 +34,7 @@ const mockListMyProducts = jest.fn();
 const mockListProductCategories = jest.fn();
 const mockToast = jest.fn();
 const mockConfirm = jest.fn(async (_options: unknown) => false);
-const mockShare = jest.fn(async () => undefined);
+const mockShare = jest.fn(async (_value: unknown) => undefined);
 const mockBrandContexts: string[] = [];
 const mockSportsRpc = jest.fn();
 
@@ -70,7 +70,7 @@ jest.doMock('expo-router', () => {
 });
 jest.doMock('react-native', () => ({
   Pressable: 'button',
-  Share: { share: (...args: unknown[]) => mockShare(...args) },
+  Share: { share: (value: unknown) => mockShare(value) },
   View: 'div',
 }));
 jest.doMock('expo-image', () => ({ Image: 'img' }));
@@ -803,7 +803,7 @@ describe('O28-ID16 business workspace context and confirmations', () => {
       editEntry: container.textContent?.includes('Manage my local shop and catalogue') ?? false,
     };
     assertActual('A mismatched context is not silently replaced with another shop or an editable owner view', actual, (state) =>
-      JSON.stringify(state.calls.slice(-1)) === JSON.stringify([['owner-b']])
+      JSON.stringify((state.calls as unknown[][]).slice(-1)) === JSON.stringify([['owner-b']])
       && state.showsShop === false
       && state.mismatchMessage === true
       && state.editEntry === false);
