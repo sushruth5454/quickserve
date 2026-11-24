@@ -1,0 +1,84 @@
+{
+  "stage": "O28-ID10",
+  "workPackage": "O28",
+  "status": "implementation-lane-ci-passed-auth-reviewed",
+  "implementationCommit": "aa0fda3b7f8ec618da100ef18ee2c63f4d2c5f36",
+  "base": {
+    "implementationBaseSha": "447dc1acca581adacc70f97295bb445342d9666d",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "auditSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "originMainSha": "dd969a4061b8bbf115356c63e645365358eade37",
+    "dependencies": [
+      {
+        "stage": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222"
+      },
+      {
+        "stage": "O38R",
+        "commit": "25e88c290a0d37b8f7b09943b50d80ab547376d7"
+      },
+      {
+        "stage": "O28-ID03",
+        "commit": "447dc1acca581adacc70f97295bb445342d9666d"
+      }
+    ]
+  },
+  "files": [
+    "app\\app\\(provider)\\business-tools.tsx",
+    "app\\app\\merchant-staff.tsx",
+    "app\\app\\merchant-work.tsx",
+    "app\\src\\features\\merchantStaff\\__tests__\\workspaceState.test.tsx",
+    "app\\src\\features\\identityScreens\\ProviderBusinessToolsScreen.tsx",
+    "app\\src\\features\\identityScreens\\MerchantStaffScreen.tsx",
+    "app\\src\\features\\identityScreens\\MerchantWorkScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o28-id10.json"
+  ],
+  "implementation": [
+    "Extracted the three inline route screens into the exact canonical feature hosts; routes remain thin default exports.",
+    "Represented services, BYO invites, staff members, and memberships as unloaded, loaded, or errored reads; retries preserve successful stale data and clear errors on success.",
+    "Membership read failures no longer render successful-empty states or actionable staff-management forms; failed refreshes retain identity while delegated actions are disabled.",
+    "Business work keys use business_type:business_id; provider dashboard navigation continues to pass providerId from owner_id.",
+    "Shop enquiry and RFQ actions require merchant_staff plus products and the corresponding child flag; sports work requires merchant_staff plus sports. Owner-role capability modeling remains governed by domain parents rather than merchant_staff.",
+    "The provider BYO tools and history remain independent of merchant_staff; the staff shortcut is shown only while merchant_staff is effective.",
+    "No migration, SQL function, shared registration, or API input file was changed."
+  ],
+  "testCases": [
+    "ID-WORK-ERROR-NOT-EMPTY",
+    "ID-WORK-UNIQUE-KEYS",
+    "ID-WORK-PARENT-OFF",
+    "ID-STAFF-OWNER-DENY",
+    "ID-BYO-READ-ERROR",
+    "ID-BYO-SERVICE-READ-ERROR",
+    "ID-WORK-STALE-REFRESH"
+  ],
+  "validation": [
+    {
+      "suite": "codespace-app",
+      "selector": "src.features.merchantStaff.__tests__.workspaceState[.]test[.]tsx$",
+      "result": "UNAVAILABLE",
+      "error": "HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30); this API operation needs the codespace scope. The helper then reported: You cannot call a method on a null-valued expression. Lane CI is the documented fallback."
+    },
+    {
+      "suite": "git-diff-check",
+      "result": "PASS"
+    },
+    {
+      "suite": "lane-ci",
+      "branch": "lane/oorva-o28-id10",
+      "runId": "45403256747",
+      "headSha": "aa0fda3b7f8ec618da100ef18ee2c63f4d2c5f36",
+      "result": "PASS",
+      "jobs": {
+        "app": "typecheck and unit tests passed",
+        "deno": "tests and type checks passed",
+        "sql": "PGlite tests passed"
+      }
+    },
+    {
+      "suite": "focused-auth-review",
+      "reviewedHead": "aa0fda3b7f8ec618da100ef18ee2c63f4d2c5f36",
+      "result": "PASS",
+      "findings": 0
+    }
+  ]
+}
