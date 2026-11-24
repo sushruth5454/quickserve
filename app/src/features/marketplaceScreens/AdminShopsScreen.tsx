@@ -9,9 +9,9 @@ import {
   adminSetShopStatus,
   adminShopDashboard,
   type AdminShop,
-  type ShopStatus,
 } from '../shops/api';
 import { ShopStatusLabel } from '../shops/components';
+import { shopReviewActions, type ReviewAction } from '../shops/shopReviewPresentation';
 import { useTheme } from '../../theme';
 
 type CategoryRow = { id: string; slug: string; name: string; active: boolean; sort_order: number };
@@ -27,7 +27,8 @@ export default function AdminShopsScreen() {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [readsCurrent, setReadsCurrent] = useState(false);
-  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [pendingAction, setPendingAction] = useState<{ shopId: string; action: ReviewAction } | null>(null);
+  const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,21 +59,25 @@ export default function AdminShopsScreen() {
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  const setStatus = async (shop: AdminShop, status: ShopStatus) => {
+  const setStatus = async (shop: AdminShop, action: ReviewAction, reasonValue: string) => {
     if (!readsCurrent) return;
-    const reason = reasons[shop.id] ?? '';
-    if ((status === 'rejected' || status === 'suspended') && !reason.trim()) {
+    const trimmedReason = reasonValue.trim();
+    if (action.requiresReason && !trimmedReason) {
       toast({ message: 'A reason is required to reject or suspend a shop.', tone: 'error' });
       return;
     }
     setBusy(shop.id);
     setActionError(null);
     try {
-      await adminSetShopStatus(shop.id, status, reasons[shop.id] ?? '');
-      setReasons((current) => ({ ...current, [shop.id]: '' }));
+      await adminSetShopStatus(shop.id, action.id, trimmedReason);
+      setPendingAction(null);
+      setReason('');
       await load();
-      toast({ message: `${shop.name}: ${status.replaceAll('_', ' ')}`, tone: 'success' });
+      toast({ message: `${shop.name}: ${action.label}`, tone: 'success' });
     } catch (e) {
+      setPendingAction(null);
+      setReason('');
+      await load();
       setActionError((e as Error).message);
     } finally {
       setBusy(null);
@@ -126,18 +131,60 @@ export default function AdminShopsScreen() {
           {shop.lat != null && shop.lng != null ? <Text variant="caption" color="muted">{shop.lat.toFixed(5)}, {shop.lng.toFixed(5)}</Text> : null}
           <Text variant="caption" color="muted">Categories: {shop.category_slugs.join(' · ') || 'None'}</Text>
           {shop.status_reason ? <Text color="dangerText">Reason: {shop.status_reason}</Text> : null}
-          <Input
-            label="Reason (required to reject or suspend)"
-            value={reasons[shop.id] ?? ''}
-            onChangeText={(value) => setReasons((current) => ({ ...current, [shop.id]: value }))}
-            maxLength={500}
-          />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
-            <Button title="Under review" size="sm" variant="outline" loading={busy === shop.id} disabled={!readsCurrent} onPress={() => void setStatus(shop, 'under_review')} />
-            <Button title="Verify" size="sm" loading={busy === shop.id} disabled={!readsCurrent} onPress={() => void setStatus(shop, 'verified')} />
-            <Button title="Reject" size="sm" variant="outline" loading={busy === shop.id} disabled={!readsCurrent} onPress={() => void setStatus(shop, 'rejected')} />
-            <Button title="Suspend" size="sm" variant="ghost" loading={busy === shop.id} disabled={!readsCurrent} onPress={() => void setStatus(shop, 'suspended')} />
-          </View>
+          {pendingAction?.shopId === shop.id ? (
+            <View style={{ gap: t.spacing.xs }}>
+              <Text>Confirm {pendingAction.action.label.toLowerCase()} for {shop.name}</Text>
+              {pendingAction.action.requiresReason ? (
+                <Input
+                  label={`Reason to ${pendingAction.action.id === 'rejected' ? 'reject' : 'suspend'}`}
+                  value={reason}
+                  onChangeText={setReason}
+                  maxLength={500}
+                />
+              ) : null}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+                <Button
+                  title={`Confirm ${pendingAction.action.label}`}
+                  size="sm"
+                  variant="destructive"
+                  loading={busy === shop.id}
+                  disabled={!readsCurrent || (pendingAction.action.requiresReason && !reason.trim())}
+                  onPress={() => void setStatus(shop, pendingAction.action, reason)}
+                />
+                <Button
+                  title="Cancel"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy === shop.id}
+                  onPress={() => {
+                    setPendingAction(null);
+                    setReason('');
+                  }}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.xs }}>
+              {shopReviewActions(shop.status).map((action) => (
+                <Button
+                  key={action.id}
+                  title={action.label}
+                  size="sm"
+                  variant={action.id === 'verified' ? 'primary' : action.id === 'suspended' ? 'ghost' : 'outline'}
+                  loading={busy === shop.id}
+                  disabled={!readsCurrent}
+                  onPress={() => {
+                    if (action.confirmation === 'destructive') {
+                      setReason('');
+                      setPendingAction({ shopId: shop.id, action });
+                    } else {
+                      void setStatus(shop, action, '');
+                    }
+                  }}
+                />
+              ))}
+            </View>
+          )}
         </Card>
       )) : readsCurrent ? <EmptyState title="No shops match this filter" /> : null}
 
