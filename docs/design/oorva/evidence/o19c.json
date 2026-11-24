@@ -57,6 +57,14 @@
       "exactFailure": "error getting codespaces: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30); GitHub reported that this API operation needs the codespace scope. The helper then failed because no Codespace value was available. No test selection or Codespace result was produced."
     },
     {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.rfq.__tests__.composition[.]test[.]tsx$'",
+      "helperSource": "origin/main:scripts/cs-test.ps1 at ec2b3148a1d1765f70dba777ba9d3cf282e16995",
+      "snapshot": "wip/quickserve-new-o19c @ 4a6371b9",
+      "selectedTestFiles": 1,
+      "testsPassed": 5,
+      "status": "PASS"
+    },
+    {
       "command": "git diff --check",
       "status": "PASS"
     },

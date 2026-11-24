@@ -64,6 +64,25 @@ export async function run({ withClient, withTwoClients }) {
 
   assert.equal(versionSaved, true, 'the publication fixture must be immutable and saved before the race');
 
+  const baseline = await withClient(async (client) => {
+    const result = await client.query(`
+      select public.get_app_branding_snapshot() as snapshot,
+             (select count(*)::integer from public.app_branding_publications) as publication_count
+    `);
+    return result.rows[0];
+  });
+  assert.match(
+    baseline.snapshot?.generation ?? '',
+    /^\d+$/,
+    `branding fixture must start from a decimal generation; actual=${JSON.stringify(baseline)}`,
+  );
+  assert.ok(
+    Number.isInteger(baseline.publicationCount),
+    `branding publication history baseline must be available; actual=${JSON.stringify(baseline)}`,
+  );
+  const expectedGeneration = BigInt(baseline.snapshot.generation);
+  const nextGeneration = (expectedGeneration + 1n).toString();
+
   await withTwoClients(async (first, second) => {
     const [firstPidResult, secondPidResult] = await Promise.all([
       first.query(`select pg_backend_pid() as pid`),
@@ -89,11 +108,11 @@ export async function run({ withClient, withTwoClients }) {
       firstTransactionOpen = true;
       const firstPublish = await first.query(
         `select public.admin_publish_branding($1::uuid, $2::bigint, $3::text) as snapshot`,
-        [versionId, 0, 'First concurrent publisher'],
+        [versionId, expectedGeneration.toString(), 'First concurrent publisher'],
       );
       assert.equal(
         firstPublish.rows[0]?.snapshot?.generation,
-        '1',
+        nextGeneration,
         `first publisher should advance the generation inside its transaction; actual=${JSON.stringify(firstPublish.rows)}`,
       );
 
@@ -107,13 +126,17 @@ export async function run({ withClient, withTwoClients }) {
           publishedVersionId: beforeSnapshot?.publishedVersionId,
           config: beforeSnapshot?.config,
         }),
-        JSON.stringify({ generation: '0', publishedVersionId: null, config: null }),
+        JSON.stringify({
+          generation: baseline.snapshot.generation,
+          publishedVersionId: baseline.snapshot.publishedVersionId,
+          config: baseline.snapshot.config,
+        }),
         `reader must observe the old complete snapshot before publisher A commits; actual=${JSON.stringify(beforeSnapshot)}`,
       );
 
       secondPublish = second.query(
         `select public.admin_publish_branding($1::uuid, $2::bigint, $3::text) as snapshot`,
-        [versionId, 0, 'Second publisher with stale expected generation'],
+        [versionId, expectedGeneration.toString(), 'Second publisher with stale expected generation'],
       );
       let blockedByPublicationLock = false;
       for (let attempt = 0; attempt < 200; attempt += 1) {
@@ -167,22 +190,38 @@ export async function run({ withClient, withTwoClients }) {
           displayName: afterSnapshot?.config?.displayName,
         }),
         JSON.stringify({
-          generation: '1',
+          generation: nextGeneration,
           publishedVersionId: versionId,
           displayName: config.displayName,
         }),
         `reader must observe the new complete snapshot after publisher A commits; actual=${JSON.stringify(afterSnapshot)}`,
       );
 
+      const publicationCountAfter = await second.query(
+        `select count(*)::integer as count from public.app_branding_publications`,
+      );
       const publications = await second.query(
         `select generation, publication_kind, target_version_id
            from public.app_branding_publications
-          order by generation`,
+          where generation = $1::bigint`,
+        [nextGeneration],
+      );
+      assert.equal(
+        publicationCountAfter.rows[0]?.count,
+        baseline.publicationCount + 1,
+        `race must append exactly one publication history row; actual=${JSON.stringify({
+          baseline: baseline.publicationCount,
+          after: publicationCountAfter.rows[0]?.count,
+        })}`,
       );
       assert.equal(
         JSON.stringify(publications.rows),
-        JSON.stringify([{ generation: '1', publication_kind: 'publish', target_version_id: versionId }]),
-        `race must commit exactly one publication history row; actual=${JSON.stringify(publications.rows)}`,
+        JSON.stringify([{
+          generation: nextGeneration,
+          publication_kind: 'publish',
+          target_version_id: versionId,
+        }]),
+        `race must commit one publication row for the next generation; actual=${JSON.stringify(publications.rows)}`,
       );
     } finally {
       if (firstTransactionOpen) await first.query('rollback').catch(() => undefined);
