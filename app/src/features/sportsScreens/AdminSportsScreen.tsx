@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
@@ -6,6 +6,7 @@ import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../theme';
 import { getVenueReviewPresentation, type VenueReviewAction } from '../sports/venueReviewPresentation';
+import { useSportsReadRefresh } from '../sports/useSportsReadRefresh';
 
 interface VenueReview {
   id: string;
@@ -36,22 +37,32 @@ export default function AdminSportsScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!enabled) return;
     setError(null);
-    const [venueResult, activityResult] = await Promise.all([
-      supabase.rpc('admin_list_sports_venues'),
-      supabase.rpc('admin_list_sports_activities'),
-    ]);
-    if (venueResult.error || activityResult.error) {
-      setError(venueResult.error?.message ?? activityResult.error?.message ?? 'Could not load sports management.');
-      return;
+    try {
+      const [venueResult, activityResult] = await Promise.all([
+        supabase.rpc('admin_list_sports_venues'),
+        supabase.rpc('admin_list_sports_activities'),
+      ]);
+      if (!guard.isCurrent()) return;
+      if (venueResult.error || activityResult.error) {
+        setError(venueResult.error?.message ?? activityResult.error?.message ?? 'Could not load sports management.');
+        return;
+      }
+      setVenues((venueResult.data ?? []) as VenueReview[]);
+      setActivities((activityResult.data ?? []) as Activity[]);
+    } catch (caught) {
+      if (guard.isCurrent()) {
+        setError((caught as Error).message || 'Could not load sports management.');
+      }
     }
-    setVenues((venueResult.data ?? []) as VenueReview[]);
-    setActivities((activityResult.data ?? []) as Activity[]);
   }, [enabled]);
-
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  const { refresh: load } = useSportsReadRefresh(loadForRefresh, {
+    contextKey: `admin-sports-review:${enabled ? 'on' : 'off'}`,
+    enabled,
+    intervalMs: 60_000,
+  });
 
   const setVenueStatus = async (venue: VenueReview, action: VenueReviewAction) => {
     if (action.kind !== 'admin' || !action.target) return;
