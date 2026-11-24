@@ -2135,13 +2135,29 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
           waitError: String(error?.message ?? error),
         })}`);
       }
+      const showOfferLines = page.getByRole('button', { name: 'Show offer lines', exact: true });
+      const showOfferLinesCount = await showOfferLines.count();
+      if (showOfferLinesCount < 1) {
+        throw new Error(`RFQ offer details could not be expanded: ${JSON.stringify({
+          rfqId,
+          quoteId,
+          showOfferLinesCount,
+          body: (await page.locator('body').innerText()).slice(0, 1800),
+        })}`);
+      }
+      await showOfferLines.first().click();
       await page.getByText(/History/).first().waitFor({ state: 'visible' });
       await visible('Existing RFQ history is read-only while new RFQs are turned off. You may cancel your own open request.');
       const cancelButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
       if (!(await cancelButtons.count())) throw new Error(`RFQ owner cannot see Cancel request for ${JSON.stringify({ rfqId })}`);
       const chooseButtons = page.getByRole('button', { name: 'Choose this supplier', exact: true });
-      if (!(await chooseButtons.count()) || !(await chooseButtons.first().isDisabled())) {
-        throw new Error(`Choose this supplier was not disabled while products are OFF: ${JSON.stringify({ rfqId, count: await chooseButtons.count(), disabled: await chooseButtons.first().isDisabled().catch(() => null) })}`);
+      const chooseButtonCount = await chooseButtons.count();
+      if (chooseButtonCount !== 0) {
+        throw new Error(`Supplier selection remained visible while products are OFF: ${JSON.stringify({
+          rfqId,
+          chooseButtonCount,
+          historyVisible: true,
+        })}`);
       }
 
       requireNotFoundDenial(
@@ -2260,6 +2276,82 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       if (afterOwnerCancel.rfq_status !== 'cancelled' || afterOwnerCancel.quote_status !== 'rejected') {
         throw new Error(`Owner cancellation did not atomically resolve the same RFQ/quote: ${JSON.stringify({ actual: afterOwnerCancel, expected: { rfq_status: 'cancelled', quote_status: 'rejected' } })}`);
       }
+
+      await applyFlags(featureOn);
+      await refreshFeatureState(featureOn);
+      await step('MK-ENQUIRY-same-PK-counterpart-refresh', async () => {
+        let ownerClosed = false;
+        try {
+          await go(`/enquiry/${enquiryId}`);
+          await visible(enquiryText);
+          await visible(ownerReplyText);
+          await visible('Conversation status: open');
+          requireRpcSuccess(
+            'owner closes the same enquiry ID',
+            await rpc(ownerToken, 'set_product_enquiry_status', { p_enquiry_id: enquiryId, p_status: 'closed' }),
+          );
+          ownerClosed = true;
+
+          await go('/bookings');
+          await go(`/enquiry/${enquiryId}`);
+          await visible('Conversation status: closed');
+          await visible('Reopen this enquiry to send a message.');
+          const customerClosedRows = requireRpcSuccess(
+            'customer reads the same closed enquiry after counterpart refresh',
+            await rpc(customerToken, 'get_product_enquiry', { p_enquiry_id: enquiryId }),
+          );
+          const customerClosed = Array.isArray(customerClosedRows)
+            ? customerClosedRows.find((row) => row?.id === enquiryId)
+            : customerClosedRows?.id === enquiryId ? customerClosedRows : null;
+          const actual = {
+            enquiryId,
+            url: page.url(),
+            customerClosed,
+            messageInputs: await page.getByLabel('Message', { exact: true }).count(),
+            sendButtons: await page.getByLabel('Send message', { exact: true }).count(),
+            reopenButtons: await page.getByRole('button', { name: 'Reopen', exact: true }).count(),
+          };
+          if (
+            customerClosed?.id !== enquiryId
+            || customerClosed.status !== 'closed'
+            || customerClosed.can_change_status !== true
+            || customerClosed.can_reopen !== true
+            || customerClosed.active_enquiry_id !== null
+            || actual.messageInputs !== 0
+            || actual.sendButtons !== 0
+            || actual.reopenButtons !== 1
+          ) {
+            throw new Error(`Counterpart refresh did not preserve same-ID closed state and customer actions: ${JSON.stringify({
+              actual,
+              expected: {
+                enquiryId,
+                status: 'closed',
+                can_change_status: true,
+                can_reopen: true,
+                active_enquiry_id: null,
+                messageInputs: 0,
+                sendButtons: 0,
+                reopenButtons: 1,
+              },
+            })}`);
+          }
+
+          await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+          await visible('Conversation status: open');
+          ownerClosed = false;
+        } finally {
+          if (ownerClosed) {
+            const restore = await rpc(ownerToken, 'set_product_enquiry_status', { p_enquiry_id: enquiryId, p_status: 'open' });
+            if (!restore.ok) {
+              cleanupErrors.push(`counterpart refresh state restore: ${JSON.stringify({
+                enquiryId,
+                status: restore.status,
+                body: restore.body,
+              })}`);
+            }
+          }
+        }
+      });
     } catch (error) {
       testError = error;
     } finally {
@@ -2959,13 +3051,6 @@ await step('admin-feature-registry', async () => {
     await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
     const shopCard = page.getByText(qaApprovalShopName, { exact: true })
       .locator('xpath=ancestor::*[.//*[@role="button"]][1]');
-    const adminReadbackPromise = PRIVATE_LOCAL_E2E
-      ? page.waitForResponse((response) =>
-        response.request().method() === 'POST'
-        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_list_shops')
-        && response.request().postDataJSON()?.p_status === 'all',
-      )
-      : null;
     await shopCard.getByRole('button', { name: 'Verify', exact: true }).click();
     try {
       await shopCard.getByText('Verified', { exact: true }).waitFor({ state: 'visible' });
@@ -2977,8 +3062,17 @@ await step('admin-feature-registry', async () => {
         bodyText: bodyText.slice(-1200),
       })}`);
     }
-    if (PRIVATE_LOCAL_E2E && adminReadbackPromise) {
+    if (PRIVATE_LOCAL_E2E) {
+      await page.reload();
+      await page.locator('text="Shop management" >> visible=true').last().waitFor();
+      const adminReadbackPromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_list_shops')
+        && response.request().postDataJSON()?.p_status === 'all',
+      );
+      await page.getByText('all', { exact: true }).first().click();
       const adminResponse = await adminReadbackPromise;
+      await shopCard.getByText('Verified', { exact: true }).waitFor({ state: 'visible' });
       const adminRows = await adminResponse.json();
       const adminShop = Array.isArray(adminRows)
         ? adminRows.find((row) => row.id === qaApprovalShopId)
