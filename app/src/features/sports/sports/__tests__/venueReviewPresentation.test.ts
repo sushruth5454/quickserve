@@ -194,7 +194,8 @@ describe('SP-QUEUE-FILTER-COUNTS', () => {
       await flushMicrotasks();
     });
     const renderedNames = Array.from(container.querySelectorAll('article'))
-      .map((card) => card.textContent?.match(/[A-F] (?:Submitted|Verified|Rejected|Suspended|Draft) Court/)?.[0]);
+      .map((card) => card.textContent?.match(/[A-F] (?:Submitted|Verified|Rejected|Suspended|Draft) Court/)?.[0])
+      .filter((name): name is string => name !== undefined);
     expect({ renderedNames, json: JSON.stringify(renderedNames) }).toEqual({
       renderedNames: venueRows.map((venue) => venue.name),
       json: JSON.stringify(venueRows.map((venue) => venue.name)),
