@@ -31,6 +31,7 @@
       "supabase\\tests-postgres\\branding_assets.http.test.mjs",
       "docs\\design\\oorva\\evidence\\o04.json"
     ],
+    "coordinatorApprovedConfigFile": "supabase\\config.toml",
     "sqlFunctions": [],
     "sqlObjects": [],
     "migrationClaims": [],
@@ -60,7 +61,7 @@
     "publicGateway": {
       "file": "supabase\\config.toml",
       "requiredEntry": "[functions.branding-assets]\\nverify_jwt = false",
-      "status": "NOT_EDITED; outside O04 worker lock. Required so an Image request without Authorization can reach the public GET handler; coordinator authorization/registration is needed before claiming anonymous-gateway behavior."
+      "status": "ADDED_IN_THIS_CHECKPOINT; the gateway passes through anonymous GET so the handler can apply the published/non-revoked and parent-feature checks. Every admin POST still performs its own JWT/user/admin/parent validation before service-role Storage access."
     },
     "deployment": {
       "file": ".github\\workflows\\deploy-backend.yml",
