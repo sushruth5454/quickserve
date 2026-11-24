@@ -2665,7 +2665,15 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
             actual: { shop_id: detail?.shop_id ?? null, shop_name: detail?.shop_name ?? null },
           })}`);
         }
-        await page.getByText(shopNames[index], { exact: false }).first().waitFor({ state: 'visible' });
+        const detailHeading = page.getByRole('heading', { name: rfqTitle, exact: true });
+        await detailHeading.waitFor({ state: 'visible' });
+        const detailHeaderText = await detailHeading.locator('xpath=..').innerText();
+        if (!detailHeaderText.includes(shopNames[index])) {
+          throw new Error(`MK-BUSINESS detail header lost business context: ${JSON.stringify({
+            expectedShopName: shopNames[index],
+            actualHeaderText: detailHeaderText,
+          })}`);
+        }
         if (new URL(page.url()).pathname !== `/rfq/merchant/${rfqId}`) {
           throw new Error(`MK-BUSINESS detail route used a different RFQ: ${JSON.stringify({ expectedRfqId: rfqId, actualUrl: page.url(), shopId: shopIds[index] })}`);
         }
