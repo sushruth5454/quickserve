@@ -2,6 +2,29 @@ jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), canGoBack: () => false, replace: jest.fn() },
 }));
+jest.mock('react-native', () => ({ Pressable: 'Pressable', View: 'View' }));
+jest.mock('../../../components/market/PriceFooter', () => ({ PriceFooter: () => null }));
+jest.mock('../../../components/ui', () => ({
+  Button: () => null,
+  Card: () => null,
+  EmptyState: () => null,
+  ErrorState: () => null,
+  Header: () => null,
+  InlineAlert: () => null,
+  Input: () => null,
+  Screen: () => null,
+  Skeleton: () => null,
+  Text: () => null,
+  TextArea: () => null,
+  useToast: jest.fn(),
+}));
+jest.mock('../../../i18n', () => ({ useT: jest.fn() }));
+jest.mock('../../../lib/authGate', () => ({ requireSignIn: jest.fn() }));
+jest.mock('../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
+jest.mock('../../../lib/money', () => ({ formatINR: jest.fn() }));
+jest.mock('../../../theme', () => ({ useTheme: jest.fn() }));
+jest.mock('../bookingPresentation', () => ({ sportsVenueBookingReturnTo: jest.fn() }));
+jest.mock('../useSportsReadRefresh', () => ({ useSportsReadRefresh: jest.fn() }));
 
 import { getSportsBookingActions, getSportsEstimatedTotal } from '../model';
 import { getCustomerSportsBooking } from '../api';
