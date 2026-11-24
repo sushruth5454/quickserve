@@ -120,6 +120,9 @@ jest.mock('../../../lib/config', () => ({ isDemoMode: false }));
 jest.mock('../../../lib/auth', () => ({
   useAuth: () => ({ userId: 'search-test-user', loading: false }),
 }));
+jest.mock('../../../lib/authGate', () => ({
+  requireSignIn: jest.fn(async () => false),
+}));
 jest.mock('../../ai/productSearch', () => ({ searchProductsWithAi: jest.fn() }));
 jest.mock('../../../lib/locationContext', () => ({
   useSelectedLocation: () => ({
