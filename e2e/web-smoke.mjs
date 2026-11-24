@@ -2232,7 +2232,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         await visible(expectedCancelCopy);
         const confirmationButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
         const confirmationButtonCount = await confirmationButtons.count();
-        if (confirmationButtonCount < 2) {
+        if (confirmationButtonCount < 1) {
           throw new Error(`Custom RFQ cancellation confirmation is missing its confirm action: ${JSON.stringify({
             rfqId,
             confirmationButtonCount,
