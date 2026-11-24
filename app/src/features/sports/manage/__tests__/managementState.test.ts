@@ -16,9 +16,14 @@ import {
   type VenueDraftValues,
   useSportsVenueManagementState,
 } from '../useSportsVenueManagementState';
+import { useAdminSportsController } from '../../../sportsScreens/AdminSportsScreen';
 import type { ManagementVenue, Resource, SportsBookingRow } from '../types';
 
-jest.mock('expo-router', () => ({ useFocusEffect: jest.fn() }));
+jest.mock('expo-router', () => ({ router: { back: jest.fn() }, useFocusEffect: jest.fn() }));
+jest.mock('../../../../components/ui', () => ({
+  useConfirm: () => jest.fn().mockResolvedValue(true),
+  useToast: () => jest.fn(),
+}));
 jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
 jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
 jest.mock('../../../../lib/locationContext', () => ({ useSelectedLocation: jest.fn() }));
@@ -250,6 +255,96 @@ describe('SP-REFRESH-DIRTY-PRESERVATION', () => {
       expect(state!.selected?.venue.status).toBe('suspended');
       expect(state!.name).toBe('Unsaved venue name');
       expect(state!.priceRupees).toBe('777');
+    });
+  });
+
+  describe('SP-REVIEW-REFRESH', () => {
+    let root: { render: (element: React.ReactElement) => void; unmount: () => void } | undefined;
+    let state: ReturnType<typeof useAdminSportsController> | undefined;
+
+    function AdminHarness() {
+      state = useAdminSportsController();
+      return null;
+    }
+
+    async function flushMicrotasks() {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+
+    const reviewVenue = (status: string, name: string) => ({
+      id: 'review-venue',
+      name,
+      city: 'Pune',
+      area: 'Camp',
+      owner_name: 'Venue owner',
+      status,
+      status_reason: 'Updated by review',
+    });
+
+    beforeEach(() => {
+      mockSportsReadLoad = undefined;
+      mockRpc.mockReset().mockImplementation((name: string) => {
+        if (name === 'admin_list_sports_venues') {
+          return Promise.resolve({ data: [reviewVenue('submitted', 'East Court')], error: null });
+        }
+        if (name === 'admin_list_sports_activities') {
+          return Promise.resolve({ data: [{ id: 'activity-1', name: 'Tennis', slug: 'tennis', active: true }], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+      mockFeatureFlags.mockReturnValue({ isOn: (key: string) => key === 'sports' });
+      state = undefined;
+    });
+
+    afterEach(async () => {
+      if (root) {
+        await testAct(async () => {
+          root!.unmount();
+          await flushMicrotasks();
+        });
+      }
+      root = undefined;
+      state = undefined;
+      jest.clearAllMocks();
+    });
+
+    it('updates the same review row while retaining its unsaved rejection reason', async () => {
+      await testAct(async () => {
+        root = createRoot(document.createElement('div'));
+        root.render(React.createElement(AdminHarness));
+        await flushMicrotasks();
+      });
+      const load = mockSportsReadLoad;
+      if (!load || !state) throw new Error('admin refresh was not registered');
+
+      await testAct(async () => {
+        await load({ isCurrent: () => true });
+        await flushMicrotasks();
+      });
+      await testAct(async () => {
+        state!.setReason((current) => ({ ...current, 'review-venue': 'My unsaved reason' }));
+        await flushMicrotasks();
+      });
+
+      mockRpc.mockImplementation((name: string) => {
+        if (name === 'admin_list_sports_venues') {
+          return Promise.resolve({ data: [reviewVenue('verified', 'Server name after review')], error: null });
+        }
+        if (name === 'admin_list_sports_activities') {
+          return Promise.resolve({ data: [{ id: 'activity-1', name: 'Tennis', slug: 'tennis', active: true }], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+      await testAct(async () => {
+        await load({ isCurrent: () => true });
+        await flushMicrotasks();
+      });
+
+      expect(state!.venues?.[0]?.id).toBe('review-venue');
+      expect(state!.venues?.[0]?.status).toBe('verified');
+      expect(state!.reason['review-venue']).toBe('My unsaved reason');
     });
   });
 

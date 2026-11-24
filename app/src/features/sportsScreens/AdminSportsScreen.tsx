@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
@@ -6,6 +6,7 @@ import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../theme';
 import { getVenueReviewPresentation, type VenueReviewAction } from '../sports/venueReviewPresentation';
+import { useSportsReadRefresh } from '../sports/useSportsReadRefresh';
 
 interface VenueReview {
   id: string;
@@ -24,8 +25,7 @@ interface Activity {
   active: boolean;
 }
 
-export default function AdminSportsScreen() {
-  const t = useTheme();
+export function useAdminSportsController() {
   const confirm = useConfirm();
   const toast = useToast();
   const flags = useAppFeatureFlags();
@@ -36,24 +36,34 @@ export default function AdminSportsScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadForRefresh = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!enabled) return;
     setError(null);
-    const [venueResult, activityResult] = await Promise.all([
-      supabase.rpc('admin_list_sports_venues'),
-      supabase.rpc('admin_list_sports_activities'),
-    ]);
-    if (venueResult.error || activityResult.error) {
-      setError(venueResult.error?.message ?? activityResult.error?.message ?? 'Could not load sports management.');
-      return;
+    try {
+      const [venueResult, activityResult] = await Promise.all([
+        supabase.rpc('admin_list_sports_venues'),
+        supabase.rpc('admin_list_sports_activities'),
+      ]);
+      if (!guard.isCurrent()) return;
+      if (venueResult.error || activityResult.error) {
+        setError(venueResult.error?.message ?? activityResult.error?.message ?? 'Could not load sports management.');
+        return;
+      }
+      setVenues((venueResult.data ?? []) as VenueReview[]);
+      setActivities((activityResult.data ?? []) as Activity[]);
+    } catch (caught) {
+      if (guard.isCurrent()) {
+        setError((caught as Error).message || 'Could not load sports management.');
+      }
     }
-    setVenues((venueResult.data ?? []) as VenueReview[]);
-    setActivities((activityResult.data ?? []) as Activity[]);
   }, [enabled]);
+  const { refresh: load } = useSportsReadRefresh(loadForRefresh, {
+    contextKey: `admin-sports-review:${enabled ? 'on' : 'off'}`,
+    enabled,
+    intervalMs: 60_000,
+  });
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
-
-  const setVenueStatus = async (venue: VenueReview, action: VenueReviewAction) => {
+  const setVenueStatus = useCallback(async (venue: VenueReview, action: VenueReviewAction) => {
     if (action.kind !== 'admin' || !action.target) return;
     const currentAction = getVenueReviewPresentation(venue.status, 'admin').actions
       .find((candidate) => candidate.kind === 'admin' && candidate.target === action.target);
@@ -81,9 +91,9 @@ export default function AdminSportsScreen() {
     });
     toast({ message: 'Venue status updated', tone: 'success' });
     await load();
-  };
+  }, [confirm, load, reason, toast]);
 
-  const toggleActivity = async (activity: Activity, active: boolean) => {
+  const toggleActivity = useCallback(async (activity: Activity, active: boolean) => {
     setBusyId(activity.id);
     setError(null);
     const { error: rpcError } = await supabase.rpc('admin_set_sports_activity', { p_id: activity.id, p_active: active });
@@ -93,7 +103,25 @@ export default function AdminSportsScreen() {
       toast({ message: `${activity.name} ${active ? 'enabled' : 'disabled'}`, tone: 'success' });
       await load();
     }
-  };
+  }, [load, toast]);
+
+  return { enabled, venues, activities, reason, setReason, busyId, error, load, setVenueStatus, toggleActivity };
+}
+
+export default function AdminSportsScreen() {
+  const t = useTheme();
+  const {
+    enabled,
+    venues,
+    activities,
+    reason,
+    setReason,
+    busyId,
+    error,
+    load,
+    setVenueStatus,
+    toggleActivity,
+  } = useAdminSportsController();
 
   return (
     <Screen header={<Header title="Sports venues" subtitle="Review submitted venues and activities" onBack={() => router.back()} />}>
