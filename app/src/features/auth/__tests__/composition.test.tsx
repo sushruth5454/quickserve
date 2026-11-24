@@ -80,7 +80,7 @@ jest.mock('react', () => {
         mockRuntime.states[index],
         (next: unknown) => {
           mockRuntime.states[index] = typeof next === 'function'
-            ? (next as (previous: unknown) => unknown)(mockRuntime.states[index])
+            ? (next as (mockPrevious: unknown) => unknown)(mockRuntime.states[index])
             : next;
         },
       ];
@@ -353,7 +353,16 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
     const props = {
       onClose: jest.fn(),
       onSaved: jest.fn(),
-      pin: { area: 'Madhapur', city: 'Hyderabad', lat: 17.385, line1: '', lng: 78.4867, source: 'manual' as const },
+      pin: {
+        addressId: null,
+        area: 'Madhapur',
+        city: 'Hyderabad',
+        label: null,
+        lat: 17.385,
+        line1: '',
+        lng: 78.4867,
+        source: 'default' as const,
+      },
       visible: true,
     };
     tree = render(() => AddressEditorSheet(props));
@@ -411,7 +420,16 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
     const editor = render(() => AddressEditorSheet({
       onClose: jest.fn(),
       onSaved: jest.fn(),
-      pin: { area: 'Madhapur', city: 'Hyderabad', lat: 17.385, line1: '', lng: 78.4867, source: 'manual' },
+      pin: {
+        addressId: null,
+        area: 'Madhapur',
+        city: 'Hyderabad',
+        label: null,
+        lat: 17.385,
+        line1: '',
+        lng: 78.4867,
+        source: 'default',
+      },
       visible: true,
     }));
     expect(byTestId(editor, 'o13c-auth-ux')).toBeDefined();

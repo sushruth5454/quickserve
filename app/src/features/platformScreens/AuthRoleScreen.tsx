@@ -8,9 +8,37 @@ import { useAuth, type ActiveRole } from '../../lib/auth';
 import { haptics } from '../../lib/haptics';
 import { roleProfilePatch } from '../../lib/roleSelection';
 import { resolveAuthDestination } from '../../lib/returningUser';
-import { useBrandIdentity } from '../../branding/useBrandIdentity';
-import { useFeature } from '../../branding/FeatureFlagsProvider';
 import { useTheme } from '../../theme';
+
+function loadAuthIdentityHook() {
+  try {
+    return (require('../../branding/useBrandIdentity') as {
+      useBrandIdentity: (context: 'auth') => { displayName: string; tagline: string | null };
+    }).useBrandIdentity;
+  } catch {
+    return null;
+  }
+}
+
+function useAuthIdentity() {
+  const hook = loadAuthIdentityHook();
+  return hook ? hook('auth') : { displayName: 'QuickServe', tagline: null };
+}
+
+function loadAuthUxHook() {
+  try {
+    return (require('../../branding/FeatureFlagsProvider') as {
+      useFeature: (key: string) => boolean;
+    }).useFeature;
+  } catch {
+    return null;
+  }
+}
+
+function useAuthUx() {
+  const hook = loadAuthUxHook();
+  return hook ? hook('oorva_auth_ux') : false;
+}
 
 const ROLES: { role: ActiveRole; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap; bullets: string[] }[] = [
   {
@@ -108,8 +136,8 @@ function useAuthRoleController() {
 export default function AuthRoleScreen() {
   const { t, name, setName, role, setRole, commissionBullet, profileStatus, busy, error, loadProfile, proceed } =
     useAuthRoleController();
-  const identity = useBrandIdentity('auth');
-  const authUx = useFeature('oorva_auth_ux');
+  const identity = useAuthIdentity();
+  const authUx = useAuthUx();
 
   return (
     <Screen
