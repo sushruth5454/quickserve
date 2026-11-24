@@ -15,6 +15,9 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    concurrency:
+      group: local-supabase-${{ github.ref }}
+      cancel-in-progress: false
     timeout-minutes: 45
     env:
       EXPO_PUBLIC_FORCE_TEST_LOCATION: '1'
