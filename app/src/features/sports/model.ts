@@ -199,14 +199,45 @@ export function getSportsBookingStatusLabel(status: SportsBookingStatus | string
   return SPORTS_STATUS_LABELS[status as SportsBookingStatus] ?? 'Updated';
 }
 
+export function getSportsBookingDeadline(booking: {
+  status: string;
+  expires_at?: string | null;
+  hold_expires_at?: string | null;
+  pay_by?: string | null;
+}): { kind: Exclude<SportsBookingDeadlineKind, null>; label: string; value: string } | null {
+  let value: string | null | undefined;
+  let kind: Exclude<SportsBookingDeadlineKind, null>;
+  let label: string;
+
+  if (booking.status === 'requested') {
+    value = booking.expires_at;
+    kind = 'request';
+    label = 'Venue response due by';
+  } else if (booking.status === 'pending_payment') {
+    value = booking.hold_expires_at;
+    kind = 'hold';
+    label = 'Payment due by';
+  } else if (booking.status === 'awaiting_payment') {
+    value = booking.pay_by;
+    kind = 'payment';
+    label = 'Payment due by';
+  } else {
+    return null;
+  }
+
+  if (typeof value !== 'string' || value.trim() === '' || !Number.isFinite(Date.parse(value))) return null;
+  return { kind, label, value };
+}
+
 export function getSportsPaymentSummary(
   status: SportsBookingStatus | string,
   paymentMode: 'online' | 'pay_at_venue' | null | undefined,
   paidAt?: string | null,
 ): string {
-  if (paidAt || (paymentMode === 'online' && (status === 'accepted' || status === 'completed'))) return 'Paid online';
+  if (paymentMode === 'pay_at_venue') return 'Pay at venue';
   if (status === 'pending_payment' || status === 'awaiting_payment') return 'Online payment due';
-  if (paymentMode !== 'online') return 'Pay at venue';
+  if (paymentMode === 'online' && (paidAt || status === 'accepted' || status === 'completed')) return 'Paid online';
+  if (paymentMode !== 'online') return 'Payment details unavailable';
   return 'Online payment';
 }
 
