@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O27-MK22",
+  "workPackage": "O27",
+  "status": "IMPLEMENTED_AWAITING_LANE_CI",
+  "base": {
+    "branch": "lane/oorva-o27-mk22",
+    "implementationBaseSha": "ae899a02a1cf0200bcdad336777d9655f6b18807",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "currentMainAtHelperFetch": "dd969a4061b8bbf115356c63e645365358eade37"
+  },
+  "source": {
+    "taskId": "MK-T22",
+    "findingId": "MK-F24",
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md#mk-t22",
+    "audit": "docs/design/oorva/audit/marketplace.json"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O27-MK03",
+      "sha": "435753da43f7769e5528e07e6250482e28cf4f32",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O28-MK18",
+      "sha": "82919c255b80cba1078afa832029b9ca2c912ca1",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O03",
+      "sha": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O05I",
+      "sha": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O06B",
+      "sha": "de989f95e5d57f78540417587023318afef123c6",
+      "state": "ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O08",
+      "sha": "7479864f743024b8e80ac26fea071a8962ed6265",
+      "state": "ANCESTOR_OF_BASE"
+    }
+  ],
+  "scope": {
+    "changedFiles": [
+      "app/src/features/shops/manage/ShopDetailsSection.tsx",
+      "app/src/features/shops/manage/ProductEditorSection.tsx",
+      "app/src/features/shops/manage/__tests__/shopManageModel.test.ts",
+      "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+      "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "docs/design/oorva/evidence/o27-mk22.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "routeFilesChanged": false,
+    "coordinatorOwnedE2EChanged": false
+  },
+  "feature": {
+    "key": "oorva_merchant_shop_ux",
+    "parent": "oorva_brand",
+    "default": false,
+    "activationPerformed": false,
+    "offBehavior": "Retains the legacy existing-shop readiness, details, and catalogue order."
+  },
+  "implementation": [
+    "Kept the shop state, product drafts, reads, saves, readbacks, role/status guards, and confirmations in MerchantShopScreen; extracted controlled presentation sections only.",
+    "New shops retain setup and save as the primary section. With the effective workspace flag enabled, existing shops render readiness, catalogue/work links and product editor, then collapsed shop details; either flag off retains legacy order.",
+    "Moved Manage my shop after the business-labelled enquiry rows, where unread counts remain visible."
+  ],
+  "requiredCases": [
+    "MK-WORKSPACE-new-existing-priority",
+    "MK-WORKSPACE-dirty-draft-preserved",
+    "MK-WORKSPACE-off-guards"
+  ],
+  "validation": {
+    "codespace": {
+      "status": "BLOCKED_NO_SELECTION",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSourceCommit": "dd969a4061b8bbf115356c63e645365358eade37",
+      "suite": "app",
+      "selector": "src.features.shops.manage.__tests__.shopManageModel[.]test[.]ts$",
+      "selectedTests": "NOT_REACHED",
+      "blocker": "HTTP 404 from /repos/sushruth5454/quickserve/codespaces?per_page=30; gh reports the operation needs the codespace scope. The helper then emitted a null-valued expression error. No scope refresh was attempted.",
+      "fallback": "Exact-head Lane CI"
+    },
+    "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
+    "gitDiffCheck": "PASS",
+    "laneCi": {
+      "status": "FIXES_READY_FOR_RETRY",
+      "previousAttempt": {
+        "runId": 45436398191,
+        "headSha": "567b49ec5eb4f1f22838006439a8a890742ad84f",
+        "result": "FAILED",
+        "jobs": {
+          "changes": "PASS",
+          "appTypecheck": "PASS",
+          "appUnitTests": "FAIL",
+          "deno": "PASS",
+          "tooling": "PASS",
+          "sql": "PASS",
+          "privatePostgres": "PASS"
+        },
+        "testSummary": "2 failed, 1009 passed, 1 skipped; no uncaught errors.",
+        "failures": [
+          "MK-HOST-refreshed-suspension assertion lacked rendered controls because the test tree walker did not expand the extracted ProductEditorSection.",
+          "MK-WORKSPACE-new-existing-priority expected a string unread badge, while React supplies numeric and text children as [2, ' new']."
+        ]
+      },
+      "fixesForRetry": [
+        "Teach the focused test tree walker to expand the two extracted presentation components.",
+        "Normalize the unread badge's React children before asserting its displayed text."
+      ],
+      "nextAttempt": "PENDING_FIX_COMMIT_PUSH"
+    }
+  },
+  "gates": {
+    "E0": "APPROVED_FOR_DEVELOPMENT",
+    "mainPromotion": "NOT_PERFORMED",
+    "deployment": "NOT_PERFORMED",
+    "featureActivation": "NOT_PERFORMED",
+    "publicOrNativeCutover": "NOT_PERFORMED",
+    "productionActions": "NONE"
+  },
+  "verifiedDate": "2026-11-24"
+}
