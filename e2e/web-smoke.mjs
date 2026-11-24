@@ -2260,6 +2260,82 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       if (afterOwnerCancel.rfq_status !== 'cancelled' || afterOwnerCancel.quote_status !== 'rejected') {
         throw new Error(`Owner cancellation did not atomically resolve the same RFQ/quote: ${JSON.stringify({ actual: afterOwnerCancel, expected: { rfq_status: 'cancelled', quote_status: 'rejected' } })}`);
       }
+
+      await applyFlags(featureOn);
+      await refreshFeatureState(featureOn);
+      await step('MK-ENQUIRY-same-PK-counterpart-refresh', async () => {
+        let ownerClosed = false;
+        try {
+          await go(`/enquiry/${enquiryId}`);
+          await visible(enquiryText);
+          await visible(ownerReplyText);
+          await visible('Conversation status: open');
+          requireRpcSuccess(
+            'owner closes the same enquiry ID',
+            await rpc(ownerToken, 'set_product_enquiry_status', { p_enquiry_id: enquiryId, p_status: 'closed' }),
+          );
+          ownerClosed = true;
+
+          await go('/bookings');
+          await go(`/enquiry/${enquiryId}`);
+          await visible('Conversation status: closed');
+          await visible('Reopen this enquiry to send a message.');
+          const customerClosedRows = requireRpcSuccess(
+            'customer reads the same closed enquiry after counterpart refresh',
+            await rpc(customerToken, 'get_product_enquiry', { p_enquiry_id: enquiryId }),
+          );
+          const customerClosed = Array.isArray(customerClosedRows)
+            ? customerClosedRows.find((row) => row?.id === enquiryId)
+            : customerClosedRows?.id === enquiryId ? customerClosedRows : null;
+          const actual = {
+            enquiryId,
+            url: page.url(),
+            customerClosed,
+            messageInputs: await page.getByLabel('Message', { exact: true }).count(),
+            sendButtons: await page.getByLabel('Send message', { exact: true }).count(),
+            reopenButtons: await page.getByRole('button', { name: 'Reopen', exact: true }).count(),
+          };
+          if (
+            customerClosed?.id !== enquiryId
+            || customerClosed.status !== 'closed'
+            || customerClosed.can_change_status !== true
+            || customerClosed.can_reopen !== true
+            || customerClosed.active_enquiry_id !== null
+            || actual.messageInputs !== 0
+            || actual.sendButtons !== 0
+            || actual.reopenButtons !== 1
+          ) {
+            throw new Error(`Counterpart refresh did not preserve same-ID closed state and customer actions: ${JSON.stringify({
+              actual,
+              expected: {
+                enquiryId,
+                status: 'closed',
+                can_change_status: true,
+                can_reopen: true,
+                active_enquiry_id: null,
+                messageInputs: 0,
+                sendButtons: 0,
+                reopenButtons: 1,
+              },
+            })}`);
+          }
+
+          await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+          await visible('Conversation status: open');
+          ownerClosed = false;
+        } finally {
+          if (ownerClosed) {
+            const restore = await rpc(ownerToken, 'set_product_enquiry_status', { p_enquiry_id: enquiryId, p_status: 'open' });
+            if (!restore.ok) {
+              cleanupErrors.push(`counterpart refresh state restore: ${JSON.stringify({
+                enquiryId,
+                status: restore.status,
+                body: restore.body,
+              })}`);
+            }
+          }
+        }
+      });
     } catch (error) {
       testError = error;
     } finally {
