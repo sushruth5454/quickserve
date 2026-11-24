@@ -20,6 +20,7 @@ import {
   type ShopProduct,
 } from '../shops/api';
 import { IndicativePrice, ShopStatusLabel, useShopFeatureFlags } from '../shops/components';
+import { shopManageActions } from '../shops/manage/shopManageModel';
 import { SpecFields } from '../shops/SpecFields';
 import { UNIT_LABELS } from '../shops/format';
 import { cleanSpecs } from '../shops/specs';
@@ -116,6 +117,15 @@ export default function MerchantShopScreen() {
   const [busy, setBusy] = useState(false);
   const [hasRead, setHasRead] = useState(false);
   const readsCurrent = hasRead && !loading && !error;
+  const manageActions = shopManageActions({
+    shop,
+    actualOwner: shop === null || shop.business_role === 'owner',
+    productsEnabled: features.products,
+  });
+
+  useEffect(() => {
+    if (!manageActions.canEditProducts && productDraft) setProductDraft(null);
+  }, [manageActions.canEditProducts, productDraft]);
 
   const load = useCallback(async (): Promise<ShopProfile | null> => {
     setLoading(true);
@@ -188,9 +198,14 @@ export default function MerchantShopScreen() {
     };
   }, [addressQuery, location.lat, location.lng]);
 
-  const updateShop = <K extends keyof ShopDraft>(key: K, value: ShopDraft[K]) => setDraft((current) => ({ ...current, [key]: value }));
-  const updateProduct = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
+  const updateShop = <K extends keyof ShopDraft>(key: K, value: ShopDraft[K]) => {
+    if (!manageActions.canSaveDetails) return;
+    setDraft((current) => ({ ...current, [key]: value }));
+  };
+  const updateProduct = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) => {
+    if (!manageActions.canEditProducts) return;
     setProductDraft((current) => current ? { ...current, [key]: value } : current);
+  };
 
   const choosePlace = async (result: PlaceResult) => {
     setBusy(true);
@@ -212,7 +227,7 @@ export default function MerchantShopScreen() {
   };
 
   const saveShopDetails = async () => {
-    if (!readsCurrent) return;
+    if (!readsCurrent || !manageActions.canSaveDetails) return;
     const identityChanged = shop?.status === 'verified' && (
       draft.name !== shop.name
       || draft.address_line !== shop.address_line
@@ -246,7 +261,7 @@ export default function MerchantShopScreen() {
   };
 
   const submitForReview = async () => {
-    if (!shop || !readsCurrent) return;
+    if (!shop || !readsCurrent || !manageActions.canSubmit) return;
     setBusy(true);
     try {
       await submitShop(shop.id);
@@ -260,6 +275,7 @@ export default function MerchantShopScreen() {
   };
 
   const editProduct = (product?: ShopProduct) => {
+    if (!manageActions.canEditProducts) return;
     if (!product) {
       const firstShopCategory = categories.find((category) => draft.category_slugs.includes(category.slug));
       setProductDraft(emptyProduct(firstShopCategory?.id));
@@ -284,7 +300,8 @@ export default function MerchantShopScreen() {
   };
 
   const addProductPhoto = async () => {
-    if (!productDraft || productDraft.existingPaths.length + productDraft.newPhotos.length >= 6) {
+    if (!manageActions.canEditProducts || !productDraft) return;
+    if (productDraft.existingPaths.length + productDraft.newPhotos.length >= 6) {
       setActionError('A product can have at most 6 images.');
       return;
     }
@@ -297,7 +314,7 @@ export default function MerchantShopScreen() {
   };
 
   const saveProductDraft = async () => {
-    if (!shop || !productDraft || !readsCurrent) return;
+    if (!shop || !productDraft || !readsCurrent || !manageActions.canEditProducts) return;
     const shopDraft = draft;
     const price = productDraft.priceText.trim() ? parseRupees(productDraft.priceText) : null;
     if (productDraft.priceText.trim() && (price == null || price < 0)) {
@@ -398,7 +415,7 @@ export default function MerchantShopScreen() {
                 <Text variant="title3">{shop.name}</Text>
                 <ShopStatusLabel status={shop.status} />
               </View>
-              {shop.status_reason ? <Text color="dangerText">{shop.status_reason}</Text> : null}
+              {shop.status_reason || shop.status === 'suspended' ? <Text color="dangerText">{shop.status_reason ?? 'Product editing is unavailable while this shop is suspended.'}</Text> : null}
               {shop.description ? <Text>{shop.description}</Text> : null}
               <Text variant="footnote" color="muted">{[shop.address_line, shop.area, shop.city].filter(Boolean).join(' · ')}</Text>
               <Text variant="caption" color="muted">
@@ -440,13 +457,13 @@ export default function MerchantShopScreen() {
             <Text variant="title3">{shop.name}</Text>
             <ShopStatusLabel status={shop.status} />
           </View>
-          {shop.status_reason ? <Text color="dangerText">{shop.status_reason}</Text> : null}
+          {shop.status_reason || shop.status === 'suspended' ? <Text color="dangerText">{shop.status_reason ?? 'Product editing is unavailable while this shop is suspended.'}</Text> : null}
           <Text variant="footnote" color="muted">Shop details and catalogues are public only after verification.</Text>
           {getShopManagementLinks(shop.business_role, {
             merchantStaff: appFeatures.isOn('merchant_staff'),
             rfq: rfqEnabled,
           }).staffManagement ? <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} /> : null}
-          {shop.status !== 'suspended' ? <Button title="Submit for verification" variant="outline" loading={busy} onPress={() => void submitForReview()} disabled={!readsCurrent || !shop.id || shop.status === 'submitted' || shop.status === 'under_review' || shop.status === 'verified'} /> : null}
+          {manageActions.canSubmit ? <Button title="Submit for verification" variant="outline" loading={busy} onPress={() => void submitForReview()} disabled={!readsCurrent || !shop.id} /> : null}
         </Card>
       ) : null}
 
@@ -482,7 +499,7 @@ export default function MerchantShopScreen() {
             <Chip label="Offers delivery" selected={draft.offers_delivery} onPress={() => updateShop('offers_delivery', !draft.offers_delivery)} />
             <Chip label="Pickup available" selected={draft.offers_pickup} onPress={() => updateShop('offers_pickup', !draft.offers_pickup)} />
           </View>
-          <Button title="Save shop details" loading={busy} disabled={!readsCurrent} onPress={() => void saveShopDetails()} />
+          <Button title="Save shop details" loading={busy} disabled={!readsCurrent || !manageActions.canSaveDetails} onPress={() => void saveShopDetails()} />
         </Card>
       ) : null}
 
@@ -490,16 +507,16 @@ export default function MerchantShopScreen() {
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text variant="title3">Product catalogue ({products.length}/500)</Text>
-            <Button title="Add product" size="sm" disabled={!readsCurrent || products.length >= 500} onPress={() => editProduct()} />
+            <Button title="Add product" size="sm" disabled={!readsCurrent || !manageActions.canEditProducts || products.length >= 500} onPress={() => editProduct()} />
           </View>
           <Button title="Open enquiries" variant="outline" onPress={() => router.push('/merchant-enquiries')} />
           <Button title="Open supplier RFQs" variant="outline" onPress={() => router.push('/merchant-rfqs')} />
 
-          {productDraft ? (
+          {productDraft && manageActions.canEditProducts ? (
             <Card gap={t.spacing.md}>
               <Text variant="title3">{productDraft.id ? 'Edit product' : 'New product'}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                {categories.filter((category) => draft.category_slugs.includes(category.slug)).map((category) => <Chip key={category.id} label={category.name} selected={productDraft.categoryId === category.id} onPress={() => setProductDraft((current) => current ? { ...current, categoryId: category.id, specs: {} } : current)} />)}
+                {categories.filter((category) => draft.category_slugs.includes(category.slug)).map((category) => <Chip key={category.id} label={category.name} selected={productDraft.categoryId === category.id} onPress={() => { if (manageActions.canEditProducts) setProductDraft((current) => current ? { ...current, categoryId: category.id, specs: {} } : current); }} />)}
               </View>
               <Input label="Product name" value={productDraft.name} onChangeText={(value) => updateProduct('name', value)} maxLength={120} />
               <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
@@ -527,7 +544,7 @@ export default function MerchantShopScreen() {
               ))}
               {productDraft.newPhotos.map((_, index) => <Text key={index} variant="caption" color="muted">{`New photo ${index + 1}`}</Text>)}
               <Button title="Add photo" variant="outline" disabled={productDraft.existingPaths.length + productDraft.newPhotos.length >= 6} onPress={() => void addProductPhoto()} />
-              <Button title="Save product" loading={busy} onPress={() => void saveProductDraft()} disabled={!readsCurrent || !productDraft.categoryId} />
+              <Button title="Save product" loading={busy} onPress={() => void saveProductDraft()} disabled={!readsCurrent || !manageActions.canEditProducts || !productDraft.categoryId} />
               <Button title="Cancel" variant="ghost" onPress={() => setProductDraft(null)} />
             </Card>
           ) : null}
@@ -541,7 +558,7 @@ export default function MerchantShopScreen() {
                 <IndicativePrice pricePaise={product.indicative_price_paise} unit={product.unit} updatedAt={product.price_updated_at} />
               </View>
               <View style={{ gap: t.spacing.xs }}>
-                <Button title="Edit" size="sm" variant="outline" disabled={!readsCurrent} onPress={() => editProduct(product)} />
+                <Button title="Edit" size="sm" variant="outline" disabled={!readsCurrent || !manageActions.canEditProducts} onPress={() => editProduct(product)} />
                 <Button title="Remove" size="sm" variant="ghost" loading={busy} disabled={!readsCurrent} onPress={() => void removeProduct(product)} />
               </View>
             </Card>
