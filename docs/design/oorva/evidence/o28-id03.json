@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O28-ID03",
+  "workPackage": "O28",
+  "sourceTaskId": "ID-T03",
+  "findingIds": [
+    "ID-F10",
+    "ID-F16"
+  ],
+  "dispatchOrder": 55,
+  "status": "WORKER_FILES_IMPLEMENTED_AWAITING_REGISTRATION",
+  "base": {
+    "branch": "lane/oorva-o28-id03",
+    "implementationBaseHead": "24ca793c69e8dcac5d93761ac2232c1957ee71fc",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "frozenAuditSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "mainAtDispatch": "dd969a4061b8bbf115356c63e645365358eade37",
+    "approvedDesignHandoff": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      },
+      {
+        "stageId": "O19-MK17",
+        "commit": "4da36127260304650f1d27ff49c3cbba96ea67c6",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      }
+    ]
+  },
+  "migrationClaim": {
+    "id": "MIG-O28-ID03",
+    "filename": "supabase\\migrations\\0131_o28_id03_oorva.sql",
+    "version": "0131",
+    "functions": [
+      "public.list_my_business_memberships",
+      "public.get_business_shop_context"
+    ]
+  },
+  "workerOwnedFiles": [
+    "app\\src\\features\\merchantStaff\\api.ts",
+    "app\\src\\features\\shops\\api.ts",
+    "supabase\\migrations\\0131_o28_id03_oorva.sql",
+    "app\\src\\features\\merchantStaff\\__tests__\\api.test.ts",
+    "supabase\\tests\\id_business_context.test.mjs",
+    "docs\\design\\oorva\\evidence\\o28-id03.json"
+  ],
+  "implementation": [
+    "Extended membership rows with provider, shop and sports-venue primary keys while retaining owner, role, type, name, owner-wide membership semantics and the merchant_staff gate.",
+    "Forward-recreated list_my_business_memberships with explicit authenticated-only grants.",
+    "Added selected-owner shop history read guarded by exact owner identity or active _acts_for membership with merchant_staff enabled; actual owners remain able to read while merchant_staff is OFF.",
+    "Kept safe shop fields explicit, GSTIN owner-only, and category slugs empty when the existing products capability is OFF; no provider or payout fields are returned.",
+    "Kept get_my_business_shop() unchanged; getMyShop(ownerId) calls the new RPC only when ownerId is explicitly supplied."
+  ],
+  "testCoverageAuthored": [
+    "ID-MEM-BUSINESS-PKS: actual provider, shop and venue PKs are returned.",
+    "ID-MULTI-VENUE-SAME-NAME: two same-name venues remain distinct under one owner-wide membership.",
+    "ID-SHOP-SELECT-B: explicit owner B returns B, not the first eligible shop A, with only safe fields.",
+    "ID-SHOP-DENY: stranger, inactive member and delegated member with merchant_staff OFF are denied; owner remains authorized with owner-rank GSTIN.",
+    "ID-SHOP-FLAG-PARENTS: owner and authorized staff retain history when products are OFF, while save_product remains denied.",
+    "ID-LEGACY-SHOP-READ: legacy no-argument SQL and app RPC behavior remains available with capability flags OFF.",
+    "App API tests assert business_id preservation and providerId forwarding."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "PAUSED_FOR_REGISTRATION",
+    "checkpointCommit": "worker-owned files-only checkpoint; exact SHA reported in handoff",
+    "sharedFilesTouched": [],
+    "testSelector": "id_business_context",
+    "migrationParserSelector": "o28_id03_oorva.sql"
+  },
+  "validation": {
+    "gitDiffCheck": "PENDING_CHECKPOINT",
+    "codespace": {
+      "status": "PENDING_REGISTRATION_MERGE",
+      "detail": "The required selectors are deferred until the coordinator registration commit is merged; no Windows app or SQL tests were run."
+    },
+    "selectors": [
+      {
+        "suite": "app",
+        "selector": "src.features.merchantStaff.__tests__.api[.]test[.]ts$",
+        "status": "PENDING_REGISTRATION_MERGE"
+      },
+      {
+        "suite": "sql",
+        "selector": "id_business_context",
+        "status": "PENDING_REGISTRATION_MERGE"
+      },
+      {
+        "suite": "sql",
+        "selector": "o28_id03_oorva.sql",
+        "status": "PENDING_REGISTRATION_MERGE"
+      }
+    ],
+    "laneCi": {
+      "status": "PENDING_REGISTRATION_AND_CODESPACE_VALIDATION",
+      "exactHeadRunId": null
+    },
+    "focusedAuthReview": {
+      "status": "REQUIRED_AFTER_CODE_GREEN",
+      "findings": []
+    }
+  },
+  "releaseStatus": {
+    "mainPromotion": "not performed",
+    "deployment": "not performed",
+    "featureActivation": "not performed",
+    "productionActions": "none"
+  }
+}

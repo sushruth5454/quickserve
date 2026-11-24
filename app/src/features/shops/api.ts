@@ -155,8 +155,10 @@ export async function listProductCategories(): Promise<ProductCategory[]> {
   return unwrap(data as ProductCategory[] | null, error);
 }
 
-export async function getMyShop(): Promise<ShopProfile | null> {
-  const { data, error } = await supabase.rpc('get_my_business_shop');
+export async function getMyShop(ownerId?: string): Promise<ShopProfile | null> {
+  const { data, error } = ownerId === undefined
+    ? await supabase.rpc('get_my_business_shop')
+    : await supabase.rpc('get_business_shop_context', { p_owner_id: ownerId });
   return unwrap(data as ShopProfile | null, error);
 }
 

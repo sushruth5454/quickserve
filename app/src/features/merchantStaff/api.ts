@@ -16,6 +16,7 @@ export interface BusinessMembership {
   role: MerchantRole;
   business_type: 'provider' | 'shop' | 'sports';
   business_name: string;
+  business_id: string;
 }
 
 export type BusinessProviderContext =
