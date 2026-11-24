@@ -3006,7 +3006,7 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         const assertExistingShopOrder = async (workspaceEnabled) => {
           const body = await o27Page.locator('body').innerText();
           const catalogueIndex = body.indexOf('Product catalogue (1/500)');
-          const detailsIndex = body.indexOf('Shop details');
+          const detailsIndex = body.indexOf('\nShop details\n');
           const shopNameIndex = body.indexOf(shopName);
           const editDetailsCount = await o27Page.getByRole('button', { name: 'Edit shop details', exact: true }).count();
           const shopNameFieldCount = await o27Page.getByLabel('Shop name', { exact: true }).count();
