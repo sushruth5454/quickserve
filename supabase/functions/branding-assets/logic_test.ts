@@ -104,7 +104,7 @@ function makeDeps(overrides: Partial<BrandingAssetDependencies> = {}): BrandingA
     uploadPrivate: async () => true,
     downloadPrivate: async () => bytes,
     removePrivate: async () => true,
-    registerAsset: async () => true,
+    registerAsset: async () => "registered",
     createSignedUrl: async () => SIGNED_URL,
     now: () => Date.parse("2026-01-01T00:00:00.000Z"),
     ...overrides,
@@ -159,7 +159,7 @@ Deno.test("admin POST verifies user, admin role, and every parent before Storage
     }),
   );
   assertEquals(noToken.status, 401);
-  assertEquals(calls, ["verifyUser"]);
+  assertEquals(calls, [], `missing bearer token must stop before auth lookup; actual=${JSON.stringify(calls)}`);
 
   calls.length = 0;
   const notAdmin = await handleBrandingAssetsRequest(
@@ -245,7 +245,7 @@ Deno.test("upload validates MIME and PNG before immutable Storage, then register
     },
     registerAsset: async (metadata) => {
       calls.push({ name: "register", metadata });
-      return true;
+      return "registered";
     },
   });
   const response = await handleBrandingAssetsRequest(uploadRequest(), deps);
@@ -266,7 +266,7 @@ Deno.test("registration failure removes only this request's known immutable obje
   const response = await handleBrandingAssetsRequest(
     uploadRequest(),
     makeDeps({
-      registerAsset: async () => false,
+      registerAsset: async () => "rejected",
       getAssetStatus: async () => null,
       removePrivate: async (path) => {
         removed.push(path);
@@ -296,7 +296,7 @@ Deno.test("registration failure removes only this request's known immutable obje
   const reconciled = await handleBrandingAssetsRequest(
     uploadRequest(),
     makeDeps({
-      registerAsset: async () => false,
+      registerAsset: async () => "ambiguous",
       removePrivate: async (path) => {
         reconciledRemovals.push(path);
         return true;
@@ -310,7 +310,7 @@ Deno.test("registration failure removes only this request's known immutable obje
   const unknownOutcome = await handleBrandingAssetsRequest(
     uploadRequest(),
     makeDeps({
-      registerAsset: async () => false,
+      registerAsset: async () => "ambiguous",
       getAssetStatus: async () => {
         throw new Error("status read unavailable");
       },
@@ -324,10 +324,26 @@ Deno.test("registration failure removes only this request's known immutable obje
   assertEquals((await unknownOutcome.json()).registrationStatus, "deferred");
   assertEquals(unknownOutcomeRemovals, []);
 
+  const pendingRemovals: string[] = [];
+  const pending = await handleBrandingAssetsRequest(
+    uploadRequest(),
+    makeDeps({
+      registerAsset: async () => "ambiguous",
+      getAssetStatus: async () => null,
+      removePrivate: async (path) => {
+        pendingRemovals.push(path);
+        return true;
+      },
+    }),
+  );
+  assertEquals(pending.status, 503);
+  assertEquals((await pending.json()).registrationStatus, "deferred");
+  assertEquals(pendingRemovals, []);
+
   const cleanupFailure = await handleBrandingAssetsRequest(
     uploadRequest(),
     makeDeps({
-      registerAsset: async () => false,
+      registerAsset: async () => "rejected",
       getAssetStatus: async () => null,
       removePrivate: async () => false,
     }),

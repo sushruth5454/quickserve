@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   handleBrandingAssetsRequest,
+  type AssetRegistrationResult,
   type BrandingAssetDependencies,
   type BrandingAssetStatus,
 } from "./logic.ts";
@@ -85,7 +86,12 @@ function dependencies(): BrandingAssetDependencies {
         p_height: input.height,
         p_actor_id: input.actorId,
       });
-      return !error && String(data).toLowerCase() === input.assetId;
+      if (error) {
+        return typeof error.code === "string" && /^[0-9A-Z]{5}$/.test(error.code)
+          ? "rejected" as AssetRegistrationResult
+          : "ambiguous" as AssetRegistrationResult;
+      }
+      return String(data).toLowerCase() === input.assetId ? "registered" : "ambiguous";
     },
     async createSignedUrl(path, expiresInSeconds) {
       const { data, error } = await serviceClient().storage.from(BUCKET).createSignedUrl(path, expiresInSeconds);

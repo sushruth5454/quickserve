@@ -58,7 +58,7 @@
     },
     "laneCi": {
       "file": ".github\\workflows\\lane-ci.yml",
-      "addition": "Private-postgres step runs node run.mjs --filter branding_assets.http.test.mjs with LOCAL_DB_URL and PRIVATE_TEST_STACK=true; local stack environment also supplies loopback API/anon/service-role values."
+      "addition": "Existing generic private-postgres step runs node run.mjs and auto-discovers the registered HTTP test; local stack environment supplies loopback API/anon/service-role values."
     },
     "publicGateway": {
       "file": "supabase\\config.toml",
@@ -74,16 +74,16 @@
     "workerTests": [
       {
         "path": "supabase\\functions\\branding-assets\\logic_test.ts",
-        "status": "NOT_RUN_PENDING_REGISTRATION"
+        "status": "RAN_IN_LANE_CI_45303755182; one missing-token call-order assertion failed and is corrected in the current fix."
       },
       {
         "path": "supabase\\functions\\branding-assets\\png_test.ts",
-        "status": "NOT_RUN_PENDING_REGISTRATION"
+        "status": "RAN_IN_LANE_CI_45303755182; selected among 159 passing Deno tests."
       },
       {
         "path": "supabase\\tests-postgres\\branding_assets.http.test.mjs",
         "selector": "node run.mjs --filter branding_assets.http.test.mjs",
-        "status": "NOT_RUN_PENDING_REGISTRATION"
+        "status": "AUTO_DISCOVERED_AND_PASS_IN_LANE_CI_45303755182; final-head rerun pending."
       }
     ],
     "codespaceDeno": {
@@ -92,20 +92,25 @@
       "credentialRefresh": "NOT_ATTEMPTED",
       "fallback": "Exact-head Lane CI required; no Codespace PASS claimed."
     },
-    "privateHttpSelection": "COORDINATOR_SELECTION_PASS; actual execution pending Lane CI fallback.",
-    "laneCi": "45302534185 FAILED: Deno type-check errors and private HTTP preview-origin assertion; O03 private tests passed and O04 HTTP test was selected; fixes applied, exact-head rerun pending.",
-    "focusedAuthReview": "INITIAL_REVIEW_NEEDS_FIX_MEDIUM; registration outcome reconciliation added; focused re-review pending on final head.",
-    "authReviewFinding": "A registration RPC can commit before a response failure; deleting its object on any false result could leave registered metadata without bytes. The handler now re-reads the service-only status RPC, accepts matching committed metadata, cleans only after confirmed absent/mismatched status, and preserves bytes if status reconciliation itself fails.",
+    "privateHttpSelection": "COORDINATOR_SELECTION_PASS: exact filter selects one HTTP test; Lane CI auto-discovery selected and passed the O04 HTTP test in run 45303755182.",
+    "laneCi": "Run 45303755182 FAILED: Deno unit tests reported 159 passed/1 failed; Deno type-check stage completed without additional type errors. Private-postgres passed all 7 discovered tests, including branding_assets.http.test.mjs. Call-order assertion and auth reconciliation fixes are included in the next exact-head rerun.",
+    "focusedAuthReview": "INITIAL_AND_SECOND_REVIEW_NEEDS_FIX_MEDIUM; fixes applied in current worktree; final focused re-review pending.",
+    "authReviewFinding": "The first review found that an RPC response failure can occur after commit; the handler now reconciles with the service-only status RPC. The second review noted a single absent status read may race an in-flight commit. Registration returns a tri-state outcome; completed SQLSTATE rejection may clean only after a successful status read, while ambiguous outcomes never delete on absent/mismatched status and preserve bytes when reconciliation is unavailable.",
     "firstLaneCiFailure": {
       "run": "45302534185",
       "deno": "TypeScript errors: ArrayBufferLike passed to crypto.subtle.digest/Response/Request body; Adam7 geometry tuple inference mismatch; DecompressionStream pipeThrough type mismatch.",
       "privateHttp": "HTTP test selected and began; signed preview origin was http://kong:8000 while the runner reaches the local stack through http://127.0.0.1:54321. Test now verifies the configured origin and substitutes only the authority for the private loopback fetch.",
-      "authReview": "A registration RPC may commit before its response fails. The handler now re-reads the service-only status RPC; it accepts matching committed metadata, removes only after a confirmed absent/mismatched row, and preserves bytes if status reconciliation fails.",
-      "fixes": "Copy byte views to ArrayBuffer for WebCrypto/Request/Response types; type Adam7 pass geometry and the decompressor transform explicitly; adapt only the private-stack signed-URL fetch authority."
+      "authReview": "Initial registration reconciliation addressed the first review finding; second review required deferring cleanup for ambiguous in-flight outcomes.",
+      "fixes": "Byte views are copied to ArrayBuffer for WebCrypto/Request/Response; Adam7 geometry and the decompressor transform are explicitly typed; the private-stack test adapts only the signed URL authority for loopback fetch."
     },
     "gitDiffCheck": "PASS",
     "evidenceJsonParse": "PASS",
-    "httpModuleSyntax": "NOT_RUN_NODE_NOT_ON_PATH"
+    "httpModuleSyntax": "NOT_RUN_NODE_NOT_ON_PATH",
+    "secondLaneCiRun": {
+      "run": "45303755182",
+      "denoTestSummary": "159 passed, 1 failed; missing-token test expected an auth lookup although the handler correctly rejects before lookup.",
+      "privatePostgresSummary": "7 passed; branding_assets.http.test.mjs selected and passed."
+    }
   },
   "rollout": {
     "featureFlagsEnabled": false,

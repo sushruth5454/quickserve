@@ -34,6 +34,8 @@ export interface AssetRegistration {
   actorId: string;
 }
 
+export type AssetRegistrationResult = "registered" | "rejected" | "ambiguous";
+
 function registrationMetadataMatches(status: BrandingAssetStatus | null, metadata: AssetRegistration): status is BrandingAssetStatus {
   return status !== null &&
     typeof status.id === "string" &&
@@ -56,7 +58,7 @@ export interface BrandingAssetDependencies {
   uploadPrivate(path: string, bytes: Uint8Array): Promise<boolean>;
   downloadPrivate(path: string): Promise<Uint8Array | null>;
   removePrivate(path: string): Promise<boolean>;
-  registerAsset(input: AssetRegistration): Promise<boolean>;
+  registerAsset(input: AssetRegistration): Promise<AssetRegistrationResult>;
   createSignedUrl(path: string, expiresInSeconds: number): Promise<string | null>;
   projectUrl: string;
   now?: () => number;
@@ -356,13 +358,13 @@ async function handleUpload(request: Request, userId: string, deps: BrandingAsse
     height: image.height,
     actorId: userId,
   };
-  let registered = false;
+  let registrationResult: AssetRegistrationResult;
   try {
-    registered = await deps.registerAsset(metadata);
+    registrationResult = await deps.registerAsset(metadata);
   } catch {
-    registered = false;
+    registrationResult = "ambiguous";
   }
-  if (!registered) {
+  if (registrationResult !== "registered") {
     let status: BrandingAssetStatus | null;
     try {
       status = await deps.getAssetStatus(assetId);
@@ -375,7 +377,21 @@ async function handleUpload(request: Request, userId: string, deps: BrandingAsse
     }
     if (registrationMetadataMatches(status, metadata)) {
       if (status.revoked_at !== null) {
+        if (registrationResult === "rejected") {
+          const cleanupSucceeded = await cleanupUploadedObject(path, assetId, deps);
+          return jsonResponse({
+            error: "asset registration conflicted",
+            orphanCleanup: cleanupSucceeded ? "complete" : "failed",
+          }, 409);
+        }
         return jsonResponse({ error: "asset became unavailable during upload", assetId }, 409);
+      }
+      if (registrationResult === "rejected") {
+        const cleanupSucceeded = await cleanupUploadedObject(path, assetId, deps);
+        return jsonResponse({
+          error: "asset registration conflicted",
+          orphanCleanup: cleanupSucceeded ? "complete" : "failed",
+        }, 409);
       }
       return jsonResponse({
         assetId,
@@ -387,13 +403,14 @@ async function handleUpload(request: Request, userId: string, deps: BrandingAsse
       }, 201);
     }
 
-    let cleanupSucceeded = false;
-    try {
-      cleanupSucceeded = await deps.removePrivate(path);
-    } catch {
-      cleanupSucceeded = false;
+    if (registrationResult === "ambiguous") {
+      return jsonResponse({
+        error: "asset registration outcome is unknown",
+        assetId,
+        registrationStatus: "deferred",
+      }, 503);
     }
-    if (!cleanupSucceeded) console.error("branding asset orphan cleanup failed", assetId);
+    const cleanupSucceeded = await cleanupUploadedObject(path, assetId, deps);
     return jsonResponse({
       error: "asset registration failed",
       orphanCleanup: cleanupSucceeded ? "complete" : "failed",
@@ -407,6 +424,21 @@ async function handleUpload(request: Request, userId: string, deps: BrandingAsse
     width: image.width,
     height: image.height,
   }, 201);
+}
+
+async function cleanupUploadedObject(
+  path: string,
+  assetId: string,
+  deps: BrandingAssetDependencies,
+): Promise<boolean> {
+  let removed = false;
+  try {
+    removed = await deps.removePrivate(path);
+  } catch {
+    removed = false;
+  }
+  if (!removed) console.error("branding asset orphan cleanup failed", assetId);
+  return removed;
 }
 
 async function handlePreview(request: Request, deps: BrandingAssetDependencies): Promise<Response> {
