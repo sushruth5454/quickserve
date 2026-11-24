@@ -297,7 +297,7 @@ export function filterAdminCategoryRows(
   query: string,
   includeGroupNames: boolean,
 ): AdminCategory[] {
-  const parentNames = new Map(rows.map((row) => [row.id, row.name]));
+  const categoriesById = new Map(rows.map((row) => [row.id, row]));
   const childrenByParent = new Map<string, string[]>();
   for (const row of rows) {
     if (row.parent_id) {
@@ -322,8 +322,19 @@ export function filterAdminCategoryRows(
       || (filter === 'groups' && row.archetype === null)
       || (filter.startsWith('group:') && groupMembers.has(row.id))
       || row.archetype === filter;
-    const groupName = row.parent_id ? parentNames.get(row.parent_id) ?? '' : '';
-    const searchText = includeGroupNames ? `${row.name} ${row.slug} ${groupName}` : `${row.name} ${row.slug}`;
+    const ancestorNames: string[] = [];
+    const ancestorsSeen = new Set<string>();
+    let parentId = row.parent_id;
+    while (parentId && !ancestorsSeen.has(parentId)) {
+      ancestorsSeen.add(parentId);
+      const parent = categoriesById.get(parentId);
+      if (!parent) break;
+      ancestorNames.push(parent.name, parent.slug);
+      parentId = parent.parent_id;
+    }
+    const searchText = includeGroupNames
+      ? `${row.name} ${row.slug} ${ancestorNames.join(' ')}`
+      : `${row.name} ${row.slug}`;
     return filterMatches && (!needle || searchText.toLowerCase().includes(needle));
   }).sort((a, b) => (a.parent_id ?? '').localeCompare(b.parent_id ?? '') || a.sort_order - b.sort_order || a.name.localeCompare(b.name));
 }

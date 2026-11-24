@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Switch, View } from 'react-native';
-import { Button, Card, EmptyState, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, useToast } from '../../components/ui';
+import { Button, Card, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, useToast } from '../../components/ui';
 import { resolvePlace, searchPlaces, type PlaceResult } from '../../lib/locationContext';
 import { newPlacesSession } from '../../lib/places';
 import { listGeography, upsertGeo, type GeoKind, type GeographyTree } from '../../lib/geographyApi';
-import { useFeature } from '../../lib/featureFlags';
 import { useEntityRefresh } from '../../lib/useEntityRefresh';
 import { useTheme } from '../../theme';
 
@@ -76,7 +75,8 @@ export function getGeographyVisibilityDescription(tree: GeographyTree, id: strin
 
 function useAdminConfigPresentationFlag(): boolean {
   try {
-    return useFeature('oorva_admin_config_ux');
+    const featureFlags = require('../../lib/featureFlags') as typeof import('../../lib/featureFlags');
+    return featureFlags.useFeature('oorva_admin_config_ux');
   } catch {
     return false;
   }
@@ -204,7 +204,7 @@ export default function AdminGeographyScreen() {
           <Text variant="calloutStrong">Managed locations</Text>
           <Button title="Add state" variant="outline" onPress={() => setDraft({ kind: 'state', parentId: null, name: '' })} />
           {renderDraft('state', null)}
-          {tree.states.length === 0 ? <Text variant="footnote" color="muted">No states configured.</Text> : tree.states.map(renderPresentationNode)}
+          {tree.states.length === 0 ? <Text variant="footnote" color="muted">No states configured.</Text> : nodes.filter((node) => node.kind === 'state').map(renderPresentationNode)}
         </Card>
       );
     }

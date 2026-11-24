@@ -30,14 +30,7 @@ const labels: Record<string, string> = {
 export default function AdminAiScreen() {
   const t = useTheme();
   const configUx = useFeature('oorva_admin_config_ux');
-  const [data, setData] = useState<AdminAiUsageDashboard | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const load = useCallback(() => {
-    setError(null);
-    void getAdminAiUsageDashboard().then(setData).catch((e: Error) => setError(e.message));
-  }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
-
+  const { data, error, load } = useAdminAiController();
   return (
     <Screen header={<Header
       title="AI usage"
@@ -84,4 +77,15 @@ export default function AdminAiScreen() {
       )}
     </Screen>
   );
+}
+
+function useAdminAiController() {
+  const [data, setData] = useState<AdminAiUsageDashboard | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    setError(null);
+    void getAdminAiUsageDashboard().then(setData).catch((e: Error) => setError(e.message));
+  }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+  return { data, error, load };
 }

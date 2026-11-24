@@ -1,3 +1,4 @@
+import type React from 'react';
 import type { AdminAiFeatureUsage } from '../../features/ai/adminApi';
 import type { AdminFeature, AdminCategory } from '../../lib/adminApi';
 import type { GeographyTree } from '../../lib/geographyApi';
@@ -169,6 +170,12 @@ function findElements(node: unknown, type: string): Array<React.ReactElement<Rec
   if (Array.isArray(node)) return node.flatMap((child) => findElements(child, type));
   if (!ReactRuntime.isValidElement(node)) return [];
   const element = node as React.ReactElement<Record<string, unknown>>;
+  if (typeof element.type === 'function') {
+    return findElements(
+      (element.type as (props: Record<string, unknown>) => unknown)(element.props),
+      type,
+    );
+  }
   const props = element.props;
   return [
     ...(element.type === type ? [element] : []),
@@ -182,14 +189,18 @@ function renderedText(node: unknown): string[] {
   if (Array.isArray(node)) return node.flatMap(renderedText);
   if (!ReactRuntime.isValidElement(node)) return [];
   const element = node as React.ReactElement<Record<string, unknown>>;
+  if (typeof element.type === 'function') {
+    return renderedText((element.type as (props: Record<string, unknown>) => unknown)(element.props));
+  }
   return renderedText(element.props.children);
 }
 
 function adminCategory(overrides: Partial<AdminCategory> & Pick<AdminCategory, 'id' | 'name' | 'slug'>): AdminCategory {
+  const { id, name, slug, ...other } = overrides;
   return {
-    id: overrides.id,
-    name: overrides.name,
-    slug: overrides.slug,
+    id,
+    name,
+    slug,
     icon: 'construct-outline',
     parent_id: null,
     vertical: 'home',
@@ -207,7 +218,7 @@ function adminCategory(overrides: Partial<AdminCategory> & Pick<AdminCategory, '
     cities: [],
     providers: 0,
     bookings_30d: 0,
-    ...overrides,
+    ...other,
   };
 }
 
@@ -495,7 +506,7 @@ describe('admin configuration presentation', () => {
     mockRulesState = rulesState({ loadError: 'Policy read denied' });
     mockRuntime.cursor = 0;
     tree = renderRulesScreen();
-    expect(renderedText(tree)).toContain('Policy read denied');
+    expect(findElements(tree, 'ErrorState')[0]?.props.message).toBe('Policy read denied');
 
     expect(filterAdminFeatureRows([], 'missing')).toEqual([]);
     expect(getGeographyPresentationNodes({ states: [], districts: [], cities: [], areas: [] })).toEqual([]);
