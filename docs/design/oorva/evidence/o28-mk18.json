@@ -63,7 +63,7 @@
   "implementation": [
     "Added shop_name to the supplier-list RPC return and client summary type; recreated only public.list_my_supplier_rfqs with its existing recipient, membership, deadline, history, and authenticated-only authorization behavior.",
     "Rendered authorized shop labels in merchant enquiry and supplier RFQ rows, kept shop_id:rfq_id list identity, and made RFQ detail RPC calls require the row-selected shopId; missing route context now fails closed.",
-    "Added focused app route-context and SQL assertions for two shops assigned the same RFQ, duplicate visible names, inactive-member denial, own-business quote privacy, feature-off historic labels, and RPC grants.",
+    "Added focused app route-context and SQL assertions for two shops assigned the same RFQ, duplicate visible names, inactive-member denial, own-business quote privacy, feature-off historic labels, and RPC grants; the generated SQL test categories now declare finish as a string to match the preserved RFQ fixture specification.",
     "Kept all existing route files as thin exports into the extracted marketplace screen hosts; no coordinator or E2E files changed."
   ],
   "registration": {
@@ -90,7 +90,7 @@
     "privateE2E": "MK-BUSINESS-inbox-context is coordinator-owned and private-local only; not run on the lane."
   },
   "validation": {
-    "status": "CODESPACE_BLOCKED_LANE_CI_FALLBACK",
+    "status": "LANE_CI_RETRY_PENDING_CODESPACE_BLOCKED",
     "originMainForHelper": "dd969a4061b8bbf115356c63e645365358eade37",
     "codespace": {
       "status": "BLOCKED_NO_SELECTION",
@@ -116,11 +116,25 @@
       }
     ],
     "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
-    "diffCheck": "PASS",
+    "diffCheck": "PENDING_AFTER_FIX",
     "sqlNamesAndGrantsReview": "PASS: compared return columns and preserved list predicate/body against 0096_o18_mk04_oorva.sql; verified authenticated-only grant pattern against 0074_p1b_rfq.sql.",
     "laneCi": {
-      "status": "PENDING_PUSH",
+      "status": "PENDING_FIX_PUSH",
       "exactHeadRunId": null
+    },
+    "previousLaneCi": {
+      "runId": "45398010608",
+      "headSha": "3eca53c0fdfc0239f9ccdedce6a314529d194cf4",
+      "status": "FAILED",
+      "jobs": {
+        "app": "PASS",
+        "deno": "PASS",
+        "sql": "FAIL"
+      },
+      "sqlSummary": "186/187 checks passed; exactly one failing scenario and no other uncaught errors.",
+      "failure": "MK-BUSINESS-two-shop-same-RFQ crashed in create_rfq with unsupported product specification: finish.",
+      "rootCause": "The test makeCategory() inserted attribute_schema '{}' while createRfq() and sendQuote() supplied finish specifications; migration 0049 validates requested keys against the category schema.",
+      "fixAuthored": "makeCategory() now defines properties.finish.type='string' for each generated category; fixture finish values and production validation are unchanged."
     }
   },
   "reviewRequired": "AUTH",

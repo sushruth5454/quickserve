@@ -36,9 +36,9 @@ async function makeCategory(name) {
   const slug = `o28-mk18-${randomUUID().replace(/-/g, '')}`;
   return (await one(`
     insert into public.product_categories (slug, name, attribute_schema)
-    values ($1::text, $2::text, '{}'::jsonb)
+    values ($1::text, $2::text, $3::jsonb)
     returning id
-  `, [slug, name])).id;
+  `, [slug, name, JSON.stringify({ properties: { finish: { type: 'string' } } })])).id;
 }
 
 async function makeShop(ownerId, categoryId) {
