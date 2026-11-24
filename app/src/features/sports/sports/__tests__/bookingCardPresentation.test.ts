@@ -25,6 +25,14 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({})),
 }));
 
+jest.mock('../../../../lib/supabase', () => ({
+  supabase: { rpc: jest.fn() },
+}));
+jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
+jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
+jest.mock('../../../../theme', () => ({ useTheme: jest.fn() }));
+jest.mock('../../useSportsReadRefresh', () => ({ useSportsReadRefresh: jest.fn() }));
+
 jest.mock('../../../../components/ui', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const createComponent = (name: string) => (props: any) =>

@@ -11,6 +11,25 @@ jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
   useLocalSearchParams: jest.fn(() => ({})),
 }));
+jest.mock('react-native', () => ({
+  View: 'View',
+  useWindowDimensions: () => ({ width: 390, fontScale: 1 }),
+}));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+jest.mock('../../../../components/market/ListingCard', () => ({ ListingCard: 'ListingCard' }));
+jest.mock('../../../../components/ui', () => ({
+  Card: 'Card',
+  EmptyState: 'EmptyState',
+  ErrorState: 'ErrorState',
+  Header: 'Header',
+  InlineAlert: 'InlineAlert',
+  Screen: 'Screen',
+  Skeleton: 'Skeleton',
+  Text: 'Text',
+}));
+jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
+jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
+jest.mock('../../../../theme', () => ({ useTheme: jest.fn() }));
 
 jest.mock('../../../../lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
