@@ -35,6 +35,7 @@ const pageErrors = [];
 const consoleErrors = [];
 const httpFailures = [];
 const appFeatureResponses = [];
+let qaProductEnquiryId = null;
 const failures = [];
 const softFailures = [];
 const skippedSteps = [];
@@ -76,6 +77,14 @@ page.on('response', (response) => {
   ) {
     appFeatureResponses.push(response);
   }
+});
+page.on('request', (request) => {
+  if (
+    request.method() !== 'POST'
+    || !new URL(request.url()).pathname.endsWith('/rest/v1/rpc/get_product_enquiry')
+  ) return;
+  const args = request.postDataJSON();
+  if (typeof args?.p_enquiry_id === 'string') qaProductEnquiryId = args.p_enquiry_id;
 });
 function recordHttpFailures(pageName, target) {
   target.on('response', (response) => {
@@ -603,6 +612,97 @@ const sportsScenarioBookingMatch = new URL(page.url()).pathname.match(/^\/sports
 const sportsScenarioBookingId = sportsScenarioBookingMatch?.[1] ?? null;
 if (!sportsScenarioBookingId) {
   throw new Error(`sports booking scenario did not finish on its detail route: ${JSON.stringify({ url: page.url() })}`);
+}
+if (PRIVATE_LOCAL_E2E) {
+  await step('MK-READ-admin-and-enquiry-retry-customer', async () => {
+    const enquiryId = qaProductEnquiryId;
+    if (!enquiryId) {
+      throw new Error(`MK-READ customer enquiry fixture was not observed: ${JSON.stringify({
+        url: page.url(),
+        body: await page.locator('body').innerText(),
+      })}`);
+    }
+
+    let retryEnabled = false;
+    let injectedFailures = 0;
+    const routePattern = '**/rest/v1/rpc/get_product_enquiry';
+    const matchesEnquiry = (response) =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_product_enquiry')
+      && response.request().postDataJSON()?.p_enquiry_id === enquiryId;
+    const routeHandler = async (route) => {
+      if (route.request().postDataJSON()?.p_enquiry_id === enquiryId && !retryEnabled) {
+        injectedFailures += 1;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'MK-READ injected enquiry read failure' }),
+        });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route(routePattern, routeHandler);
+    try {
+      const failurePromise = page.waitForResponse((response) =>
+        matchesEnquiry(response) && response.status() === 503,
+      );
+      await go(`/enquiry/${enquiryId}`);
+      const failure = await failurePromise;
+      const failureBody = await page.locator('body').innerText();
+      const retryButton = page.getByRole('button', { name: 'Try again', exact: true }).first();
+      await retryButton.waitFor({ state: 'visible' });
+      const unavailableVisible = await page.getByText('Enquiry unavailable', { exact: true }).isVisible().catch(() => false);
+      if (!failureBody.includes('MK-READ injected enquiry read failure') || unavailableVisible) {
+        throw new Error(`MK-READ failure was not represented as a retryable read error: ${JSON.stringify({
+          enquiryId,
+          status: failure.status(),
+          injectedFailures,
+          retryVisible: await retryButton.isVisible().catch(() => false),
+          unavailableVisible,
+          body: failureBody,
+        })}`);
+      }
+      await snap('mk-read-enquiry-error');
+
+      retryEnabled = true;
+      const retryPromise = page.waitForResponse((response) =>
+        matchesEnquiry(response) && response.ok(),
+      );
+      await retryButton.click();
+      const recoveredResponse = await retryPromise;
+      const recoveredRows = await recoveredResponse.json();
+      const recoveredThread = Array.isArray(recoveredRows)
+        ? recoveredRows.find((row) => row.id === enquiryId)
+        : null;
+      await page.getByText(QA_MARKER, { exact: false }).last().waitFor({ state: 'visible' });
+      await page.getByText('Conversation status: open', { exact: true }).first().waitFor({ state: 'visible' });
+      const retryButtonCount = await page.getByRole('button', { name: 'Try again', exact: true }).count();
+      const actual = {
+        enquiryId,
+        initialStatus: failure.status(),
+        injectedFailures,
+        recoveredStatus: recoveredResponse.status(),
+        recoveredThreadId: recoveredThread?.id ?? null,
+        recoveredThreadStatus: recoveredThread?.status ?? null,
+        retryButtonCount,
+        qaMarkerVisible: await page.getByText(QA_MARKER, { exact: false }).last().isVisible().catch(() => false),
+      };
+      if (
+        recoveredResponse.status() !== 200
+        || recoveredThread?.id !== enquiryId
+        || recoveredThread?.status !== 'open'
+        || retryButtonCount !== 0
+        || !actual.qaMarkerVisible
+      ) {
+        throw new Error(`MK-READ enquiry retry did not recover the same current thread: ${JSON.stringify(actual)}`);
+      }
+      console.log(`MK-READ-admin-and-enquiry-retry customer: ${JSON.stringify(actual)}`);
+      await snap('mk-read-enquiry-recovered');
+    } finally {
+      await page.unroute(routePattern, routeHandler);
+    }
+  });
 }
 
 // ---------- Customer ----------
@@ -2720,8 +2820,91 @@ await step('admin-feature-registry', async () => {
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
 
-  await step('phase-7a-admin-approves-submitted-shop', async () => {
+  if (PRIVATE_LOCAL_E2E) {
+    await step('MK-READ-admin-and-enquiry-retry-admin', async () => {
+      let retryEnabled = false;
+      let injectedFailures = 0;
+      const routePattern = '**/rest/v1/rpc/admin_list_shops';
+      const matchesSubmitted = (response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_list_shops')
+        && response.request().postDataJSON()?.p_status === 'submitted';
+      const routeHandler = async (route) => {
+        if (route.request().postDataJSON()?.p_status === 'submitted' && !retryEnabled) {
+          injectedFailures += 1;
+          await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({ message: 'MK-READ injected admin shop-list failure' }),
+          });
+          return;
+        }
+        await route.continue();
+      };
+      await page.route(routePattern, routeHandler);
+      try {
+        const failurePromise = page.waitForResponse((response) =>
+          matchesSubmitted(response) && response.status() === 503,
+        );
+        await go('/admin/shops');
+        const failure = await failurePromise;
+        const errorBody = await page.locator('body').innerText();
+        const retryButton = page.getByRole('button', { name: 'Try again', exact: true }).first();
+        await retryButton.waitFor({ state: 'visible' });
+        if (!errorBody.includes('MK-READ injected admin shop-list failure')) {
+          throw new Error(`MK-READ admin failure was not presented with Retry: ${JSON.stringify({
+            status: failure.status(),
+            injectedFailures,
+            retryVisible: await retryButton.isVisible().catch(() => false),
+            body: errorBody,
+          })}`);
+        }
+        await snap('mk-read-admin-shop-error');
+
+        retryEnabled = true;
+        const retryPromise = page.waitForResponse((response) =>
+          matchesSubmitted(response) && response.ok(),
+        );
+        await retryButton.click();
+        const recoveredResponse = await retryPromise;
+        const recoveredRows = await recoveredResponse.json();
+        const recoveredShop = Array.isArray(recoveredRows) && qaApprovalShopId
+          ? recoveredRows.find((row) => row.id === qaApprovalShopId)
+          : null;
+        const actual = {
+          status: failure.status(),
+          injectedFailures,
+          recoveredStatus: recoveredResponse.status(),
+          recoveredRowCount: Array.isArray(recoveredRows) ? recoveredRows.length : null,
+          qaApprovalShopId,
+          recoveredShopStatus: recoveredShop?.status ?? null,
+          body: await page.locator('body').innerText(),
+        };
+        if (
+          recoveredResponse.status() !== 200
+          || !Array.isArray(recoveredRows)
+          || (qaApprovalShopId && recoveredShop?.status !== 'submitted')
+          || !(await page.getByText('Shop verification', { exact: true }).isVisible().catch(() => false))
+        ) {
+          throw new Error(`MK-READ admin shop-list retry did not recover the submitted state: ${JSON.stringify(actual)}`);
+        }
+        console.log(`MK-READ-admin-and-enquiry-retry admin: ${JSON.stringify(actual)}`);
+        await snap('mk-read-admin-shop-recovered');
+      } finally {
+        await page.unroute(routePattern, routeHandler);
+      }
+    });
+  }
+
+  await step('MK-ADMIN-same-shop-cross-role-no-verify', async () => {
     if (!qaApprovalShopId) {
+      if (PRIVATE_LOCAL_E2E) {
+        throw new Error(`MK-ADMIN required same-shop fixture is missing: ${JSON.stringify({
+          qaApprovalShopId,
+          qaApprovalShopName,
+          qaApprovalSkipReason,
+        })}`);
+      }
       console.log(`  SKIPPED: ${qaApprovalSkipReason ?? 'owner submission did not create a safe QA shop'}`);
       return;
     }
@@ -2731,6 +2914,13 @@ await step('admin-feature-registry', async () => {
     await page.getByText(qaApprovalShopName, { exact: true }).waitFor();
     const shopCard = page.getByText(qaApprovalShopName, { exact: true })
       .locator('xpath=ancestor::*[.//*[@role="button"]][1]');
+    const adminReadbackPromise = PRIVATE_LOCAL_E2E
+      ? page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_list_shops')
+        && response.request().postDataJSON()?.p_status === 'all',
+      )
+      : null;
     await shopCard.getByRole('button', { name: 'Verify', exact: true }).click();
     try {
       await shopCard.getByText('Verified', { exact: true }).waitFor({ state: 'visible' });
@@ -2741,6 +2931,58 @@ await step('admin-feature-registry', async () => {
         shopName: qaApprovalShopName,
         bodyText: bodyText.slice(-1200),
       })}`);
+    }
+    if (PRIVATE_LOCAL_E2E && adminReadbackPromise) {
+      const adminResponse = await adminReadbackPromise;
+      const adminRows = await adminResponse.json();
+      const adminShop = Array.isArray(adminRows)
+        ? adminRows.find((row) => row.id === qaApprovalShopId)
+        : null;
+      const ownerShop = await asPro('/rest/v1/rpc/get_my_shop', {});
+      const publicResponse = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/get_shop`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_id: qaApprovalShopId }),
+      });
+      const publicBody = await publicResponse.text();
+      let publicRows = null;
+      try {
+        publicRows = publicBody ? JSON.parse(publicBody) : null;
+      } catch {
+        publicRows = null;
+      }
+      const publicShop = Array.isArray(publicRows)
+        ? publicRows.find((row) => row.id === qaApprovalShopId)
+        : null;
+      const verifyButtonCount = await shopCard.getByRole('button', { name: 'Verify', exact: true }).count();
+      const actual = {
+        shopId: qaApprovalShopId,
+        adminStatus: adminShop?.status ?? null,
+        ownerId: ownerShop?.id ?? null,
+        ownerStatus: ownerShop?.status ?? null,
+        publicStatus: publicResponse.status,
+        publicId: publicShop?.id ?? null,
+        publicName: publicShop?.name ?? null,
+        verifyButtonCount,
+      };
+      if (
+        !adminResponse.ok()
+        || adminShop?.status !== 'verified'
+        || ownerShop?.id !== qaApprovalShopId
+        || ownerShop?.status !== 'verified'
+        || !publicResponse.ok
+        || publicShop?.id !== qaApprovalShopId
+        || publicShop?.name !== qaApprovalShopName
+        || verifyButtonCount !== 0
+      ) {
+        throw new Error(`MK-ADMIN same-shop cross-role reads or action visibility diverged: ${JSON.stringify({
+          actual,
+          adminRows,
+          ownerShop,
+          publicBody,
+        })}`);
+      }
+      console.log(`MK-ADMIN-same-shop-cross-role-no-verify: ${JSON.stringify(actual)}`);
     }
   });
   await go('/admin');
