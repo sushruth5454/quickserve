@@ -1,0 +1,54 @@
+{
+  "stage": "O20-SP05",
+  "workPackage": "O20",
+  "sourceTask": "SP-T05",
+  "sourceFindings": [
+    "SP-F08",
+    "SP-F09"
+  ],
+  "dependency": {
+    "stage": "O00",
+    "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "status": "DONE"
+  },
+  "base": {
+    "testedBranch": "integrate/oorva-base-1",
+    "testedCommit": "4071e026cc857f69d7e8707e02decb13125e71cd",
+    "mainParent": "ee97c5462efbddd31b7b03cc8864295a21d6012d"
+  },
+  "implementation": {
+    "actionModel": "getSportsBookingActions",
+    "routeHosts": [
+      "SportsBookingDetailScreen",
+      "SportsCheckoutDetailScreen"
+    ],
+    "serverPredicatesChanged": false,
+    "postPaymentStateSource": "canonical booking read; no local paid-state mutation"
+  },
+  "validation": [
+    {
+      "suite": "app",
+      "filter": "src.features.sports.sports.__tests__.model[.]test[.]ts$",
+      "result": "PASS",
+      "snapshot": "wip/qs-oorva-o20-sp05@24e1b1e2"
+    },
+    {
+      "suite": "jest",
+      "filter": "src.features.sports.sports.__tests__.checkoutPresentation[.]test[.]ts$",
+      "result": "PASS",
+      "snapshot": "wip/qs-oorva-o20-sp05@19462328"
+    },
+    {
+      "suite": "jest",
+      "filter": "src.features.sports.__tests__.model[.]test[.]ts$",
+      "result": "PASS",
+      "snapshot": "wip/qs-oorva-o20-sp05@c4b8b535"
+    },
+    {
+      "suite": "jest",
+      "filter": "src.features.sports.__tests__.checkoutPresentation[.]test[.]ts$",
+      "result": "PASS",
+      "snapshot": "wip/qs-oorva-o20-sp05@cfb2762b"
+    }
+  ]
+}
