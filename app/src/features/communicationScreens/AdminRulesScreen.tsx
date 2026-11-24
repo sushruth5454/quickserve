@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useReducer } from 'react';
+import { useCallback, useReducer, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import {
@@ -60,6 +60,10 @@ function sameDraft<T>(left: T | null, right: T | null): boolean {
 
 function isClean<T>(draft: T | null, saved: T | null): boolean {
   return draft === null || saved === null || sameDraft(draft, saved);
+}
+
+export function getRulesDraftStatus(dirty: boolean): string {
+  return dirty ? 'Unsaved changes' : 'No unsaved changes';
 }
 
 function adminRulesEditorReducer(
@@ -207,6 +211,8 @@ function useAdminRulesController() {
 export default function AdminRulesScreen() {
   const controller = useAdminRulesController();
   const { enabled, flags, state, t } = controller;
+  const configUx = flags.isOn('oorva_admin_config_ux');
+  const [activeSection, setActiveSection] = useState<'recurring' | 'sports'>('recurring');
 
   if (!enabled) {
     return (
@@ -221,18 +227,44 @@ export default function AdminRulesScreen() {
   }
 
   const { recurring, sports, loadError, saveError, saving } = state;
+  const dirty = !isClean(recurring, state.savedRecurring) || !isClean(sports, state.savedSports);
   const changeRecurring = controller.changeRecurring;
   const changeSports = controller.changeSports;
 
   return (
-    <Screen header={<Header title="Booking rules" subtitle="Recurring and sports policies" onBack={controller.back} />}>
+    <Screen
+      header={<Header title="Booking rules" subtitle="Recurring and sports policies" onBack={controller.back} />}
+      footer={configUx && recurring && sports ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Text variant="caption" color={dirty ? 'warningText' : 'muted'}>{getRulesDraftStatus(dirty)}</Text>
+          <InlineAlert message={saveError} />
+          <Button title="Save booking rules" loading={saving} disabled={saving} onPress={() => void controller.save()} />
+        </View>
+      ) : undefined}
+    >
       {loadError ? (
         <ErrorState title="Booking rules unavailable" message={loadError} onRetry={controller.load} />
       ) : !recurring || !sports ? (
         <Skeleton height={540} radius={t.radii.lg} />
       ) : (
         <>
-          <Card gap={t.spacing.md}>
+          {configUx ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+              <Button
+                title="Recurring rules"
+                size="sm"
+                variant={activeSection === 'recurring' ? 'secondary' : 'outline'}
+                onPress={() => setActiveSection('recurring')}
+              />
+              <Button
+                title="Sports rules"
+                size="sm"
+                variant={activeSection === 'sports' ? 'secondary' : 'outline'}
+                onPress={() => setActiveSection('sports')}
+              />
+            </View>
+          ) : null}
+          {(!configUx || activeSection === 'recurring') ? <Card gap={t.spacing.md}>
             <Text variant="title3">Recurring rules</Text>
             <Text variant="footnote" color="muted">These limits and defaults are checked by the server for new recurring plans.</Text>
             <ChoiceList
@@ -259,9 +291,9 @@ export default function AdminRulesScreen() {
             {flags.isOn('admin_category_editor') ? (
               <Button title="Open category editor" variant="outline" onPress={() => controller.navigateTo('/admin/services')} />
             ) : null}
-          </Card>
+          </Card> : null}
 
-          <Card gap={t.spacing.md}>
+          {(!configUx || activeSection === 'sports') ? <Card gap={t.spacing.md}>
             <Text variant="title3">Sports rules</Text>
             <Text variant="footnote" color="muted">Sports payment and refund settings are stored as paise and basis points.</Text>
             <RuleInput label="Payment hold (minutes)" value={sports.paymentHoldMinutes} onChange={(paymentHoldMinutes) => changeSports((current) => ({ ...current, paymentHoldMinutes }))} />
@@ -280,10 +312,13 @@ export default function AdminRulesScreen() {
               <Button title="Commission settings" variant="outline" onPress={() => controller.navigateTo('/admin/commission')} />
               <Button title="Geography" variant="outline" onPress={() => controller.navigateTo('/admin/geography')} />
             </View>
-          </Card>
-
-          <InlineAlert message={saveError} />
-          <Button title="Save booking rules" loading={saving} disabled={saving} onPress={() => void controller.save()} />
+          </Card> : null}
+          {!configUx ? (
+            <>
+              <InlineAlert message={saveError} />
+              <Button title="Save booking rules" loading={saving} disabled={saving} onPress={() => void controller.save()} />
+            </>
+          ) : null}
         </>
       )}
     </Screen>

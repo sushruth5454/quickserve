@@ -290,9 +290,29 @@ export function reorderSiblingIds(
   return siblings.map((row) => row.id);
 }
 
+export function filterAdminCategoryRows(
+  rows: AdminCategory[],
+  filter: string,
+  query: string,
+  includeGroupNames: boolean,
+): AdminCategory[] {
+  const parentNames = new Map(rows.map((row) => [row.id, row.name]));
+  const needle = query.toLowerCase();
+  return rows.filter((row) => {
+    const filterMatches = filter === 'all'
+      || (filter === 'groups' && row.archetype === null)
+      || (filter.startsWith('group:') && (row.id === filter.slice(6) || row.parent_id === filter.slice(6)))
+      || row.archetype === filter;
+    const groupName = row.parent_id ? parentNames.get(row.parent_id) ?? '' : '';
+    const searchText = includeGroupNames ? `${row.name} ${row.slug} ${groupName}` : `${row.name} ${row.slug}`;
+    return filterMatches && (!needle || searchText.toLowerCase().includes(needle));
+  }).sort((a, b) => (a.parent_id ?? '').localeCompare(b.parent_id ?? '') || a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+}
+
 export function useAdminServicesController() {
   const toast = useToast();
   const { userId } = useAuth();
+  const configUx = useFeature('oorva_admin_config_ux');
   const sessionUserId = resolveCategorySessionUserId(
     userId,
     categoryMutationRegistry.userId,
@@ -412,9 +432,7 @@ export function useAdminServicesController() {
     return () => { focusedRef.current = false; };
   }, [load]));
 
-  const visible = useMemo(() => (rows ?? []).filter((r) =>
-    (filter === 'all' || r.archetype === filter) && (!q || `${r.name} ${r.slug}`.toLowerCase().includes(q.toLowerCase())))
-    .sort((a, b) => (a.parent_id ?? '').localeCompare(b.parent_id ?? '') || a.sort_order - b.sort_order || a.name.localeCompare(b.name)), [rows, filter, q]);
+  const visible = useMemo(() => filterAdminCategoryRows(rows ?? [], filter, q, configUx), [rows, filter, q, configUx]);
 
   const runMutation = useCallback(async (
     key: string,
@@ -491,6 +509,7 @@ export function useAdminServicesController() {
     dismissExternalMutationNotice,
     saving,
     canEditCategories,
+    configUx,
     visible,
     parentNames,
     load,
@@ -518,6 +537,7 @@ export default function AdminServicesScreen() {
     dismissExternalMutationNotice,
     saving,
     canEditCategories,
+    configUx,
     visible,
     parentNames,
     load,
@@ -525,6 +545,14 @@ export default function AdminServicesScreen() {
     cityToggle,
     moveCategory,
   } = useAdminServicesController();
+  const groupFilters = (rows ?? []).filter((row) => row.archetype === null);
+  const archetypeFilters = [
+    { value: 'inspect_quote', label: 'Repair & inspection' },
+    { value: 'fixed', label: 'Fixed-price' },
+    { value: 'time_based', label: 'Time-based' },
+    { value: 'proposal', label: 'Proposal' },
+    { value: 'remote', label: 'Remote' },
+  ];
 
   return (
     <Screen header={<Header title="Services" subtitle={`${rows?.length ?? 0} categories`} />}>
@@ -536,12 +564,44 @@ export default function AdminServicesScreen() {
           onPress={() => router.push('/admin/category/new')}
         />
       ) : null}
-      <Input label="Search" placeholder="Service name" value={q} onChangeText={setQ} />
-      <SegmentedControl
-        options={[{ value: 'all', label: 'All' }, { value: 'inspect_quote', label: 'Repairs' }, { value: 'fixed', label: 'Fixed' }, { value: 'proposal', label: 'Creators' }]}
-        value={filter}
-        onChange={setFilter}
+      <Input
+        label="Search"
+        placeholder={configUx ? 'Service name, slug, or group' : 'Service name'}
+        value={q}
+        onChangeText={setQ}
       />
+      {configUx ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+            <Button title="All" size="sm" variant={filter === 'all' ? 'secondary' : 'outline'} onPress={() => setFilter('all')} />
+            {archetypeFilters.map((option) => (
+              <Button
+                key={option.value}
+                title={option.label}
+                size="sm"
+                variant={filter === option.value ? 'secondary' : 'outline'}
+                onPress={() => setFilter(option.value)}
+              />
+            ))}
+            <Button title="Groups" size="sm" variant={filter === 'groups' ? 'secondary' : 'outline'} onPress={() => setFilter('groups')} />
+            {groupFilters.map((group) => (
+              <Button
+                key={group.id}
+                title={group.name}
+                size="sm"
+                variant={filter === `group:${group.id}` ? 'secondary' : 'outline'}
+                onPress={() => setFilter(`group:${group.id}`)}
+              />
+            ))}
+          </View>
+        </View>
+      ) : (
+        <SegmentedControl
+          options={[{ value: 'all', label: 'All' }, { value: 'inspect_quote', label: 'Repairs' }, { value: 'fixed', label: 'Fixed' }, { value: 'proposal', label: 'Creators' }]}
+          value={filter}
+          onChange={setFilter}
+        />
+      )}
       {staleError ? (
         <>
           <InlineAlert message={staleError} />
