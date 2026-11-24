@@ -52,7 +52,7 @@
     "historyAndRecovery": "Added an always-visible admin Features-host entry to Branding history/recovery. The controller reads admin history and current generation independently of editor/runtime availability; rollback uses admin_rollback_branding with the expected generation and a required reason.",
     "draftAndPublish": "A single controller owns draft, immutable version, history, freshness, dirty-state reconciliation, save, publish, and recovery. Draft save validates the existing strict BrandingV1 schema and uses a fresh UUID; publish requires a saved clean draft, a reason, and the reviewed generation. Stale conflicts do not retry and preserve form edits.",
     "assets": "Admin uploads convert selected images to PNG and call the existing branding-assets Edge Function. Admin preview uses its authenticated short-lived signed-URL action, verifies same-project/path/expiry, avoids image cache, and drops/reissues links at expiry.",
-    "preview": "Nested preview renders local draft colors and content without the global appearance provider, feature flags, theme context, cache, identity, or startup assets.",
+    "preview": "Nested preview renders local draft colors and content without mutating global feature flags, theme, cache, identity, or startup assets.",
     "moneySafety": "No payment, refund, settlement, expiry, cancellation, or other money-safety paths were edited."
   },
   "validation": {
@@ -64,7 +64,7 @@
       "selector": "src.features.adminBranding.__tests__.editor[.]test[.]tsx$",
       "requiredCommand": "pwsh -NoProfile -File $env:TEMP\\cs-test.ps1 -Suite app -Filter 'src.features.adminBranding.__tests__.editor[.]test[.]tsx$'",
       "selectedFiles": "NOT_AVAILABLE",
-      "error": "HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then raised InvalidOperation because the Codespace list was null. Failure occurred before test selection; no PASS or zero-selection result is claimed."
+      "error": "Repeated on 2026-11-24: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then raised InvalidOperation because the Codespace list was null. Failure occurred before test selection; no PASS or zero-selection result is claimed. Credential refresh was not attempted."
     },
     "laneCi": {
       "initialRun": {
@@ -74,7 +74,19 @@
         "failedStep": "app/UI lint",
         "details": "BrandingPreview had five hard-coded color values and five raw fontSize values. Typecheck and unit tests did not run."
       },
-      "followUp": "Triggered by the follow-up exact-stage push; final run ID and conclusion are recorded in the stage handoff."
+      "previousExactHeadRun": {
+        "runId": 45316326370,
+        "head": "fca2fe0cc7a05f2b217463a82ecaa769101c1a74",
+        "conclusion": "FAILURE",
+        "typecheckErrors": [
+          "editor.test.tsx:54 TS2345 cleanup callback returned boolean",
+          "editor.test.tsx:245 and :252 TS2339 config on {}",
+          "editor.test.tsx:295 TS2769 React component props mismatch",
+          "useBrandingController.ts:415 TS18047 preview possibly null"
+        ],
+        "testFailure": "ADMIN-B03 failed with TypeError: (0, _ui.useToast) is not a function while mounting AdminFeaturesScreen. Summary: 1 failed suite, 1 failed, 1 skipped, 881 passed/883."
+      },
+      "followUp": "Triggered by the exact-head remediation push; final run ID and conclusion are recorded in the stage handoff."
     },
     "deviceEvidence": "NOT_VERIFIED"
   },

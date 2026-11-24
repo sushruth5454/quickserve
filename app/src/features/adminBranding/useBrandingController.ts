@@ -412,7 +412,7 @@ export function useBrandingController() {
   const getAssetPreview = useCallback(
     (assetId: string) => {
       const preview = previewLookup[assetId.toLowerCase()] ?? null;
-      return isPreviewUrlFresh(preview) ? preview.url : null;
+      return preview && isPreviewUrlFresh(preview) ? preview.url : null;
     },
     [previewLookup],
   );
