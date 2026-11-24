@@ -599,6 +599,11 @@ await step('returning-provider-switch-to-customer', async () => {
 });
 
 await runAllServiceScenarios({ page, go, step, visible, qaMarker: QA_MARKER });
+const sportsScenarioBookingMatch = new URL(page.url()).pathname.match(/^\/sports-booking\/([0-9a-f-]{36})$/i);
+const sportsScenarioBookingId = sportsScenarioBookingMatch?.[1] ?? null;
+if (!sportsScenarioBookingId) {
+  throw new Error(`sports booking scenario did not finish on its detail route: ${JSON.stringify({ url: page.url() })}`);
+}
 
 // ---------- Customer ----------
 await step('home', async () => {
@@ -1982,26 +1987,107 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
   });
 }
 await step('my-activity-sports-segment', async () => {
+  const sportsBookingsResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === 'POST'
+    && response.url().includes('/rest/v1/rpc/list_my_customer_sports_bookings'),
+  );
   await page.getByTestId('activity-segment-sports').click();
   const sportsPanel = page.getByTestId('my-activity-panel-sports');
   await sportsPanel.waitFor();
-  const firstBooking = sportsPanel.getByRole('button').first();
-  const emptyState = sportsPanel.getByText('No sports requests yet', { exact: true }).first();
-  const panelState = await Promise.any([
-    firstBooking.waitFor({ state: 'visible' }).then(() => 'booking'),
-    emptyState.waitFor({ state: 'visible' }).then(() => 'empty'),
-  ]).catch(async () => {
-    const actual = await sportsPanel.innerText().catch(() => '<no panel text>');
-    throw new Error(`sports segment rendered neither bookings nor empty state: ${JSON.stringify(actual)}`);
-  });
-  if (panelState === 'booking') {
-    const actual = await firstBooking.innerText();
-    if (!/\b(?:REQUESTED|PENDING[_ ]PAYMENT|AWAITING[_ ]PAYMENT|ACCEPTED|DECLINED|CANCELLED|COMPLETED|EXPIRED|Waiting for venue|Confirmed)\b/i.test(actual)) {
-      throw new Error(`sports booking card has no status label: ${JSON.stringify(actual)}`);
-    }
-    if (!/\b(?:Paid online|Pay at venue|No online payment)\b/i.test(actual)) {
-      throw new Error(`sports booking card has no payment summary: ${JSON.stringify(actual)}`);
-    }
+  const response = await sportsBookingsResponsePromise;
+  if (!response.ok()) {
+    throw new Error(`sports booking list failed: ${JSON.stringify({ bookingId: sportsScenarioBookingId, status: response.status(), body: await response.text() })}`);
+  }
+  const rows = await response.json();
+  const booking = Array.isArray(rows)
+    ? rows.find((row) => row.id === sportsScenarioBookingId)
+    : null;
+  const expected = {
+    id: sportsScenarioBookingId,
+    venue_name: 'Benz Circle Demo Badminton Courts',
+    activity_name: 'Badminton',
+    resource_name: 'Demo Court 1',
+    status: 'requested',
+    payment_mode: 'pay_at_venue',
+    price_paise: 30000,
+    customer_fee_paise: 0,
+    total_paise: 30000,
+    participants: 1,
+    paid_at: null,
+    refund_paise: 0,
+  };
+  const actual = booking ? {
+    id: booking.id,
+    venue_name: booking.venue_name,
+    activity_name: booking.activity_name,
+    resource_name: booking.resource_name,
+    status: booking.status,
+    payment_mode: booking.payment_mode,
+    price_paise: booking.price_paise,
+    customer_fee_paise: booking.customer_fee_paise,
+    total_paise: booking.total_paise,
+    participants: booking.participants,
+    paid_at: booking.paid_at,
+    refund_paise: booking.refund_paise,
+    starts_at: booking.starts_at,
+    ends_at: booking.ends_at,
+  } : null;
+  const fixtureMismatch = !actual
+    || Object.entries(expected).some(([key, value]) => actual[key] !== value)
+    || !Number.isFinite(Date.parse(actual.starts_at))
+    || !Number.isFinite(Date.parse(actual.ends_at));
+  if (fixtureMismatch) {
+    const availableRows = Array.isArray(rows)
+      ? rows.map((row) => ({
+          id: row.id,
+          venue_name: row.venue_name,
+          activity_name: row.activity_name,
+          resource_name: row.resource_name,
+          status: row.status,
+          payment_mode: row.payment_mode,
+          price_paise: row.price_paise,
+          total_paise: row.total_paise,
+          starts_at: row.starts_at,
+          ends_at: row.ends_at,
+        }))
+      : rows;
+    throw new Error(`sports booking fixture mismatch: ${JSON.stringify({ expected, actual, availableRows })}`);
+  }
+
+  const timeRange = await page.evaluate((row) => {
+    const format = (value) => new Date(value).toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    return `${format(row.starts_at)} – ${format(row.ends_at)}`;
+  }, booking);
+  const accessibleName = `View sports booking for ${booking.venue_name}, ${booking.activity_name}, ${booking.resource_name}, ${timeRange}`;
+  const bookingCard = sportsPanel.getByRole('button', { name: accessibleName, exact: true });
+  const cardCount = await bookingCard.count();
+  const cardText = cardCount === 1 ? await bookingCard.innerText() : null;
+  const expectedVisible = ['Waiting for venue', '1 participant', '₹300', 'Pay at venue', timeRange];
+  const missingVisible = expectedVisible.filter((value) => !cardText?.includes(value));
+  const cards = await sportsPanel.getByRole('button').evaluateAll((elements) =>
+    elements.map((element) => ({
+      accessibleName: element.getAttribute('aria-label'),
+      text: element.innerText,
+    })),
+  );
+  if (cardCount !== 1 || missingVisible.length > 0 || /Refund requested|Paid online/i.test(cardText ?? '')) {
+    throw new Error(`sports booking card mismatch: ${JSON.stringify({
+      bookingId: sportsScenarioBookingId,
+      expected,
+      actual,
+      expectedAccessibleName: accessibleName,
+      cardCount,
+      cardText,
+      missingVisible,
+      cards,
+    })}`);
   }
 });
 await step('my-activity-services-segment', async () => {
