@@ -142,7 +142,15 @@ describe('supplier quote draft model', () => {
     const switched = supplierRfq({
       id: 'rfq-2',
       shop_id: 'shop-2',
-      items: [{ ...original.items[0], id: 'item-2' }],
+      items: [{
+        id: 'item-2',
+        seq: 1,
+        description: 'Ceramic tile',
+        brand_pref: '',
+        specs: {},
+        quantity: 2.5,
+        unit: 'box',
+      }],
       my_quote: null,
     });
     const reset = reconcileSupplierQuoteDraft(preserved, switched);

@@ -83,9 +83,25 @@
       }
     ],
     "laneCi": {
-      "status": "PENDING_EXACT_LANE_PUSH",
+      "status": "PENDING_TYPECHECK_FIX_PUSH",
       "ref": "refs/heads/lane/oorva-o28-mk07",
-      "exactHeadRunId": null
+      "exactHeadRunId": null,
+      "priorRuns": [
+        {
+          "runId": "45360899706",
+          "headSha": "30a50ae46fd3c1a0a4eaa1e3d1b2236da0c75297",
+          "result": "FAIL",
+          "failedCheck": "app Typecheck",
+          "failure": "TS2322: spreading original.items[0] produced optional RfqItem fields under noUncheckedIndexedAccess.",
+          "successfulChecks": [
+            "SQL tests job",
+            "Deno tests and type checks",
+            "app UI lint",
+            "app unit tests"
+          ],
+          "fix": "Use a fully specified RfqItem fixture for the switched context."
+        }
+      ]
     },
     "reviewRequired": "AUTH",
     "reviewStatus": "PASS_INDEPENDENT_FOCUSED_AUTH_REVIEW",
