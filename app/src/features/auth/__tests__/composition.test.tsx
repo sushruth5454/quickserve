@@ -398,11 +398,14 @@ describe('O13C flagged auth/location/protected-invite composition', () => {
 
     mockRuntime.hookIndex = 0;
     mockRuntime.states = [];
-    const loginTree = render(() => LoginScreen());
+    let loginTree = render(() => LoginScreen());
     (elements(loginTree, 'Input')[0]!.props.onChangeText as (value: string) => void)('9876543210');
+    loginTree = render(() => LoginScreen());
     const sendButton = elements(loginTree, 'Button').find((button) => button.props.title === 'login.sendOtp');
     await (sendButton?.props.onPress as (() => void) | undefined)?.();
     await Promise.resolve();
+    await Promise.resolve();
+    expect(mockSendOtp).toHaveBeenCalledWith('+919876543210');
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/verify',
       params: { inviteToken: 'invite-123', phone: '+919876543210', returnTo: '/' },
