@@ -123,7 +123,7 @@
       "localAppTests": "NOT_RUN"
     },
     "laneCi": {
-      "status": "PENDING_RETRY_AFTER_BADGE_DIAGNOSTIC_FIX",
+      "status": "GREEN_ON_IMPLEMENTATION_HEAD",
       "previousRun": {
         "runId": 45325927039,
         "headSha": "12f2220675dc3c1c1bde7123fda80b99df3f7463",
@@ -159,6 +159,17 @@
         "summary": "126 suites passed and 2 failed; 898 tests passed, 1 skipped.",
         "failure": "Both cross-view assertions found all status helpers correct but the test element-tree text collector omitted Badge.label props, so its visible Confirmed diagnostic was false.",
         "fix": "Include string label props in the test tree's visible-text collection; the production card continues to render the existing Badge."
+      },
+      "finalRun": {
+        "runId": 45327372550,
+        "headSha": "f51f19b9b6d97e1b65e2ea6cd0789b23556f880b",
+        "result": "PASS",
+        "jobs": {
+          "uiLint": "PASS",
+          "typecheck": "PASS",
+          "unitTests": "PASS"
+        },
+        "summary": "128/128 Jest suites passed; 900 passed and 1 skipped of 901 tests."
       }
     },
     "privateE2E": "NOT_RUN_BY_WORKER"
