@@ -215,7 +215,9 @@ describe('creator discovery composition', () => {
     const brief = findElements(tree, 'Button').find(
       (element) => element.props.title === `Start a brief for ${photography.name}`,
     );
-    const header = findElements(tree, 'Header')[0];
+    const header = findElements(tree, 'Screen')[0]?.props.header as
+      | React.ReactElement<Record<string, unknown>>
+      | undefined;
 
     expect(header?.props.subtitle).toBe('Hyderabad');
     expect(categoryCard).toBeTruthy();
