@@ -8,6 +8,17 @@ import { getSportsVenueCardPresentation } from '../../sportsScreens/SportsDetail
 import { getSportsActivityGridColumns } from '../../sportsScreens/SportsIndexScreen';
 import { getSportsVenueGalleryPresentation } from '../SportsVenueBookingScreen';
 
+jest.mock('expo-router', () => ({
+  router: {
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+    push: jest.fn(),
+    replace: jest.fn(),
+  },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: jest.fn(() => ({})),
+}));
+
 jest.mock('../../../lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
 }));

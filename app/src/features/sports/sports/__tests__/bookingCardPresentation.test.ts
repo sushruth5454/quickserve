@@ -1,5 +1,5 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
-import { Button, Card } from '../../../../components/ui';
+import { Button, Card, Text } from '../../../../components/ui';
 import { getSportsBookingCardPresentation, SportsBookingCard, type SportsBookingCardBooking } from '../../SportsBookingCard';
 import { getSportsBookingDeadline, getSportsBookingStatusLabel } from '../../model';
 import {
@@ -13,6 +13,17 @@ jest.mock('react-native', () => {
     View: (props: any) => React.createElement('View', props, props.children),
   };
 });
+
+jest.mock('expo-router', () => ({
+  router: {
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+    push: jest.fn(),
+    replace: jest.fn(),
+  },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: jest.fn(() => ({})),
+}));
 
 jest.mock('../../../../components/ui', () => {
   const React = jest.requireActual<typeof import('react')>('react');
