@@ -8,6 +8,8 @@ import { FeatureUnavailable, ShopProductCard, useShopFeatureFlags } from '../sho
 import { useRfqFeatureFlags } from '../rfq/components';
 import { isDemoMode } from '../../lib/config';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
+import { useAuth } from '../../lib/auth';
+import { requireSignIn } from '../../lib/authGate';
 import { parseRupees } from '../../lib/onboarding/validation';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { useTheme } from '../../theme';
@@ -15,6 +17,7 @@ import { useTheme } from '../../theme';
 export default function ProductsScreen() {
   const t = useTheme();
   const features = useShopFeatureFlags();
+  const { userId, loading: authLoading } = useAuth();
   const appFeatures = useAppFeatureFlags();
   const aiProductSearch = !isDemoMode
     && features.products
@@ -54,11 +57,15 @@ export default function ProductsScreen() {
   const error = searchFailure?.scope === appliedScope ? searchFailure.message : null;
   const categoryError = categoriesFailure?.scope === locationScope ? categoriesFailure.message : null;
   const [aiQuery, setAiQuery] = useState('');
+  const [aiQueryUserId, setAiQueryUserId] = useState<string | null>(userId);
   const [aiLoading, setAiLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const locationScopeRef = useRef(locationScope);
   locationScopeRef.current = locationScope;
   const aiRequestRef = useRef(0);
+  const authUserIdRef = useRef(userId);
+  const previousAuthUserIdRef = useRef(userId);
+  authUserIdRef.current = userId;
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const focusedRef = useRef(false);
@@ -77,14 +84,24 @@ export default function ProductsScreen() {
     aiRequestRef.current++;
     setAiLoading(false);
   }, [locationScope]);
+  useEffect(() => {
+    if (previousAuthUserIdRef.current === userId) return;
+    previousAuthUserIdRef.current = userId;
+    aiRequestRef.current++;
+    setAiQuery('');
+    setAiQueryUserId(userId);
+    setAiLoading(false);
+  }, [userId]);
 
   const askAiToSearch = useCallback(async () => {
-    if (!aiProductSearch) return;
-    if (aiQuery.trim().length < 2) {
+    if (!aiProductSearch || authLoading || !userId) return;
+    const query = aiQueryUserId === userId ? aiQuery : '';
+    if (query.trim().length < 2) {
       setInputError('Describe the product you need.');
       return;
     }
     const requestId = ++aiRequestRef.current;
+    const requestUserId = userId;
     const requestLocationScope = locationScope;
     const requestCoords = { lat: location.lat, lng: location.lng };
     requestIdRef.current++;
@@ -93,11 +110,12 @@ export default function ProductsScreen() {
     const isCurrent = () =>
       mountedRef.current
       && requestId === aiRequestRef.current
+      && authUserIdRef.current === requestUserId
       && locationScopeRef.current === requestLocationScope;
     setAiLoading(true);
     try {
       const result = await searchProductsWithAi({
-        query: aiQuery,
+        query,
         lat: requestCoords.lat,
         lng: requestCoords.lng,
       });
@@ -133,7 +151,7 @@ export default function ProductsScreen() {
     } finally {
       if (isCurrent()) setAiLoading(false);
     }
-  }, [aiProductSearch, aiQuery, location.lat, location.lng, locationScope]);
+  }, [aiProductSearch, aiQuery, aiQueryUserId, authLoading, location.lat, location.lng, locationScope, userId]);
 
   const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!features.products) return;
@@ -270,12 +288,12 @@ export default function ProductsScreen() {
       {categoryError && categoriesResult?.scope !== locationScope ? <ErrorState message={categoryError} onRetry={() => void runLoad(true)} /> : null}
       {categoryError && categoriesResult?.scope === locationScope ? <InlineAlert message={`Category refresh failed. Showing saved categories. ${categoryError}`} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
       {error && currentSearch ? <InlineAlert message={`Refresh failed. Showing saved search results. ${error}`} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
-      {aiProductSearch ? (
+      {aiProductSearch && userId && !authLoading ? (
         <View style={{ gap: t.spacing.sm }}>
           <Input
             label="Ask in your words"
-            value={aiQuery}
-            onChangeText={setAiQuery}
+            value={aiQueryUserId === userId ? aiQuery : ''}
+            onChangeText={(value) => { setAiQueryUserId(userId); setAiQuery(value); }}
             placeholder="e.g. waterproof tiles under ₹500 per box"
             helper="Do not enter contact or address details; recognizable address-like searches are declined."
             multiline
@@ -290,6 +308,13 @@ export default function ProductsScreen() {
           />
           <Text variant="caption" color="muted">Review and edit the filters below before searching again.</Text>
         </View>
+      ) : aiProductSearch ? (
+        <Button
+          title="Sign in to use AI"
+          variant="outline"
+          disabled={authLoading}
+          onPress={() => void requireSignIn('/products')}
+        />
       ) : null}
       <Input label="Search products" value={query} onChangeText={setQuery} placeholder="Name, brand or model" returnKeyType="search" onSubmitEditing={applyFilters} />
       <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-end' }}>

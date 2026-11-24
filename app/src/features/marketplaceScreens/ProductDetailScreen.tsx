@@ -1,33 +1,54 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, TextArea } from '../../components/ui';
 import { getProduct, signedProductImage, startProductEnquiry, type ProductDetail } from '../shops/api';
 import { FeatureUnavailable, IndicativePrice, useShopFeatureFlags } from '../shops/components';
+import { useAuth } from '../../lib/auth';
+import { requireSignIn } from '../../lib/authGate';
 import { useTheme } from '../../theme';
 
 export default function ProductDetailScreen() {
   const t = useTheme();
   const features = useShopFeatureFlags();
+  const { userId, loading: authLoading } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [body, setBody] = useState('');
+  const [bodyUserId, setBodyUserId] = useState<string | null>(userId);
+  const [productReadUserId, setProductReadUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [hasRead, setHasRead] = useState(false);
+  const userIdRef = useRef(userId);
+  const draftUserIdRef = useRef(userId);
+  userIdRef.current = userId;
+  const productReadMatchesUser = hasRead && productReadUserId === userId;
+  const currentBody = bodyUserId === userId ? body : '';
+
+  useEffect(() => {
+    if (draftUserIdRef.current === userId) return;
+    draftUserIdRef.current = userId;
+    setBody('');
+    setBodyUserId(userId);
+  }, [userId]);
 
   const load = useCallback(async () => {
     if (!features.products || !id) return;
+    const requestedUserId = userId;
     setLoading(true);
     setError(null);
     try {
       const next = await getProduct(id);
+      if (userIdRef.current !== requestedUserId) return;
       setProduct(next);
+      setProductReadUserId(requestedUserId);
       const signed = await Promise.all((next?.image_paths ?? []).map((path) => signedProductImage(path).catch(() => null)));
+      if (userIdRef.current !== requestedUserId) return;
       setImages(signed.filter((url): url is string => !!url));
       setError(null);
       setHasRead(true);
@@ -36,16 +57,16 @@ export default function ProductDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [features.products, id]);
+  }, [features.products, id, userId]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const enquire = async () => {
-    if (!product || !hasRead || loading || error || !body.trim()) return;
+    if (!product || !productReadMatchesUser || !product.can_enquire || authLoading || !userId || !hasRead || loading || error || bodyUserId !== userId || !currentBody.trim()) return;
     setBusy(true);
     setActionError(null);
     try {
-      const enquiryId = await startProductEnquiry(product.shop_id, product.id, body);
+      const enquiryId = await startProductEnquiry(product.shop_id, product.id, currentBody);
       router.push(`/enquiry/${enquiryId}`);
     } catch (e) {
       setActionError((e as Error).message);
@@ -86,8 +107,20 @@ export default function ProductDetailScreen() {
           {features.enquiries ? (
             <Card>
               <Text variant="title3">Enquire with the shop</Text>
-              <TextArea label="Message" value={body} onChangeText={setBody} placeholder="Ask about availability, specifications or delivery" maxLength={2000} />
-              <Button title="Send enquiry" loading={busy} disabled={!body.trim() || !hasRead || loading || !!error} onPress={() => void enquire()} />
+              {productReadMatchesUser && product.can_enquire && !authLoading && userId ? (
+                <>
+                  <TextArea label="Message" value={currentBody} onChangeText={(value) => { setBodyUserId(userId); setBody(value); }} placeholder="Ask about availability, specifications or delivery" maxLength={2000} />
+                  <Button title="Send enquiry" loading={busy} disabled={!currentBody.trim() || !hasRead || loading || !!error} onPress={() => void enquire()} />
+                </>
+              ) : !authLoading && !userId ? (
+                <Button title="Sign in to ask shop" variant="outline" onPress={() => void requireSignIn(`/product/${product.id}`)} />
+              ) : productReadMatchesUser && userId && product.enquiry_block_reason === 'own_shop' ? (
+                <Button title="Manage shop" variant="outline" onPress={() => router.push('/merchant-shop')} />
+              ) : productReadMatchesUser && product.enquiry_block_reason === 'sign_in' ? (
+                <Button title="Sign in to ask shop" variant="outline" onPress={() => void requireSignIn(`/product/${product.id}`)} />
+              ) : (
+                <Text variant="footnote" color="muted">Product enquiries are not available right now.</Text>
+              )}
             </Card>
           ) : <Text variant="footnote" color="muted">Product enquiries are not available right now.</Text>}
         </>

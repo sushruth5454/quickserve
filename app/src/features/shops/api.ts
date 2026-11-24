@@ -46,12 +46,16 @@ export interface ShopResult {
   category_slugs: string[];
 }
 
+export type EnquiryBlockReason = 'sign_in' | 'own_shop' | 'feature_off' | null;
+
 export type ShopDetail = Omit<ShopResult, 'distance_km'> & {
-  address_line: string;
+  address_line: string | null;
   lat: number | null;
   lng: number | null;
   delivery_radius_km: number;
   whatsapp_contact: boolean;
+  can_enquire: boolean;
+  enquiry_block_reason: EnquiryBlockReason;
 };
 
 export interface ShopProduct {
@@ -80,7 +84,10 @@ export interface SearchProduct extends ShopProduct {
   distance_km: number | null;
 }
 
-export type ProductDetail = Omit<SearchProduct, 'distance_km'>;
+export type ProductDetail = Omit<SearchProduct, 'distance_km'> & {
+  can_enquire: boolean;
+  enquiry_block_reason: EnquiryBlockReason;
+};
 
 export interface AdminShop {
   id: string;
