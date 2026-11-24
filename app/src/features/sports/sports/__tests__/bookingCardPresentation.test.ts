@@ -73,7 +73,7 @@ describe('sports booking card presentation', () => {
         visible: {
           confirmed: visibleText.includes('Confirmed'),
           paidOnline: visibleText.includes('Paid online'),
-          exactTotal: visibleText.includes('₹1,050.00'),
+          exactTotal: visibleText.includes('₹1,050'),
         },
       }];
     }));
@@ -82,7 +82,7 @@ describe('sports booking card presentation', () => {
       customer: {
         id: 'sports-booking-known-pk',
         status: 'Confirmed',
-        amount: '₹1,050.00',
+        amount: '₹1,050',
         payment: 'Paid online',
         timeRangeHasStart: true,
         timeRangeHasEnd: true,
@@ -91,7 +91,7 @@ describe('sports booking card presentation', () => {
       activity: {
         id: 'sports-booking-known-pk',
         status: 'Confirmed',
-        amount: '₹1,050.00',
+        amount: '₹1,050',
         payment: 'Paid online',
         timeRangeHasStart: true,
         timeRangeHasEnd: true,
@@ -100,7 +100,7 @@ describe('sports booking card presentation', () => {
       business: {
         id: 'sports-booking-known-pk',
         status: 'Confirmed',
-        amount: '₹1,050.00',
+        amount: '₹1,050',
         payment: 'Paid online',
         timeRangeHasStart: true,
         timeRangeHasEnd: true,
@@ -137,7 +137,7 @@ describe('sports booking card presentation', () => {
         paid_at: null,
       },
       due: ['Online payment due', 'Online payment due', 'Online payment due'],
-      amount: '₹1,050.00',
+      amount: '₹1,050',
       payAtVenue: 'Pay at venue',
     }));
   });
@@ -185,10 +185,10 @@ describe('sports booking card presentation', () => {
 
     expect(JSON.stringify({
       refund: actual.refund,
-      visibleRefund: actual.visibleText.includes('Refund requested · ₹400.00'),
+      visibleRefund: actual.visibleText.includes('Refund requested · ₹400'),
       saysRefunded: actual.visibleText.includes('Refunded'),
     })).toBe(JSON.stringify({
-      refund: 'Refund requested · ₹400.00',
+      refund: 'Refund requested · ₹400',
       visibleRefund: true,
       saysRefunded: false,
     }));

@@ -123,7 +123,7 @@
       "localAppTests": "NOT_RUN"
     },
     "laneCi": {
-      "status": "PENDING_RETRY_AFTER_TEST_FIX",
+      "status": "PENDING_RETRY_AFTER_ASSERTION_FIX",
       "previousRun": {
         "runId": 45325927039,
         "headSha": "12f2220675dc3c1c1bde7123fda80b99df3f7463",
@@ -135,6 +135,19 @@
         "summary": "126 suites passed and 2 failed; 888 tests passed, 1 skipped.",
         "failure": "Both new suites failed to load because importing the React Native UI barrel reached expo-asset and React Native's Image mock, then Jest could not resolve react-native/react-private-interface.",
         "fix": "Mock only React Native View and the Card/Badge/Text/Button UI primitives in the two presentation suites; assertions still inspect the shared card's returned element tree."
+      },
+      "secondRun": {
+        "runId": 45326475185,
+        "headSha": "99295a1455f74bca107bcfaf992062577799bbd3",
+        "result": "FAIL",
+        "failedCases": [
+          "SP-SAME-PK-CROSS-VIEW (both files)",
+          "SP-ONLINE-NONZERO-FEE (both files)",
+          "SP-REFUND-REQUESTED (both files)"
+        ],
+        "summary": "126 suites passed and 2 failed; 894 tests passed, 1 skipped.",
+        "failure": "Tests expected trailing .00 for whole-dollar amounts, while the verified canonical formatINR omits a zero fractional part (for example 105000 paise renders as ₹1,050). No other cases failed.",
+        "fix": "Match exact display values to formatINR's canonical zero-paise formatting without changing money calculations or the component."
       }
     },
     "privateE2E": "NOT_RUN_BY_WORKER"
@@ -158,7 +171,7 @@
       "expectedVisible": [
         "Waiting for venue",
         "Pay at venue",
-        "₹300.00",
+        "₹300",
         "actual start and end timestamps formatted in Asia/Kolkata"
       ]
     },
