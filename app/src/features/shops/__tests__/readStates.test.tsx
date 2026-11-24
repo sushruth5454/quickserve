@@ -27,6 +27,12 @@ jest.doMock('expo-router', () => {
     useLocalSearchParams: () => ({ id: 'product-1' }),
   };
 });
+jest.doMock('../../../lib/auth', () => ({
+  useAuth: () => ({ userId: null, loading: false }),
+}));
+jest.doMock('../../../lib/authGate', () => ({
+  requireSignIn: jest.fn(async () => false),
+}));
 
 jest.doMock('react-native', () => ({ View: 'div' }));
 jest.doMock('expo-image', () => ({ Image: 'img' }));

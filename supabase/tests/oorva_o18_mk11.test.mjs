@@ -20,16 +20,17 @@ async function expectDenied(run, pattern, label) {
   check(pattern.test(actual), label, actual);
 }
 
-async function setFlags(products, enquiries) {
+async function setFlags(products, enquiries, guestBrowse = true) {
   await db.query(`
     update public.feature_flags as ff
        set enabled = case ff.key
          when 'products' then $1::boolean
          when 'product_enquiries' then $2::boolean
+         when 'guest_browse' then $3::boolean
          else ff.enabled
        end
-     where ff.key in ('products', 'product_enquiries')
-  `, [products, enquiries]);
+     where ff.key in ('products', 'product_enquiries', 'guest_browse')
+  `, [products, enquiries, guestBrowse]);
 }
 
 async function makeUser() {
@@ -118,6 +119,16 @@ await scenario('MK-ACTOR-safe-public-action-projection', async () => {
   check(disabled.length === 1 && disabled[0].can_enquire === false
     && disabled[0].enquiry_block_reason === 'feature_off',
   'feature-off projection fails closed with the safe reason', disabled);
+
+  await setFlags(false, true);
+  await expectDenied(() => as(fixture.customerId, 'authenticated', `
+    select * from public.get_product($1::uuid)
+  `, [fixture.productId]), /products are disabled/i,
+  'products parent OFF closes the public product read');
+  await expectDenied(() => as(fixture.customerId, 'authenticated', `
+    select public.start_product_enquiry($1::uuid, $2::uuid, $3::text)
+  `, [fixture.shopId, fixture.productId, 'Parent-off enquiry must be denied']), /product enquiries are disabled/i,
+  'products parent OFF rejects enquiry mutations');
 
   const grants = await one(`
     select has_function_privilege('anon', 'public.get_shop(uuid)', 'execute') as anon_shop,
