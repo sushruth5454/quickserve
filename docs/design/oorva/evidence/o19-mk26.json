@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O19-MK26",
+  "workPackage": "O19",
+  "status": "WORKER_FILES_IMPLEMENTED_AWAITING_REGISTRATION",
+  "base": {
+    "branch": "lane/oorva-o19-mk26",
+    "implementationSha": null,
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O18-MK04",
+      "mainPromotion": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O19-MK05",
+      "mainPromotion": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    },
+    {
+      "stageId": "O37A",
+      "mainPromotion": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+      "state": "DONE_IN_IMPLEMENTATION_BASE"
+    }
+  ],
+  "source": {
+    "taskId": "MK-T26",
+    "findingIds": [
+      "MK-F28"
+    ],
+    "report": "docs/audit/18-WS2-Marketplace-Shops-RFQ.md",
+    "stageCard": "docs/design/oorva/execution-plan.json#O19-MK26"
+  },
+  "migrationClaim": {
+    "id": "MIG-O19-MK26",
+    "filename": "supabase/migrations/0106_o19_mk26_oorva.sql",
+    "acknowledged": true,
+    "promotion": "BLOCKED_BEHIND_ACTIVE_0105"
+  },
+  "workerOwnedFiles": [
+    "supabase/migrations/0106_o19_mk26_oorva.sql",
+    "supabase/tests/oorva_o19_mk26.test.mjs",
+    "supabase/tests-postgres/o19_mk26.pg.test.mjs",
+    "docs/design/oorva/evidence/o19-mk26.json"
+  ],
+  "implementation": [
+    "Added nullable private product_context_id without historical bulk backfill; INSERT sets it from product_id and UPDATE preserves the effective OLD context through FK SET NULL while rejecting context spoofing or changes.",
+    "Replaced the open-enquiry unique key with the stable effective context, kept legacy surviving product pointers readable, and changed start/reuse, RFQ general-thread selection, and collision-safe reopen to use that context.",
+    "Preserved the O19-MK05 lock order and eligibility guards, 0069 hard-delete/image cascade, enquiry IDs, messages, statuses, and existing product/general thread history."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "PAUSED_FOR_COORDINATOR_REGISTRATION",
+    "sqlTestFilter": "oorva_o19_mk26",
+    "migrationParserFilter": "0106_o19_mk26_oorva.sql",
+    "privatePostgresFilter": "o19_mk26.pg.test.mjs",
+    "sharedFilesTouched": []
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "NOT_RUN_AWAITING_REGISTRATION",
+      "credentialRefresh": "PROHIBITED"
+    },
+    "windowsBuildsAndTests": "NOT_RUN_BY_INSTRUCTION",
+    "privatePostgres": "NOT_RUN_AWAITING_REGISTRATION",
+    "laneCi": "NOT_RUN_AWAITING_REGISTRATION",
+    "focusedConcurrencyReview": "PENDING_COORDINATOR_GATE",
+    "exactHeadLaneCiFallback": "REQUIRED_AFTER_REGISTRATION"
+  },
+  "featureFlags": {
+    "flagsAddedOrEnabled": []
+  },
+  "productionActions": "NONE"
+}
