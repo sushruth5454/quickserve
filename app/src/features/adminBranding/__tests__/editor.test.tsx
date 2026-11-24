@@ -164,6 +164,7 @@ jest.doMock('../../../lib/adminFeaturePresentation', () => ({
   }),
 }));
 jest.doMock('../../../theme', () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
   useTheme: () => mockUseTheme(),
 }));
 
@@ -260,7 +261,22 @@ function resetServerState() {
   mockRefreshFlags.mockReset().mockResolvedValue(undefined);
   mockUseFeatureControlState.mockReset().mockImplementation(() => ({ features: mockFlags, refresh: mockRefreshFlags }));
   mockUseAppFeatureFlags.mockReset().mockImplementation(() => mockFlags);
-  mockUseTheme.mockReset().mockReturnValue({ spacing: { sm: 8, md: 12, lg: 16 }, radii: { lg: 12 } });
+  mockUseTheme.mockReset().mockReturnValue({
+    dark: false,
+    colors: {
+      bg: 'background',
+      surface: 'surface',
+      border: 'border',
+      text: 'text',
+      textSecondary: 'textSecondary',
+      muted: 'muted',
+      primary: 'primary',
+      onPrimary: 'onPrimary',
+    },
+    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xxl: 24 },
+    radii: { md: 12, lg: 16, pill: 999 },
+    minTouch: 48,
+  });
   mockInputChanges.clear();
   mockFocusCallbacks.clear();
   mockRouter.push.mockReset();
@@ -454,6 +470,7 @@ describe('canonical O10 admin branding stage', () => {
     const assetPreview = jest.fn(() => null);
     const flagsCalls = mockUseAppFeatureFlags.mock.calls.length;
     const themeCalls = mockUseTheme.mock.calls.length;
+    const themeBefore = JSON.stringify(mockUseTheme());
     const rpcCalls = mockRpc.mock.calls.length;
     const invokeCalls = mockInvoke.mock.calls.length;
 
@@ -462,7 +479,8 @@ describe('canonical O10 admin branding stage', () => {
     expect(document.body.textContent).toContain('never applied to the app theme');
     expect(JSON.stringify(config)).toBe(before);
     expect(mockUseAppFeatureFlags).toHaveBeenCalledTimes(flagsCalls);
-    expect(mockUseTheme).toHaveBeenCalledTimes(themeCalls);
+    expect(mockUseTheme).toHaveBeenCalledTimes(themeCalls + 2);
+    expect(JSON.stringify(mockUseTheme())).toBe(themeBefore);
     expect(mockRpc).toHaveBeenCalledTimes(rpcCalls);
     expect(mockInvoke).toHaveBeenCalledTimes(invokeCalls);
   });

@@ -66,7 +66,16 @@
       "selectedFiles": "NOT_AVAILABLE",
       "error": "HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then raised InvalidOperation because the Codespace list was null. Failure occurred before test selection; no PASS or zero-selection result is claimed."
     },
-    "laneCi": "Triggered by the exact stage push; run ID and conclusion are recorded in the stage handoff.",
+    "laneCi": {
+      "initialRun": {
+        "runId": 45315924052,
+        "head": "fb7736275621d3961541dcca944933bc68636cb5",
+        "conclusion": "FAILURE",
+        "failedStep": "app/UI lint",
+        "details": "BrandingPreview had five hard-coded color values and five raw fontSize values. Typecheck and unit tests did not run."
+      },
+      "followUp": "Triggered by the follow-up exact-stage push; final run ID and conclusion are recorded in the stage handoff."
+    },
     "deviceEvidence": "NOT_VERIFIED"
   },
   "releaseStatus": {
