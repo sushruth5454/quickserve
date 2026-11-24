@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "stageId": "O18-MK15",
   "workPackage": "O18",
-  "status": "CODE_GREEN_AWAITING_LANE_CI",
+  "status": "REBASED_AWAITING_VALIDATION",
   "base": {
-    "branch": "lane/oorva-o18-mk04",
-    "implementationSha": "0ce7f326e60eff14df874ccfcd67f16a7b378813",
-    "currentMainShaAtDriftCheck": "ca6daa3a071f11033b85c9f3043617945f67a76e"
+    "branch": "main",
+    "implementationSha": "dd969a4061b8bbf115356c63e645365358eade37",
+    "currentMainShaAtDriftCheck": "dd969a4061b8bbf115356c63e645365358eade37"
   },
   "dependencies": [
     {
@@ -26,8 +26,8 @@
     },
     {
       "stageId": "O18-MK04",
-      "sha": "0ce7f326e60eff14df874ccfcd67f16a7b378813",
-      "state": "APPROVED_PAUSED_CLEAN_PREDECESSOR"
+      "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+      "state": "DONE_GREEN_IN_CURRENT_MAIN"
     }
   ],
   "source": {
@@ -38,19 +38,9 @@
   "preservedBaseDrift": [
     {
       "paths": [
-        "app/src/features/marketplaceScreens/EnquiryDetailScreen.tsx",
-        "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
-        "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
-        "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
-        "app/src/features/marketplaceScreens/RfqDetailScreen.tsx",
-        "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
-        "app/src/features/marketplaceScreens/ShopIndexScreen.tsx"
+        "app/src/features/marketplaceScreens/RfqDetailScreen.tsx"
       ],
-      "change": "Reviewed current-main drift against the exact approved base; preserved the seven-file predecessor transfer without merging or resetting."
-    },
-    {
-      "path": "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
-      "change": "Retained the approved base version, which differs from current origin/main."
+      "change": "Replayed only O18-MK15 over current main; retained O18-MK04 web useConfirm and native Alert behavior while keeping fresh-read/error/retry gating."
     }
   ],
   "migrationClaim": null,
@@ -103,35 +93,35 @@
     "liveMoneyOperations": "NOT_GRANTED"
   },
   "validation": {
-    "gitDiffCheck": "PASS",
+    "gitDiffCheck": "PENDING",
     "codespace": {
-      "status": "PASS",
+      "status": "PENDING",
       "helperSource": "origin/main:scripts/cs-test.ps1",
-      "helperSourceCommit": "638e211a9bb20ddb511f39b69700911680cb0c21",
-      "typescript": "PASS",
+      "helperSourceCommit": "PENDING",
+      "typescript": "PENDING",
       "selectors": [
         {
           "suite": "app",
           "filter": "src.features.shops.__tests__.readStates[.]test[.]tsx$",
-          "selectedFiles": 1,
-          "selectedTests": 3,
+          "selectedFiles": 0,
+          "selectedTests": 0,
           "cases": [
             "MK-READ-product-shop-error-empty",
             "MK-READ-merchant-failed-setup",
             "MK-READ-independent-shop-sections"
           ],
-          "result": "PASS"
+          "result": "PENDING"
         },
         {
           "suite": "jest",
           "filter": "src.features.rfq.__tests__.readStates[.]test[.]tsx$",
-          "selectedFiles": 1,
-          "selectedTests": 2,
+          "selectedFiles": 0,
+          "selectedTests": 0,
           "cases": [
             "MK-READ-RFQ-category-retry-draft",
             "MK-READ-supplier-history-error"
           ],
-          "result": "PASS"
+          "result": "PENDING"
         }
       ]
     },
