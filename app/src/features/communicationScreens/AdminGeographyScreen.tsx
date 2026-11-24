@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Switch, View } from 'react-native';
-import { Button, Card, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, useToast } from '../../components/ui';
+import { Button, Card, EmptyState, Header, InlineAlert, Input, ListItem, Screen, Skeleton, Text, useToast } from '../../components/ui';
 import { resolvePlace, searchPlaces, type PlaceResult } from '../../lib/locationContext';
 import { newPlacesSession } from '../../lib/places';
 import { listGeography, upsertGeo, type GeoKind, type GeographyTree } from '../../lib/geographyApi';
+import { useFeature } from '../../lib/featureFlags';
 import { useEntityRefresh } from '../../lib/useEntityRefresh';
 import { useTheme } from '../../theme';
 
@@ -18,8 +19,73 @@ type AreaRequest = {
 type PlaceSearch = AreaRequest & { results: PlaceResult[] };
 type PendingArea = AreaRequest & { name: string; lat: number; lng: number };
 type LoadGuard = { isCurrent: () => boolean };
+export interface GeographyPresentationNode {
+  id: string;
+  kind: GeoKind;
+  parentId: string | null;
+  name: string;
+  active: boolean;
+  lat: number | null;
+  lng: number | null;
+}
+
+export function getGeographyPresentationNodes(tree: GeographyTree): GeographyPresentationNode[] {
+  return [
+    ...tree.states.map((row) => ({ id: row.id, kind: 'state' as const, parentId: null, name: row.name, active: row.active, lat: null, lng: null })),
+    ...tree.districts.map((row) => ({ id: row.id, kind: 'district' as const, parentId: row.state_id, name: row.name, active: row.active, lat: null, lng: null })),
+    ...tree.cities.map((row) => ({ id: row.id, kind: 'city' as const, parentId: row.district_id, name: row.name, active: row.active, lat: row.lat, lng: row.lng })),
+    ...tree.areas.map((row) => ({ id: row.id, kind: 'area' as const, parentId: row.city_id, name: row.name, active: row.active, lat: row.lat, lng: row.lng })),
+  ];
+}
+
+export function getGeographyAncestry(tree: GeographyTree, id: string): GeographyPresentationNode[] {
+  const byId = new Map(getGeographyPresentationNodes(tree).map((node) => [node.id, node]));
+  const result: GeographyPresentationNode[] = [];
+  const seen = new Set<string>();
+  let node = byId.get(id);
+  while (node && !seen.has(node.id)) {
+    result.push(node);
+    seen.add(node.id);
+    node = node.parentId ? byId.get(node.parentId) : undefined;
+  }
+  return result.reverse();
+}
+
+export function getGeographyPresentationChildren(
+  tree: GeographyTree,
+  node: GeographyPresentationNode,
+): GeographyPresentationNode[] {
+  const nodes = getGeographyPresentationNodes(tree);
+  if (node.kind === 'state') return nodes.filter((child) => child.kind === 'district' && child.parentId === node.id);
+  if (node.kind === 'district') return nodes.filter((child) => child.kind === 'city' && child.parentId === node.id);
+  if (node.kind === 'city') return nodes.filter((child) => child.kind === 'area' && child.parentId === node.id);
+  return [];
+}
+
+export function getGeographyVisibilityDescription(tree: GeographyTree, id: string): string {
+  const ancestry = getGeographyAncestry(tree, id);
+  const node = ancestry[ancestry.length - 1];
+  if (!node) return 'Visibility is unavailable because this location is not in the loaded tree.';
+  const inactiveAncestor = ancestry.slice(0, -1).find((ancestor) => !ancestor.active);
+  if (inactiveAncestor) {
+    return `Configured ${node.active ? 'active' : 'inactive'}; not effectively visible because ${inactiveAncestor.kind} ${inactiveAncestor.name} is inactive. This location setting is retained.`;
+  }
+  if (!node.active) return `Configured inactive; this location and its descendants are not effectively visible.`;
+  return 'Configured active and effectively visible.';
+}
+
+function useAdminConfigPresentationFlag(): boolean {
+  try {
+    return useFeature('oorva_admin_config_ux');
+  } catch {
+    return false;
+  }
+}
 
 export default function AdminGeographyScreen() {
+  const configUx = useAdminConfigPresentationFlag();
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [nodeQuery, setNodeQuery] = useState('');
   const {
     t,
     tree,
@@ -47,9 +113,148 @@ export default function AdminGeographyScreen() {
     isCurrentPendingArea,
     renderDraft,
   } = useAdminGeographyController();
+  const nodes = tree ? getGeographyPresentationNodes(tree) : [];
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
+  const ancestry = tree && selectedNode ? getGeographyAncestry(tree, selectedNode.id) : [];
+  const matchingNodes = nodes.filter((node) =>
+    `${node.name} ${node.kind}`.toLowerCase().includes(nodeQuery.trim().toLowerCase()));
+  const renderPresentationNode = (node: GeographyPresentationNode) => (
+    <View key={node.id} style={{ gap: t.spacing.sm }}>
+      <ToggleRow
+        title={node.name}
+        active={node.active}
+        disabled={saving === node.id}
+        visibilityExplanation={tree ? getGeographyVisibilityDescription(tree, node.id) : undefined}
+        onChange={(active) => void toggleNode(node.kind, node.id, node.parentId, node.name, node.lat, node.lng, active)}
+      />
+      <Button
+        title={`Open ${node.kind}: ${node.name}`}
+        variant="ghost"
+        onPress={() => setSelectedNodeId(node.id)}
+      />
+    </View>
+  );
+  const renderAreaSearch = (cityId: string, cityName: string) => {
+    const currentPlaceSearch = isCurrentSearch(placeResults, cityId) ? placeResults : null;
+    const currentPendingArea = isCurrentPendingArea(pendingArea, cityId) ? pendingArea : null;
+    return (
+      <>
+        <Button
+          title={areaCityId === cityId ? 'Close area search' : `Add area to ${cityName}`}
+          variant="ghost"
+          onPress={() => startAreaEntry(cityId)}
+        />
+        {areaCityId === cityId ? (
+          <View style={{ gap: t.spacing.sm }}>
+            <Text variant="caption" color="muted">Find a place to use its verified name and coordinates.</Text>
+            <Input
+              label="Search places"
+              placeholder={`Area in ${cityName}`}
+              value={areaQuery}
+              onChangeText={changeAreaQuery}
+              onSubmitEditing={() => void searchArea(cityId, cityName)}
+              returnKeyType="search"
+            />
+            <Button
+              title="Search places"
+              variant="outline"
+              onPress={() => void searchArea(cityId, cityName)}
+              loading={placeBusy}
+              disabled={areaQuery.trim().length < 3}
+            />
+            {areaError ? <InlineAlert message={areaError} /> : null}
+            {currentPlaceSearch ? currentPlaceSearch.results.map((result, index) => (
+              <ListItem
+                key={result.placeId ?? `${result.title}:${index}`}
+                icon="location-outline"
+                title={result.title}
+                subtitle={result.subtitle}
+                onPress={() => void pickPlace(result, currentPlaceSearch)}
+              />
+            )) : null}
+            {currentPendingArea ? (
+              <>
+                <Input
+                  label="Area name"
+                  value={currentPendingArea.name}
+                  onChangeText={(name) => updatePendingAreaName(cityId, currentPendingArea, name)}
+                  maxLength={80}
+                />
+                <Text variant="caption" color="muted">
+                  Coordinates: {currentPendingArea.lat.toFixed(5)}, {currentPendingArea.lng.toFixed(5)}
+                </Text>
+                <Button
+                  title="Save area"
+                  onPress={() => void addArea(cityId, currentPendingArea)}
+                  loading={saving === `new:area:${cityId}`}
+                  disabled={!currentPendingArea.name.trim()}
+                />
+              </>
+            ) : null}
+          </View>
+        ) : null}
+      </>
+    );
+  };
+  const renderEnhancedTree = () => {
+    if (!tree) return null;
+    if (!selectedNode) {
+      return (
+        <Card gap={t.spacing.md}>
+          <Text variant="calloutStrong">Managed locations</Text>
+          <Button title="Add state" variant="outline" onPress={() => setDraft({ kind: 'state', parentId: null, name: '' })} />
+          {renderDraft('state', null)}
+          {tree.states.length === 0 ? <Text variant="footnote" color="muted">No states configured.</Text> : tree.states.map(renderPresentationNode)}
+        </Card>
+      );
+    }
+
+    const children = getGeographyPresentationChildren(tree, selectedNode);
+    const addButton = selectedNode.kind === 'state' ? (
+      <Button title={`Add district to ${selectedNode.name}`} variant="outline" onPress={() => setDraft({ kind: 'district', parentId: selectedNode.id, name: '' })} />
+    ) : selectedNode.kind === 'district' ? (
+      <Button title={`Add city to ${selectedNode.name}`} variant="outline" onPress={() => setDraft({ kind: 'city', parentId: selectedNode.id, name: '' })} />
+    ) : null;
+    return (
+      <Card gap={t.spacing.md}>
+        <Text variant="calloutStrong">Selected ancestry</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+          {ancestry.map((node) => (
+            <Button
+              key={node.id}
+              title={node.name}
+              size="sm"
+              variant={node.id === selectedNode.id ? 'secondary' : 'outline'}
+              onPress={() => setSelectedNodeId(node.id)}
+            />
+          ))}
+          <Button title="All states" size="sm" variant="ghost" onPress={() => setSelectedNodeId(null)} />
+        </View>
+        <ToggleRow
+          title={selectedNode.name}
+          active={selectedNode.active}
+          disabled={saving === selectedNode.id}
+          visibilityExplanation={getGeographyVisibilityDescription(tree, selectedNode.id)}
+          onChange={(active) => void toggleNode(selectedNode.kind, selectedNode.id, selectedNode.parentId, selectedNode.name, selectedNode.lat, selectedNode.lng, active)}
+        />
+        {addButton}
+        {selectedNode.kind === 'state' ? renderDraft('district', selectedNode.id) : null}
+        {selectedNode.kind === 'district' ? renderDraft('city', selectedNode.id) : null}
+        {selectedNode.kind === 'city' ? renderAreaSearch(selectedNode.id, selectedNode.name) : null}
+        {children.length === 0 ? (
+          <Text variant="footnote" color="muted">
+            {selectedNode.kind === 'area' ? 'Areas do not contain child locations.' : 'No child locations configured.'}
+          </Text>
+        ) : children.map(renderPresentationNode)}
+      </Card>
+    );
+  };
 
   return (
-    <Screen header={<Header title="Geography" subtitle="States · districts · cities · areas" />}>
+    <Screen header={<Header
+      title="Geography"
+      subtitle={configUx ? 'Browse ancestry · effective visibility' : 'States · districts · cities · areas'}
+    />}>
       {error ? (
         <InlineAlert
           message={loadState === 'stale' ? `${error} Showing the last loaded geography.` : error}
@@ -59,6 +264,25 @@ export default function AdminGeographyScreen() {
       ) : null}
       {!tree ? (
         loadState === 'loading' ? <Skeleton height={360} radius={t.radii.lg} /> : null
+      ) : configUx ? (
+        <View style={{ gap: t.spacing.md }}>
+          <Input
+            label="Search locations"
+            placeholder="Search states, districts, cities, and areas"
+            value={nodeQuery}
+            onChangeText={setNodeQuery}
+          />
+          {nodeQuery.trim() ? matchingNodes.length ? matchingNodes.map((node) => (
+            <ListItem
+              key={node.id}
+              icon="location-outline"
+              title={node.name}
+              subtitle={getGeographyAncestry(tree, node.id).map((ancestor) => ancestor.name).join(' › ')}
+              onPress={() => setSelectedNodeId(node.id)}
+            />
+          )) : <Text variant="footnote" color="muted">No matching locations.</Text> : null}
+          {renderEnhancedTree()}
+        </View>
       ) : (
         <View style={{ gap: t.spacing.md }}>
           <Card gap={t.spacing.md}>
@@ -508,13 +732,20 @@ function useAdminGeographyController() {
   };
 }
 
-function ToggleRow(props: { title: string; active: boolean; disabled: boolean; onChange: (active: boolean) => void }) {
+function ToggleRow(props: {
+  title: string;
+  active: boolean;
+  disabled: boolean;
+  onChange: (active: boolean) => void;
+  visibilityExplanation?: string;
+}) {
   const t = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
       <View style={{ flex: 1 }}>
         <Text variant="calloutStrong">{props.title}</Text>
         <Text variant="caption" color="muted">{props.active ? 'Active' : 'Inactive'}</Text>
+        {props.visibilityExplanation ? <Text variant="caption" color="muted">{props.visibilityExplanation}</Text> : null}
       </View>
       <Switch value={props.active} disabled={props.disabled} onValueChange={props.onChange} />
     </View>

@@ -35,6 +35,59 @@ type CategoryDraft = {
   intake_schema: string;
 };
 
+export type CategoryEditorSection = 'basics' | 'booking-type' | 'advanced-schema';
+
+export function getCategoryEditorSections(configUx: boolean): CategoryEditorSection[] {
+  return configUx ? ['booking-type', 'basics', 'advanced-schema'] : ['basics', 'booking-type'];
+}
+
+export function getCategoryDraftStatus(dirty: boolean): string {
+  return dirty ? 'Unsaved changes' : 'No unsaved changes';
+}
+
+export interface CategorySaveFooterProps {
+  dirty: boolean;
+  formError: string | null;
+  readbackError: string | null;
+  operationSlow: boolean;
+  externalMutationPending: boolean;
+  saving: boolean;
+  savingCity: string | null;
+  stale: boolean;
+  onSave: () => void;
+  onRefresh: () => void;
+}
+
+export function AdminCategorySaveFooter(props: CategorySaveFooterProps) {
+  const t = useTheme();
+  return (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="caption" color={props.dirty ? 'warningText' : 'muted'}>{getCategoryDraftStatus(props.dirty)}</Text>
+      <InlineAlert message={props.formError} />
+      <InlineAlert message={props.readbackError} />
+      {props.operationSlow ? (
+        <InlineAlert message="The server has not confirmed this category change. Its outcome is unknown; do not retry. Category reads and writes stay blocked until it settles. If it remains stuck, restart the app, then verify the category in Services before retrying." />
+      ) : null}
+      {props.externalMutationPending ? (
+        <InlineAlert message="Another category change is in progress. This editor will refresh when it finishes." />
+      ) : null}
+      {props.readbackError ? (
+        <Button
+          title="Refresh category data"
+          disabled={props.saving || props.savingCity !== null || props.externalMutationPending}
+          onPress={props.onRefresh}
+        />
+      ) : null}
+      <Button
+        title="Save category"
+        disabled={props.saving || props.savingCity !== null || props.stale || props.externalMutationPending}
+        loading={props.saving}
+        onPress={props.onSave}
+      />
+    </View>
+  );
+}
+
 const ARCHETYPES = [
   { value: '', label: 'Group' },
   { value: 'inspect_quote', label: 'Inspect & quote' },
@@ -882,6 +935,7 @@ export function useAdminCategoryDetailController(id: string | undefined) {
     canEditCategories,
     rows,
     draft,
+    dirty: dirtyFieldsRef.current.size > 0,
     categoryId,
     category,
     groups,
@@ -910,10 +964,12 @@ export function useAdminCategoryDetailController(id: string | undefined) {
 export default function AdminCategoryEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
+  const configUx = useFeature('oorva_admin_config_ux');
   const {
     canEditCategories,
     rows,
     draft,
+    dirty,
     categoryId,
     category,
     groups,
@@ -965,74 +1021,75 @@ export default function AdminCategoryEditorScreen() {
     );
   }
 
-  return (
-    <Screen header={<Header title={category ? 'Edit service' : categoryId ? 'Edit service' : 'New service'} subtitle={category?.name ?? undefined} onBack={backToServices} />}>
-      <Card gap={t.spacing.md}>
-        <Text variant="title3">Basics</Text>
-        <Input label="Name" value={draft.name} onChangeText={(value) => update('name', value)} />
-        <Input
-          label="Slug"
-          value={draft.slug}
-          editable={!categoryId}
-          helper={categoryId ? 'Slug cannot be changed after creation.' : '3–60 lowercase letters, numbers, or hyphens.'}
-          onChangeText={(value) => update('slug', value)}
-          autoCapitalize="none"
-        />
-        <Input label="Icon key" value={draft.icon} placeholder="construct-outline" onChangeText={(value) => update('icon', value)} autoCapitalize="none" />
-        <Input label="Vertical" value={draft.vertical} placeholder="home-repairs" onChangeText={(value) => update('vertical', value)} autoCapitalize="none" />
-        {draft.archetype ? (
-          <View style={{ gap: t.spacing.sm }}>
-            <Text variant="subhead">Parent group</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-              <Button
-                title="No parent"
-                size="sm"
-                variant={draft.parent_id ? 'outline' : 'secondary'}
-                onPress={() => update('parent_id', '')}
-              />
-              {groups.map((group) => (
-                <Button
-                  key={group.id}
-                  title={group.name}
-                  size="sm"
-                  variant={draft.parent_id === group.id ? 'secondary' : 'outline'}
-                  onPress={() => update('parent_id', group.id)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
-      </Card>
-
-      <Card gap={t.spacing.md}>
-        <Text variant="title3">Booking type</Text>
-        <Text variant="subhead">Category type</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-          {ARCHETYPES.map((option) => (
+  const basicsCard = (
+    <Card gap={t.spacing.md}>
+      <Text variant="title3">Basics</Text>
+      <Input label="Name" value={draft.name} onChangeText={(value) => update('name', value)} />
+      <Input
+        label="Slug"
+        value={draft.slug}
+        editable={!categoryId}
+        helper={categoryId ? 'Slug cannot be changed after creation.' : '3–60 lowercase letters, numbers, or hyphens.'}
+        onChangeText={(value) => update('slug', value)}
+        autoCapitalize="none"
+      />
+      <Input label="Icon key" value={draft.icon} placeholder="construct-outline" onChangeText={(value) => update('icon', value)} autoCapitalize="none" />
+      <Input label="Vertical" value={draft.vertical} placeholder="home-repairs" onChangeText={(value) => update('vertical', value)} autoCapitalize="none" />
+      {draft.archetype ? (
+        <View style={{ gap: t.spacing.sm }}>
+          <Text variant="subhead">Parent group</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             <Button
-              key={option.value || 'group'}
-              title={option.label}
+              title="No parent"
               size="sm"
-              variant={draft.archetype === option.value ? 'secondary' : 'outline'}
-              disabled={saving || stale || externalMutationPending}
-              onPress={() => changeArchetype(option.value)}
+              variant={draft.parent_id ? 'outline' : 'secondary'}
+              onPress={() => update('parent_id', '')}
             />
-          ))}
+            {groups.map((group) => (
+              <Button
+                key={group.id}
+                title={group.name}
+                size="sm"
+                variant={draft.parent_id === group.id ? 'secondary' : 'outline'}
+                onPress={() => update('parent_id', group.id)}
+              />
+            ))}
+          </View>
         </View>
-        <Input
-          label="Pricing units"
-          value={draft.pricing_units}
-          onChangeText={(value) => update('pricing_units', value)}
-          helper="Comma-separated units, such as job, hour, visit, or piece."
-          autoCapitalize="none"
-        />
-        <Input
-          label="Cancellation policy key"
-          value={draft.cancellation_policy}
-          onChangeText={(value) => update('cancellation_policy', value)}
-          helper={policyKeys.length ? `Existing keys: ${policyKeys.join(', ')}` : 'Enter an existing policy key.'}
-          autoCapitalize="none"
-        />
+      ) : null}
+    </Card>
+  );
+  const bookingTypeCard = (
+    <Card gap={t.spacing.md}>
+      <Text variant="title3">Booking type</Text>
+      <Text variant="subhead">Category type</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+        {ARCHETYPES.map((option) => (
+          <Button
+            key={option.value || 'group'}
+            title={option.label}
+            size="sm"
+            variant={draft.archetype === option.value ? 'secondary' : 'outline'}
+            disabled={saving || stale || externalMutationPending}
+            onPress={() => changeArchetype(option.value)}
+          />
+        ))}
+      </View>
+      <Input
+        label="Pricing units"
+        value={draft.pricing_units}
+        onChangeText={(value) => update('pricing_units', value)}
+        helper="Comma-separated units, such as job, hour, visit, or piece."
+        autoCapitalize="none"
+      />
+      <Input
+        label="Cancellation policy key"
+        value={draft.cancellation_policy}
+        onChangeText={(value) => update('cancellation_policy', value)}
+        helper={policyKeys.length ? `Existing keys: ${policyKeys.join(', ')}` : 'Enter an existing policy key.'}
+        autoCapitalize="none"
+      />
+      {!configUx ? (
         <TextArea
           label="Intake schema (JSON object)"
           value={draft.intake_schema}
@@ -1042,7 +1099,47 @@ export default function AdminCategoryEditorScreen() {
           autoCorrect={false}
           showCount={false}
         />
-      </Card>
+      ) : null}
+    </Card>
+  );
+  const advancedSchemaCard = configUx ? (
+    <Card gap={t.spacing.md}>
+      <Text variant="title3">Advanced intake schema</Text>
+      <Text variant="caption" color="muted">Optional service-intake fields. Do not include phone numbers or addresses.</Text>
+      <TextArea
+        label="Intake schema (JSON object)"
+        value={draft.intake_schema}
+        onChangeText={(value) => update('intake_schema', value)}
+        autoCapitalize="none"
+        autoCorrect={false}
+        showCount={false}
+      />
+    </Card>
+  ) : null;
+
+  return (
+    <Screen
+      header={<Header title={category ? 'Edit service' : categoryId ? 'Edit service' : 'New service'} subtitle={category?.name ?? undefined} onBack={backToServices} />}
+      footer={configUx ? (
+        <AdminCategorySaveFooter
+          dirty={dirty}
+          formError={formError}
+          readbackError={readbackError}
+          operationSlow={operationSlow}
+          externalMutationPending={externalMutationPending}
+          saving={saving}
+          savingCity={savingCity}
+          stale={stale}
+          onSave={() => void saveCategory()}
+          onRefresh={() => void load()}
+        />
+      ) : undefined}
+    >
+      {getCategoryEditorSections(configUx).map((section) => (
+        <View key={section}>
+          {section === 'basics' ? basicsCard : section === 'booking-type' ? bookingTypeCard : advancedSchemaCard}
+        </View>
+      ))}
 
       {draft.archetype === 'fixed' || draft.archetype === 'time_based' ? (
         <Card gap={t.spacing.md}>
@@ -1139,22 +1236,26 @@ export default function AdminCategoryEditorScreen() {
         <InlineAlert message={cityError} />
       </Card>
 
-      <InlineAlert message={formError} />
-      <InlineAlert message={readbackError} />
-      {operationSlow ? (
-        <InlineAlert message="The server has not confirmed this category change. Its outcome is unknown; do not retry. Category reads and writes stay blocked until it settles. If it remains stuck, restart the app, then verify the category in Services before retrying." />
+      {!configUx ? (
+        <>
+          <InlineAlert message={formError} />
+          <InlineAlert message={readbackError} />
+          {operationSlow ? (
+            <InlineAlert message="The server has not confirmed this category change. Its outcome is unknown; do not retry. Category reads and writes stay blocked until it settles. If it remains stuck, restart the app, then verify the category in Services before retrying." />
+          ) : null}
+          {externalMutationPending ? (
+            <InlineAlert message="Another category change is in progress. This editor will refresh when it finishes." />
+          ) : null}
+          {readbackError ? (
+            <Button
+              title="Refresh category data"
+              disabled={saving || savingCity !== null || externalMutationPending}
+              onPress={() => void load()}
+            />
+          ) : null}
+          <Button title="Save category" disabled={saving || savingCity !== null || stale || externalMutationPending} loading={saving} onPress={() => void saveCategory()} />
+        </>
       ) : null}
-      {externalMutationPending ? (
-        <InlineAlert message="Another category change is in progress. This editor will refresh when it finishes." />
-      ) : null}
-      {readbackError ? (
-        <Button
-          title="Refresh category data"
-          disabled={saving || savingCity !== null || externalMutationPending}
-          onPress={() => void load()}
-        />
-      ) : null}
-      <Button title="Save category" disabled={saving || savingCity !== null || stale || externalMutationPending} loading={saving} onPress={() => void saveCategory()} />
     </Screen>
   );
 }

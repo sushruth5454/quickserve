@@ -2,9 +2,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { useFeatureControlState } from '../../branding/FeatureFlagsProvider';
-import { Card, ErrorState, Header, Screen, Skeleton, Text, useToast } from '../../components/ui';
+import { Card, ErrorState, Header, Input, Screen, Skeleton, Text, useToast } from '../../components/ui';
 import { getAdminFeaturePresentation } from '../../lib/adminFeaturePresentation';
 import { getAppFeatures, listFeatures, setFeature, type AdminFeature, type AdminFeatures } from '../../lib/adminApi';
+import { isFeatureOn } from '../../lib/featureFlagModel';
 import { useTheme } from '../../theme';
 
 const ARCHETYPES = [
@@ -14,6 +15,12 @@ const ARCHETYPES = [
   ['proposal', 'Creators & events'],
   ['remote', 'Remote services'],
 ] as const;
+
+export function filterAdminFeatureRows(rows: AdminFeature[], query: string): AdminFeature[] {
+  const needle = query.trim().toLocaleLowerCase();
+  return rows.filter((feature) =>
+    !needle || `${feature.label} ${feature.description} ${feature.key} ${feature.group_name}`.toLocaleLowerCase().includes(needle));
+}
 
 function useAdminFeaturesController() {
   const toast = useToast();
@@ -71,7 +78,10 @@ function useAdminFeaturesController() {
 export default function AdminFeaturesScreen() {
   const t = useTheme();
   const { features, featureRows, error, saving, load, change } = useAdminFeaturesController();
-  const groupedFeatures = (featureRows ?? []).reduce<Record<string, AdminFeature[]>>((groups, feature) => {
+  const [query, setQuery] = useState('');
+  const configUx = isFeatureOn(features ?? {}, 'oorva_admin_config_ux');
+  const visibleFeatureRows = filterAdminFeatureRows(featureRows ?? [], configUx ? query : '');
+  const groupedFeatures = visibleFeatureRows.reduce<Record<string, AdminFeature[]>>((groups, feature) => {
     (groups[feature.group_name] ??= []).push(feature);
     return groups;
   }, {});
@@ -80,6 +90,16 @@ export default function AdminFeaturesScreen() {
     <Screen header={<Header title="Features" subtitle="Live switches · changes apply immediately" />}>
       {error ? <ErrorState message={error} onRetry={load} /> : !features || !featureRows ? <Skeleton height={300} radius={t.radii.lg} /> : (
         <>
+          {configUx ? (
+            <Input
+              label="Search feature registry"
+              placeholder="Search name, description, key, or group"
+              value={query}
+              onChangeText={setQuery}
+              autoCapitalize="none"
+            />
+          ) : null}
+          {visibleFeatureRows.length === 0 ? <Text variant="footnote" color="muted">No matching feature flags.</Text> : null}
           {Object.entries(groupedFeatures).map(([groupName, rows]) => (
             <View key={groupName} style={{ gap: t.spacing.sm }}>
               <Text variant="title3">{groupName}</Text>
