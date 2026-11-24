@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O28-ID03",
+  "workPackage": "O28",
+  "sourceTaskId": "ID-T03",
+  "findingIds": [
+    "ID-F10",
+    "ID-F16"
+  ],
+  "dispatchOrder": 55,
+  "status": "VALIDATION_PENDING_EXACT_HEAD_LANE_CI",
+  "base": {
+    "branch": "lane/oorva-o28-id03",
+    "implementationBaseHead": "24ca793c69e8dcac5d93761ac2232c1957ee71fc",
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "frozenAuditSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "mainAtDispatch": "dd969a4061b8bbf115356c63e645365358eade37",
+    "approvedDesignHandoff": "b914532ba1be6527ea0e74202fe0c3833376329e",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      },
+      {
+        "stageId": "O19-MK17",
+        "commit": "4da36127260304650f1d27ff49c3cbba96ea67c6",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      }
+    ]
+  },
+  "migrationClaim": {
+    "id": "MIG-O28-ID03",
+    "filename": "supabase\\migrations\\0131_o28_id03_oorva.sql",
+    "version": "0131",
+    "functions": [
+      "public.list_my_business_memberships",
+      "public.get_business_shop_context"
+    ]
+  },
+  "workerOwnedFiles": [
+    "app\\src\\features\\merchantStaff\\api.ts",
+    "app\\src\\features\\shops\\api.ts",
+    "supabase\\migrations\\0131_o28_id03_oorva.sql",
+    "app\\src\\features\\merchantStaff\\__tests__\\api.test.ts",
+    "supabase\\tests\\id_business_context.test.mjs",
+    "docs\\design\\oorva\\evidence\\o28-id03.json"
+  ],
+  "implementation": [
+    "Extended membership rows with provider, shop and sports-venue primary keys while retaining owner, role, type, name, owner-wide membership semantics and the merchant_staff gate.",
+    "Forward-recreated list_my_business_memberships with explicit authenticated-only grants.",
+    "Added selected-owner shop history read guarded by exact owner identity or active _acts_for membership with merchant_staff enabled; actual owners remain able to read while merchant_staff is OFF.",
+    "Kept safe shop fields explicit, GSTIN owner-only, and category slugs empty when the existing products capability is OFF; no provider or payout fields are returned.",
+    "Kept get_my_business_shop() unchanged; getMyShop(ownerId) calls the new RPC only when ownerId is explicitly supplied."
+  ],
+  "testCoverageAuthored": [
+    "ID-MEM-BUSINESS-PKS: actual provider, shop and venue PKs are returned; missing-user and merchant_staff-OFF denials plus authenticated-only RPC grants are asserted.",
+    "ID-MULTI-VENUE-SAME-NAME: two same-name venues remain distinct under one owner-wide membership.",
+    "ID-SHOP-SELECT-B: explicit owner B returns B, not the first eligible shop A, with only safe fields.",
+    "ID-SHOP-DENY: stranger, inactive member and delegated member with merchant_staff OFF are denied; owner remains authorized with owner-rank GSTIN.",
+    "ID-SHOP-FLAG-PARENTS: owner and authorized staff retain history when products are OFF, while save_product remains denied.",
+    "ID-LEGACY-SHOP-READ: legacy no-argument SQL and app RPC behavior remains available with capability flags OFF.",
+    "App API tests assert business_id preservation and providerId forwarding."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "COMPLETE",
+    "checkpointCommit": "eef5629e32d1ef702b3a7a6f87712db998a1a6c7",
+    "registrationCommit": "ef6642c452ec7eedf125a002c1a40190920ee331",
+    "mergeMethod": "FF_ONLY_SUCCESS",
+    "registeredChanges": [
+      "supabase/tests/package.json"
+    ],
+    "sharedFilesTouched": [],
+    "testSelector": "id_business_context",
+    "migrationParserSelector": "o28_id03_oorva.sql"
+  },
+  "validation": {
+    "gitDiffCheck": "PASS_AFTER_REGISTRATION_MERGE",
+    "codespace": {
+      "status": "UNAVAILABLE_NO_SELECTION",
+      "detail": "The current-main helper's gh codespace list call returned HTTP 404 for https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30 and reported that the GitHub token needs the codespace scope. The helper then emitted InvalidOperation because no Codespace value was returned. No selector ran; no auth scope change was attempted."
+    },
+    "selectors": [
+      {
+        "suite": "app",
+        "selector": "src.features.merchantStaff.__tests__.api[.]test[.]ts$",
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE"
+      },
+      {
+        "suite": "sql",
+        "selector": "id_business_context",
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE"
+      },
+      {
+        "suite": "sql",
+        "selector": "o28_id03_oorva.sql",
+        "status": "NOT_RUN_CODESPACE_UNAVAILABLE"
+      }
+    ],
+    "laneCi": {
+      "status": "PENDING_EXACT_HEAD_LANE_CI_AFTER_AUTH_COVERAGE_UPDATE",
+      "fallback": "Exact-head Lane CI only",
+      "exactHeadRunId": null,
+      "priorRun": {
+        "runId": "45395800934",
+        "headSha": "7d8a901dc0e07a0a595711559fd46c181a272d84",
+        "result": "PASS",
+        "note": "The focused AUTH reviewer requested direct membership-list no-UID, merchant_staff-OFF and RPC ACL assertions; these tests were added after this run."
+      }
+    },
+    "focusedAuthReview": {
+      "status": "PENDING_AFTER_NEXT_CODE_GREEN",
+      "priorReview": "No significant issues; coverage note addressed by added assertions.",
+      "findings": []
+    }
+  },
+  "releaseStatus": {
+    "mainPromotion": "not performed",
+    "deployment": "not performed",
+    "featureActivation": "not performed",
+    "productionActions": "none"
+  }
+}

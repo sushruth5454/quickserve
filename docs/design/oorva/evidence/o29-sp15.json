@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O29-SP15",
+  "sourceTaskId": "SP-T15",
+  "findingId": "SP-F07",
+  "frozenPlanSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "dd969a4061b8bbf115356c63e645365358eade37",
+  "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "dependencies": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O29-STATE": "5c37fc2691adf5cedaf5826131caff234711af95",
+    "O09-SP09": "502baebd91c0a39918dfba1bb393fe2e3859830a",
+    "O20-SP08": "f6b356e458c26fe6fcc322fd1879a18c9d210c6b",
+    "O03": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+    "O05I": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "O06B": "de989f95e5d57f78540417587023318afef123c6",
+    "O08": "7479864f743024b8e80ac26fea071a8962ed6265"
+  },
+  "scope": {
+    "workerOwnedFiles": [
+      "app/src/features/sports/manage/SportsVenueManagementScreen.tsx",
+      "app/src/features/sports/manage/BookingSections.tsx",
+      "app/src/features/sports/manage/types.ts",
+      "app/src/features/sports/model.ts",
+      "app/src/features/sports/manage/__tests__/managementState.test.ts",
+      "docs/design/oorva/evidence/o29-sp15.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "featureFlagChanges": [],
+    "coordinatorOwnedFilesChanged": false,
+    "runtimeMoneySafetyGated": false
+  },
+  "sourceDrift": {
+    "comparison": "Affected owned source only, against audited source SHA",
+    "preserved": [
+      "O29-STATE owner/assigned role, selector, loading, read and venue-filtering repairs",
+      "O20-SP08 SportsBookingCard status/payment presentation and ends_at booking field",
+      "O09-SP09 guarded refresh behavior"
+    ]
+  },
+  "implementation": {
+    "summary": [
+      "Effective oorva_venue_ops_ux selection moves requests, current, upcoming and history directly below the owner venue selector/status; OFF keeps legacy editor-before-bookings order.",
+      "Booking rows are classified from status, starts_at and ends_at without assigning new statuses; all unclassified/terminal rows remain in history and render by booking id.",
+      "Future pending_payment and awaiting_payment entries are explicitly presented as held and not confirmed.",
+      "Assigned staff retains read-only booking access; sports-OFF existing rows remain on their existing read path."
+    ],
+    "requiredCases": [
+      "SP-REQUEST-FIRST",
+      "SP-CURRENT-AND-HISTORY-ALL-STATUSES",
+      "SP-OWNER-STAFF-PARITY"
+    ]
+  },
+  "validation": {
+    "codespace": {
+      "status": "BLOCKED_BEFORE_TEST_SELECTION",
+      "helperSource": "origin/main at dd969a4061b8bbf115356c63e645365358eade37",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.sports.manage.__tests__.managementState[.]test[.]ts$'",
+      "error": "error getting codespaces: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. The helper then failed because its Codespace selection result was null.",
+      "selectionReached": false,
+      "fallback": "Exact-head Lane CI"
+    },
+    "implementationLaneCi": {
+      "status": "PASS",
+      "testedHead": "854b1400c751e1a00c1aa9476e9cbf0acc6a69c7",
+      "runId": 45335405486,
+      "appJob": "PASS",
+      "otherJobs": "Skipped because this stage adds no backend, SQL, Deno, tooling or private-Postgres changes."
+    },
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}

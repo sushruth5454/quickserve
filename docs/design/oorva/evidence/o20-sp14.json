@@ -1,0 +1,21 @@
+{
+  "stageId": "O20-SP14",
+  "sourceTaskId": "SP-T14",
+  "sourceFindingId": "SP-F19",
+  "frozenPlanSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "dd969a4061b8bbf115356c63e645365358eade37",
+  "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+  "implementedBehavior": [
+    "Sports venue results pass an explicit ListingCard presentation: family mode uses O08's oorva layout for complete titles/prices; either selector OFF explicitly passes legacy. The displayed minimum is labeled From and per slot, with only returned area, city, distance, and verification metadata.",
+    "Sports activity cards use a one-column layout on narrow viewports or enlarged text, otherwise two columns, and activity titles are not line-clamped.",
+    "The family venue-selection composition renders one hero, compact venue identity, then resource/date/slot selection. Additional photos expand below selection; OFF retains the legacy photo and detail ordering.",
+    "Sports booking history uses the existing booking presentation helper and supplied booking fields; family mode emphasizes the actual start–end range before stored amount/payment, while either selector OFF explicitly uses the existing legacy card.",
+    "The existing sticky booking footer, route/params, booking action, server amount, idempotency, permissions, cancellation, refund, and expiry behavior were not changed. No registry, migration, SQL, shared ListingCard default, or route-wrapper edits."
+  ],
+  "codespaceValidation": {
+    "status": "UNAVAILABLE",
+    "details": "The current-origin/main helper failed before test selection on the nested home command: HTTP 404 from /repos/sushruth5454/quickserve/codespaces?per_page=30, reporting that the operation needs the codespace scope. The other selectors were not run after this pre-selection access failure; exact-head Lane CI is the documented fallback."
+  },
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "coordinatorOwnedEvidence": "Before the combined private e2e-local batch, capture matching actual before/after sports selection and detail states. Archived frames are before observations only and are not an after/PASS."
+}

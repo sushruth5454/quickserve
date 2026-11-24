@@ -1,4 +1,35 @@
 import { getSportsHomePresentation, shouldLoadSportsBusinessVenues } from '../../api';
+import { isSportsFamilyUxEnabled } from '../../../sportsScreens/SportsIndexScreen';
+
+jest.mock('expo-router', () => ({
+  router: {
+    back: jest.fn(),
+    canGoBack: jest.fn(() => true),
+    push: jest.fn(),
+    replace: jest.fn(),
+  },
+  useFocusEffect: jest.fn(),
+  useLocalSearchParams: jest.fn(() => ({})),
+}));
+jest.mock('react-native', () => ({
+  View: 'View',
+  useWindowDimensions: () => ({ width: 390, fontScale: 1 }),
+}));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+jest.mock('../../../../components/market/ListingCard', () => ({ ListingCard: 'ListingCard' }));
+jest.mock('../../../../components/ui', () => ({
+  Card: 'Card',
+  EmptyState: 'EmptyState',
+  ErrorState: 'ErrorState',
+  Header: 'Header',
+  InlineAlert: 'InlineAlert',
+  Screen: 'Screen',
+  Skeleton: 'Skeleton',
+  Text: 'Text',
+}));
+jest.mock('../../../../lib/auth', () => ({ useAuth: jest.fn() }));
+jest.mock('../../../../lib/featureFlags', () => ({ useAppFeatureFlags: jest.fn() }));
+jest.mock('../../../../theme', () => ({ useTheme: jest.fn() }));
 
 jest.mock('../../../../lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
@@ -79,5 +110,25 @@ describe('sports home independent sections', () => {
 
     expectJson(legacy.composition, 'legacy');
     expectJson(family.composition, 'family');
+  });
+
+  it('SP-FAMILY-PARENT-OFF: selects legacy when either sports UX or the brand parent is off', () => {
+    const actual = [
+      isSportsFamilyUxEnabled(false, false),
+      isSportsFamilyUxEnabled(true, false),
+      isSportsFamilyUxEnabled(false, true),
+      isSportsFamilyUxEnabled(true, true),
+    ];
+    const parentOff = presentation({
+      familyUxEnabled: isSportsFamilyUxEnabled(true, false),
+    });
+
+    expectJson({
+      effectiveFamilySelector: actual,
+      parentOffComposition: parentOff.composition,
+    }, {
+      effectiveFamilySelector: [false, false, false, true],
+      parentOffComposition: 'legacy',
+    });
   });
 });

@@ -3,6 +3,12 @@ import { supabase } from '../../lib/supabase';
 export type RfqUnit = 'piece' | 'sqft' | 'box' | 'kg' | 'litre' | 'bag' | 'metre' | 'set';
 export type RfqStatus = 'open' | 'closed' | 'expired' | 'cancelled';
 export type SupplierQuoteStatus = 'sent' | 'withdrawn' | 'selected' | 'rejected' | 'expired';
+export type SupplierQuoteSendBlockReason =
+  | 'feature_off'
+  | 'shop_unavailable'
+  | 'role_not_permitted'
+  | 'closed'
+  | 'rfq_expired';
 export type RfqSelectionBlockReason =
   | 'closed'
   | 'rfq_expired'
@@ -103,6 +109,7 @@ export type RfqQuoteComparisonResult = RfqQuoteComparison
 
 export interface SupplierRfqSummary {
   shop_id: string;
+  shop_name: string;
   rfq_id: string;
   title: string;
   category_name: string;
@@ -119,19 +126,49 @@ export interface SupplierRfqSummary {
   business_role: 'owner' | 'manager' | 'staff';
 }
 
-export interface SupplierRfq extends Omit<Rfq, 'customer_id' | 'category_id' | 'lat' | 'lng' | 'recipient_count' | 'created_at'> {
+export function supplierRfqDetailRouteParams(
+  rfq: Pick<SupplierRfqSummary, 'rfq_id' | 'shop_id'>,
+): { id: string; shopId: string } {
+  return { id: rfq.rfq_id, shopId: rfq.shop_id };
+}
+
+export interface SupplierQuoteSavedItem {
+  rfq_item_id: string;
+  seq: number;
+  description: string;
+  brand: string;
+  model: string;
+  specs: Record<string, unknown>;
+  quantity: number;
+  unit: RfqUnit;
+  unit_price_paise: number;
+  gst_rate_bp: number;
+  available: boolean;
+  line_total_paise: number;
+}
+
+export interface SupplierQuoteSaved {
+  id: string;
+  version: number;
+  status: SupplierQuoteStatus;
+  delivery_charge_paise: number;
+  delivery_days: number | null;
+  valid_until: string;
+  notes: string;
+  subtotal_paise: number;
+  gst_paise: number;
+  total_paise: number;
+  items: SupplierQuoteSavedItem[];
+}
+
+export interface SupplierRfq extends Omit<Rfq, 'customer_id' | 'lat' | 'lng' | 'recipient_count' | 'created_at'> {
   shop_id: string;
+  shop_name: string;
   business_role: 'owner' | 'manager' | 'staff';
   shop_has_gstin: boolean;
-  my_quote: {
-    id: string;
-    version: number;
-    status: SupplierQuoteStatus;
-    delivery_charge_paise: number;
-    delivery_days: number | null;
-    valid_until: string;
-    notes: string;
-  } | null;
+  can_send_quote: boolean;
+  send_block_reason: SupplierQuoteSendBlockReason | null;
+  my_quote: SupplierQuoteSaved | null;
 }
 
 export interface AdminRfqDashboard {
@@ -224,10 +261,10 @@ export async function listMySupplierRfqs(): Promise<SupplierRfqSummary[]> {
   return unwrap(data as SupplierRfqSummary[] | null, error);
 }
 
-export async function getSupplierRfq(rfqId: string, shopId?: string): Promise<SupplierRfq> {
+export async function getSupplierRfq(rfqId: string, shopId: string): Promise<SupplierRfq> {
   const { data, error } = await supabase.rpc('get_supplier_rfq_for_business', {
     p_rfq_id: rfqId,
-    p_shop_id: shopId ?? null,
+    p_shop_id: shopId,
   });
   return unwrap(data as SupplierRfq | null, error);
 }

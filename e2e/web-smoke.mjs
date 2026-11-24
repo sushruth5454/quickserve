@@ -35,6 +35,8 @@ const pageErrors = [];
 const consoleErrors = [];
 const httpFailures = [];
 const appFeatureResponses = [];
+let qaProductEnquiryId = null;
+let localE2eCustomerToken = null;
 const failures = [];
 const softFailures = [];
 const skippedSteps = [];
@@ -76,6 +78,14 @@ page.on('response', (response) => {
   ) {
     appFeatureResponses.push(response);
   }
+});
+page.on('request', (request) => {
+  if (
+    request.method() !== 'POST'
+    || !new URL(request.url()).pathname.endsWith('/rest/v1/rpc/get_product_enquiry')
+  ) return;
+  const args = request.postDataJSON();
+  if (typeof args?.p_enquiry_id === 'string') qaProductEnquiryId = args.p_enquiry_id;
 });
 function recordHttpFailures(pageName, target) {
   target.on('response', (response) => {
@@ -219,6 +229,12 @@ function phoneKey(phone) {
   let digits = phone.replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
   return digits;
+}
+
+function phoneE164(phone) {
+  const digits = phoneKey(phone);
+  if (!/^[6-9]\d{9}$/.test(digits)) throw new Error(`Invalid E2E test phone configuration: ${JSON.stringify({ validIndianMobile: false })}`);
+  return `+91${digits}`;
 }
 
 function phoneRoleCollisions(roles) {
@@ -604,6 +620,118 @@ const sportsScenarioBookingId = sportsScenarioBookingMatch?.[1] ?? null;
 if (!sportsScenarioBookingId) {
   throw new Error(`sports booking scenario did not finish on its detail route: ${JSON.stringify({ url: page.url() })}`);
 }
+if (PRIVATE_LOCAL_E2E) {
+  localE2eCustomerToken = await page.evaluate(() => {
+    for (const key of Object.keys(localStorage)) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) ?? 'null');
+        const sessions = [value, value?.currentSession, value?.session, value?.data?.session];
+        const session = sessions.find((candidate) => typeof candidate?.access_token === 'string');
+        if (session) return session.access_token;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  });
+  if (!localE2eCustomerToken) {
+    throw new Error(`MK-ADMIN authenticated customer token was not present after the customer journey: ${JSON.stringify({
+      url: page.url(),
+      storageKeys: await page.evaluate(() => Object.keys(localStorage)),
+    })}`);
+  }
+}
+if (PRIVATE_LOCAL_E2E) {
+  await step('MK-READ-admin-and-enquiry-retry-customer', async () => {
+    const enquiryId = qaProductEnquiryId;
+    if (!enquiryId) {
+      throw new Error(`MK-READ customer enquiry fixture was not observed: ${JSON.stringify({
+        url: page.url(),
+        body: await page.locator('body').innerText(),
+      })}`);
+    }
+
+    let retryEnabled = false;
+    let injectedFailures = 0;
+    const routePattern = '**/rest/v1/rpc/get_product_enquiry';
+    const matchesEnquiry = (response) =>
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_product_enquiry')
+      && response.request().postDataJSON()?.p_enquiry_id === enquiryId;
+    const routeHandler = async (route) => {
+      if (route.request().postDataJSON()?.p_enquiry_id === enquiryId && !retryEnabled) {
+        injectedFailures += 1;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'MK-READ injected enquiry read failure' }),
+        });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route(routePattern, routeHandler);
+    try {
+      const failurePromise = page.waitForResponse((response) =>
+        matchesEnquiry(response) && response.status() === 503,
+      );
+      await go(`/enquiry/${enquiryId}`);
+      const failure = await failurePromise;
+      const failureBody = await page.locator('body').innerText();
+      const retryButton = page.getByRole('button', { name: 'Try again', exact: true }).first();
+      await retryButton.waitFor({ state: 'visible' });
+      const unavailableVisible = await page.getByText('Enquiry unavailable', { exact: true }).isVisible().catch(() => false);
+      if (!failureBody.includes('MK-READ injected enquiry read failure') || unavailableVisible) {
+        throw new Error(`MK-READ failure was not represented as a retryable read error: ${JSON.stringify({
+          enquiryId,
+          status: failure.status(),
+          injectedFailures,
+          retryVisible: await retryButton.isVisible().catch(() => false),
+          unavailableVisible,
+          body: failureBody,
+        })}`);
+      }
+      await snap('mk-read-enquiry-error');
+
+      retryEnabled = true;
+      const retryPromise = page.waitForResponse((response) =>
+        matchesEnquiry(response) && response.ok(),
+      );
+      await retryButton.click();
+      const recoveredResponse = await retryPromise;
+      const recoveredRows = await recoveredResponse.json();
+      const recoveredThread = Array.isArray(recoveredRows)
+        ? recoveredRows.find((row) => row.id === enquiryId)
+        : null;
+      await page.getByText(QA_MARKER, { exact: false }).last().waitFor({ state: 'visible' });
+      await page.getByText('Conversation status: open', { exact: true }).first().waitFor({ state: 'visible' });
+      const retryButtonCount = await page.getByRole('button', { name: 'Try again', exact: true }).count();
+      const actual = {
+        enquiryId,
+        initialStatus: failure.status(),
+        injectedFailures,
+        recoveredStatus: recoveredResponse.status(),
+        recoveredThreadId: recoveredThread?.id ?? null,
+        recoveredThreadStatus: recoveredThread?.status ?? null,
+        retryButtonCount,
+        qaMarkerVisible: await page.getByText(QA_MARKER, { exact: false }).last().isVisible().catch(() => false),
+      };
+      if (
+        recoveredResponse.status() !== 200
+        || recoveredThread?.id !== enquiryId
+        || recoveredThread?.status !== 'open'
+        || retryButtonCount !== 0
+        || !actual.qaMarkerVisible
+      ) {
+        throw new Error(`MK-READ enquiry retry did not recover the same current thread: ${JSON.stringify(actual)}`);
+      }
+      console.log(`MK-READ-admin-and-enquiry-retry customer: ${JSON.stringify(actual)}`);
+      await snap('mk-read-enquiry-recovered');
+    } finally {
+      await page.unroute(routePattern, routeHandler);
+    }
+  });
+}
 
 // ---------- Customer ----------
 await step('home', async () => {
@@ -745,6 +873,177 @@ await step('home-family-drilldown-and-marketplace-entry-points', async () => {
     await go('/');
   }
 });
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('SP-T14-sports-selection-detail-before-after', async () => {
+    if (
+      process.env.DEMO_PROJECT !== '1'
+      || process.env.PROJECT_REF !== 'local'
+      || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+    ) {
+      throw new Error('SP-T14 flag comparison is restricted to the disposable local E2E backend');
+    }
+    const token = process.env.SUPABASE_ACCESS_TOKEN;
+    if (!token) throw new Error('Local Management API token is missing for SP-T14');
+
+    const privateQuery = async (query) => {
+      const response = await fetch('http://127.0.0.1:54399/v1/projects/local/database/query', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'quickserve-oorva-private-e2e',
+        },
+        body: JSON.stringify({ query }),
+      });
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(`Local database query failed (${response.status}): ${responseText.slice(0, 500)}`);
+      }
+      let result = [];
+      if (responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          throw new Error('Local Management API returned invalid JSON');
+        }
+      }
+      if (result?.error || (Array.isArray(result) && result.some((row) => row?.error))) {
+        throw new Error(`Local database query returned an error: ${JSON.stringify(result?.error ?? result)}`);
+      }
+      return result;
+    };
+    const readFlags = async () => {
+      const rows = await privateQuery(
+        "select key, enabled from public.feature_flags where key in ('oorva_brand', 'oorva_sports_ux')",
+      );
+      if (!Array.isArray(rows)) {
+        throw new Error(`SP-T14 feature flag query returned an unexpected shape: ${JSON.stringify(rows)}`);
+      }
+      const actual = Object.fromEntries(rows.map((row) => [row.key, row.enabled]));
+      const missing = ['oorva_brand', 'oorva_sports_ux'].filter((key) => typeof actual[key] !== 'boolean');
+      if (missing.length) {
+        throw new Error(`SP-T14 required feature flags are missing: ${JSON.stringify({ missing, actual })}`);
+      }
+      return actual;
+    };
+    const applyFlags = async (values) => {
+      const payload = JSON.stringify(values);
+      if (payload.includes('$flags$')) throw new Error('Unsafe SP-T14 feature flag snapshot payload');
+      await privateQuery(
+        'update public.feature_flags f set enabled = v.value::boolean, updated_at = now() '
+        + `from json_each_text($flags$${payload}$flags$::json) v where f.key = v.key`,
+      );
+      const actual = await readFlags();
+      const mismatches = Object.fromEntries(
+        Object.entries(values)
+          .filter(([key, value]) => actual[key] !== value)
+          .map(([key, value]) => [key, { expected: value, actual: actual[key] }]),
+      );
+      if (Object.keys(mismatches).length) {
+        throw new Error(`SP-T14 feature flag update/readback mismatch: ${JSON.stringify({ mismatches, actual })}`);
+      }
+    };
+    const captureState = async (name, familyEnabled) => {
+      const featuresPromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features'),
+      );
+      await go('/');
+      const featuresResponse = await featuresPromise;
+      if (!featuresResponse.ok()) {
+        throw new Error(`SP-T14 get_app_features failed (${featuresResponse.status()}): ${await featuresResponse.text()}`);
+      }
+      const features = await featuresResponse.json();
+      const actualFlags = {
+        oorva_brand: features?.oorva_brand,
+        oorva_sports_ux: features?.oorva_sports_ux,
+      };
+      const expectedFlags = { oorva_brand: familyEnabled, oorva_sports_ux: familyEnabled };
+      const flagMismatches = Object.fromEntries(
+        Object.entries(expectedFlags)
+          .filter(([key, value]) => actualFlags[key] !== value)
+          .map(([key, value]) => [key, { expected: value, actual: actualFlags[key] }]),
+      );
+      if (Object.keys(flagMismatches).length) {
+        throw new Error(`SP-T14 app feature state mismatch: ${JSON.stringify({ expectedFlags, actualFlags, flagMismatches })}`);
+      }
+
+      await go('/sports');
+      const expectedHome = `sports-home-${familyEnabled ? 'family' : 'legacy'}`;
+      await page.getByTestId(expectedHome).waitFor({ state: 'visible' });
+      await snap(`sp-t14-${name}-selection`);
+      const activity = page.getByRole('button', { name: 'Badminton sports venues', exact: true });
+      await activity.waitFor({ state: 'visible' });
+      const venueResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/search_sports_venues')
+        && response.request().postDataJSON()?.p_activity_slug === 'badminton',
+      );
+      await activity.click();
+      await page.waitForURL((url) => new URL(url).pathname === '/sports/badminton');
+      const venueResponse = await venueResponsePromise;
+      if (!venueResponse.ok()) {
+        throw new Error(`SP-T14 search_sports_venues failed (${venueResponse.status()}): ${await venueResponse.text()}`);
+      }
+      const rows = await venueResponse.json();
+      const venue = Array.isArray(rows) ? rows.find((row) => row.id === DEMO_IDS.sportsVenue) : null;
+      if (!venue) {
+        throw new Error(`SP-T14 expected the same seeded venue in the detail state: ${JSON.stringify({
+          expectedVenueId: DEMO_IDS.sportsVenue,
+          actualRows: rows,
+          url: page.url(),
+          body: await page.locator('body').innerText(),
+        })}`);
+      }
+      const venueName = 'Benz Circle Demo Badminton Courts';
+      await page.getByText(venueName, { exact: true }).first().waitFor({ state: 'visible' });
+      const priceLabel = (await page.locator('body').innerText())
+        .split('\n')
+        .find((line) => line.startsWith('From ₹') && line.endsWith('/ slot'));
+      if (!priceLabel) {
+        throw new Error(`SP-T14 venue price was not visible in the detail state: ${JSON.stringify({
+          venueId: venue.id,
+          expectedMinimumPricePaise: venue.min_price_paise,
+          body: await page.locator('body').innerText(),
+        })}`);
+      }
+      await snap(`sp-t14-${name}-detail`);
+      return {
+        appFlags: actualFlags,
+        activitySlug: 'badminton',
+        homeComposition: familyEnabled ? 'family' : 'legacy',
+        priceLabel,
+        venueId: venue.id,
+        venueName,
+      };
+    };
+
+    const originalFlags = await readFlags();
+    let restoreRequired = false;
+    try {
+      restoreRequired = true;
+      await applyFlags({ oorva_brand: false, oorva_sports_ux: false });
+      const before = await captureState('before', false);
+      await applyFlags({ oorva_brand: true, oorva_sports_ux: true });
+      const after = await captureState('after', true);
+      if (
+        before.activitySlug !== after.activitySlug
+        || before.venueId !== after.venueId
+        || before.venueName !== after.venueName
+        || before.priceLabel !== after.priceLabel
+        || before.homeComposition === after.homeComposition
+      ) {
+        throw new Error(`SP-T14 before/after states did not match the same selection/detail data: ${JSON.stringify({
+          before,
+          after,
+        })}`);
+      }
+      console.log(`SP-T14 matching actual selection/detail states: ${JSON.stringify({ before, after })}`);
+    } finally {
+      if (restoreRequired) await applyFlags(originalFlags);
+    }
+  });
+}
 await optional('home-top-rated', async () => {
   await go('/');
   await page.getByText(TOP_RATED_HOME_TITLE, { exact: true }).first().scrollIntoViewIfNeeded();
@@ -1527,11 +1826,6 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       }
       return id;
     };
-    const phoneE164 = (phone) => {
-      const digits = phoneKey(phone);
-      if (!/^[6-9]\d{9}$/.test(digits)) throw new Error(`Invalid E2E test phone configuration: ${JSON.stringify({ validIndianMobile: false })}`);
-      return `+91${digits}`;
-    };
     const readRfqQuoteState = async (rfqId, quoteId) => {
       const rows = await privateQuery(
         `select r.status as rfq_status, q.status as quote_status `
@@ -1842,13 +2136,29 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
           waitError: String(error?.message ?? error),
         })}`);
       }
+      const showOfferLines = page.getByRole('button', { name: 'Show offer lines', exact: true });
+      const showOfferLinesCount = await showOfferLines.count();
+      if (showOfferLinesCount < 1) {
+        throw new Error(`RFQ offer details could not be expanded: ${JSON.stringify({
+          rfqId,
+          quoteId,
+          showOfferLinesCount,
+          body: (await page.locator('body').innerText()).slice(0, 1800),
+        })}`);
+      }
+      await showOfferLines.first().click();
       await page.getByText(/History/).first().waitFor({ state: 'visible' });
       await visible('Existing RFQ history is read-only while new RFQs are turned off. You may cancel your own open request.');
       const cancelButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
       if (!(await cancelButtons.count())) throw new Error(`RFQ owner cannot see Cancel request for ${JSON.stringify({ rfqId })}`);
       const chooseButtons = page.getByRole('button', { name: 'Choose this supplier', exact: true });
-      if (!(await chooseButtons.count()) || !(await chooseButtons.first().isDisabled())) {
-        throw new Error(`Choose this supplier was not disabled while products are OFF: ${JSON.stringify({ rfqId, count: await chooseButtons.count(), disabled: await chooseButtons.first().isDisabled().catch(() => null) })}`);
+      const chooseButtonCount = await chooseButtons.count();
+      if (chooseButtonCount !== 0) {
+        throw new Error(`Supplier selection remained visible while products are OFF: ${JSON.stringify({
+          rfqId,
+          chooseButtonCount,
+          historyVisible: true,
+        })}`);
       }
 
       requireNotFoundDenial(
@@ -1916,9 +2226,14 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         cancelDialogMessage = dialog.message();
         await dialog.accept();
       };
+      const expectedCancelCopy = 'This closes your request. Outstanding quotes will not be selected. No payment will be taken.';
       const cancelResponsePromise = page.waitForResponse((response) =>
         response.request().method() === 'POST'
-        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/cancel_rfq'),
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/cancel_rfq')
+        && response.request().postDataJSON()?.p_rfq_id === rfqId,
+      ).then(
+        (response) => ({ response }),
+        (error) => ({ error: String(error?.message ?? error) }),
       );
       page.on('dialog', handleCancelDialog);
       try {
@@ -1927,16 +2242,34 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
         page.off('dialog', handleCancelDialog);
       }
       if (cancelDialogMessage) {
-        if (!cancelDialogMessage.includes('Suppliers will be told that this request was cancelled.')) {
+        if (!cancelDialogMessage.includes(expectedCancelCopy)) {
           throw new Error(`Unexpected cancel confirmation dialog: ${JSON.stringify({ rfqId, message: cancelDialogMessage })}`);
         }
       } else {
-        await visible('Suppliers will be told that this request was cancelled.');
+        await visible(expectedCancelCopy);
         const confirmationButtons = page.getByRole('button', { name: 'Cancel request', exact: true });
-        if (!(await confirmationButtons.count())) throw new Error(`Cancel confirmation action is missing for RFQ ${rfqId}`);
+        const confirmationButtonCount = await confirmationButtons.count();
+        if (confirmationButtonCount < 2) {
+          throw new Error(`Custom RFQ cancellation confirmation is missing its confirm action: ${JSON.stringify({
+            rfqId,
+            confirmationButtonCount,
+            expectedCancelCopy,
+            body: await page.locator('body').innerText(),
+          })}`);
+        }
         await confirmationButtons.last().click();
       }
-      const cancelResponse = await cancelResponsePromise;
+      const cancelOutcome = await cancelResponsePromise;
+      if ('error' in cancelOutcome) {
+        throw new Error(`Owner cancel_rfq response was not observed: ${JSON.stringify({
+          rfqId,
+          cancelDialogMessage,
+          expectedCancelCopy,
+          waitError: cancelOutcome.error,
+          body: await page.locator('body').innerText(),
+        })}`);
+      }
+      const cancelResponse = cancelOutcome.response;
       if (!cancelResponse.ok()) {
         throw new Error(`Owner cancel_rfq failed (${cancelResponse.status()}): ${await cancelResponse.text()}`);
       }
@@ -1944,6 +2277,82 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
       if (afterOwnerCancel.rfq_status !== 'cancelled' || afterOwnerCancel.quote_status !== 'rejected') {
         throw new Error(`Owner cancellation did not atomically resolve the same RFQ/quote: ${JSON.stringify({ actual: afterOwnerCancel, expected: { rfq_status: 'cancelled', quote_status: 'rejected' } })}`);
       }
+
+      await applyFlags(featureOn);
+      await refreshFeatureState(featureOn);
+      await step('MK-ENQUIRY-same-PK-counterpart-refresh', async () => {
+        let ownerClosed = false;
+        try {
+          await go(`/enquiry/${enquiryId}`);
+          await visible(enquiryText);
+          await visible(ownerReplyText);
+          await visible('Conversation status: open');
+          requireRpcSuccess(
+            'owner closes the same enquiry ID',
+            await rpc(ownerToken, 'set_product_enquiry_status', { p_enquiry_id: enquiryId, p_status: 'closed' }),
+          );
+          ownerClosed = true;
+
+          await go('/bookings');
+          await go(`/enquiry/${enquiryId}`);
+          await visible('Conversation status: closed');
+          await visible('Reopen this enquiry to send a message.');
+          const customerClosedRows = requireRpcSuccess(
+            'customer reads the same closed enquiry after counterpart refresh',
+            await rpc(customerToken, 'get_product_enquiry', { p_enquiry_id: enquiryId }),
+          );
+          const customerClosed = Array.isArray(customerClosedRows)
+            ? customerClosedRows.find((row) => row?.id === enquiryId)
+            : customerClosedRows?.id === enquiryId ? customerClosedRows : null;
+          const actual = {
+            enquiryId,
+            url: page.url(),
+            customerClosed,
+            messageInputs: await page.getByLabel('Message', { exact: true }).count(),
+            sendButtons: await page.getByLabel('Send message', { exact: true }).count(),
+            reopenButtons: await page.getByRole('button', { name: 'Reopen', exact: true }).count(),
+          };
+          if (
+            customerClosed?.id !== enquiryId
+            || customerClosed.status !== 'closed'
+            || customerClosed.can_change_status !== true
+            || customerClosed.can_reopen !== true
+            || customerClosed.active_enquiry_id !== null
+            || actual.messageInputs !== 0
+            || actual.sendButtons !== 0
+            || actual.reopenButtons !== 1
+          ) {
+            throw new Error(`Counterpart refresh did not preserve same-ID closed state and customer actions: ${JSON.stringify({
+              actual,
+              expected: {
+                enquiryId,
+                status: 'closed',
+                can_change_status: true,
+                can_reopen: true,
+                active_enquiry_id: null,
+                messageInputs: 0,
+                sendButtons: 0,
+                reopenButtons: 1,
+              },
+            })}`);
+          }
+
+          await page.getByRole('button', { name: 'Reopen', exact: true }).click();
+          await visible('Conversation status: open');
+          ownerClosed = false;
+        } finally {
+          if (ownerClosed) {
+            const restore = await rpc(ownerToken, 'set_product_enquiry_status', { p_enquiry_id: enquiryId, p_status: 'open' });
+            if (!restore.ok) {
+              cleanupErrors.push(`counterpart refresh state restore: ${JSON.stringify({
+                enquiryId,
+                status: restore.status,
+                body: restore.body,
+              })}`);
+            }
+          }
+        }
+      });
     } catch (error) {
       testError = error;
     } finally {
@@ -1980,6 +2389,332 @@ if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
     }
     if (testError || cleanupErrors.length) {
       throw new Error(`O18 private capability scenario failed: ${JSON.stringify({
+        testError: testError ? String(testError?.message ?? testError) : null,
+        cleanupErrors,
+      })}`);
+    }
+  });
+}
+if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+  await step('MK-BUSINESS-inbox-context', async () => {
+    const sqlLiteral = (value) => `'${String(value).replaceAll("'", "''")}'`;
+    const sqlUuid = (value) => `${sqlLiteral(value)}::uuid`;
+    const privateQuery = async (query) => {
+      if (
+        !PRIVATE_LOCAL_E2E
+        || process.env.DEMO_PROJECT !== '1'
+        || process.env.PROJECT_REF !== 'local'
+        || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+      ) {
+        throw new Error('MK-BUSINESS fixtures are restricted to the disposable local E2E backend');
+      }
+      const token = process.env.SUPABASE_ACCESS_TOKEN;
+      if (!token) throw new Error('Local Management API token is missing for MK-BUSINESS');
+      const response = await fetch('http://127.0.0.1:54399/v1/projects/local/database/query', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'quickserve-oorva-private-e2e',
+        },
+        body: JSON.stringify({ query }),
+      });
+      const responseText = await response.text();
+      if (!response.ok) {
+        throw new Error(`Local database query failed (${response.status}): ${responseText.slice(0, 500)}`);
+      }
+      let result = [];
+      if (responseText.trim()) {
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          throw new Error('Local Management API returned invalid JSON');
+        }
+      }
+      if (result?.error || (Array.isArray(result) && result.some((row) => row?.error))) {
+        throw new Error(`Local database query returned an error: ${JSON.stringify(result?.error ?? result)}`);
+      }
+      return result;
+    };
+    const rpc = async (token, name, args = {}) => {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+      const body = await response.text();
+      let data = null;
+      try {
+        data = body ? JSON.parse(body) : null;
+      } catch {
+        data = null;
+      }
+      return { ok: response.ok, status: response.status, body, data };
+    };
+    const requireRpcSuccess = (name, result) => {
+      if (!result.ok) {
+        throw new Error(`${name} RPC expected success; actual=${JSON.stringify({ status: result.status, body: result.body })}`);
+      }
+      return result.data;
+    };
+
+    let memberId = null;
+    let ownerIds = [];
+    let shopIds = [];
+    let rfqId = null;
+    let testError = null;
+    const cleanupErrors = [];
+    try {
+      if (!localE2eCustomerToken) throw new Error('MK-BUSINESS member session is missing');
+      const memberClaims = JSON.parse(Buffer.from(localE2eCustomerToken.split('.')[1], 'base64url').toString('utf8'));
+      memberId = memberClaims?.sub;
+      if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(memberId ?? '')) {
+        throw new Error(`MK-BUSINESS member token has an invalid subject: ${JSON.stringify({ memberId: memberId ?? null })}`);
+      }
+
+      const ownerPhoneInputs = [
+        process.env.O28_OWNER_A_PHONE?.trim() ?? '',
+        process.env.O28_OWNER_B_PHONE?.trim() ?? '',
+      ];
+      if (ownerPhoneInputs.some((phone) => !phone)) {
+        throw new Error(`MK-BUSINESS local owner phone settings are missing: ${JSON.stringify({
+          ownerAConfigured: Boolean(ownerPhoneInputs[0]),
+          ownerBConfigured: Boolean(ownerPhoneInputs[1]),
+        })}`);
+      }
+      const ownerPhones = ownerPhoneInputs.map(phoneE164);
+      const phoneCollisions = phoneRoleCollisions([
+        ['member', PHONE],
+        ['shop A owner', ownerPhones[0]],
+        ['shop B owner', ownerPhones[1]],
+      ]);
+      if (phoneCollisions.length) {
+        throw new Error(`MK-BUSINESS test identities must be distinct: ${JSON.stringify({ phoneCollisions })}`);
+      }
+      const ownerPhoneKeys = ownerPhones.flatMap((phone) => {
+        const digits = phoneKey(phone);
+        return [digits, `91${digits}`];
+      });
+      const existingOwnerRows = await privateQuery(
+        `select id, regexp_replace(phone, '[^0-9]', '', 'g') as phone_digits from auth.users `
+        + `where regexp_replace(phone, '[^0-9]', '', 'g') in (${ownerPhoneKeys.map(sqlLiteral).join(', ')})`,
+      );
+      if (!Array.isArray(existingOwnerRows) || existingOwnerRows.length) {
+        throw new Error(`MK-BUSINESS owner identities are not fresh: ${JSON.stringify({ expected: [], actual: existingOwnerRows })}`);
+      }
+      for (const phone of ownerPhones) {
+        const ownerToken = await signInAs(phone);
+        let ownerClaims;
+        try {
+          const ownerPayload = typeof ownerToken === 'string' ? ownerToken.split('.')[1] : '';
+          if (!ownerPayload) throw new Error('missing JWT payload');
+          ownerClaims = JSON.parse(Buffer.from(ownerPayload, 'base64url').toString('utf8'));
+        } catch {
+          throw new Error(`MK-BUSINESS owner token payload is invalid: ${JSON.stringify({
+            tokenPresent: typeof ownerToken === 'string',
+            payloadPresent: typeof ownerToken === 'string' && Boolean(ownerToken.split('.')[1]),
+          })}`);
+        }
+        const ownerId = ownerClaims?.sub;
+        if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(ownerId ?? '')) {
+          throw new Error(`MK-BUSINESS owner token has an invalid subject: ${JSON.stringify({ ownerId: ownerId ?? null })}`);
+        }
+        ownerIds.push(ownerId);
+      }
+      if (new Set(ownerIds).size !== 2 || ownerIds.includes(memberId)) {
+        throw new Error(`MK-BUSINESS owner/member identities collided: ${JSON.stringify({ ownerIds, memberId })}`);
+      }
+      const profileRows = await privateQuery(
+        `select id from public.profiles where id in (${[...ownerIds, memberId].map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(profileRows) || profileRows.length !== 3) {
+        throw new Error(`MK-BUSINESS fixture profiles are missing: ${JSON.stringify({ expectedIds: [...ownerIds, memberId], actual: profileRows })}`);
+      }
+      const existingShops = await privateQuery(
+        `select id, owner_id from public.shops where owner_id in (${ownerIds.map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(existingShops) || existingShops.length) {
+        throw new Error(`MK-BUSINESS owners already have shops; refusing to overwrite: ${JSON.stringify({ existingShops })}`);
+      }
+      const existingMemberships = await privateQuery(
+        `select owner_id, member_id from public.business_members `
+        + `where member_id = ${sqlUuid(memberId)} and owner_id in (${ownerIds.map(sqlUuid).join(', ')})`,
+      );
+      if (!Array.isArray(existingMemberships) || existingMemberships.length) {
+        throw new Error(`MK-BUSINESS memberships are not isolated: ${JSON.stringify({ existingMemberships })}`);
+      }
+      const categories = await privateQuery(
+        "select id from public.product_categories where slug = 'tiles' and active = true limit 1",
+      );
+      if (!Array.isArray(categories) || !categories[0]?.id) {
+        throw new Error(`MK-BUSINESS active Tiles category is missing: ${JSON.stringify(categories)}`);
+      }
+      const flags = await privateQuery(
+        "select key, enabled from public.feature_flags where key in ('merchant_staff', 'products', 'product_rfq')",
+      );
+      const flagValues = Object.fromEntries((Array.isArray(flags) ? flags : []).map((row) => [row.key, row.enabled]));
+      if (flagValues.merchant_staff !== true || flagValues.products !== true || flagValues.product_rfq !== true) {
+        throw new Error(`MK-BUSINESS required capabilities are not ON: ${JSON.stringify({ expected: { merchant_staff: true, products: true, product_rfq: true }, actual: flagValues })}`);
+      }
+
+      shopIds = [randomUUID(), randomUUID()];
+      const shopNames = [
+        `${QA_MARKER} O28 shop A ${randomUUID().slice(0, 8)}`,
+        `${QA_MARKER} O28 shop B ${randomUUID().slice(0, 8)}`,
+      ];
+      for (let index = 0; index < shopIds.length; index += 1) {
+        await privateQuery(
+          'insert into public.shops '
+          + '(id, owner_id, name, description, address_line, city, area, lat, lng, delivery_radius_km, offers_delivery, offers_pickup, status) '
+          + `values (${sqlUuid(shopIds[index])}, ${sqlUuid(ownerIds[index])}, ${sqlLiteral(shopNames[index])}, `
+          + `${sqlLiteral(`${QA_MARKER} isolated O28 shop fixture`)}, ${sqlLiteral('88 QA Demo Market Road')}, `
+          + `${sqlLiteral('Vijayawada')}, ${sqlLiteral('Benz Circle')}, 16.5, 80.6, 50, true, true, 'verified')`,
+        );
+        await privateQuery(
+          `insert into public.shop_categories (shop_id, category_id) values (${sqlUuid(shopIds[index])}, ${sqlUuid(categories[0].id)})`,
+        );
+      }
+      await privateQuery(
+        'insert into public.business_members (owner_id, member_id, role, active) values '
+        + `(${sqlUuid(ownerIds[0])}, ${sqlUuid(memberId)}, 'staff', true), `
+        + `(${sqlUuid(ownerIds[1])}, ${sqlUuid(memberId)}, 'staff', true)`,
+      );
+
+      const rfqTitle = `${QA_MARKER} O28 two-shop RFQ ${randomUUID()}`;
+      const createdRfq = requireRpcSuccess('create_rfq', await rpc(localE2eCustomerToken, 'create_rfq', {
+        p_category_id: categories[0].id,
+        p_title: rfqTitle,
+        p_items: [{ description: 'Two-shop inbox test material', specs: { size: '10x10' }, quantity: 1, unit: 'box' }],
+        p_city: 'Vijayawada',
+        p_area: 'Benz Circle',
+        p_lat: 16.5,
+        p_lng: 80.6,
+        p_needs_delivery: true,
+        p_needed_by: '2099-12-31',
+        p_notes: `${QA_MARKER} two-shop inbox context`,
+      }));
+      rfqId = typeof createdRfq === 'string' ? createdRfq : createdRfq?.id;
+      if (typeof rfqId !== 'string' || !rfqId) {
+        throw new Error(`MK-BUSINESS create_rfq returned no RFQ ID: ${JSON.stringify(createdRfq)}`);
+      }
+      const recipients = await privateQuery(
+        `select shop_id from public.rfq_recipients where rfq_id = ${sqlUuid(rfqId)}`,
+      );
+      const recipientIds = Array.isArray(recipients) ? recipients.map((row) => row.shop_id) : [];
+      const missingRecipients = shopIds.filter((id) => !recipientIds.includes(id));
+      if (missingRecipients.length) {
+        throw new Error(`MK-BUSINESS RFQ did not reach both fixture shops: ${JSON.stringify({
+          rfqId,
+          expectedShopIds: shopIds,
+          actualRecipients: recipients,
+          missingRecipients,
+        })}`);
+      }
+
+      const listResponsePromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/list_my_supplier_rfqs'),
+      );
+      await go('/merchant-rfqs');
+      const listResponse = await listResponsePromise;
+      if (!listResponse.ok()) {
+        throw new Error(`MK-BUSINESS supplier list failed: ${JSON.stringify({ status: listResponse.status(), body: await listResponse.text() })}`);
+      }
+      const listRows = await listResponse.json();
+      const expectedByShop = new Map(shopIds.map((id, index) => [id, shopNames[index]]));
+      const actualRows = Array.isArray(listRows)
+        ? listRows.filter((row) => row.rfq_id === rfqId && expectedByShop.has(row.shop_id))
+        : [];
+      const actualByShop = new Map(actualRows.map((row) => [row.shop_id, row.shop_name]));
+      const mismatches = shopIds.filter((id, index) => actualByShop.get(id) !== shopNames[index]);
+      if (actualRows.length !== 2 || mismatches.length) {
+        throw new Error(`MK-BUSINESS list did not retain both named business contexts: ${JSON.stringify({
+          rfqId,
+          expected: shopIds.map((shopId, index) => ({ shop_id: shopId, shop_name: shopNames[index] })),
+          actual: actualRows.map((row) => ({ shop_id: row.shop_id, shop_name: row.shop_name, rfq_id: row.rfq_id })),
+          mismatches,
+        })}`);
+      }
+
+      for (let index = 0; index < shopIds.length; index += 1) {
+        const row = page.getByRole('button', { name: `${rfqTitle}. ${shopNames[index]}` });
+        await row.waitFor({ state: 'visible' });
+        const detailResponsePromise = page.waitForResponse((response) => {
+          const request = response.request();
+          if (request.method() !== 'POST' || !new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_supplier_rfq_for_business')) {
+            return false;
+          }
+          try {
+            const body = request.postDataJSON();
+            return body?.p_rfq_id === rfqId && body?.p_shop_id === shopIds[index];
+          } catch {
+            return false;
+          }
+        });
+        await row.click();
+        const detailResponse = await detailResponsePromise;
+        if (!detailResponse.ok()) {
+          throw new Error(`MK-BUSINESS detail read failed: ${JSON.stringify({ shopId: shopIds[index], status: detailResponse.status(), body: await detailResponse.text() })}`);
+        }
+        const detailRows = await detailResponse.json();
+        const detail = Array.isArray(detailRows) ? detailRows[0] : detailRows;
+        if (detail?.shop_id !== shopIds[index] || detail?.shop_name !== shopNames[index]) {
+          throw new Error(`MK-BUSINESS route changed shop identity: ${JSON.stringify({
+            rfqId,
+            expected: { shop_id: shopIds[index], shop_name: shopNames[index] },
+            actual: { shop_id: detail?.shop_id ?? null, shop_name: detail?.shop_name ?? null },
+          })}`);
+        }
+        const detailHeading = page.getByRole('heading', { name: rfqTitle, exact: true });
+        await detailHeading.waitFor({ state: 'visible' });
+        const detailHeaderText = await detailHeading.locator('xpath=..').innerText();
+        if (!detailHeaderText.includes(shopNames[index])) {
+          throw new Error(`MK-BUSINESS detail header lost business context: ${JSON.stringify({
+            expectedShopName: shopNames[index],
+            actualHeaderText: detailHeaderText,
+          })}`);
+        }
+        if (new URL(page.url()).pathname !== `/rfq/merchant/${rfqId}`) {
+          throw new Error(`MK-BUSINESS detail route used a different RFQ: ${JSON.stringify({ expectedRfqId: rfqId, actualUrl: page.url(), shopId: shopIds[index] })}`);
+        }
+        await go('/merchant-rfqs');
+      }
+    } catch (error) {
+      testError = error;
+    } finally {
+      try {
+        if (rfqId) await privateQuery(`delete from public.rfqs where id = ${sqlUuid(rfqId)}`);
+        if (memberId && ownerIds.length) {
+          await privateQuery(
+            `delete from public.business_members where member_id = ${sqlUuid(memberId)} `
+            + `and owner_id in (${ownerIds.map(sqlUuid).join(', ')})`,
+          );
+        }
+        if (shopIds.length) {
+          await privateQuery(`delete from public.shops where id in (${shopIds.map(sqlUuid).join(', ')})`);
+        }
+        const remaining = await privateQuery(
+          `select (select count(*)::int from public.shops where id in (${shopIds.length ? shopIds.map(sqlUuid).join(', ') : 'null::uuid'})) as shops, `
+          + ` (select count(*)::int from public.rfqs where id = ${rfqId ? sqlUuid(rfqId) : 'null::uuid'}) as rfqs, `
+          + ` (select count(*)::int from public.business_members where member_id = ${memberId ? sqlUuid(memberId) : 'null::uuid'} `
+          + `and owner_id in (${ownerIds.length ? ownerIds.map(sqlUuid).join(', ') : 'null::uuid'})) as memberships`,
+        );
+        if (!Array.isArray(remaining) || remaining[0]?.shops !== 0 || remaining[0]?.rfqs !== 0 || remaining[0]?.memberships !== 0) {
+          throw new Error(`MK-BUSINESS fixture cleanup readback failed: ${JSON.stringify(remaining)}`);
+        }
+      } catch (error) {
+        cleanupErrors.push(String(error?.message ?? error));
+      }
+      try {
+        await go('/bookings');
+        await page.getByTestId('activity-segment-requests').click();
+        await page.getByTestId('my-activity-panel-requests').waitFor();
+      } catch (error) {
+        cleanupErrors.push(`return to customer activity: ${String(error?.message ?? error)}`);
+      }
+    }
+    if (testError || cleanupErrors.length) {
+      throw new Error(`MK-BUSINESS inbox context failed: ${JSON.stringify({
         testError: testError ? String(testError?.message ?? testError) : null,
         cleanupErrors,
       })}`);
@@ -2549,8 +3284,91 @@ await step('admin-feature-registry', async () => {
   await page.getByRole('button', { name: /Admin portal/ }).last().click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
 
+  if (PRIVATE_LOCAL_E2E) {
+    await step('MK-READ-admin-and-enquiry-retry-admin', async () => {
+      let retryEnabled = false;
+      let injectedFailures = 0;
+      const routePattern = '**/rest/v1/rpc/admin_list_shops';
+      const matchesSubmitted = (response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_list_shops')
+        && response.request().postDataJSON()?.p_status === 'submitted';
+      const routeHandler = async (route) => {
+        if (route.request().postDataJSON()?.p_status === 'submitted' && !retryEnabled) {
+          injectedFailures += 1;
+          await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({ message: 'MK-READ injected admin shop-list failure' }),
+          });
+          return;
+        }
+        await route.continue();
+      };
+      await page.route(routePattern, routeHandler);
+      try {
+        const failurePromise = page.waitForResponse((response) =>
+          matchesSubmitted(response) && response.status() === 503,
+        );
+        await go('/admin/shops');
+        const failure = await failurePromise;
+        const errorBody = await page.locator('body').innerText();
+        const retryButton = page.getByRole('button', { name: 'Try again', exact: true }).first();
+        await retryButton.waitFor({ state: 'visible' });
+        if (!errorBody.includes('MK-READ injected admin shop-list failure')) {
+          throw new Error(`MK-READ admin failure was not presented with Retry: ${JSON.stringify({
+            status: failure.status(),
+            injectedFailures,
+            retryVisible: await retryButton.isVisible().catch(() => false),
+            body: errorBody,
+          })}`);
+        }
+        await snap('mk-read-admin-shop-error');
+
+        retryEnabled = true;
+        const retryPromise = page.waitForResponse((response) =>
+          matchesSubmitted(response) && response.ok(),
+        );
+        await retryButton.click();
+        const recoveredResponse = await retryPromise;
+        const recoveredRows = await recoveredResponse.json();
+        const recoveredShop = Array.isArray(recoveredRows) && qaApprovalShopId
+          ? recoveredRows.find((row) => row.id === qaApprovalShopId)
+          : null;
+        const actual = {
+          status: failure.status(),
+          injectedFailures,
+          recoveredStatus: recoveredResponse.status(),
+          recoveredRowCount: Array.isArray(recoveredRows) ? recoveredRows.length : null,
+          qaApprovalShopId,
+          recoveredShopStatus: recoveredShop?.status ?? null,
+          body: await page.locator('body').innerText(),
+        };
+        if (
+          recoveredResponse.status() !== 200
+          || !Array.isArray(recoveredRows)
+          || (qaApprovalShopId && recoveredShop?.status !== 'submitted')
+          || !(await page.getByText('Shop verification', { exact: true }).isVisible().catch(() => false))
+        ) {
+          throw new Error(`MK-READ admin shop-list retry did not recover the submitted state: ${JSON.stringify(actual)}`);
+        }
+        console.log(`MK-READ-admin-and-enquiry-retry admin: ${JSON.stringify(actual)}`);
+        await snap('mk-read-admin-shop-recovered');
+      } finally {
+        await page.unroute(routePattern, routeHandler);
+      }
+    });
+  }
+
   await step('phase-7a-admin-approves-submitted-shop', async () => {
     if (!qaApprovalShopId) {
+      if (PRIVATE_LOCAL_E2E) {
+        throw new Error(`MK-ADMIN required same-shop fixture is missing: ${JSON.stringify({
+          qaApprovalShopId,
+          qaApprovalShopName,
+          qaApprovalSkipReason,
+        })}`);
+      }
       console.log(`  SKIPPED: ${qaApprovalSkipReason ?? 'owner submission did not create a safe QA shop'}`);
       return;
     }
@@ -2570,6 +3388,74 @@ await step('admin-feature-registry', async () => {
         shopName: qaApprovalShopName,
         bodyText: bodyText.slice(-1200),
       })}`);
+    }
+    if (PRIVATE_LOCAL_E2E) {
+      await page.reload();
+      await page.locator('text="Shop management" >> visible=true').last().waitFor();
+      const adminReadbackPromise = page.waitForResponse((response) =>
+        response.request().method() === 'POST'
+        && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_list_shops')
+        && response.request().postDataJSON()?.p_status === 'all',
+      );
+      await page.getByText('all', { exact: true }).first().click();
+      const adminResponse = await adminReadbackPromise;
+      await shopCard.getByText('Verified', { exact: true }).waitFor({ state: 'visible' });
+      const adminRows = await adminResponse.json();
+      const adminShop = Array.isArray(adminRows)
+        ? adminRows.find((row) => row.id === qaApprovalShopId)
+        : null;
+      const ownerShop = await asPro('/rest/v1/rpc/get_my_shop', {});
+      if (!localE2eCustomerToken) {
+        throw new Error(`MK-ADMIN signed-in customer token was unavailable for public shop read: ${JSON.stringify({
+          shopId: qaApprovalShopId,
+          adminStatus: adminShop?.status ?? null,
+          ownerStatus: ownerShop?.status ?? null,
+        })}`);
+      }
+      const customerPublicResponse = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/get_shop`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${localE2eCustomerToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_id: qaApprovalShopId }),
+      });
+      const customerPublicBody = await customerPublicResponse.text();
+      let customerPublicRows = null;
+      try {
+        customerPublicRows = customerPublicBody ? JSON.parse(customerPublicBody) : null;
+      } catch {
+        customerPublicRows = null;
+      }
+      const customerPublicShop = Array.isArray(customerPublicRows)
+        ? customerPublicRows.find((row) => row.id === qaApprovalShopId)
+        : null;
+      const verifyButtonCount = await shopCard.getByRole('button', { name: 'Verify', exact: true }).count();
+      const actual = {
+        shopId: qaApprovalShopId,
+        adminStatus: adminShop?.status ?? null,
+        ownerId: ownerShop?.id ?? null,
+        ownerStatus: ownerShop?.status ?? null,
+        customerPublicStatus: customerPublicResponse.status,
+        customerPublicId: customerPublicShop?.id ?? null,
+        customerPublicName: customerPublicShop?.name ?? null,
+        verifyButtonCount,
+      };
+      if (
+        !adminResponse.ok()
+        || adminShop?.status !== 'verified'
+        || ownerShop?.id !== qaApprovalShopId
+        || ownerShop?.status !== 'verified'
+        || !customerPublicResponse.ok
+        || customerPublicShop?.id !== qaApprovalShopId
+        || customerPublicShop?.name !== qaApprovalShopName
+        || verifyButtonCount !== 0
+      ) {
+        throw new Error(`MK-ADMIN same-shop admin/owner/customer-public reads or action visibility diverged: ${JSON.stringify({
+          actual,
+          adminRows,
+          ownerShop,
+          customerPublicBody,
+        })}`);
+      }
+      console.log(`MK-ADMIN-same-shop-cross-role-no-verify: ${JSON.stringify(actual)}`);
     }
   });
   await go('/admin');

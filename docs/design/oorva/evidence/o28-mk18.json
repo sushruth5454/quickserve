@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O28-MK18",
+  "workPackage": "O28",
+  "title": "Business work lists lose business identity for multi-business members",
+  "source": {
+    "taskId": "MK-T18",
+    "findingId": "MK-F20",
+    "dispatchOrder": 62,
+    "frozenPlanningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "frozenAuditSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "currentMainAtDispatch": "dd969a4061b8bbf115356c63e645365358eade37"
+  },
+  "base": {
+    "branch": "lane/oorva-o28-mk18",
+    "implementationBaseSha": "24ca793c69e8dcac5d93761ac2232c1957ee71fc",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O18-MK04",
+        "sha": "15096b4613cee27746175501e2cd56f19da0f62f",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O18-MK15",
+        "sha": "21f51989e1948057e5694f9689c0912e7aab3a7",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O19-MK06",
+        "sha": "611d54a1d0cd586c102a7e79a7bb0f90273af15b",
+        "state": "DONE"
+      },
+      {
+        "stageId": "O28-MK07",
+        "sha": "4b7224a0b3acfc14fe6828dbce0039a28532e06c",
+        "state": "DONE"
+      }
+    ]
+  },
+  "migrationClaim": {
+    "id": "MIG-O28-MK18",
+    "version": "0132",
+    "path": "supabase/migrations/0132_o28_mk18_oorva.sql",
+    "functions": [
+      "public.list_my_supplier_rfqs"
+    ]
+  },
+  "workerOwnedFiles": [
+    "app/src/features/rfq/api.ts",
+    "supabase/migrations/0132_o28_mk18_oorva.sql",
+    "app/src/features/rfq/__tests__/supplierQuoteModel.test.ts",
+    "supabase/tests/oorva_o28_mk18.test.mjs",
+    "app/src/features/marketplaceScreens/MerchantEnquiriesScreen.tsx",
+    "app/src/features/marketplaceScreens/MerchantRfqsScreen.tsx",
+    "app/src/features/marketplaceScreens/RfqMerchantDetailScreen.tsx",
+    "docs/design/oorva/evidence/o28-mk18.json"
+  ],
+  "implementation": [
+    "Added shop_name to the supplier-list RPC return and client summary type; recreated only public.list_my_supplier_rfqs with its existing recipient, membership, deadline, history, and authenticated-only authorization behavior.",
+    "Rendered authorized shop labels in merchant enquiry and supplier RFQ rows, kept shop_id:rfq_id list identity, and made RFQ detail RPC calls require the row-selected shopId; missing route context now fails closed.",
+    "Added focused app route-context and SQL assertions for two shops assigned the same RFQ, duplicate visible names, inactive-member denial, own-business quote privacy, feature-off historic labels, and RPC grants; the generated SQL test categories now declare finish as a string to match the preserved RFQ fixture specification.",
+    "Kept all existing route files as thin exports into the extracted marketplace screen hosts; no coordinator or E2E files changed."
+  ],
+  "registration": {
+    "owner": "coordinator",
+    "status": "MERGED",
+    "checkpointCommit": "28511ceb86d5fabe0255b594a6c506048d4ca256",
+    "registrationCommit": "a11f04610680b6ae9e3d93f40b3febd429eb257f",
+    "sharedFilesTouched": [
+      "supabase/tests/package.json",
+      "e2e/web-smoke.mjs"
+    ],
+    "selectionProof": [
+      {
+        "selector": "oorva_o28_mk18",
+        "command": "node oorva_o28_mk18.test.mjs",
+        "reportedBy": "coordinator"
+      },
+      {
+        "selector": "o28_mk18_oorva.sql",
+        "command": "node parse.cjs ../migrations/0132_o28_mk18_oorva.sql",
+        "reportedBy": "coordinator"
+      }
+    ],
+    "privateE2E": "MK-BUSINESS-inbox-context is coordinator-owned and private-local only; not run on the lane."
+  },
+  "validation": {
+    "status": "LANE_CI_RETRY_PENDING_CODESPACE_BLOCKED",
+    "originMainForHelper": "dd969a4061b8bbf115356c63e645365358eade37",
+    "codespace": {
+      "status": "BLOCKED_NO_SELECTION",
+      "detail": "The current-main helper, run from the authorized worktree, returned: error getting codespaces: HTTP 404: Not Found (https://api.github.com/repos/sushruth5454/quickserve/codespaces?per_page=30). This API operation needs the \"codespace\" scope. No selector ran; no auth refresh was attempted.",
+      "initialWrongWorkingDirectoryAttempt": "The first helper invocation inherited the default quickserve-new working directory and failed pushing to wip/quickserve-new; it was rerun from the authorized worktree, where the Codespace scope blocker was confirmed."
+    },
+    "selectors": [
+      {
+        "selector": "src.features.rfq.__tests__.supplierQuoteModel[.]test[.]ts$",
+        "status": "NOT_RUN_CODESPACE_SCOPE_BLOCKED"
+      },
+      {
+        "selector": "oorva_o28_mk18",
+        "status": "NOT_RUN_CODESPACE_SCOPE_BLOCKED",
+        "registrationCommand": "node oorva_o28_mk18.test.mjs",
+        "selectionProof": "coordinator-reported"
+      },
+      {
+        "selector": "o28_mk18_oorva.sql",
+        "status": "NOT_RUN_CODESPACE_SCOPE_BLOCKED",
+        "registrationCommand": "node parse.cjs ../migrations/0132_o28_mk18_oorva.sql",
+        "selectionProof": "coordinator-reported"
+      }
+    ],
+    "windowsAppAndSqlTests": "NOT_RUN_BY_INSTRUCTION",
+    "diffCheck": "PENDING_AFTER_FIX",
+    "sqlNamesAndGrantsReview": "PASS: compared return columns and preserved list predicate/body against 0096_o18_mk04_oorva.sql; verified authenticated-only grant pattern against 0074_p1b_rfq.sql.",
+    "laneCi": {
+      "status": "PENDING_FIX_PUSH",
+      "exactHeadRunId": null
+    },
+    "previousLaneCi": {
+      "runId": "45398010608",
+      "headSha": "3eca53c0fdfc0239f9ccdedce6a314529d194cf4",
+      "status": "FAILED",
+      "jobs": {
+        "app": "PASS",
+        "deno": "PASS",
+        "sql": "FAIL"
+      },
+      "sqlSummary": "186/187 checks passed; exactly one failing scenario and no other uncaught errors.",
+      "failure": "MK-BUSINESS-two-shop-same-RFQ crashed in create_rfq with unsupported product specification: finish.",
+      "rootCause": "The test makeCategory() inserted attribute_schema '{}' while createRfq() and sendQuote() supplied finish specifications; migration 0049 validates requested keys against the category schema.",
+      "fixAuthored": "makeCategory() now defines properties.finish.type='string' for each generated category; fixture finish values and production validation are unchanged."
+    }
+  },
+  "reviewRequired": "AUTH",
+  "reviewStatus": "PENDING_AFTER_CODE_GREEN",
+  "releaseStatus": {
+    "mainPromotion": "not performed",
+    "deployment": "not performed",
+    "featureFlags": "unchanged",
+    "productionActions": "none"
+  }
+}

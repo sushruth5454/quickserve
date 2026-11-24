@@ -8,6 +8,8 @@ import { FeatureUnavailable, ShopProductCard, useShopFeatureFlags } from '../sho
 import { useRfqFeatureFlags } from '../rfq/components';
 import { isDemoMode } from '../../lib/config';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
+import { useAuth } from '../../lib/auth';
+import { requireSignIn } from '../../lib/authGate';
 import { parseRupees } from '../../lib/onboarding/validation';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { useTheme } from '../../theme';
@@ -15,6 +17,7 @@ import { useTheme } from '../../theme';
 export default function ProductsScreen() {
   const t = useTheme();
   const features = useShopFeatureFlags();
+  const { userId, loading: authLoading } = useAuth();
   const appFeatures = useAppFeatureFlags();
   const aiProductSearch = !isDemoMode
     && features.products
@@ -45,18 +48,24 @@ export default function ProductsScreen() {
     images: Record<string, string | null>;
   } | null>(null);
   const [searchFailure, setSearchFailure] = useState<{ scope: string; message: string } | null>(null);
+  const [categoriesFailure, setCategoriesFailure] = useState<{ scope: string; message: string } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const categories = categoriesResult?.scope === locationScope ? categoriesResult.value : [];
   const currentSearch = searchResult?.scope === appliedScope ? searchResult : null;
   const products = currentSearch?.products ?? [];
   const images = currentSearch?.images ?? {};
   const error = searchFailure?.scope === appliedScope ? searchFailure.message : null;
+  const categoryError = categoriesFailure?.scope === locationScope ? categoriesFailure.message : null;
   const [aiQuery, setAiQuery] = useState('');
+  const [aiQueryUserId, setAiQueryUserId] = useState<string | null>(userId);
   const [aiLoading, setAiLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const locationScopeRef = useRef(locationScope);
   locationScopeRef.current = locationScope;
   const aiRequestRef = useRef(0);
+  const authUserIdRef = useRef(userId);
+  const previousAuthUserIdRef = useRef(userId);
+  authUserIdRef.current = userId;
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
   const focusedRef = useRef(false);
@@ -75,14 +84,24 @@ export default function ProductsScreen() {
     aiRequestRef.current++;
     setAiLoading(false);
   }, [locationScope]);
+  useEffect(() => {
+    if (previousAuthUserIdRef.current === userId) return;
+    previousAuthUserIdRef.current = userId;
+    aiRequestRef.current++;
+    setAiQuery('');
+    setAiQueryUserId(userId);
+    setAiLoading(false);
+  }, [userId]);
 
   const askAiToSearch = useCallback(async () => {
-    if (!aiProductSearch) return;
-    if (aiQuery.trim().length < 2) {
+    if (!aiProductSearch || authLoading || !userId) return;
+    const query = aiQueryUserId === userId ? aiQuery : '';
+    if (query.trim().length < 2) {
       setInputError('Describe the product you need.');
       return;
     }
     const requestId = ++aiRequestRef.current;
+    const requestUserId = userId;
     const requestLocationScope = locationScope;
     const requestCoords = { lat: location.lat, lng: location.lng };
     requestIdRef.current++;
@@ -91,11 +110,12 @@ export default function ProductsScreen() {
     const isCurrent = () =>
       mountedRef.current
       && requestId === aiRequestRef.current
+      && authUserIdRef.current === requestUserId
       && locationScopeRef.current === requestLocationScope;
     setAiLoading(true);
     try {
       const result = await searchProductsWithAi({
-        query: aiQuery,
+        query,
         lat: requestCoords.lat,
         lng: requestCoords.lng,
       });
@@ -131,7 +151,7 @@ export default function ProductsScreen() {
     } finally {
       if (isCurrent()) setAiLoading(false);
     }
-  }, [aiProductSearch, aiQuery, location.lat, location.lng, locationScope]);
+  }, [aiProductSearch, aiQuery, aiQueryUserId, authLoading, location.lat, location.lng, locationScope, userId]);
 
   const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     if (!features.products) return;
@@ -146,10 +166,10 @@ export default function ProductsScreen() {
       return;
     }
     setSearchFailure((current) => current?.scope === requestScope ? null : current);
-    try {
-      const [nextCategories, nextProducts] = await Promise.all([
-        listProductCategories(),
-        searchProducts({
+    setCategoriesFailure((current) => current?.scope === requestLocationScope ? null : current);
+    const [categoryResult, productResult] = await Promise.allSettled([
+      listProductCategories(),
+      searchProducts({
           query: requestFilters.query,
           categorySlug: requestFilters.category || null,
           lat: requestCoords.lat,
@@ -158,23 +178,29 @@ export default function ProductsScreen() {
           maxPricePaise: price,
           inStockOnly: requestFilters.inStockOnly,
         }),
-      ]);
-      const nextImages = await Promise.all(nextProducts.map(async (product) => [
-        product.id,
-        await signedProductImage(product.image_paths[0]).catch(() => null),
-      ] as const));
-      if (guard.isCurrent()) {
-        setCategoriesResult({ scope: requestLocationScope, value: nextCategories });
-        setSearchResult({
-          scope: requestScope,
-          products: nextProducts,
-          images: Object.fromEntries(nextImages),
-        });
-        setSearchFailure(null);
-      }
-    } catch (caught) {
-      if (guard.isCurrent()) setSearchFailure({ scope: requestScope, message: (caught as Error).message });
+    ]);
+    if (!guard.isCurrent()) return;
+    if (categoryResult.status === 'fulfilled') {
+      setCategoriesResult({ scope: requestLocationScope, value: categoryResult.value });
+      setCategoriesFailure(null);
+    } else {
+      setCategoriesFailure({ scope: requestLocationScope, message: (categoryResult.reason as Error).message });
     }
+    if (productResult.status === 'rejected') {
+      setSearchFailure({ scope: requestScope, message: (productResult.reason as Error).message });
+      return;
+    }
+    const nextImages = await Promise.all(productResult.value.map(async (product) => [
+      product.id,
+      await signedProductImage(product.image_paths[0]).catch(() => null),
+    ] as const));
+    if (!guard.isCurrent()) return;
+    setSearchResult({
+      scope: requestScope,
+      products: productResult.value,
+      images: Object.fromEntries(nextImages),
+    });
+    setSearchFailure(null);
   }, [features.products, location.city, location.lat, location.lng, locationScope]);
 
   const loadRef = useRef(load);
@@ -259,13 +285,15 @@ export default function ProductsScreen() {
       onRefresh={() => void runLoad(true)}
     >
       <InlineAlert message={inputError} />
-      {error && currentSearch ? <InlineAlert message={error} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
-      {aiProductSearch ? (
+      {categoryError && categoriesResult?.scope !== locationScope ? <ErrorState message={categoryError} onRetry={() => void runLoad(true)} /> : null}
+      {categoryError && categoriesResult?.scope === locationScope ? <InlineAlert message={`Category refresh failed. Showing saved categories. ${categoryError}`} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
+      {error && currentSearch ? <InlineAlert message={`Refresh failed. Showing saved search results. ${error}`} actionLabel="Retry" onAction={() => void runLoad(true)} /> : null}
+      {aiProductSearch && userId && !authLoading ? (
         <View style={{ gap: t.spacing.sm }}>
           <Input
             label="Ask in your words"
-            value={aiQuery}
-            onChangeText={setAiQuery}
+            value={aiQueryUserId === userId ? aiQuery : ''}
+            onChangeText={(value) => { setAiQueryUserId(userId); setAiQuery(value); }}
             placeholder="e.g. waterproof tiles under ₹500 per box"
             helper="Do not enter contact or address details; recognizable address-like searches are declined."
             multiline
@@ -280,6 +308,13 @@ export default function ProductsScreen() {
           />
           <Text variant="caption" color="muted">Review and edit the filters below before searching again.</Text>
         </View>
+      ) : aiProductSearch ? (
+        <Button
+          title="Sign in to use AI"
+          variant="outline"
+          disabled={authLoading}
+          onPress={() => void requireSignIn('/products')}
+        />
       ) : null}
       <Input label="Search products" value={query} onChangeText={setQuery} placeholder="Name, brand or model" returnKeyType="search" onSubmitEditing={applyFilters} />
       <View style={{ flexDirection: 'row', gap: t.spacing.sm, alignItems: 'flex-end' }}>
@@ -294,6 +329,7 @@ export default function ProductsScreen() {
           <Chip key={item.id} label={item.name} selected={category === item.slug} onPress={() => setCategory(category === item.slug ? '' : item.slug)} />
         ))}
       </View>
+      {categoriesResult?.scope === locationScope && !categories.length && !categoryError ? <Text variant="caption" color="muted">No product categories are available.</Text> : null}
       <Button title="Apply search and filters" variant="outline" onPress={applyFilters} />
       {rfqEnabled ? (
         <Button title="Request quotes from multiple shops" variant="outline" onPress={() => router.push('/rfq/new')} />
