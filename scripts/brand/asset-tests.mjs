@@ -18,6 +18,13 @@ const SUPPLIED_D_SAMPLE = Object.freeze({
   path: 'app/assets/brand/logo-horizontal-light.png',
   sha256: 'e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e',
 });
+const SUPPLIED_D_PROVENANCE = Object.freeze({
+  renderer: 'Chromium SVG rasterization',
+  version: '158.0.4370.33',
+  pngEncoder: 'Pillow',
+  systemFontsUsed: false,
+  note: 'Outline-only inputs. These are supplied sealed exports, not a claim that the old forest-only resvg --check passes.',
+});
 const expectedFiles = [
   ...['light', 'dark'].flatMap((theme) => [
     { path: `app/assets/brand/logo-horizontal-${theme}.png`, width: 360, height: 100, density: 1, alpha: 'transparent', safeRule: 'quarter-symbol-clear-space' },
@@ -113,6 +120,51 @@ function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+function validateSuppliedExportProvenance(declaredProvenance) {
+  const actualKeys = declaredProvenance && typeof declaredProvenance === 'object' && !Array.isArray(declaredProvenance)
+    ? Object.keys(declaredProvenance).sort()
+    : [];
+  const expectedKeys = Object.keys(SUPPLIED_D_PROVENANCE).sort();
+  if (JSON.stringify(actualKeys) !== JSON.stringify(expectedKeys) ||
+    Object.entries(SUPPLIED_D_PROVENANCE).some(([key, value]) => declaredProvenance?.[key] !== value)) {
+    throw new Error(`supplied D export provenance invalid: actual=${JSON.stringify(declaredProvenance)} expected=${JSON.stringify(SUPPLIED_D_PROVENANCE)}`);
+  }
+  return {
+    renderer: SUPPLIED_D_PROVENANCE.renderer,
+    version: SUPPLIED_D_PROVENANCE.version,
+    pngEncoder: SUPPLIED_D_PROVENANCE.pngEncoder,
+    systemFontsUsed: SUPPLIED_D_PROVENANCE.systemFontsUsed,
+  };
+}
+
+function resolveManifestExportProfile(toolchain, inspectionToolchain, suppliedProvenance) {
+  const suppliedProfileMatches = toolchain?.renderer === suppliedProvenance.renderer &&
+    toolchain?.rendererVersion === suppliedProvenance.version &&
+    (toolchain.pngEncoder === undefined || toolchain.pngEncoder === suppliedProvenance.pngEncoder) &&
+    (toolchain.systemFontsUsed === undefined || toolchain.systemFontsUsed === suppliedProvenance.systemFontsUsed) &&
+    (toolchain.note === undefined || toolchain.note === SUPPLIED_D_PROVENANCE.note);
+  if (suppliedProfileMatches) return 'supplied-d';
+
+  const resvgProfileMatches = toolchain?.renderer === inspectionToolchain.renderer &&
+    toolchain?.rendererVersion === inspectionToolchain.rendererVersion &&
+    toolchain.pngEncoder === undefined &&
+    toolchain.systemFontsUsed === undefined &&
+    toolchain.note === undefined;
+  return resvgProfileMatches ? 'resvg-inspection' : null;
+}
+
+function suppliedExportHashMatches(record, bytes) {
+  return Boolean(record && HASH_PATTERN.test(record.sha256 ?? '') && sha256(bytes) === record.sha256);
+}
+
+function validateSuppliedExportHash(record, bytes, label) {
+  const actual = { sha256: sha256(bytes), bytes: bytes.length };
+  const expected = record ? { sha256: record.sha256, bytes: record.bytes } : null;
+  if (!suppliedExportHashMatches(record, bytes) || bytes.length !== record?.bytes) {
+    throw new Error(`${label} supplied hash mismatch: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`);
+  }
+}
+
 function toPillowInkBounds(bounds) {
   if (!bounds) return null;
   // The supplied manifest uses exclusive right/bottom endpoints; PNG inspection returns inclusive pixels.
@@ -152,22 +204,7 @@ async function loadSuppliedExportManifest() {
       status: manifest?.status,
     })} expected=${JSON.stringify({ schemaVersion: 1, stageId: 'O01X', status: 'supplied-ready-D' })}`);
   }
-  const declaredProvenance = manifest.toolchain;
-  const expectedProvenance = {
-    renderer: 'Chromium SVG rasterization',
-    version: '158.0.4370.33',
-    pngEncoder: 'Pillow',
-    systemFontsUsed: false,
-  };
-  const actualProvenance = Object.fromEntries(Object.keys(expectedProvenance)
-    .map((key) => [key, declaredProvenance?.[key]]));
-  if (JSON.stringify(actualProvenance) !== JSON.stringify(expectedProvenance) ||
-    declaredProvenance?.note !== 'Outline-only inputs. These are supplied sealed exports, not a claim that the old forest-only resvg --check passes.') {
-    throw new Error(`supplied D export provenance invalid: actual=${JSON.stringify(declaredProvenance)} expected=${JSON.stringify({
-      ...expectedProvenance,
-      note: 'Outline-only inputs. These are supplied sealed exports, not a claim that the old forest-only resvg --check passes.',
-    })}`);
-  }
+  const expectedProvenance = validateSuppliedExportProvenance(manifest.toolchain);
   if (!Array.isArray(manifest.files)) {
     throw new Error(`supplied D export manifest files invalid: actual=${JSON.stringify(manifest.files)} expected=array`);
   }
@@ -190,10 +227,10 @@ async function loadSuppliedExportManifest() {
   return { manifest, manifestBytes, provenance: expectedProvenance, byTarget };
 }
 
-async function verifySuppliedDProfile() {
-  const supplied = await loadSuppliedExportManifest();
-  const entry = supplied.byTarget.get(SUPPLIED_D_SAMPLE.path);
-  assert.ok(entry, `supplied D profile fixture missing actual=${JSON.stringify([...supplied.byTarget.keys()])} expected=${SUPPLIED_D_SAMPLE.path}`);
+async function verifySuppliedDProfile(supplied = null) {
+  const suppliedExportData = supplied ?? await loadSuppliedExportManifest();
+  const entry = suppliedExportData.byTarget.get(SUPPLIED_D_SAMPLE.path);
+  assert.ok(entry, `supplied D profile fixture missing actual=${JSON.stringify([...suppliedExportData.byTarget.keys()])} expected=${SUPPLIED_D_SAMPLE.path}`);
   assert.equal(entry.sha256, SUPPLIED_D_SAMPLE.sha256, `supplied D profile fixture hash actual=${JSON.stringify(entry.sha256)} expected=${SUPPLIED_D_SAMPLE.sha256}`);
   assert.equal(entry.colourProfile, 'sRGB', `supplied D profile declaration actual=${JSON.stringify(entry.colourProfile)} expected="sRGB"`);
 
@@ -219,8 +256,8 @@ async function verifySuppliedDProfile() {
     sha256: entry.sha256,
     colorProfile: png.profile.kind,
     manifest: 'docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json',
-    manifestSha256: sha256(supplied.manifestBytes),
-    provenance: supplied.provenance,
+    manifestSha256: sha256(suppliedExportData.manifestBytes),
+    provenance: suppliedExportData.provenance,
   };
 }
 
@@ -657,10 +694,22 @@ async function runOorvaCheck() {
     exporterSha256: sha256(exporterData),
     packageLockSha256: sha256(lockData),
   };
+  const manifestExportProfile = resolveManifestExportProfile(toolchain, actualToolchain, suppliedExportData.provenance);
   expectValue(errors, 'manifest.toolchain.nodeMajor', toolchain?.nodeMajor, 22);
   expectValue(errors, 'runtime.nodeMajor', actualToolchain.nodeMajor, 22);
-  expectValue(errors, 'manifest.toolchain.renderer', toolchain?.renderer, actualToolchain.renderer);
-  expectValue(errors, 'manifest.toolchain.rendererVersion', toolchain?.rendererVersion, rendererVersion);
+  expect(errors, 'manifest.toolchain export profile', manifestExportProfile !== null, {
+    renderer: toolchain?.renderer,
+    rendererVersion: toolchain?.rendererVersion,
+    pngEncoder: toolchain?.pngEncoder,
+  }, [
+    { kind: 'resvg-inspection', renderer: actualToolchain.renderer, rendererVersion },
+    {
+      kind: 'supplied-D',
+      renderer: suppliedExportData.provenance.renderer,
+      rendererVersion: suppliedExportData.provenance.version,
+      pngEncoder: suppliedExportData.provenance.pngEncoder,
+    },
+  ]);
   expectValue(errors, 'lockfile renderer version', lockedRendererVersion, rendererVersion);
   expectValue(errors, 'manifest.toolchain.loadSystemFonts', toolchain?.loadSystemFonts, false);
   expectValue(errors, 'manifest.toolchain.exporterSha256', toolchain?.exporterSha256, actualToolchain.exporterSha256);
@@ -734,9 +783,16 @@ async function runOorvaCheck() {
     const sourceHash = sha256(sourceBytes);
     const outputHash = sha256(outputBytes);
     const suppliedRecord = suppliedExportData.byTarget.get(label);
-    const isSuppliedExport = Boolean(suppliedRecord && outputHash === suppliedRecord.sha256);
+    const isSuppliedExport = suppliedExportHashMatches(suppliedRecord, outputBytes);
     expectValue(errors, `${label} source.sha256`, entry.source?.sha256, sourceHash);
     expectValue(errors, `${label} export.sha256`, entry.export?.sha256, outputHash);
+    if (manifestExportProfile === 'supplied-d') {
+      try {
+        validateSuppliedExportHash(suppliedRecord, outputBytes, label);
+      } catch (error) {
+        errors.push(error.message);
+      }
+    }
     if (expectedSourceKind(label) === 'svg') {
       const hrefValues = [...sourceText.matchAll(/(?:xlink:)?href\s*=\s*["']([^"']+)["']/gi)].map((match) => match[1]);
       const cssUrlValues = [...sourceText.matchAll(/url\(\s*["']?([^)"']+)["']?\s*\)/gi)].map((match) => match[1].trim());
@@ -793,7 +849,7 @@ async function runOorvaCheck() {
 
     let deterministic = null;
     let renderingProvenance;
-    if (isSuppliedExport) {
+    if (isSuppliedExport || manifestExportProfile === 'supplied-d') {
       renderingProvenance = {
         kind: 'supplied',
         manifest: 'docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json',
@@ -902,16 +958,80 @@ async function runOorvaCheck() {
   if (errors.length > 0) {
     throw new Error(`O01X asset check failed with ${errors.length} finding(s):\n- ${errors.join('\n- ')}`);
   }
+  const observedExportKinds = new Set(summaries.map(({ renderingProvenance }) => renderingProvenance.kind));
+  const exportProfile = observedExportKinds.size === 1 && observedExportKinds.has('supplied')
+    ? {
+      kind: 'supplied',
+      manifest: 'docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json',
+      ...suppliedExportData.provenance,
+    }
+    : observedExportKinds.size === 1
+      ? { kind: 'generated', renderer: actualToolchain.renderer, version: actualToolchain.rendererVersion }
+      : { kind: 'mixed', kinds: [...observedExportKinds].sort() };
   return {
     stageId: 'O01X',
     status: 'PASS_ASSET_AND_STATE',
     manifest: 'app/assets/brand/manifest.json',
     state: approvalState.state,
+    exportProfile: { ...exportProfile, manifestDeclaration: manifestExportProfile },
     toolchain: actualToolchain,
+    inspectionToolchain: actualToolchain,
     fileCount: summaries.length,
     files: summaries,
     inspections20_32_48: inspections,
     visualDesignApproval: 'D03b/D03c metadata consistency checked; this does not verify owner approval or authorize release, native verification, or runtime activation',
+  };
+}
+
+function runExportProfileSelftests(supplied, inspectionToolchain) {
+  const suppliedProfile = {
+    renderer: supplied.provenance.renderer,
+    rendererVersion: supplied.provenance.version,
+    pngEncoder: supplied.provenance.pngEncoder,
+    systemFontsUsed: supplied.provenance.systemFontsUsed,
+    note: SUPPLIED_D_PROVENANCE.note,
+  };
+  assert.equal(resolveManifestExportProfile(suppliedProfile, inspectionToolchain, supplied.provenance), 'supplied-d',
+    `supplied profile acceptance actual=${JSON.stringify(suppliedProfile)} expected="supplied-d"`);
+  const resvgProfile = {
+    renderer: inspectionToolchain.renderer,
+    rendererVersion: inspectionToolchain.rendererVersion,
+  };
+  assert.equal(resolveManifestExportProfile(resvgProfile, inspectionToolchain, supplied.provenance), 'resvg-inspection',
+    `legacy Resvg profile acceptance actual=${JSON.stringify(resvgProfile)} expected="resvg-inspection"`);
+
+  const mismatchedProfileCases = [
+    { ...suppliedProfile, renderer: 'Chromium SVG rasterization (unsealed)' },
+    { ...suppliedProfile, rendererVersion: '158.0.4370.34' },
+    { ...suppliedProfile, pngEncoder: 'unverified encoder' },
+    { ...suppliedProfile, systemFontsUsed: true },
+    { ...suppliedProfile, note: 'unsealed profile' },
+  ];
+  for (const [index, mismatch] of mismatchedProfileCases.entries()) {
+    assert.equal(resolveManifestExportProfile(mismatch, inspectionToolchain, supplied.provenance), null,
+      `mismatched supplied profile ${index} rejection actual=${JSON.stringify(mismatch)} expected=null`);
+    assert.throws(() => validateSuppliedExportProvenance(mismatch), /supplied D export provenance invalid/,
+      `mismatched sealed provenance ${index} rejection actual=${JSON.stringify(mismatch)} expected=invalid provenance`);
+  }
+
+  const sampleBytes = Buffer.from('sealed supplied PNG hash fixture');
+  const sampleRecord = { sha256: sha256(sampleBytes), bytes: sampleBytes.length };
+  assert.equal(suppliedExportHashMatches(sampleRecord, sampleBytes), true,
+    `exact supplied hash acceptance actual=${JSON.stringify({ hash: sha256(sampleBytes), bytes: sampleBytes.length })} expected=${JSON.stringify(sampleRecord)}`);
+  assert.doesNotThrow(() => validateSuppliedExportHash(sampleRecord, sampleBytes, 'profile fixture'),
+    `exact supplied record acceptance actual=${JSON.stringify(sampleRecord)} expected=no error`);
+  const mismatchedRecord = { ...sampleRecord, sha256: '0'.repeat(64) };
+  assert.equal(suppliedExportHashMatches(mismatchedRecord, sampleBytes), false,
+    `mismatched supplied hash rejection actual=${JSON.stringify({ hash: sha256(sampleBytes), expected: mismatchedRecord.sha256 })} expected=false`);
+  assert.throws(() => validateSuppliedExportHash(mismatchedRecord, sampleBytes, 'profile fixture'), /supplied hash mismatch/,
+    `mismatched supplied record rejection actual=${JSON.stringify({ hash: sha256(sampleBytes), expected: mismatchedRecord.sha256 })} expected=error`);
+  assert.throws(() => validateSuppliedExportHash({ ...sampleRecord, bytes: sampleRecord.bytes + 1 }, sampleBytes, 'profile fixture'), /supplied hash mismatch/,
+    `mismatched supplied byte count rejection actual=${JSON.stringify({ bytes: sampleBytes.length, expected: sampleRecord.bytes + 1 })} expected=error`);
+  return {
+    suppliedProfileAccepted: true,
+    legacyResvgProfileAccepted: true,
+    mismatchedProvenanceRejected: mismatchedProfileCases.length,
+    mismatchedHashRejected: true,
   };
 }
 
@@ -1269,7 +1389,16 @@ export async function runSelftest() {
   assert.match(fixture, /<path\b/, 'self-test fixture must contain outlined vector paths');
   assert.doesNotMatch(fixture, /<(?:text|font)\b|font-family\s*=|@font-face/i, 'self-test fixture must not use fonts');
   const manifestStateSelftest = runManifestStateSelftests();
-  const suppliedDProfile = await verifySuppliedDProfile();
+  const packageData = JSON.parse(await readFile(path.join(here, 'package.json'), 'utf8'));
+  const inspectionToolchain = {
+    renderer: '@resvg/resvg-js',
+    rendererVersion: packageData.dependencies?.['@resvg/resvg-js'],
+  };
+  assert.ok(inspectionToolchain.rendererVersion,
+    `pinned inspection renderer version actual=${JSON.stringify(inspectionToolchain.rendererVersion)} expected=package.json @resvg/resvg-js dependency`);
+  const suppliedExportData = await loadSuppliedExportManifest();
+  const exportProfileSelftest = runExportProfileSelftests(suppliedExportData, inspectionToolchain);
+  const suppliedDProfile = await verifySuppliedDProfile(suppliedExportData);
 
   const rawRendererPng = new Resvg(fixture, { font: { loadSystemFonts: false } }).render().asPng();
   const rawRendererProfile = inspectAssetPng(rawRendererPng).profile;
@@ -1378,6 +1507,7 @@ export async function runSelftest() {
     manifestStateSelftest,
     assetIntegrityTamperRejected,
     suppliedDProfile,
+    exportProfileSelftest,
     transformSelftest: transforms,
     hexBorderSelftest: hexBorder,
   };

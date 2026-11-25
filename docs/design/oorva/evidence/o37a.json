@@ -846,6 +846,68 @@
         "runId": null
       },
       "assetsSuiteInvoked": false
+    },
+    "suppliedDProfileFixForward": {
+      "deltaId": "d-o37a-supplied-d-profile-20261125",
+      "stageId": "O37A",
+      "stageStatusReset": false,
+      "baseSha": "ce1fe9ba4d923e491f724c20cd988299294f2682",
+      "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "ownerInputSha": "b914532ba1be6527ea0e74202fe0c3833376329e",
+      "manifestProfileContract": {
+        "schemaVersion": 1,
+        "appManifestToolchain": {
+          "renderer": "Chromium SVG rasterization",
+          "rendererVersion": "158.0.4370.33",
+          "loadSystemFonts": false,
+          "pngEncoder": "Optional in the existing app-manifest toolchain; if present it must equal Pillow."
+        },
+        "sealedExportManifest": {
+          "path": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false,
+          "note": "Must match the sealed manifest exactly."
+        },
+        "inspectionToolchain": "O37A's pinned Node 22/@resvg/resvg-js remains separate and may inspect SVG geometry; it does not claim supplied PNG byte reproduction.",
+        "suppliedFiles": "Every file declared under the supplied-D app-manifest profile must match its sealed SHA-256 and byte count; supplied PNGs retain decode, CRC, dimensions, alpha, sRGB, safe-zone, and Pillow ink-bound checks."
+      },
+      "selftests": {
+        "legacyResvgProfile": "Must accept only the pinned @resvg/resvg-js renderer/version.",
+        "suppliedDProfile": "Must accept only the exact Chromium/Pillow provenance from the sealed manifest.",
+        "negativeCases": "Mismatched renderer, version, encoder, font-use declaration, sealed note, supplied SHA-256, and supplied byte count are rejected."
+      },
+      "changedPaths": [
+        "scripts\\brand\\asset-tests.mjs",
+        "docs\\design\\oorva\\evidence\\o37a.json"
+      ],
+      "appManifestOrO01XEvidenceEdited": false,
+      "suppliedAssetsRegenerated": false,
+      "resvgByteReproductionClaim": false,
+      "validation": {
+        "codespaceApp": {
+          "status": "PASS",
+          "helper": "current-main cs-test helper from the O37A stage card",
+          "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
+          "snapshotBranch": "wip/qs-oorva-o37a-supplied-d-profile-20261125",
+          "snapshotCommit": "90dc63eca92493992b2e66294209de8851a82e7f",
+          "suite": "app",
+          "jestSuitesPassed": 1,
+          "testsPassed": 8
+        },
+        "priorCodespaceAttempt": {
+          "status": "FAIL_FIXED",
+          "issue": "The existing O01X selftest contract expects the sealed provenance report fields without the explanatory note.",
+          "fix": "Continue validating the sealed note exactly, but keep it out of the backward-compatible provenance result."
+        },
+        "laneCi": {
+          "status": "PASS",
+          "headSha": "cef10b531569cd53c26d904f9624b48bbcbf5eb9",
+          "runId": 45536456495,
+          "conclusion": "SUCCESS"
+        }
+      }
     }
   }
 }
