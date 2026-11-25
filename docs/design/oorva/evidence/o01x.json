@@ -22,15 +22,15 @@
       "logo-horizontal-mono-ivory.svg": "f05f062716a80b71e771d77d138387d8d28399286682e0adab136f6a7ccb19ab"
     },
     "correctedO01LMasterHashes": {
-      "oorva-symbol.svg": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
-      "oorva-wordmark-light.svg": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
-      "oorva-wordmark-dark.svg": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
-      "logo-horizontal-light.svg": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
-      "logo-horizontal-dark.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
-      "logo-stacked-light.svg": "d7053575e62315d12521ed6f7217c5bbe3e892d7eb792efb0e847b396ec22781",
-      "logo-stacked-dark.svg": "efd5aec2284df3e4b442221cb9c3b5cfeff47fc5066566562cf2f08f2f9058b6",
+      "oorva-symbol.svg": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
+      "oorva-wordmark-light.svg": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
+      "oorva-wordmark-dark.svg": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
+      "logo-horizontal-light.svg": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
+      "logo-horizontal-dark.svg": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
+      "logo-stacked-light.svg": "c2062a5de4a1fe2132408530e8690bcd1af4ea9e5f4731d67833780005ae04d8",
+      "logo-stacked-dark.svg": "f025271e2618e002072180c1f9128fadabfd1c9efd65d64ce0d0a15651ca040c",
       "logo-horizontal-mono-black.svg": "331eef993467058abeaf21d6b7dabb8ad4dc1e6ae772583d8e1a6dbc1d49a40e",
-      "logo-horizontal-mono-ivory.svg": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591"
+      "logo-horizontal-mono-ivory.svg": "03b70a645835e7f1a499c997ce98c0a4a21901cca8f6622ee2dde24f3e59fab5"
     },
     "centeredScales": {
       "horizontal": 0.88,
@@ -40,22 +40,25 @@
   },
   "toolchain": {
     "nodeMajor": 22,
-    "renderer": "@resvg/resvg-js",
-    "rendererVersion": "2.6.2",
+    "renderer": "Chromium SVG rasterization",
+    "rendererVersion": "158.0.4370.33",
+    "pngEncoder": "Pillow",
+    "systemFontsUsed": false,
+    "note": "Outline-only inputs. These are supplied sealed exports, not a claim that the old forest-only resvg --check passes.",
     "loadSystemFonts": false,
-    "exporterSha256": "b2b7e5f418e61223a8a024b17894b1e6a484c314a01d0851ce3099e7b3c1be58",
+    "exporterSha256": "a0506612bf2a97a9f1d6f37e8766308b9d3d20e84069acc7336072cb0c77c4a8",
     "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a"
   },
   "export": {
-    "status": "PASS",
-    "method": "Pinned current-main O37A Node22/resvg CLI --write then --check for all 26 allowlisted outputs; byte-identical.",
+    "status": "PASS_ASSET_AND_STATE",
+    "method": "Supplied sealed D PNGs verified against the supplied-export-manifest; Chromium SVG rasterization 158.0.4370.33 with Pillow. No redraw, re-render, recopy, or Resvg byte-parity claim.",
     "fileCount": 26,
-    "manifestSha256": "a8741e9810107d64394fcb21edb6dae63768e27d186ebb5ae86fefe3675cb945",
+    "manifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
     "files": [
       {
         "path": "app/assets/brand/logo-horizontal-light.png",
-        "sha256": "c265b87f36954f0154f2a0c9a730bcf90fbc74ec4f89aae9c01ea0a943bcc87d",
-        "sourceSha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+        "sha256": "e97e8b3dfe0b62adceb5deadcdfafa18d7756631119c5e969a69d5a87c446e7e",
+        "sourceSha256": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
         "width": 360,
         "height": 100,
         "density": 1,
@@ -65,8 +68,8 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 30654,
-          "partial": 1001,
+          "transparent": 30612,
+          "partial": 1043,
           "opaque": 4345
         },
         "bounds": {
@@ -83,22 +86,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 62
-        },
-        "symbolGeometry": {
-          "method": "union of the two leftmost connected emblem arcs",
-          "bounds": {
+          "symbolDiameterPx": 62,
+          "minimumPx": 16,
+          "measuredPx": {
             "left": 59,
             "top": 19,
-            "right": 118,
-            "bottom": 80
+            "right": 59,
+            "bottom": 19
           }
+        },
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-light.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-horizontal-light@2x.png",
-        "sha256": "d828adb0679623dbf7fd12ba0cc36566948a485b014855f9fb90a44fcf275640",
-        "sourceSha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+        "sha256": "88cb25173c5b74673dda74a6c77bacdc2c16b6c35969462ff7d8c053ccd3d86c",
+        "sourceSha256": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
         "width": 720,
         "height": 200,
         "density": 2,
@@ -108,9 +126,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 123629,
-          "partial": 2024,
-          "opaque": 18347
+          "transparent": 123601,
+          "partial": 2109,
+          "opaque": 18290
         },
         "bounds": {
           "left": 119,
@@ -126,22 +144,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 124
-        },
-        "symbolGeometry": {
-          "method": "union of the two leftmost connected emblem arcs",
-          "bounds": {
+          "symbolDiameterPx": 124,
+          "minimumPx": 31,
+          "measuredPx": {
             "left": 119,
             "top": 38,
-            "right": 237,
-            "bottom": 161
+            "right": 119,
+            "bottom": 38
           }
+        },
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-light.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-horizontal-light@3x.png",
-        "sha256": "4d18bc32ba9a5e734cdf2f24098f07a6773384a8b89d5ee28ab8758131c3f0b4",
-        "sourceSha256": "6947b70c528a34e185e8de814c10dab497d16c9eb9493ab3c66fbc0c3b62e129",
+        "sha256": "3adb106c9d551d6bac75ba71cfb2437b753ac34ad9abbc15a51d1676952a80a7",
+        "sourceSha256": "61730641bd7a8a0dbac0192f51767dd245c065b7cf0e48ff2b53894507911a66",
         "width": 1080,
         "height": 300,
         "density": 3,
@@ -151,9 +184,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 278930,
-          "partial": 3017,
-          "opaque": 42053
+          "transparent": 278822,
+          "partial": 3265,
+          "opaque": 41913
         },
         "bounds": {
           "left": 179,
@@ -169,22 +202,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 186
-        },
-        "symbolGeometry": {
-          "method": "union of the two leftmost connected emblem arcs",
-          "bounds": {
+          "symbolDiameterPx": 186,
+          "minimumPx": 47,
+          "measuredPx": {
             "left": 179,
             "top": 57,
-            "right": 355,
-            "bottom": 242
+            "right": 179,
+            "bottom": 57
           }
+        },
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-light.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-horizontal-dark.png",
-        "sha256": "30e726a54dc06dd26b5f034cd5ad2e3a933820ae5c3f724380c0978bf072e97c",
-        "sourceSha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+        "sha256": "3ae688562c6c9364d647609742ce3d10cc74f20385c9534ec8cbdfd7969fdb3b",
+        "sourceSha256": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
         "width": 360,
         "height": 100,
         "density": 1,
@@ -194,8 +242,8 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 30654,
-          "partial": 1001,
+          "transparent": 30612,
+          "partial": 1043,
           "opaque": 4345
         },
         "bounds": {
@@ -212,22 +260,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 62
-        },
-        "symbolGeometry": {
-          "method": "union of the two leftmost connected emblem arcs",
-          "bounds": {
+          "symbolDiameterPx": 62,
+          "minimumPx": 16,
+          "measuredPx": {
             "left": 59,
             "top": 19,
-            "right": 118,
-            "bottom": 80
+            "right": 59,
+            "bottom": 19
           }
+        },
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-dark.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-horizontal-dark@2x.png",
-        "sha256": "77779a4dd953d25980b19b10597404639ce89c5e7991c7540578dfb05dbc914a",
-        "sourceSha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+        "sha256": "46dc0fccb816b14872f07f17574585f757a259b741b89b0adab3beb706db0eb2",
+        "sourceSha256": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
         "width": 720,
         "height": 200,
         "density": 2,
@@ -237,9 +300,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 123629,
-          "partial": 2024,
-          "opaque": 18347
+          "transparent": 123601,
+          "partial": 2109,
+          "opaque": 18290
         },
         "bounds": {
           "left": 119,
@@ -255,22 +318,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 124
-        },
-        "symbolGeometry": {
-          "method": "union of the two leftmost connected emblem arcs",
-          "bounds": {
+          "symbolDiameterPx": 124,
+          "minimumPx": 31,
+          "measuredPx": {
             "left": 119,
             "top": 38,
-            "right": 237,
-            "bottom": 161
+            "right": 119,
+            "bottom": 38
           }
+        },
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-dark.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-horizontal-dark@3x.png",
-        "sha256": "ed1fa903e21207f830a4b805a62b26ff3504da607e08ad3e28f9939f1132a4bd",
-        "sourceSha256": "da1d101ab5a9e2a45e43fff99bd8938725cab7ae2ac2887f67afad46425f4591",
+        "sha256": "2e41fc12b188152c146ff14ed4ccde352ba75cb04ef22cea7d43a4b64d52ae35",
+        "sourceSha256": "9943e6b43145797a2d2b22b1ef25a6bea5d5186ee6ab90f83fe7f6aebd3bdc06",
         "width": 1080,
         "height": 300,
         "density": 3,
@@ -280,9 +358,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 278930,
-          "partial": 3017,
-          "opaque": 42053
+          "transparent": 278822,
+          "partial": 3265,
+          "opaque": 41913
         },
         "bounds": {
           "left": 179,
@@ -298,22 +376,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 186
-        },
-        "symbolGeometry": {
-          "method": "union of the two leftmost connected emblem arcs",
-          "bounds": {
+          "symbolDiameterPx": 186,
+          "minimumPx": 47,
+          "measuredPx": {
             "left": 179,
             "top": 57,
-            "right": 355,
-            "bottom": 242
+            "right": 179,
+            "bottom": 57
           }
+        },
+        "role": "horizontal-lockup",
+        "source": "app/assets/brand/logo-horizontal-dark.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/oorva-wordmark-light.png",
-        "sha256": "86cf5e7ab45d4180f79116be614208f86fc4afe27bcadd5d4247eb61df6a9bd7",
-        "sourceSha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+        "sha256": "84447486f6b6f5fe61cd5593f8dff730a90be76e262bd854ef51ed6d481fcfe1",
+        "sourceSha256": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
         "width": 256,
         "height": 64,
         "density": 1,
@@ -323,9 +416,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 12233,
-          "partial": 786,
-          "opaque": 3365
+          "transparent": 12203,
+          "partial": 818,
+          "opaque": 3363
         },
         "bounds": {
           "left": 33,
@@ -341,26 +434,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 40
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of the leftmost lowercase o glyph",
-          "bounds": {
+          "symbolDiameterPx": 40,
+          "minimumPx": 10,
+          "measuredPx": {
             "left": 33,
             "top": 13,
-            "right": 72,
-            "bottom": 50
-          },
-          "size": {
-            "width": 40,
-            "height": 38
+            "right": 33,
+            "bottom": 13
           }
+        },
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-light.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/oorva-wordmark-light@2x.png",
-        "sha256": "ede9b9af7cd5c5b9cbf591dc136df2ada75177a8e00c8c3b3e98a681433e797d",
-        "sourceSha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+        "sha256": "ff8f97c3b420ae967270e75c7d45aee0ff596b4a4610613982bd366c71c5585a",
+        "sourceSha256": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
         "width": 512,
         "height": 128,
         "density": 2,
@@ -370,8 +474,8 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 49623,
-          "partial": 1651,
+          "transparent": 49605,
+          "partial": 1669,
           "opaque": 14262
         },
         "bounds": {
@@ -388,26 +492,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 80
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of the leftmost lowercase o glyph",
-          "bounds": {
+          "symbolDiameterPx": 80,
+          "minimumPx": 20,
+          "measuredPx": {
             "left": 66,
             "top": 26,
-            "right": 145,
-            "bottom": 101
-          },
-          "size": {
-            "width": 80,
-            "height": 76
+            "right": 66,
+            "bottom": 26
           }
+        },
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-light.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/oorva-wordmark-light@3x.png",
-        "sha256": "cfaafb25a9ab1aff1102b57559433524357c1b3a4641ea7f3a773a19545a867d",
-        "sourceSha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+        "sha256": "f47c6c787a442ea78efa5deb014ea6fafa0c28e0738ea60c0aa2ca54491f7fa3",
+        "sourceSha256": "40cffdd851803e282d2d944ad77fbfaa2f83de8cfa34f69a64c408e563d26b82",
         "width": 768,
         "height": 192,
         "density": 3,
@@ -417,9 +532,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 112276,
-          "partial": 2406,
-          "opaque": 32774
+          "transparent": 112200,
+          "partial": 2514,
+          "opaque": 32742
         },
         "bounds": {
           "left": 99,
@@ -435,26 +550,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 120
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of the leftmost lowercase o glyph",
-          "bounds": {
+          "symbolDiameterPx": 120,
+          "minimumPx": 30,
+          "measuredPx": {
             "left": 99,
-            "top": 40,
-            "right": 217,
-            "bottom": 152
-          },
-          "size": {
-            "width": 119,
-            "height": 113
+            "top": 39,
+            "right": 99,
+            "bottom": 39
           }
+        },
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-light.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/oorva-wordmark-dark.png",
-        "sha256": "dbad70b9209c4b4880384c77f672325c22c87639918cd58913df2aa800f378ca",
-        "sourceSha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+        "sha256": "057999b67ddbdd2a5d917ffb444def758c736a2deb516eb9d31facf8185b28cc",
+        "sourceSha256": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
         "width": 256,
         "height": 64,
         "density": 1,
@@ -464,9 +590,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 12233,
-          "partial": 786,
-          "opaque": 3365
+          "transparent": 12203,
+          "partial": 818,
+          "opaque": 3363
         },
         "bounds": {
           "left": 33,
@@ -482,26 +608,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 40
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of the leftmost lowercase o glyph",
-          "bounds": {
+          "symbolDiameterPx": 40,
+          "minimumPx": 10,
+          "measuredPx": {
             "left": 33,
             "top": 13,
-            "right": 72,
-            "bottom": 50
-          },
-          "size": {
-            "width": 40,
-            "height": 38
+            "right": 33,
+            "bottom": 13
           }
+        },
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-dark.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/oorva-wordmark-dark@2x.png",
-        "sha256": "a05ede1ace6b10c2cdaed723d2fe143929579bc7b7839363bec2aa57f7e874a3",
-        "sourceSha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+        "sha256": "7ed8fa50d0734a726d42ce79f5829a9f605c5b887fb0c3def8ed1b1e5d1fc6b3",
+        "sourceSha256": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
         "width": 512,
         "height": 128,
         "density": 2,
@@ -511,8 +648,8 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 49623,
-          "partial": 1651,
+          "transparent": 49605,
+          "partial": 1669,
           "opaque": 14262
         },
         "bounds": {
@@ -529,26 +666,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 80
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of the leftmost lowercase o glyph",
-          "bounds": {
+          "symbolDiameterPx": 80,
+          "minimumPx": 20,
+          "measuredPx": {
             "left": 66,
             "top": 26,
-            "right": 145,
-            "bottom": 101
-          },
-          "size": {
-            "width": 80,
-            "height": 76
+            "right": 66,
+            "bottom": 26
           }
+        },
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-dark.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/oorva-wordmark-dark@3x.png",
-        "sha256": "9a2ac546311bea6b05ba14d3bc72f63543955a361719e9fff631d182d3e30590",
-        "sourceSha256": "c2447cb5c83b8e83f4b5512268a7a98196f10a18ce48dae5e6785ddc77c6d117",
+        "sha256": "3e40190d9fa4911f48c53d46238bb42931a6aec05f09410675893f3e6af4e43c",
+        "sourceSha256": "d536b3432520deff6202baeeb131f23c8281faaa023c61e6e61018db66146c8f",
         "width": 768,
         "height": 192,
         "density": 3,
@@ -558,9 +706,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 112276,
-          "partial": 2406,
-          "opaque": 32774
+          "transparent": 112200,
+          "partial": 2514,
+          "opaque": 32742
         },
         "bounds": {
           "left": 99,
@@ -576,26 +724,37 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 120
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of the leftmost lowercase o glyph",
-          "bounds": {
+          "symbolDiameterPx": 120,
+          "minimumPx": 30,
+          "measuredPx": {
             "left": 99,
-            "top": 40,
-            "right": 217,
-            "bottom": 152
-          },
-          "size": {
-            "width": 119,
-            "height": 113
+            "top": 39,
+            "right": 99,
+            "bottom": 39
           }
+        },
+        "role": "wordmark",
+        "source": "app/assets/brand/oorva-wordmark-dark.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-compact-light.png",
-        "sha256": "2d7abe689b1fccd105edcc7084359857ecf95042f915f5c5f72dd11a7265ab08",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "ac41b8ec0931d893d0373ef4512f1be13648dba276f4a67e82a01946c4333b69",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 32,
         "height": 32,
         "density": 1,
@@ -605,9 +764,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 632,
-          "partial": 117,
-          "opaque": 275
+          "transparent": 618,
+          "partial": 150,
+          "opaque": 256
         },
         "bounds": {
           "left": 3,
@@ -622,13 +781,34 @@
           "bottom": 3
         },
         "safeZone": {
-          "rule": "central-208-square"
+          "rule": "central-208-square",
+          "visiblePixels": 406,
+          "outsidePixels": 0,
+          "insetX": 3,
+          "insetY": 3
+        },
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-compact-light@2x.png",
-        "sha256": "af4a527ee134e4390f926183ef442fa0e4b0858222affed414bf4fd354325b8b",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "415a1d8a3677e367c4f25a0b67f73654fc1c94e00b86df71c8911f38ba81e555",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 64,
         "height": 64,
         "density": 2,
@@ -638,9 +818,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 2642,
-          "partial": 249,
-          "opaque": 1205
+          "transparent": 2646,
+          "partial": 252,
+          "opaque": 1198
         },
         "bounds": {
           "left": 7,
@@ -655,13 +835,34 @@
           "bottom": 6
         },
         "safeZone": {
-          "rule": "central-208-square"
+          "rule": "central-208-square",
+          "visiblePixels": 1450,
+          "outsidePixels": 0,
+          "insetX": 6,
+          "insetY": 6
+        },
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-compact-light@3x.png",
-        "sha256": "e03174e1a6222c00a383db7cf090ee38effe0152420d8ce58606710eee3b34b3",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "d0b4b980f047b5be69890838e8e0645d0e8d95eba89ec5aae97fd3b75fa2cd2d",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 96,
         "height": 96,
         "density": 3,
@@ -671,9 +872,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 6022,
-          "partial": 380,
-          "opaque": 2814
+          "transparent": 6023,
+          "partial": 388,
+          "opaque": 2805
         },
         "bounds": {
           "left": 10,
@@ -688,13 +889,34 @@
           "bottom": 9
         },
         "safeZone": {
-          "rule": "central-208-square"
+          "rule": "central-208-square",
+          "visiblePixels": 3193,
+          "outsidePixels": 0,
+          "insetX": 9,
+          "insetY": 9
+        },
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-compact-dark.png",
-        "sha256": "2d3c30fdbc24f6b72d4df82dbce3b3c9a82c9898e238e10878183f0126ed5bc3",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 32,
         "height": 32,
         "density": 1,
@@ -704,9 +926,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 632,
-          "partial": 117,
-          "opaque": 275
+          "transparent": 618,
+          "partial": 150,
+          "opaque": 256
         },
         "bounds": {
           "left": 3,
@@ -721,13 +943,34 @@
           "bottom": 3
         },
         "safeZone": {
-          "rule": "central-208-square"
+          "rule": "central-208-square",
+          "visiblePixels": 406,
+          "outsidePixels": 0,
+          "insetX": 3,
+          "insetY": 3
+        },
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-compact-dark@2x.png",
-        "sha256": "a715cac019d2ee87f775fb1a42e1b17ccb64c2358efdfb530a08f87fd5bea898",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "fc9f0fb669bcf2af2e522fe2dd49ecdfb6aa8d4b6d0186005734c1b49e4df6e8",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 64,
         "height": 64,
         "density": 2,
@@ -737,9 +980,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 2642,
-          "partial": 249,
-          "opaque": 1205
+          "transparent": 2646,
+          "partial": 252,
+          "opaque": 1198
         },
         "bounds": {
           "left": 7,
@@ -754,13 +997,34 @@
           "bottom": 6
         },
         "safeZone": {
-          "rule": "central-208-square"
+          "rule": "central-208-square",
+          "visiblePixels": 1450,
+          "outsidePixels": 0,
+          "insetX": 6,
+          "insetY": 6
+        },
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/logo-compact-dark@3x.png",
-        "sha256": "945ef9fe957455fc42aa510d657577c4260b138a1470ec65a77b3a9743a8998c",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "2c615e78abf81d0a63496a7e5fc504edb9a8eab04ce0e0ddde666c106be0026c",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 96,
         "height": 96,
         "density": 3,
@@ -770,9 +1034,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 6022,
-          "partial": 380,
-          "opaque": 2814
+          "transparent": 6023,
+          "partial": 388,
+          "opaque": 2805
         },
         "bounds": {
           "left": 10,
@@ -787,13 +1051,34 @@
           "bottom": 9
         },
         "safeZone": {
-          "rule": "central-208-square"
+          "rule": "central-208-square",
+          "visiblePixels": 3193,
+          "outsidePixels": 0,
+          "insetX": 9,
+          "insetY": 9
+        },
+        "role": "compact-symbol",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/icon.png",
-        "sha256": "c9af02ce71af9c4e1da871b71c6a93f40af453b1c33399f5d3165bca33244ca2",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "bf8070e8aeaf2b3f475902b93ac37659c99c434458dcc1d75fbd99ccc9c9d0b1",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 1024,
         "height": 1024,
         "density": "native",
@@ -802,7 +1087,7 @@
           "renderingIntent": 0
         },
         "alpha": {
-          "colorType": 6,
+          "colorType": 2,
           "transparent": 0,
           "partial": 0,
           "opaque": 1048576
@@ -821,13 +1106,31 @@
         },
         "safeZone": {
           "rule": "opaque-square-no-rounded-corners",
-          "backgroundColor": "#173d39"
+          "borderMismatch": 0,
+          "backgroundColor": "#006d77"
+        },
+        "role": "ios-app-icon",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/android-icon-foreground.png",
-        "sha256": "b358dd1c5226288e63d5f47407306a1219fa299162bb4538140aaf667ea339a7",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "16b7d239649ba56b40da5490586bdff8299c0ad6a31feb3655547423e442456a",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 1024,
         "height": 1024,
         "density": "native",
@@ -837,9 +1140,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 883272,
-          "partial": 2821,
-          "opaque": 162483
+          "transparent": 883043,
+          "partial": 3325,
+          "opaque": 162208
         },
         "bounds": {
           "left": 237,
@@ -854,13 +1157,34 @@
           "bottom": 224
         },
         "safeZone": {
-          "rule": "centered-circle-624"
+          "rule": "centered-circle-624",
+          "visiblePixels": 165533,
+          "outsidePixels": 0,
+          "diameter": 624,
+          "radius": 312
+        },
+        "role": "android-adaptive-foreground",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/android-icon-background.png",
-        "sha256": "d382300ca5f23aea1a250d9981c39f7dcfafda8724c7a13c9104036ba86fa81e",
-        "sourceSha256": "9df7bef9d9e1710b36f80d708aeff798a436683801b8a12e4354e2aadf4ff43c",
+        "sha256": "f276d7904f444ad140d735f87b064622f4a3b308435ac151a9ddb7a4d3478882",
+        "sourceSha256": "86be947628e55852127077c3e3eeedec2ecd136c2c65f97da5e370a1ed27a264",
         "width": 1024,
         "height": 1024,
         "density": "native",
@@ -869,7 +1193,7 @@
           "renderingIntent": 0
         },
         "alpha": {
-          "colorType": 6,
+          "colorType": 2,
           "transparent": 0,
           "partial": 0,
           "opaque": 1048576
@@ -888,13 +1212,34 @@
         },
         "safeZone": {
           "rule": "flat-opaque-background",
-          "backgroundColor": "#173d39"
+          "uniformColor": true,
+          "color": "#006d77"
+        },
+        "role": "android-adaptive-background",
+        "source": {
+          "kind": "solid-background",
+          "color": "#006D77"
+        },
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/android-icon-monochrome.png",
-        "sha256": "fa29ec68c8a95f990e05f6bb5763dd19a7b100852c811e66edc98c5643be5503",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "16b7d239649ba56b40da5490586bdff8299c0ad6a31feb3655547423e442456a",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 1024,
         "height": 1024,
         "density": "native",
@@ -904,9 +1249,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 883272,
-          "partial": 2821,
-          "opaque": 162483
+          "transparent": 883043,
+          "partial": 3325,
+          "opaque": 162208
         },
         "bounds": {
           "left": 237,
@@ -921,13 +1266,34 @@
           "bottom": 224
         },
         "safeZone": {
-          "rule": "centered-circle-624"
+          "rule": "centered-circle-624",
+          "visiblePixels": 165533,
+          "outsidePixels": 0,
+          "diameter": 624,
+          "radius": 312
+        },
+        "role": "android-monochrome",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/splash-icon.png",
-        "sha256": "beb0f40e9efe2d9ee98fb368b2c5a5bbb2032c5dcadd701a592eac41c82c7ecd",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "03def74a548b6382a963aace7668af7070b007596c1d31a56a746d9b5bdb65ea",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 1024,
         "height": 1024,
         "density": "native",
@@ -937,9 +1303,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 883272,
-          "partial": 2821,
-          "opaque": 162483
+          "transparent": 883043,
+          "partial": 3325,
+          "opaque": 162208
         },
         "bounds": {
           "left": 237,
@@ -954,13 +1320,40 @@
           "bottom": 224
         },
         "safeZone": {
-          "rule": "ink-within-624-square"
+          "rule": "ink-within-624-square",
+          "inkSize": {
+            "width": 550,
+            "height": 576
+          },
+          "bounds": {
+            "left": 237,
+            "top": 224,
+            "right": 786,
+            "bottom": 799
+          }
+        },
+        "role": "splash-icon-light",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/splash-icon-dark.png",
-        "sha256": "b358dd1c5226288e63d5f47407306a1219fa299162bb4538140aaf667ea339a7",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "5da340bbcec70de784230e03bf7dc62fc1f9ed2abc868201681a2c2963444636",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 1024,
         "height": 1024,
         "density": "native",
@@ -970,9 +1363,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 883272,
-          "partial": 2821,
-          "opaque": 162483
+          "transparent": 883043,
+          "partial": 3325,
+          "opaque": 162208
         },
         "bounds": {
           "left": 237,
@@ -987,13 +1380,40 @@
           "bottom": 224
         },
         "safeZone": {
-          "rule": "ink-within-624-square"
+          "rule": "ink-within-624-square",
+          "inkSize": {
+            "width": 550,
+            "height": 576
+          },
+          "bounds": {
+            "left": 237,
+            "top": 224,
+            "right": 786,
+            "bottom": 799
+          }
+        },
+        "role": "splash-icon-dark",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/notification-icon.png",
-        "sha256": "a3e5ed4a2e0607b5dd71b4a182c258e3a49aea7705504cee37f34f8b6b53708a",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "a67a9eaf9378a8c72a5e32c1b8bf564959b7c3d0fd11fd931cf3ddb5e5194a8e",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 96,
         "height": 96,
         "density": "native",
@@ -1003,9 +1423,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 6022,
-          "partial": 380,
-          "opaque": 2814
+          "transparent": 6023,
+          "partial": 388,
+          "opaque": 2805
         },
         "bounds": {
           "left": 10,
@@ -1020,13 +1440,32 @@
           "bottom": 9
         },
         "safeZone": {
-          "rule": "white-on-transparent"
+          "rule": "white-on-transparent",
+          "nonWhitePixels": 0,
+          "visiblePixels": 3193
+        },
+        "role": "notification-small-icon",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       },
       {
         "path": "app/assets/brand/native/favicon.png",
-        "sha256": "e1968b870aafa679fd12e2be2cf17ea979e51fcabbdb6b30bfb00027d978dd8b",
-        "sourceSha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+        "sha256": "d1211584c40b5bfe2c13253311f3d3cf375239bcad0582e616e62f3cfef4fe6d",
+        "sourceSha256": "529d32670e835618039cf5d44404ea909163865e3dc96ce749772f7962573284",
         "width": 48,
         "height": 48,
         "density": "native",
@@ -1036,9 +1475,9 @@
         },
         "alpha": {
           "colorType": 6,
-          "transparent": 1849,
-          "partial": 137,
-          "opaque": 318
+          "transparent": 1834,
+          "partial": 164,
+          "opaque": 306
         },
         "bounds": {
           "left": 10,
@@ -1054,20 +1493,35 @@
         },
         "safeZone": {
           "rule": "quarter-symbol-clear-space",
-          "symbolDiameterPx": 28
-        },
-        "symbolGeometry": {
-          "method": "outer diameter of rendered favicon emblem",
-          "bounds": {
+          "symbolDiameterPx": 28,
+          "minimumPx": 7,
+          "measuredPx": {
             "left": 10,
             "top": 10,
-            "right": 37,
-            "bottom": 37
+            "right": 10,
+            "bottom": 10
           }
+        },
+        "role": "favicon",
+        "source": "app/assets/brand/oorva-symbol.svg",
+        "deterministic": null,
+        "renderingProvenance": {
+          "kind": "supplied",
+          "manifest": "docs/design/oorva/brand-kit/handoff/supplied-export-manifest.json",
+          "manifestSha256": "e346b97670c23b77185ad83fec5ffcfa94ec7ce875a756664cf0c162b67caaa7",
+          "renderer": "Chromium SVG rasterization",
+          "version": "158.0.4370.33",
+          "pngEncoder": "Pillow",
+          "systemFontsUsed": false
+        },
+        "licenseClearance": "D03c is APPROVED for public brand/trademark/store/asset rights only; this does not authorize public distribution, store submission, native cutover, or device verification. manifest license.status remains pending as a separate provenance field.",
+        "approval": {
+          "designSelection": "approved",
+          "publicRights": "approved"
         }
       }
     ],
-    "validatedCandidateManifestSha256": "9186ad0d89a7e7e1f358be8fea72c2471fb8acc5be6d9148e2e0d64f6a43e402"
+    "validatedCandidateManifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065"
   },
   "validation": {
     "codespaceTsc": {
@@ -1118,7 +1572,7 @@
     "finalSelection": true,
     "production_ready": false,
     "publicReleaseAllowed": false,
-    "D03bCandidateEvidence": "Approved-state A.4.1 PASS_ASSET_AND_STATE for all 26 D exports plus O05B identity selector PASS (1 suite, 86 tests); selected manifest SHA-256 25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b. Release remains blocked by D02/D07."
+    "D03bCandidateEvidence": "Approved-state A.4.1 PASS_ASSET_AND_STATE for all 26 D exports plus O05B identity selector PASS (1 suite, 86 tests); selected manifest SHA-256 b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065. Release remains blocked by D02/D07."
   },
   "runtimeInstallation": "NOT PERFORMED; native candidates remain under app/assets/brand/native and are not installed.",
   "safeZoneDiameterMapping": {
@@ -1335,7 +1789,7 @@
         "sha256": "d1211584c40b5bfe2c13253311f3d3cf375239bcad0582e616e62f3cfef4fe6d"
       }
     ],
-    "appManifestCandidateSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+    "appManifestCandidateSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
     "validation": {
       "codespaceTsc": {
         "status": "PASS",
@@ -1347,24 +1801,24 @@
         "result": "cs-test result: PASS"
       },
       "assetsSelector": {
-        "status": "PASS_ASSET_AND_STATE",
-        "helperSource": "origin/main:scripts/cs-test.ps1 at 57e0c1b911db0c98eb1ba636faeb2d07398ffddd",
-        "command": "pwsh -NoProfile -File .\\scripts\\cs-test.ps1 -Suite assets -Filter oorva",
-        "codespace": "qs-tests-g67pgv4xqj639gx5",
-        "wipSnapshotBranch": "wip/qs-o01x-d-b914",
-        "wipSnapshotSha": "971e9faea0f229173e567118acd5d3ce8fec104f",
-        "testedManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
         "checkedFileCount": 26,
-        "result": "cs-test result: PASS",
-        "state": {
-          "selected": true,
-          "publiclyCleared": true,
-          "designSelection": "approved",
-          "publicRights": "approved"
-        },
+        "codespace": "qs-tests-g67pgv4xqj639gx5",
+        "command": "pwsh -NoProfile -File $Helper -Suite assets -Filter oorva",
         "hashMismatchCount": 0,
+        "helperSource": "origin/main:scripts/cs-test.ps1 at 56da5c6f895d014f842ff0aa8f8c424d7cc8abc9",
+        "result": "cs-test result: PASS",
+        "safeZoneFailures": 0,
         "smallSizeInspections": 6,
-        "safeZoneFailures": 0
+        "state": {
+          "designSelection": "approved",
+          "publicRights": "approved",
+          "publiclyCleared": true,
+          "selected": true
+        },
+        "status": "PASS_ASSET_AND_STATE",
+        "testedManifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
+        "wipSnapshotBranch": "wip/qs-oorva-o01x-d-evidence-20261125",
+        "wipSnapshotSha": "18203f89309a3c4d17b3e618d1e73b153a32272e"
       },
       "identitySelector": {
         "status": "PASS",
@@ -1426,7 +1880,7 @@
       "oorvaBrandEnabled": false,
       "oorvaBrandFeature": "OFF"
     },
-    "publicRightsMapping": "D03c is APPROVED and reflected in approvals.publicRights/publiclyCleared. D02 and D07a-platform/D07b remain PENDING, so public/native release remains unauthorized. license.status remains pending as a separate provenance field under the O37A app-manifest contract. O01X selection remains pending until O05B consumes the matching four D hashes.",
+    "publicRightsMapping": "D03c is APPROVED and reflected in approvals.publicRights/publiclyCleared for public brand/trademark/store/asset rights only; it does not authorize feature activation, public distribution/store submission, native cutover, or device verification. D02 and D07a-platform/D07b remain PENDING, so production/public/native release remains unauthorized. manifest license.status remains pending as a separate provenance field under the O37A app-manifest contract. O01X selection is approved and O05B four D bindings remain matched 4/4.",
     "finalApprovalStatus": {
       "D03a": "APPROVED",
       "D03b": "APPROVED",
@@ -1439,7 +1893,7 @@
       "D07aPlatform": "PENDING",
       "D07b": "PENDING"
     },
-    "currentManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+    "currentManifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
     "supersededSelectionManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
     "a41Validation": {
       "status": "PASS_CANDIDATE_ONLY",
@@ -2903,7 +3357,7 @@
       "o05bDefaultsBindingsMatchApp": "4/4",
       "o05bEvidenceBindingsMatchApp": "4/4",
       "o05bCheckpointManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
-      "currentSelectedManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+      "currentSelectedManifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
       "o05bCheckpointPredatesSelection": true,
       "bindings": [
         {
@@ -2931,7 +3385,7 @@
           "sha256": "91086f49d6934141096f7aa0ffbf12c60dff4dcde8869f24ac54ac6a5733b3d2"
         }
       ],
-      "nextAction": "O05B four D bindings and files match; current-main O01X asset and identity selectors PASS. Ready for exact-head Lane CI; no main/Expo integration."
+      "nextAction": "The four O05B D bindings remain unchanged and verified 4/4. The refreshed supplied-D manifest/evidence passed the current-main O01X asset selector at 56da5c6f895d014f842ff0aa8f8c424d7cc8abc9; ready for exact-head Lane CI. No native installation, feature activation, public/store release, or main/Expo integration is authorized by this follow-up."
     },
     "previousUnselectedManifestSha256": "a335715b4e6e8c93a90388b26e864879a2e84a491cdbffbde6055fed5b9f5abe",
     "preSelectionA41Summary": {
@@ -2945,18 +3399,18 @@
         "publicRights": "pending"
       }
     },
-    "finalManifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+    "finalManifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
     "approvedStateValidation": {
       "status": "PASS",
-      "manifestSha256": "25c06b761792a87e2d477a271ff0e048500d82377de4f02542576820eac8316b",
+      "manifestSha256": "b1e91478fad72956981bb6ee5bd06fa6adbb6e10ebfd5872df44441731a20065",
       "assetsSelector": "PASS_ASSET_AND_STATE",
       "assetCount": 26,
       "assetHashMismatches": 0,
       "state": {
-        "selected": true,
-        "publiclyCleared": true,
         "designSelection": "approved",
-        "publicRights": "approved"
+        "publicRights": "approved",
+        "publiclyCleared": true,
+        "selected": true
       },
       "smallSizeInspections": 6,
       "safeZoneFailures": 0,
@@ -2967,7 +3421,7 @@
         "failed": 0
       },
       "tsc": "PASS",
-      "currentMain": "57e0c1b911db0c98eb1ba636faeb2d07398ffddd"
+      "currentMain": "56da5c6f895d014f842ff0aa8f8c424d7cc8abc9"
     }
   }
 }
