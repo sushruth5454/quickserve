@@ -891,7 +891,7 @@
           "helper": "current-main cs-test helper from the O37A stage card",
           "selector": "src.branding.__tests__.executionInfrastructure[.]test[.]ts$",
           "snapshotBranch": "wip/qs-oorva-o37a-supplied-d-profile-20261125",
-          "snapshotCommit": "794508363db92db8a942349f496e9ca4d7aaa581",
+          "snapshotCommit": "90dc63eca92493992b2e66294209de8851a82e7f",
           "suite": "app",
           "jestSuitesPassed": 1,
           "testsPassed": 8
@@ -902,9 +902,10 @@
           "fix": "Continue validating the sealed note exactly, but keep it out of the backward-compatible provenance result."
         },
         "laneCi": {
-          "status": "PENDING",
-          "headSha": null,
-          "runId": null
+          "status": "PASS",
+          "headSha": "cef10b531569cd53c26d904f9624b48bbcbf5eb9",
+          "runId": 45536456495,
+          "conclusion": "SUCCESS"
         }
       }
     }
