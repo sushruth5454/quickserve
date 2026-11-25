@@ -10,8 +10,11 @@
   },
   "toolchain": {
     "nodeMajor": 22,
-    "renderer": "@resvg/resvg-js",
-    "rendererVersion": "2.6.2",
+    "renderer": "Chromium SVG rasterization",
+    "rendererVersion": "158.0.4370.33",
+    "pngEncoder": "Pillow",
+    "systemFontsUsed": false,
+    "note": "Outline-only inputs. These are supplied sealed exports, not a claim that the old forest-only resvg --check passes.",
     "loadSystemFonts": false,
     "exporterSha256": "a0506612bf2a97a9f1d6f37e8766308b9d3d20e84069acc7336072cb0c77c4a8",
     "packageLockSha256": "751eeaea45b0dd10c0d65baf64d3a73fd6d3af2acc9859da1501601f77b1272a"
