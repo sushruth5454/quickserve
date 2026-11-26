@@ -46,7 +46,7 @@ export const BIO_GOOD = 'AC technician for 6 years. I service split and window A
 export const BIO_BAD = 'Good work. Call me.';
 
 export const PROVIDER_TERMS_SUMMARY = [
-  'Quote before work: you send an itemised quote and start only after the customer approves it.',
+  'For jobs that require an itemized quote, work starts only after the quote is approved. Fixed-price and proposal work follows the accepted package or proposal and its payment schedule.',
   'Payments stay in the app. Taking payment outside QuickServe is not allowed.',
   'Commission can vary by service. Earnings shows the current policy; quote previews show the booking-specific rate when a quote is needed.',
   'Payouts are sent to your verified bank account after the 24-hour dispute window.',

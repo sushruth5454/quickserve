@@ -1,0 +1,83 @@
+{
+  "stageId": "O23-ID13",
+  "workPackage": "O23",
+  "taskId": "ID-T13",
+  "findingId": "ID-F13",
+  "base": {
+    "branch": "lane/oorva-o23-id13",
+    "sha": "26e22f03f60c424f8d1d8bcbfb501366d63a5392",
+    "worktreeInitiallyClean": true
+  },
+  "dependency": {
+    "stageId": "O00",
+    "sha": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "containedInBase": true
+  },
+  "decisions": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "D05-policy-scope": "PENDING_FOR_FINAL_PUBLIC_TEXT; does not block this stage's development or main promotion"
+  },
+  "implementation": {
+    "routeHostExtraction": "MECHANICAL_EXTRACTION_VERIFIED",
+    "summary": [
+      "Safety copy refers to booking-shown protections and support, qualifies quote-required jobs, and distinguishes fixed-price/proposal work.",
+      "Deletion is labeled as a request; recorded requests are described as pending, while email fallback instructs the user to send the message.",
+      "Configured support actions, existing 24-hour and 30-day policy numbers, provider terms acceptance/version behavior, and feature-flag behavior were left unchanged."
+    ],
+    "files": [
+      "app\\app\\info\\[topic].tsx",
+      "app\\src\\features\\identityScreens\\InfoDetailScreen.tsx",
+      "app\\src\\lib\\onboarding\\copy.ts",
+      "app\\src\\components\\__tests__\\InfoScreen.policyScope.test.tsx",
+      "docs\\design\\oorva\\evidence\\o23-id13.json"
+    ]
+  },
+  "placements": [
+    {
+      "id": "PA-S46-01-topic-header-and-policy-scope",
+      "auditStatus": "CODE_AUDITED",
+      "runtimeStatus": "NOT_RUN",
+      "evidence": "InfoDetailScreen.tsx safety topic; scope tests authored but not executed."
+    },
+    {
+      "id": "PA-S46-02-configured-support-actions",
+      "auditStatus": "CODE_AUDITED",
+      "runtimeStatus": "NOT_RUN",
+      "evidence": "InfoDetailScreen.tsx help actions continue to use supportContact; guest-help test authored but not executed."
+    },
+    {
+      "id": "PA-S46-03-deletion-request-and-confirmation",
+      "auditStatus": "CODE_AUDITED",
+      "runtimeStatus": "NOT_RUN",
+      "evidence": "InfoDetailScreen.tsx labels the action as a request and describes pending processing; confirmation test authored but not executed."
+    },
+    {
+      "id": "PA-S46-04-deletion-outcome-readback",
+      "auditStatus": "CODE_AUDITED",
+      "runtimeStatus": "NOT_RUN",
+      "evidence": "InfoDetailScreen.tsx distinguishes recorded and email outcomes; outcome tests authored but not executed."
+    }
+  ],
+  "review": {
+    "focusedMoneyLegalCopyReview": "PASS",
+    "reviewScope": "Focused review of O23-ID13 copy and preservation constraints only.",
+    "publicCopyApproval": "NOT_CLAIMED",
+    "D05-policy-scope": "PENDING"
+  },
+  "validation": {
+    "command": "pwsh -NoProfile -File $Helper -Suite app -Filter \"src.components.__tests__.InfoScreen[.]policyScope[.]test[.]tsx$\"",
+    "testSelection": {
+      "suiteCount": 1,
+      "testCount": 6
+    },
+    "result": "PASS",
+    "codespaceRun": "wip/qs-o23-id13 @ d2f3b10b on qs-tests-g67pgv4xqj639gx5",
+    "localBuildOrTestRun": false
+  },
+  "promotion": {
+    "mainPromotion": "NOT_PERFORMED",
+    "deployment": "NOT_PERFORMED",
+    "publicDistribution": "NOT_PERFORMED"
+  }
+}
