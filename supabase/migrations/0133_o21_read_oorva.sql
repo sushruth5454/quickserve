@@ -9,7 +9,7 @@ with (security_barrier = true) as
      where bm.member_id = auth.uid()
        and bm.active
        and bm.role in ('owner', 'manager')
-       and public._feature_enabled('merchant_staff')
+       and public._acts_for(bm.owner_id, 'manager')
   )
   select
     r.id,
@@ -20,7 +20,11 @@ with (security_barrier = true) as
     r.area,
     r.event_start,
     r.event_end,
-    public._proposal_public_intake(r.category_id, r.intake) as intake,
+    coalesce(r.intake, '{}'::jsonb) - coalesce((
+      select array_agg(property.key)
+        from jsonb_each(coalesce(c.intake_schema -> 'properties', '{}'::jsonb)) as property(key, value)
+       where coalesce((property.value ->> 'x-private')::boolean, false)
+    ), '{}'::text[]) as intake,
     r.budget_min,
     r.budget_max,
     r.status,

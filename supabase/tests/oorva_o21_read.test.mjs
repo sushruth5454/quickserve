@@ -39,11 +39,11 @@ async function user(label) {
 async function provider(ownerId, categoryId, city) {
   await db.query(`
     insert into public.providers (
-      id, city, base_location, kyc_status, submitted_at, is_online, paused, suspended
+      id, city, base_location, kyc_status, admin_review_status, submitted_at, is_online, paused, suspended
     ) values (
       $1::uuid, $2::text,
       extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
-      'verified', now(), true, false, false
+      'verified', 'approved', now(), true, false, false
     )
   `, [ownerId, city]);
   return (await db.query(`
@@ -317,33 +317,6 @@ await h.scenario('O21-SV05-authorized-proposal-state-and-booking-history', async
   await expectDenied(staffId, sentId, 'staff does not gain proposal read access');
   await expectDenied(strangerId, sentId, 'stranger does not gain proposal read access');
 
-  const busyCustomerId = await user('busy-customer');
-  const targetCustomerId = await user('busy-target-customer');
-  const busyRequestId = await request(
-    busyCustomerId, categoryId, 'busy', city, eventStart, eventEnd, '2027-04-13T18:00:00+05:30',
-  );
-  const targetRequestId = await request(
-    targetCustomerId, categoryId, 'busy-target', city, eventStart, eventEnd, '2027-04-13T18:00:00+05:30',
-  );
-  await recipient(busyRequestId, ownerId, providerServiceId);
-  await recipient(targetRequestId, ownerId, providerServiceId);
-  const busyProposalId = await proposal(
-    busyRequestId, ownerId, providerServiceId, 1, 'accepted', '2027-04-13T18:00:00+05:30',
-  );
-  const targetProposalId = await proposal(
-    targetRequestId, ownerId, providerServiceId, 1, 'sent', '2027-04-13T18:00:00+05:30',
-  );
-  const busyAddressId = (await db.query(`
-    insert into public.addresses (user_id, label, line1, city, lat, lng)
-    values ($1::uuid, 'Busy venue', 'Busy booking venue', $2::text, 16.5::double precision, 80.6::double precision)
-    returning id
-  `, [busyCustomerId, city])).rows[0].id;
-  await booking(busyCustomerId, ownerId, categoryId, providerServiceId, busyAddressId, busyRequestId, busyProposalId,
-    'confirmed', eventStart, eventEnd, '2027-04-14T15:00:00+05:30');
-  const providerBusyState = await viewState(targetCustomerId, targetProposalId);
-  check(providerBusyState.current_booking_id === null && !providerBusyState.can_accept,
-    'overlapping active booking suppresses Accept for another request to the same provider', providerBusyState);
-
   await db.query(`update public.feature_flags set enabled = false where key = 'merchant_staff'`);
   await expectDenied(managerId, sentId, 'merchant_staff OFF removes manager proposal read access');
   const ownerOff = await viewState(ownerId, sentId);
@@ -373,6 +346,33 @@ await h.scenario('O21-SV05-authorized-proposal-state-and-booking-history', async
       && historyState.current_booking_status === 'refunded',
     'without an active booking the latest history is selected deterministically by created_at and id',
     historyState);
+
+  const busyCustomerId = await user('busy-customer');
+  const targetCustomerId = await user('busy-target-customer');
+  const busyRequestId = await request(
+    busyCustomerId, categoryId, 'busy', city, eventStart, eventEnd, '2027-04-13T18:00:00+05:30',
+  );
+  const targetRequestId = await request(
+    targetCustomerId, categoryId, 'busy-target', city, eventStart, eventEnd, '2027-04-13T18:00:00+05:30',
+  );
+  await recipient(busyRequestId, ownerId, providerServiceId);
+  await recipient(targetRequestId, ownerId, providerServiceId);
+  const busyProposalId = await proposal(
+    busyRequestId, ownerId, providerServiceId, 1, 'accepted', '2027-04-13T18:00:00+05:30',
+  );
+  const targetProposalId = await proposal(
+    targetRequestId, ownerId, providerServiceId, 1, 'sent', '2027-04-13T18:00:00+05:30',
+  );
+  const busyAddressId = (await db.query(`
+    insert into public.addresses (user_id, label, line1, city, lat, lng)
+    values ($1::uuid, 'Busy venue', 'Busy booking venue', $2::text, 16.5::double precision, 80.6::double precision)
+    returning id
+  `, [busyCustomerId, city])).rows[0].id;
+  await booking(busyCustomerId, ownerId, categoryId, providerServiceId, busyAddressId, busyRequestId, busyProposalId,
+    'confirmed', eventStart, eventEnd, '2027-04-14T15:00:00+05:30');
+  const providerBusyState = await viewState(targetCustomerId, targetProposalId);
+  check(providerBusyState.current_booking_id === null && !providerBusyState.can_accept,
+    'overlapping active booking suppresses Accept for another request to the same provider', providerBusyState);
 });
 
 h.finish();

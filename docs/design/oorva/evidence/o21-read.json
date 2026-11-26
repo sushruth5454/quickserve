@@ -66,8 +66,9 @@
   },
   "implementation": {
     "status": "IN_PROGRESS",
-    "delegatedRequestGuard": "merchant_staff is enforced only on the business_members union branch; provider-own auth.uid access, sanitization, routed-provider ambiguity suppression and existing grant are preserved.",
-    "proposalReadState": "Adds an authenticated, redacted get_proposal_view_state RPC with explicit customer/owner/manager/admin roles, current booking composite, and server-derived action capabilities.",
+    "delegatedRequestGuard": "merchant_staff is enforced only on the business_members union branch through the existing security-definer _acts_for manager predicate; provider-own auth.uid access, sanitized intake, routed-provider ambiguity suppression and existing grant are preserved.",
+    "sanitizedIntake": "The view removes every category intake property marked x-private, matching _proposal_public_intake without requiring authenticated EXECUTE on that revoked helper.",
+    "proposalReadState": "Adds an authenticated, redacted get_proposal_view_state RPC with explicit customer/owner/manager/admin roles, current booking composite, and server-derived capabilities aligned with accept/withdraw/send/message guards, including category and provider availability for Accept.",
     "bookingSelection": "Uses accept_proposal's active status set, then latest history ordered by created_at DESC and id DESC.",
     "routeHosts": [
       "ProposalDetailScreen",
@@ -76,10 +77,10 @@
     ]
   },
   "validation": {
-    "codespaceApp": "NOT_RUN",
-    "codespaceSql": "NOT_RUN",
-    "codespaceMigrationParser": "NOT_RUN",
-    "focusedAuthReview": "NOT_RUN",
+    "codespaceApp": "PASS: ProposalStatus selector; 1 suite, 11 tests; helper snapshot 2e75ffd9.",
+    "codespaceSql": "PASS: O21 registered SQL test 1/1 plus R1 provider-view regression 1/1; helper snapshots 60f0a843 and deb4b217.",
+    "codespaceMigrationParser": "PASS: 0133 parser selected 1 check; 5 top-level statements, 1 function body, 0 errors; helper snapshot bc407f2c.",
+    "focusedAuthReview": "PENDING: independent focused code review required before CODE_GREEN.",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
