@@ -3363,7 +3363,7 @@ await step('coins-wallet', async () => {
 await optional('me-customer-scrolled', () => snapScrolled('me-customer-scrolled', 900));
 await step('info-safety', async () => {
   await go('/info/safety');
-  await visible('Safety & guarantee');
+  await visible('Safety & booking details');
 });
 
 // ---------- Customer, dark mode ----------
