@@ -1,0 +1,94 @@
+{
+  "stageId": "O32-MN07",
+  "sourceTaskId": "MN-T07",
+  "findingId": "MN-F07",
+  "implementationBaseSha": "bb25f20d300d70285024a15c4cb551519f3a04f9",
+  "planningSourceSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "dependency": {
+    "stageId": "O00",
+    "sourceSha": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "containedInBase": true
+  },
+  "branch": "lane/oorva-o32-mn07-resume-bb25f20",
+  "sourceEvidence": {
+    "classification": "CODE_AUDITED",
+    "runtime": "NOT_RUN",
+    "scope": "bind existing MN-F07 evidence; discovery not repeated"
+  },
+  "placementBinding": {
+    "placement": "S14",
+    "rows": [
+      "PA-S14-01",
+      "PA-S14-02",
+      "PA-S14-03",
+      "PA-S14-04",
+      "PA-S14-05",
+      "PA-S14-06",
+      "PA-S14-07",
+      "PA-S14-08"
+    ],
+    "primaryRow": "PA-S14-08",
+    "scope": "resolve dispute controls; source discovery not repeated"
+  },
+  "migrationClaim": "MIG-O32-MN07",
+  "migrationPath": "supabase/migrations/0136_o32_mn07_oorva.sql",
+  "migrationClaimStatus": "ACKNOWLEDGED/APPROVED: owner allocation 0136",
+  "functionDriftCheck": {
+    "symbol": "public.resolve_dispute(uuid, public.dispute_outcome, int, text)",
+    "frozenSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "implementationBaseSha": "bb25f20d300d70285024a15c4cb551519f3a04f9",
+    "result": "NO_DRIFT_IN_ROUTE_OR_FUNCTION; referenced Button disabled semantics unchanged",
+    "reviewedAdjacentChanges": [
+      "Button.tsx appearance/text wrapping only; disabled/loading inactive logic remains unchanged",
+      "adminApi.ts support-conversation helpers only; getBooking/resolveDispute contracts and detail shape remain unchanged"
+    ]
+  },
+  "workerFiles": [
+    "app/src/lib/adminMoney.ts",
+    "app/src/lib/__tests__/adminMoney.test.ts",
+    "app/app/admin/booking/[id].tsx",
+    "app/src/features/moneyScreens/AdminBookingDetailScreen.tsx",
+    "supabase/migrations/0136_o32_mn07_oorva.sql",
+    "supabase/tests/oorva_o32_mn07.test.mjs",
+    "docs/design/oorva/evidence/o32-mn07.json"
+  ],
+  "implementation": {
+    "status": "worker-files-only",
+    "routeHost": "existing route remains a thin export; extracted screen retains route params, navigation, controller, confirmation and reload behavior",
+    "partialRefundLimit": "eligible paid non-coin gateway cash less non-failed child refunds, capped by current payout amount when present; existing whole-rupee parser retained",
+    "serverGuards": "non-null valid outcome; partial-only trimmed note length 1-500; admin, disputed, amount and settlement branches retained",
+    "busyResolution": "synchronous lock and busy state guard before confirmation; all three resolve controls disabled while busy",
+    "featureFlag": "no new flag or flag dependency; safety resolution remains callable with all feature flags off"
+  },
+  "tests": {
+    "cases": [
+      "MN-PARTIAL-CAP-PAYOUT",
+      "MN-PARTIAL-NOTE-ROLE",
+      "MN-ROLES-SAME-PK",
+      "MN-OFF-SAFETY"
+    ],
+    "registration": {
+      "status": "WAITING_FOR_COORDINATOR",
+      "coordinatorOwned": true,
+      "requiredProof": "doc18 section 0.4.3 registration SHA and selector-selection proof"
+    },
+    "execution": "NOT_RUN_BEFORE_REGISTRATION_PROOF",
+    "requiredSelectors": [
+      "app: src.lib.__tests__.adminMoney[.]test[.]ts$",
+      "sql: oorva_o32_mn07",
+      "sql: o32_mn07_oorva.sql"
+    ]
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "E1": "PENDING_ELIGIBLE_TESTED_BATCH_ONLY",
+    "focusedMoneyReview": "PENDING",
+    "laneCi": "PENDING"
+  },
+  "checkpoint": "PAUSED_FOR_REGISTRATION",
+  "productionActions": "none",
+  "featureActivation": "none",
+  "mainPromotion": "none",
+  "deployment": "none"
+}
