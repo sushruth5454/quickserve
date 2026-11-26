@@ -1,0 +1,126 @@
+{
+  "stageId": "O32-MN04",
+  "workPackage": "O32",
+  "taskId": "MN-T04",
+  "findingId": "MN-F04",
+  "baseSha": "bb25f20d300d70285024a15c4cb551519f3a04f9",
+  "dependencies": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O37A": "886be92b1fccf0de3e71b7e21caa7884c6676e0f"
+  },
+  "verifiedPRefAncestorOfBase": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "migration": {
+    "claim": "MIG-O32-MN04",
+    "path": "supabase\\migrations\\0135_o32_mn04_oorva.sql",
+    "function": "public.admin_retry_refund(uuid)"
+  },
+  "behavior": {
+    "reservationLockOrder": [
+      "Read the target refund payment_id without mutation.",
+      "Lock the payment row FOR UPDATE, matching _queue_refund reservation ordering.",
+      "Lock and recheck the target refund FOR UPDATE NOWAIT; convert child-lock contention to a retryable stale-state error.",
+      "Require an admin, failed target, positive stored amount, and target plus all other non-failed child refund amounts within payment.amount.",
+      "Only after validation, reset the same refund row to pending/attempts 0 and insert its existing audit action."
+    ],
+    "capacityConflictEffects": "No payment, refund, or audit rows are changed.",
+    "featureFlagBehavior": "The money-safety guard and safe retry remain available with feature_flags disabled."
+  },
+  "routeHostBinding": {
+    "screenId": "S26",
+    "route": "app\\app\\admin\\refunds.tsx",
+    "host": "app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx",
+    "controller": "useAdminRefundsController (one function inside this host)",
+    "routeBehavior": "The current route exports the moved screen without changing its path."
+  },
+  "tests": [
+    {
+      "path": "supabase\\tests\\oorva_o32_mn04.test.mjs",
+      "cases": [
+        "MN-REFUND-RETRY-CAP",
+        "MN-REFUND-RETRY-ALLOW",
+        "MN-ROLES-SAME-PK",
+        "MN-REFUND-RETRY-MISSING",
+        "MN-REFUND-RETRY-STATE-PENDING",
+        "MN-REFUND-RETRY-STATE-PROCESSING",
+        "MN-REFUND-RETRY-STATE-REFUNDED",
+        "MN-OFF-SAFETY"
+      ],
+      "status": "AUTHORED_NOT_RUN"
+    },
+    {
+      "path": "supabase\\tests-postgres\\o32_mn04.pg.test.mjs",
+      "cases": [
+        "MN-REFUND-RETRY-CONCURRENT",
+        "MN-REFUND-RETRY-CHILD-LOCK-CONTENTION"
+      ],
+      "status": "AUTHORED_NOT_RUN",
+      "executionGate": "O37A private job against disposable stack only; requires overlapping transactions and distinct backend PIDs."
+    }
+  ],
+  "placements": [
+    {
+      "id": "PA-S26-01-problem-priority-order",
+      "findingIds": ["MN-F12"],
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "scope": "Unchanged; S26 route is mechanically hosted in AdminRefundsScreen.",
+      "codeEvidence": ["app\\app\\admin\\refunds.tsx", "app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx"]
+    },
+    {
+      "id": "PA-S26-02-refund-transaction-context",
+      "findingIds": ["MN-F01", "MN-F08", "MN-F12"],
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "scope": "Unchanged outside the failed-retry action.",
+      "codeEvidence": ["app\\app\\admin\\refunds.tsx", "app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx"]
+    },
+    {
+      "id": "PA-S26-03-failed-refund-retry",
+      "findingIds": ["MN-F04", "MN-F09"],
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "scope": "Retry remains failed-only; capacity/stale-state errors render beside the refund and trigger authoritative refresh.",
+      "codeEvidence": [
+        "supabase\\migrations\\0135_o32_mn04_oorva.sql",
+        "app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx",
+        "supabase\\tests\\oorva_o32_mn04.test.mjs",
+        "supabase\\tests-postgres\\o32_mn04.pg.test.mjs"
+      ]
+    },
+    {
+      "id": "PA-S26-04-processing-refund-explanation",
+      "findingIds": ["MN-F01"],
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "scope": "Unchanged; processing refunds remain non-retryable in the UI.",
+      "codeEvidence": ["app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx"]
+    },
+    {
+      "id": "PA-S26-05-transfer-attention-section",
+      "findingIds": ["MN-F08", "MN-F12"],
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "scope": "Unchanged; transfers remain read-only on S26.",
+      "codeEvidence": ["app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx"]
+    },
+    {
+      "id": "PA-S26-06-dispute-window-errors-and-refresh",
+      "findingIds": ["MN-F09", "MN-F12"],
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "scope": "Existing dispute-window validation and errors remain unchanged.",
+      "codeEvidence": ["app\\src\\features\\moneyScreens\\AdminRefundsScreen.tsx"]
+    }
+  ],
+  "review": {
+    "required": "CONCURRENCY",
+    "status": "PENDING_SEPARATE_MONEY_AND_CONCURRENCY_REVIEW"
+  },
+  "validation": {
+    "status": "PAUSED_FOR_REGISTRATION",
+    "localTestsBuildsAndInstalls": "NOT RUN",
+    "codespace": "BLOCKED_PENDING_COORDINATOR_REGISTRATION_SHA_AND_SELECTION_PROOF",
+    "privatePostgres": "BLOCKED_PENDING_O37A_PRIVATE_JOB",
+    "laneCi": "NOT RUN"
+  }
+}
