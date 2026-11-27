@@ -75,12 +75,13 @@ async function addDocumentType(code, label = 'Readiness credential', hasExpiry =
   );
 }
 
-async function addCategory(name, requiredDocs = []) {
+async function addCategory(name, requiredDocs = [], overrides = {}) {
   return insertFixture('categories', buildCategory({
     id: uuid(),
     slug: `id-readiness-${sequence++}`,
     name,
     requires_docs: requiredDocs,
+    ...overrides,
   }));
 }
 
@@ -93,6 +94,14 @@ async function addService(providerId, categoryId) {
     [id, providerId, categoryId, 1200, 2400, true],
   );
   return id;
+}
+
+async function launchCategory(categoryId, city = 'Readiness City') {
+  await db.query(
+    `insert into public.category_cities (category_id, city, live, launched_at)
+     values ($1::uuid, $2::text, $3::boolean, $4::timestamptz)`,
+    [categoryId, city, true, '2026-11-20T10:00:00.000Z'],
+  );
 }
 
 async function addDocument({
@@ -329,7 +338,7 @@ await scenario('ID-DOC-EXPIRY', async () => {
       && expired.latest_document_id === expiredId
       && expired.latest_status === 'approved'
       && expired.effective_latest_status === 'expired'
-      && expired.expires_on === yesterday
+      && new Date(expired.expires_on).toISOString().slice(0, 10) === yesterday
       && inclusive.satisfied === true
       && inclusive.approved_document_id === todayId
       && state.server_local_date === today,
@@ -417,6 +426,18 @@ await scenario('ID-ADMIN-READ-PRIVACY', async () => {
     filePath: 'provider-docs/admin-general-fixture.pdf',
     createdAt: '2026-11-22T10:00:00.000Z',
   });
+  await db.query(
+    `update public.feature_flags as flags
+        set enabled = $2::boolean
+      where flags.key = $1::text`,
+    ['guest_browse', true],
+  );
+  const [guestBrowse] = await db.query(
+    `select flags.enabled
+       from public.feature_flags as flags
+      where flags.key = $1::text`,
+    ['guest_browse'],
+  ).then((result) => result.rows);
 
   const [adminProvider] = await as(
     adminId,
@@ -481,6 +502,17 @@ await scenario('ID-ADMIN-READ-PRIVACY', async () => {
   ).then((result) => result.rows);
   const publicProfile = publicRow.profile;
   const publicText = JSON.stringify(publicProfile);
+  const badgeKeys = Object.keys(publicProfile?.badges ?? {}).sort();
+  const unsafeTokens = [
+    'acc_private_readiness',
+    'admin-only review explanation',
+    'private-public-profile-fixture.pdf',
+    'admin-category-fixture.pdf',
+    'admin-general-fixture.pdf',
+    'review_note',
+    'go_live',
+    'file_path',
+  ].filter((value) => publicText.includes(value));
   const queueByScope = queue.map((item) => ({
     category_id: item.category_id,
     category_name: item.category_name,
@@ -500,6 +532,8 @@ await scenario('ID-ADMIN-READ-PRIVACY', async () => {
       && queue.some((item) => item.category_id === null && item.category_name === 'General'),
     `admin queue distinguishes category and general documents; actual=${JSON.stringify(queueByScope)}`,
   );
+  ok(guestBrowse?.enabled === true,
+    `guest-browse read prerequisite is enabled without changing Oorva switches; actual=${JSON.stringify(guestBrowse)}`);
   ok(
     /admin only/i.test(deniedProviders ?? '')
       && /admin only/i.test(deniedQueue ?? '')
@@ -512,22 +546,33 @@ await scenario('ID-ADMIN-READ-PRIVACY', async () => {
   ok(
     publicProfile?.badges?.id_verified === true
       && publicProfile?.credentials?.includes('Public readiness credential')
-      && JSON.stringify(Object.keys(publicProfile?.badges ?? {}).sort())
-        === JSON.stringify(['id_verified', 'police_verified', 'payout_verified'])
-      && !['acc_private_readiness', 'admin-only review explanation', 'private-public-profile-fixture.pdf',
-        'admin-category-fixture.pdf', 'admin-general-fixture.pdf', 'review_note', 'go_live', 'file_path']
-        .some((value) => publicText.includes(value)),
-    `public profile keeps only existing safe badge/credential labels; actual=${publicText}`,
+      && JSON.stringify(badgeKeys) === JSON.stringify(['id_verified', 'payout_verified', 'police_verified'])
+      && unsafeTokens.length === 0,
+    `public profile keeps only existing safe badge/credential labels; actual=${JSON.stringify({
+      badges: publicProfile?.badges ?? null,
+      badgeKeys,
+      credentials: publicProfile?.credentials ?? null,
+      unsafeTokens,
+    })}`,
   );
 });
 
 await scenario('ID-JOB-PROJECTION', async () => {
   await disableOorvaFlags();
-  const ownerId = await createProvider({ name: 'Job projection owner' });
-  const otherProviderId = await createProvider({ name: 'Unrelated job provider' });
+  const ownerId = await createProvider({
+    name: 'Job projection owner',
+    kycStatus: 'verified',
+    reviewStatus: 'approved',
+  });
+  const otherProviderId = await createProvider({
+    name: 'Unrelated job provider',
+    kycStatus: 'verified',
+    reviewStatus: 'approved',
+  });
   const customerId = await createUser(uuid(), 'Projection customer A');
   const otherCustomerId = await createUser(uuid(), 'Projection customer B');
-  const category = await addCategory('Safe job category');
+  const category = await addCategory('Safe job category', [], { max_lead_days: 365 });
+  await launchCategory(category.id);
   const ownerServiceId = await addService(ownerId, category.id);
   const otherServiceId = await addService(otherProviderId, category.id);
   const maskedAddressId = uuid();
@@ -540,9 +585,10 @@ await scenario('ID-JOB-PROJECTION', async () => {
   const maskedBookingId = uuid();
   const visibleBookingId = uuid();
   const unrelatedBookingId = uuid();
-  const fixedBookingTime = '2026-12-20T10:00:00.000Z';
+  const maskedBookingTime = '2026-12-20T10:00:00.000Z';
+  const visibleBookingTime = '2026-12-20T13:00:00.000Z';
   const fixedCreatedAt = '2026-11-20T10:00:00.000Z';
-  await insertFixture('bookings', buildBooking({
+  const maskedBooking = await insertFixture('bookings', buildBooking({
     id: maskedBookingId,
     customer_id: customerId,
     provider_id: ownerId,
@@ -551,13 +597,13 @@ await scenario('ID-JOB-PROJECTION', async () => {
     address_id: maskedAddressId,
     description: 'Accepted but address remains masked',
     status: 'accepted',
-    scheduled_at: fixedBookingTime,
+    scheduled_at: maskedBookingTime,
     accepted_at: null,
     created_at: fixedCreatedAt,
     updated_at: fixedCreatedAt,
-    archetype: 'proposal',
+    archetype: 'inspect_quote',
   }));
-  await insertFixture('bookings', buildBooking({
+  const visibleBooking = await insertFixture('bookings', buildBooking({
     id: visibleBookingId,
     customer_id: customerId,
     provider_id: ownerId,
@@ -566,13 +612,13 @@ await scenario('ID-JOB-PROJECTION', async () => {
     address_id: visibleAddressId,
     description: 'Accepted with visible address',
     status: 'accepted',
-    scheduled_at: fixedBookingTime,
+    scheduled_at: visibleBookingTime,
     accepted_at: '2026-11-20T11:00:00.000Z',
     created_at: '2026-11-20T10:01:00.000Z',
     updated_at: fixedCreatedAt,
-    archetype: 'time_based',
+    archetype: 'inspect_quote',
   }));
-  await insertFixture('bookings', buildBooking({
+  const unrelatedBooking = await insertFixture('bookings', buildBooking({
     id: unrelatedBookingId,
     customer_id: otherCustomerId,
     provider_id: otherProviderId,
@@ -581,11 +627,11 @@ await scenario('ID-JOB-PROJECTION', async () => {
     address_id: unrelatedAddressId,
     description: 'Unrelated provider booking',
     status: 'accepted',
-    scheduled_at: fixedBookingTime,
+    scheduled_at: maskedBookingTime,
     accepted_at: '2026-11-20T11:00:00.000Z',
     created_at: '2026-11-20T10:02:00.000Z',
     updated_at: fixedCreatedAt,
-    archetype: 'fixed',
+    archetype: 'inspect_quote',
   }));
 
   const jobs = await as(ownerId, 'authenticated', `select * from public.get_provider_jobs()`);
@@ -631,12 +677,15 @@ await scenario('ID-JOB-PROJECTION', async () => {
       && jobs.every((job) => JSON.stringify(Object.keys(job).sort()) === JSON.stringify(expectedKeys))
       && businessJobs.every((job) => JSON.stringify(Object.keys(job).sort()) === JSON.stringify(expectedKeys))
       && jobSummary.some((job) => job.booking_id === maskedBookingId
-        && job.address_line === null && job.lat === null && job.lng === null && job.archetype === 'proposal')
+        && job.address_line === null && job.lat === null && job.lng === null && job.archetype === maskedBooking.archetype)
       && jobSummary.some((job) => job.booking_id === visibleBookingId
-        && job.address_line === 'Accepted job address' && job.lat === 17.4 && job.lng === 78.4 && job.archetype === 'time_based')
+        && job.address_line === 'Accepted job address' && job.lat === 17.4 && job.lng === 78.4 && job.archetype === visibleBooking.archetype)
       && businessSummary.some((job) => job.booking_id === maskedBookingId && job.address_line === null)
       && businessSummary.some((job) => job.booking_id === visibleBookingId && job.address_line === 'Accepted job address'),
-    `job projections preserve booking scope, address masking and stored archetype only; actual=${JSON.stringify({ jobSummary, businessSummary, otherBusinessJobs })}`,
+    `job projections preserve booking scope, address masking and stored archetype only; actual=${JSON.stringify({
+      jobSummary, businessSummary, otherBusinessJobs,
+      stored: { masked: maskedBooking.archetype, visible: visibleBooking.archetype, unrelated: unrelatedBooking.archetype },
+    })}`,
   );
 });
 

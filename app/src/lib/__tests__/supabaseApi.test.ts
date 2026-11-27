@@ -68,8 +68,7 @@ describe('getProviderJobs', () => {
 
     expect(supabase.rpc).toHaveBeenCalledWith('get_provider_jobs');
     expect(result).toEqual([job]);
-    expect(result[0].booking_id).toBe('booking-1');
-    expect(result[0].archetype).toBe('proposal');
+    expect(result[0]).toMatchObject({ booking_id: 'booking-1', archetype: 'proposal' });
   });
 });
 
