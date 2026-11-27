@@ -1,28 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { View } from 'react-native';
-import { Card, ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../src/components/ui';
-import { getMyCoinBalance, listCoinHistory } from '../src/lib/api';
-import { DEFAULT_COINS_CONFIG, coinPaiseToCoins, type CoinLedgerEntry, type CoinsConfig } from '../src/lib/coins';
-import { getCoinsConfig } from '../src/lib/coinsConfigApi';
-import { formatINR } from '../src/lib/money';
-import { useTheme } from '../src/theme';
-
-const CONVERSION_NOTICE_KEY = 'quickserve.coins.denomination-notice.v2';
-
-const LABELS: Record<CoinLedgerEntry['kind'], string> = {
-  earn: 'Booking reward',
-  bonus: 'Bonus',
-  redeem: 'Used on booking',
-  expire: 'Expired',
-  clawback: 'Refund adjustment',
-  admin: 'Account adjustment',
-};
-
-export default function CoinsScreen() {
-  const t = useTheme();
+export { default } from '../src/features/identityScreens/CoinsScreen';
   const [balance, setBalance] = useState<number | null>(null);
   const [history, setHistory] = useState<CoinLedgerEntry[]>([]);
   const [config, setConfig] = useState<CoinsConfig>(DEFAULT_COINS_CONFIG);
