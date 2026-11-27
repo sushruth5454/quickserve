@@ -1,0 +1,53 @@
+{
+  "stageId": "O26-ID05",
+  "sourceTaskId": "ID-T05",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "6dfa1f391a582f49e453eab34db1d7e604add995",
+  "dependencies": {
+    "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+    "O38R": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "O38-ID01": "6dfa1f391a582f49e453eab34db1d7e604add995"
+  },
+  "gate": "E0 APPROVED",
+  "implementation": {
+    "status": "checkpoint-ready",
+    "summary": [
+      "Owner reads are keyed to the authenticated UID and request generation; old-owner results are ignored.",
+      "Read state distinguishes loading, refreshing, initial error, ready and stale; successful mutations remain distinguishable from failed readback with Retry.",
+      "Focused active owner screens use one 60-second interval, foreground/focus refresh and provider-local-date boundary refresh; timers stop on blur, UID change, disable and background.",
+      "Required document rows use canonical per-category requirements and show latest submission separately from a valid approved credential; Approved and Expired are not presented as Live.",
+      "Price guidance failure is nonblocking and presents Unavailable with Retry."
+    ],
+    "migrationClaims": [],
+    "realtimePublicationChanges": []
+  },
+  "localChecks": {
+    "ownedPathAudit": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "codespaceValidation": {
+    "status": "BLOCKED",
+    "reason": "The current-main Codespace helper could not list Codespaces because the GitHub CLI token lacks the codespace scope. The required interactive device authorization was started but could not be completed in this non-interactive run. No test selection or cs-test PASS was produced.",
+    "commands": [
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.providerOnboarding.__tests__.identityReadState[.]test[.]ts$'",
+        "status": "BLOCKED_BEFORE_TEST_SELECTION"
+      },
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.__tests__.documentPresentation[.]test[.]tsx$'",
+        "status": "NOT_RUN"
+      },
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.services.__tests__.guidance[.]test[.]tsx$'",
+        "status": "NOT_RUN"
+      }
+    ]
+  },
+  "authReview": {
+    "status": "PENDING_COORDINATOR_REVIEW"
+  },
+  "laneCi": {
+    "status": "NOT_RUN",
+    "reason": "No lane push before Codespace PASS and coordinator AUTH review."
+  }
+}
