@@ -1,0 +1,86 @@
+{
+  "stageId": "O32-MN08",
+  "sourceTaskId": "MN-T08",
+  "sourceFindingId": "MN-F08",
+  "baseSha": "574486af845938b038e9356244962c7c3f753563",
+  "branch": "lane/oorva-o32-mn08-batch55",
+  "migration": {
+    "claim": "MIG-O32-MN08",
+    "filename": "supabase/migrations/0139_o32_mn08_oorva.sql"
+  },
+  "functions": [
+    "public.admin_list_bookings",
+    "public.admin_list_stuck_money",
+    "public.admin_list_problem_payouts"
+  ],
+  "implementation": {
+    "bookingProjection": [
+      "Retains the existing list arguments, columns, search/status filters, limit and paid_paise calculation.",
+      "Adds separately labelled customer cash, applied coins, demo capture, refund-state buckets and net_held_paise from public._net_paid.",
+      "Aggregates each payment's refund states laterally to avoid sibling-row multiplication."
+    ],
+    "problemMoney": [
+      "Refund and transfer JSON carry supported service/sports/pack parent IDs.",
+      "Transfer diagnostics include processing_started_at, rail and gateway_status.",
+      "Problem payouts include processing transfers at least 30 minutes old even without last_error while preserving failed/error rows."
+    ],
+    "views": [
+      "Booking and payout routes are thin exports to their owned moneyScreens hosts.",
+      "Booking, refund and payout views display funding, refund-attempt and transfer-parent diagnostics.",
+      "Service parents route to admin booking detail, sports parents to admin sports administration, and pack parents remain explicitly labelled without being routed as services.",
+      "Payout retry eligibility remains failed-parent plus failed-child only."
+    ],
+    "tests": [
+      "MN-ADMIN-CAPTURE-REFUND-COIN",
+      "MN-ADMIN-FULL-REFUND-CASH",
+      "MN-ADMIN-DEMO-NOT-CASH",
+      "MN-ADMIN-MISSING-GATEWAY-REF",
+      "MN-ADMIN-REFUND-PROCESSING",
+      "MN-ADMIN-REFUND-COMPLETED",
+      "MN-ADMIN-PARENT-XOR",
+      "MN-ADMIN-STALE-TRANSFER-READ-ONLY",
+      "MN-ROLES-SAME-PK",
+      "MN-PAYOUT-RETRY-GUARDS"
+    ]
+  },
+  "validation": {
+    "localTestsBuildOrInstall": "not run by instruction",
+    "codespace": [
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite tsc",
+        "snapshot": "1d3f3df6",
+        "result": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite sql -Filter oorva_o32_mn08",
+        "snapshot": "27249a93",
+        "selection": "0 parse, 1 test file",
+        "result": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite sql -Filter o32_mn08_oorva.sql",
+        "snapshot": "1497f44b",
+        "selection": "1 parse, 0 test files",
+        "result": "PASS"
+      }
+    ],
+    "focusedReview": {
+      "money": {
+        "result": "FINDING_NON_ACTIONABLE",
+        "finding": "After a full-refund failure, payment status remains refund_pending and the mandated existing _net_paid projection reports zero.",
+        "rationale": "Captured cash and refund-state buckets remain separate from the protected _net_paid semantics; changing net_held_paise would violate the stage contract."
+      },
+      "auth": {
+        "result": "PASS/NO_FINDINGS",
+        "reviewer": "f62c6edc-716b-45b2-a8f4-eb7d4e45db3b",
+        "codeHead": "4f1e54ff"
+      }
+    },
+    "laneCi": {
+      "runId": "45980706623",
+      "result": "SUCCESS",
+      "headSha": "4f1e54ffea1abd05ea7d15568cd40fe8c9917afb",
+      "workflow": "Lane CI (tests only)"
+    }
+  }
+}
