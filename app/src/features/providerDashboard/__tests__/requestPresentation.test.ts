@@ -1,4 +1,4 @@
-import { getNextStep, getRequestActionState, getPrimaryJobAction, isActiveProviderJob } from '../DashboardWidgets';
+import { getNextStep, getRequestActionState, getPrimaryJobAction, isActiveProviderJob } from '../../../lib/types';
 import type { ProviderJob } from '../../../lib/types';
 
 const request = (overrides: Partial<ProviderJob> = {}): ProviderJob => ({

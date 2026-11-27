@@ -20,6 +20,11 @@ async function makeUser(label) {
 }
 
 async function makeFixture(label) {
+  await db.query(`
+    update public.app_config as c
+       set value = c.value || '{"time_based":true}'::jsonb
+     where c.key = 'archetype_flags'::text
+  `);
   const actors = {
     customer: await makeUser(`${label}-customer`),
     owner: await makeUser(`${label}-owner`),
@@ -34,7 +39,7 @@ async function makeFixture(label) {
     ) values (
       $1::uuid, $2::text,
       extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
-      'verified'::text, now(), 'approved'::text, true, false, false
+      'verified', now(), 'approved', true, false, false
     )
   `, [actors.owner, city]);
   const categoryId = (await one(`
@@ -47,11 +52,20 @@ async function makeFixture(label) {
     )
     returning id
   `, [`sv12-${randomUUID().replace(/-/g, '')}`, `SV12 ${label}`])).id;
+  await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, true, now())
+  `, [categoryId, city]);
   const serviceId = (await one(`
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, 0::int, 0::int, true)
     returning id
   `, [actors.owner, categoryId])).id;
+  await db.query(`
+    insert into public.provider_availability (provider_id, weekday, start_time, end_time)
+    select $1::uuid, day::int, time '00:00', time '23:59'
+      from generate_series(0, 6) as days(day)
+  `, [actors.owner]);
   const addressId = (await one(`
     insert into public.addresses (user_id, label, line1, city, lat, lng)
     values ($1::uuid, 'Home'::text, $2::text, $3::text, 16.50::double precision, 80.60::double precision)
@@ -106,7 +120,9 @@ async function fixtureCleanup(fixture, bookingIds = [], scheduleIds = []) {
   await db.query('delete from public.bookings as b where b.id = any($1::uuid[])', [bookingIds]);
   await db.query('delete from public.recurring_schedules as r where r.id = any($1::uuid[])', [scheduleIds]);
   await db.query('delete from public.addresses as a where a.id = $1::uuid', [fixture.addressId]);
+  await db.query('delete from public.provider_availability as pa where pa.provider_id = $1::uuid', [fixture.owner]);
   await db.query('delete from public.provider_services as ps where ps.id = $1::uuid', [fixture.serviceId]);
+  await db.query('delete from public.category_cities as cc where cc.category_id = $1::uuid', [fixture.categoryId]);
   await db.query('delete from public.categories as c where c.id = $1::uuid', [fixture.categoryId]);
   await db.query('delete from public.providers as p where p.id = $1::uuid', [fixture.owner]);
   await db.query('delete from auth.users as u where u.id = any($1::uuid[])', [[
@@ -117,6 +133,9 @@ async function fixtureCleanup(fixture, bookingIds = [], scheduleIds = []) {
 const originalMerchantStaff = (await one(`
   select f.enabled from public.feature_flags as f where f.key = 'merchant_staff'::text
 `)).enabled;
+const originalArchetypeFlags = (await one(`
+  select c.value from public.app_config as c where c.key = 'archetype_flags'::text
+`)).value;
 const scenarioFixtures = [];
 const h = createHarness({ cleanup: async () => {
   for (const tracked of scenarioFixtures.splice(0)) {
@@ -125,6 +144,10 @@ const h = createHarness({ cleanup: async () => {
   await db.query(
     'update public.feature_flags as f set enabled = $1::boolean where f.key = $2::text',
     [originalMerchantStaff, 'merchant_staff'],
+  );
+  await db.query(
+    'update public.app_config as c set value = $1::jsonb where c.key = $2::text',
+    [JSON.stringify(originalArchetypeFlags), 'archetype_flags'],
   );
 } });
 const check = (condition, label, actual) => h.ok(condition, `${label}; actual=${JSON.stringify(actual)}`);

@@ -26,6 +26,16 @@ async function waitForLockWait(observer, pid, diagnostics) {
 async function createFixture(client) {
   const ownerId = randomUUID();
   const customerId = randomUUID();
+  const city = `SV12 ${randomUUID()} City`;
+  const originalArchetypeFlags = (await client.query(`
+    select c.value from public.app_config as c where c.key = 'archetype_flags'::text
+  `)).rows[0]?.value;
+  assert.ok(originalArchetypeFlags, `archetype_flags missing: ${JSON.stringify({ originalArchetypeFlags })}`);
+  await client.query(`
+    update public.app_config as c
+       set value = c.value || '{"time_based":true}'::jsonb
+     where c.key = 'archetype_flags'::text
+  `);
   await client.query(
     'insert into auth.users (id) values ($1::uuid), ($2::uuid)',
     [ownerId, customerId],
@@ -45,9 +55,9 @@ async function createFixture(client) {
     ) values (
       $1::uuid, $2::text,
       extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
-      'verified'::text, now(), 'approved'::text, true, false, false
+      'verified', now(), 'approved', true, false, false
     )
-  `, [ownerId, `SV12 ${randomUUID()} City`]);
+  `, [ownerId, city]);
   const categoryId = (await client.query(`
     insert into public.categories (
       slug, name, pricing_mode, active, archetype, location_modes, pricing_units,
@@ -59,20 +69,29 @@ async function createFixture(client) {
     )
     returning id
   `, [`sv12-${randomUUID().replace(/-/g, '')}`])).rows[0].id;
+  await client.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, true, now())
+  `, [categoryId, city]);
   const serviceId = (await client.query(`
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, 0::int, 0::int, true)
     returning id
   `, [ownerId, categoryId])).rows[0].id;
+  await client.query(`
+    insert into public.provider_availability (provider_id, weekday, start_time, end_time)
+    select $1::uuid, day::int, time '00:00', time '23:59'
+      from generate_series(0, 6) as days(day)
+  `, [ownerId]);
   const addressId = (await client.query(`
     insert into public.addresses (user_id, label, line1, city, lat, lng)
     values (
-      $1::uuid, 'Home'::text, 'SV12 private street'::text, 'Private City'::text,
+      $1::uuid, 'Home'::text, 'SV12 private street'::text, $2::text,
       16.50::double precision, 80.60::double precision
     )
     returning id
-  `, [customerId])).rows[0].id;
-  return { ownerId, customerId, categoryId, serviceId, addressId };
+  `, [customerId, city])).rows[0].id;
+  return { ownerId, customerId, categoryId, serviceId, addressId, city, originalArchetypeFlags };
 }
 
 async function createRecurringSchedule(client, fixture) {
@@ -82,12 +101,12 @@ async function createRecurringSchedule(client, fixture) {
       session_duration_min, payment_mode, address_line, city, lat, lng, description, starts_on
     ) values (
       $1::uuid, $2::uuid, $3::uuid, 'weekly'::text, array[2]::smallint[], time '10:00',
-      60::int, 'per_session'::text, 'SV12 recurring address'::text, 'Private City'::text,
+      60::int, 'per_session'::text, 'SV12 recurring address'::text, $4::text,
       16.50::double precision, 80.60::double precision, 'SV12 recurring session'::text,
       date '2027-03-16'
     )
     returning id
-  `, [fixture.customerId, fixture.ownerId, fixture.serviceId])).rows[0].id;
+  `, [fixture.customerId, fixture.ownerId, fixture.serviceId, fixture.city])).rows[0].id;
 }
 
 async function createRequestedBooking(client, fixture, { scheduledAt, recurringScheduleId = null }) {
@@ -126,12 +145,18 @@ async function cleanupFixture(client, fixture, bookingIds, scheduleId) {
       [scheduleId],
     );
     await client.query('delete from public.addresses as a where a.id = $1::uuid', [fixture.addressId]);
+    await client.query('delete from public.provider_availability as pa where pa.provider_id = $1::uuid', [fixture.ownerId]);
     await client.query('delete from public.provider_services as ps where ps.id = $1::uuid', [fixture.serviceId]);
+    await client.query('delete from public.category_cities as cc where cc.category_id = $1::uuid', [fixture.categoryId]);
     await client.query('delete from public.categories as c where c.id = $1::uuid', [fixture.categoryId]);
     await client.query('delete from public.providers as p where p.id = $1::uuid', [fixture.ownerId]);
     await client.query(
       'delete from auth.users as u where u.id = any($1::uuid[])',
       [[fixture.ownerId, fixture.customerId]],
+    );
+    await client.query(
+      'update public.app_config as c set value = $1::jsonb where c.key = $2::text',
+      [JSON.stringify(fixture.originalArchetypeFlags), 'archetype_flags'],
     );
     await client.query('commit');
   } catch (error) {
