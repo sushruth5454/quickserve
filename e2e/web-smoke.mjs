@@ -3714,8 +3714,14 @@ await step('admin-feature-registry', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
   await page.waitForURL((u) => ['/', '/dashboard'].includes(new URL(u).pathname));
   await grantE2eAdminMembership(adminPhone);
-  const accountPath = new URL(page.url()).pathname === '/dashboard' ? '/pro-account' : '/account';
-  await go(accountPath);
+  // Probe the account route after auth settles instead of trusting a transient post-login URL.
+  await go('/account');
+  const accountLanding = new URL(page.url()).pathname;
+  const accountPath = accountLanding === '/dashboard' ? '/pro-account' : '/account';
+  if (!['/account', '/dashboard'].includes(accountLanding)) {
+    throw new Error(`Admin E2E account route resolved unexpectedly: ${JSON.stringify({ pathname: accountLanding })}`);
+  }
+  if (accountPath === '/pro-account') await go(accountPath);
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
   await page.getByLabel('Go back').last().click();
@@ -3902,7 +3908,7 @@ await step('admin-feature-registry', async () => {
 
   if (PRIVATE_LOCAL_E2E) {
     await step('admin-oorva-composition', async () => {
-      const ownerToken = await signInAs(NEW_PRO_PHONE);
+      const ownerToken = await signInAs(phoneE164(NEW_PRO_PHONE));
       const ownerResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_provider_onboarding`, {
         method: 'POST',
         headers: { apikey: ANON, Authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
@@ -4104,6 +4110,69 @@ await step('admin-feature-registry', async () => {
           body: JSON.stringify({ signedURL: `/object/sign/provider-docs/e2e-private-preview?signature=fixture` }),
         });
       };
+      const queryPrivateFlags = async (query) => {
+        if (
+          !PRIVATE_LOCAL_E2E
+          || process.env.DEMO_PROJECT !== '1'
+          || process.env.PROJECT_REF !== 'local'
+          || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+        ) {
+          throw new Error('O30 private flag changes require the disposable local E2E backend');
+        }
+        const token = process.env.SUPABASE_ACCESS_TOKEN;
+        if (!token) throw new Error('O30 private flag changes require the local Management API token');
+        const response = await fetch(`${process.env.SUPABASE_MGMT_URL}/v1/projects/local/database/query`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+        const responseText = await response.text();
+        if (!response.ok) {
+          throw new Error(`O30 local feature-flag query failed (${response.status}): ${responseText.slice(0, 400)}`);
+        }
+        let rows;
+        try {
+          rows = responseText ? JSON.parse(responseText) : [];
+        } catch {
+          throw new Error('O30 local feature-flag query returned invalid JSON');
+        }
+        if (!Array.isArray(rows) || rows.some((row) => row?.error)) {
+          throw new Error(`O30 local feature-flag query returned an unexpected result: ${JSON.stringify(rows)}`);
+        }
+        return rows;
+      };
+      const readPrivateOorvaFlags = async () => {
+        const rows = await queryPrivateFlags(
+          "select key, enabled from public.feature_flags where key in ('oorva_brand', 'oorva_admin_ops_ux') order by key",
+        );
+        const flags = Object.fromEntries(rows.map((row) => [row.key, row.enabled]));
+        if (
+          rows.length !== 2
+          || typeof flags.oorva_brand !== 'boolean'
+          || typeof flags.oorva_admin_ops_ux !== 'boolean'
+        ) {
+          throw new Error(`O30 private feature flags are missing or invalid: ${JSON.stringify({ flags, rows })}`);
+        }
+        return flags;
+      };
+      const setPrivateOorvaFlags = async (enabled) => {
+        const values = { oorva_brand: enabled, oorva_admin_ops_ux: enabled };
+        const payload = JSON.stringify(values);
+        if (payload.includes('$flags$')) throw new Error('O30 private feature-flag payload is invalid');
+        await queryPrivateFlags(
+          `update public.feature_flags f set enabled = v.value::boolean, updated_at = now() `
+          + `from json_each_text($flags$${payload}$flags$::json) v where f.key = v.key`,
+        );
+        const actual = await readPrivateOorvaFlags();
+        if (actual.oorva_brand !== enabled || actual.oorva_admin_ops_ux !== enabled) {
+          throw new Error(`O30 private feature-flag update did not persist: ${JSON.stringify({ expected: values, actual })}`);
+        }
+      };
+      const originalOorvaFlags = await readPrivateOorvaFlags();
+      if (originalOorvaFlags.oorva_brand !== false || originalOorvaFlags.oorva_admin_ops_ux !== false) {
+        throw new Error(`O30 local smoke must start with private Oorva flags OFF: ${JSON.stringify({ actual: originalOorvaFlags })}`);
+      }
+      let restorePrivateOorvaFlags = false;
       const layout = E2E_FLAGS_ON ? 'oorva-on' : 'legacy-off';
 
       await page.addInitScript(() => {
@@ -4120,6 +4189,11 @@ await step('admin-feature-registry', async () => {
       await page.route('**/rest/v1/document_types*', documentTypesRoute);
       await page.route('**/storage/v1/object/sign/provider-docs/**', privatePreviewRoute);
       try {
+        if (E2E_FLAGS_ON) {
+          restorePrivateOorvaFlags = true;
+          await setPrivateOorvaFlags(true);
+          await page.reload();
+        }
         await go('/admin/people');
         await visible('Providers & creators');
         const appFeatures = await currentUserRpc('get_app_features');
@@ -4241,6 +4315,10 @@ await step('admin-feature-registry', async () => {
         await page.unroute('**/rest/v1/rpc/admin_review_document', documentReviewRoute);
         await page.unroute('**/rest/v1/document_types*', documentTypesRoute);
         await page.unroute('**/storage/v1/object/sign/provider-docs/**', privatePreviewRoute);
+        if (restorePrivateOorvaFlags) {
+          await setPrivateOorvaFlags(false);
+          await page.goto('about:blank');
+        }
       }
     });
   }

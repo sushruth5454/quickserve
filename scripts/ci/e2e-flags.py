@@ -72,18 +72,14 @@ def read_flags(keys):
 
 def set_redesign_flags(enabled):
     expected = {key: enabled for key in REDESIGN_FLAGS}
-    private_local_stack = (
-        os.environ.get("PROJECT_REF") == "local"
-        and BASE.rstrip("/") == "http://127.0.0.1:54399"
-    )
-    expected.update({key: enabled if private_local_stack else False for key in PRIVATE_OORVA_FLAGS})
+    expected.update({key: False for key in PRIVATE_OORVA_FLAGS})
     read_flags(expected)
     apply(expected)
     actual = read_flags(expected)
     if actual != expected:
         sys.exit(f"e2e-flags: redesign switch update did not persist: {json.dumps(actual, sort_keys=True)}")
     state = "ON" if enabled else "OFF"
-    print(f"e2e-flags: set {len(expected)} smoke switches {state}")
+    print(f"e2e-flags: set {len(REDESIGN_FLAGS)} redesign switches {state}; private Oorva switches OFF")
 
 
 def main(mode):
