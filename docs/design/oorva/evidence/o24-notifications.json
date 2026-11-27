@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O24-NOTIFICATIONS",
+  "workPackage": "O24",
+  "baseSha": "26e22f03f60c424f8d1d8bcbfb501366d63a5392",
+  "dependencies": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O37A": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+    "planningInput": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "sourceTasks": ["CM-T01", "CM-T02", "CM-T06"],
+  "sourceFindings": ["CM-F01", "CM-F02", "CM-F03", "CM-F15", "CM-F08"],
+  "migration": {
+    "claim": "MIG-O24-NOTIFICATIONS",
+    "file": "supabase/migrations/0134_o24_notifications_oorva.sql",
+    "functions": [
+      "public._queue_notification",
+      "public.list_my_notifications",
+      "public._support_post",
+      "public.get_unread_counts",
+      "public.get_chat_read_state",
+      "public.get_chat_heading"
+    ],
+    "allocation": "0134"
+  },
+  "placements": [
+    {
+      "id": "PA-S56-01-header-top-safe-area-allegation",
+      "element": "header/top safe area",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/app/notifications.tsx",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx"
+      ]
+    },
+    {
+      "id": "PA-S56-02-read-action-and-acknowledgement",
+      "element": "read action and acknowledgement",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::useNotificationsController",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx::CM_NOTIFICATION_READ_ROLLBACK",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx::CM_NOTIFICATION_MARK_ALL_CHAT_INDEPENDENT"
+      ]
+    },
+    {
+      "id": "PA-S56-03-event-time-and-ordering",
+      "element": "event time and ordering",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public.list_my_notifications",
+        "app/src/lib/unread.ts::notificationTimePresentation",
+        "app/src/lib/unread.ts::groupNotificationItems",
+        "supabase/tests/oorva_o24_notifications.test.mjs::CM_SQL_LEGACY_TIMESTAMP_PROVENANCE",
+        "app/src/lib/__tests__/unread.test.ts::CM_UI_LEGACY_TIMESTAMP_LABEL"
+      ]
+    },
+    {
+      "id": "PA-S56-04-unread-versus-new-collapsed-event",
+      "element": "unread versus new collapsed event",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public._queue_notification",
+        "supabase/tests/oorva_o24_notifications.test.mjs::CM_SQL_LEGACY_MERGE_PROMOTION",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::useNotificationsController"
+      ]
+    },
+    {
+      "id": "PA-S56-05-authorized-unread-chat-absent-from-the-recent-outbox-window",
+      "element": "authorized unread chat absent from recent outbox window",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public.get_unread_counts",
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public.get_chat_heading",
+        "app/src/lib/unread.ts::buildNotificationItems",
+        "app/src/lib/__tests__/unread.test.ts::CM_CHAT_MEMBER_NOTIFICATION_ITEM",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx::CM_CHAT_MEMBER_HEADING_ACTOR_CHANGE"
+      ]
+    },
+    {
+      "id": "PA-S56-06-event-card-information-and-navigation",
+      "element": "event card information and navigation",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::Row",
+        "app/src/lib/unread.ts::notificationRoute",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx"
+      ]
+    },
+    {
+      "id": "PA-S56-07-grouping-window-diagnostic-count",
+      "element": "grouping/window/diagnostic count",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/lib/unread.ts::groupNotificationItems",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::LIST_LIMIT",
+        "app/src/lib/__tests__/unread.test.ts::CM_NOTIFICATION_DATE_GROUPS"
+      ]
+    },
+    {
+      "id": "PA-S56-08-load-empty-refresh",
+      "element": "load/empty/refresh",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::useNotificationsController",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::NotificationsScreen",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx"
+      ]
+    }
+  ],
+  "requiredReviews": ["concurrency", "auth"],
+  "requestedFocusedReview": "AUTH review of the member unread/read-state/heading projection in migration 0134",
+  "reviewResults": [
+    {
+      "type": "auth",
+      "status": "NO_FINDINGS",
+      "scope": "public.get_unread_counts, public.get_chat_read_state, public.get_chat_heading",
+      "review": "Existing membership/feature guards remain; outsider returns no projection; primary-side read semantics, signatures and grants remain; no team-wide Seen or staff push fan-out."
+    },
+    {
+      "type": "concurrency",
+      "status": "SHARED_FOLLOWUP",
+      "review": "Same-account stale acknowledgement cleanup now uses an actor generation token. Reviewer confirmed the corresponding regression case covers the late old acknowledgement. The reviewer flagged asynchronous unread-count refresh ordering in unreadContext.tsx; it is outside owned files and remains a coordinator follow-up. The suggested transaction-time event_at concern was withdrawn because the assigned contract requires captured transaction now()."
+    }
+  ],
+  "validation": {
+    "status": "NOT RUN",
+    "reason": "Coordinator-owned SQL test and migration parser registration, ff-merge, and Codespace selection proof are required first.",
+    "privatePostgres": "O37A disposable private job only; not run locally or against hosted databases."
+  },
+  "handoffState": "PAUSED_FOR_REGISTRATION"
+}
