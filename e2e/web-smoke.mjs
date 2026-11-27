@@ -3,7 +3,6 @@
 // E2E_CUSTOMER_PHONE, NEW_PRO_PHONE, GUEST_E2E_PHONE (required when E2E_FLAGS=on).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { randomUUID } from 'node:crypto';
 import { chromium, devices } from 'playwright';
 import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
