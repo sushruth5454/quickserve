@@ -1,0 +1,64 @@
+{
+  "stageId": "O26-ID06",
+  "sourceTaskId": "ID-T06",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "ce0d708f02af057b97659598f65521852f090480",
+  "dependencies": {
+    "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+    "O26-ID05": "ce0d708f02af057b97659598f65521852f090480",
+    "O38R": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e"
+  },
+  "gate": "E0 APPROVED",
+  "implementation": {
+    "status": "codespace-validated",
+    "summary": [
+      "useDraft now requires the authenticated user ID and section key; unscoped legacy keys are never read or migrated, and signed-out sections do not read or write drafts.",
+      "Hydration callbacks and debounce timers are invalidated on UID or section-key changes; clear waits for in-flight writes, cancels the same key's pending timer, and prevents same-value rearming.",
+      "Basics and Hours local section state is owner-bound, and stale owner save/mutation callbacks cannot complete after an identity change.",
+      "A successful Hours save clears only its unchanged authenticated user's section draft; failed saves retain it.",
+      "Basics and Hours draft payloads exclude payout, PAN, and bank fields. Isolation is unconditional with Oorva switches OFF.",
+      "No SQL functions, migrations, feature flags, financial records, storage services, or packages were added or changed."
+    ],
+    "migrationClaims": [],
+    "realtimePublicationChanges": []
+  },
+  "localChecks": {
+    "ownedPathAudit": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "codespaceValidation": {
+    "status": "PASS",
+    "commands": [
+      {
+        "command": "origin/main:scripts/cs-test.ps1 sourced with git show and evaluated in-memory; -Suite app -Filter 'src.features.providerOnboarding.__tests__.draftIdentity[.]test[.]ts$' (GH_TOKEN set in the same process; snapshot index kept in the repository)",
+        "suite": "app",
+        "snapshotSha": "53137e4fe0a83e29d765ef9ccf31e028cd444e56",
+        "selectedFile": "app/src/features/providerOnboarding/__tests__/draftIdentity.test.ts",
+        "selectedSuites": 1,
+        "selectedTests": 8,
+        "selectedCases": [
+          "ID-DRAFT-A-B restores each authenticated account only from its own section key",
+          "ID-DRAFT-UID-RACE ignores stale hydration and cancels pending timers on identity or section changes",
+          "ID-DRAFT-LEGACY-IGNORE never reads unscoped keys or hydrates or persists while signed out",
+          "ID-DRAFT-UID-BASICS resets unsaved Basics values when the authenticated owner changes",
+          "ID-DRAFT-UID-HOURS resets unsaved Hours values and rejects a stale owner save",
+          "ID-DRAFT-SAVE-FAIL retains the Hours draft when the server save fails",
+          "ID-DRAFT-SAVE-OWN clears only the authenticated user Hours draft after a successful save",
+          "ID-DRAFT-SENSITIVE persists only Basics and Hours form fields, never payout, PAN, or bank data"
+        ],
+        "csTestResult": "PASS"
+      }
+    ]
+  },
+  "authReview": {
+    "status": "NO_FINDINGS",
+    "reviewedHead": "53137e4fe0a83e29d765ef9ccf31e028cd444e56",
+    "reviewerId": "6ca51325-e167-47cd-88ae-250d309f3a36"
+  },
+  "laneCi": {
+    "status": "PASS",
+    "workflow": "Lane CI (tests only)",
+    "runId": 46029956034,
+    "headSha": "e75feedede69b16e637e37abf330faa792f84c7a"
+  }
+}
