@@ -148,9 +148,14 @@
     },
     "codespace": {
       "execution": "Direct current-main Codespace selector commands using existing dependencies; no packages installed.",
-      "snapshotRef": "wip/quickserve-o24-notifications-rebase-508-ae39e551",
-      "snapshotSha": "ae39e551da81acced82d1c5e55b4b971e1cd2d4b",
+      "snapshotRef": "wip/quickserve-o24-notifications-rebase-508-b54c417",
+      "snapshotSha": "b54c41711b52e1bbb69c8879639e6ab5c8d08fe5",
       "csTestResult": "PASS (direct exact selectors; official cs-test.ps1 wrapper not invoked)",
+      "officialCsTestHelper": {
+        "status": "EUSAGE_BEFORE_SELECTION",
+        "selectionState": "NOT_REACHED",
+        "failure": "The helper's remote npm ci in scripts/brand returned EUSAGE because package-lock is missing."
+      },
       "selectors": [
         {
           "suite": "app",
@@ -183,8 +188,8 @@
     "laneCi": {
       "status": "SUCCESS",
       "branch": "lane/oorva-o24-notifications-rebase-508",
-      "runId": "45996014854",
-      "headSha": "f0e20378ffb7b94268411fe86d4a002ae8932217",
+      "runId": "45996937168",
+      "headSha": "b54c41711b52e1bbb69c8879639e6ab5c8d08fe5",
       "jobs": {
         "app": "PASS",
         "deno": "PASS",
@@ -192,7 +197,7 @@
         "privatePostgres": "PASS"
       }
     },
-    "privatePostgres": "PASS in Lane CI run 45996014854 using the O37A disposable stack only; not run locally or against a hosted database.",
+    "privatePostgres": "PASS in exact-head Lane CI run 45996937168 using the O37A disposable stack only; not run locally or against a hosted database.",
     "previousBaseValidation": {
       "scope": "Historical results for the prior O24 implementation branch only; not validation of base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda.",
       "codespace": {
