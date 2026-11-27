@@ -278,10 +278,29 @@ export async function listRequestMessages(requestId: string, providerId: string)
     .eq('request_id', requestId).eq('provider_id', providerId).order('created_at')) as RequestMessage[];
 }
 
-export async function sendRequestMessage(requestId: string, providerId: string, body: string): Promise<void> {
-  await supabase.rpc('send_request_message', {
+export interface SendRequestMessageResult {
+  message_id: string;
+  nudge: boolean;
+}
+
+export async function sendRequestMessageWithResult(
+  requestId: string,
+  providerId: string,
+  body: string,
+): Promise<SendRequestMessageResult> {
+  const raw = unwrap(await supabase.rpc('send_request_message', {
     p_request_id: requestId, p_provider_id: providerId, p_body: body,
-  });
+  })) as unknown;
+  if (!raw || typeof raw !== 'object') throw new Error('The server returned an invalid request-message response.');
+  const result = raw as Record<string, unknown>;
+  if (typeof result.message_id !== 'string' || typeof result.nudge !== 'boolean') {
+    throw new Error('The server returned an invalid request-message response.');
+  }
+  return { message_id: result.message_id, nudge: result.nudge };
+}
+
+export async function sendRequestMessage(requestId: string, providerId: string, body: string): Promise<void> {
+  return await sendRequestMessageWithResult(requestId, providerId, body) as unknown as void;
 }
 
 export async function listPaymentSchedule(bookingId: string): Promise<PaymentSchedule[]> {
