@@ -31,6 +31,9 @@ begin
     format('%s enum is invalid', p_path));
   perform public._assert(p_spec -> 'x-private' is null or jsonb_typeof(p_spec -> 'x-private') = 'boolean',
     format('%s x-private setting is invalid', p_path));
+  perform public._assert(not coalesce((p_spec ->> 'x-private')::boolean, false)
+    or (p_allow_reserved and p_path <> '$'),
+    format('%s x-private fields must be top-level so the provider projection can redact them', p_path));
 
   if v_type = 'object' then
     perform public._assert(p_spec -> 'properties' is null or jsonb_typeof(p_spec -> 'properties') = 'object',
@@ -67,7 +70,7 @@ begin
       from jsonb_each(coalesce(p_spec -> 'properties', '{}'::jsonb)) as property(key, value)
     loop
       perform public._validate_service_request_intake_node(
-        v_child, p_value -> v_key, p_path || '.' || v_key, false
+        v_child, p_value -> v_key, p_path || '.' || v_key, p_path = '$'
       );
     end loop;
     return;

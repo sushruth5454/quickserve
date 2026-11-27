@@ -1,3 +1,25 @@
+jest.mock('expo-router', () => ({ router: { back: jest.fn(), replace: jest.fn() }, useLocalSearchParams: () => ({}) }));
+jest.mock('react-native', () => ({ View: 'View', Switch: 'Switch' }));
+jest.mock('../../../components/ui', () => ({
+  Button: 'Button', Card: 'Card', Chip: 'Chip', Header: 'Header', InlineAlert: 'InlineAlert',
+  Input: 'Input', Screen: 'Screen', Section: 'Section', SegmentedControl: 'SegmentedControl',
+  Skeleton: 'Skeleton', Text: 'Text', TextArea: 'TextArea', useToast: () => jest.fn(),
+}));
+jest.mock('../../../branding/FeatureFlagsProvider', () => ({
+  DEFAULT_FEATURES: { archetypes: { proposal: true } },
+  useAppFeatureFlags: () => ({ archetypes: { proposal: true }, isOn: () => true }),
+  useFeature: () => true,
+  useFeatureControlHydrationReady: () => true,
+  useFeatureControlState: () => ({ features: { archetypes: { proposal: true } }, freshness: 'live', appearanceCandidate: null, refresh: jest.fn() }),
+}));
+jest.mock('../../../lib/api', () => ({}));
+jest.mock('../../../lib/locationContext', () => ({ useSelectedLocation: () => ({ location: {} }) }));
+jest.mock('../../../lib/money', () => ({ formatINR: jest.fn(), rupeesToPaise: jest.fn() }));
+jest.mock('../../../lib/schedule', () => ({ relativeTimeLabel: jest.fn(), URGENT_MIN_HOURS: 2, urgentStartOptions: jest.fn(() => []) }));
+jest.mock('../../catalogue/api', () => ({ getCatalogueCategoryById: jest.fn(), getCataloguePackage: jest.fn() }));
+jest.mock('../../catalogue/SchemaForm', () => ({ SchemaForm: 'SchemaForm' }));
+jest.mock('../api', () => ({ getCreatorProposalConfig: jest.fn(), sendProposalWithDeadline: jest.fn(), getRequestRecipientCount: jest.fn() }));
+
 import { isProposalComposeReady } from '../../serviceScreens/ProposalComposeDetailScreen';
 import { isProposalRequestReady } from '../../serviceScreens/RequestNewScreen';
 

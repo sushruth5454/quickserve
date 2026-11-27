@@ -299,6 +299,23 @@ await providerReadinessScenario('provider-time-off-blocks-window-routing-and-sen
   `, [f.provider, new Date(eventStart(49)).toISOString(), new Date(eventStart(51)).toISOString(), 'O21-SV19 test window']);
 });
 
+await h.scenario('nested-private-schema-fails-closed-before-request-writes', async () => {
+  await setProposalFlags(true, false);
+  const schema = JSON.parse(JSON.stringify(nestedSchema));
+  schema.properties.project.properties.private_detail = { type: 'string', 'x-private': true };
+  schema.properties.project.required.push('private_detail');
+  const f = await fixture('nested-private', 52, schema);
+  const intake = {
+    ...validNestedIntake,
+    project: { ...validNestedIntake.project, private_detail: 'sensitive nested value' },
+  };
+  const before = await counts(f);
+  const error = await fails(() => createRequest(f, intake, null, 52));
+  const after = await counts(f);
+  check(!!error && /x-private/i.test(error) && JSON.stringify(before) === JSON.stringify(after),
+    'nested x-private schema is rejected rather than leaking through the shallow provider projection', { error, before, after });
+});
+
 await h.scenario('service-only-routing-privilege-is-preserved', async () => {
   const privileges = (await db.query(`
     select has_function_privilege('authenticated', 'public.route_service_request(uuid,integer)', 'execute') as authenticated,
