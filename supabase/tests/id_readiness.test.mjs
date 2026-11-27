@@ -649,11 +649,22 @@ await scenario('ID-JOB-PROJECTION', async () => {
        from public.get_my_business_provider_jobs($1::uuid)`,
     [otherProviderId],
   );
-  const expectedKeys = [
+  const requiredJobKeys = [
     'booking_id', 'status', 'category_name', 'customer_name', 'description',
     'scheduled_at', 'created_at', 'visit_fee', 'area', 'distance_km',
     'address_line', 'lat', 'lng', 'archetype',
   ].sort();
+  const o25BusinessJobKeys = [
+    'booking_origin', 'recurring_schedule_id', 'request_expires_at', 'can_accept', 'can_decline',
+  ];
+  const allowedBusinessJobShapes = [
+    requiredJobKeys,
+    [...requiredJobKeys, ...o25BusinessJobKeys].sort(),
+  ];
+  const hasAllowedBusinessJobShape = (job) => {
+    const keys = Object.keys(job).sort();
+    return allowedBusinessJobShapes.some((shape) => JSON.stringify(keys) === JSON.stringify(shape));
+  };
   const jobSummary = jobs.map((job) => ({
     booking_id: job.booking_id,
     address_line: job.address_line,
@@ -674,16 +685,19 @@ await scenario('ID-JOB-PROJECTION', async () => {
     jobs.length === 2
       && businessJobs.length === 2
       && otherBusinessJobs.length === 0
-      && jobs.every((job) => JSON.stringify(Object.keys(job).sort()) === JSON.stringify(expectedKeys))
-      && businessJobs.every((job) => JSON.stringify(Object.keys(job).sort()) === JSON.stringify(expectedKeys))
+      && jobs.every((job) => JSON.stringify(Object.keys(job).sort()) === JSON.stringify(requiredJobKeys))
+      && businessJobs.every(hasAllowedBusinessJobShape)
       && jobSummary.some((job) => job.booking_id === maskedBookingId
         && job.address_line === null && job.lat === null && job.lng === null && job.archetype === maskedBooking.archetype)
       && jobSummary.some((job) => job.booking_id === visibleBookingId
         && job.address_line === 'Accepted job address' && job.lat === 17.4 && job.lng === 78.4 && job.archetype === visibleBooking.archetype)
-      && businessSummary.some((job) => job.booking_id === maskedBookingId && job.address_line === null)
-      && businessSummary.some((job) => job.booking_id === visibleBookingId && job.address_line === 'Accepted job address'),
+      && businessSummary.some((job) => job.booking_id === maskedBookingId
+        && job.address_line === null && job.lat === null && job.lng === null && job.archetype === maskedBooking.archetype)
+      && businessSummary.some((job) => job.booking_id === visibleBookingId
+        && job.address_line === 'Accepted job address' && job.lat === 17.4 && job.lng === 78.4 && job.archetype === visibleBooking.archetype),
     `job projections preserve booking scope, address masking and stored archetype only; actual=${JSON.stringify({
       jobSummary, businessSummary, otherBusinessJobs,
+      requiredJobKeys, o25BusinessJobKeys, allowedBusinessJobShapes,
       stored: { masked: maskedBooking.archetype, visible: visibleBooking.archetype, unrelated: unrelatedBooking.archetype },
     })}`,
   );
