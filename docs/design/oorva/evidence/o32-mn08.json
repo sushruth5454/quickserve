@@ -45,8 +45,29 @@
   },
   "validation": {
     "localTestsBuildOrInstall": "not run by instruction",
-    "codespace": "pending coordinator registration and selector proof",
-    "authReview": "pending",
+    "codespace": [
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite tsc",
+        "snapshot": "1d3f3df6",
+        "result": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite sql -Filter oorva_o32_mn08",
+        "snapshot": "27249a93",
+        "selection": "0 parse, 1 test file",
+        "result": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite sql -Filter o32_mn08_oorva.sql",
+        "snapshot": "1497f44b",
+        "selection": "1 parse, 0 test files",
+        "result": "PASS"
+      }
+    ],
+    "focusedReview": {
+      "result": "One money finding; non-actionable under the stage contract.",
+      "finding": "After a full-refund failure, payment status remains refund_pending and the mandated existing _net_paid projection reports zero. Correcting it would change the explicitly protected _net_paid behavior; the separate captured-cash and failed-attempt buckets remain visible."
+    },
     "laneCi": "not started"
   }
 }
