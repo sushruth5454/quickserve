@@ -1,0 +1,85 @@
+{
+  "stageId": "O26-ID05",
+  "sourceTaskId": "ID-T05",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "6dfa1f391a582f49e453eab34db1d7e604add995",
+  "dependencies": {
+    "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+    "O38R": "14bb7e02ce0df0df4e2af317db80a3b9aaf51c0e",
+    "O38-ID01": "6dfa1f391a582f49e453eab34db1d7e604add995"
+  },
+  "gate": "E0 APPROVED",
+  "implementation": {
+    "status": "codespace-validated",
+    "summary": [
+      "Owner reads are keyed to the authenticated UID and request generation; old-owner results are ignored.",
+      "Read state distinguishes loading, refreshing, initial error, ready and stale; successful mutations remain distinguishable from failed readback with Retry.",
+      "Focused active owner screens use one 60-second interval, foreground/focus refresh and provider-local-date boundary refresh; timers stop on blur, UID change, disable and background.",
+      "Required document rows use canonical per-category requirements and show latest submission separately from a valid approved credential; Approved and Expired are not presented as Live.",
+      "Price guidance failure is nonblocking and presents Unavailable with Retry."
+    ],
+    "migrationClaims": [],
+    "realtimePublicationChanges": []
+  },
+  "localChecks": {
+    "ownedPathAudit": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "codespaceValidation": {
+    "status": "PASS",
+    "commands": [
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.providerOnboarding.__tests__.identityReadState[.]test[.]ts$'",
+        "suite": "app",
+        "snapshotSha": "2c281f5aebe59477b7e40fd365e994ea05966906",
+        "selectedFile": "app/src/features/providerOnboarding/__tests__/identityReadState.test.ts",
+        "selectedCases": [
+          "ID-LOAD-INITIAL-ERROR distinguishes initial failure from a successful empty result",
+          "ID-LOAD-STALE preserves zero-valued data and ID-SAVE-READBACK-ERROR distinguishes failed readback",
+          "ID-LOAD-UID-RACE ignores a late response from the previous authenticated UID",
+          "coalesces overlapping refreshes into one sequential owner read",
+          "disables owner reads and disposes the focused interval when disabled",
+          "ID-READINESS-INVALIDATION polls only while focused and active and refreshes on resume and focus",
+          "schedules a read at the provider-local date boundary"
+        ],
+        "csTestResult": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.__tests__.documentPresentation[.]test[.]tsx$'",
+        "suite": "jest",
+        "snapshotSha": "032344aa74865ef12413575f3720ae62bdf486a8",
+        "selectedFile": "app/src/features/providerOnboarding/__tests__/documentPresentation.test.tsx",
+        "selectedCases": [
+          "keeps required credentials scoped to each service category",
+          "does not reuse a category-specific legacy document for another category",
+          "keeps an approved fallback credential distinct from a newer pending submission",
+          "shows a latest replacement submission separately from a still-valid approved credential",
+          "uses the server effective expiry status instead of calling an expired credential approved",
+          "labels approved credentials Approved, never Live"
+        ],
+        "csTestResult": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.services.__tests__.guidance[.]test[.]tsx$'",
+        "suite": "jest",
+        "snapshotSha": "7a7d4ad068719385cd0da38f648ec5d0417837b0",
+        "selectedFile": "app/src/features/providerOnboarding/services/__tests__/guidance.test.tsx",
+        "selectedCases": [
+          "shows Unavailable with Retry after failure, then remains nonblocking when retried"
+        ],
+        "csTestResult": "PASS"
+      }
+    ]
+  },
+  "authReview": {
+    "status": "NO_FINDINGS",
+    "reviewedHead": "143413c14753d7aff0bcf7519695f971a5601ee8",
+    "reviewerId": "8f7cfc57-38f7-492b-ba65-7a3a10c4b8dc"
+  },
+  "laneCi": {
+    "status": "PASS",
+    "workflow": "Lane CI (tests only)",
+    "runId": 46018912265,
+    "headSha": "143413c14753d7aff0bcf7519695f971a5601ee8"
+  }
+}

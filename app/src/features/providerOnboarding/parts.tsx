@@ -1,19 +1,52 @@
 /** Small building blocks shared by the onboarding sections (reuse theme + components/ui). */
 import { Ionicons } from '@expo/vector-icons';
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import { Button, Chip, Header, Text } from '../../components/ui';
+import { Button, Chip, Header, InlineAlert, Text } from '../../components/ui';
 import { label12 } from '../../lib/onboarding/availability';
 import { STEP_LABELS } from '../../lib/onboarding/copy';
 import { useTheme } from '../../theme';
+import type { OnboardingReadState } from './useOnboardingData';
+
+interface OnboardingReadContextValue {
+  state: OnboardingReadState;
+  reload: () => Promise<boolean>;
+}
+
+const OnboardingReadContext = createContext<OnboardingReadContextValue | null>(null);
 
 export interface SectionProps {
   data: import('./useOnboardingData').OnboardingData;
-  reload: () => Promise<void>;
+  reload: (options?: { afterMutation?: boolean }) => Promise<boolean>;
   header: ReactNode;
   mode: 'wizard' | 'edit';
   onDone: () => void;
   onBack?: () => void;
+}
+
+export function OnboardingReadStateProvider({
+  state,
+  reload,
+  children,
+}: OnboardingReadContextValue & { children: ReactNode }) {
+  return <OnboardingReadContext.Provider value={{ state, reload }}>{children}</OnboardingReadContext.Provider>;
+}
+
+export function useOnboardingReadState(): OnboardingReadContextValue | null {
+  return useContext(OnboardingReadContext);
+}
+
+export function OnboardingReadNotice() {
+  const context = useOnboardingReadState();
+  if (!context || context.state.status !== 'stale') return null;
+  return (
+    <InlineAlert
+      title={context.state.afterMutation ? 'Saved, refresh failed' : 'Latest status unavailable'}
+      message={context.state.error ?? 'Provider details may be out of date.'}
+      actionLabel="Retry"
+      onAction={() => void context.reload().catch(() => undefined)}
+    />
+  );
 }
 
 export function ProgressBar({ value, tone = 'primary' }: { value: number; tone?: 'primary' | 'success' }) {
@@ -60,6 +93,7 @@ export function SectionFooter(props: {
   const t = useTheme();
   return (
     <View style={{ gap: t.spacing.sm }}>
+      <OnboardingReadNotice />
       <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
         {props.onBack ? <Button title="Back" variant="outline" size="lg" onPress={props.onBack} style={{ flex: 1 }} /> : null}
         <Button

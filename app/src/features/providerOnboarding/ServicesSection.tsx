@@ -5,7 +5,7 @@ import { CategoryIcon, iconForSlug } from '../../components/CategoryIcon';
 import { Button, Card, InlineAlert, Screen, Text, useConfirm, useToast } from '../../components/ui';
 import { deleteService } from '../../lib/api';
 import { useSelectedLocation } from '../../lib/locationContext';
-import { onboardingApi, type PriceGuidance, type ProfileSchema } from '../../lib/onboarding';
+import { onboardingApi, type ProfileSchema } from '../../lib/onboarding';
 import { SERVICE_EDITOR_COPY } from '../../lib/onboarding/copy';
 import { parseRupees } from '../../lib/onboarding/validation';
 import { useTheme } from '../../theme';
@@ -44,7 +44,6 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   const [errors, setErrors] = useState<ServiceEditorErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [guidance, setGuidance] = useState<PriceGuidance | null>(null);
   const selected = useSelectedLocation();
   const city = data.state.provider?.city || (selected.location.source !== 'default' ? selected.location.city : '');
   const category = data.categories.find((item) => item.id === ed.categoryId);
@@ -53,14 +52,6 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
   const schema = (category?.profile_schema ?? { type: 'object', properties: {} }) as unknown as ProfileSchema;
   const radiusKm = data.state.provider?.service_radius_km ?? 0;
   const editingService = services.find((service) => service.id === ed.serviceId);
-
-  useEffect(() => {
-    setGuidance(null);
-    if (!ed.categoryId || !city) return;
-    let live = true;
-    onboardingApi.getPriceGuidance(ed.categoryId, city, ed.unit).then((value) => live && setGuidance(value)).catch(() => undefined);
-    return () => { live = false; };
-  }, [ed.categoryId, ed.unit, city]);
 
   const open = (service?: EditableService) => {
     setEd(serviceEditorStateFromService(service));
@@ -140,7 +131,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
         travelFeeFlat: ed.travelFeeMode === 'flat' ? parseRupees(ed.travelFlat) ?? 0 : 0,
         travelFeePerKm: ed.travelFeeMode === 'per_km' ? parseRupees(ed.travelPerKm) ?? 0 : 0,
       });
-      await reload();
+      await reload({ afterMutation: true });
       close();
       toast({ message: `${category?.name ?? 'Service'} saved`, tone: 'success' });
     } catch (saveError) {
@@ -212,7 +203,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
             await deleteService(service.id).catch((removeError: Error) => setError(removeError.message));
             await reload();
           }}
-          onChanged={reload}
+          onChanged={() => reload().then(() => undefined)}
         />
       )) : null}
 
@@ -280,7 +271,7 @@ export function ServicesSection({ data, reload, header, mode, onDone, onBack }: 
           categoryName={category?.name ?? 'Service'}
           radiusKm={radiusKm}
           city={city}
-          guidance={guidance}
+          guidance={null}
           saving={saving}
           onState={setEd}
           onToggle={toggle}

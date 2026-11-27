@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, BottomSheet, Button, Card, Chip, InlineAlert, Input, ListItem, Screen, Text, useConfirm, useToast, type Tone } from '../../components/ui';
-import { onboardingApi, type DocStatus, type ProviderDocument, type ProviderLink, type ProviderLinkKind } from '../../lib/onboarding';
+import { onboardingApi, type DocStatus, type DocumentRequirement, type ProviderDocument, type ProviderLink, type ProviderLinkKind } from '../../lib/onboarding';
 import { LIMITS } from '../../lib/onboarding/validation';
 import { useTheme } from '../../theme';
 import { pickDocument, pickPhoto } from './media';
@@ -12,11 +12,85 @@ type Need = 'required' | 'recommended' | 'optional';
 
 const STATUS: Record<DocStatus, { label: string; tone: Tone }> = {
   pending: { label: 'In review', tone: 'warning' },
-  approved: { label: 'Live', tone: 'success' },
+  approved: { label: 'Approved', tone: 'success' },
   rejected: { label: 'Not accepted', tone: 'danger' },
   expired: { label: 'Expired', tone: 'danger' },
   superseded: { label: 'Replaced', tone: 'neutral' },
 };
+
+export function documentStatusLabel(status: DocStatus): string {
+  return STATUS[status].label;
+}
+
+export interface DocumentRow {
+  key: string;
+  code: string;
+  need: Need;
+  categoryName?: string;
+  requirement?: DocumentRequirement;
+  latest?: ProviderDocument;
+  validCredential?: ProviderDocument;
+}
+
+export function documentRows(data: SectionProps['data']): DocumentRow[] {
+  return docNeeds(data).flatMap((need) => {
+    const requirements = need.need === 'required'
+      ? (data.state.document_requirements ?? []).filter((item) => item.doc_type === need.code)
+      : [];
+    if (requirements.length) {
+      return requirements.map((requirement) => ({
+        key: `${need.code}:${requirement.category_id}`,
+        code: need.code,
+        need: need.need,
+        categoryName: requirement.category_name,
+        requirement,
+        latest: data.state.documents.find((doc) => doc.id === requirement.latest_document_id),
+        validCredential: requirement.satisfied
+          ? data.state.documents.find((doc) => doc.id === requirement.approved_document_id)
+          : undefined,
+      }));
+    }
+    if (need.need === 'required') {
+      const categories = activeRequiredCategories(data, need.code);
+      if (categories.length) {
+        return categories.map((category) => ({
+          key: `${need.code}:${category.id}`,
+          code: need.code,
+          need: need.need,
+          categoryName: category.name,
+          latest: latestDoc(data.state.documents, need.code, category.id),
+          validCredential: validCredential(data.state.documents, need.code, data.state.server_local_date ?? istToday(), category.id),
+        }));
+      }
+    }
+    return [{
+      key: need.code,
+      code: need.code,
+      need: need.need,
+      categoryName: need.forCategories.join(', ') || undefined,
+      latest: latestDoc(data.state.documents, need.code),
+    }];
+  });
+}
+
+export function requirementPresentation(requirement: DocumentRequirement): {
+  latestStatus: Exclude<DocStatus, 'superseded'> | null;
+  validCredential: boolean;
+  separateValidCredential: boolean;
+} {
+  const latestStatus = requirement.effective_latest_status ?? requirement.latest_status;
+  const validCredential = requirement.satisfied && requirement.approved_status === 'approved' && !!requirement.approved_document_id;
+  return {
+    latestStatus: latestStatus === 'superseded' ? null : latestStatus,
+    validCredential,
+    separateValidCredential: validCredential && requirement.approved_document_id !== requirement.latest_document_id,
+  };
+}
+
+function activeRequiredCategories(data: SectionProps['data'], code: string) {
+  const activeCategoryIds = new Set(data.services.filter((service) => service.active).map((service) => service.category_id));
+  return data.categories.filter((category) => activeCategoryIds.has(category.id) && category.requires_docs?.includes(code));
+}
 
 /** Which documents to ask for, from the categories the provider offers (categories.requires_docs / recommended_docs). */
 export function docNeeds(data: SectionProps['data']): { code: string; need: Need; forCategories: string[] }[] {
@@ -46,8 +120,21 @@ export function docNeeds(data: SectionProps['data']): { code: string; need: Need
     .sort((a, b) => order(a.need) - order(b.need) || (data.docTypes.find((d) => d.code === a.code)?.sort_order ?? 99) - (data.docTypes.find((d) => d.code === b.code)?.sort_order ?? 99));
 }
 
-function latestDoc(docs: ProviderDocument[], code: string): ProviderDocument | undefined {
-  return docs.filter((d) => d.doc_type === code && d.status !== 'superseded').sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+function latestDoc(docs: ProviderDocument[], code: string, categoryId?: string): ProviderDocument | undefined {
+  return docs
+    .filter((d) => d.doc_type === code && d.status !== 'superseded' && (!categoryId || d.category_id === null || d.category_id === categoryId))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+}
+
+function validCredential(docs: ProviderDocument[], code: string, providerDate: string, categoryId?: string): ProviderDocument | undefined {
+  return docs
+    .filter((doc) =>
+      doc.doc_type === code &&
+      doc.status === 'approved' &&
+      (!doc.expires_on || doc.expires_on >= providerDate) &&
+      (!categoryId || doc.category_id === null || doc.category_id === categoryId),
+    )
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
 }
 
 export function PortfolioSection({ data, reload, header, mode, onDone, onBack }: SectionProps) {
@@ -67,7 +154,21 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
   const [linkHandle, setLinkHandle] = useState('');
   const portfolio = data.state.portfolio;
   const needs = useMemo(() => docNeeds(data), [data]);
-  const missingRequired = needs.filter((n) => n.need === 'required' && !latestDoc(data.state.documents, n.code));
+  const requiredRequirements = data.state.document_requirements ?? [];
+  const providerDate = data.state.server_local_date ?? istToday();
+  const missingRequired = needs.filter((need) => need.need === 'required').flatMap((need) => {
+    const requirements = requiredRequirements.filter((item) => item.doc_type === need.code);
+    if (requirements.length) {
+      return requirements.filter((item) => !item.satisfied).map((item) => `${need.code}:${item.category_id}`);
+    }
+    const categories = activeRequiredCategories(data, need.code);
+    if (categories.length) {
+      return categories
+        .filter((category) => !validCredential(data.state.documents, need.code, providerDate, category.id))
+        .map((category) => `${need.code}:${category.id}`);
+    }
+    return validCredential(data.state.documents, need.code, providerDate) ? [] : [need.code];
+  });
   const docType = data.docTypes.find((d) => d.code === docSheet);
 
   useEffect(() => {
@@ -151,7 +252,8 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
     onDone();
   };
 
-  const visibleNeeds = showOptional ? needs : needs.filter((n) => n.need !== 'optional' || latestDoc(data.state.documents, n.code));
+  const rows = useMemo(() => documentRows(data), [data]);
+  const visibleRows = showOptional ? rows : rows.filter((row) => row.need !== 'optional' || row.latest);
 
   return (
     <Screen
@@ -178,7 +280,7 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
               key={link.id}
               icon="link-outline"
               title={link.handle || LINK_LABEL[link.kind]}
-              subtitle={`${link.url} · ${link.status === 'approved' ? 'Live on your profile' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'Live on your profile'}`}
+              subtitle={`${link.url} · ${link.status === 'approved' ? 'Approved' : link.status === 'rejected' ? `Not approved: ${link.review_reason ?? 'Review needed'}` : 'In review'}`}
               right={
                 <Button
                   title="Remove"
@@ -213,7 +315,7 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
               key={ph.id}
               uri={onboardingApi.publicUrl('portfolio', ph.file_path)}
               caption={ph.caption}
-              onSaveCaption={(c) => onboardingApi.updatePortfolioCaption(ph.id, c).then(reload).catch((e: Error) => setError(e.message))}
+              onSaveCaption={(c) => onboardingApi.updatePortfolioCaption(ph.id, c).then(() => reload({ afterMutation: true })).catch((e: Error) => setError(e.message))}
               onDelete={async () => {
                 const ok = await confirm({ title: 'Delete this photo?', confirmLabel: 'Delete', destructive: true });
                 if (!ok) return;
@@ -233,36 +335,51 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
 
       <View style={{ gap: t.spacing.md }}>
         <FieldLabel hint="Aadhaar is never uploaded here — identity is verified by our payment partner with your PAN and bank account.">Documents</FieldLabel>
-        {missingRequired.length ? <InlineAlert tone="warning" message={`Required before customers can book you: ${missingRequired.map((n) => data.docTypes.find((d) => d.code === n.code)?.label ?? n.code).join(', ')}.`} /> : null}
+        {missingRequired.length ? <InlineAlert tone="warning" message={`Required before customers can book you: ${[...new Set(missingRequired)].map((key) => {
+          const [code, categoryId] = key.split(':');
+          const category = data.categories.find((item) => item.id === categoryId);
+          const label = data.docTypes.find((item) => item.code === code)?.label ?? code;
+          return category ? `${label} for ${category.name}` : label;
+        }).join(', ')}.`} /> : null}
         <Card gap={0} padding={0}>
-          {visibleNeeds.map((n) => {
-            const type = data.docTypes.find((d) => d.code === n.code);
-            const doc = latestDoc(data.state.documents, n.code);
-            const st = doc ? STATUS[doc.status] : null;
+          {visibleRows.map((row) => {
+            const type = data.docTypes.find((d) => d.code === row.code);
+            const doc = row.latest;
+            const presentation = row.requirement ? requirementPresentation(row.requirement) : null;
+            const fallbackStatus = doc?.status === 'approved' && doc.expires_on && doc.expires_on < providerDate ? 'expired' : doc?.status;
+            const latestStatus = presentation?.latestStatus ?? fallbackStatus ?? null;
+            const hasValidCredential = presentation?.validCredential ?? !!row.validCredential;
+            const hasSeparateValidCredential = presentation?.separateValidCredential
+              ?? (!!row.validCredential && row.validCredential.id !== doc?.id);
+            const st = latestStatus ? STATUS[latestStatus] : null;
             const sub = [
-              n.need === 'required' ? `Required for ${n.forCategories.join(', ')}` : n.need === 'recommended' ? `Recommended for ${n.forCategories.join(', ')}` : 'Optional',
-              doc?.status === 'rejected' && doc.reject_reason ? `Reason: ${doc.reject_reason}` : null,
-              doc?.expires_on ? `Valid till ${doc.expires_on}` : null,
+              row.need === 'required' ? `Required for ${row.categoryName ?? 'this service'}` : row.need === 'recommended' ? `Recommended for ${row.categoryName ?? 'this service'}` : 'Optional',
+              hasValidCredential ? 'A valid approved credential is on file' : null,
+              (latestStatus === 'rejected' || latestStatus === 'expired') && (row.requirement?.reject_reason ?? doc?.reject_reason)
+                ? `Reason: ${row.requirement?.reject_reason ?? doc?.reject_reason}`
+                : null,
+              !row.requirement && doc?.expires_on ? `Valid till ${doc.expires_on}` : null,
             ]
               .filter(Boolean)
               .join(' · ');
             return (
               <ListItem
-                key={n.code}
-                icon={n.need === 'required' ? 'shield-checkmark-outline' : 'document-text-outline'}
-                title={type?.label ?? n.code}
+                key={row.key}
+                icon={row.need === 'required' ? 'shield-checkmark-outline' : 'document-text-outline'}
+                title={type?.label ?? row.code}
                 subtitle={sub}
                 right={
                   <View style={{ alignItems: 'flex-end', gap: 4 }}>
                     {st ? <Badge label={st.label} tone={st.tone} /> : null}
+                    {hasSeparateValidCredential ? <Badge label="Approved" tone="success" /> : null}
                     <Button
-                      title={doc ? 'Replace' : 'Upload'}
+                      title={doc || row.requirement?.latest_document_id ? 'Replace' : 'Upload'}
                       size="sm"
-                      variant={doc ? 'ghost' : 'outline'}
-                      loading={busy === n.code}
+                      variant={doc || row.requirement?.latest_document_id ? 'ghost' : 'outline'}
+                      loading={busy === row.code}
                       onPress={() => {
                         setExpiry('');
-                        setDocSheet(n.code);
+                        setDocSheet(row.code);
                       }}
                     />
                   </View>

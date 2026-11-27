@@ -8,7 +8,7 @@ import { completeness, type StepKey } from '../../lib/onboarding/completeness';
 import { PROVIDER_TERMS_SUMMARY } from '../../lib/onboarding/copy';
 import { useTheme } from '../../theme';
 import { GoLiveStatusCard } from './GoLiveStatusCard';
-import { Intro, ProgressBar, SectionFooter, type SectionProps } from './parts';
+import { Intro, ProgressBar, SectionFooter, type SectionProps, useOnboardingReadState } from './parts';
 
 const CHECK_LABEL: Record<string, string> = {
   name: 'Your name',
@@ -30,6 +30,7 @@ export function ReviewSection({ data, reload, header, mode, onDone, onBack, onJu
   const c = completeness(state.checks);
   const submitted = !!state.provider?.submitted_at;
   const acceptedCurrent = submitted && state.provider?.terms_version === state.terms_version;
+  const readState = useOnboardingReadState();
   const [accepted, setAccepted] = useState(acceptedCurrent);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +42,7 @@ export function ReviewSection({ data, reload, header, mode, onDone, onBack, onJu
     setError(null);
     try {
       await onboardingApi.submitProfile(state.terms_version);
-      await reload();
+      await reload({ afterMutation: true });
       toast({ message: submitted ? 'Profile updated' : 'Profile submitted', tone: 'success' });
       onDone();
     } catch (e) {
@@ -80,7 +81,7 @@ export function ReviewSection({ data, reload, header, mode, onDone, onBack, onJu
     >
       <Intro title={submitted ? 'Your profile' : 'Review & submit'} subtitle="Check how customers will see you, then submit. You can edit any section later from Me → Provider profile." />
       <InlineAlert message={error} />
-      {submitted ? <GoLiveStatusCard goLive={state.go_live} docTypes={data.docTypes} compact /> : null}
+      {submitted && readState?.state.status !== 'stale' ? <GoLiveStatusCard goLive={state.go_live} docTypes={data.docTypes} compact /> : null}
 
       <Card gap={t.spacing.md}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
