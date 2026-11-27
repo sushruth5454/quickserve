@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O30-CM07",
+  "workPackage": "O30",
+  "sourceTaskId": "CM-T07",
+  "sourceFindingId": "CM-F09",
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t07",
+  "placementProjection": "docs/design/oorva/audit/communications.json",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "825ea8ffef309f1683b42bf658d01f86b2746536",
+  "dependencies": [
+    { "stageId": "O00", "commit": "b40e3ac3da80dc7dba677457413180bca6070222", "status": "DONE_IN_BASE" },
+    { "stageId": "O24-NOTIFICATIONS", "commit": "d10507ed797460515e11f464cf4fc91e84ee7ef0", "status": "DONE_IN_BASE" }
+  ],
+  "scope": {
+    "allocatedMigration": "supabase/migrations/0142_o30_cm07_oorva.sql",
+    "ownedFiles": [
+      "app/app/admin/index.tsx",
+      "app/src/components/__tests__/AdminDashboardScreen.test.tsx",
+      "supabase/migrations/0142_o30_cm07_oorva.sql",
+      "supabase/tests/oorva_o30_cm07.test.mjs",
+      "app/src/features/communicationScreens/AdminIndexScreen.tsx",
+      "docs/design/oorva/evidence/o30-cm07.json"
+    ],
+    "modifiedSqlFunction": "public.admin_dashboard",
+    "sharedRegistrationOwnedBy": "coordinator",
+    "promotionOrDeployment": false
+  },
+  "implementation": [
+    "Extracted the existing admin dashboard UI/controller into AdminIndexScreen and retained the app/admin route as a thin re-export.",
+    "Aligned providers_pending to admin_review_status pending/needs_clarification plus submitted_at, without the provider-list 300-row limit.",
+    "Kept the KYC-derived count and payment aggregates unchanged while labeling KYC explicitly and naming the payment metric Gross payments collected.",
+    "Did not restore admin_set_provider_kyc, add a review control, add a feature flag, or modify payout/money policy."
+  ],
+  "acceptanceCases": [
+    "CM_SQL_DASHBOARD_REVIEW_PARITY",
+    "CM_DASHBOARD_GROSS_LABEL",
+    "CM_SQL_ADMIN_ENDPOINT_DENIED",
+    "CM_SQL_DASHBOARD_NO_PAGE_CAP"
+  ],
+  "registration": {
+    "state": "WAITING_FOR_COORDINATOR_REGISTRATION",
+    "file": "supabase/tests/package.json",
+    "sqlTestSelector": "oorva_o30_cm07",
+    "migrationParserSelector": "o30_cm07_oorva.sql"
+  },
+  "validation": {
+    "status": "NOT_RUN_PENDING_REGISTRATION",
+    "focusedAuthReview": "PENDING",
+    "codespace": "PENDING",
+    "laneCi": "PENDING"
+  },
+  "checkpoint": {
+    "state": "WORKER_FILES_ONLY_PENDING_REGISTRATION",
+    "promotion": "NOT_PERFORMED",
+    "deployment": "NOT_PERFORMED"
+  }
+}
