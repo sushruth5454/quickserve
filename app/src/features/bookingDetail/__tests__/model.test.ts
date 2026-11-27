@@ -1,5 +1,8 @@
 import { canReportProposalPaymentDefault, fmt, heroCopy, paymentRefundPresentation, paymentRowLabel, shouldShowPaymentRow } from '../model';
 import type { Payment, PaymentSchedule } from '../../../lib/types';
+import { canManageServiceQuotes, canPayPendingQuoteWithoutSchedule, getQuoteApprovalMode, getQuoteEditorMode } from '../../../lib/fixedBooking';
+
+jest.mock('../../../lib/supabase', () => ({ supabase: {} }));
 
 describe('payment row presentation', () => {
   const payment = (overrides: Partial<Payment> = {}): Payment => ({
@@ -203,6 +206,106 @@ describe('booking detail hero copy', () => {
       expect(canReportProposalPaymentDefault([{ ...due, reminded_at: null }], 'completion_requested', 'submitted', now)).toBe(false);
       expect(canReportProposalPaymentDefault([{ ...due, status: 'paid' }], 'completion_requested', 'submitted', now)).toBe(false);
       expect(canReportProposalPaymentDefault([due], 'in_progress', 'pending', now)).toBe(true);
+    });
+  });
+
+  describe('family-specific quote actions', () => {
+    it('familySpecificQuoteActions keeps itemized, package and BYO paths separate', () => {
+      const basePackage = {
+        id: 'package-base',
+        status: 'approved' as const,
+        is_change_order: false,
+        quote_type: 'package' as const,
+      };
+      const fixedAddon = {
+        id: 'package-addon',
+        status: 'sent' as const,
+        is_change_order: true,
+        quote_type: 'package' as const,
+      };
+      const itemized = {
+        id: 'inspect-quote',
+        status: 'sent' as const,
+        is_change_order: true,
+        quote_type: 'itemized' as const,
+      };
+      const fixedBooking = {
+        archetype: 'fixed' as const,
+        booking_origin: 'marketplace' as const,
+        status: 'in_progress' as const,
+        approved_quote_id: basePackage.id,
+      };
+      const zeroHintBooking = { ...fixedBooking, changeOrder: '0' };
+      const oneHintBooking = { ...fixedBooking, changeOrder: '1' };
+      const results = {
+        fixedEditor: getQuoteEditorMode(fixedBooking, [basePackage]),
+        zeroHintEditor: getQuoteEditorMode(zeroHintBooking, [basePackage]),
+        oneHintEditor: getQuoteEditorMode(oneHintBooking, [basePackage]),
+        fixedApproval: getQuoteApprovalMode(fixedBooking, fixedAddon),
+        fixedEditorWithPendingAddon: getQuoteEditorMode(fixedBooking, [
+          basePackage,
+          { ...fixedAddon, status: 'approved_pending_payment' },
+        ]),
+        ownerCanSend: canManageServiceQuotes('owner'),
+        managerCanSend: canManageServiceQuotes('manager'),
+        staffCannotSend: canManageServiceQuotes('staff'),
+        customerCannotSend: canManageServiceQuotes('customer'),
+        byoRetryAfterPaidUnrelatedSchedule: canPayPendingQuoteWithoutSchedule(
+          { archetype: 'fixed', booking_origin: 'byo' },
+          'pending-quote',
+          [{ quote_id: 'accepted-package', status: 'paid' }],
+        ),
+        byoUsesScheduleWhenPendingQuoteObligationIsDue: canPayPendingQuoteWithoutSchedule(
+          { archetype: 'fixed', booking_origin: 'byo' },
+          'pending-quote',
+          [{ quote_id: 'pending-quote', status: 'due' }],
+        ),
+        marketplaceFixedDoesNotFallbackToGenericPayment: canPayPendingQuoteWithoutSchedule(
+          { archetype: 'fixed', booking_origin: 'marketplace' },
+          'pending-quote',
+          [{ quote_id: 'accepted-package', status: 'paid' }],
+        ),
+        inspectApproval: getQuoteApprovalMode({
+          ...fixedBooking,
+          archetype: 'inspect_quote',
+          status: 'in_progress',
+        }, itemized),
+        byoEditor: getQuoteEditorMode({
+          ...fixedBooking,
+          booking_origin: 'byo',
+        }, [{ ...basePackage, quote_type: 'itemized' }]),
+        byoInitialEditor: getQuoteEditorMode({
+          ...fixedBooking,
+          booking_origin: 'byo',
+          status: 'quote_sent',
+          approved_quote_id: null,
+        }, [itemized]),
+        proposalEditor: getQuoteEditorMode({
+          ...fixedBooking,
+          archetype: 'proposal',
+        }, [basePackage]),
+        marketplaceFixedItemized: getQuoteApprovalMode(fixedBooking, itemized),
+      };
+
+      expect(results).toEqual({
+        fixedEditor: 'fixed_addons',
+        zeroHintEditor: 'fixed_addons',
+        oneHintEditor: 'fixed_addons',
+        fixedApproval: 'fixed_addons',
+        fixedEditorWithPendingAddon: null,
+        ownerCanSend: true,
+        managerCanSend: true,
+        staffCannotSend: false,
+        customerCannotSend: false,
+        byoRetryAfterPaidUnrelatedSchedule: true,
+        byoUsesScheduleWhenPendingQuoteObligationIsDue: false,
+        marketplaceFixedDoesNotFallbackToGenericPayment: false,
+        inspectApproval: 'itemized',
+        byoEditor: 'itemized',
+        byoInitialEditor: 'itemized',
+        proposalEditor: null,
+        marketplaceFixedItemized: null,
+      });
     });
   });
 });
