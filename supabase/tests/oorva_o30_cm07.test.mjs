@@ -6,11 +6,19 @@ const originalAdminPhones = (await db.query(
   'select ac.value from public.app_config as ac where ac.key = $1::text',
   ['admin_phones'],
 )).rows[0].value;
+const originalArchetypeFlags = (await db.query(
+  'select ac.value from public.app_config as ac where ac.key = $1::text',
+  ['archetype_flags'],
+)).rows[0].value;
 const harness = createHarness({
   cleanup: async () => {
     await db.query(
       'update public.app_config as ac set value = $1::jsonb where ac.key = $2::text',
       [JSON.stringify(originalAdminPhones), 'admin_phones'],
+    );
+    await db.query(
+      'update public.app_config as ac set value = $1::jsonb where ac.key = $2::text',
+      [JSON.stringify(originalArchetypeFlags), 'archetype_flags'],
     );
   },
 });
@@ -146,9 +154,20 @@ await scenario('CM_SQL_DASHBOARD_GROSS_LABEL', async () => {
     insert into public.providers (id, city, kyc_status, admin_review_status, submitted_at)
     values ($1::uuid, 'CM07 payment city'::text, 'verified'::public.kyc_status, 'approved'::text, $2::timestamptz)
   `, [providerId, '2026-11-01T10:00:00.000Z']);
-  const categoryId = (await db.query(
-    'select c.id from public.categories as c order by c.id limit 1',
-  )).rows[0].id;
+  const category = (await db.query(`
+    insert into public.categories (slug, name)
+    values ($1::text, $2::text)
+    returning id, archetype
+  `, [`cm07-gross-${randomUUID().replaceAll('-', '')}`, 'CM07 gross payments'])).rows[0];
+  await db.query(`
+    update public.app_config as ac
+       set value = coalesce(ac.value, '{}'::jsonb) || jsonb_build_object($1::text, true::boolean)
+     where ac.key = $2::text
+  `, [category.archetype, 'archetype_flags']);
+  await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, $3::boolean, $4::timestamptz)
+  `, [category.id, 'CM07 payment city', true, '2026-01-01T10:00:00.000Z']);
   const addressId = (await db.query(`
     insert into public.addresses (user_id, line1, city, lat, lng)
     values ($1::uuid, $2::text, $3::text, $4::float8, $5::float8)
@@ -158,7 +177,7 @@ await scenario('CM_SQL_DASHBOARD_GROSS_LABEL', async () => {
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate)
     values ($1::uuid, $2::uuid, $3::int, $4::int)
     returning id
-  `, [providerId, categoryId, 0, 0])).rows[0].id;
+  `, [providerId, category.id, 0, 0])).rows[0].id;
   const bookingId = (await db.query(`
     insert into public.bookings (
       customer_id, provider_id, category_id, provider_service_id, address_id,
@@ -167,7 +186,7 @@ await scenario('CM_SQL_DASHBOARD_GROSS_LABEL', async () => {
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
       $6::int, $7::int, $8::timestamptz
     ) returning id
-  `, [customerId, providerId, categoryId, serviceId, addressId, 0, 0, '2026-11-20T10:00:00.000Z'])).rows[0].id;
+  `, [customerId, providerId, category.id, serviceId, addressId, 0, 0, '2026-11-20T10:00:00.000Z'])).rows[0].id;
   await db.query(`
     insert into public.payments (booking_id, purpose, amount, status, paid_at, created_at)
     values
