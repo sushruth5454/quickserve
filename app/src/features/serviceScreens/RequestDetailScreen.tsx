@@ -8,7 +8,7 @@ import { formatINR } from '../../lib/money';
 import type { Proposal, ProposalViewState, ServiceRequest } from '../../lib/types';
 import { QuoteCompareTable } from '../../components/market/QuoteCompareTable';
 import { buildProposalComparison } from '../proposals/comparePresentation';
-import { getProposalViewState } from '../proposals/api';
+import { getProposalViewState, isActiveProposalBookingStatus } from '../proposals/api';
 import { proposalStatus } from '../../lib/proposalStatus';
 import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
 
@@ -74,6 +74,11 @@ export default function RequestDetailScreen() {
   const comparison = request
     ? buildProposalComparison(proposals, proposalViews, request)
     : null;
+  const hasClosedActiveBooking = request?.status === 'closed'
+    && Boolean(comparison?.currentBooking)
+    && isActiveProposalBookingStatus(
+      comparison?.currentBooking?.state.current_booking_status ?? null,
+    );
 
   const cancelRequest = async () => {
     if (!request || !['open', 'closed'].includes(request.status)) return;
@@ -135,7 +140,7 @@ export default function RequestDetailScreen() {
                   Status: {comparison.currentBooking.state.current_booking_status?.replaceAll('_', ' ') ?? 'Unavailable'}
                 </Text>
                 <Button
-                  title="View current booking"
+                  title={hasClosedActiveBooking ? 'Continue/Manage booking' : 'View current booking'}
                   variant="outline"
                   onPress={() => router.push({
                     pathname: '/booking/[id]',
@@ -213,7 +218,7 @@ export default function RequestDetailScreen() {
               </>
             )}
           </Section>
-          {['open', 'closed'].includes(request.status) ? (
+          {['open', 'closed'].includes(request.status) && !hasClosedActiveBooking ? (
             <Button title="Cancel request" variant="destructive" onPress={() => void cancelRequest()} />
           ) : null}
         </>

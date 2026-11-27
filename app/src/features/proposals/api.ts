@@ -22,6 +22,15 @@ export interface ProposalFeePreview {
   total_today: number;
 }
 
+const ACTIVE_PROPOSAL_BOOKING_STATUSES: ReadonlySet<BookingStatus> = new Set([
+  'pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
+  'delivery_pending', 'completion_requested', 'disputed',
+]);
+
+export function isActiveProposalBookingStatus(status: BookingStatus | null): boolean {
+  return status !== null && ACTIVE_PROPOSAL_BOOKING_STATUSES.has(status);
+}
+
 function isProposalViewState(value: unknown): value is ProposalViewState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
@@ -60,11 +69,7 @@ async function getDemoProposalViewState(proposalId: string): Promise<ProposalVie
   if (!viewerRole) throw new Error('Proposal not found');
 
   const bookings = proposal.bookings ?? [];
-  const activeStatuses = new Set([
-    'pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
-    'delivery_pending', 'completion_requested', 'disputed',
-  ]);
-  const active = bookings.filter((booking) => activeStatuses.has(booking.status));
+  const active = bookings.filter((booking) => isActiveProposalBookingStatus(booking.status));
   if (active.length > 1 || (active.length === 0 && bookings.length > 1)) {
     throw new Error('Demo proposal booking history is ambiguous');
   }
