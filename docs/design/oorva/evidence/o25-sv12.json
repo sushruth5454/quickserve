@@ -33,7 +33,7 @@
     ]
   },
   "implementation": {
-    "status": "IMPLEMENTED_UNVALIDATED_WORKER_FILES_CHECKPOINT",
+    "status": "SELECTORS_PASS_AWAITING_LANE_CI",
     "workerFiles": [
       "app/src/lib/types.ts",
       "app/src/features/providerDashboard/ProviderDashboard.tsx",
@@ -76,22 +76,70 @@
       "required": "Two independent backend PIDs; accept_booking waits across the expiry row-lock barrier at the ordinary deadline; recurring acceptance remains exempt."
     },
     "migrationParserSelector": "o25_sv12_oorva.sql",
-    "validationStatus": "NOT_RUN_BEFORE_WORKER_FILES_CHECKPOINT"
+    "idReadinessRegressionSelector": "id_readiness",
+    "validationStatus": "PASS",
+    "results": {
+      "app": {
+        "selectedFile": "app/src/features/providerDashboard/__tests__/requestPresentation.test.ts",
+        "selectedTests": 6,
+        "result": "PASS"
+      },
+      "sql": {
+        "selectedFile": "supabase/tests/oorva_o25_sv12.test.mjs",
+        "selectedScenarios": [
+          "SV-REQUEST-CARD-01 server deadline, family and owner action projection",
+          "SV-REQUEST-CARD-ROLE-02 acceptance deadline and assigned owner resolution"
+        ],
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "selectedCommand": "node parse.cjs ../migrations/0143_o25_sv12_oorva.sql",
+        "topLevelStatements": 5,
+        "functionBodies": 2,
+        "errors": 0,
+        "result": "PASS"
+      },
+      "idReadiness": {
+        "selectedFile": "supabase/tests/id_readiness.test.mjs",
+        "selectedScenarios": [
+          "ID-DOC-A-B",
+          "ID-DOC-SCOPE",
+          "ID-DOC-REPLACE",
+          "ID-DOC-EXPIRY",
+          "ID-LEGACY-PAYOUT",
+          "ID-ADMIN-READ-PRIVACY",
+          "ID-JOB-PROJECTION"
+        ],
+        "result": "PASS"
+      }
+    },
+    "concurrencyReview": {
+      "result": "NO_FINDINGS",
+      "reviewedCheckpoint": "b02cbd878fde8d536f0bbcd4548a616501830a93",
+      "lockedServerFunctionsChangedAfterReview": false
+    },
+    "laneCi": {
+      "status": "PENDING",
+      "privatePostgresJob": "supabase/tests-postgres/o25_sv12.pg.test.mjs is discovered by supabase/tests-postgres/run.mjs; lane-ci.yml runs that discovery job when this directory changes."
+    }
   },
   "coordinatorRegistration": {
     "owner": "coordinator",
     "path": "supabase/tests/package.json",
-    "status": "NOT_REGISTERED_BY_WORKER",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "registrationCommit": "70fab48af3a0309ace010fa902bc88edcfbb75ad",
     "requestedCommands": [
       "node oorva_o25_sv12.test.mjs",
       "node parse.cjs ../migrations/0143_o25_sv12_oorva.sql"
     ],
+    "workerEdited": false,
     "deploymentRegistration": "Not permitted before E1 promotion."
   },
-  "scopeConflict": {
+  "compatibility": {
     "file": "supabase/tests/id_readiness.test.mjs",
-    "evidence": "At lines 646-670, the existing ID-JOB-PROJECTION case asserts the exact get_my_business_provider_jobs key set from the O38-ID01 base.",
-    "impact": "The required additional output fields make that exact-key assertion stale; this file is outside the stage's writable-file list and was not changed.",
-    "resolution": "Coordinator must authorize/update the shared expectation before full lane CI can be considered green."
+    "owner": "O38",
+    "commit": "b02cbd878fde8d536f0bbcd4548a616501830a93",
+    "workerEdited": false,
+    "regressionResult": "PASS with migration 0143 applied."
   }
 }
