@@ -172,7 +172,7 @@ await scenario('CM_SQL_DASHBOARD_GROSS_LABEL', async () => {
     insert into public.addresses (user_id, line1, city, lat, lng)
     values ($1::uuid, $2::text, $3::text, $4::float8, $5::float8)
     returning id
-  `, [customerId, 'CM07 Test Road', 'CM07 City', 16.5, 80.6])).rows[0].id;
+  `, [customerId, 'CM07 Test Road', 'CM07 payment city', 16.5, 80.6])).rows[0].id;
   const serviceId = (await db.query(`
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate)
     values ($1::uuid, $2::uuid, $3::int, $4::int)
