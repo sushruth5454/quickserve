@@ -37,13 +37,14 @@
     "concurrency": "A private PostgreSQL integration test uses two distinct backend PIDs and service-request row-lock barriers to overlap accept_proposal and cancel_service_request in both lock acquisition orders, prove request-first cancellation blocking, exercise NOWAIT contention against an acceptance-locked proposal, and verify the accepted hold cannot coexist with a cancelled request."
   },
   "validation": {
-    "metadata": "CONCURRENCY_FIX_IN_PROGRESS",
+    "metadata": "CODESPACE_PASS_REVIEW_REVERIFY_PENDING",
     "workerCheckpoint": "d4e2a214c9893a4e2231b4e83699777da9401a03",
-    "gitDiffCheck": "PASS: worker changes before fix commit",
-    "codespaceApp": "NOT_RUN_AFTER_FINAL_FIX",
-    "codespaceSql": "NOT_RUN_AFTER_FINAL_FIX",
-    "migrationParser": "NOT_RUN_AFTER_FINAL_FIX",
-    "focusedConcurrencyReview": "REVIEW_FINDING_ADDRESSED; RE-REVIEW_PENDING",
+    "gitDiffCheck": "PASS: post-fixture-fix worker diff",
+    "preFixSql": "FAIL: exact PGlite selector exposed category_not_bookable in three booking fixtures; corrected fixture setup to enable proposal archetype, seed a live category city, and use an event window within max_lead_days.",
+    "codespaceApp": "PASS: exact requestReadback selector; 1 suite, 2 tests; snapshot d077d9f7.",
+    "codespaceSql": "PASS: exact oorva_o21_sv20 selector; 1 of 1 PGlite test files selected; snapshot 95571fa0.",
+    "migrationParser": "PASS: exact o21_sv20_oorva.sql selector; 1 parse file, 1 statement, 1 function body, 0 errors; snapshot f310f573.",
+    "focusedConcurrencyReview": "PASS: no actionable findings on head 5b15afdafd9d6b43d8df112f56aac49281ef48a0; re-review requested for final fixture-fix head.",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"

@@ -9,6 +9,14 @@ async function prepareAs(client, uid) {
   await client.query('set role authenticated');
 }
 
+async function setProposalEnabled(client, enabled) {
+  await client.query(`
+    update public.app_config
+       set value = value || jsonb_build_object('proposal', $1::boolean)
+     where key = $2::text
+  `, [enabled, 'archetype_flags']);
+}
+
 async function asPrepared(client, sql, params = []) {
   try {
     return await client.query(sql, params);
@@ -46,6 +54,10 @@ async function makeAcceptFixture(client) {
     returning id
   `, [`sv20-${randomUUID().replace(/-/g, '')}`, 'SV20 accept/cancel race'])).rows[0].id;
   await client.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, true, '2026-01-01T00:00:00Z'::timestamptz)
+  `, [categoryId, city]);
+  await client.query(`
     insert into public.providers (
       id, city, base_location, kyc_status, admin_review_status, submitted_at, is_online, paused, suspended
     ) values (
@@ -69,10 +81,10 @@ async function makeAcceptFixture(client) {
       budget_min, budget_max, status, expires_at
     ) values (
       $1::uuid, $2::uuid, $3::text, 'Central'::text,
-      '2040-04-14T10:00:00+05:30'::timestamptz,
-      '2040-04-14T14:00:00+05:30'::timestamptz,
+      '2027-04-14T10:00:00+05:30'::timestamptz,
+      '2027-04-14T14:00:00+05:30'::timestamptz,
       '{}'::jsonb, 50000::int, 200000::int, 'open'::text,
-      '2039-04-13T18:00:00Z'::timestamptz
+      '2027-04-13T18:00:00Z'::timestamptz
     )
     returning id
   `, [customerId, categoryId, city])).rows[0].id;
@@ -89,7 +101,7 @@ async function makeAcceptFixture(client) {
       request_id, provider_id, provider_service_id, version, status, total, valid_until, note, deliverables
     ) values (
       $1::uuid, $2::uuid, $3::uuid, 1::int, 'sent'::text, 100000::int,
-      '2039-04-13T18:00:00Z'::timestamptz, 'SV20 concurrency proposal'::text, '[]'::jsonb
+      '2027-04-13T18:00:00Z'::timestamptz, 'SV20 concurrency proposal'::text, '[]'::jsonb
     )
     returning id
   `, [requestId, providerId, providerServiceId])).rows[0].id;
@@ -155,7 +167,12 @@ export async function run(context) {
       `race requires two independent PostgreSQL backend PIDs: ${JSON.stringify(pids)}`);
     await first.query(`set statement_timeout = '20000ms'`);
     await second.query(`set statement_timeout = '20000ms'`);
+    const originalArchetypeFlags = (await first.query(`
+      select c.value from public.app_config c where c.key = $1::text
+    `, ['archetype_flags'])).rows[0]?.value;
+    await setProposalEnabled(first, true);
 
+    try {
     const readState = async (fixture) => (await first.query(`
       select jsonb_build_object(
         'request_status', r.status,
@@ -324,6 +341,19 @@ export async function run(context) {
         first.query('reset role').catch(() => undefined),
         second.query('reset role').catch(() => undefined),
       ]);
+    }
+    } finally {
+      await Promise.all([
+        first.query('reset role').catch(() => undefined),
+        second.query('reset role').catch(() => undefined),
+      ]);
+      if (originalArchetypeFlags !== undefined) {
+        await first.query(`
+          update public.app_config
+             set value = $1::jsonb
+           where key = $2::text
+        `, [JSON.stringify(originalArchetypeFlags), 'archetype_flags']);
+      }
     }
   });
 }
