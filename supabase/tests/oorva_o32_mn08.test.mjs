@@ -36,12 +36,11 @@ async function createFixture() {
   await db.query(`insert into public.admins (user_id) values ($1::uuid)`, [admin]);
   await db.query(`
     insert into public.providers (
-      id, bio, city, years_experience, kyc_status, admin_review_status,
-      razorpay_account_id, created_at, submitted_at, is_online, suspended, paused
+      id, city, base_location, kyc_status, submitted_at, admin_review_status,
+      is_online, paused, suspended, razorpay_account_id, jobs_completed
     ) values (
-      $1::uuid, 'MN08 fixture', $2::text, 5, 'verified', 'approved',
-      $3::text, '2026-01-15T12:00:00Z'::timestamptz,
-      '2026-01-15T12:00:00Z'::timestamptz, true, false, false
+      $1::uuid, $2::text, extensions.st_setsrid(extensions.st_makepoint(80.6, 16.5), 4326),
+      'verified', now(), 'approved', true, false, false, $3::text, 0
     )
   `, [provider, city, `acc_mn08_${suffix}`]);
   await db.query(`
@@ -53,6 +52,16 @@ async function createFixture() {
       365, true, array['daily','alternate_days','weekly','monthly','custom']::text[], 0
     )
   `, [category, `mn08-${suffix}`, `MN08 Service ${suffix}`]);
+  await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, $2::text, true, now())
+  `, [category, city]);
+  await db.query(`
+    insert into public.app_config (key, value)
+    values ('archetype_flags', '{"time_based":true}'::jsonb)
+    on conflict (key) do update
+      set value = public.app_config.value || excluded.value
+  `);
   await db.query(`
     insert into public.provider_services (id, provider_id, category_id, visit_fee, labour_rate, active)
     values ($1::uuid, $2::uuid, $3::uuid, 0, 10000, true)
@@ -77,7 +86,7 @@ async function createFixture() {
 
 async function createServiceBooking(fixture) {
   const booking = randomUUID();
-  const slot = new Date(Date.UTC(2030, 0, nextSlotDay++, 10)).toISOString();
+  const slot = new Date(Date.UTC(2027, 1, nextSlotDay++, 10)).toISOString();
   await db.query(`
     insert into public.bookings (
       id, customer_id, provider_id, category_id, provider_service_id, address_id,
@@ -135,7 +144,7 @@ async function createSportsBooking(fixture) {
   const venue = randomUUID();
   const resource = randomUUID();
   const booking = randomUUID();
-  const slot = new Date(Date.UTC(2030, 0, nextSlotDay++, 13)).toISOString();
+  const slot = new Date(Date.UTC(2027, 1, nextSlotDay++, 13)).toISOString();
   await db.query(`
     insert into public.sports_activities (id, slug, name, active)
     values ($1::uuid, $2::text, 'MN08 Activity', true)
