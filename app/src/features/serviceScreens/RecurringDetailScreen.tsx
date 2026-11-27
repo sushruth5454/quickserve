@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { useAppFeatureFlags, useFeature } from '../../lib/featureFlags';
@@ -18,6 +18,31 @@ import type { ChangeKind, Frequency, PlanStatus, RecurringPlanCapabilities } fro
 import { useAuth } from '../../lib/auth';
 import { useTheme } from '../../theme';
 import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
+
+type CustomerPlanSection = 'plan' | 'due' | 'decisions' | 'upcoming' | 'history' | 'management' | 'invalidTime';
+
+export function customerPlanLayoutOrder(layoutEnabled: boolean): CustomerPlanSection[] {
+  return layoutEnabled
+    ? ['plan', 'due', 'decisions', 'upcoming', 'history', 'management']
+    : ['plan', 'upcoming', 'history', 'management', 'invalidTime'];
+}
+
+export function currentDueOccurrence<T extends {
+  id: string;
+  scheduled_at: string;
+  can_pay?: boolean;
+  remaining_due_paise?: number | null;
+}>(visits: readonly T[]): T | null {
+  return [...visits]
+    .filter((visit) =>
+      visit.can_pay === true &&
+      typeof visit.remaining_due_paise === 'number' &&
+      Number.isFinite(visit.remaining_due_paise) &&
+      visit.remaining_due_paise > 0,
+    )
+    .sort((a, b) => Date.parse(a.scheduled_at) - Date.parse(b.scheduled_at) || a.id.localeCompare(b.id))[0] ?? null;
+}
 
 type PlanFields = Record<string, unknown> & {
   id: string;
@@ -134,6 +159,7 @@ function statusLabel(value: string) {
 
 function useRecurringDetailController() {
   const t = useTheme();
+  const identity = useBrandIdentity('recurring');
   const toast = useToast();
   const confirmDialog = useConfirm();
   const startPayment = usePayment();
@@ -141,6 +167,7 @@ function useRecurringDetailController() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const recurringEnabled = useFeature('recurring_bookings');
   const featureFlags = useAppFeatureFlags();
+  const layoutEnabled = featureFlags.isOn('oorva_recurring_ux');
   const skipPauseEnabled = featureFlags.isOn('recurring_skip_pause');
   const rescheduleEnabled = featureFlags.isOn('recurring_reschedule');
   const [detail, setDetail] = useState<PlanEnvelope | null>(null);
@@ -277,14 +304,48 @@ function useRecurringDetailController() {
 
   const { plan } = detail;
   const invalidTimeVisits = partition?.invalidTime ?? [];
-  return (
-    <Screen header={<Header title="Repeat plan" onBack={backToPlans} />} gap={t.spacing.md}>
+  const dueVisit = currentDueOccurrence(upcoming);
+  const upcomingWithoutDue = layoutEnabled && dueVisit
+    ? upcoming.filter((visit) => visit.id !== dueVisit.id)
+    : upcoming;
+  const renderUpcomingVisit = (visit: Occurrence) => (
+    <Card key={visit.id} gap={t.spacing.xs}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
+        <Text variant="calloutStrong">{formatMoment(visit.scheduled_at)}</Text>
+        <Chip label={statusLabel(visit.status)} />
+      </View>
+      {visit.total_amount != null ? (
+        <Text variant="footnote" color="textSecondary">Visit total: {formatINR(visit.total_amount)}</Text>
+      ) : null}
+      {visit.can_pay === true ? (
+        <View style={{ gap: t.spacing.xs }}>
+          <Text variant="footnoteStrong" color="warningText">
+            {visitPaymentLabel(visit, plan.timezone ?? 'Asia/Kolkata') ?? 'Payment is available; deadline unavailable.'}
+          </Text>
+          <Button
+            title="Pay now"
+            leftIcon="lock-closed"
+            loading={busy === visit.id}
+            disabled={!!busy && busy !== visit.id}
+            onPress={() => void payVisit(visit.id)}
+          />
+        </View>
+      ) : null}
+      <Button
+        title="View visit details"
+        variant="outline"
+        onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })}
+      />
+    </Card>
+  );
+  const planSection = (
+    <View style={{ gap: t.spacing.md }}>
       {!recurringEnabled ? (
         <InlineAlert tone="warning" title="Paused by Nearo" message="New repeat visits are paused while this feature is off. Your plan and existing visits remain available." />
       ) : null}
       <Card gap={t.spacing.sm}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
-          <Text variant="title3">Plan status</Text>
+          <Text variant="title3">{layoutEnabled ? `${identity.displayName} repeat plan` : 'Plan status'}</Text>
           <Chip label={statusLabel(plan.status)} selected />
         </View>
         <Text variant="body">{scheduleSummary(plan)}</Text>
@@ -292,106 +353,186 @@ function useRecurringDetailController() {
           Provider response: {statusLabel(plan.provider_acceptance)}
           {plan.acceptance_mode ? ` · ${plan.acceptance_mode === 'plan' ? 'Plan acceptance' : 'Visit-by-visit acceptance'}` : ''}
         </Text>
+        {layoutEnabled && plan.timezone ? (
+          <Text variant="footnote" color="muted">Plan time · {plan.timezone}</Text>
+        ) : null}
         {plan.billing_frequency ? <Text variant="footnote" color="textSecondary">Payment: {statusLabel(plan.billing_frequency)}</Text> : null}
       </Card>
-
       {error ? <InlineAlert tone="danger" title="Action could not be completed" message={error} /> : null}
-
-      {upcoming.length ? (
-        <View style={{ gap: t.spacing.sm }}>
-          <Text variant="title3">Upcoming visits</Text>
-          {upcoming.map((visit) => (
-            <Card key={visit.id} gap={t.spacing.xs}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: t.spacing.sm }}>
-                <Text variant="calloutStrong">{formatMoment(visit.scheduled_at)}</Text>
-                <Chip label={statusLabel(visit.status)} />
-              </View>
-              {visit.total_amount != null ? (
-                <Text variant="footnote" color="textSecondary">Visit total: {formatINR(visit.total_amount)}</Text>
-              ) : null}
-              {visit.can_pay === true ? (
-                <View style={{ gap: t.spacing.xs }}>
-                  <Text variant="footnoteStrong" color="warningText">
-                    {visitPaymentLabel(visit, plan.timezone ?? 'Asia/Kolkata') ?? 'Payment is available; deadline unavailable.'}
-                  </Text>
-                  <Button
-                    title="Pay now"
-                    leftIcon="lock-closed"
-                    loading={busy === visit.id}
-                    disabled={!!busy && busy !== visit.id}
-                    onPress={() => void payVisit(visit.id)}
-                  />
-                </View>
-              ) : null}
+    </View>
+  );
+  const dueSection = dueVisit ? (
+    <Card gap={t.spacing.xs}>
+      <Text variant="subheadStrong">Current visit payment</Text>
+      <Text variant="calloutStrong">{formatMoment(dueVisit.scheduled_at)}</Text>
+      <Text variant="footnoteStrong" color="warningText">
+        {visitPaymentLabel(dueVisit, plan.timezone ?? 'Asia/Kolkata') ?? 'Payment is available; deadline unavailable.'}
+      </Text>
+      <Button
+        title="Pay now"
+        leftIcon="lock-closed"
+        loading={busy === dueVisit.id}
+        disabled={!!busy && busy !== dueVisit.id}
+        onPress={() => void payVisit(dueVisit.id)}
+      />
+      <Button
+        title="View visit details"
+        variant="outline"
+        onPress={() => router.push({ pathname: '/booking/[id]', params: { id: dueVisit.id } })}
+      />
+    </Card>
+  ) : (
+    <Text variant="footnote" color="muted">No current visit payment is due.</Text>
+  );
+  const decisionSection = (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3" accessibilityRole="header">Provider decisions</Text>
+      <Card gap={t.spacing.xs}>
+        <Text variant="calloutStrong">
+          {plan.provider_acceptance === 'pending'
+            ? 'Waiting for the provider to review this plan.'
+            : plan.provider_acceptance === 'declined'
+              ? 'The provider declined this plan.'
+              : 'The provider accepted this plan.'}
+        </Text>
+        {plan.provider_acceptance === 'declined' && typeof plan.decline_reason === 'string' && plan.decline_reason.trim()
+          ? <Text variant="footnote" color="textSecondary">{plan.decline_reason}</Text>
+          : null}
+      </Card>
+      {pendingReschedules.map((pending) => (
+        <Card key={pending.change.id} gap={t.spacing.xs}>
+          <Text variant="calloutStrong">
+            {pending.requester === 'customer'
+              ? 'Waiting for the provider to respond to your time request.'
+              : 'The provider requested a different visit time.'}
+          </Text>
+          {pending.change.new_at ? (
+            <Text variant="footnote" color="textSecondary">{formatMoment(pending.change.new_at)}</Text>
+          ) : null}
+          {pending.canRespond && actions?.reschedule ? (
+            <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
               <Button
-                title="View visit details"
-                variant="outline"
-                onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })}
+                title="Accept new time"
+                size="sm"
+                variant="secondary"
+                onPress={() => confirm(
+                  'Accept this time?',
+                  'Accepting moves this visit to the proposed time; charges stay governed by your plan.',
+                  () => void run('reschedule', () => respondVisitReschedule(pending.change.id, true), 'New visit time accepted.'),
+                )}
+                loading={busy === 'reschedule'}
+                style={{ flex: 1 }}
               />
-            </Card>
-          ))}
-        </View>
-      ) : (
-        <EmptyState icon="calendar-outline" title="No upcoming visits" message="New visits will appear here when the plan is accepted and scheduled." compact />
+              <Button
+                title="Decline"
+                size="sm"
+                variant="outline"
+                onPress={() => confirm(
+                  'Decline this time?',
+                  'The visit keeps its original time and no new charge is made.',
+                  () => void run('reschedule', () => respondVisitReschedule(pending.change.id, false), 'Reschedule declined.'),
+                )}
+                disabled={!!busy}
+                style={{ flex: 1 }}
+              />
+            </View>
+          ) : null}
+        </Card>
+      ))}
+    </View>
+  );
+  const upcomingSection = upcomingWithoutDue.length ? (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Upcoming visits</Text>
+      {upcomingWithoutDue.map(renderUpcomingVisit)}
+    </View>
+  ) : (
+    <EmptyState icon="calendar-outline" title="No upcoming visits" message="New visits will appear here when the plan is accepted and scheduled." compact />
+  );
+  const pastSection = past.length ? (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Past visits</Text>
+      {past.map((visit) => (
+        <Card key={visit.id} onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })} gap={t.spacing.xs}>
+          <Text variant="calloutStrong">{formatMoment(visit.scheduled_at)}</Text>
+          <Text variant="footnote" color="textSecondary">{statusLabel(visit.status)}</Text>
+        </Card>
+      ))}
+    </View>
+  ) : null;
+  const changesSection = (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Plan changes</Text>
+      {detail.changes.length ? detail.changes.map((change) => (
+        <Card key={change.id} gap={t.spacing.xs}>
+          <Text variant="calloutStrong">{statusLabel(change.kind)}</Text>
+          {change.occurrence_date ? <Text variant="footnote" color="textSecondary">{change.occurrence_date}</Text> : null}
+          {change.new_at ? <Text variant="footnote" color="textSecondary">Proposed time: {formatMoment(change.new_at)}</Text> : null}
+          {change.reason ? <Text variant="footnote" color="textSecondary">{change.reason}</Text> : null}
+          {!layoutEnabled && pendingReschedules.some((pending) => pending.change.id === change.id && pending.requester === 'customer') ? (
+            <Text variant="footnote" color="muted">Waiting for the provider to respond to your request.</Text>
+          ) : null}
+          {!layoutEnabled && pendingReschedules.some((pending) => pending.change.id === change.id && pending.canRespond) && actions?.reschedule ? (
+            <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
+              <Button
+                title="Accept new time"
+                size="sm"
+                variant="secondary"
+                onPress={() => confirm(
+                  'Accept this time?',
+                  'Accepting moves this visit to the proposed time; charges stay governed by your plan.',
+                  () => void run('reschedule', () => respondVisitReschedule(change.id, true), 'New visit time accepted.'),
+                )}
+                loading={busy === 'reschedule'}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Decline"
+                size="sm"
+                variant="outline"
+                onPress={() => confirm(
+                  'Decline this time?',
+                  'The visit keeps its original time and no new charge is made.',
+                  () => void run('reschedule', () => respondVisitReschedule(change.id, false), 'Reschedule declined.'),
+                )}
+                disabled={!!busy}
+                style={{ flex: 1 }}
+              />
+            </View>
+          ) : null}
+          {layoutEnabled && change.booking_id ? (
+            <Button
+              title="Open affected visit"
+              size="sm"
+              variant="outline"
+              onPress={() => router.push({ pathname: '/booking/[id]', params: { id: change.booking_id! } })}
+            />
+          ) : null}
+        </Card>
+      )) : (
+        <Text variant="footnote" color="muted">No plan changes yet.</Text>
       )}
-
-      {past.length ? (
+    </View>
+  );
+  const historySection = (
+    <View style={{ gap: t.spacing.md }}>
+      {pastSection}
+      {changesSection}
+      {layoutEnabled && invalidTimeVisits.length ? (
         <View style={{ gap: t.spacing.sm }}>
-          <Text variant="title3">Past visits</Text>
-          {past.map((visit) => (
+          <Text variant="title3">Visits without a valid time</Text>
+          {invalidTimeVisits.map((visit) => (
             <Card key={visit.id} onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })} gap={t.spacing.xs}>
-              <Text variant="calloutStrong">{formatMoment(visit.scheduled_at)}</Text>
+              <Text variant="calloutStrong">Visit time unavailable</Text>
               <Text variant="footnote" color="textSecondary">{statusLabel(visit.status)}</Text>
             </Card>
           ))}
         </View>
       ) : null}
-
-      <View style={{ gap: t.spacing.sm }}>
-        <Text variant="title3">Plan changes</Text>
-        {detail.changes.length ? detail.changes.map((change) => (
-          <Card key={change.id} gap={t.spacing.xs}>
-            <Text variant="calloutStrong">{statusLabel(change.kind)}</Text>
-            {change.occurrence_date ? <Text variant="footnote" color="textSecondary">{change.occurrence_date}</Text> : null}
-            {change.new_at ? <Text variant="footnote" color="textSecondary">Proposed time: {formatMoment(change.new_at)}</Text> : null}
-            {change.reason ? <Text variant="footnote" color="textSecondary">{change.reason}</Text> : null}
-            {pendingReschedules.some((pending) => pending.change.id === change.id && pending.requester === 'customer') ? (
-              <Text variant="footnote" color="muted">Waiting for the provider to respond to your request.</Text>
-            ) : null}
-            {pendingReschedules.some((pending) => pending.change.id === change.id && pending.canRespond) && actions?.reschedule ? (
-              <View style={{ flexDirection: 'row', gap: t.spacing.sm }}>
-                <Button
-                  title="Accept new time"
-                  size="sm"
-                  variant="secondary"
-                  onPress={() => confirm(
-                    'Accept this time?',
-                    'Accepting moves this visit to the proposed time; charges stay governed by your plan.',
-                    () => void run('reschedule', () => respondVisitReschedule(change.id, true), 'New visit time accepted.'),
-                  )}
-                  loading={busy === 'reschedule'}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="Decline"
-                  size="sm"
-                  variant="outline"
-                  onPress={() => confirm(
-                    'Decline this time?',
-                    'The visit keeps its original time and no new charge is made.',
-                    () => void run('reschedule', () => respondVisitReschedule(change.id, false), 'Reschedule declined.'),
-                  )}
-                  disabled={!!busy}
-                  style={{ flex: 1 }}
-                />
-              </View>
-            ) : null}
-          </Card>
-        )) : (
-          <Text variant="footnote" color="muted">No plan changes yet.</Text>
-        )}
-      </View>
-
+    </View>
+  );
+  const managementSection = (
+    <View style={{ gap: t.spacing.md }}>
       {actions?.skip && actions.skipOccurrenceId ? (
         <Button
           title="Skip next visit"
@@ -443,17 +584,35 @@ function useRecurringDetailController() {
           fullWidth
         />
       ) : null}
-      {invalidTimeVisits.length ? (
-        <View style={{ gap: t.spacing.sm }}>
-          <Text variant="title3">Visits without a valid time</Text>
-          {invalidTimeVisits.map((visit) => (
-            <Card key={visit.id} onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })} gap={t.spacing.xs}>
-              <Text variant="calloutStrong">Visit time unavailable</Text>
-              <Text variant="footnote" color="textSecondary">{statusLabel(visit.status)}</Text>
-            </Card>
-          ))}
+    </View>
+  );
+  const invalidTimeSection = invalidTimeVisits.length ? (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Visits without a valid time</Text>
+      {invalidTimeVisits.map((visit) => (
+        <Card key={visit.id} onPress={() => router.push({ pathname: '/booking/[id]', params: { id: visit.id } })} gap={t.spacing.xs}>
+          <Text variant="calloutStrong">Visit time unavailable</Text>
+          <Text variant="footnote" color="textSecondary">{statusLabel(visit.status)}</Text>
+        </Card>
+      ))}
+    </View>
+  ) : null;
+  const sections: Record<CustomerPlanSection, ReactNode> = {
+    plan: planSection,
+    due: dueSection,
+    decisions: decisionSection,
+    upcoming: upcomingSection,
+    history: historySection,
+    management: managementSection,
+    invalidTime: invalidTimeSection,
+  };
+  return (
+    <Screen header={<Header title="Repeat plan" onBack={backToPlans} />} gap={t.spacing.md}>
+      {customerPlanLayoutOrder(layoutEnabled).map((section) => (
+        <View key={section} testID={`recurring-customer-section-${section}`}>
+          {sections[section]}
         </View>
-      ) : null}
+      ))}
     </Screen>
   );
 }

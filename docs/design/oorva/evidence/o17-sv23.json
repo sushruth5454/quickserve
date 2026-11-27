@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O17-SV23",
+  "workPackage": "O17",
+  "status": "VALIDATED",
+  "base": {
+    "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationSha": "6276036a973014e15e717a4ce21881bb87ac199b",
+    "wasModified": false
+  },
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O03",
+      "sha": "99a9f22bb39fb159637852bf2eaffa797401abe9",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O05I",
+      "sha": "bfc18878a3ecd25f1f6ddf8d694f9346564a763f",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O06B",
+      "sha": "1d8736305297adc4f64a2a526661d934e34d53f3",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O08",
+      "sha": "fc73dd35f4b5cc53c2064e5431978089965abb21",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O17-PLAN",
+      "sha": "f641f6267061d71f95a1fd86d718b0c71db6e342",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O17-SV07",
+      "sha": "8cdc9e8ea023e30fb1f74c1496c4a637d9aefea7",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O17-SV18",
+      "sha": "c79b28a0bf68781316c611f8a5c3f099854c4a70",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    },
+    {
+      "stageId": "O21-SV04",
+      "sha": "58845abe9286769af16634c90899ab5f4e338b3c",
+      "state": "VERIFIED_ANCESTOR_OF_BASE"
+    }
+  ],
+  "sourceTaskIds": [
+    "SV-T23"
+  ],
+  "sourceFindingIds": [
+    "SV-F18"
+  ],
+  "migrationClaims": [],
+  "featureKeys": [
+    "oorva_recurring_ux"
+  ],
+  "identityContexts": [
+    "recurring"
+  ],
+  "identityEffectiveCondition": "oorva_brand only; independent of the Class-C recurring layout leaf.",
+  "newFeatureFlagKeys": [],
+  "approvals": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "E1": "NOT_IN_SCOPE"
+  },
+  "workerOwnedFiles": [
+    "app\\src\\features\\recurring\\__tests__\\layout.test.tsx",
+    "app\\src\\features\\activity\\__tests__\\recurringScreens.test.ts",
+    "app\\src\\features\\serviceScreens\\MerchantCalendarScreen.tsx",
+    "app\\src\\features\\serviceScreens\\RecurringDetailScreen.tsx",
+    "app\\src\\features\\serviceScreens\\RecurringNewDetailScreen.tsx",
+    "app\\src\\features\\serviceScreens\\RecurringProviderDetailScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o17-sv23.json"
+  ],
+  "routeHostBindings": {
+    "S49": {
+      "route": "app\\app\\merchant-calendar.tsx",
+      "host": "app\\src\\features\\serviceScreens\\MerchantCalendarScreen.tsx",
+      "routeState": "UNCHANGED",
+      "controller": "useMerchantCalendarController"
+    },
+    "S68": {
+      "route": "app\\app\\recurring\\[id].tsx",
+      "host": "app\\src\\features\\serviceScreens\\RecurringDetailScreen.tsx",
+      "routeState": "UNCHANGED",
+      "controller": "useRecurringDetailController"
+    },
+    "S69": {
+      "route": "app\\app\\recurring\\new\\[providerServiceId].tsx",
+      "host": "app\\src\\features\\serviceScreens\\RecurringNewDetailScreen.tsx",
+      "routeState": "UNCHANGED",
+      "controller": "useRecurringNewDetailController"
+    },
+    "S70": {
+      "route": "app\\app\\recurring\\provider\\[id].tsx",
+      "host": "app\\src\\features\\serviceScreens\\RecurringProviderDetailScreen.tsx",
+      "routeState": "UNCHANGED",
+      "controller": "useRecurringProviderDetailController"
+    }
+  },
+  "implementation": [
+    "The canonical layout leaf oorva_recurring_ux gates all composition changes and remains parent-gated by oorva_brand; the default-OFF and parent-OFF branches retain the legacy hierarchy.",
+    "S49 resolves the provider business and timezone before a compact Day/Week/date toolbar, groups visits in provider-local dates, and preserves exact visit and plan routes.",
+    "S68 elevates the customer plan and earliest payable visit, surfaces provider and reschedule decisions before upcoming visits, and retains exhaustive history and capability-derived management.",
+    "S69 places provider/package context before recurrence input, moves detailed quote review after address/instructions, and keeps one compact total-per-visit/request footer with a specific blocker.",
+    "S70 presents provider business/timezone and composite plan context before conflicts and other-party responses; upcoming, completed, and exhaustive history retain contextual visit actions.",
+    "Existing per-visit billing, no-discount controls, server-derived payment/acceptance/reschedule capabilities, time-off warning without automatic cancellation, exact occurrence links, and masked private reads remain intact."
+  ],
+  "featureOffBehavior": [
+    "oorva_recurring_ux OFF or oorva_brand parent OFF selects the existing screen hierarchy.",
+    "Existing cancellation, payment, history, time-off reporting, and server-capability semantics remain independent of the presentation flag."
+  ],
+  "requiredCases": [
+    "customerActionPriority",
+    "providerBusinessContext",
+    "exhaustiveHistory",
+    "compactCreationReview",
+    "calendarDayWeekLinks",
+    "layoutOffKeepsSemanticFixes"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "appTests": {
+      "command": "-Suite app -Filter 'src.features.recurring.__tests__.layout[.]test[.]tsx$'",
+      "state": "PASS",
+      "wipSnapshotPrefix": "90f93070",
+      "selectedFiles": 1,
+      "passedTests": 6,
+      "failedTests": 0
+    },
+    "activityTests": {
+      "command": "-Suite jest -Filter 'src.features.activity.__tests__.recurringScreens[.]test[.]ts$'",
+      "state": "PASS",
+      "wipSnapshotPrefix": "a0dd733b",
+      "selectedFiles": 1,
+      "passedTests": 9,
+      "failedTests": 0
+    },
+    "creationReadinessRegression": {
+      "command": "-Suite jest -Filter 'src.features.recurring.__tests__.creationReadiness[.]test[.]tsx$'",
+      "state": "PASS",
+      "wipSnapshotPrefix": "3551fc57",
+      "selectedFiles": 1,
+      "passedTests": 17,
+      "failedTests": 0
+    },
+    "helperSource": "origin/main:scripts/cs-test.ps1",
+    "localAppBuildOrTests": "NOT_RUN",
+    "lanePush": "PUSHED_EXACT_HEAD",
+    "laneCI": {
+      "state": "SUCCESS",
+      "ref": "lane/oorva-o17-sv23",
+      "codeHeadSha": "8cb4546ea9c8e4ef81c7ed5a5362ab686e48e6d5",
+      "runId": 45986935456,
+      "conclusion": "success",
+      "coordinatorRegistration": "delta-o17-sv23-lane-evidence-20261127"
+    },
+    "mainPromotion": "NOT_IN_SCOPE",
+    "runtimeDeviceEvidence": "NOT_VERIFIED",
+    "privateE2E": "NOT_RUN"
+  },
+  "priorCodespaceAttempts": [
+    {
+      "wipSnapshotPrefix": "0d2bc56f",
+      "state": "RED_TEST_FIRST",
+      "resolution": "Missing planned exports were implemented; screen-module test imports were isolated with lightweight mocks."
+    },
+    {
+      "wipSnapshotPrefix": "eaeffde8",
+      "state": "FAILED_ASSERTION",
+      "resolution": "Corrected the provider layout-order expectation; contextual management remains in visit cards."
+    },
+    {
+      "wipSnapshotPrefix": "f5a8319a",
+      "state": "FAILED_TEST_STRUCTURE",
+      "resolution": "Moved layoutOffKeepsSemanticFixes out of the preceding test block."
+    },
+    {
+      "wipSnapshotPrefix": "b7263172",
+      "state": "FAILED_REGRESSION_SELECTOR",
+      "resolution": "Removed the new-screen identity-module import so the existing creation-readiness test does not load AsyncStorage outside its provider."
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import {
   getFixedBookingModeOptions,
   getRecurringPlanActions,
   getRecurringQuoteSummary,
+  partitionRecurringOccurrences,
   shouldShowRepeatPlansFilter,
   visibleBillingFrequencies,
 } from '../../recurring/customerPresentation';
@@ -65,6 +66,32 @@ describe('customer recurring screens', () => {
       resume: false,
       reschedule: false,
       cancel: true,
+    });
+  });
+
+  it('layoutOffKeepsSemanticFixes preserves safe cancellation and exhaustive occurrence history', () => {
+    const actions = getRecurringPlanActions('active', false, false);
+    const visits = [
+      { id: 'due', scheduled_at: '2026-12-01T10:00:00Z', status: 'pending_payment' },
+      { id: 'completed', scheduled_at: '2026-11-01T10:00:00Z', status: 'completed' },
+      { id: 'unknown', scheduled_at: '2026-11-02T10:00:00Z', status: 'new_status' },
+      { id: 'invalid', scheduled_at: 'not-a-date', status: 'accepted' },
+    ];
+    const partition = partitionRecurringOccurrences(visits, Date.parse('2026-11-15T00:00:00Z'));
+    const visible = [
+      ...Object.values(partition.past).flat(),
+      ...Object.values(partition.future).flat(),
+      ...partition.invalidTime,
+    ];
+
+    expect({
+      cancelRemainsAvailable: actions.cancel,
+      occurrenceIds: visible.map(({ id }) => id).sort(),
+      uniqueCount: new Set(visible.map(({ id }) => id)).size,
+    }).toEqual({
+      cancelRemainsAvailable: true,
+      occurrenceIds: ['completed', 'due', 'invalid', 'unknown'],
+      uniqueCount: visits.length,
     });
   });
 
