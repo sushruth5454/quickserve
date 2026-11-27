@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { StatusPill } from '../../components/status';
@@ -29,6 +29,7 @@ import { useTheme } from '../../theme';
 import type { BusinessProviderContext } from '../merchantStaff/api';
 import { WINDOW_START_HOURS } from '../../lib/schedule';
 import { resolvePendingRescheduleChanges } from '../recurring/customerPresentation';
+import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
 
 const REPORTABLE_STATUSES = new Set(['pending_payment', 'requested', 'accepted', 'confirmed']);
 
@@ -84,7 +85,8 @@ function useRecurringProviderDetailController() {
   const [newHour, setNewHour] = useState<number | null>(null);
   const [rescheduleReason, setRescheduleReason] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    if (!guard.isCurrent()) return;
     if (!id) {
       setError('Recurring plan ID is missing.');
       setLoading(false);
@@ -96,6 +98,7 @@ function useRecurringProviderDetailController() {
     setScheduleError(null);
     try {
       const nextPayload = await getProviderRecurringPlan(id);
+      if (!guard.isCurrent()) return;
       setPayload(nextPayload);
       if (requestedProviderId && requestedProviderId !== nextPayload.plan.provider_id) {
         setProvider(null);
@@ -108,6 +111,7 @@ function useRecurringProviderDetailController() {
         getMyProviderBusinessContext(providerId),
         onboardingApi.getProviderSchedule(nextPayload.plan.provider_id),
       ]);
+      if (!guard.isCurrent()) return;
       if (contextResult.status === 'fulfilled') {
         setProvider(contextResult.value);
       } else {
@@ -121,16 +125,17 @@ function useRecurringProviderDetailController() {
         setScheduleError((scheduleResult.reason as Error).message);
       }
     } catch (loadFailure) {
-      setPayload(null);
-      setError((loadFailure as Error).message);
+      if (guard.isCurrent()) setError((loadFailure as Error).message);
     } finally {
-      setLoading(false);
+      if (guard.isCurrent()) setLoading(false);
     }
   }, [id, requestedProviderId]);
 
-  useFocusEffect(useCallback(() => {
-    void load();
-  }, [load]));
+  const { refresh, refreshing } = useFocusedServiceRefresh(load, {
+    contextKey: `provider-plan:${userId ?? 'anonymous'}:${id ?? ''}:${requestedProviderId ?? ''}`,
+    enabled: true,
+    intervalMs: id ? 30_000 : null,
+  });
 
   const plan = payload?.plan;
   const canManage = !!plan && canManageRecurringPlanContext(
@@ -173,7 +178,7 @@ function useRecurringProviderDetailController() {
       setNewDate('');
       setNewHour(null);
       setRescheduleReason('');
-      await load();
+      await refresh();
     } catch (actionFailure) {
       setError((actionFailure as Error).message);
     } finally {
@@ -366,13 +371,13 @@ function useRecurringProviderDetailController() {
     <Screen
       header={<Header title="Recurring plan" subtitle={plan ? formatRecurrence(plan) : undefined} onBack={() => router.back()} />}
       gap={t.spacing.md}
-      refreshing={loading}
-      onRefresh={() => void load()}
+      refreshing={loading || refreshing}
+      onRefresh={() => void refresh()}
     >
       {loading && !payload ? (
         <SkeletonCard lines={4} />
       ) : error && !payload ? (
-        <ErrorState message={error} onRetry={() => void load()} />
+        <ErrorState message={error} onRetry={() => void refresh()} />
       ) : plan && payload ? (
         <>
           {!flags.isOn('recurring_bookings') ? (

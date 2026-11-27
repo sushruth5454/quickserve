@@ -10,6 +10,27 @@ import {
   visibleActivityUnreadCounts,
 } from '../model';
 
+jest.doMock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
+jest.doMock('react-native', () => ({
+  AppState: { currentState: 'active', addEventListener: () => ({ remove: jest.fn() }) },
+  Platform: { OS: 'web' },
+  View: 'View',
+}));
+jest.doMock('../../../components/CategoryIcon', () => ({ CategoryIcon: 'CategoryIcon', iconForSlug: jest.fn() }));
+jest.doMock('../../../components/ui', () => ({
+  Card: 'Card',
+  EmptyState: 'EmptyState',
+  ErrorState: 'ErrorState',
+  InlineAlert: 'InlineAlert',
+  Skeleton: 'Skeleton',
+  Text: 'Text',
+}));
+jest.doMock('../../../lib/api', () => ({ listMyServiceRequests: jest.fn() }));
+jest.doMock('../../../lib/auth', () => ({ useAuth: () => ({ userId: 'customer-1' }) }));
+jest.doMock('../../../theme', () => ({ useTheme: () => ({ spacing: { sm: 8 }, radii: { lg: 12 } }) }));
+
+const { requestRefreshErrorState } = require('../segments/RequestsSegment') as typeof import('../segments/RequestsSegment');
+
 const counts = { services: 5, requests: 3, shop: 7, sports: 11 };
 
 describe('customer activity model', () => {
@@ -125,5 +146,11 @@ describe('customer activity model', () => {
       shop: 0,
       sports: 11,
     });
+  });
+
+  it('shows a refresh warning while retaining request rows', () => {
+    expect(requestRefreshErrorState('The request list could not be refreshed.', [])).toBe('stale-warning');
+    expect(requestRefreshErrorState('The request list could not be refreshed.', null)).toBe('initial-error');
+    expect(requestRefreshErrorState(null, [])).toBeNull();
   });
 });

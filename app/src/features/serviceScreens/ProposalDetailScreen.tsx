@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, ErrorState, Header, InlineAlert, Screen, Section, Skeleton, Text } from '../../components/ui';
 import * as api from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { formatINR } from '../../lib/money';
 import { useSelectedLocation } from '../../lib/locationContext';
 import { usePayment } from '../../lib/payments';
@@ -18,9 +19,11 @@ import {
 } from '../proposals/api';
 import { RequestQuestionThread } from '../proposals/RequestQuestionThread';
 import { proposalFeeChanged, proposalFeeLabel } from '../proposals/model';
+import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
 
 export default function ProposalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { userId } = useAuth();
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [viewState, setViewState] = useState<ProposalViewState | null>(null);
   const [feePreview, setFeePreview] = useState<ProposalFeePreview | null>(null);
@@ -34,63 +37,50 @@ export default function ProposalDetailScreen() {
   const providerView = viewState?.viewer_role === 'owner' || viewState?.viewer_role === 'manager';
   const status = proposal && viewState ? proposalStatus(proposal, viewState) : null;
 
-  const refresh = async () => {
-    if (!id) return;
-    const [nextProposal, nextView] = await Promise.all([api.getProposal(id), getProposalViewState(id)]);
-    setProposal(nextProposal);
-    setViewState(nextView);
-    setError(null);
-    setAcceptError(null);
-    if (nextView.can_accept) {
-      try {
-        setFeePreview(await getProposalFeePreview(id));
-        setFeePreviewError(null);
-      } catch (caught) {
-        setFeePreview(null);
-        setFeePreviewError((caught as Error).message);
-      }
-    } else {
-      setFeePreview(null);
-      setFeePreviewError(null);
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    if (!guard.isCurrent()) return;
+    if (!id) {
+      setError('This proposal is no longer available.');
+      return;
     }
-  };
 
-  useEffect(() => {
-    if (!id) return;
-    let active = true;
-    void Promise.all([api.getProposal(id), getProposalViewState(id)])
-      .then(async ([nextProposal, nextView]) => {
-        if (!active) return;
-        setProposal(nextProposal);
-        setViewState(nextView);
-        if (nextView.can_accept) {
-          try {
-            const preview = await getProposalFeePreview(id);
-            if (active) {
-              setFeePreview(preview);
-              setFeePreviewError(null);
-            }
-          } catch (caught) {
-            if (active) {
-              setFeePreview(null);
-              setFeePreviewError((caught as Error).message);
-            }
-          }
-        } else {
-          setFeePreview(null);
-          setFeePreviewError(null);
-        }
-        if (nextView.viewer_role === 'owner' || nextView.viewer_role === 'manager') {
-          void getCreatorProposalConfig().then((config) => {
-            if (active) setDefaultRevisions(config.defaultRevisions);
-          }).catch(() => undefined);
-        }
-      })
-      .catch((caught: Error) => {
-        if (active) setError(caught.message);
-      });
-    return () => { active = false; };
+    setError(null);
+    try {
+      const [nextProposal, nextView] = await Promise.all([api.getProposal(id), getProposalViewState(id)]);
+      if (!guard.isCurrent()) return;
+
+      setProposal(nextProposal);
+      setViewState(nextView);
+      const providerRole = nextView.viewer_role === 'owner' || nextView.viewer_role === 'manager';
+      const feeRequest = nextView.can_accept ? getProposalFeePreview(id) : Promise.resolve(null);
+      const configRequest = providerRole ? getCreatorProposalConfig() : Promise.resolve(null);
+      const [feeResult, configResult] = await Promise.allSettled([feeRequest, configRequest]);
+      if (!guard.isCurrent()) return;
+
+      if (feeResult.status === 'fulfilled') {
+        setFeePreview(feeResult.value);
+        setFeePreviewError(null);
+      } else {
+        setFeePreview(null);
+        setFeePreviewError((feeResult.reason as Error).message);
+      }
+      if (configResult.status === 'fulfilled' && configResult.value) {
+        setDefaultRevisions(configResult.value.defaultRevisions);
+      } else if (!providerRole) {
+        setDefaultRevisions(1);
+      }
+      setError(null);
+      setAcceptError(null);
+    } catch (caught) {
+      if (guard.isCurrent()) setError((caught as Error).message);
+    }
   }, [id]);
+
+  const { refresh } = useFocusedServiceRefresh(load, {
+    contextKey: `proposal:${userId ?? 'anonymous'}:${id ?? ''}`,
+    enabled: true,
+    intervalMs: id ? 30_000 : null,
+  });
 
   const accept = async () => {
     if (!proposal || !viewState?.can_accept) return;
@@ -158,8 +148,11 @@ export default function ProposalDetailScreen() {
         ? <Button title={`Accept & reserve · ${formatINR(proposal.total)}`} fullWidth size="lg" loading={busy} disabled={!feePreview} onPress={() => void accept()} />
         : undefined}
     >
-      {error ? <ErrorState message={error} onRetry={() => void refresh().catch((caught: Error) => setError(caught.message))} /> : !proposal || !viewState ? <Skeleton height={260} /> : (
+      {!proposal || !viewState ? (
+        error ? <ErrorState message={error} onRetry={() => void refresh()} /> : <Skeleton height={260} />
+      ) : (
         <>
+          {error ? <InlineAlert title="Proposal could not be refreshed" message={error} /> : null}
           {acceptError ? <InlineAlert title="Could not continue yet" message={acceptError} /> : null}
           {feePreviewError && viewState.can_accept
             ? <InlineAlert title="Fee preview unavailable" message={feePreviewError} />
