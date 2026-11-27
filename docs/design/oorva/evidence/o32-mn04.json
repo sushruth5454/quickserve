@@ -14,6 +14,15 @@
     "path": "supabase\\migrations\\0135_o32_mn04_oorva.sql",
     "function": "public.admin_retry_refund(uuid)"
   },
+  "registration": {
+    "state": "REGISTERED",
+    "registrationCommit": "07de3a24463b7f3630febb4771041c4a5b9278cf",
+    "pgliteSelector": "oorva_o32_mn04",
+    "migrationSelector": "o32_mn04_oorva.sql",
+    "privatePostgresStep": "node run.mjs",
+    "privatePostgresStackRequired": true,
+    "registrationHasTestSuccessClaim": false
+  },
   "behavior": {
     "reservationLockOrder": [
       "Read the target refund payment_id without mutation.",
@@ -45,7 +54,8 @@
         "MN-REFUND-RETRY-STATE-REFUNDED",
         "MN-OFF-SAFETY"
       ],
-      "status": "AUTHORED_NOT_RUN"
+      "status": "PASS_CODESPACE",
+      "result": "One selected test file; all eight refund-retry scenarios passed."
     },
     {
       "path": "supabase\\tests-postgres\\o32_mn04.pg.test.mjs",
@@ -53,7 +63,8 @@
         "MN-REFUND-RETRY-CONCURRENT",
         "MN-REFUND-RETRY-CHILD-LOCK-CONTENTION"
       ],
-      "status": "AUTHORED_NOT_RUN",
+      "status": "PASS_LANE_CI",
+      "result": "PASS o32_mn04.pg.test.mjs; 9 discovered private PostgreSQL tests passed in the disposable lane stack.",
       "executionGate": "O37A private job against disposable stack only; requires overlapping transactions and distinct backend PIDs."
     }
   ],
@@ -114,13 +125,77 @@
   ],
   "review": {
     "required": "CONCURRENCY",
-    "status": "PENDING_SEPARATE_MONEY_AND_CONCURRENCY_REVIEW"
+    "status": "PASS_NO_ACTIONABLE_FINDINGS",
+    "reviewedHead": "07de3a24463b7f3630febb4771041c4a5b9278cf",
+    "scope": "public.admin_retry_refund and O32 implementation; lock ordering, capacity-reservation races, and reject-side-effect guarantees.",
+    "result": "No actionable findings."
   },
   "validation": {
-    "status": "PAUSED_FOR_REGISTRATION",
+    "status": "CODE_GREEN",
     "localTestsBuildsAndInstalls": "NOT RUN",
-    "codespace": "BLOCKED_PENDING_COORDINATOR_REGISTRATION_SHA_AND_SELECTION_PROOF",
-    "privatePostgres": "BLOCKED_PENDING_O37A_PRIVATE_JOB",
-    "laneCi": "NOT RUN"
+    "gitDiffCheck": "PASS",
+    "codespace": "PASS_CURRENT_MAIN_HELPER_SELECTORS",
+    "codespaceSelectors": {
+      "tsc": {
+        "snapshotRef": "wip/qs-o32-mn04-resume-bb25f20-tsc2",
+        "snapshotSha": "047f33ab",
+        "selectedCommand": "cd app && npx tsc --noEmit",
+        "result": "PASS"
+      },
+      "pglite": {
+        "filter": "oorva_o32_mn04",
+        "snapshotRef": "wip/qs-o32-mn04-resume-bb25f20-sql2",
+        "snapshotSha": "a2195fac",
+        "selectedTest": "node oorva_o32_mn04.test.mjs",
+        "testFiles": 1,
+        "parseChecks": 0,
+        "checksPassed": 1,
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "filter": "o32_mn04_oorva.sql",
+        "snapshotRef": "wip/qs-o32-mn04-resume-bb25f20-parser2",
+        "snapshotSha": "0cf9021a",
+        "selectedCommand": "node parse.cjs ../migrations/0135_o32_mn04_oorva.sql",
+        "testFiles": 0,
+        "parseChecks": 1,
+        "checksPassed": 1,
+        "result": "PASS"
+      }
+    },
+    "privatePostgres": "PASS_DISPOSABLE_LANE_CI",
+    "privatePostgresHistory": {
+      "firstRun": {
+        "runId": 45968978099,
+        "headSha": "b14d73c354fa65f01490d71ebf026df03d147913",
+        "conclusion": "FAILURE",
+        "failure": "Only o32_mn04.pg.test.mjs failed: category_not_bookable from the fixture's 2035 booking date exceeding the category's 365-day maximum lead window. Other lane jobs passed."
+      },
+      "correctedRun": {
+        "runId": 45970016515,
+        "headSha": "6c0b43badb0ebffe57123cc95e42ad6445076969",
+        "conclusion": "SUCCESS",
+        "job": "private-postgres",
+        "test": "PASS o32_mn04.pg.test.mjs",
+        "discoveredTestsPassed": 9
+      }
+    },
+    "laneCi": {
+      "runId": 45970016515,
+      "headSha": "6c0b43badb0ebffe57123cc95e42ad6445076969",
+      "branch": "lane/oorva-o32-mn04-resume-bb25f20",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "changes": "SUCCESS",
+        "sql": "SUCCESS",
+        "deno": "SUCCESS",
+        "app": "SUCCESS",
+        "private-postgres": "SUCCESS",
+        "tooling": "SKIPPED"
+      }
+    },
+    "production": "NOT RUN",
+    "main": "NOT RUN",
+    "deployment": "NOT RUN"
   }
 }
