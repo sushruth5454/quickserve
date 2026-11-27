@@ -3,6 +3,76 @@ import { randomUUID } from 'node:crypto';
 
 let nextSlot = 0;
 
+async function bookingFixtureState(client, categoryId, providerId, serviceId, addressId, slot) {
+  return (await client.query(`
+    select jsonb_build_object(
+      'category', to_jsonb(c),
+      'provider', to_jsonb(p),
+      'provider_service', to_jsonb(ps),
+      'address', jsonb_build_object('id', a.id, 'city', a.city),
+      'category_cities', coalesce((
+        select jsonb_agg(to_jsonb(cc))
+          from public.category_cities cc
+         where cc.category_id = c.id
+      ), '[]'::jsonb),
+      'provider_documents', coalesce((
+        select jsonb_agg(to_jsonb(pd))
+          from public.provider_documents pd
+         where pd.provider_id = p.id
+           and (pd.category_id is null or pd.category_id = c.id)
+      ), '[]'::jsonb),
+      'archetype_flags', (
+        select config.value
+          from public.app_config config
+         where config.key = 'archetype_flags'
+      ),
+      'bookability_checks', jsonb_build_object(
+        'category_active', c.active,
+        'category_not_restricted', not c.restricted,
+        'archetype_matches_time_based', c.archetype = 'time_based',
+        'archetype_enabled', public._archetype_enabled(c.archetype),
+        'category_city_live_match', exists (
+          select 1
+            from public.category_cities cc
+           where cc.category_id = c.id
+             and cc.live
+             and lower(trim(cc.city)) = lower(trim(coalesce(a.city, '')))
+        ),
+        'provider_is_live', public._provider_is_live(p.id),
+        'provider_not_paused', not p.paused,
+        'category_docs_ok', public._category_docs_ok(p.id, c.id),
+        'active_provider_service_match', exists (
+          select 1
+            from public.provider_services active_service
+           where active_service.provider_id = p.id
+             and active_service.category_id = c.id
+             and active_service.active
+        ),
+        'window_min_lead_ok',
+          $5::timestamptz >= now() + make_interval(hours => c.min_lead_hours) - interval '5 minutes',
+        'window_max_lead_ok',
+          $5::timestamptz <= now() + make_interval(days => c.max_lead_days),
+        'is_bookable',
+          public._is_bookable(
+            c.id,
+            p.id,
+            a.city,
+            c.archetype,
+            tstzrange($5::timestamptz, $5::timestamptz + interval '1 hour', '[)')
+          )
+      )
+    ) as actual
+      from public.categories c
+      left join public.providers p on p.id = $2::uuid
+      left join public.provider_services ps
+        on ps.id = $3::uuid
+       and ps.provider_id = p.id
+       and ps.category_id = c.id
+      left join public.addresses a on a.id = $4::uuid
+     where c.id = $1::uuid
+  `, [categoryId, providerId, serviceId, addressId, slot])).rows[0]?.actual;
+}
+
 async function makeUser(client) {
   const id = randomUUID();
   const digits = randomUUID().replace(/\D/g, '').slice(0, 10);
@@ -72,20 +142,49 @@ async function makePaymentFixture(client) {
     returning id
   `, [customerId, city])).rows[0].id;
   nextSlot += 1;
-  const slot = new Date(Date.UTC(2035, 1, 1 + nextSlot, 10)).toISOString();
-  const bookingId = (await client.query(`
-    insert into public.bookings (
-      customer_id, provider_id, category_id, provider_service_id, address_id,
-      description, scheduled_at, service_window, status, visit_fee, platform_fee,
-      total_amount, archetype, exclusive, session_duration_min, service_package_id,
-      commission_bp_snapshot
-    ) values (
-      $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-      'MN04 PostgreSQL retry concurrency', $6::timestamptz,
-      tstzrange($6::timestamptz, $6::timestamptz + interval '1 hour', '[)'),
-      'completion_requested', 0, 0, 20000, 'time_based', true, 60, $7::uuid, 1000
-    ) returning id
-  `, [customerId, providerId, categoryId, serviceId, addressId, slot, packageId])).rows[0].id;
+  const slotDate = new Date();
+  slotDate.setUTCDate(slotDate.getUTCDate() + 14 + nextSlot);
+  slotDate.setUTCHours(10, 0, 0, 0);
+  const slot = slotDate.toISOString();
+  const fixtureState = await bookingFixtureState(
+    client, categoryId, providerId, serviceId, addressId, slot,
+  );
+  if (!fixtureState?.bookability_checks?.is_bookable) {
+    throw new Error(`booking fixture is not bookable; actual=${JSON.stringify(fixtureState)}`);
+  }
+  let bookingId;
+  try {
+    bookingId = (await client.query(`
+      insert into public.bookings (
+        customer_id, provider_id, category_id, provider_service_id, address_id,
+        description, scheduled_at, service_window, status, visit_fee, platform_fee,
+        total_amount, archetype, exclusive, session_duration_min, service_package_id,
+        commission_bp_snapshot
+      ) values (
+        $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
+        'MN04 PostgreSQL retry concurrency', $6::timestamptz,
+        tstzrange($6::timestamptz, $6::timestamptz + interval '1 hour', '[)'),
+        'completion_requested', 0, 0, 20000, 'time_based', true, 60, $7::uuid, 1000
+      ) returning id
+    `, [customerId, providerId, categoryId, serviceId, addressId, slot, packageId])).rows[0].id;
+  } catch (error) {
+    let actual;
+    try {
+      actual = await bookingFixtureState(
+        client, categoryId, providerId, serviceId, addressId, slot,
+      );
+    } catch (diagnosticError) {
+      actual = { diagnostic_error: diagnosticError?.message ?? String(diagnosticError) };
+    }
+    const failure = {
+      message: error?.message ?? String(error),
+      code: error?.code ?? null,
+      where: error?.where ?? null,
+      query: error?.query ?? null,
+      booking_fixture: actual,
+    };
+    throw new Error(`booking insert failed; actual=${JSON.stringify(failure)}`, { cause: error });
+  }
   const paymentId = (await client.query(`
     insert into public.payments (
       booking_id, purpose, amount, status, razorpay_payment_id, paid_at
