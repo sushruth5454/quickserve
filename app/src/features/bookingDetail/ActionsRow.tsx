@@ -16,6 +16,7 @@ type Theme = ReturnType<typeof useTheme>;
 export function ActionsRow({
   status,
   archetype,
+  quoteEditorMode,
   isCustomer,
   isTimeBased,
   theme,
@@ -29,6 +30,7 @@ export function ActionsRow({
 }: {
   status: Booking['status'];
   archetype: Booking['archetype'];
+  quoteEditorMode?: 'itemized' | 'fixed_addons' | null;
   isCustomer: boolean;
   isTimeBased: boolean;
   theme: Theme;
@@ -121,11 +123,16 @@ export function ActionsRow({
           onSubmitOtp={onSubmitOtp}
         />
       ) : null}
-      {!isCustomer && status === 'quote_sent' ? (
+      {!isCustomer && quoteEditorMode === 'itemized' && status === 'quote_sent' ? (
         <Button title="Revise quote" leftIcon="create-outline" variant="outline" onPress={() => onOpenEditor(false)} />
       ) : null}
-      {!isCustomer && status === 'in_progress' ? (
-        <Button title="Send change order" variant="outline" leftIcon="add-circle-outline" onPress={() => onOpenEditor(true)} />
+      {!isCustomer && status === 'in_progress' && (quoteEditorMode === 'itemized' || quoteEditorMode === 'fixed_addons') ? (
+        <Button
+          title={quoteEditorMode === 'fixed_addons' ? 'Add package extras' : 'Send change order'}
+          variant="outline"
+          leftIcon="add-circle-outline"
+          onPress={() => onOpenEditor(true)}
+        />
       ) : null}
       {providerCanCancel ? (
         <Button

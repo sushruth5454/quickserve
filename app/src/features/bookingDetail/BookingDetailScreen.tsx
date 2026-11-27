@@ -30,6 +30,7 @@ import * as api from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { isDemoMode } from '../../lib/config';
 import { cancellationPreviewCopy } from '../../lib/cancellationCopy';
+import { approveFixedChangeOrder, canManageServiceQuotes, canPayPendingQuoteWithoutSchedule, getQuoteApprovalMode, getQuoteEditorMode } from '../../lib/fixedBooking';
 import { haptics } from '../../lib/haptics';
 import { amountDue, customerDueNow, formatINR, requiredTotal } from '../../lib/money';
 import {
@@ -47,6 +48,7 @@ import { bookingRef, dayLabel, scheduleLabel } from '../../lib/schedule';
 import type { Booking, BookingAddress, BookingEvent, BookingOtps, Payment, PaymentSchedule as PaymentScheduleRow, Quote, Review, ReviewInput } from '../../lib/types';
 import { useUnread } from '../../lib/unreadContext';
 import { useTheme } from '../../theme';
+import { getMyProviderBusinessContext } from '../merchantStaff/api';
 import { ActionsRow, OtpCard } from './ActionsRow';
 import { CancelSection, type HelpItem } from './CancelSection';
 import { DeliverySection } from './DeliverySection';
@@ -69,6 +71,7 @@ interface Data {
   paymentSchedule: PaymentScheduleRow[] | null;
   paymentScheduleError: string | null;
   creatorRevisionsEnabled: boolean;
+  businessRole: 'owner' | 'manager' | 'staff' | null;
 }
 
 type CreatorRevisionBooking = Omit<Booking, 'delivery_status'> & {
@@ -121,7 +124,7 @@ export default function BookingDetailScreen() {
         return;
       }
       const isCustomer = booking.customer_id === userId;
-      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, scheduleResult, revisionsEnabled] = await Promise.all([
+      const [quotes, payments, events, otps, address, review, counterpart, photoUrls, scheduleResult, revisionsEnabled, businessContext, demoServices] = await Promise.all([
         api.getQuotes(id),
         api.getPayments(id),
         api.getEvents(id).catch(() => [] as BookingEvent[]),
@@ -135,17 +138,30 @@ export default function BookingDetailScreen() {
           (caught: Error) => ({ paymentSchedule: null, error: caught.message }),
         ),
         creatorRevisionsEnabled().catch(() => false),
+        isCustomer || isDemoMode
+          ? Promise.resolve(null)
+          : getMyProviderBusinessContext(booking.provider_id).catch(() => null),
+        isCustomer || !isDemoMode ? Promise.resolve([]) : api.listMyServices(true).catch(() => []),
       ]);
       if (!guard.isCurrent()) return;
-      const sentQuote = quotes.find((q) => q.status === 'sent') ?? null;
-      const coinPreview = isCustomer && sentQuote
+      const effectiveBooking: Booking = isDemoMode
+        ? { ...booking, booking_origin: booking.booking_origin ?? 'marketplace' }
+        : booking;
+      const effectiveQuotes = isDemoMode
+        ? quotes.map((quote) => ({
+            ...quote,
+            quote_type: quote.quote_type ?? (effectiveBooking.archetype === 'fixed' ? 'package' : 'itemized'),
+          }))
+        : quotes;
+      const sentQuote = effectiveQuotes.find((q) => q.status === 'sent') ?? null;
+      const coinPreview = isCustomer && sentQuote && getQuoteApprovalMode(effectiveBooking, sentQuote) === 'itemized'
         ? await api.getCoinRedemptionPreview(id, sentQuote.id).catch(() => null)
         : null;
       if (!guard.isCurrent()) return;
       setData({
         contextKey,
-        booking: booking as CreatorRevisionBooking,
-        quotes,
+        booking: effectiveBooking as CreatorRevisionBooking,
+        quotes: effectiveQuotes,
         payments,
         events,
         otps,
@@ -157,6 +173,11 @@ export default function BookingDetailScreen() {
         paymentSchedule: scheduleResult.paymentSchedule,
         paymentScheduleError: scheduleResult.error,
         creatorRevisionsEnabled: revisionsEnabled,
+        businessRole: isCustomer
+          ? null
+          : isDemoMode
+            ? (demoServices.some((service) => service.provider_id === booking.provider_id) ? 'owner' : null)
+            : businessContext?.business_role ?? null,
       });
       setLoadError(null);
     } catch (e) {
@@ -257,6 +278,8 @@ export default function BookingDetailScreen() {
   const { booking, quotes, payments, otps, review } = visibleData;
   const s = booking.status;
   const isCustomer = booking.customer_id === userId;
+  const canManageQuotes = canManageServiceQuotes(visibleData.businessRole);
+  const quoteEditorMode = getQuoteEditorMode(booking, quotes);
   const revisionsAllowed = booking.revisions_allowed ?? 2;
   const revisionsUsed = booking.revisions_used ?? 0;
   const revisionsLeft = Math.max(0, revisionsAllowed - revisionsUsed);
@@ -294,17 +317,21 @@ export default function BookingDetailScreen() {
   const openQuote = quotes.find((q) => q.status === 'sent') ?? null;
   const pendingPaymentQuote = quotes.find((q) => q.status === 'approved_pending_payment') ?? null;
   const approvedQuote = quotes.find((q) => q.id === booking.approved_quote_id) ?? null;
+  const openQuoteMode = openQuote ? getQuoteApprovalMode(booking, openQuote) : null;
   const coinPreviewState = visibleData.coinPreview ? coinRedemptionPreviewState(visibleData.coinPreview) : null;
-  const coinCanRedeem = coinPreviewState?.canRedeem ?? false;
+  const coinCanRedeem = openQuoteMode === 'itemized' && (coinPreviewState?.canRedeem ?? false);
   const coinDiscountPreview = coinCanRedeem
     ? (useCoins ? visibleData.coinPreview?.maximum_paise ?? 0 : 0)
     : coinPreviewState?.appliedPaise ?? 0;
   const shownQuoteIds = new Set([openQuote?.id, pendingPaymentQuote?.id].filter(Boolean));
   const typical = typicalRange(booking.categories?.slug);
-  const customerRespondsToQuote = isCustomer && !!openQuote && (s === 'quote_sent' || s === 'in_progress');
+  const customerRespondsToQuote = isCustomer && !!openQuote && openQuoteMode !== null;
   const dueForPending = pendingPaymentQuote
     ? amountDue({ quoteTotal: pendingPaymentQuote.total, visitFee: booking.visit_fee, platformFee: booking.platform_fee, alreadyPaid: paid })
     : 0;
+  const canRetryPendingQuotePayment = pendingPaymentQuote
+    ? canPayPendingQuoteWithoutSchedule(booking, pendingPaymentQuote.id, visibleData.paymentSchedule ?? [])
+    : false;
 
   // ---------- actions ----------
   const submitRevisionRequest = () => {
@@ -336,15 +363,20 @@ export default function BookingDetailScreen() {
 
   const approve = (quote: Quote) =>
     run(async () => {
-      const res = await api.approveQuote(
-        booking.id,
-        quote.id,
-        useCoins && (visibleData.coinPreview?.maximum_paise ?? 0) > 0,
-      );
+      const mode = getQuoteApprovalMode(booking, quote);
+      if (!mode) throw new Error('This quote is not supported for this booking.');
+      const res = mode === 'fixed_addons'
+        ? await approveFixedChangeOrder(booking.id, quote.id)
+        : await api.approveQuote(
+            booking.id,
+            quote.id,
+            useCoins && (visibleData.coinPreview?.maximum_paise ?? 0) > 0,
+          );
       if (res.amount_due > 0) await startPayment(booking.id);
     }, 'Quote approved');
 
   const reject = async (quote: Quote) => {
+    if (getQuoteApprovalMode(booking, quote) !== 'itemized') return;
     const initial = s === 'quote_sent';
     const ok = await confirm({
       title: initial ? 'Decline the quote?' : 'Decline the change order?',
@@ -400,23 +432,25 @@ export default function BookingDetailScreen() {
   let footer: ReactNode;
   if (isCustomer) {
     if (customerRespondsToQuote && openQuote) {
-      const previewDiscount = useCoins && coinCanRedeem
+      const previewDiscount = openQuoteMode === 'itemized' && useCoins && coinCanRedeem
         ? visibleData.coinPreview?.maximum_paise ?? 0
         : 0;
-      const appliedCoinDiscount = !coinCanRedeem
+      const appliedCoinDiscount = openQuoteMode === 'itemized' && !coinCanRedeem
         ? coinPreviewState?.appliedPaise ?? 0
         : 0;
-      const due = customerDueNow(
-        requiredTotal(openQuote.total, booking.visit_fee, booking.platform_fee),
-        Math.max(0, paid - coinPaid),
-        previewDiscount + appliedCoinDiscount,
-      );
+      const due = openQuoteMode === 'fixed_addons'
+        ? Math.max(0, requiredTotal(openQuote.total, booking.visit_fee, booking.platform_fee) - paid)
+        : customerDueNow(
+            requiredTotal(openQuote.total, booking.visit_fee, booking.platform_fee),
+            Math.max(0, paid - coinPaid),
+            previewDiscount + appliedCoinDiscount,
+          );
       footer = (
         <AmountFooter label={openQuote.is_change_order ? 'Extra to pay' : 'To pay now'} amount={due}>
           <Button title={due > 0 ? 'Approve & pay' : 'Approve'} onPress={() => void approve(openQuote)} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
-    } else if (pendingPaymentQuote && dueForPending > 0 && !scheduled && !scheduleUnavailable) {
+    } else if (pendingPaymentQuote && dueForPending > 0 && canRetryPendingQuotePayment && !scheduleUnavailable) {
       footer = (
         <AmountFooter label="Balance due" amount={dueForPending}>
           <Button
@@ -496,7 +530,7 @@ export default function BookingDetailScreen() {
         onPress={() => void submitOtp()}
       />
     );
-  } else if (s === 'inspecting') {
+  } else if (s === 'inspecting' && canManageQuotes && quoteEditorMode === 'itemized') {
     footer = <Button title="Create quote" leftIcon="receipt-outline" size="lg" fullWidth onPress={() => openEditor(false)} />;
   } else if (s === 'in_progress') {
     footer = (
@@ -505,7 +539,7 @@ export default function BookingDetailScreen() {
         leftIcon="checkmark-done"
         size="lg"
         fullWidth
-        disabled={!!openQuote}
+        disabled={!!openQuote || !!pendingPaymentQuote}
         loading={busy}
         onPress={() => void run(() => api.requestCompletion(booking.id), 'Customer asked to confirm')}
       />
@@ -533,7 +567,7 @@ export default function BookingDetailScreen() {
     visitFee: booking.visit_fee,
     startCode,
     endCode,
-    changeOrderOpen: s === 'in_progress' && !!openQuote,
+    changeOrderOpen: s === 'in_progress' && openQuoteMode !== null,
     cancelledReason: booking.cancelled_reason,
     defaultStatusLabel: statusLabel[s],
     deliveryReview,
@@ -635,7 +669,7 @@ export default function BookingDetailScreen() {
       ) : null}
       {customerRespondsToQuote && openQuote ? (
         <View style={{ gap: t.spacing.xs }}>
-          {coinCanRedeem && visibleData.coinPreview && visibleData.coinPreview.maximum_paise > 0 ? (
+          {openQuoteMode === 'itemized' && coinCanRedeem && visibleData.coinPreview && visibleData.coinPreview.maximum_paise > 0 ? (
             <Card
               gap={t.spacing.sm}
               style={{ flexDirection: 'row', alignItems: 'center' }}
@@ -665,15 +699,19 @@ export default function BookingDetailScreen() {
             alreadyPaid={paid}
             counterpartName={visibleData.counterpart}
             coinDiscountPreview={coinDiscountPreview}
-            coinPaid={coinPaid}
+            coinPaid={openQuoteMode === 'fixed_addons' ? 0 : coinPaid}
             typical={openQuote.is_change_order ? null : typical}
           />
-          <Button
-            title={openQuote.is_change_order ? 'Decline change order' : 'Decline quote'}
-            variant="destructiveGhost"
-            onPress={() => void reject(openQuote)}
-            disabled={busy}
-          />
+          {openQuoteMode === 'itemized' ? (
+            <Button
+              title={openQuote.is_change_order ? 'Decline change order' : 'Decline quote'}
+              variant="destructiveGhost"
+              onPress={() => void reject(openQuote)}
+              disabled={busy}
+            />
+          ) : (
+            <InlineAlert tone="info" message="The package remains unchanged unless you approve these add-ons." />
+          )}
         </View>
       ) : null}
       {isCustomer && pendingPaymentQuote && dueForPending > 0 ? (
@@ -701,6 +739,7 @@ export default function BookingDetailScreen() {
         <ActionsRow
           status={s}
           archetype={booking.archetype}
+          quoteEditorMode={canManageQuotes ? quoteEditorMode : null}
           isCustomer={isCustomer}
           isTimeBased={isTimeBased}
           theme={t}
