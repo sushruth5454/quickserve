@@ -35,7 +35,8 @@
   "implementation": [
     "Moved the inline category route into CategoryDetailScreen and corrected only its relative imports.",
     "The route is a default re-export; one useCategoryDetailController retains the existing slug/name, city scope, category load, error, and refresh state.",
-    "The existing inspect-quote UI, filters, navigation intent, and read behavior were moved without redesign or additional stale-read changes."
+    "The existing inspect-quote UI, filters, navigation intent, and read behavior were moved without redesign or additional stale-read changes.",
+    "Replaced the moved switch thumb hex literals with the existing onPrimary theme token to satisfy UI lint."
   ],
   "tests": {
     "testFirstRed": {
@@ -47,7 +48,7 @@
       "helperSource": "origin/main:scripts/cs-test.ps1",
       "suite": "app",
       "filter": "src.features.catalogue.__tests__.ArchetypeCategory[.]test[.]tsx$",
-      "snapshot": "4c572d7993b05d4aa9f072b28f690840dfc27426",
+      "snapshot": "69389633dd5dc8de5ef6a4f433fd758a3da6f8c0",
       "selectedCases": [
         "MK-S40-host-uses-route-slug-and-city-for-category-loads",
         "MK-FRESH-city-race"
