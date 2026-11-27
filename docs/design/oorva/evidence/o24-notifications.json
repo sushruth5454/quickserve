@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O24-NOTIFICATIONS",
+  "workPackage": "O24",
+  "baseSha": "508dbdadb799b8ae4c1677dcd2c1cfac659b3bda",
+  "previousImplementationBaseSha": "bb25f20d300d70285024a15c4cb551519f3a04f9",
+  "dependencies": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O37A": "886be92b1fccf0de3e71b7e21caa7884c6676e0f",
+    "planningInput": "b40e3ac3da80dc7dba677457413180bca6070222"
+  },
+  "sourceTasks": ["CM-T01", "CM-T02", "CM-T06"],
+  "sourceFindings": ["CM-F01", "CM-F02", "CM-F03", "CM-F15", "CM-F08"],
+  "migration": {
+    "claim": "MIG-O24-NOTIFICATIONS",
+    "file": "supabase/migrations/0134_o24_notifications_oorva.sql",
+    "functions": [
+      "public._queue_notification",
+      "public.list_my_notifications",
+      "public._support_post",
+      "public.get_unread_counts",
+      "public.get_chat_read_state",
+      "public.get_chat_heading"
+    ],
+    "allocation": "0134"
+  },
+  "placements": [
+    {
+      "id": "PA-S56-01-header-top-safe-area-allegation",
+      "element": "header/top safe area",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/app/notifications.tsx",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx"
+      ]
+    },
+    {
+      "id": "PA-S56-02-read-action-and-acknowledgement",
+      "element": "read action and acknowledgement",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::useNotificationsController",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx::CM_NOTIFICATION_READ_ROLLBACK",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx::CM_NOTIFICATION_MARK_ALL_CHAT_INDEPENDENT"
+      ]
+    },
+    {
+      "id": "PA-S56-03-event-time-and-ordering",
+      "element": "event time and ordering",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public.list_my_notifications",
+        "app/src/lib/unread.ts::notificationTimePresentation",
+        "app/src/lib/unread.ts::groupNotificationItems",
+        "supabase/tests/oorva_o24_notifications.test.mjs::CM_SQL_LEGACY_TIMESTAMP_PROVENANCE",
+        "app/src/lib/__tests__/unread.test.ts::CM_UI_LEGACY_TIMESTAMP_LABEL"
+      ]
+    },
+    {
+      "id": "PA-S56-04-unread-versus-new-collapsed-event",
+      "element": "unread versus new collapsed event",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public._queue_notification",
+        "supabase/tests/oorva_o24_notifications.test.mjs::CM_SQL_LEGACY_MERGE_PROMOTION",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::useNotificationsController"
+      ]
+    },
+    {
+      "id": "PA-S56-05-authorized-unread-chat-absent-from-the-recent-outbox-window",
+      "element": "authorized unread chat absent from recent outbox window",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public.get_unread_counts",
+        "supabase/migrations/0134_o24_notifications_oorva.sql::public.get_chat_heading",
+        "app/src/lib/unread.ts::buildNotificationItems",
+        "app/src/lib/__tests__/unread.test.ts::CM_CHAT_MEMBER_NOTIFICATION_ITEM",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx::CM_CHAT_MEMBER_HEADING_ACTOR_CHANGE"
+      ]
+    },
+    {
+      "id": "PA-S56-06-event-card-information-and-navigation",
+      "element": "event card information and navigation",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::Row",
+        "app/src/lib/unread.ts::notificationRoute",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx"
+      ]
+    },
+    {
+      "id": "PA-S56-07-grouping-window-diagnostic-count",
+      "element": "grouping/window/diagnostic count",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/lib/unread.ts::groupNotificationItems",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::LIST_LIMIT",
+        "app/src/lib/__tests__/unread.test.ts::CM_NOTIFICATION_DATE_GROUPS"
+      ]
+    },
+    {
+      "id": "PA-S56-08-load-empty-refresh",
+      "element": "load/empty/refresh",
+      "sourceEvidence": "CODE_AUDITED",
+      "runtimeImplementationEvidence": "NOT RUN",
+      "evidence": [
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::useNotificationsController",
+        "app/src/features/communicationScreens/NotificationsScreen.tsx::NotificationsScreen",
+        "app/src/components/__tests__/NotificationsScreen.test.tsx"
+      ]
+    }
+  ],
+  "requiredReviews": ["concurrency", "auth"],
+  "requestedFocusedReview": "AUTH review of the member unread/read-state/heading projection in migration 0134",
+  "reviewResults": [
+    {
+      "type": "auth",
+      "status": "NO_FINDINGS",
+      "scope": "public.get_unread_counts, public.get_chat_read_state, public.get_chat_heading",
+      "review": "Re-reviewed the exact O24 diff on base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda. list_my_notifications remains recipient-scoped and authenticated-only; _queue_notification and _support_post remain internal/revoked; the three chat projections use the existing _business_chat_participant/_acts_for('staff') boundary and preserve primary-side read semantics. No outsider projection, team-wide Seen, or staff push fan-out; no auth findings."
+    },
+    {
+      "type": "concurrency",
+      "status": "SHARED_FOLLOWUP",
+      "review": "Re-reviewed the exact O24 diff on base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda. The owned notification screen fences a late successful acknowledgement by actor generation before it starts canonical reread; a focused regression case covers that race. app/src/lib/unreadContext.tsx is unchanged from the prior base and outside O24 ownership. Its asynchronous unread-count refresh ordering remains an inherited SHARED_FOLLOWUP; this is not a full concurrency PASS. Original reviewer reproduction and canonical owner were unavailable. The suggested transaction-time event_at concern was withdrawn because the assigned contract requires captured transaction now()."
+    }
+  ],
+  "validation": {
+    "status": "NOT RUN",
+    "stageGate": "PAUSED_FOR_REGISTRATION",
+    "reason": "The current origin/main base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda does not contain O24 SQL/parser registration. Coordinator registration and current-base selectors/CI are pending; no tests were run on Windows.",
+    "registration": "PENDING_COORDINATOR",
+    "privatePostgres": "Pending current-base lane CI after registration; O37A disposable stack only, never local or hosted.",
+    "previousBaseValidation": {
+      "scope": "Historical results for the prior O24 implementation branch only; not validation of base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda.",
+      "codespace": {
+        "snapshotRef": "wip/qs-o24-notifications-resume-bb25f20-d6a5a6e2",
+        "snapshotSha": "dc8036c5236a388033fe572eaf4845e604c1fa47",
+        "selectors": [
+          {
+            "suite": "app",
+            "selector": "src.components.__tests__.NotificationsScreen[.]test[.]tsx$",
+            "typecheck": "PASS",
+            "testsPassed": 6,
+            "testsTotal": 6
+          },
+          {
+            "suite": "jest",
+            "selector": "src.lib.__tests__.unread[.]test[.]ts$",
+            "testsPassed": 17,
+            "testsTotal": 17
+          },
+          {
+            "suite": "sql",
+            "selector": "oorva_o24_notifications",
+            "selectedFiles": 1,
+            "passedFiles": 1
+          },
+          {
+            "suite": "migration-parser",
+            "command": "node parse.cjs ../migrations/0134_o24_notifications_oorva.sql",
+            "topLevelStatements": 9,
+            "functionBodiesOk": 6,
+            "errors": 0
+          }
+        ]
+      },
+      "laneCi": {
+        "runId": "45971743190",
+        "headSha": "61123032ecdcf651bdd07b12e8c7723eebf50207",
+        "conclusion": "SUCCESS",
+        "jobs": {
+          "app": "PASS",
+          "deno": "PASS",
+          "sql": "PASS",
+          "privatePostgres": "PASS"
+        }
+      }
+    }
+  },
+  "handoffState": "PAUSED_FOR_REGISTRATION"
+}
