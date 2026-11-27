@@ -1,44 +1,74 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Section, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import * as api from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { formatINR } from '../../lib/money';
 import type { Proposal, ProposalViewState, ServiceRequest } from '../../lib/types';
 import { QuoteCompareTable } from '../../components/market/QuoteCompareTable';
 import { proposalCompareRows } from '../proposals/comparePresentation';
 import { getProposalViewState } from '../proposals/api';
 import { proposalStatus } from '../../lib/proposalStatus';
+import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { userId } = useAuth();
   const [request, setRequest] = useState<ServiceRequest | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [proposalViews, setProposalViews] = useState<Record<string, ProposalViewState>>({});
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const confirm = useConfirm();
   const toast = useToast();
 
-  const load = useCallback(async () => {
-    if (!id) return;
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    if (!guard.isCurrent()) return;
+    if (!id) {
+      setUnavailable(true);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     try {
-      const [nextRequest, nextProposals] = await Promise.all([api.getServiceRequest(id), api.listRequestProposals(id)]);
-      if (!nextRequest) throw new Error('This request is no longer available');
+      const nextRequest = await api.getServiceRequest(id);
+      if (!guard.isCurrent()) return;
+      if (!nextRequest) {
+        setRequest(null);
+        setProposals([]);
+        setProposalViews({});
+        setUnavailable(true);
+        setError(null);
+        return;
+      }
+      const nextProposals = await api.listRequestProposals(id);
+      if (!guard.isCurrent()) return;
       const viewEntries = await Promise.all(nextProposals.map(async (proposal) => [
         proposal.id,
         await getProposalViewState(proposal.id),
       ] as const));
+      if (!guard.isCurrent()) return;
       setRequest(nextRequest);
       setProposals(nextProposals);
       setProposalViews(Object.fromEntries(viewEntries));
+      setUnavailable(false);
       setError(null);
     } catch (caught) {
-      setError((caught as Error).message);
+      if (guard.isCurrent()) setError((caught as Error).message);
+    } finally {
+      if (guard.isCurrent()) setLoading(false);
     }
   }, [id]);
 
-  useEffect(() => { void load(); }, [load]);
+  const { refresh, refreshing } = useFocusedServiceRefresh(load, {
+    contextKey: `request:${userId ?? 'anonymous'}:${id ?? ''}`,
+    enabled: true,
+    intervalMs: id ? 30_000 : null,
+  });
 
   const cancelRequest = async () => {
     if (!request || !['open', 'closed'].includes(request.status)) return;
@@ -54,7 +84,7 @@ export default function RequestDetailScreen() {
     try {
       await api.cancelServiceRequest(request.id);
       toast({ message: 'Request cancelled', tone: 'success' });
-      await load();
+      await refresh();
     } catch (caught) {
       setActionError((caught as Error).message);
     }
@@ -66,13 +96,20 @@ export default function RequestDetailScreen() {
   };
 
   return (
-    <Screen header={<Header title={request?.categories?.name ?? 'Your request'} subtitle={request ? new Date(request.event_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : undefined} />}>
-      {error ? (
-        <ErrorState message={error} onRetry={() => void load()} />
+    <Screen
+      header={<Header title={request?.categories?.name ?? 'Your request'} subtitle={request ? new Date(request.event_start).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }) : undefined} />}
+      refreshing={loading || refreshing}
+      onRefresh={() => void refresh()}
+    >
+      {unavailable ? (
+        <EmptyState title="Request unavailable" message="This request may have been removed or you may no longer have access." />
+      ) : error && !request ? (
+        <ErrorState message={error} onRetry={() => void refresh()} />
       ) : !request ? (
         <Skeleton height={180} />
       ) : (
         <>
+          {error ? <InlineAlert title="Request could not be refreshed" message={error} /> : null}
           {actionError ? <InlineAlert message={actionError} /> : null}
           <Card>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
