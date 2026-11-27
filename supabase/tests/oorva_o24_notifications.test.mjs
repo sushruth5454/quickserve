@@ -860,10 +860,10 @@ await scenario('CM_SQL_SUPPORT_PREVIEW_MASKED, CM_SQL_SUPPORT_PRIVATE_BODY_RETAI
     thread_after_user: afterUserPost,
     thread_after_admin: afterAdminPost,
     private_messages: privateMessages,
-    admin_notification_has_private_contact: /9876543210|person@example\\.com|https:\\/\\//.test(
+    admin_notification_has_private_contact: /9876543210|person@example\.com|https:\/\//.test(
       `${adminPreview?.title ?? ''} ${adminPreview?.body ?? ''}`,
     ),
-    user_notification_has_private_contact: /9876543210|person@example\\.com|https:\\/\\//.test(
+    user_notification_has_private_contact: /9876543210|person@example\.com|https:\/\//.test(
       `${userPreview?.title ?? ''} ${userPreview?.body ?? ''}`,
     ),
     admin_notification_route: adminPreview?.data?.url,

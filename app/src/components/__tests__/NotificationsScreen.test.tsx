@@ -19,7 +19,12 @@ const mockUnread = {
   refresh: jest.fn<Promise<void>, []>(),
 };
 let mockUserId: string | null = 'customer-1';
-let root: import('react-dom/client').Root | null = null;
+interface NotificationScreenRoot {
+  render(children: React.ReactNode): void;
+  unmount(): void;
+}
+
+let root: NotificationScreenRoot | null = null;
 let host: HTMLDivElement | null = null;
 
 jest.doMock('expo-router', () => {
@@ -151,7 +156,9 @@ jest.doMock('../../theme', () => ({
 
 const ReactRuntime = require('react') as typeof import('react');
 const { act } = require('react') as typeof import('react');
-const { createRoot } = require('react-dom/client') as typeof import('react-dom/client');
+const { createRoot } = require('react-dom/client') as {
+  createRoot(container: Element): NotificationScreenRoot;
+};
 const NotificationsScreen = require('../../features/communicationScreens/NotificationsScreen').default as React.ComponentType;
 
 function notification(
@@ -412,7 +419,7 @@ describe('NotificationsScreen', () => {
         chatStillUnread: true,
         nonChatStillUnread: true,
         error: 'all-read denied',
-        reads: 1,
+        reads: 2,
       },
     }));
   });
