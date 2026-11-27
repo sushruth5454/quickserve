@@ -30,7 +30,8 @@
     "commands": [
       {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.providerOnboarding.__tests__.identityReadState[.]test[.]ts$'",
-        "snapshotSha": "2c281f5a",
+        "suite": "app",
+        "snapshotSha": "2c281f5aebe59477b7e40fd365e994ea05966906",
         "selectedFile": "app/src/features/providerOnboarding/__tests__/identityReadState.test.ts",
         "selectedCases": [
           "ID-LOAD-INITIAL-ERROR distinguishes initial failure from a successful empty result",
@@ -45,7 +46,8 @@
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.__tests__.documentPresentation[.]test[.]tsx$'",
-        "snapshotSha": "032344aa",
+        "suite": "jest",
+        "snapshotSha": "032344aa74865ef12413575f3720ae62bdf486a8",
         "selectedFile": "app/src/features/providerOnboarding/__tests__/documentPresentation.test.tsx",
         "selectedCases": [
           "keeps required credentials scoped to each service category",
@@ -59,7 +61,8 @@
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.services.__tests__.guidance[.]test[.]tsx$'",
-        "snapshotSha": "7a7d4ad0",
+        "suite": "jest",
+        "snapshotSha": "7a7d4ad068719385cd0da38f648ec5d0417837b0",
         "selectedFile": "app/src/features/providerOnboarding/services/__tests__/guidance.test.tsx",
         "selectedCases": [
           "shows Unavailable with Retry after failure, then remains nonblocking when retried"
@@ -70,10 +73,13 @@
   },
   "authReview": {
     "status": "NO_FINDINGS",
-    "reviewedCheckpoint": "fe1d3f2b6f57ae915feaa88582757346cb9d939f"
+    "reviewedHead": "143413c14753d7aff0bcf7519695f971a5601ee8",
+    "reviewerId": "8f7cfc57-38f7-492b-ba65-7a3a10c4b8dc"
   },
   "laneCi": {
-    "status": "PENDING_EXACT_HEAD_LANE_PUSH",
-    "reason": "All three Codespace selectors passed and AUTH review returned NO_FINDINGS."
+    "status": "PASS",
+    "workflow": "Lane CI (tests only)",
+    "runId": 46018912265,
+    "headSha": "143413c14753d7aff0bcf7519695f971a5601ee8"
   }
 }
