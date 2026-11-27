@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "stage": "O38-ID01",
+  "sourceTask": "ID-T01",
+  "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "a393505c330f4e1a7cf1b2c683874548913b9622",
+  "migrationClaim": "MIG-O38-ID01",
+  "migration": "supabase/migrations/0140_o38_id01_oorva.sql",
+  "state": "CODE_HEAD_GREEN_AWAITING_EVIDENCE_HEAD_CI",
+  "scope": {
+    "documentReadiness": "Private per-requirement validity and latest-submission projection; preserves payout/KYC/live policy.",
+    "ownerRead": "Adds document_requirements and server_local_date; preserves existing private fields and raw documents.",
+    "adminRead": "Adds canonical go_live, review_note, and category_name to admin-only reads.",
+    "jobReads": "Adds only stored bookings.archetype to existing safe projections.",
+    "runtimeFlags": "No capability gate or feature flag added."
+  },
+  "preservedBaseDrift": [
+    "app/src/lib/adminApi.ts",
+    "app/src/lib/types.ts"
+  ],
+  "workerFiles": [
+    "app/src/lib/onboarding/types.ts",
+    "app/src/lib/onboarding/supabaseOnboarding.ts",
+    "app/src/lib/adminApi.ts",
+    "app/src/lib/types.ts",
+    "app/src/lib/onboarding/completeness.ts",
+    "supabase/migrations/0140_o38_id01_oorva.sql",
+    "app/src/lib/onboarding/__tests__/completeness.test.ts",
+    "app/src/lib/__tests__/supabaseApi.test.ts",
+    "supabase/tests/id_readiness.test.mjs",
+    "docs/design/oorva/evidence/o38-id01.json"
+  ],
+  "coordinatorRegistration": {
+    "commit": "5bef01ef91b77ba9cddb9c0a9a971b5498b09b03",
+    "status": "MERGED_FF_ONLY",
+    "sharedFile": "supabase/tests/package.json",
+    "requestedAdditions": [
+      "Register supabase/tests/id_readiness.test.mjs under its unique filename selector.",
+      "Register the 0140_o38_id01_oorva.sql parser selector in the migration parser/full-chain list."
+    ],
+    "deploymentRegistration": "Not requested for this gate; waits for authorized E1 promotion."
+  },
+  "validation": {
+    "status": "PASS",
+    "codespaceSelectors": [
+      "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.onboarding.__tests__.completeness[.]test[.]ts$'",
+      "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.lib.__tests__.supabaseApi[.]test[.]ts$'",
+      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'id_readiness'",
+      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o38_id01_oorva.sql'"
+    ],
+    "results": [
+      {
+        "selector": "app completeness",
+        "result": "PASS",
+        "selected": "app/src/lib/onboarding/__tests__/completeness.test.ts",
+        "tests": "3 passed",
+        "snapshot": "7c1205a7794ed88697741a70504e99a55cb38476"
+      },
+      {
+        "selector": "supabaseApi Jest",
+        "result": "PASS",
+        "selected": "app/src/lib/__tests__/supabaseApi.test.ts",
+        "tests": "5 passed",
+        "snapshot": "5aba03e9f3e2fa3d40863da673df7915c54d9427"
+      },
+      {
+        "selector": "id_readiness SQL",
+        "result": "PASS",
+        "selected": "supabase/tests/id_readiness.test.mjs",
+        "scenarios": [
+          "ID-DOC-A-B",
+          "ID-DOC-SCOPE",
+          "ID-DOC-REPLACE",
+          "ID-DOC-EXPIRY",
+          "ID-LEGACY-PAYOUT",
+          "ID-ADMIN-READ-PRIVACY",
+          "ID-JOB-PROJECTION"
+        ],
+        "tests": "All scenarios passed.",
+        "snapshot": "41e5bd313ed036e559b93865143dd84d64f45059"
+      },
+      {
+        "selector": "0140 migration parser",
+        "result": "PASS",
+        "selected": "node parse.cjs ../migrations/0140_o38_id01_oorva.sql",
+        "output": "21 top-level statements; 8 function bodies; 0 errors.",
+        "snapshot": "9906306d4f37fc6241d2e92a54c29e1ac6d5d388"
+      }
+    ],
+    "authReview": {
+      "result": "AUTH: NO_FINDINGS",
+      "reviewer": "9c7eaf2e-0721-4ba5-9b9e-6e1bb58948dd",
+      "reviewedCodeCheckpoint": "ff1addd29fbf7228512646e906cc6d7bd088eda6"
+    },
+    "laneCi": {
+      "result": "PASS",
+      "runId": "45997235009",
+      "headSha": "ac368592814b717d148876e7825b72d07136dd7f",
+      "url": "https://github.com/sushruth5454/quickserve/actions/runs/45997235009",
+      "evidenceHeadValidation": "Pending after evidence-only commit."
+    }
+  }
+}

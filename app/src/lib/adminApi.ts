@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { CommissionTier, TimeBasedCommissionRates } from './apiTypes';
+import type { GoLive } from './onboarding/types';
 
 export interface AdminCommissionConfig {
   founding_days: number;
@@ -127,6 +128,8 @@ export interface AdminProvider {
   categories: string[];
   submitted_at: string | null;
   created_at: string;
+  go_live?: GoLive;
+  review_note?: string | null;
 }
 
 export type ProviderReviewStatus = 'pending' | 'approved' | 'rejected' | 'needs_clarification';
@@ -137,6 +140,7 @@ export interface AdminDocumentQueueItem {
   provider_name: string;
   doc_type: string;
   category_id: string | null;
+  category_name?: string | null;
   file_path: string;
   expires_on: string | null;
   created_at: string;

@@ -76,7 +76,11 @@ export function stepDone(step: StepKey, state: OnboardingState): boolean {
     case 'portfolio':
       return true; // optional step
     case 'payouts':
-      return !!state.payout && (state.payout.razorpay_account_id != null || state.payout.fund_account_id != null || state.payout.last_error === 'gateway_unavailable');
+      return state.provider?.razorpay_account_id != null
+        || (!!state.payout
+          && (state.payout.razorpay_account_id != null
+            || state.payout.fund_account_id != null
+            || state.payout.last_error === 'gateway_unavailable'));
     case 'review':
       return !!state.provider?.submitted_at;
   }
