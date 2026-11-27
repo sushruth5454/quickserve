@@ -101,8 +101,11 @@
     }
   ],
   "laneCi": {
-    "state": "PENDING_PUSH",
-    "ref": "lane/oorva-o21-sv04-batch53"
+    "state": "SUCCESS",
+    "ref": "lane/oorva-o21-sv04-batch53",
+    "codeHeadSha": "09993b9a43e5f1bcb00b91e9725b3eafb0114059",
+    "runId": 45974019260,
+    "conclusion": "success"
   },
   "runtimeDeviceEvidence": "NOT_VERIFIED",
   "privateE2E": "NOT_RUN"
