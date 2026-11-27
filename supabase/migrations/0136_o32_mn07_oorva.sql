@@ -30,9 +30,11 @@ begin
     'invalid dispute outcome'
   );
   if p_outcome = 'partial_refund' then
-    v_note := btrim(p_note);
+    v_note := regexp_replace(coalesce(p_note, ''), '^[[:space:]]+|[[:space:]]+$', '', 'g');
     perform public._assert(
-      v_note is not null and char_length(v_note) between 1 and 500,
+      p_note is not null
+        and p_note ~ '[^[:space:]]'
+        and char_length(v_note) between 1 and 500,
       'partial refund note must be between 1 and 500 characters'
     );
   end if;
