@@ -1,7 +1,15 @@
 import * as appApi from '../../lib/api';
 import { isDemoMode } from '../../lib/config';
 import { supabase } from '../../lib/supabase';
-import type { Proposal, ProposalItem, ProposalScheduleInput, SendProposalInput } from '../../lib/types';
+import type {
+  BookingStatus,
+  Proposal,
+  ProposalItem,
+  ProposalScheduleInput,
+  ProposalViewState,
+  SendProposalInput,
+  ServiceRequestStatus,
+} from '../../lib/types';
 
 export interface CreatorProposalConfig {
   defaultRevisions: number;
@@ -12,6 +20,90 @@ export interface ProposalFeePreview {
   platform_fee: number;
   service_due: number;
   total_today: number;
+}
+
+function isProposalViewState(value: unknown): value is ProposalViewState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  const bookingStatuses: Array<BookingStatus | null> = [
+    null, 'pending_payment', 'confirmed', 'requested', 'accepted', 'en_route',
+    'inspecting', 'quote_sent', 'awaiting_payment', 'in_progress', 'delivery_pending',
+    'completion_requested', 'completed', 'closed', 'closed_no_work', 'declined',
+    'expired', 'cancelled', 'disputed', 'refunded',
+  ];
+  const requestStatuses: ServiceRequestStatus[] = ['open', 'closed', 'booked', 'expired', 'cancelled'];
+  return typeof row.proposal_id === 'string'
+    && ['customer', 'owner', 'manager', 'admin'].includes(String(row.viewer_role))
+    && requestStatuses.includes(row.request_status as ServiceRequestStatus)
+    && typeof row.request_expires_at === 'string'
+    && (row.current_booking_id === null || typeof row.current_booking_id === 'string')
+    && bookingStatuses.includes(row.current_booking_status as BookingStatus | null)
+    && (row.current_booking_created_at === null || typeof row.current_booking_created_at === 'string')
+    && (row.payment_hold_expires_at === null || typeof row.payment_hold_expires_at === 'string')
+    && (row.delivery_status === null || ['not_applicable', 'pending', 'submitted', 'accepted'].includes(String(row.delivery_status)))
+    && typeof row.can_accept === 'boolean'
+    && typeof row.can_withdraw === 'boolean'
+    && typeof row.can_send_new === 'boolean'
+    && typeof row.can_message === 'boolean';
+}
+
+async function getDemoProposalViewState(proposalId: string): Promise<ProposalViewState> {
+  const [session, proposal] = await Promise.all([appApi.getSession(), appApi.getProposal(proposalId)]);
+  if (!session) throw new Error('Sign in to read this proposal');
+  const request = await appApi.getServiceRequest(proposal.request_id);
+  if (!request) throw new Error('Proposal request state is unavailable in the demo backend');
+  const viewerRole = request.customer_id === session.userId
+    ? 'customer'
+    : proposal.provider_id === session.userId
+      ? 'owner'
+      : null;
+  if (!viewerRole) throw new Error('Proposal not found');
+
+  const bookings = proposal.bookings ?? [];
+  const activeStatuses = new Set([
+    'pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
+    'delivery_pending', 'completion_requested', 'disputed',
+  ]);
+  const active = bookings.filter((booking) => activeStatuses.has(booking.status));
+  if (active.length > 1 || (active.length === 0 && bookings.length > 1)) {
+    throw new Error('Demo proposal booking history is ambiguous');
+  }
+  const current = active.length === 1
+    ? active.at(0) ?? null
+    : bookings.length === 1
+      ? bookings.at(0) ?? null
+      : null;
+  const latestProposal = viewerRole === 'owner'
+    ? (await appApi.listMyProposals())
+      .filter((row) => row.request_id === proposal.request_id)
+      .reduce<Proposal | null>((latest, row) => !latest || row.version > latest.version ? row : latest, null)
+    : null;
+  const canAccept = viewerRole === 'customer'
+    && request.status === 'open'
+    && new Date(request.expires_at).getTime() > Date.now()
+    && proposal.status === 'sent'
+    && active.length === 0;
+  const canWithdraw = viewerRole === 'owner' && proposal.status === 'sent';
+  const canSendNew = viewerRole === 'owner'
+    && latestProposal?.id === proposal.id
+    && request.status === 'open'
+    && ['withdrawn', 'expired', 'rejected'].includes(proposal.status);
+
+  return {
+    proposal_id: proposal.id,
+    viewer_role: viewerRole,
+    request_status: request.status,
+    request_expires_at: request.expires_at,
+    current_booking_id: current?.id ?? null,
+    current_booking_status: current ? current.status : null,
+    current_booking_created_at: null,
+    payment_hold_expires_at: current?.payment_hold_expires_at ?? null,
+    delivery_status: null,
+    can_accept: canAccept,
+    can_withdraw: canWithdraw,
+    can_send_new: canSendNew,
+    can_message: ['open', 'closed'].includes(request.status),
+  };
 }
 
 export async function getCreatorProposalConfig(): Promise<CreatorProposalConfig> {
@@ -64,6 +156,14 @@ export async function getProposalFeePreview(proposalId: string): Promise<Proposa
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || typeof row !== 'object') throw new Error('Proposal fee preview is unavailable');
   return row as ProposalFeePreview;
+}
+
+export async function getProposalViewState(proposalId: string): Promise<ProposalViewState> {
+  if (isDemoMode) return getDemoProposalViewState(proposalId);
+  const { data, error } = await supabase.rpc('get_proposal_view_state', { p_proposal_id: proposalId });
+  if (error) throw new Error(error.message);
+  if (!isProposalViewState(data)) throw new Error('Proposal view state is unavailable');
+  return data;
 }
 
 export async function acceptProposalWithFeePreview(
