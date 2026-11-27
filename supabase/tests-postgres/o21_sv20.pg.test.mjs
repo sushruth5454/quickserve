@@ -143,114 +143,187 @@ function capture(promise) {
 }
 
 export async function run(context) {
-  const fixture = await context.withClient((client) => makeAcceptFixture(client));
-  await context.withClient(async (observer) => {
-    await context.withTwoClients(async (acceptClient, cancelClient) => {
-      const [observerPid, acceptPid, cancelPid] = await Promise.all([
-        observer.query('select pg_backend_pid() as pid'),
-        acceptClient.query('select pg_backend_pid() as pid'),
-        cancelClient.query('select pg_backend_pid() as pid'),
-      ]).then((rows) => rows.map((result) => Number(result.rows[0]?.pid)));
-      const pids = { observerPid, acceptPid, cancelPid };
-      assert.equal(new Set(Object.values(pids)).size, 3,
-        `race requires three distinct PostgreSQL sessions: ${JSON.stringify(pids)}`);
-      for (const client of [observer, acceptClient, cancelClient]) {
-        await client.query(`set statement_timeout = '20000ms'`);
-      }
+  await context.withTwoClients(async (first, second) => {
+    const [firstPidResult, secondPidResult] = await Promise.all([
+      first.query('select pg_backend_pid() as pid'),
+      second.query('select pg_backend_pid() as pid'),
+    ]);
+    const firstPid = Number(firstPidResult.rows[0]?.pid);
+    const secondPid = Number(secondPidResult.rows[0]?.pid);
+    const pids = { firstPid, secondPid };
+    assert.ok(Number.isInteger(firstPid) && Number.isInteger(secondPid) && firstPid !== secondPid,
+      `race requires two independent PostgreSQL backend PIDs: ${JSON.stringify(pids)}`);
+    await first.query(`set statement_timeout = '20000ms'`);
+    await second.query(`set statement_timeout = '20000ms'`);
 
-      let barrierOpen = false;
-      let acceptPromise;
-      let cancelPromise;
-      try {
-        await Promise.all([
-          prepareAs(acceptClient, fixture.customerId),
-          prepareAs(cancelClient, fixture.customerId),
-        ]);
-        await observer.query('begin');
-        barrierOpen = true;
-        await observer.query(`
-          select r.id
-            from public.service_requests r
-           where r.id = $1::uuid
-           for update
-        `, [fixture.requestId]);
-
-        acceptPromise = capture(acceptClient.query(`
-          select public.accept_proposal($1::uuid, $2::uuid) as booking_id
-        `, [fixture.proposalId, fixture.addressId]).finally(() => acceptClient.query('reset role')));
-        const acceptBlocked = await waitForBlockedFunction(
-          observer, acceptPid, observerPid, 'accept_proposal',
-        );
-        cancelPromise = capture(cancelClient.query(`
-          select public.cancel_service_request($1::uuid)
-        `, [fixture.requestId]).finally(() => cancelClient.query('reset role')));
-        const cancelBlocked = await waitForBlockedFunction(
-          observer, cancelPid, observerPid, 'cancel_service_request',
-        );
-        const overlap = { pids, acceptBlocked, cancelBlocked, requestId: fixture.requestId };
-        assert.equal(acceptBlocked?.wait_event_type, 'Lock',
-          `accept_proposal must overlap while waiting on the service-request lock: ${JSON.stringify(overlap)}`);
-        assert.ok((acceptBlocked?.blockers ?? []).map(Number).includes(observerPid),
-          `accept_proposal must be blocked by the request-row barrier: ${JSON.stringify(overlap)}`);
-        assert.equal(cancelBlocked?.wait_event_type, 'Lock',
-          `cancel_service_request must use the existing request-first lock order: ${JSON.stringify(overlap)}`);
-        assert.ok((cancelBlocked?.blockers ?? []).map(Number).includes(observerPid),
-          `cancel_service_request must wait on the same request-row barrier: ${JSON.stringify(overlap)}`);
-        assert.match(cancelBlocked?.query ?? '', /cancel_service_request/i,
-          `the blocked request-first statement must be cancel_service_request: ${JSON.stringify(overlap)}`);
-
-        await observer.query('commit');
-        barrierOpen = false;
-        const [accepted, cancelled] = await Promise.all([acceptPromise, cancelPromise]);
-        const finalState = (await observer.query(`
-          select r.status as request_status, p.status as proposal_status,
-                 b.id as booking_id, b.status::text as booking_status
-            from public.service_requests r
-            join public.proposals p on p.request_id = r.id
-            join public.bookings b on b.service_request_id = r.id and b.proposal_id = p.id
-           where r.id = $1::uuid
-        `, [fixture.requestId])).rows;
-        const activeCount = (await observer.query(`
-          select count(*)::int as count
+    const readState = async (fixture) => (await first.query(`
+      select jsonb_build_object(
+        'request_status', r.status,
+        'proposal_status', p.status,
+        'bookings', coalesce((
+          select jsonb_agg(jsonb_build_object('id', b.id, 'status', b.status::text) order by b.id)
             from public.bookings b
-           where b.service_request_id = $1::uuid
+           where b.service_request_id = r.id
+        ), '[]'::jsonb),
+        'active_count', (
+          select count(*)::int
+            from public.bookings b
+           where b.service_request_id = r.id
              and b.status in ('pending_payment', 'confirmed', 'accepted', 'en_route', 'in_progress',
                               'delivery_pending', 'completion_requested', 'disputed')
-        `, [fixture.requestId])).rows[0]?.count;
-        const diagnostics = {
-          pids,
-          acceptBlocked,
-          cancelBlocked,
-          accepted,
-          cancelled,
-          finalState,
-          activeCount,
-        };
-        assert.equal(accepted.ok, true,
-          `accept_proposal must finish after the request lock is released: ${JSON.stringify(diagnostics)}`);
-        assert.equal(cancelled.ok, false,
-          `request-only cancellation must reject the newly-created active hold: ${JSON.stringify(diagnostics)}`);
-        assert.match(cancelled.message ?? '', /active booking/i,
-          `cancellation must report the active booking guard, not an unrelated failure: ${JSON.stringify(diagnostics)}`);
-        assert.equal(finalState.length, 1,
-          `the accepted proposal must have exactly one booking after the race: ${JSON.stringify(diagnostics)}`);
-        assert.equal(finalState[0]?.request_status, 'closed',
-          `accepted active hold must not coexist with a cancelled request: ${JSON.stringify(diagnostics)}`);
-        assert.equal(finalState[0]?.proposal_status, 'accepted',
-          `the winning accept leaves its proposal accepted: ${JSON.stringify(diagnostics)}`);
-        assert.equal(finalState[0]?.booking_status, 'pending_payment',
-          `the accepted result remains the expected held booking: ${JSON.stringify(diagnostics)}`);
-        assert.equal(activeCount, 1,
-          `the request has one active hold and no request-cancelled state: ${JSON.stringify(diagnostics)}`);
-      } finally {
-        if (barrierOpen) await observer.query('rollback').catch(() => undefined);
-        if (acceptPromise) await acceptPromise;
-        if (cancelPromise) await cancelPromise;
-        await Promise.all([
-          acceptClient.query('reset role').catch(() => undefined),
-          cancelClient.query('reset role').catch(() => undefined),
-        ]);
+        )
+      ) as state
+        from public.service_requests r
+        join public.proposals p on p.request_id = r.id and p.id = $2::uuid
+       where r.id = $1::uuid
+    `, [fixture.requestId, fixture.proposalId])).rows[0]?.state;
+
+    const firstFixture = await makeAcceptFixture(first);
+    let firstTransactionOpen = false;
+    let firstCancelPromise;
+    try {
+      await first.query('begin');
+      firstTransactionOpen = true;
+      await first.query(`
+        select r.id
+          from public.service_requests r
+         where r.id = $1::uuid
+         for update
+      `, [firstFixture.requestId]);
+      await prepareAs(second, firstFixture.customerId);
+      firstCancelPromise = capture(asPrepared(second, `
+        select public.cancel_service_request($1::uuid)
+      `, [firstFixture.requestId]));
+      const cancelBlocked = await waitForBlockedFunction(
+        first, secondPid, firstPid, 'cancel_service_request',
+      );
+      const overlap = { pids, cancelBlocked, requestId: firstFixture.requestId };
+      assert.equal(cancelBlocked?.wait_event_type, 'Lock',
+        `request cancellation must block first on the service-request row: ${JSON.stringify(overlap)}`);
+      assert.ok((cancelBlocked?.blockers ?? []).map(Number).includes(firstPid),
+        `request cancellation must be blocked by the request-row barrier: ${JSON.stringify(overlap)}`);
+      assert.match(cancelBlocked?.query ?? '', /cancel_service_request/i,
+        `the blocked statement must be cancel_service_request: ${JSON.stringify(overlap)}`);
+
+      await prepareAs(first, firstFixture.customerId);
+      const accepted = await capture(first.query(`
+        select public.accept_proposal($1::uuid, $2::uuid) as booking_id
+      `, [firstFixture.proposalId, firstFixture.addressId]));
+      if (accepted.ok) {
+        await first.query('commit');
+      } else {
+        await first.query('rollback');
       }
-    });
+      firstTransactionOpen = false;
+      const cancelled = await firstCancelPromise;
+      await first.query('reset role');
+      await second.query('reset role');
+      const state = await readState(firstFixture);
+      const diagnostics = { pids, cancelBlocked, accepted, cancelled, state };
+      assert.equal(accepted.ok, true,
+        `accept_proposal must create a booking while cancellation waits on the request lock: ${JSON.stringify(diagnostics)}`);
+      assert.equal(cancelled.ok, false,
+        `queued cancellation must reject the active hold after acceptance commits: ${JSON.stringify(diagnostics)}`);
+      assert.match(cancelled.message ?? '', /active booking/i,
+        `queued cancellation must fail on the active-booking guard: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.request_status, 'closed',
+        `accepted active hold must not coexist with a request-cancelled state: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.proposal_status, 'accepted',
+        `acceptance leaves its proposal accepted: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.bookings.length, 1,
+        `the request has exactly one booking after the race: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.bookings[0]?.status, 'pending_payment',
+        `the accepted booking remains a payment hold: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.active_count, 1,
+        `the request has one active hold after the race: ${JSON.stringify(diagnostics)}`);
+    } finally {
+      if (firstTransactionOpen) await first.query('rollback').catch(() => undefined);
+      if (firstCancelPromise) await firstCancelPromise;
+      await Promise.all([
+        first.query('reset role').catch(() => undefined),
+        second.query('reset role').catch(() => undefined),
+      ]);
+    }
+
+    const secondFixture = await makeAcceptFixture(first);
+    let secondTransactionOpen = false;
+    let secondAcceptPromise;
+    try {
+      await first.query('begin');
+      secondTransactionOpen = true;
+      await first.query(`
+        select r.id
+          from public.service_requests r
+         where r.id = $1::uuid
+         for update
+      `, [secondFixture.requestId]);
+      await prepareAs(second, secondFixture.customerId);
+      secondAcceptPromise = capture(asPrepared(second, `
+        select public.accept_proposal($1::uuid, $2::uuid) as booking_id
+      `, [secondFixture.proposalId, secondFixture.addressId]));
+      const acceptBlocked = await waitForBlockedFunction(
+        first, secondPid, firstPid, 'accept_proposal',
+      );
+      const overlap = { pids, acceptBlocked, requestId: secondFixture.requestId };
+      assert.equal(acceptBlocked?.wait_event_type, 'Lock',
+        `acceptance must hold its proposal lock while waiting for the request row: ${JSON.stringify(overlap)}`);
+      assert.ok((acceptBlocked?.blockers ?? []).map(Number).includes(firstPid),
+        `acceptance must be blocked by the request-row barrier: ${JSON.stringify(overlap)}`);
+
+      await prepareAs(first, secondFixture.customerId);
+      await first.query('savepoint sv20_cancel_attempt');
+      const cancelled = await capture(first.query(`
+        select public.cancel_service_request($1::uuid)
+      `, [secondFixture.requestId]));
+      await first.query('rollback to savepoint sv20_cancel_attempt');
+      await first.query('release savepoint sv20_cancel_attempt');
+      await first.query('reset role');
+      const beforeAcceptCommit = await readState(secondFixture);
+      const cancelDiagnostics = { pids, acceptBlocked, cancelled, beforeAcceptCommit };
+      assert.equal(cancelled.ok, false,
+        `cancellation must fail fast instead of waiting cyclically on the acceptance-locked proposal: ${JSON.stringify(cancelDiagnostics)}`);
+      assert.match(cancelled.message ?? '', /proposal is being accepted/i,
+        `cancellation must report retryable proposal-lock contention: ${JSON.stringify(cancelDiagnostics)}`);
+      assert.notEqual(cancelled.code, '40P01',
+        `the two-connection race must not deadlock: ${JSON.stringify(cancelDiagnostics)}`);
+      assert.equal(beforeAcceptCommit.request_status, 'open',
+        `fast-failed cancellation leaves the request unchanged: ${JSON.stringify(cancelDiagnostics)}`);
+      assert.equal(beforeAcceptCommit.proposal_status, 'sent',
+        `fast-failed cancellation leaves the proposal unchanged: ${JSON.stringify(cancelDiagnostics)}`);
+      assert.equal(beforeAcceptCommit.bookings.length, 0,
+        `no booking is written by the failed cancellation: ${JSON.stringify(cancelDiagnostics)}`);
+
+      await first.query('commit');
+      secondTransactionOpen = false;
+      const accepted = await secondAcceptPromise;
+      await prepareAs(first, secondFixture.customerId);
+      const retryCancellation = await capture(asPrepared(first, `
+        select public.cancel_service_request($1::uuid)
+      `, [secondFixture.requestId]));
+      await first.query('reset role');
+      const state = await readState(secondFixture);
+      const diagnostics = { pids, acceptBlocked, cancelled, accepted, retryCancellation, state };
+      assert.equal(accepted.ok, true,
+        `acceptance completes after the request-row barrier releases: ${JSON.stringify(diagnostics)}`);
+      assert.equal(retryCancellation.ok, false,
+        `retry after acceptance must reject the active hold: ${JSON.stringify(diagnostics)}`);
+      assert.match(retryCancellation.message ?? '', /active booking/i,
+        `retry must reach the active-booking guard: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.request_status, 'closed',
+        `accepted hold cannot coexist with a cancelled request: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.proposal_status, 'accepted',
+        `the proposal remains accepted after retry rejection: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.bookings.length, 1,
+        `the second request has exactly one booking: ${JSON.stringify(diagnostics)}`);
+      assert.equal(state.active_count, 1,
+        `the second request retains exactly one active hold: ${JSON.stringify(diagnostics)}`);
+    } finally {
+      if (secondTransactionOpen) await first.query('rollback').catch(() => undefined);
+      if (secondAcceptPromise) await secondAcceptPromise;
+      await Promise.all([
+        first.query('reset role').catch(() => undefined),
+        second.query('reset role').catch(() => undefined),
+      ]);
+    }
   });
 }

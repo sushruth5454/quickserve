@@ -22,6 +22,19 @@ begin
                         'delivery_pending', 'completion_requested', 'disputed')
   ), 'request has an active booking; manage the booking instead');
 
+  begin
+    perform p.id
+      from public.proposals p
+     where p.request_id = v_request.id
+       and p.status = 'sent'
+     order by p.id
+     for update nowait;
+  exception
+    when lock_not_available then
+      raise exception 'a proposal is being accepted; refresh and retry request cancellation'
+        using errcode = 'P0001';
+  end;
+
   update public.service_requests
      set status = 'cancelled', updated_at = now()
    where id = v_request.id;

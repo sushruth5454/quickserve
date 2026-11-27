@@ -20,6 +20,7 @@
     "filename": "supabase\\migrations\\0141_o21_sv20_oorva.sql",
     "acknowledged": true
   },
+  "registrationCommit": "0c216bfd0d055b2eabb756803696fe912bd5e79f",
   "ownedFiles": [
     "app\\src\\features\\proposals\\api.ts",
     "supabase\\migrations\\0141_o21_sv20_oorva.sql",
@@ -30,19 +31,19 @@
     "docs\\design\\oorva\\evidence\\o21-sv20.json"
   ],
   "implementation": {
-    "requestCancellation": "cancel_service_request locks the service request first, rejects the exact active booking statuses used by accept_proposal before any writes, and continues to cancel eligible open/closed requests and reject sent proposals when no active booking exists.",
+    "requestCancellation": "cancel_service_request locks the service request first, rejects the exact active booking statuses used by accept_proposal before any writes, and continues to cancel eligible open/closed requests and reject sent proposals when no active booking exists. It takes sent-proposal row locks with NOWAIT before changing request/proposal rows so an acceptance holding a proposal cannot form a request/proposal lock cycle; callers receive a retryable error.",
     "bookingReadback": "Request detail uses the current booking ID/status/hold from the existing T05 proposal view state. Closed requests with an active hold route to Continue/Manage booking; historical cancelled/expired bookings do not suppress request cancellation.",
     "existingBookingSafety": "The existing cancel_booking path is unchanged and remains available while the proposal acquisition switch is OFF; no alternate request refund path or new feature flag was added.",
-    "concurrency": "A private PostgreSQL integration test uses three distinct backend PIDs and a service-request row-lock barrier to overlap accept_proposal and cancel_service_request, assert both wait on the request lock, and verify the accepted hold cannot coexist with a cancelled request."
+    "concurrency": "A private PostgreSQL integration test uses two distinct backend PIDs and service-request row-lock barriers to overlap accept_proposal and cancel_service_request in both lock acquisition orders, prove request-first cancellation blocking, exercise NOWAIT contention against an acceptance-locked proposal, and verify the accepted hold cannot coexist with a cancelled request."
   },
   "validation": {
-    "metadata": "PAUSED_FOR_REGISTRATION",
-    "workerCheckpoint": "PENDING",
-    "gitDiffCheck": "NOT_RUN",
-    "codespaceApp": "NOT_RUN: shared registration gate",
-    "codespaceSql": "NOT_RUN: shared registration gate",
-    "migrationParser": "NOT_RUN: shared registration gate",
-    "focusedConcurrencyReview": "PENDING",
+    "metadata": "CONCURRENCY_FIX_IN_PROGRESS",
+    "workerCheckpoint": "d4e2a214c9893a4e2231b4e83699777da9401a03",
+    "gitDiffCheck": "PASS: worker changes before fix commit",
+    "codespaceApp": "NOT_RUN_AFTER_FINAL_FIX",
+    "codespaceSql": "NOT_RUN_AFTER_FINAL_FIX",
+    "migrationParser": "NOT_RUN_AFTER_FINAL_FIX",
+    "focusedConcurrencyReview": "REVIEW_FINDING_ADDRESSED; RE-REVIEW_PENDING",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"

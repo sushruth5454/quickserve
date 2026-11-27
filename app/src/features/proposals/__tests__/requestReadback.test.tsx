@@ -25,7 +25,10 @@ jest.mock('../api', () => mockProposalApi);
 jest.mock('../../../lib/auth', () => ({ useAuth: () => ({ userId: 'customer-1' }) }));
 jest.mock('../../../lib/money', () => ({ formatINR: (value: number) => `₹${value}` }));
 jest.mock('../../../lib/proposalStatus', () => ({ proposalStatus: () => ({ label: 'Accepted' }) }));
-jest.mock('../../../components/market/QuoteCompareTable', () => ({ QuoteCompareTable: 'div' }));
+jest.mock('../../../components/market/QuoteCompareTable', () => {
+  const ReactRuntime = require('react') as typeof React;
+  return { QuoteCompareTable: () => ReactRuntime.createElement('div') };
+});
 jest.mock('../../serviceLifecycle/useFocusedServiceRefresh', () => {
   const ReactRuntime = require('react') as typeof React;
   return {
