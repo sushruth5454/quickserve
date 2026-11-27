@@ -65,9 +65,22 @@
       }
     ],
     "focusedReview": {
-      "result": "One money finding; non-actionable under the stage contract.",
-      "finding": "After a full-refund failure, payment status remains refund_pending and the mandated existing _net_paid projection reports zero. Correcting it would change the explicitly protected _net_paid behavior; the separate captured-cash and failed-attempt buckets remain visible."
+      "money": {
+        "result": "FINDING_NON_ACTIONABLE",
+        "finding": "After a full-refund failure, payment status remains refund_pending and the mandated existing _net_paid projection reports zero.",
+        "rationale": "Captured cash and refund-state buckets remain separate from the protected _net_paid semantics; changing net_held_paise would violate the stage contract."
+      },
+      "auth": {
+        "result": "PASS/NO_FINDINGS",
+        "reviewer": "f62c6edc-716b-45b2-a8f4-eb7d4e45db3b",
+        "codeHead": "4f1e54ff"
+      }
     },
-    "laneCi": "not started"
+    "laneCi": {
+      "runId": "45980706623",
+      "result": "SUCCESS",
+      "headSha": "4f1e54ffea1abd05ea7d15568cd40fe8c9917afb",
+      "workflow": "Lane CI (tests only)"
+    }
   }
 }
