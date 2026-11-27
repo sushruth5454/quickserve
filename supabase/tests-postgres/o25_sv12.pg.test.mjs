@@ -23,14 +23,28 @@ async function waitForLockWait(observer, pid, diagnostics) {
   throw new Error(`accept_booking did not overlap the expiry lock barrier: ${JSON.stringify({ ...diagnostics, activity })}`);
 }
 
-async function createFixture(client) {
-  const ownerId = randomUUID();
-  const customerId = randomUUID();
-  const city = `SV12 ${randomUUID()} City`;
-  const originalArchetypeFlags = (await client.query(`
+function createFixtureState() {
+  return {
+    ownerId: randomUUID(),
+    customerId: randomUUID(),
+    categoryId: randomUUID(),
+    serviceId: randomUUID(),
+    addressId: randomUUID(),
+    city: `SV12 ${randomUUID()} City`,
+    originalArchetypeFlags: undefined,
+    archetypeFlagsCaptured: false,
+  };
+}
+
+async function createFixture(client, fixture) {
+  const flagRow = (await client.query(`
     select c.value from public.app_config as c where c.key = 'archetype_flags'::text
-  `)).rows[0]?.value;
-  assert.ok(originalArchetypeFlags, `archetype_flags missing: ${JSON.stringify({ originalArchetypeFlags })}`);
+  `)).rows[0];
+  if (flagRow) {
+    fixture.originalArchetypeFlags = flagRow.value;
+    fixture.archetypeFlagsCaptured = true;
+  }
+  assert.ok(flagRow, `archetype_flags missing: ${JSON.stringify({ fixture })}`);
   await client.query(`
     update public.app_config as c
        set value = c.value || '{"time_based":true}'::jsonb
@@ -38,7 +52,7 @@ async function createFixture(client) {
   `);
   await client.query(
     'insert into auth.users (id) values ($1::uuid), ($2::uuid)',
-    [ownerId, customerId],
+    [fixture.ownerId, fixture.customerId],
   );
   await client.query(`
     update public.profiles as p
@@ -47,7 +61,7 @@ async function createFixture(client) {
          when $2::uuid then 'SV12 private customer'::text
        end
      where p.id = any(array[$1::uuid, $2::uuid])
-  `, [ownerId, customerId]);
+  `, [fixture.ownerId, fixture.customerId]);
   await client.query(`
     insert into public.providers (
       id, city, base_location, kyc_status, submitted_at, admin_review_status,
@@ -57,129 +71,130 @@ async function createFixture(client) {
       extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
       'verified', now(), 'approved', true, false, false
     )
-  `, [ownerId, city]);
-  const categoryId = (await client.query(`
+  `, [fixture.ownerId, fixture.city]);
+  await client.query(`
     insert into public.categories (
-      slug, name, pricing_mode, active, archetype, location_modes, pricing_units,
+      id, slug, name, pricing_mode, active, archetype, location_modes, pricing_units,
       min_lead_hours, max_lead_days, restricted
     ) values (
-      $1::text, 'SV12 private session'::text, 'quote'::public.pricing_mode,
+      $1::uuid, $2::text, 'SV12 private session'::text, 'quote'::public.pricing_mode,
       true, 'time_based'::text, array['at_customer']::text[],
       array['session']::text[], 0::int, 365::int, false
     )
-    returning id
-  `, [`sv12-${randomUUID().replace(/-/g, '')}`])).rows[0].id;
+  `, [fixture.categoryId, `sv12-${randomUUID().replace(/-/g, '')}`]);
   await client.query(`
     insert into public.category_cities (category_id, city, live, launched_at)
     values ($1::uuid, $2::text, true, now())
-  `, [categoryId, city]);
-  const serviceId = (await client.query(`
-    insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
-    values ($1::uuid, $2::uuid, 0::int, 0::int, true)
-    returning id
-  `, [ownerId, categoryId])).rows[0].id;
+  `, [fixture.categoryId, fixture.city]);
+  await client.query(`
+    insert into public.provider_services (id, provider_id, category_id, visit_fee, labour_rate, active)
+    values ($1::uuid, $2::uuid, $3::uuid, 0::int, 0::int, true)
+  `, [fixture.serviceId, fixture.ownerId, fixture.categoryId]);
   await client.query(`
     insert into public.provider_availability (provider_id, weekday, start_time, end_time)
     select $1::uuid, day::int, time '00:00', time '23:59'
       from generate_series(0, 6) as days(day)
-  `, [ownerId]);
-  const addressId = (await client.query(`
-    insert into public.addresses (user_id, label, line1, city, lat, lng)
+  `, [fixture.ownerId]);
+  await client.query(`
+    insert into public.addresses (id, user_id, label, line1, city, lat, lng)
     values (
-      $1::uuid, 'Home'::text, 'SV12 private street'::text, $2::text,
+      $1::uuid, $2::uuid, 'Home'::text, 'SV12 private street'::text, $3::text,
       16.50::double precision, 80.60::double precision
     )
-    returning id
-  `, [customerId, city])).rows[0].id;
-  return { ownerId, customerId, categoryId, serviceId, addressId, city, originalArchetypeFlags };
+  `, [fixture.addressId, fixture.customerId, fixture.city]);
 }
 
-async function createRecurringSchedule(client, fixture) {
-  return (await client.query(`
+async function createRecurringSchedule(client, fixture, scheduleId) {
+  await client.query(`
     insert into public.recurring_schedules (
-      customer_id, provider_id, provider_service_id, frequency, weekdays, start_time,
+      id, customer_id, provider_id, provider_service_id, frequency, weekdays, start_time,
       session_duration_min, payment_mode, address_line, city, lat, lng, description, starts_on
     ) values (
-      $1::uuid, $2::uuid, $3::uuid, 'weekly'::text, array[2]::smallint[], time '10:00',
-      60::int, 'per_session'::text, 'SV12 recurring address'::text, $4::text,
+      $1::uuid, $2::uuid, $3::uuid, $4::uuid, 'weekly'::text, array[2]::smallint[], time '10:00',
+      60::int, 'per_session'::text, 'SV12 recurring address'::text, $5::text,
       16.50::double precision, 80.60::double precision, 'SV12 recurring session'::text,
       date '2027-03-16'
     )
-    returning id
-  `, [fixture.customerId, fixture.ownerId, fixture.serviceId, fixture.city])).rows[0].id;
+  `, [scheduleId, fixture.customerId, fixture.ownerId, fixture.serviceId, fixture.city]);
 }
 
-async function createRequestedBooking(client, fixture, { scheduledAt, recurringScheduleId = null }) {
-  return (await client.query(`
+async function createRequestedBooking(client, fixture, bookingId, { scheduledAt, recurringScheduleId = null }) {
+  await client.query(`
     insert into public.bookings (
-      customer_id, provider_id, category_id, provider_service_id, address_id,
+      id, customer_id, provider_id, category_id, provider_service_id, address_id,
       description, scheduled_at, service_window, status, visit_fee, platform_fee, total_amount,
       archetype, booking_origin, recurring_schedule_id, session_duration_min
     ) values (
-      $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, 'SV12 private request'::text,
-      $6::timestamptz,
-      tstzrange($6::timestamptz, $6::timestamptz + interval '1 hour', '[)'),
+      $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid, 'SV12 private request'::text,
+      $7::timestamptz,
+      tstzrange($7::timestamptz, $7::timestamptz + interval '1 hour', '[)'),
       'requested'::public.booking_status, 0::int, 0::int, 0::int, 'time_based'::text,
-      'marketplace'::text, $7::uuid, 60::int
+      'marketplace'::text, $8::uuid, 60::int
     )
-    returning id
   `, [
-    fixture.customerId, fixture.ownerId, fixture.categoryId, fixture.serviceId,
+    bookingId, fixture.customerId, fixture.ownerId, fixture.categoryId, fixture.serviceId,
     fixture.addressId, scheduledAt, recurringScheduleId,
-  ])).rows[0].id;
+  ]);
 }
 
-async function cleanupFixture(client, fixture, bookingIds, scheduleId) {
-  await client.query('begin');
-  try {
-    await client.query(`
+async function cleanupFixture(client, fixture, bookingIds, scheduleIds) {
+  const cleanupErrors = [];
+  const attempt = async (step, query, params = []) => {
+    try {
+      await client.query(query, params);
+    } catch (error) {
+      cleanupErrors.push(new Error(`SV12 cleanup failed at ${step}: ${error?.message ?? error}`, { cause: error }));
+    }
+  };
+
+  await attempt('notifications', `
       delete from public.notifications as n
        where n.data ->> 'booking_id' = any($1::text[])
     `, [bookingIds]);
-    await client.query(
-      'delete from public.bookings as b where b.id = any($1::uuid[])',
-      [bookingIds],
-    );
-    await client.query(
-      'delete from public.recurring_schedules as r where r.id = $1::uuid',
-      [scheduleId],
-    );
-    await client.query('delete from public.addresses as a where a.id = $1::uuid', [fixture.addressId]);
-    await client.query('delete from public.provider_availability as pa where pa.provider_id = $1::uuid', [fixture.ownerId]);
-    await client.query('delete from public.provider_services as ps where ps.id = $1::uuid', [fixture.serviceId]);
-    await client.query('delete from public.category_cities as cc where cc.category_id = $1::uuid', [fixture.categoryId]);
-    await client.query('delete from public.categories as c where c.id = $1::uuid', [fixture.categoryId]);
-    await client.query('delete from public.providers as p where p.id = $1::uuid', [fixture.ownerId]);
-    await client.query(
-      'delete from auth.users as u where u.id = any($1::uuid[])',
-      [[fixture.ownerId, fixture.customerId]],
-    );
-    await client.query(
+  await attempt(
+    'bookings',
+    'delete from public.bookings as b where b.id = any($1::uuid[])',
+    [bookingIds],
+  );
+  await attempt('recurring schedules',
+    'delete from public.recurring_schedules as r where r.id = any($1::uuid[])',
+    [scheduleIds]);
+  await attempt('addresses', 'delete from public.addresses as a where a.id = $1::uuid', [fixture.addressId]);
+  await attempt('provider availability', 'delete from public.provider_availability as pa where pa.provider_id = $1::uuid', [fixture.ownerId]);
+  await attempt('provider services', 'delete from public.provider_services as ps where ps.id = $1::uuid', [fixture.serviceId]);
+  await attempt('category cities', 'delete from public.category_cities as cc where cc.category_id = $1::uuid', [fixture.categoryId]);
+  await attempt('categories', 'delete from public.categories as c where c.id = $1::uuid', [fixture.categoryId]);
+  await attempt('provider', 'delete from public.providers as p where p.id = $1::uuid', [fixture.ownerId]);
+  await attempt('auth users', 'delete from auth.users as u where u.id = any($1::uuid[])', [[fixture.ownerId, fixture.customerId]]);
+  if (fixture.archetypeFlagsCaptured) {
+    await attempt(
+      'restore archetype_flags',
       'update public.app_config as c set value = $1::jsonb where c.key = $2::text',
       [JSON.stringify(fixture.originalArchetypeFlags), 'archetype_flags'],
     );
-    await client.query('commit');
-  } catch (error) {
-    await client.query('rollback').catch(() => undefined);
-    throw error;
+  }
+  if (cleanupErrors.length > 0) {
+    const details = cleanupErrors.map((error) => error.message).join('; ');
+    throw new AggregateError(cleanupErrors, `SV12 fixture cleanup had ${cleanupErrors.length} error(s): ${details}`);
   }
 }
 
 export async function run(context) {
-  let fixture;
-  let scheduleId;
-  const bookingIds = [];
+  const fixture = createFixtureState();
+  const scheduleId = randomUUID();
+  const bookingIds = [randomUUID(), randomUUID()];
+  let testFailure = null;
   try {
     await context.withClient(async (client) => {
-      fixture = await createFixture(client);
-      scheduleId = await createRecurringSchedule(client, fixture);
-      bookingIds.push(await createRequestedBooking(client, fixture, {
+      await createFixture(client, fixture);
+      await createRecurringSchedule(client, fixture, scheduleId);
+      await createRequestedBooking(client, fixture, bookingIds[0], {
         scheduledAt: '2027-03-16T10:00:00+05:30',
-      }));
-      bookingIds.push(await createRequestedBooking(client, fixture, {
+      });
+      await createRequestedBooking(client, fixture, bookingIds[1], {
         scheduledAt: '2027-03-23T10:00:00+05:30',
         recurringScheduleId: scheduleId,
-      }));
+      });
       await client.query(`
         update public.bookings as b
            set updated_at = statement_timestamp() - interval '15 minutes'
@@ -203,6 +218,7 @@ export async function run(context) {
 
       await first.query('begin');
       let transactionOpen = true;
+      let raceFailure = null;
       try {
         await first.query(
           'select b.id from public.bookings as b where b.id = $1::uuid for update',
@@ -262,13 +278,44 @@ export async function run(context) {
             diagnostics, recurringBooking,
           })}`,
         );
-      } finally {
-        if (transactionOpen) await first.query('rollback').catch(() => undefined);
+      } catch (error) {
+        raceFailure = error;
       }
+
+      let rollbackFailure = null;
+      if (transactionOpen) {
+        try {
+          await first.query('rollback');
+        } catch (error) {
+          rollbackFailure = error;
+        }
+      }
+      if (raceFailure && rollbackFailure) {
+        throw new AggregateError(
+          [raceFailure, rollbackFailure],
+          `SV12 race and rollback both failed: ${raceFailure.message}; rollback: ${rollbackFailure.message}`,
+        );
+      }
+      if (raceFailure) throw raceFailure;
+      if (rollbackFailure) throw rollbackFailure;
     });
-  } finally {
-    if (fixture && scheduleId) {
-      await context.withClient((client) => cleanupFixture(client, fixture, bookingIds, scheduleId));
-    }
+  } catch (error) {
+    testFailure = error;
   }
+
+  let cleanupFailure = null;
+  try {
+    await context.withClient((client) => cleanupFixture(client, fixture, bookingIds, [scheduleId]));
+  } catch (error) {
+    cleanupFailure = error;
+  }
+
+  if (testFailure && cleanupFailure) {
+    throw new AggregateError(
+      [testFailure, cleanupFailure],
+      `SV12 test and fixture cleanup both failed: ${testFailure.message}; cleanup: ${cleanupFailure.message}`,
+    );
+  }
+  if (testFailure) throw testFailure;
+  if (cleanupFailure) throw cleanupFailure;
 }

@@ -33,7 +33,7 @@
     ]
   },
   "implementation": {
-    "status": "SELECTORS_PASS_AWAITING_LANE_CI",
+    "status": "SELECTORS_PASS_AWAITING_CLEANUP_REVIEW",
     "workerFiles": [
       "app/src/lib/types.ts",
       "app/src/features/providerDashboard/ProviderDashboard.tsx",
@@ -51,7 +51,8 @@
       "Ordinary acceptance checks the server deadline after acquiring the existing booking lock; recurring occurrences remain exempt, and decline/refund behavior is unchanged.",
       "Request cards use the server deadline and flags, hide an unsupported zero-visit-fee earnings estimate, and link to booking details.",
       "Next-job actions are family-aware; accepted time-based sessions and proposal OTP/delivery actions open booking details, and proposal confirmed/delivery_pending work is active.",
-      "Mutation success requires a refreshed same-booking-id status readback. No appearance flag or money-safety gate was added."
+      "Mutation success requires a refreshed same-booking-id status readback. No appearance flag or money-safety gate was added.",
+      "The private PostgreSQL fixture preallocates cleanup keys before setup, restores archetype_flags on failure, attempts every cleanup step, and propagates aggregated cleanup failures."
     ],
     "featureOffBehavior": "No appearance feature gate was added to owner resolution, cancellation, refunds, settlement, or expiry cleanup; the existing money-safety paths were not modified."
   },
@@ -73,7 +74,8 @@
     "privatePostgres": {
       "selector": "o25_sv12.pg.test.mjs",
       "scenario": "SV-REQUEST-CARD-CONCURRENT",
-      "required": "Two independent backend PIDs; accept_booking waits across the expiry row-lock barrier at the ordinary deadline; recurring acceptance remains exempt."
+      "required": "Two independent backend PIDs; accept_booking waits across the expiry row-lock barrier at the ordinary deadline; recurring acceptance remains exempt.",
+      "cleanupFix": "Pending exact Lane CI after focused final-head concurrency review."
     },
     "migrationParserSelector": "o25_sv12_oorva.sql",
     "idReadinessRegressionSelector": "id_readiness",
@@ -114,12 +116,13 @@
       }
     },
     "concurrencyReview": {
-      "result": "NO_FINDINGS",
-      "reviewedCheckpoint": "b02cbd878fde8d536f0bbcd4548a616501830a93",
-      "lockedServerFunctionsChangedAfterReview": false
+      "result": "PENDING_FINAL_HEAD_REVIEW",
+      "priorResult": "NO_FINDINGS",
+      "priorReviewedCheckpoint": "b02cbd878fde8d536f0bbcd4548a616501830a93",
+      "reReviewScope": "supabase/tests-postgres/o25_sv12.pg.test.mjs cleanup isolation only."
     },
     "laneCi": {
-      "status": "PENDING",
+      "status": "PENDING_FINAL_HEAD_REVIEW_AND_CLEANUP_CI",
       "privatePostgresJob": "supabase/tests-postgres/o25_sv12.pg.test.mjs is discovered by supabase/tests-postgres/run.mjs; lane-ci.yml runs that discovery job when this directory changes."
     }
   },
