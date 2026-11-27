@@ -1,0 +1,88 @@
+{
+  "stageId": "O21-READ",
+  "workPackage": "O21",
+  "sourceTaskIds": [
+    "ID-T02",
+    "SV-T05"
+  ],
+  "sourceFindingIds": [
+    "ID-F09",
+    "SV-F04"
+  ],
+  "planBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "bb25f20d300d70285024a15c4cb551519f3a04f9",
+  "doneDependencies": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O38R": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c"
+  },
+  "migrationClaim": {
+    "id": "MIG-O21-READ",
+    "numericVersion": "0133",
+    "filename": "supabase\\migrations\\0133_o21_read_oorva.sql",
+    "acknowledged": true
+  },
+  "sourceDefinitionsAtBase": [
+    {
+      "symbol": "public.service_request_provider_view",
+      "path": "supabase\\migrations\\0089_r1_provider_request_view_projection.sql",
+      "gitBlobSha": "912939320990924f9627e1e5f89b479e2ebd3a77"
+    },
+    {
+      "symbol": "public.accept_proposal",
+      "path": "supabase\\migrations\\0081_c2_creator_delivery.sql",
+      "gitBlobSha": "57a63d56d084d851ffe60c93cd142e0b1f3cc244"
+    },
+    {
+      "symbol": "public._acts_for",
+      "path": "supabase\\migrations\\0052_merchant_staff.sql",
+      "gitBlobSha": "9113da678792b56dbfde28ad6849d1dc7d8121f8"
+    }
+  ],
+  "placements": {
+    "S60": [
+      "PA-S60-01-state-party-header",
+      "PA-S60-02-accept-amount-and-fee-freshness",
+      "PA-S60-03-scope-delivery-revision-terms",
+      "PA-S60-04-payment-milestones",
+      "PA-S60-05-questions",
+      "PA-S60-06-retry-return-refresh"
+    ],
+    "S61": [
+      "PA-S61-01-brief-business-context",
+      "PA-S61-02-scope-and-selected-package",
+      "PA-S61-03-actual-deliverables-versus-revisions-metadata",
+      "PA-S61-04-deadline-revision-controls",
+      "PA-S61-05-advance-payment-plan",
+      "PA-S61-06-send-error-priority"
+    ],
+    "S71": [
+      "PA-S71-01-brief-event-header",
+      "PA-S71-02-comparison-and-versions",
+      "PA-S71-03-duplicate-cards-and-outcome-action",
+      "PA-S71-04-request-cancellation",
+      "PA-S71-05-loading-empty-error",
+      "PA-S71-06-questions-and-privacy"
+    ]
+  },
+  "implementation": {
+    "status": "IN_PROGRESS",
+    "delegatedRequestGuard": "merchant_staff is enforced only on the business_members union branch through the existing security-definer _acts_for manager predicate; provider-own auth.uid access, sanitized intake, routed-provider ambiguity suppression and existing grant are preserved.",
+    "sanitizedIntake": "The view removes every category intake property marked x-private, matching _proposal_public_intake without requiring authenticated EXECUTE on that revoked helper.",
+    "proposalReadState": "Adds an authenticated, redacted get_proposal_view_state RPC with explicit customer/owner/manager/admin roles, current booking composite, and server-derived capabilities aligned with accept/withdraw/send/message guards, including category and provider availability for Accept.",
+    "bookingSelection": "Uses accept_proposal's active status set, then latest history ordered by created_at DESC and id DESC.",
+    "routeHosts": [
+      "ProposalDetailScreen",
+      "ProposalComposeDetailScreen",
+      "RequestDetailScreen"
+    ]
+  },
+  "validation": {
+    "codespaceApp": "PASS: ProposalStatus selector; 1 suite, 11 tests; helper snapshot 2e75ffd9.",
+    "codespaceSql": "PASS: O21 registered SQL test 1/1 plus R1 provider-view regression 1/1; helper snapshots 60f0a843 and deb4b217.",
+    "codespaceMigrationParser": "PASS: 0133 parser selected 1 check; 5 top-level statements, 1 function body, 0 errors; helper snapshot bc407f2c.",
+    "focusedAuthReview": "PASS: independent focused O21 authorization review found no actionable issues.",
+    "exactHeadLaneCi": "NOT_RUN",
+    "privateIntegration": "NOT_RUN",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}

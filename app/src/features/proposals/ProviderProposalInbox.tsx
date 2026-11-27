@@ -6,8 +6,9 @@ import * as api from '../../lib/api';
 import { formatINR } from '../../lib/money';
 import { relativeTimeLabel } from '../../lib/schedule';
 import { proposalStatus } from '../../lib/proposalStatus';
-import type { Proposal, ProposalRequest } from '../../lib/types';
+import type { Proposal, ProposalRequest, ProposalViewState } from '../../lib/types';
 import { listMyBusinessProposals } from '../merchantStaff/api';
+import { getProposalViewState } from './api';
 import { RequestQuestionThread } from './RequestQuestionThread';
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -18,18 +19,30 @@ export function ProviderProposalInbox({ providerId }: { providerId: string }) {
   const toast = useToast();
   const [requests, setRequests] = useState<ProposalRequest[]>([]);
   const [mine, setMine] = useState<Proposal[]>([]);
+  const [proposalViews, setProposalViews] = useState<Record<string, ProposalViewState>>({});
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
   const [questionRequestId, setQuestionRequestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
+      setProposalViews({});
       const [allRequests, proposals] = await Promise.all([
         api.listProviderServiceRequests(),
         listMyBusinessProposals(providerId),
       ]);
+      const latest = new Map<string, Proposal>();
+      for (const proposal of proposals) {
+        const previous = latest.get(proposal.request_id);
+        if (!previous || proposal.version > previous.version) latest.set(proposal.request_id, proposal);
+      }
+      const viewEntries = await Promise.all([...latest.values()].map(async (proposal) => [
+        proposal.id,
+        await getProposalViewState(proposal.id),
+      ] as const));
       setRequests(allRequests.filter((request) => request.provider_id === providerId));
       setMine(proposals);
+      setProposalViews(Object.fromEntries(viewEntries));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -110,8 +123,9 @@ export function ProviderProposalInbox({ providerId }: { providerId: string }) {
       {sent.length ? (
         <Section title="Proposals sent" subtitle="Your quotes and where they stand">
           {sent.map(({ proposal: p, request: r }) => {
-            const s = proposalStatus(p);
-            const canResend = r?.status === 'open' && (p.status === 'withdrawn' || p.status === 'expired' || p.status === 'rejected');
+            const view = proposalViews[p.id] ?? null;
+            const s = proposalStatus(p, view);
+            const canResend = view?.can_send_new === true && r?.status === 'open';
             return (
               <Card key={p.id} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: p.id } })} accessibilityLabel={`${r?.category_name ?? 'Proposal'}, ${formatINR(p.total)}, ${s.label}`}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -124,18 +138,22 @@ export function ProviderProposalInbox({ providerId }: { providerId: string }) {
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <Button title="View" variant="outline" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/proposal/[id]', params: { id: p.id } })} />
-                  {p.status === 'sent' ? (
+                  {view?.can_withdraw ? (
                     <Button title="Withdraw" variant="destructiveGhost" style={{ flex: 1 }} loading={withdrawing === p.id} onPress={() => void withdraw(p)} />
                   ) : canResend ? (
                     <Button title="Send new proposal" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/proposal/compose/[requestId]', params: { requestId: p.request_id } })} />
                   ) : null}
                 </View>
-                <Button
-                  title={questionRequestId === p.request_id ? 'Hide messages' : 'Message customer'}
-                  variant="outline"
-                  onPress={() => setQuestionRequestId(questionRequestId === p.request_id ? null : p.request_id)}
-                />
-                {questionRequestId === p.request_id ? <RequestQuestionThread requestId={p.request_id} providerId={providerId} otherPartyLabel="Customer" /> : null}
+                {view?.can_message ? (
+                  <>
+                    <Button
+                      title={questionRequestId === p.request_id ? 'Hide messages' : 'Message customer'}
+                      variant="outline"
+                      onPress={() => setQuestionRequestId(questionRequestId === p.request_id ? null : p.request_id)}
+                    />
+                    {questionRequestId === p.request_id ? <RequestQuestionThread requestId={p.request_id} providerId={p.provider_id} otherPartyLabel="Customer" /> : null}
+                  </>
+                ) : null}
               </Card>
             );
           })}

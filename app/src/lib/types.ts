@@ -520,6 +520,24 @@ export interface Proposal {
   providers?: { rating_avg: number; rating_count: number; profiles: { full_name: string } | null } | null;
 }
 
+export type ProposalViewerRole = 'customer' | 'owner' | 'manager' | 'admin';
+
+export interface ProposalViewState {
+  proposal_id: string;
+  viewer_role: ProposalViewerRole;
+  request_status: ServiceRequestStatus;
+  request_expires_at: string;
+  current_booking_id: string | null;
+  current_booking_status: BookingStatus | null;
+  current_booking_created_at: string | null;
+  payment_hold_expires_at: string | null;
+  delivery_status: 'not_applicable' | 'pending' | 'submitted' | 'accepted' | null;
+  can_accept: boolean;
+  can_withdraw: boolean;
+  can_send_new: boolean;
+  can_message: boolean;
+}
+
 export interface PaymentSchedule {
   id: string;
   booking_id: string;
