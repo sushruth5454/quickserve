@@ -72,7 +72,11 @@
           "suitesPassed": 1,
           "testsPassed": 1,
           "testsTotal": 1,
-          "case": "CM_DASHBOARD_GROSS_LABEL"
+          "case": "CM_DASHBOARD_GROSS_LABEL",
+          "snapshotRef": "wip/quickserve-o30-cm07-b61",
+          "snapshotSha": "cdfced5926fd4cc47684b61da086e7f79a338cb4",
+          "snapshotParentHead": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
+          "csTestResult": "PASS"
         },
         {
           "suite": "sql",
@@ -85,7 +89,11 @@
             "CM_SQL_DASHBOARD_NO_PAGE_CAP",
             "CM_SQL_DASHBOARD_GROSS_LABEL",
             "CM_SQL_ADMIN_ENDPOINT_DENIED"
-          ]
+          ],
+          "snapshotRef": "wip/quickserve-o30-cm07-b61",
+          "snapshotSha": "f21a6a7cae85d7c4e5dc105677c5e4bb1f8c06f7",
+          "snapshotParentHead": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
+          "csTestResult": "PASS"
         },
         {
           "suite": "sql",
@@ -95,17 +103,35 @@
           "result": "PASS",
           "topLevelStatements": 1,
           "functionBodiesOk": 1,
-          "errors": 0
+          "errors": 0,
+          "snapshotRef": "wip/quickserve-o30-cm07-b61",
+          "snapshotSha": "4c18f07aa85f06a460a87d70f99f56cfe5fb6884",
+          "snapshotParentHead": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
+          "csTestResult": "PASS"
         }
-      ]
+      ],
+      "snapshotNote": "Snapshot diffs from the validated source head contain only the helper alternate-index and lock files (qs-cs-index-*); no worker source differs."
     },
-    "exactHeadLaneCi": "NOT_RUN_PENDING_PUSH"
+    "exactHeadLaneCi": {
+      "status": "SUCCESS",
+      "runId": 46006940160,
+      "branch": "lane/oorva-o30-cm07",
+      "headSha": "532ae6996a1421dd1e1861b9cab4cf84eb3c303f",
+      "jobs": {
+        "changes": "PASS",
+        "sql": "PASS",
+        "deno": "PASS",
+        "app": "PASS",
+        "privatePostgres": "PASS",
+        "tooling": "NOT_SELECTED"
+      }
+    }
   },
   "checkpoint": {
     "workerFilesCommit": "ae3e0203e910c459027f9f8fe61792dd3cb97313",
     "registrationCommit": "c4a4ef8eb6826ef76570fa10f9a89cd169f42b9b",
-    "implementationHeadBeforeEvidenceUpdate": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
-    "state": "READY_FOR_EXACT_HEAD_LANE_CI",
+    "implementationHead": "532ae6996a1421dd1e1861b9cab4cf84eb3c303f",
+    "state": "CODE_GREEN",
     "promotion": "NOT_PERFORMED",
     "deployment": "NOT_PERFORMED"
   },
