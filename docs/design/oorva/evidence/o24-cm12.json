@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O24-CM12",
+  "sourceTaskId": "CM-T12",
+  "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "825ea8ffef309f1683b42bf658d01f86b2746536",
+  "branch": "lane/oorva-o24-cm12",
+  "databaseChanges": [],
+  "featureControl": {
+    "key": "oorva_comms_ux",
+    "source": "Existing useFeature/isFeatureOn contract",
+    "effectiveParent": "oorva_brand",
+    "newFlagRegistered": false,
+    "offBehavior": "Notifications and support index keep legacy card composition; exact time, support status/unread/context, server-derived linked subject, and chat-history scroll correctness remain active."
+  },
+  "routeHostBinding": {
+    "route": "app/app/support/new.tsx",
+    "host": "app/src/features/communicationScreens/SupportNewScreen.tsx",
+    "controllerCount": 1,
+    "testsImportRouteModule": false,
+    "linkedBookingSubject": "null; server derives the subject"
+  },
+  "acceptance": {
+    "CM_NOTIFICATION_DATE_GROUPS": "PASS",
+    "CM_NOTIFICATION_CARD_CONTRACT": "PASS",
+    "CM_NOTIFICATION_SAFE_ROUTES": "PASS",
+    "CM_SUPPORT_CONTEXT": "PASS",
+    "CM_SUPPORT_CLOSED_UNREAD": "PASS",
+    "CM_SUPPORT_BOOKING_SUBJECT": "PASS",
+    "CM_CHAT_HISTORY_SCROLL": "PASS",
+    "CM_COMMS_PRESENTATION_MATRIX": "PASS"
+  },
+  "codespace": {
+    "helperSource": "origin/main:scripts/cs-test.ps1",
+    "account": "sushruth5454",
+    "requiredSelectors": [
+      {
+        "suite": "app",
+        "selector": "src.lib.__tests__.notificationPresentation[.]test[.]ts$",
+        "typecheck": "PASS",
+        "selectedFiles": 1,
+        "testsPassed": 2,
+        "testsTotal": 2
+      },
+      {
+        "suite": "jest",
+        "selector": "src.components.__tests__.NotificationCard[.]test[.]tsx$",
+        "selectedFiles": 1,
+        "testsPassed": 2,
+        "testsTotal": 2
+      },
+      {
+        "suite": "jest",
+        "selector": "src.components.__tests__.CommunicationsPresentation[.]test[.]tsx$",
+        "selectedFiles": 1,
+        "testsPassed": 4,
+        "testsTotal": 4
+      }
+    ],
+    "relatedRegressions": [
+      {
+        "suite": "jest",
+        "selector": "src.components.__tests__.NotificationsScreen[.]test[.]tsx$",
+        "selectedFiles": 1,
+        "testsPassed": 7,
+        "testsTotal": 7
+      },
+      {
+        "suite": "jest",
+        "selector": "src.components.__tests__.SupportConversation[.]test[.]tsx$",
+        "selectedFiles": 1,
+        "testsPassed": 6,
+        "testsTotal": 6
+      },
+      {
+        "suite": "jest",
+        "selector": "src.components.__tests__.SupportInboxes[.]test[.]tsx$",
+        "selectedFiles": 1,
+        "testsPassed": 3,
+        "testsTotal": 3
+      }
+    ]
+  },
+  "visualDeviceEvidence": "NOT_VERIFIED",
+  "nativeBuildOrDistribution": "NOT_RUN",
+  "featureActivationOrProductionChange": "NOT_RUN"
+}
