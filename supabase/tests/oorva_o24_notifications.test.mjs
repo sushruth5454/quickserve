@@ -660,14 +660,15 @@ await scenario('CM_SQL_TRANSPORT_RETRY_PROVENANCE, CM_SQL_EVENT_TIME, and CM_SQL
 
 await scenario('CM_SQL_CHAT_MEMBER_PROJECTIONS, CM_SQL_CHAT_MEMBER_FLAG_OFF, and CM_SQL_CHAT_PRIMARY_SEEN_RETAIN', async () => {
   const fixture = await createBookingFixture();
-  const customerReadAt = '2026-11-25T10:00:00.000Z';
-  const ownerReadAt = '2026-11-25T08:30:00.000Z';
-  const managerReadAt = '2026-11-25T08:45:00.000Z';
+  const chatMessageAt = '2099-01-01T10:00:00.000Z';
+  const customerReadAt = '2099-01-01T10:01:00.000Z';
+  const ownerReadAt = '2099-01-01T09:30:00.000Z';
+  const managerReadAt = '2099-01-01T09:45:00.000Z';
   await db.query(`
     insert into public.messages (booking_id, sender_id, body, created_at)
-    values ($1::uuid, $2::uuid, 'Customer unread message'::text, '2026-11-25T09:00:00Z'::timestamptz),
-           ($1::uuid, $3::uuid, 'Provider reply'::text, '2026-11-25T09:30:00Z'::timestamptz)
-  `, [fixture.bookingId, fixture.customerId, fixture.ownerId]);
+    values ($1::uuid, $2::uuid, 'Customer unread message'::text, $4::timestamptz),
+           ($1::uuid, $3::uuid, 'Provider reply'::text, $5::timestamptz)
+  `, [fixture.bookingId, fixture.customerId, fixture.ownerId, chatMessageAt, chatMessageAt]);
   await db.query(`
     insert into public.booking_chat_reads (booking_id, user_id, last_read_at)
     values ($1::uuid, $2::uuid, $3::timestamptz),
@@ -783,7 +784,7 @@ await scenario('CM_SQL_CHAT_MEMBER_PROJECTIONS, CM_SQL_CHAT_MEMBER_FLAG_OFF, and
       && countActual.owner[0]?.unread === 1
       && countActual.manager[0]?.unread === 1
       && countActual.staff[0]?.unread === 1
-      && countActual.manager[0]?.last_message_at === '2026-11-25T09:00:00.000Z',
+      && countActual.manager[0]?.last_message_at === chatMessageAt,
     'CM_SQL_CHAT_MEMBER_PROJECTIONS unread counts',
     countActual,
   );
