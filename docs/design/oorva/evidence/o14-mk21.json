@@ -1,0 +1,77 @@
+{
+  "stageId": "O14-MK21",
+  "sourceTaskId": "MK-T21",
+  "sourceFindingId": "MK-F23",
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseCommit": "924038eea187283baf36cd59948026598f019397",
+  "dependencyHeads": {
+    "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+    "O12-MK16": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "O14-MK14": "8f7956aef0b2f3d02f68d1d213c1e3c90a55fb54",
+    "O14-ID20": "924038eea187283baf36cd59948026598f019397",
+    "O03": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+    "O05I": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "O06B": "de989f95e5d57f78540417587023318afef123c6",
+    "O08": "7479864f743024b8e80ac26fea071a8962ed6265"
+  },
+  "gate": {
+    "E0": "APPROVED",
+    "migrationClaims": [],
+    "newFeatureFlags": [],
+    "mainPromotion": "SEPARATE"
+  },
+  "sourceDrift": {
+    "comparisonBase": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBase": "924038eea187283baf36cd59948026598f019397",
+    "changedFromPlanningCommit": [
+      "app/src/features/providerProfile/ProviderProfileScreen.tsx",
+      "app/src/features/providerProfile/ProviderProfileHero.tsx",
+      "app/src/features/providerProfile/__tests__/ProviderProfileScreen.test.tsx"
+    ],
+    "preservedDependencyChanges": [
+      "O12-MK16 provider detail/availability scope and refresh behavior, with its existing profile regression cases.",
+      "O14-MK14 exact provider service/package selection and route helpers; booking, proposal, price, and money paths were not edited.",
+      "O14-ID20 public-trust badge projection in ProviderProfileHero and ProviderProfileCallouts; badge policy and labels remain unchanged."
+    ],
+    "overviewFileChanged": false,
+    "sqlFunctionsOrMigrationsChanged": false
+  },
+  "implementation": {
+    "ownedFiles": [
+      "app/src/features/providerProfile/ProviderProfileScreen.tsx",
+      "app/src/features/providerProfile/ProviderProfileHero.tsx",
+      "app/src/features/providerProfile/ProviderProfileOverview.tsx",
+      "app/src/features/providerProfile/__tests__/ProviderProfileScreen.test.tsx",
+      "docs/design/oorva/evidence/o14-mk21.json"
+    ],
+    "summary": [
+      "The compact composition is selected only when both oorva_brand and oorva_catalogue_ux are effectively ON.",
+      "The enabled order is identity and availability, services/packages, portfolio, About/hours, then reviews; the disabled or parent-disabled order remains the legacy composition.",
+      "The existing provider hero, availability callouts, services, portfolio, overview, reviews, and sticky PriceFooter are reused without dropping their data or state.",
+      "The compact hero changes only its layout dimensions; the O14-ID20 public payout badge remains sourced and labelled as before.",
+      "PriceFooter conditions, CTA construction, selection state, provider/package routing, and server or money paths are unchanged."
+    ],
+    "featureFlagChanges": false,
+    "serverBookingOrMoneyChanges": false,
+    "identityBadgePolicyChanged": false
+  },
+  "tests": {
+    "codespaceHelperSource": "origin/main:scripts/cs-test.ps1",
+    "selector": "src.features.providerProfile.__tests__.ProviderProfileScreen[.]test[.]tsx$",
+    "selectedFile": "app/src/features/providerProfile/__tests__/ProviderProfileScreen.test.tsx",
+    "selectedCases": [
+      "MK-FRESH-paused-unknown keeps booking disabled when temporal availability fails",
+      "MK-FRESH-profile-context ignores a slower provider response after route context changes",
+      "MK-PROFILE-Oorva-order shows the service choice before secondary profile sections",
+      "MK-PROFILE-leaf-off-invariants retains legacy order and identical paused/preview behavior",
+      "MK-PROFILE-long-content keeps the active footer action and city-switch reason available"
+    ],
+    "snapshotCommit": "9fd3b1dfe1bb70289e789d108e2c02ee65f9e727",
+    "result": "PASS"
+  },
+  "validation": {
+    "sourceScope": "PASS",
+    "gitDiffCheck": "PASS",
+    "laneCI": "PENDING exact-head push"
+  }
+}

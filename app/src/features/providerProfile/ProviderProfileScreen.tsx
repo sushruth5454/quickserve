@@ -12,6 +12,7 @@ import { haptics } from '../../lib/haptics';
 import { formatINR } from '../../lib/money';
 import { packageDisplayPrice } from '../booking/packages/packageModel';
 import { onboardingApi, type PublicProfile } from '../../lib/onboarding';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { providerPublicTrust } from '../../lib/onboarding/publicTrust';
 import { summarizeHours, todayLabel } from '../../lib/onboarding/availability';
 import { useTheme } from '../../theme';
@@ -32,6 +33,8 @@ import {
 
 export default function ProviderDetailScreen() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const catalogueUxEnabled = flags.isOn('oorva_brand') && flags.isOn('oorva_catalogue_ux');
   const insets = useSafeAreaInsets();
   const { id, preview, category: categorySlug } = useLocalSearchParams<{ id: string; preview?: string; category?: string }>();
   const isPreview = preview === '1';
@@ -233,6 +236,42 @@ export default function ProviderDetailScreen() {
     if (route) router.push(route as Href);
   };
   const gutter = { paddingHorizontal: t.spacing.lg };
+  const overviewSection = (
+    <ProviderProfileOverview
+      provider={provider}
+      pub={pub}
+      rating={rating}
+      first={first}
+      today={today}
+      hours={hours}
+      theme={t}
+      gutter={gutter}
+    />
+  );
+  const servicesSection = (
+    <ProviderServicesSection
+      services={services}
+      service={service}
+      providerName={name}
+      rating={rating}
+      ratingCount={provider.rating_count}
+      selectedPackageId={selectedPackageId}
+      canSelectPackages={!isPreview && !unavailable}
+      pub={pub}
+      hasInspectQuoteService={hasInspectQuoteService}
+      onSelect={(serviceId) => setSelectionResult((current) => ({
+        scope,
+        value: selectProviderProfileService(current?.scope === scope ? current.value : null, provider.id, serviceId),
+      }))}
+      onSelectPackage={(serviceId, packageId) => setSelectionResult({
+        scope,
+        value: selectProviderProfilePackage(provider.id, serviceId, packageId),
+      })}
+      theme={t}
+      gutter={gutter}
+    />
+  );
+  const portfolioSection = <ProviderPortfolioSection pub={pub} theme={t} gutter={gutter} />;
 
   return (
     <Screen
@@ -289,6 +328,7 @@ export default function ProviderDetailScreen() {
         provider={provider}
         name={name}
         payoutBadge={publicTrust.badges.payout}
+        compact={catalogueUxEnabled}
         theme={t}
         topInset={insets.top}
         onBack={back}
@@ -305,29 +345,19 @@ export default function ProviderDetailScreen() {
         theme={t}
         gutter={gutter}
       />
-      <ProviderProfileOverview provider={provider} pub={pub} rating={rating} first={first} today={today} hours={hours} theme={t} gutter={gutter} />
-      <ProviderServicesSection
-        services={services}
-        service={service}
-        providerName={name}
-        rating={rating}
-        ratingCount={provider.rating_count}
-        selectedPackageId={selectedPackageId}
-        canSelectPackages={!isPreview && !unavailable}
-        pub={pub}
-        hasInspectQuoteService={hasInspectQuoteService}
-        onSelect={(serviceId) => setSelectionResult((current) => ({
-          scope,
-          value: selectProviderProfileService(current?.scope === scope ? current.value : null, provider.id, serviceId),
-        }))}
-        onSelectPackage={(serviceId, packageId) => setSelectionResult({
-          scope,
-          value: selectProviderProfilePackage(provider.id, serviceId, packageId),
-        })}
-        theme={t}
-        gutter={gutter}
-      />
-      <ProviderPortfolioSection pub={pub} theme={t} gutter={gutter} />
+      {catalogueUxEnabled ? (
+        <>
+          {servicesSection}
+          {portfolioSection}
+          {overviewSection}
+        </>
+      ) : (
+        <>
+          {overviewSection}
+          {servicesSection}
+          {portfolioSection}
+        </>
+      )}
       <ProviderReviewsSection
         pub={pub}
         provider={provider}
