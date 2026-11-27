@@ -107,11 +107,17 @@ export default function AdminSupportIndexScreen() {
       ) : current.rows.map((row) => (
         <Card key={row.id} onPress={() => router.push({ pathname: '/admin/support/[id]', params: { id: row.id } })}>
           <Text variant="calloutStrong">{row.subject}</Text>
-          <Text variant="footnote" color="textSecondary" numberOfLines={2}>{row.last_message}</Text>
-          <Text variant="caption" color="muted">{row.user_name} · {row.is_provider ? 'Provider' : 'Customer'}</Text>
-          <Badge label={row.admin_unread ? `${row.admin_unread} unread` : row.status} tone={row.admin_unread ? 'danger' : 'neutral'} />
+          <Badge label={row.status} tone="neutral" />
+          <Badge label={`${row.admin_unread} unread`} tone={row.admin_unread ? 'danger' : 'neutral'} />
+          <Text variant="caption" color="muted">{formatAdminSupportTime(row.last_message_at)}</Text>
         </Card>
       ))}
     </Screen>
   );
+}
+
+function formatAdminSupportTime(value: string): string {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return 'Last message time unavailable';
+  return `Last message · ${new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)}`;
 }

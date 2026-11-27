@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O30-CM13",
+  "workPackage": "O30",
+  "status": "CODE_AND_CODESPACE_TESTS_PASS",
+  "sourceTaskId": "CM-T13",
+  "sourceFindingId": "CM-F17",
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t13",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "042c08206049e976af35656db1e27abce6002a9b",
+  "branch": "lane/oorva-o30-cm13",
+  "dependencies": [
+    { "stageId": "O00", "commit": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259", "status": "DONE_IN_BASE" },
+    { "stageId": "O24-CM03", "commit": "19970058253143a5f82f68b2c97b725ed8b1529d", "status": "DONE_IN_BASE" },
+    { "stageId": "O30-CM07", "commit": "042c08206049e976af35656db1e27abce6002a9b", "status": "DONE_IN_BASE" },
+    { "stageId": "O03", "commit": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8", "status": "DONE_IN_BASE" },
+    { "stageId": "O05I", "commit": "914274914f6c7e1ab59d1e5e38088184166bef1d", "status": "DONE_IN_BASE" },
+    { "stageId": "O06B", "commit": "de989f95e5d57f78540417587023318afef123c6", "status": "DONE_IN_BASE" },
+    { "stageId": "O08", "commit": "7479864f743024b8e80ac26fea071a8962ed6265", "status": "DONE_IN_BASE" },
+    { "stageId": "O10", "commit": "502baebd91c0a39918dfba1bb393fe2e3859830a", "status": "DONE_IN_BASE" }
+  ],
+  "gates": {
+    "E0": "approved",
+    "D01": "approved",
+    "reviewRequired": []
+  },
+  "scope": {
+    "ownedFiles": [
+      "app\\src\\components\\__tests__\\AdminDashboardScreen.test.tsx",
+      "app\\src\\components\\__tests__\\SupportInboxes.test.tsx",
+      "app\\src\\features\\communicationScreens\\AdminIndexScreen.tsx",
+      "app\\src\\features\\communicationScreens\\AdminSupportIndexScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o30-cm13.json"
+    ],
+    "sqlFunctions": [],
+    "migrations": [],
+    "routesEdited": [],
+    "promotionOrDeployment": false
+  },
+  "implementation": [
+    "Admin overview presents People, Bookings and Support operational queues before metrics/reporting only when effective oorva_admin_ops_ux is on; OFF keeps their legacy position and the existing dashboard/error states.",
+    "Added Settings navigation to the existing /admin/settings route from O10; its parent AdminLayout continues to enforce administrator access, and O10's independent branding/history entries were not changed.",
+    "Admin support cards show status, unread count and formatted last-message time independently; phone, user name, role and copied message body are not rendered. Existing actor/filter/request guards and load error/empty states remain unchanged."
+  ],
+  "acceptanceCases": [
+    "CM_ADMIN_QUEUE_ORDER",
+    "CM_ADMIN_SUPPORT_CLOSED_UNREAD",
+    "CM_ADMIN_SUPPORT_TIME_PRIVACY",
+    "CM_ADMIN_SETTINGS_LINK",
+    "CM_ADMIN_OPS_PRESENTATION_MATRIX"
+  ],
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "tokenAccount": "sushruth5454",
+      "tests": [
+        {
+          "suite": "app",
+          "selector": "src.components.__tests__.AdminDashboardScreen[.]test[.]tsx$",
+          "selectedFile": "app/src/components/__tests__/AdminDashboardScreen.test.tsx",
+          "result": "PASS",
+          "passed": 6,
+          "total": 6,
+          "cases": [
+            "CM_DASHBOARD_GROSS_LABEL",
+            "CM_ADMIN_QUEUE_ORDER",
+            "CM_ADMIN_OPS_PRESENTATION_MATRIX",
+            "CM_ADMIN_SETTINGS_LINK"
+          ],
+          "csTestResult": "PASS"
+        },
+        {
+          "suite": "jest",
+          "selector": "src.components.__tests__.SupportInboxes[.]test[.]tsx$",
+          "selectedFile": "app/src/components/__tests__/SupportInboxes.test.tsx",
+          "result": "PASS",
+          "passed": 5,
+          "total": 5,
+          "cases": [
+            "CM_ADMIN_SUPPORT_FAILURE_NOT_CLEAR",
+            "CM_SUPPORT_ERROR_RECOVERY",
+            "CM_ADMIN_SUPPORT_FILTER_ORDER",
+            "CM_ADMIN_SUPPORT_CLOSED_UNREAD",
+            "CM_ADMIN_SUPPORT_TIME_PRIVACY"
+          ],
+          "csTestResult": "PASS"
+        }
+      ],
+      "selection": "Both filters selected exactly one intended test file; no zero-selection result."
+    },
+    "exactHeadLaneCI": "Captured after the final lane push and reported in the stage handoff."
+  },
+  "releaseStatus": {
+    "featureFlagsEnabled": false,
+    "productionActions": false,
+    "nativeWork": false,
+    "mainPromotion": false
+  },
+  "deviceEvidence": "NOT_VERIFIED"
+}

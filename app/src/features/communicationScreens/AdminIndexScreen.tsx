@@ -15,6 +15,7 @@ export default function AdminIndexScreen() {
   const features = useAppFeatureFlags();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { data, error, load } = useAdminIndexController();
+  const operationsFirst = features.isOn('oorva_admin_ops_ux');
   const backToProfile = () => router.dismissTo(returnTo === 'pro-account' ? '/pro-account' : '/account');
 
   return (
@@ -23,6 +24,17 @@ export default function AdminIndexScreen() {
         <Skeleton height={360} radius={t.radii.lg} />
       ) : (
         <>
+          {operationsFirst ? (
+            <View style={{ gap: t.spacing.sm }}>
+              <Text variant="title3">Operational queues</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+                <Action label="People" icon="people-outline" badge={data.totals.providers_pending} onPress={() => router.push('/admin/people')} />
+                <Action label="Bookings" icon="calendar-outline" badge={data.totals.disputes_open} onPress={() => router.push('/admin/bookings')} />
+                <Action label="Support" icon="chatbubbles-outline" badge={data.totals.support_unread} onPress={() => router.push('/admin/support')} />
+              </View>
+            </View>
+          ) : null}
+
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
             <Metric label="Gross payments collected" value={formatINR(data.totals.gmv_period_paise)} wide />
             <Metric label="Bookings" value={compact(data.totals.bookings_active)} note={`${data.totals.bookings} total`} />
@@ -56,9 +68,14 @@ export default function AdminIndexScreen() {
             <Action label="Documents" icon="document-text-outline" onPress={() => router.push('/admin/documents')} />
             <Action label="Product RFQs" icon="document-text-outline" onPress={() => router.push('/admin/rfqs')} />
             <Action label="Services" icon="grid-outline" onPress={() => router.push('/admin/services')} />
-            <Action label="People" icon="people-outline" badge={data.totals.providers_pending} onPress={() => router.push('/admin/people')} />
-            <Action label="Bookings" icon="calendar-outline" badge={data.totals.disputes_open} onPress={() => router.push('/admin/bookings')} />
-            <Action label="Support" icon="chatbubbles-outline" badge={data.totals.support_unread} onPress={() => router.push('/admin/support')} />
+            {!operationsFirst ? (
+              <>
+                <Action label="People" icon="people-outline" badge={data.totals.providers_pending} onPress={() => router.push('/admin/people')} />
+                <Action label="Bookings" icon="calendar-outline" badge={data.totals.disputes_open} onPress={() => router.push('/admin/bookings')} />
+                <Action label="Support" icon="chatbubbles-outline" badge={data.totals.support_unread} onPress={() => router.push('/admin/support')} />
+              </>
+            ) : null}
+            <Action label="Settings" icon="settings-outline" onPress={() => router.push('/admin/settings')} />
           </View>
 
           <Card padding={0} gap={0}>
