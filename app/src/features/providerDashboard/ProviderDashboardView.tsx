@@ -20,7 +20,7 @@ import { ProviderRecurringOverview } from '../recurring/ProviderRecurringOvervie
 import { firstName } from './model';
 import { openBooking } from './navigation';
 import { DeclineSheet, NextJobCard, RequestCard } from './JobCards';
-import { NEXT_STEP, OnlineCard, StatsStrip } from './DashboardWidgets';
+import { getNextStep, OnlineCard, StatsStrip } from './DashboardWidgets';
 
 type ProviderDashboardViewProps = {
   t: Theme;
@@ -46,7 +46,7 @@ type ProviderDashboardViewProps = {
   busyId: string | null;
   unread: ReturnType<typeof useUnread>;
   iconFor: (name: string) => string | undefined;
-  act: (id: string, fn: () => Promise<void>, msg: string) => Promise<void>;
+  act: (id: string, fn: () => Promise<void>, msg: string, expectedStatus: ProviderJob['status']) => Promise<void>;
   primaryAction: (job: ProviderJob) => unknown;
   next: ProviderJob | undefined;
   rest: ProviderJob[];
@@ -116,7 +116,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
         />
       </View>
 
-      {/* Requests first: they expire. */}
+      {/* Ordinary requests expire; recurring occurrences use their own lifecycle. */}
       <View style={gutter}>
         <TravelRequestInbox />
       </View>
@@ -128,7 +128,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
       ) : null}
 
       <View style={gutter}>
-        <Section title="New requests" subtitle={incoming.length ? 'Accept within 15 minutes or the request expires' : undefined}>
+        <Section title="New requests">
           {!jobs ? (
             error ? (
               <ErrorState message={error} onRetry={() => void load()} compact />
@@ -155,8 +155,16 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
                   : settleVisitOnly({ visitFee: j.visit_fee, rateBp: earningRates[j.booking_id]! }).payout}
                 busy={busyId === j.booking_id}
                 unread={unread.countFor(j.booking_id)}
-                onAccept={() => void act(j.booking_id, () => acceptBooking(j.booking_id), 'Accepted! Start your trip when ready.')}
+                onAccept={() => void act(
+                  j.booking_id,
+                  () => acceptBooking(j.booking_id),
+                  j.archetype === 'time_based'
+                    ? 'Request accepted. Open the job to enter the session start code.'
+                    : 'Accepted! Start your trip when ready.',
+                  'accepted',
+                )}
                 onDecline={() => setDeclining(j)}
+                onViewDetails={() => openBooking(j.booking_id)}
               />
             ))
           )}
@@ -198,7 +206,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
                   {i > 0 ? <Divider inset={LIST_INSET + 8} /> : null}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${j.category_name} for ${j.customer_name}. Next: ${NEXT_STEP[j.status]?.label ?? ''}`}
+                    accessibilityLabel={`${j.category_name} for ${j.customer_name}. Next: ${getNextStep(j)?.label ?? ''}`}
                     onPress={() => openBooking(j.booking_id)}
                     style={({ pressed }) => ({
                       flexDirection: 'row',
@@ -215,7 +223,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
                         {firstName(j.customer_name)} · {j.category_name}
                       </Text>
                       <Text variant="footnote" color="muted" numberOfLines={1}>
-                        Next: {NEXT_STEP[j.status]?.label ?? '—'}
+                        Next: {getNextStep(j)?.label ?? '—'}
                       </Text>
                     </View>
                     <CountBadge count={unread.countFor(j.booking_id)} />
@@ -236,7 +244,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
           const j = declining;
           if (!j) return;
           setDeclining(null);
-          void act(j.booking_id, () => declineBooking(j.booking_id, reason), 'Request declined · the customer is refunded');
+          void act(j.booking_id, () => declineBooking(j.booking_id, reason), 'Request declined · the customer is refunded', 'declined');
         }}
       />
     </Screen>

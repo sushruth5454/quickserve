@@ -1,0 +1,156 @@
+{
+  "stageId": "O25-SV12",
+  "sourceTaskIds": [
+    "SV-T12"
+  ],
+  "sourceFindingIds": [
+    "SV-F11"
+  ],
+  "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "6dfa1f391a582f49e453eab34db1d7e604add995",
+  "dependencyHeads": {
+    "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+    "O37A": "de989f95e5d57f78540417587023318afef123c6",
+    "O38-ID01": "6dfa1f391a582f49e453eab34db1d7e604add995"
+  },
+  "migrationClaim": {
+    "id": "MIG-O25-SV12",
+    "numericVersion": "0143",
+    "filename": "supabase/migrations/0143_o25_sv12_oorva.sql",
+    "allocatedAtLaunch": true,
+    "approval": "E0 and MIG-O25-SV12 approved for development."
+  },
+  "sourceVerification": {
+    "stageAndTask": "docs/design/oorva/execution-plan.json::O25-SV12/SV-T12",
+    "finding": "docs/audit/18-WS3-Services-Creators-Recurring.md::SV-F11",
+    "requiredFunctionLocks": [
+      "public.get_my_business_provider_jobs",
+      "public.accept_booking"
+    ],
+    "allocation": "Coordinator-provided 0143 claim; the previously released 0125 claim was not reused.",
+    "requiredReview": [
+      "concurrency"
+    ]
+  },
+  "implementation": {
+    "status": "CODE_GREEN_ON_TESTED_IMPLEMENTATION_HEAD",
+    "workerFiles": [
+      "app/src/lib/types.ts",
+      "app/src/features/providerDashboard/ProviderDashboard.tsx",
+      "app/src/features/providerDashboard/ProviderDashboardView.tsx",
+      "app/src/features/providerDashboard/JobCards.tsx",
+      "app/src/features/providerDashboard/DashboardWidgets.tsx",
+      "supabase/migrations/0143_o25_sv12_oorva.sql",
+      "supabase/tests-postgres/o25_sv12.pg.test.mjs",
+      "app/src/features/providerDashboard/__tests__/requestPresentation.test.ts",
+      "supabase/tests/oorva_o25_sv12.test.mjs",
+      "docs/design/oorva/evidence/o25-sv12.json"
+    ],
+    "summary": [
+      "Business provider jobs now expose the stored archetype, origin and recurring schedule id, an ordinary-request deadline based on updated_at, owner-only action flags, and the existing accepted-only address projection.",
+      "Ordinary acceptance checks the server deadline after acquiring the existing booking lock; recurring occurrences remain exempt, and decline/refund behavior is unchanged.",
+      "Request cards use the server deadline and flags, hide an unsupported zero-visit-fee earnings estimate, and link to booking details.",
+      "Next-job actions are family-aware; accepted time-based sessions and proposal OTP/delivery actions open booking details, and proposal confirmed/delivery_pending work is active.",
+      "Mutation success requires a refreshed same-booking-id status readback. No appearance flag or money-safety gate was added.",
+      "The private PostgreSQL fixture preallocates cleanup keys before setup, restores archetype_flags on failure, attempts every cleanup step, and propagates aggregated cleanup failures. An injected setup abort verifies that partial rows are removed and the original configuration is restored."
+    ],
+    "featureOffBehavior": "No appearance feature gate was added to owner resolution, cancellation, refunds, settlement, or expiry cleanup; the existing money-safety paths were not modified."
+  },
+  "tests": {
+    "appSelector": "src.features.providerDashboard.__tests__.requestPresentation[.]test[.]ts$",
+    "appCases": [
+      "server deadline for an old funded booking",
+      "recurring occurrence without a timer",
+      "server action flags deny unauthorized actions",
+      "ordinary acceptance is disabled at the server deadline while decline remains available",
+      "accepted time-based session opens the start-code workflow",
+      "proposal confirmed and delivery_pending work remains active"
+    ],
+    "sqlSelector": "oorva_o25_sv12",
+    "sqlCases": [
+      "SV-REQUEST-CARD-01 server deadline, family and owner action projection",
+      "SV-REQUEST-CARD-ROLE-02 acceptance deadline and assigned owner resolution"
+    ],
+    "privatePostgres": {
+      "selector": "o25_sv12.pg.test.mjs",
+      "scenario": "SV-REQUEST-CARD-CONCURRENT",
+      "required": "Two independent backend PIDs; accept_booking waits across the expiry row-lock barrier at the ordinary deadline; recurring acceptance remains exempt.",
+      "cleanupFailureScenario": "An injected setup failure after inserting a recurring request proves partial fixture/schedule cleanup and archetype_flags restoration; the injected error must still propagate.",
+      "cleanupFailureScenarioResult": "PASS in exact-head Lane CI.",
+      "cleanupFix": "PASS in exact-head Lane CI; cleanup and rollback failures remain propagated."
+    },
+    "migrationParserSelector": "o25_sv12_oorva.sql",
+    "idReadinessRegressionSelector": "id_readiness",
+    "validationStatus": "PASS",
+    "results": {
+      "app": {
+        "selectedFile": "app/src/features/providerDashboard/__tests__/requestPresentation.test.ts",
+        "selectedTests": 6,
+        "result": "PASS"
+      },
+      "sql": {
+        "selectedFile": "supabase/tests/oorva_o25_sv12.test.mjs",
+        "selectedScenarios": [
+          "SV-REQUEST-CARD-01 server deadline, family and owner action projection",
+          "SV-REQUEST-CARD-ROLE-02 acceptance deadline and assigned owner resolution"
+        ],
+        "result": "PASS"
+      },
+      "migrationParser": {
+        "selectedCommand": "node parse.cjs ../migrations/0143_o25_sv12_oorva.sql",
+        "topLevelStatements": 5,
+        "functionBodies": 2,
+        "errors": 0,
+        "result": "PASS"
+      },
+      "idReadiness": {
+        "selectedFile": "supabase/tests/id_readiness.test.mjs",
+        "selectedScenarios": [
+          "ID-DOC-A-B",
+          "ID-DOC-SCOPE",
+          "ID-DOC-REPLACE",
+          "ID-DOC-EXPIRY",
+          "ID-LEGACY-PAYOUT",
+          "ID-ADMIN-READ-PRIVACY",
+          "ID-JOB-PROJECTION"
+        ],
+        "result": "PASS"
+      }
+    },
+    "concurrencyReview": {
+      "result": "NO_FINDINGS",
+      "reviewedHead": "dbd183431ab63be7f8c5651d53143dbfab855655",
+      "scope": "supabase/tests-postgres/o25_sv12.pg.test.mjs cleanup isolation only."
+    },
+    "laneCi": {
+      "status": "PASS",
+      "runId": "46028976924",
+      "headSha": "dbd183431ab63be7f8c5651d53143dbfab855655",
+      "url": "https://github.com/sushruth5454/quickserve/actions/runs/46028976924",
+      "privatePostgresJob": {
+        "result": "PASS",
+        "selectedTest": "o25_sv12.pg.test.mjs",
+        "suiteResult": "10 private PostgreSQL tests passed."
+      }
+    }
+  },
+  "coordinatorRegistration": {
+    "owner": "coordinator",
+    "path": "supabase/tests/package.json",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "registrationCommit": "70fab48af3a0309ace010fa902bc88edcfbb75ad",
+    "requestedCommands": [
+      "node oorva_o25_sv12.test.mjs",
+      "node parse.cjs ../migrations/0143_o25_sv12_oorva.sql"
+    ],
+    "workerEdited": false,
+    "deploymentRegistration": "Not permitted before E1 promotion."
+  },
+  "compatibility": {
+    "file": "supabase/tests/id_readiness.test.mjs",
+    "owner": "O38",
+    "commit": "b02cbd878fde8d536f0bbcd4548a616501830a93",
+    "workerEdited": false,
+    "regressionResult": "PASS with migration 0143 applied."
+  }
+}

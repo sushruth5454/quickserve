@@ -383,17 +383,113 @@ export interface ProviderJob {
   booking_id: string;
   status: BookingStatus;
   archetype?: BookingArchetype;
+  booking_origin?: BookingOrigin;
+  recurring_schedule_id?: string | null;
   category_name: string;
   customer_name: string;
   description: string;
   scheduled_at: string | null;
   created_at: string;
+  request_expires_at?: string | null;
+  can_accept?: boolean;
+  can_decline?: boolean;
   visit_fee: number;
   area: string;
   distance_km: number | null;
   address_line: string | null;
   lat: number | null;
   lng: number | null;
+}
+
+export type ProviderJobStepIcon =
+  | 'navigate'
+  | 'keypad-outline'
+  | 'receipt-outline'
+  | 'hourglass-outline'
+  | 'checkmark-done'
+  | 'eye-outline'
+  | 'albums-outline'
+  | 'alert-circle-outline';
+
+export interface ProviderJobNextStep {
+  label: string;
+  icon: ProviderJobStepIcon;
+  primary: boolean;
+}
+
+export type ProviderJobPrimaryAction = 'start_trip' | 'quote' | 'booking_detail';
+
+export const ACTIVE_PRIORITY: BookingStatus[] = [
+  'en_route',
+  'completion_requested',
+  'confirmed',
+  'delivery_pending',
+  'inspecting',
+  'in_progress',
+  'accepted',
+  'awaiting_payment',
+  'quote_sent',
+  'disputed',
+];
+
+export const NEXT_STEP: Partial<Record<BookingStatus, ProviderJobNextStep>> = {
+  accepted: { label: 'Start trip', icon: 'navigate', primary: true },
+  en_route: { label: 'Enter start code', icon: 'keypad-outline', primary: true },
+  inspecting: { label: 'Send quote', icon: 'receipt-outline', primary: true },
+  quote_sent: { label: 'Awaiting approval', icon: 'hourglass-outline', primary: false },
+  awaiting_payment: { label: 'Awaiting payment', icon: 'hourglass-outline', primary: false },
+  in_progress: { label: 'Mark complete', icon: 'checkmark-done', primary: true },
+  confirmed: { label: 'View job', icon: 'eye-outline', primary: true },
+  delivery_pending: { label: 'View delivery', icon: 'eye-outline', primary: true },
+  completion_requested: { label: 'Enter completion code', icon: 'keypad-outline', primary: true },
+  disputed: { label: 'On hold · view', icon: 'alert-circle-outline', primary: false },
+};
+
+export function getRequestActionState(
+  job: Pick<ProviderJob, 'request_expires_at' | 'recurring_schedule_id' | 'can_accept' | 'can_decline'>,
+  now: number,
+) {
+  const deadline = job.request_expires_at == null ? null : Date.parse(job.request_expires_at);
+  const leftMs = deadline == null || !Number.isFinite(deadline) ? null : Math.max(0, deadline - now);
+  const recurring = job.recurring_schedule_id != null;
+  const deadlineIsValid = leftMs !== null && leftMs > 0;
+  return {
+    leftMs,
+    canAccept: job.can_accept === true && (recurring || deadlineIsValid),
+    canDecline: job.can_decline === true,
+  };
+}
+
+export function getNextStep(job: Pick<ProviderJob, 'status' | 'archetype'>): ProviderJobNextStep | undefined {
+  if (job.archetype === 'time_based' && job.status === 'accepted') {
+    return { label: 'Enter session start code', icon: 'keypad-outline', primary: true };
+  }
+  if (job.archetype === 'proposal' && job.status === 'confirmed') {
+    return { label: 'Enter start code', icon: 'keypad-outline', primary: true };
+  }
+  if (job.archetype === 'proposal' && job.status === 'delivery_pending') {
+    return { label: 'Submit delivery', icon: 'checkmark-done', primary: true };
+  }
+  if (job.archetype === 'proposal' && job.status === 'in_progress') {
+    return { label: 'Manage deliverables', icon: 'albums-outline', primary: true };
+  }
+  return NEXT_STEP[job.status];
+}
+
+export function getPrimaryJobAction(job: Pick<ProviderJob, 'status' | 'archetype'>): ProviderJobPrimaryAction {
+  if (
+    job.status === 'accepted'
+    && (job.archetype === 'fixed' || job.archetype === 'inspect_quote')
+  ) {
+    return 'start_trip';
+  }
+  if (job.status === 'inspecting') return 'quote';
+  return 'booking_detail';
+}
+
+export function isActiveProviderJob(job: Pick<ProviderJob, 'status' | 'archetype'>): boolean {
+  if (!ACTIVE_PRIORITY.includes(job.status)) return false;
+  return (job.status !== 'confirmed' && job.status !== 'delivery_pending') || job.archetype === 'proposal';
 }
 
 export interface BookingOtps {

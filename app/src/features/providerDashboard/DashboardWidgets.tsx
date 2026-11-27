@@ -2,21 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Switch, View, Pressable } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Card, Text } from '../../components/ui';
-import type { BookingStatus } from '../../lib/types';
 import { useTheme } from '../../theme';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
-
-export const NEXT_STEP: Partial<Record<BookingStatus, { label: string; icon: IconName; primary: boolean }>> = {
-  accepted: { label: 'Start trip', icon: 'navigate', primary: true },
-  en_route: { label: 'Enter start code', icon: 'keypad-outline', primary: true },
-  inspecting: { label: 'Send quote', icon: 'receipt-outline', primary: true },
-  quote_sent: { label: 'Awaiting approval', icon: 'hourglass-outline', primary: false },
-  awaiting_payment: { label: 'Awaiting payment', icon: 'hourglass-outline', primary: false },
-  in_progress: { label: 'Mark complete', icon: 'checkmark-done', primary: true },
-  completion_requested: { label: 'Enter completion code', icon: 'keypad-outline', primary: true },
-  disputed: { label: 'On hold · view', icon: 'alert-circle-outline', primary: false },
-};
+export { ACTIVE_PRIORITY, NEXT_STEP, getNextStep, getPrimaryJobAction, getRequestActionState, isActiveProviderJob } from '../../lib/types';
 
 export const RESPONSE_WINDOW_MS = 15 * 60 * 1000;
 
