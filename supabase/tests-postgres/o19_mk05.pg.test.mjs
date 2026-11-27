@@ -161,7 +161,7 @@ async function waitForLockWait(observer, blockedPid, timeoutMs = 4000) {
   let actual = null;
   while (Date.now() < deadline) {
     actual = (await observer.query(`
-      select state, wait_event_type, wait_event, query
+      select state, wait_event_type, wait_event, query, pg_blocking_pids(pid) as blocking_pids
         from pg_stat_activity
        where pid = $1::int
     `, [blockedPid])).rows[0] ?? null;
@@ -190,6 +190,11 @@ async function runSendSelect(context) {
     assert.notEqual(firstPid, secondPid, `race requires distinct PostgreSQL backends: ${JSON.stringify({ firstPid, secondPid })}`);
     await first.query(`set statement_timeout = '15000ms'`);
     await second.query(`set statement_timeout = '15000ms'`);
+    await second.query(
+      `select set_config('request.jwt.claim.sub', $1::text, false)`,
+      [fixture.secondOwnerId],
+    );
+    await second.query('set role authenticated');
     await first.query('begin');
     let firstTransactionOpen = true;
     let sendPromise;
@@ -197,7 +202,7 @@ async function runSendSelect(context) {
       await first.query(`
         select id from public.rfqs where id = $1::uuid for update
       `, [fixture.rfqId]);
-      sendPromise = capture(as(second, fixture.secondOwnerId, `
+      sendPromise = capture(second.query(`
         select public.send_supplier_quote_for_business(
           $1::uuid, $2::uuid, $3::jsonb, $4::bigint, $5::int,
           $6::timestamptz, $7::text
@@ -224,6 +229,8 @@ async function runSendSelect(context) {
         `${scenarioName}: send must queue behind the locked RFQ before touching the shop/quote: ${JSON.stringify({ firstPid, secondPid, blocked })}`);
       assert.match(blocked?.query ?? '', /send_supplier_quote_for_business/i,
         `${scenarioName}: lock waiter is the quote sender: ${JSON.stringify({ firstPid, secondPid, blocked })}`);
+      assert.ok(blocked?.blocking_pids?.includes(firstPid),
+        `${scenarioName}: quote sender is blocked by the backend holding the RFQ lock: ${JSON.stringify({ firstPid, secondPid, blocked })}`);
 
       const selected = await as(first, fixture.customerId, `
         select public.select_supplier_quote($1::uuid) as result
