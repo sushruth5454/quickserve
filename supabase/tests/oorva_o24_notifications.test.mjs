@@ -151,7 +151,16 @@ async function createBookingFixture() {
   const managerId = await createUser('Manager O24');
   const staffId = await createUser('Staff O24');
   const outsiderId = await createUser('Outsider O24');
-  await db.query(`insert into public.providers (id, city) values ($1::uuid, 'O24 City'::text)`, [ownerId]);
+  await db.query(`
+    insert into public.providers (
+      id, city, base_location, kyc_status, submitted_at, admin_review_status,
+      is_online, paused, suspended
+    ) values (
+      $1::uuid, 'O24 City'::text,
+      extensions.st_setsrid(extensions.st_makepoint(80.60, 16.50), 4326),
+      'verified', now(), 'approved', true, false, false
+    )
+  `, [ownerId]);
   const categoryId = (await db.query(`
     insert into public.categories (
       slug, name, pricing_mode, active, archetype, intake_schema, config_version,
@@ -161,10 +170,33 @@ async function createBookingFixture() {
       '{}'::jsonb, 1::int, 365::int, false, array[]::text[], 0::int
     ) returning id
   `, [`o24-${randomUUID().replaceAll('-', '')}`])).rows[0].id;
+  await db.query(`
+    update public.app_config
+       set value = coalesce(value, '{}'::jsonb) || jsonb_build_object('inspect_quote'::text, true::boolean)
+     where key = 'archetype_flags'::text
+  `);
+  await db.query(`
+    insert into public.category_cities (category_id, city, live, launched_at)
+    values ($1::uuid, 'O24 City'::text, true::boolean, now())
+  `, [categoryId]);
   const serviceId = (await db.query(`
     insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate)
     values ($1::uuid, $2::uuid, 19900::int, 50000::int) returning id
   `, [ownerId, categoryId])).rows[0].id;
+  const bookability = (await db.query(`
+    select public._is_bookable(
+      $1::uuid, $2::uuid, $3::text, $4::text, null::tstzrange
+    ) as is_bookable
+  `, [categoryId, ownerId, 'O24 City', 'inspect_quote'])).rows[0];
+  if (!bookability.is_bookable) {
+    throw new Error(`O24 chat fixture must be bookable: ${JSON.stringify({
+      categoryId,
+      ownerId,
+      city: 'O24 City',
+      archetype: 'inspect_quote',
+      bookability,
+    })}`);
+  }
   const addressId = (await db.query(`
     insert into public.addresses (user_id, line1, city, lat, lng)
     values ($1::uuid, '1 O24 Road'::text, 'O24 City'::text, 16.5::double precision, 80.6::double precision)
