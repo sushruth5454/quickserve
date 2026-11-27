@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O23-ID07",
+  "workPackage": "O23",
+  "sourceTaskId": "ID-T07",
+  "findingIds": [
+    "ID-F05",
+    "ID-F10",
+    "ID-F11",
+    "ID-F12"
+  ],
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "base": {
+    "branch": "lane/oorva-o23-id07",
+    "implementationBaseHead": "ce0d708f02af057b97659598f65521852f090480",
+    "dependencies": [
+      {
+        "stageId": "O00",
+        "commit": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      },
+      {
+        "stageId": "O28-ID03",
+        "commit": "ae899a02a1cf0200bcdad336777d9655f6b18807",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      },
+      {
+        "stageId": "O26-ID05",
+        "commit": "ce0d708f02af057b97659598f65521852f090480",
+        "status": "DONE_IN_IMPLEMENTATION_BASE"
+      }
+    ]
+  },
+  "ownedFiles": [
+    "app\\src\\components\\AccountScreen.tsx",
+    "app\\src\\components\\ProviderMeSections.tsx",
+    "app\\src\\components\\__tests__\\AccountScreen.identity.test.tsx",
+    "app\\src\\components\\__tests__\\ProviderMeSections.identity.test.tsx",
+    "docs\\design\\oorva\\evidence\\o23-id07.json"
+  ],
+  "implementation": {
+    "summary": [
+      "Provider identity uses the owner go-live state returned by the existing onboarding read; payout verification is labeled separately and provider profile edits open the existing basics section.",
+      "Business work is shown only when merchant_staff is enabled and list_my_business_memberships returns active rows; own-provider switching and existing venue/shop listing entries remain separate.",
+      "Provider, admin, membership, balance, and coin-policy reads expose loading or retryable unavailable states; a failed provider read does not route to onboarding and a failed balance read does not display zero.",
+      "The Seva Coins history entry remains visible when earning and redemption are both off, with paused-capability wording.",
+      "Service activation says enabled; services and reviews have independent retryable reads, service-write rollback is retained, and switch colors use the theme token."
+    ],
+    "sqlFunctions": [],
+    "migrationClaims": [],
+    "featureFlagsChanged": [],
+    "financialRecordsChanged": false
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperCommit": "40bb365e5c0fb423553466d380783606af8ca04d",
+      "execution": "Loaded the current-main helper in memory and ran it in Q:\\repos\\quickserve-o23-id07; no Windows package install or app test/build was run.",
+      "selectors": [
+        {
+          "suite": "app",
+          "selector": "src.components.__tests__.AccountScreen[.]identity[.]test[.]tsx$",
+          "snapshotCommitPrefix": "616682ac",
+          "selectedFile": "app/src/components/__tests__/AccountScreen.identity.test.tsx",
+          "selectedCases": [
+            "ID-ACCOUNT-CUSTOMER keeps own-provider onboarding and listing paths separate from memberships",
+            "ID-ACCOUNT-OWNER uses canonical go-live readiness and routes profile edits to basics",
+            "ID-ACCOUNT-MEMBER shows Business work for real memberships without owner payout controls",
+            "ID-ACCOUNT-ADMIN distinguishes an admin read error from a negative result and retries",
+            "ID-ACCOUNT-PROVIDER-READ-ERROR does not switch to onboarding until the own-provider read succeeds",
+            "ID-ACCOUNT-WALLET-OFF keeps Seva Coins history visible when both reward capabilities are off",
+            "ID-ACCOUNT-COIN-READ-ERROR shows unavailable instead of zero and retries the balance",
+            "ID-ACCOUNT-MERCHANT-STAFF-OFF does not read or expose member work"
+          ],
+          "csTestResult": "PASS"
+        },
+        {
+          "suite": "jest",
+          "selector": "src.components.__tests__.ProviderMeSections[.]identity[.]test[.]tsx$",
+          "snapshotCommitPrefix": "f7f54b57",
+          "selectedFile": "app/src/components/__tests__/ProviderMeSections.identity.test.tsx",
+          "selectedCases": [
+            "ID-SERVICE-ENABLED-NOT-LIVE calls an enabled service enabled, not live",
+            "ID-REVIEWS-ERROR-NOT-EMPTY shows a review-specific retry without retrying services",
+            "ID-MEMBER-NO-OWNER-KYC hides payout controls from a delegated business context",
+            "ID-SERVICE-READ-ERROR shows a service-specific retry without a false empty state",
+            "ID-SERVICE-WRITE-ROLLBACK restores the previous service state when saving fails",
+            "labels provider verification as payout verification, independently of service state"
+          ],
+          "csTestResult": "PASS"
+        }
+      ]
+    },
+    "initialLaneCi": {
+      "runId": 46029833342,
+      "headSha": "d8d141bda7beb390398905dc7da5d83a634bacd8",
+      "result": "FAIL",
+      "failedCheck": "UI lint: ProviderMeSections.tsx:165 hard-coded hex color; use a theme token.",
+      "otherChecks": {
+        "sql": "PASS",
+        "deno": "PASS",
+        "privatePostgres": "PASS"
+      }
+    }
+  },
+  "activation": {
+    "mainPromotion": "not performed",
+    "featureActivation": "not performed",
+    "deployment": "not performed"
+  }
+}
