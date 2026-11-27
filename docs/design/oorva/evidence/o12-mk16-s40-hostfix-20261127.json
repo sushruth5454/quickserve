@@ -1,0 +1,77 @@
+{
+  "stageId": "O12-MK16",
+  "deltaId": "o12-mk16-s40-hostfix-20261127",
+  "workPackage": "O12",
+  "sourceTaskId": "MK-T16",
+  "findingId": "MK-F18",
+  "base": {
+    "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "implementationBaseCommit": "d044ff3aefa328e38de29dce5a80ce84fd247973",
+    "priorO12Integration": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "branch": "lane/oorva-o12-mk16-s40-hostfix"
+  },
+  "sourceMismatch": {
+    "verifiedAt": [
+      "d044ff3aefa328e38de29dce5a80ce84fd247973",
+      "914274914f6c7e1ab59d1e5e38088184166bef1d"
+    ],
+    "hostPath": "app/src/features/marketplaceScreens/CategoryDetailScreen.tsx",
+    "hostAbsent": true,
+    "routePath": "app/app/category/[slug].tsx",
+    "routeWasInline": true
+  },
+  "changes": {
+    "files": [
+      "app/app/category/[slug].tsx",
+      "app/src/features/marketplaceScreens/CategoryDetailScreen.tsx",
+      "app/src/features/catalogue/__tests__/ArchetypeCategory.test.tsx",
+      "docs/design/oorva/evidence/o12-mk16-s40-hostfix-20261127.json"
+    ],
+    "migrations": [],
+    "sqlFunctions": [],
+    "featureFlags": [],
+    "e2eFileModified": false
+  },
+  "implementation": [
+    "Moved the inline category route into CategoryDetailScreen and corrected only its relative imports.",
+    "The route is a default re-export; one useCategoryDetailController retains the existing slug/name, city scope, category load, error, and refresh state.",
+    "The existing inspect-quote UI, filters, navigation intent, and read behavior were moved without redesign or additional stale-read changes."
+  ],
+  "tests": {
+    "testFirstRed": {
+      "case": "MK-S40-host-uses-route-slug-and-city-for-category-loads",
+      "result": "EXPECTED_FAIL",
+      "reason": "Before extraction, the test could not resolve the approved CategoryDetailScreen host."
+    },
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "suite": "app",
+      "filter": "src.features.catalogue.__tests__.ArchetypeCategory[.]test[.]tsx$",
+      "snapshot": "4c572d7993b05d4aa9f072b28f690840dfc27426",
+      "selectedCases": [
+        "MK-S40-host-uses-route-slug-and-city-for-category-loads",
+        "MK-FRESH-city-race"
+      ],
+      "selectedCaseCount": 2,
+      "result": "PASS",
+      "invocation": "Fetched origin/main helper executed in-memory; its temporary Git index was redirected to the ignored worktree node_modules/.cache path to avoid writing to a system temporary directory."
+    },
+    "localAppInstallOrTests": false
+  },
+  "sharedE2ERequest": {
+    "owner": "Coordinator",
+    "file": "e2e/web-smoke.mjs",
+    "case": "MK-S40-route-host-wiring",
+    "workerEdited": false,
+    "run": "Combined private E2E after coordinator registration"
+  },
+  "gates": {
+    "E0": "APPROVED",
+    "D01": "APPROVED",
+    "nativeWork": false,
+    "productionDataChanges": false,
+    "mainPromotion": false,
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "verifiedAt": "2026-11-27"
+}
