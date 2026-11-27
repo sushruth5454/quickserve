@@ -1,0 +1,84 @@
+{
+  "stageId": "O21-SV16",
+  "workPackage": "O21",
+  "sourceTaskIds": [
+    "SV-T16"
+  ],
+  "sourceFindingIds": [
+    "SV-F15"
+  ],
+  "planBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "approvals": {
+    "E0": "approved",
+    "D01": "approved"
+  },
+  "base": {
+    "branch": "lane/oorva-o21-sv16",
+    "commit": "6276036a973014e15e717a4ce21881bb87ac199b",
+    "wasNotModified": true,
+    "dependencies": {
+      "O00": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "O21-READ": "9206a782561fa51f705f7644aea4dbf0d4e02dff",
+      "O21-SV04": "58845abe9286769af16634c90899ab5f4e338b3c"
+    }
+  },
+  "sourceDrift": {
+    "auditedSourceSha": "2f1e4638b145185b9e58c4c62e58f5c6dd491fa1",
+    "chosenBase": "6276036a973014e15e717a4ce21881bb87ac199b",
+    "expectedDependencyChanges": [
+      {
+        "path": "app\\app\\request\\[id].tsx -> app\\src\\features\\serviceScreens\\RequestDetailScreen.tsx",
+        "reason": "The O21-READ route-host binding assigns this extracted host to later writers; the route remains unchanged."
+      },
+      {
+        "path": "app\\src\\components\\market\\QuoteCompareTable.tsx",
+        "reason": "The existing comparison props remain available; the canonical base also includes the prior Oorva presentation change."
+      }
+    ],
+    "otherComparedStageOwnedFiles": "No other audited-source-to-base drift reported."
+  },
+  "implementation": {
+    "status": "IMPLEMENTED",
+    "files": [
+      "app\\src\\features\\proposals\\comparePresentation.ts",
+      "app\\src\\features\\proposals\\__tests__\\comparePresentation.test.ts",
+      "app\\src\\features\\serviceScreens\\RequestDetailScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o21-sv16.json"
+    ],
+    "behavior": [
+      "Comparison rows contain only the latest proposal version per provider; earlier versions remain in a read-only expandable history.",
+      "Expired, withdrawn, rejected, non-current, request-closed, and server-unavailable offers cannot win actionable Lowest; current valid offers retain View / ask provider.",
+      "Existing request booking state is shown before comparison with a link to the exact booking; no request-detail Accept action was added.",
+      "Comparison does not change totals, fee freshness, server accept authorization, feature flags, or money-safety paths."
+    ],
+    "databaseChanges": {
+      "migrations": 0,
+      "sqlFunctions": 0,
+      "featureFlags": 0,
+      "moneyPolicyChanges": 0
+    },
+    "migrationClaims": []
+  },
+  "verification": {
+    "gitDiffCheck": "PASS",
+    "codespace": {
+      "status": "PASS",
+      "phase": "selected_and_completed",
+      "testsSelected": true,
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "command": "-Suite app -Filter 'src.features.proposals.__tests__.comparePresentation[.]test[.]ts$'",
+      "selectedFile": "app\\src\\features\\proposals\\__tests__\\comparePresentation.test.ts",
+      "snapshot": "c5712e73",
+      "result": "PASS; TypeScript check passed; 1 suite, 5 tests passed.",
+      "reason": ""
+    },
+    "laneCI": {
+      "status": "SUCCESS",
+      "ref": "lane/oorva-o21-sv16",
+      "codeHeadSha": "68742cfbdb8e4f7e51171cd74786b4bf86ceec99",
+      "runId": 45984582183,
+      "conclusion": "success",
+      "url": "https://github.com/sushruth5454/quickserve/actions/runs/45984582183"
+    }
+  }
+}

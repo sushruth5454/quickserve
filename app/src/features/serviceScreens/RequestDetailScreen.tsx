@@ -1,13 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Screen, Section, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import * as api from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { formatINR } from '../../lib/money';
 import type { Proposal, ProposalViewState, ServiceRequest } from '../../lib/types';
 import { QuoteCompareTable } from '../../components/market/QuoteCompareTable';
-import { proposalCompareRows } from '../proposals/comparePresentation';
+import { buildProposalComparison } from '../proposals/comparePresentation';
 import { getProposalViewState } from '../proposals/api';
 import { proposalStatus } from '../../lib/proposalStatus';
 import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
@@ -18,6 +18,7 @@ export default function RequestDetailScreen() {
   const [request, setRequest] = useState<ServiceRequest | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [proposalViews, setProposalViews] = useState<Record<string, ProposalViewState>>({});
+  const [expandedHistoryProposalId, setExpandedHistoryProposalId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,10 @@ export default function RequestDetailScreen() {
     enabled: true,
     intervalMs: id ? 30_000 : null,
   });
+
+  const comparison = request
+    ? buildProposalComparison(proposals, proposalViews, request)
+    : null;
 
   const cancelRequest = async () => {
     if (!request || !['open', 'closed'].includes(request.status)) return;
@@ -122,46 +127,89 @@ export default function RequestDetailScreen() {
               : null}
             <Text variant="footnote" color="muted">Your address and contact details stay hidden until the advance is paid.</Text>
           </Card>
+          {comparison?.currentBooking ? (
+            <Section title="Current booking">
+              <Card>
+                <Text variant="bodyStrong">This request already has a booking.</Text>
+                <Text color="muted">
+                  Status: {comparison.currentBooking.state.current_booking_status?.replaceAll('_', ' ') ?? 'Unavailable'}
+                </Text>
+                <Button
+                  title="View current booking"
+                  variant="outline"
+                  onPress={() => router.push({
+                    pathname: '/booking/[id]',
+                    params: { id: comparison.currentBooking?.bookingId ?? '' },
+                  })}
+                />
+              </Card>
+            </Section>
+          ) : null}
           <Section title="Proposals" subtitle="Compare fixed totals, milestones and delivery terms.">
             {proposals.length === 0 ? (
               <EmptyState icon="document-text-outline" title="Waiting for proposals" message="Verified providers will reply here. You can ask each provider questions in their proposal thread." />
             ) : (
               <>
-                <QuoteCompareTable
-                  rows={proposalCompareRows(proposals)}
-                  detailHeaders={['Payment milestones', 'Valid until']}
-                  selectLabel="Compare proposal"
-                  onSelect={openProposal}
-                />
-                {proposals.map((proposal) => {
-                  const state = proposalViews[proposal.id];
-                  const stateLabel = proposalStatus(proposal, state ?? null).label;
-                  const currentBookingId = state?.current_booking_id;
-                  return (
-                    <Pressable
-                      key={proposal.id}
-                      accessibilityRole="button"
-                      onPress={() => openProposal(proposal.id)}
-                    >
-                      <Card>
-                        <Text variant="bodyStrong">{proposal.providers?.profiles?.full_name ?? 'Verified provider'}</Text>
-                        <Text variant="title3">{formatINR(proposal.total)}</Text>
-                        <Text color="muted">{stateLabel}</Text>
-                        <Text variant="footnote" color="textSecondary">
-                          {proposal.proposal_schedule.length} payments · valid until {new Date(proposal.valid_until).toLocaleDateString('en-IN')}
-                        </Text>
-                        {currentBookingId && state?.viewer_role === 'customer' ? (
-                          <Button
-                            title="View current booking"
-                            variant="outline"
-                            onPress={() => router.push({ pathname: '/booking/[id]', params: { id: currentBookingId } })}
-                          />
-                        ) : null}
-                        <Button title="Compare proposal" variant="outline" onPress={() => openProposal(proposal.id)} />
-                      </Card>
-                    </Pressable>
-                  );
-                })}
+                {comparison ? (
+                  <>
+                    <QuoteCompareTable
+                      rows={comparison.rows}
+                      detailHeaders={['Payment milestones', 'Valid until']}
+                      selectLabel="View / ask provider"
+                      onSelect={openProposal}
+                      selectable={(proposalId) => comparison.selectableIds.has(proposalId)}
+                      excludeFromLowest={(proposalId) => comparison.excludedFromLowestIds.has(proposalId)}
+                      warnings={comparison.warnings}
+                    />
+                    {comparison.history.length > 0 ? (
+                      <Section title="Earlier proposal versions" subtitle="Read-only proposal history.">
+                        {comparison.history.map((proposal) => {
+                          const state = proposalViews[proposal.id];
+                          const expanded = expandedHistoryProposalId === proposal.id;
+                          const deliverables = proposal.deliverables as Array<{ type?: string; spec?: string; qty?: number }>;
+                          return (
+                            <Card key={proposal.id}>
+                              <Text variant="bodyStrong">{proposal.providers?.profiles?.full_name ?? 'Verified provider'}</Text>
+                              <Text color="muted">
+                                Version {proposal.version} · {proposalStatus(proposal, state ?? null).label}
+                              </Text>
+                              <Text variant="calloutStrong">{formatINR(proposal.total)}</Text>
+                              <Button
+                                title={expanded ? 'Hide version details' : 'View version details'}
+                                variant="outline"
+                                onPress={() => setExpandedHistoryProposalId(expanded ? null : proposal.id)}
+                              />
+                              {expanded ? (
+                                <View style={{ gap: 8 }}>
+                                  <Text variant="footnote" color="muted">
+                                    Valid until {new Date(proposal.valid_until).toLocaleDateString('en-IN')}
+                                  </Text>
+                                  {proposal.note ? <Text color="textSecondary">{proposal.note}</Text> : null}
+                                  {proposal.proposal_items.map((item) => (
+                                    <Text key={`${proposal.id}-item-${item.seq}`} variant="footnote">
+                                      {item.title} · {item.qty} {item.unit ?? ''} · {formatINR(Math.round(item.qty * item.unit_price))}
+                                    </Text>
+                                  ))}
+                                  {proposal.proposal_schedule.map((payment) => (
+                                    <Text key={`${proposal.id}-payment-${payment.seq}`} variant="footnote">
+                                      {payment.label} · {formatINR(payment.amount)} · {payment.due_rule.replaceAll('_', ' ')}
+                                    </Text>
+                                  ))}
+                                  {deliverables.map((item, index) => (
+                                    <Text key={`${proposal.id}-deliverable-${index}`} variant="footnote">
+                                      {item.type?.replaceAll('_', ' ') ?? 'Delivery'}{item.spec ? ` · ${item.spec}` : ''}
+                                      {item.qty == null ? '' : ` · ${item.qty}`}
+                                    </Text>
+                                  ))}
+                                </View>
+                              ) : null}
+                            </Card>
+                          );
+                        })}
+                      </Section>
+                    ) : null}
+                  </>
+                ) : null}
               </>
             )}
           </Section>
