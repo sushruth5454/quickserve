@@ -762,72 +762,100 @@ await scenario('CM_SQL_CHAT_MEMBER_PROJECTIONS, CM_SQL_CHAT_MEMBER_FLAG_OFF, and
   const inactiveCustomer = await as(fixture.customerId, 'authenticated', `
     select booking_id from public.get_unread_counts() where booking_id = $1::uuid
   `, [fixture.bookingId]);
-  const actual = {
-    authorized,
-    outsider: {
-      unread_count: outsider.unread.length,
-      read_state_count: outsider.readState.length,
-      heading: outsider.heading[0]?.heading ?? null,
-    },
-    push_recipients: pushRecipients,
-    member_notification_rows: memberNotificationRows,
-    off: {
-      member: off.memberUnread.length,
-      member_heading: off.memberHeading[0]?.heading ?? null,
-      owner: off.ownerUnread.length,
-      owner_heading: off.ownerHeading[0]?.heading ?? null,
-      customer: off.customerUnread.length,
-      customer_heading: off.customerHeading[0]?.heading ?? null,
-    },
-    inactive_member: inactive.length,
-    inactive_member_heading: inactiveHeading[0]?.heading ?? null,
-    inactive_primary_access: { owner: inactiveOwner.length, customer: inactiveCustomer.length },
-    expected: {
-      customerReadAt,
-      ownerReadAt,
-      managerReadAt,
-      customerName: 'Customer',
-      providerName: 'Provider',
-      customerMessageAt: '2026-11-25T09:00:00.000Z',
-    },
-  };
+  const countActual = Object.fromEntries(
+    Object.entries(authorized).map(([actor, projection]) => [
+      actor,
+      projection.unread.map((row) => ({
+        booking_id: row.booking_id,
+        role: row.role,
+        unread: row.unread,
+        last_message_at: asInstant(row.last_message_at),
+      })),
+    ]),
+  );
   assertActual(
-    authorized.customer.unread.length === 0
-      && authorized.owner.unread.length === 1
-      && authorized.manager.unread.length === 1
-      && authorized.staff.unread.length === 1
-      && authorized.manager.unread[0]?.booking_id === fixture.bookingId
-      && authorized.manager.unread[0]?.role === 'provider'
-      && authorized.owner.unread[0]?.unread === 1
-      && authorized.manager.unread[0]?.unread === 1
-      && authorized.staff.unread[0]?.unread === 1
-      && asInstant(authorized.manager.unread[0]?.last_message_at) === '2026-11-25T09:00:00.000Z'
-      && asInstant(authorized.manager.readState[0]?.my_last_read_at) === managerReadAt
-      && authorized.manager.readState[0]?.other_last_read_at
-      && asInstant(authorized.manager.readState[0].other_last_read_at) === customerReadAt
+    countActual.customer.length === 0
+      && countActual.owner.length === 1
+      && countActual.manager.length === 1
+      && countActual.staff.length === 1
+      && countActual.manager[0]?.booking_id === fixture.bookingId
+      && countActual.manager[0]?.role === 'provider'
+      && countActual.owner[0]?.unread === 1
+      && countActual.manager[0]?.unread === 1
+      && countActual.staff[0]?.unread === 1
+      && countActual.manager[0]?.last_message_at === '2026-11-25T09:00:00.000Z',
+    'CM_SQL_CHAT_MEMBER_PROJECTIONS unread counts',
+    countActual,
+  );
+  assertActual(
+    asInstant(authorized.manager.readState[0]?.my_last_read_at) === managerReadAt
+      && asInstant(authorized.manager.readState[0]?.other_last_read_at) === customerReadAt
       && asInstant(authorized.customer.readState[0]?.other_last_read_at) === ownerReadAt
       && authorized.manager.heading[0]?.heading?.name === 'Customer'
       && authorized.customer.heading[0]?.heading?.name === 'Provider'
       && outsider.unread.length === 0
       && outsider.readState.length === 0
-      && outsider.heading[0]?.heading == null
-      && memberNotificationRows.length === 0
-      && pushRecipients.includes(fixture.customerId)
-      && pushRecipients.includes(fixture.ownerId)
-      && !pushRecipients.includes(fixture.managerId)
-      && !pushRecipients.includes(fixture.staffId)
-      && off.member === 0
+      && outsider.heading[0]?.heading == null,
+    'CM_SQL_CHAT_MEMBER_PROJECTIONS read state, heading and outsider boundary',
+    {
+      managerReadState: {
+        my: asInstant(authorized.manager.readState[0]?.my_last_read_at),
+        other: asInstant(authorized.manager.readState[0]?.other_last_read_at),
+      },
+      customerOtherRead: asInstant(authorized.customer.readState[0]?.other_last_read_at),
+      headings: {
+        manager: authorized.manager.heading[0]?.heading ?? null,
+        customer: authorized.customer.heading[0]?.heading ?? null,
+      },
+      outsider: {
+        unread: outsider.unread.length,
+        readState: outsider.readState.length,
+        heading: outsider.heading[0]?.heading ?? null,
+      },
+    },
+  );
+  assertActual(
+    off.memberUnread.length === 0
       && off.memberHeading[0]?.heading == null
-      && off.owner === 1
+      && off.ownerUnread.length === 1
       && off.ownerHeading[0]?.heading?.name === 'Customer'
-      && off.customer === 0
+      && off.customerUnread.length === 0
       && off.customerHeading[0]?.heading?.name === 'Provider'
       && inactive.length === 0
       && inactiveHeading[0]?.heading == null
       && inactiveOwner.length === 1
       && inactiveCustomer.length === 0,
-    'member read projections use existing authorization; customer read/push semantics and owner access remain primary',
-    actual,
+    'CM_SQL_CHAT_MEMBER_FLAG_OFF removes member access but preserves primary access',
+    {
+      off: {
+        member: off.memberUnread.length,
+        memberHeading: off.memberHeading[0]?.heading ?? null,
+        owner: off.ownerUnread.length,
+        ownerHeading: off.ownerHeading[0]?.heading ?? null,
+        customer: off.customerUnread.length,
+        customerHeading: off.customerHeading[0]?.heading ?? null,
+      },
+      inactiveMember: inactive.length,
+      inactiveHeading: inactiveHeading[0]?.heading ?? null,
+      inactivePrimary: { owner: inactiveOwner.length, customer: inactiveCustomer.length },
+    },
+  );
+  assertActual(
+    memberNotificationRows.length === 0
+      && pushRecipients.includes(fixture.customerId)
+      && pushRecipients.includes(fixture.ownerId)
+      && !pushRecipients.includes(fixture.managerId)
+      && !pushRecipients.includes(fixture.staffId),
+    'CM_SQL_CHAT_PRIMARY_SEEN_RETAIN keeps push recipients primary-only',
+    {
+      memberNotificationRows: memberNotificationRows.length,
+      pushRecipients: {
+        customer: pushRecipients.includes(fixture.customerId),
+        owner: pushRecipients.includes(fixture.ownerId),
+        manager: pushRecipients.includes(fixture.managerId),
+        staff: pushRecipients.includes(fixture.staffId),
+      },
+    },
   );
 });
 
