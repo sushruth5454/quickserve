@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, InlineAlert, Input, ListItem, Screen, Stepper, Text, useConfirm, useToast } from '../../components/ui';
+import { useAuth } from '../../lib/auth';
 import { onboardingApi, type TimeOff, type WeeklySlot } from '../../lib/onboarding';
 import {
   copyDay,
@@ -20,6 +21,18 @@ import { useDraft } from './useOnboardingData';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+interface HoursSectionState {
+  slots: WeeklySlot[];
+  maxJobs: number | null;
+  error: string | null;
+  saving: boolean;
+  offFrom: string;
+  offTo: string;
+  offReason: string;
+  offOpen: boolean;
+  offBusy: boolean;
+}
+
 /** Time-off rows come back as timestamps; show them as provider-local whole days. */
 export function timeOffDays(t: TimeOff, tz?: string | null): { from: string; to: string } {
   return { from: localParts(new Date(t.from), tz).dateKey, to: localParts(new Date(new Date(t.to).getTime() - 1), tz).dateKey };
@@ -29,23 +42,54 @@ export function HoursSection({ data, reload, header, mode, onDone, onBack }: Sec
   const t = useTheme();
   const toast = useToast();
   const confirm = useConfirm();
+  const { userId } = useAuth();
+  const currentUserIdRef = useRef(userId);
+  currentUserIdRef.current = userId;
   const p = data.state.provider;
-  const [slots, setSlots] = useState<WeeklySlot[]>(sortSlots(data.state.availability));
-  const [maxJobs, setMaxJobs] = useState<number | null>(p?.max_jobs_per_day ?? null);
-  useDraft('provider-hours', { slots, maxJobs }, (d) => {
+  const today = istToday();
+  const initialState: HoursSectionState = {
+    slots: userId ? sortSlots(data.state.availability) : [],
+    maxJobs: userId ? p?.max_jobs_per_day ?? null : null,
+    error: null,
+    saving: false,
+    offFrom: today,
+    offTo: today,
+    offReason: '',
+    offOpen: false,
+    offBusy: false,
+  };
+  const [ownedState, setOwnedState] = useState<{ ownerId: string | null; value: HoursSectionState }>({
+    ownerId: userId,
+    value: initialState,
+  });
+  const sectionState = ownedState.ownerId === userId ? ownedState.value : initialState;
+  const updateSectionState = (update: (current: HoursSectionState) => HoursSectionState) => {
+    if (currentUserIdRef.current !== userId) return;
+    setOwnedState((current) => ({
+      ownerId: userId,
+      value: update(current.ownerId === userId ? current.value : initialState),
+    }));
+  };
+  const { slots, maxJobs, error, saving, offFrom, offTo, offReason, offOpen, offBusy } = sectionState;
+  const setSlots = (next: WeeklySlot[] | ((current: WeeklySlot[]) => WeeklySlot[])) =>
+    updateSectionState((current) => ({
+      ...current,
+      slots: typeof next === 'function' ? next(current.slots) : next,
+    }));
+  const setMaxJobs = (value: number | null) => updateSectionState((current) => ({ ...current, maxJobs: value }));
+  const setError = (value: string | null) => updateSectionState((current) => ({ ...current, error: value }));
+  const setSaving = (value: boolean) => updateSectionState((current) => ({ ...current, saving: value }));
+  const setOffFrom = (value: string) => updateSectionState((current) => ({ ...current, offFrom: value }));
+  const setOffTo = (value: string) => updateSectionState((current) => ({ ...current, offTo: value }));
+  const setOffReason = (value: string) => updateSectionState((current) => ({ ...current, offReason: value }));
+  const setOffOpen = (value: boolean) => updateSectionState((current) => ({ ...current, offOpen: value }));
+  const setOffBusy = (value: boolean) => updateSectionState((current) => ({ ...current, offBusy: value }));
+  const draft = useDraft(userId, 'provider-hours', { slots, maxJobs }, (d) => {
     if (data.state.availability.length === 0 && d.slots?.length) {
       setSlots(d.slots);
       setMaxJobs(d.maxJobs ?? null);
     }
   });
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const today = istToday();
-  const [offFrom, setOffFrom] = useState(today);
-  const [offTo, setOffTo] = useState(today);
-  const [offReason, setOffReason] = useState('');
-  const [offOpen, setOffOpen] = useState(false);
-  const [offBusy, setOffBusy] = useState(false);
   const problem = useMemo(() => (slots.length ? validateSlots(slots) : null), [slots]);
 
   const daySlots = (d: number) => slots.filter((s) => s.weekday === d);
@@ -60,42 +104,56 @@ export function HoursSection({ data, reload, header, mode, onDone, onBack }: Sec
   };
 
   const save = async () => {
+    const ownerId = userId;
+    if (!ownerId || currentUserIdRef.current !== ownerId) return;
     const msg = validateSlots(slots);
     if (msg) return setError(msg);
     setSaving(true);
     setError(null);
     try {
       await onboardingApi.setAvailability(slots, maxJobs);
+      if (currentUserIdRef.current !== ownerId) return;
+      await draft.clear();
+      if (currentUserIdRef.current !== ownerId) return;
       await reload();
+      if (currentUserIdRef.current !== ownerId) return;
       if (mode === 'edit') toast({ message: 'Working hours saved', tone: 'success' });
       onDone();
     } catch (e) {
-      setError((e as Error).message);
+      if (currentUserIdRef.current === ownerId) setError((e as Error).message);
     } finally {
-      setSaving(false);
+      if (currentUserIdRef.current === ownerId) setSaving(false);
     }
   };
 
   const addOff = async () => {
+    const ownerId = userId;
+    if (!ownerId || currentUserIdRef.current !== ownerId) return;
     setOffBusy(true);
     try {
       await onboardingApi.addTimeOff(offFrom, offTo, offReason.trim() || null);
+      if (currentUserIdRef.current !== ownerId) return;
       setOffOpen(false);
       setOffReason('');
       await reload();
+      if (currentUserIdRef.current !== ownerId) return;
       toast({ message: 'Time off added', tone: 'success' });
     } catch (e) {
-      setError((e as Error).message);
+      if (currentUserIdRef.current === ownerId) setError((e as Error).message);
     } finally {
-      setOffBusy(false);
+      if (currentUserIdRef.current === ownerId) setOffBusy(false);
     }
   };
 
   const removeOff = async (o: TimeOff) => {
-    if (!o.id) return;
+    const ownerId = userId;
+    if (!ownerId || currentUserIdRef.current !== ownerId || !o.id) return;
     const ok = await confirm({ title: 'Remove time off?', message: 'Customers will be able to book you on these days again.', confirmLabel: 'Remove', destructive: true });
-    if (!ok) return;
-    await onboardingApi.deleteTimeOff(o.id).catch((e: Error) => setError(e.message));
+    if (!ok || currentUserIdRef.current !== ownerId) return;
+    await onboardingApi.deleteTimeOff(o.id).catch((e: Error) => {
+      if (currentUserIdRef.current === ownerId) setError(e.message);
+    });
+    if (currentUserIdRef.current !== ownerId) return;
     await reload();
   };
 

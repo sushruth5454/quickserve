@@ -388,31 +388,100 @@ export function useOnboardingData(options: UseOnboardingDataOptions = {}) {
 }
 
 /**
- * Local draft autosave for free-text fields (never for PAN or bank details). Restores once on mount when a draft
- * exists, then saves on every change (debounced). Call clear() after a successful server save.
+ * Local draft autosave for free-text fields (never for PAN or bank details). Restores the authenticated owner's
+ * section draft, then saves on every change (debounced). Call clear() after a successful server save.
  */
-export function useDraft<T>(key: string, value: T, restore: (draft: T) => void) {
-  const restored = useRef(false);
-  const storageKey = `quickserve.draft.${key}`;
+export function useDraft<T>(userId: string | null, sectionKey: string, value: T, restore: (draft: T) => void) {
+  const storageKey = userId ? `quickserve.draft.${userId}.${sectionKey}` : null;
+  const serializedValue = JSON.stringify(value);
+  const currentStorageKeyRef = useRef(storageKey);
+  const currentSerializedValueRef = useRef(serializedValue);
+  const hydratedStorageKeyRef = useRef<string | null>(null);
+  const hydrationSequenceRef = useRef(0);
+  const restoreRef = useRef(restore);
+  const pendingTimersRef = useRef(new Map<string, { token: object; timer: ReturnType<typeof setTimeout> }>());
+  const writePromisesRef = useRef(new Map<string, Promise<void>>());
+  const clearedValueRef = useRef<{ storageKey: string; serializedValue: string } | null>(null);
+  currentStorageKeyRef.current = storageKey;
+  currentSerializedValueRef.current = serializedValue;
+  restoreRef.current = restore;
+
   useEffect(() => {
+    const sequence = ++hydrationSequenceRef.current;
+    hydratedStorageKeyRef.current = null;
+    let cancelled = false;
+    if (!storageKey) {
+      return () => {
+        cancelled = true;
+        if (hydrationSequenceRef.current === sequence) hydrationSequenceRef.current += 1;
+      };
+    }
+
+    const isCurrent = () =>
+      !cancelled && hydrationSequenceRef.current === sequence && currentStorageKeyRef.current === storageKey;
     AsyncStorage.getItem(storageKey)
       .then((raw) => {
-        if (raw && !restored.current) restore(JSON.parse(raw) as T);
+        if (!isCurrent()) return;
+        if (raw) restoreRef.current(JSON.parse(raw) as T);
+        if (isCurrent()) hydratedStorageKeyRef.current = storageKey;
       })
-      .catch(() => undefined)
-      .finally(() => {
-        restored.current = true;
+      .catch(() => {
+        if (isCurrent()) hydratedStorageKeyRef.current = storageKey;
       });
-    // Restore only once.
+
+    return () => {
+      cancelled = true;
+      if (hydrationSequenceRef.current === sequence) hydrationSequenceRef.current += 1;
+      if (hydratedStorageKeyRef.current === storageKey) hydratedStorageKeyRef.current = null;
+    };
   }, [storageKey]);
+
   useEffect(() => {
-    if (!restored.current) return;
+    if (!storageKey || hydratedStorageKeyRef.current !== storageKey) return;
+    if (clearedValueRef.current?.storageKey === storageKey && clearedValueRef.current.serializedValue === serializedValue) return;
+    if (clearedValueRef.current?.storageKey === storageKey) clearedValueRef.current = null;
+    const token = {};
     const t = setTimeout(() => {
-      void AsyncStorage.setItem(storageKey, JSON.stringify(value)).catch(() => undefined);
+      if (
+        pendingTimersRef.current.get(storageKey)?.token !== token ||
+        currentStorageKeyRef.current !== storageKey ||
+        hydratedStorageKeyRef.current !== storageKey
+      ) {
+        return;
+      }
+      pendingTimersRef.current.delete(storageKey);
+      const previousWrite = writePromisesRef.current.get(storageKey) ?? Promise.resolve();
+      const write = previousWrite.then(() => AsyncStorage.setItem(storageKey, serializedValue)).catch(() => undefined);
+      writePromisesRef.current.set(storageKey, write);
+      void write.then(() => {
+        if (writePromisesRef.current.get(storageKey) === write) writePromisesRef.current.delete(storageKey);
+      });
     }, 400);
-    return () => clearTimeout(t);
-  }, [storageKey, value]);
+    pendingTimersRef.current.set(storageKey, { token, timer: t });
+    return () => {
+      clearTimeout(t);
+      if (pendingTimersRef.current.get(storageKey)?.token === token) pendingTimersRef.current.delete(storageKey);
+    };
+  }, [storageKey, serializedValue]);
+
   return {
-    clear: () => AsyncStorage.removeItem(storageKey).catch(() => undefined),
+    clear: async () => {
+      if (
+        !storageKey ||
+        currentStorageKeyRef.current !== storageKey ||
+        currentSerializedValueRef.current !== serializedValue
+      ) {
+        return;
+      }
+      const pendingTimer = pendingTimersRef.current.get(storageKey);
+      if (pendingTimer) {
+        clearTimeout(pendingTimer.timer);
+        pendingTimersRef.current.delete(storageKey);
+      }
+      const pendingWrite = writePromisesRef.current.get(storageKey);
+      if (pendingWrite) await pendingWrite;
+      await AsyncStorage.removeItem(storageKey).catch(() => undefined);
+      clearedValueRef.current = { storageKey, serializedValue };
+    },
   };
 }

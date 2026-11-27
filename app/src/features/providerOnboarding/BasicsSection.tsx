@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Avatar, BottomSheet, Card, Chip, InlineAlert, Input, ListItem, Screen, Stepper, Text, TextArea, useToast } from '../../components/ui';
+import { useAuth } from '../../lib/auth';
 import { onboardingApi, type Gender } from '../../lib/onboarding';
 import { BIO_BAD, BIO_GOOD, BIO_MAX, BIO_MIN, GENDERS, LANGUAGES } from '../../lib/onboarding/copy';
 import { validateBasics, type BasicsErrors } from '../../lib/onboarding/validation';
@@ -21,22 +22,56 @@ interface Draft {
 export function BasicsSection({ data, reload, header, mode, onDone, onBack }: SectionProps) {
   const t = useTheme();
   const toast = useToast();
+  const { userId } = useAuth();
+  const currentUserIdRef = useRef(userId);
+  currentUserIdRef.current = userId;
   const p = data.state.provider;
-  const [form, setForm] = useState<Draft>({
-    fullName: data.state.profile?.full_name ?? '',
-    bio: p?.bio ?? '',
-    languages: p?.languages?.length ? p.languages : [],
-    years: p?.years_experience ?? 0,
-    gender: p?.gender ?? null,
+  const initialState = {
+    form: {
+      fullName: userId ? data.state.profile?.full_name ?? '' : '',
+      bio: userId ? p?.bio ?? '' : '',
+      languages: userId && p?.languages?.length ? p.languages : [],
+      years: userId ? p?.years_experience ?? 0 : 0,
+      gender: userId ? p?.gender ?? null : null,
+    } satisfies Draft,
+    photo: null as PickedFile | null,
+    photoSheet: false,
+    showExamples: false,
+    errors: {} as BasicsErrors,
+    error: null as string | null,
+    saving: false,
+  };
+  type SectionState = typeof initialState;
+  const [ownedState, setOwnedState] = useState<{ ownerId: string | null; value: SectionState }>({
+    ownerId: userId,
+    value: initialState,
   });
-  const draft = useDraft<Draft>('provider-basics', form, (d) => setForm((f) => ({ ...f, ...d })));
-  const [photo, setPhoto] = useState<PickedFile | null>(null);
-  const [photoSheet, setPhotoSheet] = useState(false);
-  const [showExamples, setShowExamples] = useState(false);
-  const [errors, setErrors] = useState<BasicsErrors>({});
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const existingAvatar = data.state.profile?.avatar_url ?? null;
+  const sectionState = ownedState.ownerId === userId ? ownedState.value : initialState;
+  const updateSectionState = (update: (current: SectionState) => SectionState) => {
+    if (currentUserIdRef.current !== userId) return;
+    setOwnedState((current) => ({
+      ownerId: userId,
+      value: update(current.ownerId === userId ? current.value : initialState),
+    }));
+  };
+  const { form, photo, photoSheet, showExamples, errors, error, saving } = sectionState;
+  const setForm = (next: Draft | ((current: Draft) => Draft)) =>
+    updateSectionState((current) => ({
+      ...current,
+      form: typeof next === 'function' ? next(current.form) : next,
+    }));
+  const setPhoto = (value: PickedFile | null) => updateSectionState((current) => ({ ...current, photo: value }));
+  const setPhotoSheet = (value: boolean) => updateSectionState((current) => ({ ...current, photoSheet: value }));
+  const setShowExamples = (value: boolean | ((current: boolean) => boolean)) =>
+    updateSectionState((current) => ({
+      ...current,
+      showExamples: typeof value === 'function' ? value(current.showExamples) : value,
+    }));
+  const setErrors = (value: BasicsErrors) => updateSectionState((current) => ({ ...current, errors: value }));
+  const setError = (value: string | null) => updateSectionState((current) => ({ ...current, error: value }));
+  const setSaving = (value: boolean) => updateSectionState((current) => ({ ...current, saving: value }));
+  const draft = useDraft<Draft>(userId, 'provider-basics', form, (d) => setForm((f) => ({ ...f, ...d })));
+  const existingAvatar = userId ? data.state.profile?.avatar_url ?? null : null;
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   // Open the picker over the sheet and close the sheet afterwards: dismissing the sheet's iOS modal while the
@@ -53,6 +88,8 @@ export function BasicsSection({ data, reload, header, mode, onDone, onBack }: Se
   };
 
   const save = async () => {
+    const ownerId = userId;
+    if (!ownerId || currentUserIdRef.current !== ownerId) return;
     const e = validateBasics({ fullName: form.fullName, hasPhoto: !!photo || !!existingAvatar, bio: form.bio, languages: form.languages });
     setErrors(e);
     if (Object.keys(e).length) {
@@ -63,6 +100,7 @@ export function BasicsSection({ data, reload, header, mode, onDone, onBack }: Se
     setError(null);
     try {
       const avatarUrl = photo ? await onboardingApi.uploadAvatar(photo.uri, photo.mimeType) : null;
+      if (currentUserIdRef.current !== ownerId) return;
       await onboardingApi.saveBasics({
         fullName: form.fullName.trim(),
         avatarUrl,
@@ -71,14 +109,17 @@ export function BasicsSection({ data, reload, header, mode, onDone, onBack }: Se
         yearsExperience: form.years,
         bio: form.bio.trim(),
       });
+      if (currentUserIdRef.current !== ownerId) return;
       await draft.clear();
+      if (currentUserIdRef.current !== ownerId) return;
       await reload();
+      if (currentUserIdRef.current !== ownerId) return;
       if (mode === 'edit') toast({ message: 'Profile saved', tone: 'success' });
       onDone();
     } catch (err) {
-      setError((err as Error).message);
+      if (currentUserIdRef.current === ownerId) setError((err as Error).message);
     } finally {
-      setSaving(false);
+      if (currentUserIdRef.current === ownerId) setSaving(false);
     }
   };
 
