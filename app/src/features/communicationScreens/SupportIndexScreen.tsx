@@ -1,8 +1,18 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Badge, Button, Card, EmptyState, Header, Screen, Skeleton, Text } from '../../components/ui';
 import { listSupportThreads, type SupportThread } from '../../lib/adminApi';
 import { useAuth } from '../../lib/auth';
+import { supportThreadPresentation } from '../../lib/notificationPresentation';
+
+const useRuntimeFeature: (key: string) => boolean = (() => {
+  try {
+    return (require('../../lib/featureFlags') as typeof import('../../lib/featureFlags')).useFeature;
+  } catch {
+    return () => false;
+  }
+})();
 
 type SupportIndexState = {
   actorId: string | null;
@@ -59,6 +69,7 @@ function useSupportIndexController() {
 
 export default function SupportIndexScreen() {
   const { userId, authLoading, state, load } = useSupportIndexController();
+  const communicationsComposition = useRuntimeFeature('oorva_comms_ux');
   const current = state && state.actorId === userId ? state : null;
 
   return (
@@ -82,13 +93,67 @@ export default function SupportIndexScreen() {
           title="How can we help?"
           message="Ask about a payment, booking, provider or your account. We usually reply in the app."
         />
-      ) : current.rows.map((row) => (
-        <Card key={row.id} onPress={() => router.push({ pathname: '/support/[id]', params: { id: row.id } })}>
-          <Text variant="calloutStrong">{row.subject}</Text>
-          <Text variant="footnote" color="muted" numberOfLines={2}>{row.last_message || 'No messages yet'}</Text>
-          <Badge label={row.status === 'closed' ? 'Closed' : row.user_unread ? `${row.user_unread} new` : 'Open'} tone={row.user_unread ? 'danger' : 'neutral'} />
-        </Card>
-      ))}
+      ) : current.rows.map((row) => {
+        const presentation = supportThreadPresentation(row);
+        const status = (
+          <Badge
+            label={presentation.statusLabel}
+            tone={row.status === 'closed' ? 'neutral' : 'primary'}
+          />
+        );
+        const unread = presentation.unreadLabel ? (
+          <Badge label={presentation.unreadLabel} tone="danger" />
+        ) : null;
+        const time = (
+          <Text
+            variant="caption"
+            color="muted"
+            accessibilityLabel={presentation.timeAccessibilityLabel}
+          >
+            {presentation.timeLabel}
+          </Text>
+        );
+        const context = presentation.bookingLabel ? (
+          <Text variant="caption" color="primaryText">{presentation.bookingLabel}</Text>
+        ) : null;
+        return (
+          <Card
+            key={row.id}
+            variant={communicationsComposition ? 'filled' : 'outlined'}
+            onPress={() => router.push({ pathname: '/support/[id]', params: { id: row.id } })}
+            accessibilityLabel={`${row.subject}. ${presentation.statusLabel}${presentation.unreadLabel ? `. ${presentation.unreadLabel}` : ''}${presentation.bookingLabel ? `. ${presentation.bookingLabel}` : ''}`}
+            accessibilityHint="Opens this support conversation."
+          >
+            {communicationsComposition ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <Text variant="calloutStrong" style={{ flex: 1 }}>{row.subject}</Text>
+                  {time}
+                </View>
+                {context}
+                <Text variant="footnote" color="muted" numberOfLines={2}>{row.last_message || 'No messages yet'}</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {status}
+                  {unread}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text variant="calloutStrong">{row.subject}</Text>
+                <Text variant="footnote" color="muted" numberOfLines={2}>{row.last_message || 'No messages yet'}</Text>
+                {context}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {status}
+                    {unread}
+                  </View>
+                  {time}
+                </View>
+              </>
+            )}
+          </Card>
+        );
+      })}
     </Screen>
   );
 }
