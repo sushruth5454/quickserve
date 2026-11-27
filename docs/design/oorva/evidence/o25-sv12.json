@@ -33,7 +33,7 @@
     ]
   },
   "implementation": {
-    "status": "SELECTORS_PASS_AWAITING_CLEANUP_REVIEW",
+    "status": "CODE_GREEN_ON_TESTED_IMPLEMENTATION_HEAD",
     "workerFiles": [
       "app/src/lib/types.ts",
       "app/src/features/providerDashboard/ProviderDashboard.tsx",
@@ -76,7 +76,8 @@
       "scenario": "SV-REQUEST-CARD-CONCURRENT",
       "required": "Two independent backend PIDs; accept_booking waits across the expiry row-lock barrier at the ordinary deadline; recurring acceptance remains exempt.",
       "cleanupFailureScenario": "An injected setup failure after inserting a recurring request proves partial fixture/schedule cleanup and archetype_flags restoration; the injected error must still propagate.",
-      "cleanupFix": "Pending exact Lane CI after focused final-head concurrency review."
+      "cleanupFailureScenarioResult": "PASS in exact-head Lane CI.",
+      "cleanupFix": "PASS in exact-head Lane CI; cleanup and rollback failures remain propagated."
     },
     "migrationParserSelector": "o25_sv12_oorva.sql",
     "idReadinessRegressionSelector": "id_readiness",
@@ -117,14 +118,20 @@
       }
     },
     "concurrencyReview": {
-      "result": "PENDING_FINAL_HEAD_REVIEW",
-      "priorResult": "NO_FINDINGS",
-      "priorReviewedCheckpoint": "b02cbd878fde8d536f0bbcd4548a616501830a93",
-      "reReviewScope": "supabase/tests-postgres/o25_sv12.pg.test.mjs cleanup isolation only."
+      "result": "NO_FINDINGS",
+      "reviewedHead": "dbd183431ab63be7f8c5651d53143dbfab855655",
+      "scope": "supabase/tests-postgres/o25_sv12.pg.test.mjs cleanup isolation only."
     },
     "laneCi": {
-      "status": "PENDING_FINAL_HEAD_REVIEW_AND_CLEANUP_CI",
-      "privatePostgresJob": "supabase/tests-postgres/o25_sv12.pg.test.mjs is discovered by supabase/tests-postgres/run.mjs; lane-ci.yml runs that discovery job when this directory changes."
+      "status": "PASS",
+      "runId": "46028976924",
+      "headSha": "dbd183431ab63be7f8c5651d53143dbfab855655",
+      "url": "https://github.com/sushruth5454/quickserve/actions/runs/46028976924",
+      "privatePostgresJob": {
+        "result": "PASS",
+        "selectedTest": "o25_sv12.pg.test.mjs",
+        "suiteResult": "10 private PostgreSQL tests passed."
+      }
     }
   },
   "coordinatorRegistration": {
