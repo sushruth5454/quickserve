@@ -142,9 +142,13 @@ export interface NotificationItem {
   /** "AC Repair booking" style context line, when known. */
   context: string | null;
   at: string;
+  timeSource: NotificationTimeSource;
   unread: boolean;
   route: string | null;
 }
+
+export type NotificationTimeSource = 'legacy_created_at' | 'queued_event' | 'message_created_at' | 'unknown';
+export type ChatHeading = { name: string; category: string | null };
 
 /** Chat push/list title: "New message from Ravi", "3 new messages from Ravi" or, once read, "Message from Ravi". */
 export function chatTitle(name: string, unread: number): string {
@@ -152,11 +156,34 @@ export function chatTitle(name: string, unread: number): string {
   return unread === 1 ? `New message from ${name}` : `Message from ${name}`;
 }
 
+const TIME_SOURCES = new Set<NotificationTimeSource>([
+  'legacy_created_at',
+  'queued_event',
+  'message_created_at',
+  'unknown',
+]);
+
+function notificationTimeSource(row: AppNotification): NotificationTimeSource {
+  const marker = row.data?._notification_time_source;
+  return typeof marker === 'string' && TIME_SOURCES.has(marker as NotificationTimeSource)
+    ? marker as NotificationTimeSource
+    : 'unknown';
+}
+
+function validTime(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.length > 0 && Number.isFinite(Date.parse(value));
+}
+
 /**
  * Instagram-style list: one entry per booking chat (latest preview, unread from the chat read-state, which is the
  * source of truth for messages) and one per other notification, newest first.
  */
-export function buildNotificationItems(rows: AppNotification[], unread: UnreadMap, userId: string | null): NotificationItem[] {
+export function buildNotificationItems(
+  rows: AppNotification[],
+  unread: UnreadMap,
+  userId: string | null,
+  headings: Readonly<Record<string, ChatHeading | null | undefined>> = {},
+): NotificationItem[] {
   const items: NotificationItem[] = [];
   const chats = new Map<string, AppNotification>();
   for (const n of rows) {
@@ -172,6 +199,7 @@ export function buildNotificationItems(rows: AppNotification[], unread: UnreadMa
       body: n.body,
       context: n.category_name,
       at: n.at,
+      timeSource: validTime(n.at) ? notificationTimeSource(n) : 'unknown',
       unread: !n.read_at,
       route: notificationRoute(n.data, n.kind, userId),
     });
@@ -179,14 +207,38 @@ export function buildNotificationItems(rows: AppNotification[], unread: UnreadMa
   for (const [bookingId, n] of chats) {
     const count = unreadFor(unread, bookingId);
     const lastMessage = unread[bookingId]?.last_message_at;
+    const selectedMessageAt = validTime(lastMessage) && Date.parse(lastMessage) > Date.parse(n.at)
+      ? lastMessage
+      : null;
     items.push({
       key: `chat:${bookingId}`,
       kind: n.kind,
       title: chatTitle(n.title, count),
       body: n.body,
       context: n.category_name ? `${n.category_name} booking` : null,
-      at: lastMessage && Date.parse(lastMessage) > Date.parse(n.at) ? lastMessage : n.at,
+      at: selectedMessageAt ?? n.at,
+      timeSource: selectedMessageAt
+        ? 'message_created_at'
+        : validTime(n.at) ? notificationTimeSource(n) : 'unknown',
       unread: count > 0,
+      route: `/chat/${bookingId}`,
+    });
+  }
+  for (const [bookingId, unreadChat] of Object.entries(unread)) {
+    if (chats.has(bookingId) || unreadChat.unread <= 0 || !ID.test(bookingId)) continue;
+    const heading = headings[bookingId];
+    const messageAt = unreadChat.last_message_at;
+    items.push({
+      key: `chat:${bookingId}`,
+      kind: 'chat_message',
+      title: heading?.name
+        ? chatTitle(heading.name, unreadChat.unread)
+        : unreadChat.unread === 1 ? 'New message' : `${unreadChat.unread} new messages`,
+      body: '',
+      context: heading?.category ? `${heading.category} booking` : null,
+      at: validTime(messageAt) ? messageAt : '',
+      timeSource: validTime(messageAt) ? 'message_created_at' : 'unknown',
+      unread: true,
       route: `/chat/${bookingId}`,
     });
   }
@@ -201,4 +253,120 @@ export function shortAgo(iso: string, now = Date.now()): string {
   if (mins < 24 * 60) return `${Math.floor(mins / 60)}h`;
   if (mins < 7 * 24 * 60) return `${Math.floor(mins / 1440)}d`;
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+}
+
+export interface NotificationTimePresentation {
+  label: string;
+  accessibilityLabel: string;
+}
+
+function exactNotificationTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+    timeZoneName: 'short',
+  });
+}
+
+/** Keeps the displayed time's actual provenance explicit; legacy delivery updates are never described as activity. */
+export function notificationTimePresentation(
+  item: Pick<NotificationItem, 'at' | 'timeSource'>,
+  now = Date.now(),
+  timeZone = 'Asia/Kolkata',
+): NotificationTimePresentation {
+  if (!validTime(item.at) || !TIME_SOURCES.has(item.timeSource) || item.timeSource === 'unknown') {
+    return { label: 'Time unavailable', accessibilityLabel: 'Notification time source is unavailable' };
+  }
+  try {
+    const exact = exactNotificationTime(item.at, timeZone);
+    const relative = shortAgo(item.at, now);
+    switch (item.timeSource) {
+      case 'legacy_created_at':
+        return {
+          label: `Record created ${relative}`,
+          accessibilityLabel: `Notification record created ${exact}; latest historical activity time is unknown.`,
+        };
+      case 'queued_event':
+        return {
+          label: `Recorded ${relative}`,
+          accessibilityLabel: `Notification event queued or merged ${exact}.`,
+        };
+      case 'message_created_at':
+        return {
+          label: `Message ${relative}`,
+          accessibilityLabel: `Message created ${exact}.`,
+        };
+      default:
+        return { label: 'Time unavailable', accessibilityLabel: 'Notification time source is unavailable' };
+    }
+  } catch {
+    return { label: 'Time unavailable', accessibilityLabel: 'Notification time source is unavailable' };
+  }
+}
+
+export interface NotificationGroup {
+  key: string;
+  label: string;
+  items: NotificationItem[];
+}
+
+function localDateKey(date: Date, timeZone: string): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone,
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Groups by the same timestamp basis shown on each row; unknown provenance is never assigned a guessed date. */
+export function groupNotificationItems(
+  items: NotificationItem[],
+  now = Date.now(),
+  timeZone = 'Asia/Kolkata',
+): NotificationGroup[] {
+  const groups: NotificationGroup[] = [];
+  const byKey = new Map<string, NotificationGroup>();
+  const today = localDateKey(new Date(now), timeZone);
+  const yesterday = localDateKey(new Date(now - 24 * 60 * 60 * 1000), timeZone);
+
+  for (const item of items) {
+    const source = validTime(item.at) && TIME_SOURCES.has(item.timeSource) ? item.timeSource : 'unknown';
+    const itemDate = source === 'unknown' ? null : localDateKey(new Date(item.at), timeZone);
+    const dateKey = itemDate && source !== 'unknown' ? itemDate : null;
+    const key = dateKey ? `${source}:${dateKey}` : 'unknown';
+    let label = 'Date unavailable';
+    if (dateKey) {
+      const dateLabel = dateKey === today
+        ? 'Today'
+        : dateKey === yesterday
+          ? 'Yesterday'
+          : new Date(item.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
+      const prefix = source === 'legacy_created_at'
+        ? 'Records created'
+        : source === 'queued_event'
+          ? 'Activity recorded'
+          : 'Messages';
+      label = `${prefix} ${dateLabel}`;
+    }
+    let group = byKey.get(key);
+    if (!group) {
+      group = { key, label, items: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
 }
