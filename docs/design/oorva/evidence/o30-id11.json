@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O30-ID11",
+  "sourceTaskId": "ID-T11",
+  "workPackage": "O30",
+  "status": "IMPLEMENTATION_CHECKPOINT_PENDING_REGISTRATION",
+  "scope": {
+    "class": "A",
+    "ownerApprovedGate": "E0",
+    "workerOwnedFiles": [
+      "app\\app\\admin\\people.tsx",
+      "app\\app\\admin\\documents.tsx",
+      "app\\src\\features\\adminPeople\\model.ts",
+      "app\\src\\features\\adminPeople\\__tests__\\model.test.ts",
+      "app\\src\\features\\adminPeople\\__tests__\\reviewScreens.test.tsx",
+      "supabase\\tests\\oorva_o30_id11.test.mjs",
+      "app\\src\\features\\identityScreens\\AdminDocumentsScreen.tsx",
+      "app\\src\\features\\identityScreens\\AdminPeopleScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o30-id11.json"
+    ],
+    "migrationClaims": [],
+    "sqlFunctionWrites": [],
+    "featureFlagsEnabled": false,
+    "adminPresentationEnabled": false
+  },
+  "base": {
+    "branch": "lane/oorva-o30-id11",
+    "implementationBaseSha": "6dfa1f391a582f49e453eab34db1d7e604add995",
+    "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "dependencies": {
+      "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+      "O38-ID01": "6dfa1f391a582f49e453eab34db1d7e604add995"
+    }
+  },
+  "implementation": {
+    "routeExtraction": "Both current inline route screens moved to the canonical hosts; route files are thin default re-exports.",
+    "providerReviewActions": "Current review target is omitted; alternate supported review targets remain independent of payout, suspension, and pause.",
+    "providerPresentation": "Review, payout/KYC, go-live readiness, availability, and stored review note are rendered separately; action confirmations describe only the state changed.",
+    "providerReads": "Filter/search requests use a generation guard; filtered tab totals were removed and no-results is explicit.",
+    "documentReview": "Category/general scope, confirmation, per-document operation locks, signed private preview, validation, and authoritative queue readback are retained.",
+    "serverAuthority": "No client KYC mutation or SQL/function change; server RPC remains authoritative."
+  },
+  "validation": {
+    "modelCases": [
+      "ID-REVIEW-EACH-TARGET",
+      "ID-REVIEW-NO-ACCOUNT",
+      "ID-REVIEW-SUSPEND-INDEPENDENT"
+    ],
+    "screenCases": [
+      "ID-REVIEW-CONFIRM-CANCEL",
+      "ID-SEARCH-RACE",
+      "ID-EMPTY-RETRY",
+      "ID-DOCUMENT-SCOPE",
+      "ID-DOCUMENT-STALE",
+      "ID-DOCUMENT-READBACK"
+    ],
+    "sqlTestFile": "supabase\\tests\\oorva_o30_id11.test.mjs",
+    "sqlSelector": "oorva_o30_id11",
+    "packageRegistration": "PENDING_COORDINATOR",
+    "codespace": "PENDING_REGISTRATION_ROUNDTRIP",
+    "authReview": "PENDING"
+  },
+  "rollout": {
+    "featureFlagsEnabled": false,
+    "classAOffBehavior": "All correctness, privacy, and confirmation changes remain active with Oorva/admin presentation OFF.",
+    "nativeOrPublicRelease": false,
+    "liveMoneyOperations": false
+  }
+}
