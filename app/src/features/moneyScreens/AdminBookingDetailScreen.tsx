@@ -7,6 +7,23 @@ import { parsePartialRefundRupees, partialRefundLimitPaise } from '../../lib/adm
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
 
+const CAPTURED_PAYMENT_STATUSES = new Set(['paid', 'refund_pending', 'refund_processing', 'refunded']);
+
+function paymentFundingLabel(payment: AdminBookingDetail['payments'][number]) {
+  const captured = CAPTURED_PAYMENT_STATUSES.has(payment.status);
+  const gatewayId = payment.gateway_id?.trim() ?? '';
+  if (payment.funding_source === 'coins') return captured ? 'Coins applied' : 'Coins payment not captured';
+  if (payment.funding_source === 'customer' && captured && gatewayId.startsWith('pay_demo_')) return 'Demo captured';
+  if (
+    payment.funding_source === 'customer'
+    && captured
+    && gatewayId.length > 0
+    && !gatewayId.startsWith('pay_demo_')
+  ) return 'Cash captured';
+  if (payment.funding_source === 'customer') return 'Customer funding; capture not confirmed';
+  return 'Funding source not recorded';
+}
+
 export default function AdminBookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTheme();
@@ -118,7 +135,10 @@ export default function AdminBookingDetailScreen() {
         <Text variant="title3">Payments</Text>
         {data.payments.length ? data.payments.map((p) => (
           <View key={p.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-            <Text variant="footnote">{p.purpose} · {p.status}</Text>
+            <View style={{ flex: 1 }}>
+              <Text variant="footnote">{p.purpose} · {p.status}</Text>
+              <Text variant="caption" color="muted">{paymentFundingLabel(p)}</Text>
+            </View>
             <Text variant="footnoteStrong">{formatINR(p.amount)}</Text>
           </View>
         )) : <EmptyState compact title="No payments" icon="card-outline" />}
@@ -133,9 +153,14 @@ export default function AdminBookingDetailScreen() {
       </Card>
       <Card gap={t.spacing.sm}>
         <Text variant="title3">Refunds</Text>
+        <Text variant="caption" color="muted">
+          Failed refund amounts are failed attempts, not returned cash.
+        </Text>
         {data.refunds.length ? data.refunds.map((refund) => (
           <View key={refund.id} style={{ gap: 2 }}>
-            <Text variant="footnoteStrong">{formatINR(refund.amount)} · {refund.status}</Text>
+            <Text variant="footnoteStrong">
+              {formatINR(refund.amount)} · {refund.status === 'failed' ? 'failed attempt' : refund.status}
+            </Text>
             <Text variant="caption" color="muted">
               {refund.attempts} attempts · {refund.last_error || 'No recorded error'}
             </Text>
@@ -163,6 +188,9 @@ export default function AdminBookingDetailScreen() {
           <View key={transfer.id} style={{ gap: 2 }}>
             <Text variant="footnoteStrong">
               {formatINR(transfer.amount)} · {transfer.status} · {transfer.attempts} attempts
+            </Text>
+            <Text variant="caption" color="muted">
+              Rail {transfer.rail || 'unknown'} · Gateway {transfer.gateway_status || 'unknown'}
             </Text>
             {transfer.last_error ? <Text variant="caption" color="dangerText">{transfer.last_error}</Text> : null}
           </View>
