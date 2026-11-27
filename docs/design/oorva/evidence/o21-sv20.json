@@ -34,17 +34,18 @@
     "requestCancellation": "cancel_service_request locks the service request first, rejects the exact active booking statuses used by accept_proposal before any writes, and continues to cancel eligible open/closed requests and reject sent proposals when no active booking exists. It takes sent-proposal row locks with NOWAIT before changing request/proposal rows so an acceptance holding a proposal cannot form a request/proposal lock cycle; callers receive a retryable error.",
     "bookingReadback": "Request detail uses the current booking ID/status/hold from the existing T05 proposal view state. Closed requests with an active hold route to Continue/Manage booking; historical cancelled/expired bookings do not suppress request cancellation.",
     "existingBookingSafety": "The existing cancel_booking path is unchanged and remains available while the proposal acquisition switch is OFF; no alternate request refund path or new feature flag was added.",
-    "concurrency": "A private PostgreSQL integration test uses two distinct backend PIDs and service-request row-lock barriers to overlap accept_proposal and cancel_service_request in both lock acquisition orders, prove request-first cancellation blocking, exercise NOWAIT contention against an acceptance-locked proposal, and verify the accepted hold cannot coexist with a cancelled request."
+    "concurrency": "A private PostgreSQL integration test uses two distinct backend PIDs and service-request row-lock barriers to overlap accept_proposal and cancel_service_request in both lock acquisition orders, prove request-first cancellation blocking, exercise NOWAIT contention against an acceptance-locked proposal, and verify the accepted hold cannot coexist with a cancelled request. Each fixture uses a unique event slot 60-plus days ahead at 10:00 IST, with request/proposal expiry derived from that slot and max_lead_days remaining within 365."
   },
   "validation": {
-    "metadata": "CODESPACE_PASS_REVIEW_REVERIFY_PENDING",
+    "metadata": "CODESPACE_PASS_FINAL_REVIEW_PENDING",
     "workerCheckpoint": "d4e2a214c9893a4e2231b4e83699777da9401a03",
-    "gitDiffCheck": "PASS: post-fixture-fix worker diff",
-    "preFixSql": "FAIL: exact PGlite selector exposed category_not_bookable in three booking fixtures; corrected fixture setup to enable proposal archetype, seed a live category city, and use an event window within max_lead_days.",
+    "gitDiffCheck": "PENDING_AFTER_FINAL_FIX",
+    "preFixSql": "FAIL: exact PGlite selector first exposed category_not_bookable in three booking fixtures; fixture setup now enables proposal archetype, seeds a live category city, and uses unique 60-plus-day event slots within max_lead_days.",
     "codespaceApp": "PASS: exact requestReadback selector; 1 suite, 2 tests; snapshot d077d9f7.",
-    "codespaceSql": "PASS: exact oorva_o21_sv20 selector; 1 of 1 PGlite test files selected; snapshot 95571fa0.",
+    "codespaceSql": "PASS: exact oorva_o21_sv20 selector; 1 of 1 PGlite test files selected; snapshot 50041ec6.",
     "migrationParser": "PASS: exact o21_sv20_oorva.sql selector; 1 parse file, 1 statement, 1 function body, 0 errors; snapshot f310f573.",
-    "focusedConcurrencyReview": "PASS: no actionable findings on head 5b15afdafd9d6b43d8df112f56aac49281ef48a0; re-review requested for final fixture-fix head.",
+    "intermediateFixtureAttempt": "FAIL: max_lead_days 10000 violated categories_lead_check (allowed range 0-365); replaced with unique 60-plus-day future slots at 10:00 IST and expiries derived from each slot.",
+    "focusedConcurrencyReview": "Review of 8a74a87532c51065963f3e3fe80e4c608337e60 found one actionable MEDIUM: proposal/event validity could expire in the future. Fixed with per-fixture 60-plus-day event slots, request/proposal expiries derived from each slot, fixed 10:00 IST event times, and category max_lead_days 365; re-review pending.",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
