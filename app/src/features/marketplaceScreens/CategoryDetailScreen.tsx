@@ -425,9 +425,9 @@ function InspectQuoteCategory() {
             value={draft.onlineOnly}
             onValueChange={(v) => setDraft((d) => ({ ...d, onlineOnly: v }))}
             trackColor={{ true: t.colors.primary, false: t.colors.outline }}
-            thumbColor="#FFFFFF"
+            thumbColor={t.colors.onPrimary}
             ios_backgroundColor={t.colors.outline}
-            {...({ activeThumbColor: '#FFFFFF' } as object)}
+            {...({ activeThumbColor: t.colors.onPrimary } as object)}
             accessibilityLabel="Online now only"
           />
         </View>
