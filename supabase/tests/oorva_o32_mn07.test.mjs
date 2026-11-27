@@ -176,26 +176,79 @@ async function createActors(seed) {
   return { customer, provider, admin, category, service, address, sessionPackage };
 }
 
+async function diagnoseDisputeBookingFixture(actors, slot) {
+  return one(`
+    select jsonb_build_object(
+      'category', jsonb_build_object(
+        'id', c.id,
+        'active', c.active,
+        'restricted', c.restricted,
+        'archetype', c.archetype,
+        'min_lead_hours', c.min_lead_hours,
+        'max_lead_days', c.max_lead_days
+      ),
+      'provider', jsonb_build_object(
+        'id', p.id,
+        'city', p.city,
+        'kyc_status', p.kyc_status,
+        'admin_review_status', p.admin_review_status,
+        'submitted_at', p.submitted_at,
+        'deactivated_at', p.deactivated_at,
+        'suspended', p.suspended,
+        'paused', p.paused
+      ),
+      'address_city', a.city,
+      'city_launch_matches', exists (
+        select 1 from public.category_cities cc
+         where cc.category_id = c.id
+           and cc.live
+           and lower(trim(cc.city)) = lower(trim(coalesce(a.city, '')))
+      ),
+      'provider_service_active', exists (
+        select 1 from public.provider_services ps
+         where ps.provider_id = p.id and ps.category_id = c.id and ps.active
+      ),
+      'category_docs_ok', public._category_docs_ok(p.id, c.id),
+      'archetype_enabled', public._archetype_enabled(c.archetype),
+      'scheduled_at', $3::timestamptz,
+      'latest_bookable_start', now() + make_interval(days => c.max_lead_days),
+      'bookable', public._is_bookable(
+        c.id, p.id, a.city, c.archetype,
+        tstzrange($3::timestamptz, $3::timestamptz + interval '1 hour', '[)')
+      )
+    ) as fixture_state
+      from public.categories c
+      join public.providers p on p.id = $2::uuid
+      join public.addresses a on a.id = $4::uuid
+     where c.id = $1::uuid
+  `, [actors.category, actors.provider, slot, actors.address]);
+}
+
 async function createDisputeFixture(seed, { disputed = true } = {}) {
   const actors = await createActors(seed);
   const booking = uuid(seed * 1000 + 101);
   const paymentSchedule = uuid(seed * 1000 + 102);
   const payment = uuid(seed * 1000 + 103);
-  const slot = new Date(Date.UTC(2030, 6, seed + 1, 10)).toISOString();
-  await db.query(`
-    insert into public.bookings (
-      id, customer_id, provider_id, category_id, provider_service_id, address_id,
-      description, scheduled_at, service_window, status, visit_fee, platform_fee,
-      total_amount, archetype, exclusive, session_duration_min, service_package_id,
-      commission_bp_snapshot
-    ) values (
-      $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
-      'MN07 dispute test', $7::timestamptz,
-      tstzrange($7::timestamptz, $7::timestamptz + interval '1 hour', '[)'),
-      'in_progress', 0, 0, 20000, 'time_based', true, 60, $8::uuid, 1180
-    )
-  `, [booking, actors.customer, actors.provider, actors.category, actors.service,
-    actors.address, slot, actors.sessionPackage]);
+  const slot = new Date(Date.UTC(2027, 2, seed + 1, 10)).toISOString();
+  try {
+    await db.query(`
+      insert into public.bookings (
+        id, customer_id, provider_id, category_id, provider_service_id, address_id,
+        description, scheduled_at, service_window, status, visit_fee, platform_fee,
+        total_amount, archetype, exclusive, session_duration_min, service_package_id,
+        commission_bp_snapshot
+      ) values (
+        $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
+        'MN07 dispute test', $7::timestamptz,
+        tstzrange($7::timestamptz, $7::timestamptz + interval '1 hour', '[)'),
+        'in_progress', 0, 0, 20000, 'time_based', true, 60, $8::uuid, 1180
+      )
+    `, [booking, actors.customer, actors.provider, actors.category, actors.service,
+      actors.address, slot, actors.sessionPackage]);
+  } catch (error) {
+    const state = await diagnoseDisputeBookingFixture(actors, slot);
+    throw new Error(`${error.message}; dispute fixture state=${JSON.stringify(state)}`);
+  }
   await db.query(`
     insert into public.payment_schedule (
       id, booking_id, seq, obligation_type, label, amount, due_rule, due_at, status
@@ -240,35 +293,56 @@ const resolve = `select public.resolve_dispute(
 )`;
 
 await scenario('MN-PARTIAL-NOTE-ROLE', async () => {
-  const fixture = await createDisputeFixture(11);
+  const invalidNoteInputs = [
+    { label: 'null', note: null },
+    { label: 'spaces', note: '   ' },
+    { label: 'tab', note: '\t' },
+    { label: 'newline-tab', note: '\n\r\t' },
+    { label: 'over-500', note: 'x'.repeat(501) },
+  ];
   const invalidNotes = [];
-  for (const note of [null, '   ', 'x'.repeat(501)]) {
+  const invalidNoteStates = [];
+  for (let index = 0; index < invalidNoteInputs.length; index += 1) {
+    const fixture = await createDisputeFixture(21 + index);
     invalidNotes.push(await fails(() => as(fixture.admin, 'authenticated', resolve,
-      [fixture.booking, 'partial_refund', 17600, note])));
+      [fixture.booking, 'partial_refund', 17600, invalidNoteInputs[index].note])));
+    invalidNoteStates.push(await snapshot(fixture.booking));
   }
-  const overPayout = await fails(() => as(fixture.admin, 'authenticated', resolve,
-    [fixture.booking, 'partial_refund', 18000, 'valid note']));
-  const afterRejects = await snapshot(fixture.booking);
-  const validError = await fails(() => as(fixture.admin, 'authenticated', resolve,
-    [fixture.booking, 'partial_refund', 17600, '  reviewed  ']));
-  const afterSuccess = await snapshot(fixture.booking);
+  const payoutFixture = await createDisputeFixture(26);
+  const overPayout = await fails(() => as(payoutFixture.admin, 'authenticated', resolve,
+    [payoutFixture.booking, 'partial_refund', 18000, 'valid note']));
+  const afterRejects = await snapshot(payoutFixture.booking);
+  const validFixture = await createDisputeFixture(27);
+  const validNote = `  ${'x'.repeat(500)}  `;
+  const validError = await fails(() => as(validFixture.admin, 'authenticated', resolve,
+    [validFixture.booking, 'partial_refund', 17600, validNote]));
+  const afterSuccess = await snapshot(validFixture.booking);
   const audit = await one(`
     select public.admin_audit_log.details ->> 'note' as note
       from public.admin_audit_log
      where public.admin_audit_log.action = 'resolve_dispute'
        and public.admin_audit_log.target_id = $1::uuid
-  `, [fixture.booking]);
+  `, [validFixture.booking]);
   check(invalidNotes.every(Boolean)
-    && Boolean(overPayout)
+    && invalidNoteStates.every((state) => state.booking_status === 'disputed'
+      && state.refund_count === 0 && state.audit_count === 0)
+    && overPayout === 'invalid refund amount'
     && afterRejects.booking_status === 'disputed'
     && afterRejects.refund_count === 0
+    && afterRejects.audit_count === 0
     && afterRejects.audit_count === 0
     && validError === null
     && afterSuccess.refund_paise === 17600
     && afterSuccess.audit_count === 1
-    && audit.note === 'reviewed',
+    && audit.note === validNote.trim(),
   'partial note bounds and payout cap reject unsafe direct calls, then accept the valid amount',
-  { invalidNotes, overPayout, afterRejects, validError, afterSuccess, audit });
+  { invalidNoteCases: invalidNoteInputs.map(({ label, note }, index) => ({
+    label,
+    inputLength: note?.length ?? null,
+    error: invalidNotes[index],
+    state: invalidNoteStates[index],
+  })), overPayout, afterRejects, validError, afterSuccess,
+    validNoteLength: validNote.trim().length, audit });
 });
 
 await scenario('MN-ROLES-SAME-PK', async () => {
