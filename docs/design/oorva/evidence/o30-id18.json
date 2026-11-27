@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O30-ID18",
+  "sourceTaskId": "ID-T18",
+  "sourceFindingId": "ID-F18",
+  "workPackage": "O30",
+  "status": "IMPLEMENTATION_PENDING_VISUAL_EVIDENCE",
+  "scope": {
+    "class": "C",
+    "ownerApprovedGate": "E0",
+    "workerOwnedFiles": [
+      "app\\src\\features\\adminPeople\\__tests__\\composition.test.tsx",
+      "app\\src\\features\\identityScreens\\AdminDocumentsScreen.tsx",
+      "app\\src\\features\\identityScreens\\AdminPeopleScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o30-id18.json"
+    ],
+    "migrationClaims": [],
+    "sqlFunctionWrites": [],
+    "featureFlagsChanged": false,
+    "adminPresentationActivated": false
+  },
+  "base": {
+    "branch": "lane/oorva-o30-id18",
+    "implementationBaseSha": "d044ff3aefa328e38de29dce5a80ce84fd247973",
+    "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "dependencies": {
+      "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+      "O30-ID11": "d044ff3aefa328e38de29dce5a80ce84fd247973",
+      "O03": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+      "O05I": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+      "O06B": "de989f95e5d57f78540417587023318afef123c6",
+      "O08": "7479864f743024b8e80ac26fea071a8962ed6265"
+    }
+  },
+  "routeHostBindings": [
+    {
+      "screenId": "S19",
+      "route": "app\\app\\admin\\documents.tsx",
+      "host": "app\\src\\features\\identityScreens\\AdminDocumentsScreen.tsx",
+      "firstWriterStageId": "O30-ID11",
+      "controller": "useAdminDocumentsController (one function inside this host)",
+      "strategy": "First writer mechanically moves the current inline component/controller/style body into this exact host and leaves the existing route a thin export. Do not change runtime behavior during extraction. Later writers edit this host, not the route. Tests import the host/pure existing model only and mock router hooks; private E2E proves route wiring.",
+      "routeEdited": false
+    },
+    {
+      "screenId": "S25",
+      "route": "app\\app\\admin\\people.tsx",
+      "host": "app\\src\\features\\identityScreens\\AdminPeopleScreen.tsx",
+      "firstWriterStageId": "O30-ID11",
+      "controller": "useAdminPeopleController (one function inside this host)",
+      "strategy": "First writer mechanically moves the current inline component/controller/style body into this exact host and leaves the existing route a thin export. Do not change runtime behavior during extraction. Later writers edit this host, not the route. Tests import the host/pure existing model only and mock router hooks; private E2E proves route wiring.",
+      "routeEdited": false
+    }
+  ],
+  "implementation": {
+    "people": "The effective oorva_admin_ops_ux composition places search, filters and the existing review queue before the secondary Audit log shortcut. It retains the ID-T11 action model, independent review/payout/readiness/availability facts, stored reason and existing loading/error/readback behavior.",
+    "documents": "The effective composition presents provider, category/general credential, credential type, submitted time and expiry before the per-document private signed-preview action, reason/expiry inputs and confirmed pending-only review. Each row remains independently actionable; no mass approval was added.",
+    "featureGate": "Both hosts use useAppFeatureFlags().isOn('oorva_admin_ops_ux'), whose effective flag evaluation requires the oorva_brand parent. Leaf-off and parent-off keep the existing corrected composition and review actions.",
+    "serverAuthority": "No routes, API mutation behavior, authorization, SQL function, migration, KYC policy, review policy or money-safety path changed."
+  },
+  "validation": {
+    "testPath": "app\\src\\features\\adminPeople\\__tests__\\composition.test.tsx",
+    "testCases": [
+      "ID-QUEUE-FIRST",
+      "ID-STATE-AXES",
+      "ID-DOC-CONTEXT-FIRST",
+      "ID-ADMIN-FLAG-PARENTS"
+    ],
+    "redCheckpoint": {
+      "result": "EXPECTED_FAIL",
+      "testCase": "ID-QUEUE-FIRST",
+      "snapshot": "26fe4ff8",
+      "reason": "Before implementation the intended ordering assertion failed because Audit log preceded the provider row."
+    },
+    "codespaceCommand": "origin/main scripts/cs-test.ps1 -Suite app -Filter 'src.features.adminPeople.__tests__.composition[.]test[.]tsx$'",
+    "codespace": {
+      "result": "PASS",
+      "snapshot": "dd95e7c7",
+      "suite": "app",
+      "filter": "src.features.adminPeople.__tests__.composition[.]test[.]tsx$",
+      "selectedTests": [
+        "ID-QUEUE-FIRST",
+        "ID-STATE-AXES",
+        "ID-DOC-CONTEXT-FIRST",
+        "ID-ADMIN-FLAG-PARENTS"
+      ],
+      "testSuites": 1,
+      "testsPassed": 4
+    },
+    "resolvedPrecedingFailure": "A prior Codespace run reported invalid GoLiveState and ReasonCode fixture literals; corrected them to action_needed and doc_missing based on app/src/lib/onboarding/types.ts before this passing run.",
+    "screenshotsAndInteractions": {
+      "status": "NOT_VERIFIED",
+      "details": "No authorized existing browser harness covers the admin routes. Before/after admin screenshots and real interaction evidence were not captured; awaiting coordinator section 0.4.3 roundtrip."
+    },
+    "ownerAdminStateReasonRoundtrip": "NOT_VERIFIED",
+    "nonAdminDirectAccess": "NOT_REEXERCISED; server authorization remains inherited because this stage made no server or database changes.",
+    "laneCi": "NOT_RUN; stage is paused pending required visual evidence roundtrip."
+  },
+  "rollout": {
+    "flagsEnabled": false,
+    "sharedOrProductionSystemsChanged": false,
+    "nativeOrPublicRelease": false,
+    "liveMoneyOperations": false,
+    "featureOffBehavior": "Corrected inherited People/Documents compositions and ID-T11 review safety remain available."
+  },
+  "handoff": {
+    "requestedSharedTestPath": "app\\src\\features\\adminPeople\\__tests__\\composition.test.tsx",
+    "requestedSharedCases": [
+      "ID-QUEUE-FIRST",
+      "ID-STATE-AXES",
+      "ID-DOC-CONTEXT-FIRST",
+      "ID-ADMIN-FLAG-PARENTS"
+    ],
+    "screenshotsRequired": [
+      "S25 People admin before/after, including search/filter/review queue placement and secondary Audit log",
+      "S19 Documents admin before/after, including provider/category/type, private preview and a single confirmed pending review/readback"
+    ],
+    "interactionsRequired": [
+      "People: search/filter, inspect independent review/payout/readiness/availability and stored reason, verify completed review target is absent",
+      "Documents: open private preview, cancel confirmation without mutation, confirm one pending document review and verify authoritative queue readback",
+      "Verify parent-off/leaf-on and parent-on/leaf-off preserve corrected legacy compositions"
+    ],
+    "e2eWebSmokeEdited": false
+  }
+}

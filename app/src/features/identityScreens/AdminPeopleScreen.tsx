@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Badge, Button, Card, EmptyState, ErrorState, Header, Input, Screen, SegmentedControl, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { listProviders, setProviderReview, setProviderSuspended, type AdminProvider } from '../../lib/adminApi';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { providerReviewActions, type ProviderReviewAction } from '../adminPeople/model';
 import { formatPhone } from '../../lib/phone';
 import { useTheme } from '../../theme';
@@ -37,6 +38,8 @@ function remainingGateContext(provider: AdminProvider): string {
 
 export default function AdminPeopleScreen() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const queueFirstCompositionEnabled = flags.isOn('oorva_admin_ops_ux');
   const confirm = useConfirm();
   const toast = useToast();
   const [filter, setFilter] = useState('all');
@@ -140,9 +143,13 @@ export default function AdminPeopleScreen() {
     }
   };
 
+  const auditLogShortcut = (
+    <Button title="Audit log" variant="outline" onPress={() => router.push('/admin/audit')} />
+  );
+
   return (
     <Screen header={<Header title="Providers & creators" subtitle="Admin review, payout, readiness, and availability" />}>
-      <Button title="Audit log" variant="outline" onPress={() => router.push('/admin/audit')} />
+      {queueFirstCompositionEnabled ? null : auditLogShortcut}
       <Input label="Search" placeholder="Name, phone or city" value={q} onChangeText={setQ} />
       <SegmentedControl
         options={[{ value: 'all', label: 'All' }, { value: 'creators', label: 'Creators' }, { value: 'pending', label: 'Review' }, { value: 'suspended', label: 'Suspended' }]}
@@ -222,6 +229,7 @@ export default function AdminPeopleScreen() {
       }) : rows?.length === 0 ? (
         <EmptyState title="No providers found" message="No providers match this search and filter." />
       ) : null}
+      {queueFirstCompositionEnabled ? auditLogShortcut : null}
     </Screen>
   );
 }
