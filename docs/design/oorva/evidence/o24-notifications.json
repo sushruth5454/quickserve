@@ -139,9 +139,9 @@
     }
   ],
   "validation": {
-    "status": "CODESPACE_PASS_LANE_CI_PENDING",
-    "stageGate": "LANE_CI_PENDING",
-    "reason": "Coordinator registration was merged and all current-main Codespace selectors passed. Exact-lane CI/private PostgreSQL validation is pending. No tests/builds/installs ran on Windows.",
+    "status": "PASS",
+    "stageGate": "READY_FOR_COORDINATOR_INTEGRATION",
+    "reason": "Coordinator registration, all current-main Codespace selectors, and exact-head Lane CI/private PostgreSQL passed. The inherited unread-count concurrency item remains SHARED_FOLLOWUP; this validation does not resolve it or claim a concurrency PASS. No tests/builds/installs ran on Windows.",
     "registration": {
       "status": "MERGED",
       "commit": "ae39e551da81acced82d1c5e55b4b971e1cd2d4b"
@@ -181,10 +181,18 @@
       ]
     },
     "laneCi": {
-      "status": "PENDING",
-      "branch": "lane/oorva-o24-notifications-rebase-508"
+      "status": "SUCCESS",
+      "branch": "lane/oorva-o24-notifications-rebase-508",
+      "runId": "45996014854",
+      "headSha": "f0e20378ffb7b94268411fe86d4a002ae8932217",
+      "jobs": {
+        "app": "PASS",
+        "deno": "PASS",
+        "sql": "PASS",
+        "privatePostgres": "PASS"
+      }
     },
-    "privatePostgres": "Pending exact-lane CI; O37A disposable stack only, never local or hosted.",
+    "privatePostgres": "PASS in Lane CI run 45996014854 using the O37A disposable stack only; not run locally or against a hosted database.",
     "previousBaseValidation": {
       "scope": "Historical results for the prior O24 implementation branch only; not validation of base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda.",
       "codespace": {
@@ -232,5 +240,5 @@
       }
     }
   },
-  "handoffState": "PAUSED_FOR_LANE_CI"
+  "handoffState": "READY_FOR_COORDINATOR_INTEGRATION"
 }
