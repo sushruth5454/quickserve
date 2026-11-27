@@ -39,7 +39,20 @@ async function makeUser(client, label) {
   return id;
 }
 
-async function makeAcceptFixture(client) {
+function fixtureTimes(sequence) {
+  const now = new Date();
+  const eventStart = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 60 + sequence, 4, 30,
+  ));
+  return {
+    eventStart: eventStart.toISOString(),
+    eventEnd: new Date(eventStart.getTime() + 4 * 60 * 60 * 1000).toISOString(),
+    requestExpiresAt: new Date(eventStart.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+    proposalValidUntil: new Date(eventStart.getTime() - 48 * 60 * 60 * 1000).toISOString(),
+  };
+}
+
+async function makeAcceptFixture(client, timing) {
   const customerId = await makeUser(client, 'race-customer');
   const providerId = await makeUser(client, 'race-provider');
   const city = `SV20 concurrency ${randomUUID()}`;
@@ -81,13 +94,15 @@ async function makeAcceptFixture(client) {
       budget_min, budget_max, status, expires_at
     ) values (
       $1::uuid, $2::uuid, $3::text, 'Central'::text,
-      '2027-04-14T10:00:00+05:30'::timestamptz,
-      '2027-04-14T14:00:00+05:30'::timestamptz,
+      $4::timestamptz, $5::timestamptz,
       '{}'::jsonb, 50000::int, 200000::int, 'open'::text,
-      '2027-04-13T18:00:00Z'::timestamptz
+      $6::timestamptz
     )
     returning id
-  `, [customerId, categoryId, city])).rows[0].id;
+  `, [
+    customerId, categoryId, city,
+    timing.eventStart, timing.eventEnd, timing.requestExpiresAt,
+  ])).rows[0].id;
   await client.query(`
     insert into public.request_private (request_id, address_id, venue_text)
     values ($1::uuid, $2::uuid, 'SV20 concurrency venue'::text)
@@ -101,10 +116,10 @@ async function makeAcceptFixture(client) {
       request_id, provider_id, provider_service_id, version, status, total, valid_until, note, deliverables
     ) values (
       $1::uuid, $2::uuid, $3::uuid, 1::int, 'sent'::text, 100000::int,
-      '2027-04-13T18:00:00Z'::timestamptz, 'SV20 concurrency proposal'::text, '[]'::jsonb
+      $4::timestamptz, 'SV20 concurrency proposal'::text, '[]'::jsonb
     )
     returning id
-  `, [requestId, providerId, providerServiceId])).rows[0].id;
+  `, [requestId, providerId, providerServiceId, timing.proposalValidUntil])).rows[0].id;
   await client.query(`
     insert into public.proposal_items (
       proposal_id, seq, kind, title, qty, unit, unit_price, metadata
@@ -156,6 +171,7 @@ function capture(promise) {
 
 export async function run(context) {
   await context.withTwoClients(async (first, second) => {
+    let fixtureSequence = 0;
     const [firstPidResult, secondPidResult] = await Promise.all([
       first.query('select pg_backend_pid() as pid'),
       second.query('select pg_backend_pid() as pid'),
@@ -195,7 +211,7 @@ export async function run(context) {
        where r.id = $1::uuid
     `, [fixture.requestId, fixture.proposalId])).rows[0]?.state;
 
-    const firstFixture = await makeAcceptFixture(first);
+    const firstFixture = await makeAcceptFixture(first, fixtureTimes(fixtureSequence++));
     let firstTransactionOpen = false;
     let firstCancelPromise;
     try {
@@ -262,7 +278,7 @@ export async function run(context) {
       ]);
     }
 
-    const secondFixture = await makeAcceptFixture(first);
+    const secondFixture = await makeAcceptFixture(first, fixtureTimes(fixtureSequence++));
     let secondTransactionOpen = false;
     let secondAcceptPromise;
     try {

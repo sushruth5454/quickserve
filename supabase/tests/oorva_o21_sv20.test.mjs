@@ -14,6 +14,22 @@ const h = createHarness({
   },
 });
 const check = (condition, label, actual) => h.ok(condition, `${label}; actual=${JSON.stringify(actual)}`);
+let fixtureSequence = 0;
+
+function fixtureTimes(sequence) {
+  const now = new Date();
+  const eventStart = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 60 + sequence, 4, 30,
+  ));
+  return {
+    eventStart: eventStart.toISOString(),
+    eventEnd: new Date(eventStart.getTime() + 4 * 60 * 60 * 1000).toISOString(),
+    requestExpiresAt: new Date(eventStart.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+    proposalValidUntil: new Date(eventStart.getTime() - 48 * 60 * 60 * 1000).toISOString(),
+    paymentHoldExpiresAt: new Date(eventStart.getTime() + 30 * 60 * 1000).toISOString(),
+    bookingCreatedAt: new Date(eventStart.getTime() - 60 * 60 * 1000).toISOString(),
+  };
+}
 
 async function setProposalEnabled(enabled) {
   await db.query(`
@@ -39,6 +55,7 @@ async function user(label) {
 
 async function fixture(label) {
   await setProposalEnabled(true);
+  const timing = fixtureTimes(fixtureSequence++);
   const customer = await user(`${label}-customer`);
   const owner = await user(`${label}-owner`);
   const otherOwner = await user(`${label}-other-owner`);
@@ -91,6 +108,7 @@ async function fixture(label) {
     ownerService,
     otherOwnerService,
     addressId,
+    timing,
   };
 }
 
@@ -101,12 +119,14 @@ async function createRequest(f, label, status = 'open') {
       budget_min, budget_max, status, expires_at
     ) values (
       $1::uuid, $2::uuid, $3::text, $4::text,
-      '2027-04-14T10:00:00+05:30'::timestamptz,
-      '2027-04-14T14:00:00+05:30'::timestamptz,
-      '{}'::jsonb, 50000::int, 200000::int, $5::text, '2027-04-13T18:00:00Z'::timestamptz
+      $5::timestamptz, $6::timestamptz,
+      '{}'::jsonb, 50000::int, 200000::int, $7::text, $8::timestamptz
     )
     returning id
-  `, [f.customer, f.categoryId, f.city, `Area ${label}`, status])).rows[0].id;
+  `, [
+    f.customer, f.categoryId, f.city, `Area ${label}`,
+    f.timing.eventStart, f.timing.eventEnd, status, f.timing.requestExpiresAt,
+  ])).rows[0].id;
   await db.query(`
     insert into public.request_private (request_id, address_id, venue_text)
     values ($1::uuid, $2::uuid, $3::text)
@@ -121,19 +141,19 @@ async function addRecipient(requestId, providerId, providerServiceId) {
   `, [requestId, providerId, providerServiceId]);
 }
 
-async function addProposal(requestId, providerId, providerServiceId, version, status) {
+async function addProposal(f, requestId, providerId, providerServiceId, version, status) {
   return (await db.query(`
     insert into public.proposals (
       request_id, provider_id, provider_service_id, version, status, total, valid_until, note, deliverables
     ) values (
       $1::uuid, $2::uuid, $3::uuid, $4::int, $5::text, 100000::int,
-      '2027-04-13T18:00:00Z'::timestamptz, 'SV20 cancellation fixture', '[]'::jsonb
+      $6::timestamptz, 'SV20 cancellation fixture', '[]'::jsonb
     )
     returning id
-  `, [requestId, providerId, providerServiceId, version, status])).rows[0].id;
+  `, [requestId, providerId, providerServiceId, version, status, f.timing.proposalValidUntil])).rows[0].id;
 }
 
-async function addBooking(f, requestId, proposalId, status, createdAt) {
+async function addBooking(f, requestId, proposalId, status) {
   return (await db.query(`
     insert into public.bookings (
       customer_id, provider_id, category_id, provider_service_id, address_id,
@@ -142,14 +162,18 @@ async function addBooking(f, requestId, proposalId, status, createdAt) {
       payment_hold_expires_at, delivery_status, created_at
     ) values (
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
-      'SV20 request lifecycle fixture', '2027-04-14T10:00:00+05:30'::timestamptz,
-      $6::public.booking_status, 0::int, 0::int, 100000::int,
-      tstzrange('2027-04-14T10:00:00+05:30'::timestamptz, '2027-04-14T14:00:00+05:30'::timestamptz, '[)'),
-      $7::uuid, $8::uuid, 'proposal',
-      '2027-04-14T10:30:00+05:30'::timestamptz, 'not_applicable', $9::timestamptz
+      'SV20 request lifecycle fixture', $6::timestamptz,
+      $7::public.booking_status, 0::int, 0::int, 100000::int,
+      tstzrange($6::timestamptz, $8::timestamptz, '[)'),
+      $9::uuid, $10::uuid, 'proposal',
+      $11::timestamptz, 'not_applicable', $12::timestamptz
     )
     returning id
-  `, [f.customer, f.owner, f.categoryId, f.ownerService, f.addressId, status, requestId, proposalId, createdAt])).rows[0].id;
+  `, [
+    f.customer, f.owner, f.categoryId, f.ownerService, f.addressId, f.timing.eventStart, status,
+    f.timing.eventEnd, requestId, proposalId,
+    f.timing.paymentHoldExpiresAt, f.timing.bookingCreatedAt,
+  ])).rows[0].id;
 }
 
 async function snapshot(requestId) {
@@ -184,11 +208,9 @@ await h.scenario('active-payment-hold-rejects-request-only-cancellation-without-
   const requestId = await createRequest(f, 'active-hold', 'closed');
   await addRecipient(requestId, f.owner, f.ownerService);
   await addRecipient(requestId, f.otherOwner, f.otherOwnerService);
-  const acceptedProposalId = await addProposal(requestId, f.owner, f.ownerService, 1, 'accepted');
-  await addProposal(requestId, f.otherOwner, f.otherOwnerService, 1, 'sent');
-  const bookingId = await addBooking(
-    f, requestId, acceptedProposalId, 'pending_payment', '2027-04-14T09:00:00Z',
-  );
+  const acceptedProposalId = await addProposal(f, requestId, f.owner, f.ownerService, 1, 'accepted');
+  await addProposal(f, requestId, f.otherOwner, f.otherOwnerService, 1, 'sent');
+  const bookingId = await addBooking(f, requestId, acceptedProposalId, 'pending_payment');
   const before = await snapshot(requestId);
   const error = await fails(() => as(f.customer, 'authenticated', `
     select public.cancel_service_request($1::uuid)
@@ -212,8 +234,8 @@ await h.scenario('open-request-without-active-booking-cancels-and-rejects-sent-o
   const requestId = await createRequest(f, 'open-no-hold', 'open');
   await addRecipient(requestId, f.owner, f.ownerService);
   await addRecipient(requestId, f.otherOwner, f.otherOwnerService);
-  const firstProposalId = await addProposal(requestId, f.owner, f.ownerService, 1, 'sent');
-  const secondProposalId = await addProposal(requestId, f.otherOwner, f.otherOwnerService, 1, 'sent');
+  const firstProposalId = await addProposal(f, requestId, f.owner, f.ownerService, 1, 'sent');
+  const secondProposalId = await addProposal(f, requestId, f.otherOwner, f.otherOwnerService, 1, 'sent');
   await as(f.customer, 'authenticated', `
     select public.cancel_service_request($1::uuid)
   `, [requestId]);
@@ -232,15 +254,11 @@ await h.scenario('closed-request-history-does-not-block-cancellation', async () 
   const requestId = await createRequest(f, 'closed-history', 'closed');
   await addRecipient(requestId, f.owner, f.ownerService);
   await addRecipient(requestId, f.otherOwner, f.otherOwnerService);
-  const expiredProposalId = await addProposal(requestId, f.owner, f.ownerService, 1, 'accepted');
-  const cancelledProposalId = await addProposal(requestId, f.owner, f.ownerService, 2, 'accepted');
-  const sentProposalId = await addProposal(requestId, f.otherOwner, f.otherOwnerService, 1, 'sent');
-  const expiredBookingId = await addBooking(
-    f, requestId, expiredProposalId, 'expired', '2027-04-14T09:00:00Z',
-  );
-  const cancelledBookingId = await addBooking(
-    f, requestId, cancelledProposalId, 'cancelled', '2027-04-14T09:01:00Z',
-  );
+  const expiredProposalId = await addProposal(f, requestId, f.owner, f.ownerService, 1, 'accepted');
+  const cancelledProposalId = await addProposal(f, requestId, f.owner, f.ownerService, 2, 'accepted');
+  const sentProposalId = await addProposal(f, requestId, f.otherOwner, f.otherOwnerService, 1, 'sent');
+  const expiredBookingId = await addBooking(f, requestId, expiredProposalId, 'expired');
+  const cancelledBookingId = await addBooking(f, requestId, cancelledProposalId, 'cancelled');
   await as(f.customer, 'authenticated', `
     select public.cancel_service_request($1::uuid)
   `, [requestId]);
@@ -260,10 +278,8 @@ await h.scenario('existing-booking-cancellation-remains-available-with-proposal-
   const f = await fixture('existing-booking-off');
   const requestId = await createRequest(f, 'existing-booking-off', 'closed');
   await addRecipient(requestId, f.owner, f.ownerService);
-  const proposalId = await addProposal(requestId, f.owner, f.ownerService, 1, 'accepted');
-  const bookingId = await addBooking(
-    f, requestId, proposalId, 'pending_payment', '2027-04-14T09:00:00Z',
-  );
+  const proposalId = await addProposal(f, requestId, f.owner, f.ownerService, 1, 'accepted');
+  const bookingId = await addBooking(f, requestId, proposalId, 'pending_payment');
   await setProposalEnabled(false);
   const error = await fails(() => as(f.customer, 'authenticated', `
     select public.cancel_booking($1::uuid, $2::text)
