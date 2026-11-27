@@ -44,7 +44,7 @@
       "Business work is shown only when merchant_staff is enabled and list_my_business_memberships returns active rows; own-provider switching and existing venue/shop listing entries remain separate.",
       "Provider, admin, membership, balance, and coin-policy reads expose loading or retryable unavailable states; a failed provider read does not route to onboarding and a failed balance read does not display zero.",
       "The Seva Coins history entry remains visible when earning and redemption are both off, with paused-capability wording.",
-      "Service activation says enabled; services and reviews have independent retryable reads, and service-write rollback is retained."
+      "Service activation says enabled; services and reviews have independent retryable reads, service-write rollback is retained, and switch colors use the theme token."
     ],
     "sqlFunctions": [],
     "migrationClaims": [],
@@ -61,7 +61,7 @@
         {
           "suite": "app",
           "selector": "src.components.__tests__.AccountScreen[.]identity[.]test[.]tsx$",
-          "snapshotCommitPrefix": "15759919",
+          "snapshotCommitPrefix": "616682ac",
           "selectedFile": "app/src/components/__tests__/AccountScreen.identity.test.tsx",
           "selectedCases": [
             "ID-ACCOUNT-CUSTOMER keeps own-provider onboarding and listing paths separate from memberships",
@@ -78,7 +78,7 @@
         {
           "suite": "jest",
           "selector": "src.components.__tests__.ProviderMeSections[.]identity[.]test[.]tsx$",
-          "snapshotCommitPrefix": "375862b0",
+          "snapshotCommitPrefix": "f7f54b57",
           "selectedFile": "app/src/components/__tests__/ProviderMeSections.identity.test.tsx",
           "selectedCases": [
             "ID-SERVICE-ENABLED-NOT-LIVE calls an enabled service enabled, not live",
@@ -91,6 +91,17 @@
           "csTestResult": "PASS"
         }
       ]
+    },
+    "initialLaneCi": {
+      "runId": 46029833342,
+      "headSha": "d8d141bda7beb390398905dc7da5d83a634bacd8",
+      "result": "FAIL",
+      "failedCheck": "UI lint: ProviderMeSections.tsx:165 hard-coded hex color; use a theme token.",
+      "otherChecks": {
+        "sql": "PASS",
+        "deno": "PASS",
+        "privatePostgres": "PASS"
+      }
     }
   },
   "activation": {
