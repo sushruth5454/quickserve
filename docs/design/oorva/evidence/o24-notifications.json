@@ -124,20 +124,67 @@
       "type": "auth",
       "status": "NO_FINDINGS",
       "scope": "public.get_unread_counts, public.get_chat_read_state, public.get_chat_heading",
+      "reviewerId": "abc5e4b3-33e4-4ad7-839e-e30e249b1be3",
+      "reviewedHead": "7b0126a6d579907c08f744975d3dafb21bc364ac",
+      "reviewerResult": "NO_NEW_FINDINGS",
       "review": "Re-reviewed the exact O24 diff on base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda. list_my_notifications remains recipient-scoped and authenticated-only; _queue_notification and _support_post remain internal/revoked; the three chat projections use the existing _business_chat_participant/_acts_for('staff') boundary and preserve primary-side read semantics. No outsider projection, team-wide Seen, or staff push fan-out; no auth findings."
     },
     {
       "type": "concurrency",
       "status": "SHARED_FOLLOWUP",
+      "reviewerId": "abc5e4b3-33e4-4ad7-839e-e30e249b1be3",
+      "reviewedHead": "7b0126a6d579907c08f744975d3dafb21bc364ac",
+      "reviewerResult": "NO_NEW_FINDINGS",
       "review": "Re-reviewed the exact O24 diff on base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda. The owned notification screen fences a late successful acknowledgement by actor generation before it starts canonical reread; a focused regression case covers that race. app/src/lib/unreadContext.tsx is unchanged from the prior base and outside O24 ownership. Its asynchronous unread-count refresh ordering remains an inherited SHARED_FOLLOWUP; this is not a full concurrency PASS. Original reviewer reproduction and canonical owner were unavailable. The suggested transaction-time event_at concern was withdrawn because the assigned contract requires captured transaction now()."
     }
   ],
   "validation": {
-    "status": "NOT RUN",
-    "stageGate": "PAUSED_FOR_REGISTRATION",
-    "reason": "The current origin/main base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda does not contain O24 SQL/parser registration. Coordinator registration and current-base selectors/CI are pending; no tests were run on Windows.",
-    "registration": "PENDING_COORDINATOR",
-    "privatePostgres": "Pending current-base lane CI after registration; O37A disposable stack only, never local or hosted.",
+    "status": "CODESPACE_PASS_LANE_CI_PENDING",
+    "stageGate": "LANE_CI_PENDING",
+    "reason": "Coordinator registration was merged and all current-main Codespace selectors passed. Exact-lane CI/private PostgreSQL validation is pending. No tests/builds/installs ran on Windows.",
+    "registration": {
+      "status": "MERGED",
+      "commit": "ae39e551da81acced82d1c5e55b4b971e1cd2d4b"
+    },
+    "codespace": {
+      "execution": "Direct current-main Codespace selector commands using existing dependencies; no packages installed.",
+      "snapshotRef": "wip/quickserve-o24-notifications-rebase-508-ae39e551",
+      "snapshotSha": "ae39e551da81acced82d1c5e55b4b971e1cd2d4b",
+      "csTestResult": "PASS (direct exact selectors; official cs-test.ps1 wrapper not invoked)",
+      "selectors": [
+        {
+          "suite": "app",
+          "selector": "src.components.__tests__.NotificationsScreen[.]test[.]tsx$",
+          "typecheck": "PASS",
+          "testsPassed": 7,
+          "testsTotal": 7
+        },
+        {
+          "suite": "jest",
+          "selector": "src.lib.__tests__.unread[.]test[.]ts$",
+          "testsPassed": 17,
+          "testsTotal": 17
+        },
+        {
+          "suite": "sql",
+          "selector": "oorva_o24_notifications",
+          "selectedFiles": 1,
+          "passedFiles": 1
+        },
+        {
+          "suite": "migration-parser",
+          "command": "node parse.cjs ../migrations/0134_o24_notifications_oorva.sql",
+          "topLevelStatements": 9,
+          "functionBodiesOk": 6,
+          "errors": 0
+        }
+      ]
+    },
+    "laneCi": {
+      "status": "PENDING",
+      "branch": "lane/oorva-o24-notifications-rebase-508"
+    },
+    "privatePostgres": "Pending exact-lane CI; O37A disposable stack only, never local or hosted.",
     "previousBaseValidation": {
       "scope": "Historical results for the prior O24 implementation branch only; not validation of base 508dbdadb799b8ae4c1677dcd2c1cfac659b3bda.",
       "codespace": {
@@ -185,5 +232,5 @@
       }
     }
   },
-  "handoffState": "PAUSED_FOR_REGISTRATION"
+  "handoffState": "PAUSED_FOR_LANE_CI"
 }
