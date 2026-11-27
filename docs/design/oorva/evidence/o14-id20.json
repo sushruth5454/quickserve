@@ -1,0 +1,52 @@
+{
+  "stage": "O14-ID20",
+  "sourceTaskId": "ID-T20",
+  "findingIds": [
+    "ID-F05"
+  ],
+  "baseSha": "6dfa1f391a582f49e453eab34db1d7e604add995",
+  "planningInputSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "dependencies": {
+    "O00": "ec6cc74983c3441d115e2f0d548e2dc7e13f0259",
+    "O14-MK14": "8f7956aef0b2f3d02f68d1d213c1e3c90a55fb54",
+    "O38-ID01": "6dfa1f391a582f49e453eab34db1d7e604add995"
+  },
+  "e0": "APPROVED",
+  "implementation": {
+    "wireContract": "PublicProfile.badges.id_verified is retained as the legacy KYC-plus-acc_-shape payout provenance indicator; it is not an independent ID-document approval.",
+    "publicTrust": "providerPublicTrust accepts only public badges and server-projected credential labels, returning loaded/unavailable and payout/police badges.",
+    "publicCopy": {
+      "payout": "Payout account verified",
+      "police": "Police certificate approved",
+      "unavailable": "Verification details unavailable"
+    },
+    "offBehavior": "Truthful public payout and credential wording is always applied with appearance switches OFF; no feature flag gates it.",
+    "preservation": "No RPC, SQL, migration, feature key, private read, private prop, booking-policy change, money-policy change, or deactivation-policy change."
+  },
+  "codespaceValidation": {
+    "helper": "current-origin-main cs-test helper from session artifact",
+    "codespace": "qs-tests-g67pgv4xqj639gx5",
+    "selectors": [
+      {
+        "suite": "app",
+        "filter": "src.lib.onboarding.__tests__.publicTrust[.]test[.]ts$",
+        "result": "PASS",
+        "selectedFiles": [
+          "src/lib/onboarding/__tests__/publicTrust.test.ts"
+        ],
+        "testCount": 3,
+        "snapshotHead": "08c35384"
+      },
+      {
+        "suite": "jest",
+        "filter": "src.features.providerProfile.__tests__.publicTrust[.]test[.]tsx$",
+        "result": "PASS",
+        "selectedFiles": [
+          "src/features/providerProfile/__tests__/publicTrust.test.tsx"
+        ],
+        "testCount": 6,
+        "snapshotHead": "a1dba540"
+      }
+    ]
+  }
+}

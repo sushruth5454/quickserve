@@ -257,7 +257,12 @@ export interface PublicProfile {
   paused: boolean;
   live: boolean;
   member_since: string;
-  badges: { id_verified: boolean; payout_verified: boolean; police_verified: boolean };
+  badges: {
+    /** Legacy KYC-plus-acc_-shape payout provenance; not independent ID-document approval. */
+    id_verified: boolean;
+    payout_verified: boolean;
+    police_verified: boolean;
+  };
   credentials: string[];
   specialisations: {
     category_id: string;
