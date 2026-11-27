@@ -1421,7 +1421,7 @@ await step('proposal-flow-customer-compares', async () => {
   }
   await go(`/request/${briefRequestId}`);
   await page.getByText('₹12,000', { exact: true }).first().waitFor();
-  await page.getByText('Compare proposal', { exact: true }).first().click();
+  await page.getByText('View / ask provider', { exact: true }).first().click();
   await page.waitForURL(/\/proposal\//);
   // The request comparison remains mounted behind the pushed proposal detail screen.
   await page.getByText('Payment milestones', { exact: true }).last().waitFor({ state: 'visible' });
