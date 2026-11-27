@@ -129,10 +129,11 @@ async function makeFixture(label, archetype) {
   return { ...actors, categoryId, serviceId, addressId, packageId, city, archetype };
 }
 
-async function makeBooking(fixture, { status, origin = 'marketplace', day }) {
+async function makeBooking(fixture, { status, origin = 'marketplace', day, visitFee = 0 }) {
   const start = `${day}T10:00:00+05:30`;
   const end = `${day}T12:00:00+05:30`;
   const platformFee = fixture.archetype === 'fixed' ? 2900 : 0;
+  const totalAmount = Math.max(fixture.archetype === 'fixed' ? 12000 : 0, visitFee) + platformFee;
   const sessionDuration = fixture.archetype === 'time_based' ? 60 : null;
   return (await one(`
     insert into public.bookings (
@@ -142,13 +143,13 @@ async function makeBooking(fixture, { status, origin = 'marketplace', day }) {
     ) values (
       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
       'O22 quote fixture', $6::timestamptz, tstzrange($6::timestamptz, $7::timestamptz, '[)'),
-      $8::public.booking_status, 0::int, $9::int, $10::int,
-      $11::text, $12::text, $13::uuid, $14::int
+      $8::public.booking_status, $9::int, $10::int, $11::int,
+      $12::text, $13::text, $14::uuid, $15::int
     )
     returning id
   `, [
     fixture.customer, fixture.owner, fixture.categoryId, fixture.serviceId, fixture.addressId,
-    start, end, status, platformFee, fixture.archetype === 'fixed' ? 14900 : 0,
+    start, end, status, visitFee, platformFee, totalAmount,
     fixture.archetype, origin, null, sessionDuration,
   ])).id;
 }
@@ -230,7 +231,7 @@ async function failure(action) {
 
 await h.scenario('SV-QUOTE-FAMILY-01-fixed-addon-preserves-package-and-creates-obligation-on-approval', async () => {
   const fixture = await makeFixture('fixed-addon', 'fixed');
-  const bookingId = await makeBooking(fixture, { status: 'in_progress', day: '2027-01-15' });
+  const bookingId = await makeBooking(fixture, { status: 'in_progress', day: '2027-01-15', visitFee: 13000 });
   const snapshot = { title: 'Deep clean', quantity: 1, unit_price: 12000, inclusions: ['Kitchen'] };
   const baseQuoteId = await makeQuote({
     bookingId,
@@ -243,8 +244,8 @@ await h.scenario('SV-QUOTE-FAMILY-01-fixed-addon-preserves-package-and-creates-o
     subtotalLabour: 12000,
   });
   await makeItem(baseQuoteId, { kind: 'package', title: 'Deep clean', unit: 'job', unitPrice: 12000 });
-  await setApprovedQuote(bookingId, baseQuoteId, 14900);
-  await makePaidPayment(bookingId, baseQuoteId, 14900, 'package');
+  await setApprovedQuote(bookingId, baseQuoteId, 15900);
+  await makePaidPayment(bookingId, baseQuoteId, 15900, 'package');
 
   const before = await one(`
     select q.version, q.total, q.package_snapshot,
@@ -274,10 +275,20 @@ await h.scenario('SV-QUOTE-FAMILY-01-fixed-addon-preserves-package-and-creates-o
   const approval = (await authenticated(fixture.customer, `
     select public.approve_fixed_change_order($1::uuid, $2::uuid) as result
   `, [bookingId, addonQuoteId]))[0].result;
+  const secondSendError = await failure(() => authenticated(fixture.manager, `
+    select public.send_fixed_addons(
+      $1::uuid, $2::jsonb, $3::text
+    )
+  `, [bookingId, JSON.stringify([{ title: 'Another room', qty: 1, unit_price: 1500 }]), 'Second add-on']));
   const scheduleAfterApproval = (await db.query(`
     select obligation_type, amount, status
       from public.payment_schedule where booking_id = $1::uuid
   `, [bookingId])).rows;
+  const stateAfterBlockedSend = await one(`
+    select (select count(*)::int from public.quotes where booking_id = $1::uuid) as quote_count,
+           (select status from public.quotes where id = $2::uuid) as addon_status,
+           (select count(*)::int from public.payment_schedule where booking_id = $1::uuid) as schedule_count
+  `, [bookingId, addonQuoteId]);
   const baseAfter = await one(`
     select q.version, q.total, q.package_snapshot,
            (select count(*)::int from public.quote_items qi where qi.quote_id = q.id) as item_count
@@ -292,7 +303,9 @@ await h.scenario('SV-QUOTE-FAMILY-01-fixed-addon-preserves-package-and-creates-o
     copiedItems,
     scheduleBeforeApproval,
     approval,
+    secondSendError,
     scheduleAfterApproval,
+    stateAfterBlockedSend,
     baseAfter,
     addonAfter,
   };
@@ -307,14 +320,19 @@ await h.scenario('SV-QUOTE-FAMILY-01-fixed-addon-preserves-package-and-creates-o
       && copiedItems[0].title === 'Deep clean' && copiedItems[1].kind === 'addon'
       && copiedItems[1].title === 'Extra room' && copiedItems[1].unit_price === 3500,
     'fixed add-on quote preserves package lines and appends only the positive add-on', actual);
-  check(scheduleBeforeApproval.length === 0 && approval.amount_due === 3500,
-    'no add-on obligation exists before customer approval and approval computes only the delta', actual);
+  check(scheduleBeforeApproval.length === 0 && approval.amount_due === 2500,
+    'no add-on obligation exists before customer approval and approval computes the revised target', actual);
   check(scheduleAfterApproval.length === 1 && scheduleAfterApproval[0].obligation_type === 'addon'
-      && scheduleAfterApproval[0].amount === 3500 && scheduleAfterApproval[0].status === 'due'
+      && scheduleAfterApproval[0].amount === 2500 && scheduleAfterApproval[0].status === 'due'
       && addonAfter.status === 'approved_pending_payment'
       && baseAfter.version === 1 && baseAfter.total === 12000
       && sameJson(baseAfter.package_snapshot, snapshot) && baseAfter.item_count === 1,
     'customer approval creates one due add-on obligation without changing the accepted package', actual);
+  check(/resolve the pending fixed add-on payment/i.test(secondSendError)
+      && stateAfterBlockedSend.quote_count === 2
+      && stateAfterBlockedSend.addon_status === 'approved_pending_payment'
+      && stateAfterBlockedSend.schedule_count === 1,
+    'a pending fixed add-on obligation cannot be superseded by another add-on quote', actual);
 });
 
 await h.scenario('SV-QUOTE-GUARD-02-owner-manager-access-and-stale-link-close', async () => {
@@ -457,7 +475,15 @@ await h.scenario('SV-QUOTE-BYO-04-explicit-byo-itemized-agreement-route', async 
   });
   await makeItem(agreementId, { title: 'Existing BYO agreement', unitPrice: 8000 });
   await setApprovedQuote(bookingId, agreementId, 8000);
-  await makePaidPayment(bookingId, agreementId, 8000);
+  const agreementPaymentId = await makePaidPayment(bookingId, agreementId, 8000);
+  await db.query(`
+    insert into public.payment_schedule (
+      booking_id, quote_id, seq, obligation_type, label, amount, due_rule, due_at, status, payment_id
+    ) values (
+      $1::uuid, $2::uuid, 1::int, 'service', 'Previously paid BYO amount', 8000::int,
+      'at_booking', now(), 'paid', $3::uuid
+    )
+  `, [bookingId, agreementId, agreementPaymentId]);
   const revisedId = await sendQuote(fixture.manager, bookingId, [
     { kind: 'labour', title: 'Full revised BYO scope', qty: 1, unit_price: 9000 },
   ]);
@@ -471,12 +497,21 @@ await h.scenario('SV-QUOTE-BYO-04-explicit-byo-itemized-agreement-route', async 
   const revisedItems = (await db.query(`
     select title, kind, unit_price from public.quote_items where quote_id = $1::uuid
   `, [revisedId])).rows;
-  const actual = { bookingOrigin: 'byo', approval, revised, revisedItems };
+  const pendingScheduleRows = (await db.query(`
+    select id, quote_id, status from public.payment_schedule
+     where booking_id = $1::uuid and quote_id = $2::uuid
+  `, [bookingId, revisedId])).rows;
+  const prepared = (await as(null, 'service_role', `
+    select payment_id, amount, purpose, short_url
+      from public.prepare_payment($1::uuid, $2::uuid)
+  `, [bookingId, fixture.customer]))[0];
+  const actual = { bookingOrigin: 'byo', approval, revised, revisedItems, pendingScheduleRows, prepared };
   check(revised.version === 2 && revised.status === 'approved_pending_payment'
       && revised.is_change_order && revised.quote_type === 'itemized' && revised.total === 9000
       && revisedItems.length === 1 && revisedItems[0].title === 'Full revised BYO scope'
-      && approval.amount_due === 1000,
-    'BYO itemized agreement remains explicitly supported as a full-scope revision', actual);
+      && approval.amount_due === 3900 && pendingScheduleRows.length === 0
+      && prepared.amount === 3900 && prepared.purpose === 'balance',
+    'BYO itemized approval remains payable after unrelated paid schedule rows exist', actual);
 });
 
 for (const [archetype, day] of [

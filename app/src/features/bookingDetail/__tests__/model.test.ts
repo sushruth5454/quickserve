@@ -1,6 +1,6 @@
 import { canReportProposalPaymentDefault, fmt, heroCopy, paymentRefundPresentation, paymentRowLabel, shouldShowPaymentRow } from '../model';
 import type { Payment, PaymentSchedule } from '../../../lib/types';
-import { canManageServiceQuotes, getQuoteApprovalMode, getQuoteEditorMode } from '../../../lib/fixedBooking';
+import { canManageServiceQuotes, canPayPendingQuoteWithoutSchedule, getQuoteApprovalMode, getQuoteEditorMode } from '../../../lib/fixedBooking';
 
 jest.mock('../../../lib/supabase', () => ({ supabase: {} }));
 
@@ -242,10 +242,29 @@ describe('booking detail hero copy', () => {
         zeroHintEditor: getQuoteEditorMode(zeroHintBooking, [basePackage]),
         oneHintEditor: getQuoteEditorMode(oneHintBooking, [basePackage]),
         fixedApproval: getQuoteApprovalMode(fixedBooking, fixedAddon),
+        fixedEditorWithPendingAddon: getQuoteEditorMode(fixedBooking, [
+          basePackage,
+          { ...fixedAddon, status: 'approved_pending_payment' },
+        ]),
         ownerCanSend: canManageServiceQuotes('owner'),
         managerCanSend: canManageServiceQuotes('manager'),
         staffCannotSend: canManageServiceQuotes('staff'),
         customerCannotSend: canManageServiceQuotes('customer'),
+        byoRetryAfterPaidUnrelatedSchedule: canPayPendingQuoteWithoutSchedule(
+          { archetype: 'fixed', booking_origin: 'byo' },
+          'pending-quote',
+          [{ quote_id: 'accepted-package', status: 'paid' }],
+        ),
+        byoUsesScheduleWhenPendingQuoteObligationIsDue: canPayPendingQuoteWithoutSchedule(
+          { archetype: 'fixed', booking_origin: 'byo' },
+          'pending-quote',
+          [{ quote_id: 'pending-quote', status: 'due' }],
+        ),
+        marketplaceFixedDoesNotFallbackToGenericPayment: canPayPendingQuoteWithoutSchedule(
+          { archetype: 'fixed', booking_origin: 'marketplace' },
+          'pending-quote',
+          [{ quote_id: 'accepted-package', status: 'paid' }],
+        ),
         inspectApproval: getQuoteApprovalMode({
           ...fixedBooking,
           archetype: 'inspect_quote',
@@ -273,10 +292,14 @@ describe('booking detail hero copy', () => {
         zeroHintEditor: 'fixed_addons',
         oneHintEditor: 'fixed_addons',
         fixedApproval: 'fixed_addons',
+        fixedEditorWithPendingAddon: null,
         ownerCanSend: true,
         managerCanSend: true,
         staffCannotSend: false,
         customerCannotSend: false,
+        byoRetryAfterPaidUnrelatedSchedule: true,
+        byoUsesScheduleWhenPendingQuoteObligationIsDue: false,
+        marketplaceFixedDoesNotFallbackToGenericPayment: false,
         inspectApproval: 'itemized',
         byoEditor: 'itemized',
         byoInitialEditor: 'itemized',

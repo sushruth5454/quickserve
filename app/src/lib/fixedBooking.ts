@@ -3,7 +3,7 @@ import { demoFixedBooking } from './demo/demoFixedBooking';
 import { supabase } from './supabase';
 import { isDemoMode } from './config';
 import { rupeesToPaise } from './money';
-import type { Booking, Quote, ServicePackage } from './types';
+import type { Booking, PaymentSchedule, Quote, ServicePackage } from './types';
 
 export type { CreateFixedBookingInput, FixedBookingLocation };
 
@@ -23,6 +23,24 @@ export function canManageServiceQuotes(role: string | null | undefined): boolean
 
 type QuoteFamilyState = Pick<Booking, 'archetype' | 'booking_origin' | 'status' | 'approved_quote_id'>;
 type QuoteFamilyRow = Pick<Quote, 'id' | 'status' | 'is_change_order' | 'quote_type'>;
+
+export function hasPendingFixedAddonQuote(quotes: readonly QuoteFamilyRow[]): boolean {
+  return quotes.some((quote) =>
+    quote.status === 'approved_pending_payment'
+    && quote.is_change_order
+    && quote.quote_type === 'package',
+  );
+}
+
+export function canPayPendingQuoteWithoutSchedule(
+  booking: Pick<Booking, 'archetype' | 'booking_origin'>,
+  quoteId: string,
+  schedules: readonly Pick<PaymentSchedule, 'quote_id' | 'status'>[],
+): boolean {
+  if (schedules.some((schedule) => schedule.quote_id === quoteId && schedule.status === 'due')) return false;
+  return booking.booking_origin === 'byo'
+    || (booking.booking_origin === 'marketplace' && booking.archetype === 'inspect_quote');
+}
 
 export function getQuoteEditorMode(
   booking: QuoteFamilyState,
@@ -56,6 +74,7 @@ export function getQuoteEditorMode(
     booking.archetype === 'fixed'
     && booking.status === 'in_progress'
     && approvedQuote?.quote_type === 'package'
+    && !hasPendingFixedAddonQuote(quotes)
   ) {
     return 'fixed_addons';
   }

@@ -37,7 +37,7 @@
     }
   },
   "implementation": {
-    "status": "IMPLEMENTED_AWAITING_REGISTRATION",
+    "status": "READY_FOR_LANE_PUSH",
     "ownedFiles": [
       "app\\src\\lib\\types.ts",
       "app\\app\\quote\\[bookingId].tsx",
@@ -56,6 +56,8 @@
       "The existing quote route is a thin export to QuoteDetailScreen; editor family and operation derive from loaded booking, quote, and authorized business role, not the changeOrder URL hint.",
       "Fixed package scope is read-only; only validated positive add-on drafts reach send_fixed_addons. Fixed package approval uses approve_fixed_change_order and retains its approval-time addon obligation.",
       "Generic itemized send/approve/approve-with-coins/reject RPCs fail closed for marketplace fixed, proposal, and time-based bookings, while inspect and explicit BYO itemized routes remain supported.",
+      "A second fixed add-on cannot supersede an approved unpaid add-on; approval uses the shared visit-fee-aware required-total formula.",
+      "BYO pending itemized payments retain a generic retry action when only unrelated schedule rows are already paid.",
       "Owner/manager quote actions are visible; staff/customer editor access is rejected. Managed travel lines and the strict parts-over-500-paise proof requirement remain guarded."
     ],
     "featureOffBehavior": "No new Oorva or acquisition feature gate was added. Existing approval, payment, refund, settlement, and cleanup paths remain ungated."
@@ -79,27 +81,79 @@
     "sqlCoverage": [
       "Fixed package copy, version, base immutability, and post-approval addon obligation.",
       "Owner/manager send, staff/customer denial, stale-link closure, and unsupported marketplace family RPC atomicity.",
-      "Inspect positive coin delta and reduced-total refund; explicit BYO itemized revision and generic coin approval."
+      "Inspect positive coin delta and reduced-total refund; explicit BYO itemized revision, unrelated paid schedule rows, and generic payment retry."
     ],
     "migrationParserSelector": "o22_sv02_oorva.sql",
-    "validationGate": "Do not run app, Jest, SQL, or parser selectors until the coordinator returns the shared-registration roundtrip SHA for this exact SQL test and allocated migration parser."
+    "validationGate": "All exact app, Jest, SQL and allocated migration parser selectors passed after the registration roundtrip SHA."
   },
   "coordinatorRegistration": {
     "owner": "coordinator",
     "path": "supabase\\tests\\package.json",
-    "status": "WAITING_FOR_SHARED_REGISTRATION_ROUNDTRIP_SHA",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "registrationCommit": "f5c34ff6cb19fa6dee92cc03a950ff81eddb0615",
+    "selectionProof": {
+      "sql": "node oorva_o22_sv02.test.mjs",
+      "migrationParser": "node parse.cjs ../migrations/0138_o22_sv02_oorva.sql"
+    },
     "workerEdited": false
   },
   "validation": {
     "sourceScope": "PASS",
-    "gitDiffCheck": "PASS",
-    "codespaceApp": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceJest": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceSql": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceMigrationParser": "NOT_RUN_BY_INSTRUCTION",
-    "focusedMoneyReview": "PENDING_AFTER_REGISTRATION_AND_TESTS",
+    "gitDiffCheck": "PENDING_FINAL_CHECK",
+    "codespaceApp": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.bookingDetail.__tests__.model[.]test[.]ts$'",
+      "selectedFile": "app/src/features/bookingDetail/__tests__/model.test.ts",
+      "selectedTests": 14,
+      "tsc": "PASS through app suite",
+      "outcome": "PASS after money-review fixes"
+    },
+    "codespaceJest": {
+      "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
+      "selectedFile": "app/src/features/booking/packages/__tests__/packageModel.test.ts",
+      "selectedTests": 14,
+      "outcome": "PASS after money-review fixes"
+    },
+    "codespaceSql": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o22_sv02'",
+      "selectedFile": "supabase/tests/oorva_o22_sv02.test.mjs",
+      "firstAttempt": "FAIL: BYO fixture expected 1000 paise but actual due was 3900, including the fixed-archetype platform fee; corrected the expectation.",
+      "outcome": "PASS after corrected expectation and money-review fixes"
+    },
+    "codespaceMigrationParser": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o22_sv02_oorva.sql'",
+      "selectedMigration": "supabase/migrations/0138_o22_sv02_oorva.sql",
+      "topLevelStatements": 6,
+      "functionBodies": 6,
+      "parseErrors": 0,
+      "outcome": "PASS after money-review fixes"
+    },
+    "focusedMoneyReview": "PASS: iteration 3 reported zero actionable findings",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "moneyReview": {
+    "iterations": [
+      {
+        "iteration": 1,
+        "findings": [
+          "High: a second fixed add-on could supersede an approved_pending_payment change order.",
+          "Medium: fixed change-order approval omitted the shared visit-fee-aware required-total calculation."
+        ],
+        "resolution": "Fixed with a pre-write pending-obligation guard, quote-family UI gate, public._required_total, and SQL regressions."
+      },
+      {
+        "iteration": 2,
+        "findings": [
+          "Medium: a BYO pending itemized quote could lack a retry CTA when unrelated schedule rows were already paid."
+        ],
+        "resolution": "Fixed with quote-linked due-schedule detection, an explicit BYO generic-payment fallback, and app/SQL coverage."
+      },
+      {
+        "iteration": 3,
+        "findings": [],
+        "verdict": "ZERO_ACTIONABLE_FINDINGS"
+      }
+    ]
   }
 }
