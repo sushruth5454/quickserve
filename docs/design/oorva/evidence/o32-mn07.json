@@ -121,12 +121,12 @@
     },
     "laneCi": {
       "status": "SUCCESS",
-      "runId": "45969353588",
-      "headSha": "6d91055708f8d2e4b961a5280dcf0c1c1b89ffe2",
+      "runId": "45970307043",
+      "headSha": "1ad9805bba779a5ebdac39822398ac130bf4a889",
       "workflow": "Lane CI (tests only)"
     }
   },
-  "checkpoint": "AWAITING_EVIDENCE_HEAD_LANE_CI",
+  "checkpoint": "EVIDENCE_RECONCILED",
   "productionActions": "none",
   "featureActivation": "none",
   "mainPromotion": "NOT_RUN",
