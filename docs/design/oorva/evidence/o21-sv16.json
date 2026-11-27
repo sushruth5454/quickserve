@@ -73,11 +73,12 @@
       "reason": ""
     },
     "laneCI": {
-      "status": "PENDING",
+      "status": "SUCCESS",
       "ref": "lane/oorva-o21-sv16",
-      "codeHeadSha": "",
-      "runId": null,
-      "conclusion": ""
+      "codeHeadSha": "68742cfbdb8e4f7e51171cd74786b4bf86ceec99",
+      "runId": 45984582183,
+      "conclusion": "success",
+      "url": "https://github.com/sushruth5454/quickserve/actions/runs/45984582183"
     }
   }
 }
