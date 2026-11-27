@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth';
@@ -12,10 +12,29 @@ import { formatPhone } from '../lib/phone';
 import { formatINR } from '../lib/money';
 import type { CoinsConfig } from '../lib/coins';
 import type { Profile, Provider } from '../lib/types';
+import { onboardingApi } from '../lib/onboarding';
+import { listMyBusinessMemberships, type BusinessMembership } from '../features/merchantStaff/api';
 import { useLanguage, useT, type TranslationKey } from '../i18n';
 import { useTheme } from '../theme';
 import { ProviderMeSections } from './ProviderMeSections';
 import { Avatar, BottomSheet, Button, Card, Divider, Header, InlineAlert, Input, LIST_INSET, ListItem, Screen, Skeleton, Text, useConfirm, useToast } from './ui';
+
+type ReadStatus = 'loading' | 'ready' | 'error';
+
+type ReadState<T> = {
+  status: ReadStatus;
+  value: T | null;
+  error: string | null;
+};
+
+type ProviderReadState = ReadState<Provider> & {
+  mode: 'customer' | 'provider';
+  isLive: boolean | null;
+};
+
+function readError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
   const t = useTheme();
@@ -26,44 +45,148 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
   const confirm = useConfirm();
   const { session, setActiveRole } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [provider, setProvider] = useState<Provider | null | undefined>(undefined);
-  const [coinBalance, setCoinBalance] = useState(0);
-  const [coinsConfig, setCoinsConfig] = useState<CoinsConfig | null>(null);
-  const [coinsPolicyUnavailable, setCoinsPolicyUnavailable] = useState(false);
-  const [admin, setAdmin] = useState(false);
+  const [providerRead, setProviderRead] = useState<ProviderReadState>({
+    mode,
+    status: 'loading',
+    value: null,
+    isLive: null,
+    error: null,
+  });
+  const [coinBalanceRead, setCoinBalanceRead] = useState<ReadState<number>>({ status: 'loading', value: null, error: null });
+  const [coinsConfigRead, setCoinsConfigRead] = useState<ReadState<CoinsConfig>>({ status: 'loading', value: null, error: null });
+  const [adminRead, setAdminRead] = useState<ReadState<boolean>>({ status: 'loading', value: null, error: null });
+  const [membershipRead, setMembershipRead] = useState<ReadState<BusinessMembership[]>>({ status: 'loading', value: null, error: null });
   const [languageOptionsVisible, setLanguageOptionsVisible] = useState(false);
   const [nameSheetVisible, setNameSheetVisible] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaving, setNameSaving] = useState(false);
+  const providerRequest = useRef(0);
+  const coinBalanceRequest = useRef(0);
+  const coinsConfigRequest = useRef(0);
+  const adminRequest = useRef(0);
+  const membershipRequest = useRef(0);
+  const merchantStaffEnabled = flags.isOn('merchant_staff');
+
+  const loadProvider = useCallback(async () => {
+    const request = ++providerRequest.current;
+    setProviderRead({ mode, status: 'loading', value: null, isLive: null, error: null });
+    try {
+      if (mode === 'provider') {
+        const state = await onboardingApi.getOnboarding();
+        if (providerRequest.current !== request) return;
+        setProviderRead({
+          mode,
+          status: 'ready',
+          value: state.provider,
+          isLive: state.go_live.state === 'live',
+          error: null,
+        });
+      } else {
+        const value = await getMyProvider();
+        if (providerRequest.current !== request) return;
+        setProviderRead({ mode, status: 'ready', value, isLive: null, error: null });
+      }
+    } catch (error) {
+      if (providerRequest.current !== request) return;
+      setProviderRead({
+        mode,
+        status: 'error',
+        value: null,
+        isLive: null,
+        error: readError(error, 'Provider status is unavailable.'),
+      });
+    }
+  }, [mode]);
+
+  const loadAdmin = useCallback(async () => {
+    const request = ++adminRequest.current;
+    setAdminRead({ status: 'loading', value: null, error: null });
+    try {
+      const value = await amIAdmin();
+      if (adminRequest.current !== request) return;
+      setAdminRead({ status: 'ready', value, error: null });
+    } catch (error) {
+      if (adminRequest.current !== request) return;
+      setAdminRead({ status: 'error', value: null, error: readError(error, 'Admin status is unavailable.') });
+    }
+  }, []);
+
+  const loadCoinBalance = useCallback(async () => {
+    const request = ++coinBalanceRequest.current;
+    setCoinBalanceRead({ status: 'loading', value: null, error: null });
+    try {
+      const value = await getMyCoinBalance();
+      if (coinBalanceRequest.current !== request) return;
+      setCoinBalanceRead({ status: 'ready', value, error: null });
+    } catch (error) {
+      if (coinBalanceRequest.current !== request) return;
+      setCoinBalanceRead({ status: 'error', value: null, error: readError(error, 'Coin balance is unavailable.') });
+    }
+  }, []);
+
+  const loadCoinsConfig = useCallback(async () => {
+    const request = ++coinsConfigRequest.current;
+    setCoinsConfigRead({ status: 'loading', value: null, error: null });
+    try {
+      const value = await getCoinsConfig();
+      if (coinsConfigRequest.current !== request) return;
+      setCoinsConfigRead({ status: 'ready', value, error: null });
+    } catch (error) {
+      if (coinsConfigRequest.current !== request) return;
+      setCoinsConfigRead({ status: 'error', value: null, error: readError(error, 'Coin availability is unavailable.') });
+    }
+  }, []);
+
+  const loadMemberships = useCallback(async () => {
+    const request = ++membershipRequest.current;
+    if (!merchantStaffEnabled) {
+      setMembershipRead({ status: 'ready', value: [], error: null });
+      return;
+    }
+    setMembershipRead({ status: 'loading', value: null, error: null });
+    try {
+      const value = await listMyBusinessMemberships();
+      if (membershipRequest.current !== request) return;
+      setMembershipRead({ status: 'ready', value, error: null });
+    } catch (error) {
+      if (membershipRequest.current !== request) return;
+      setMembershipRead({ status: 'error', value: null, error: readError(error, 'Business membership status is unavailable.') });
+    }
+  }, [merchantStaffEnabled]);
 
   useFocusEffect(
     useCallback(() => {
       getMyProfile().then(setProfile).catch(() => undefined);
-      getMyProvider().then(setProvider).catch(() => setProvider(null));
-      amIAdmin().then(setAdmin).catch(() => setAdmin(false));
+      void loadProvider();
+      void loadAdmin();
+      void loadMemberships();
       if (mode === 'customer') {
-        getMyCoinBalance().then(setCoinBalance).catch(() => setCoinBalance(0));
-        getCoinsConfig()
-          .then((config) => {
-            setCoinsConfig(config);
-            setCoinsPolicyUnavailable(false);
-          })
-          .catch(() => {
-            setCoinsConfig(null);
-            setCoinsPolicyUnavailable(true);
-          });
+        void loadCoinBalance();
+        void loadCoinsConfig();
       } else {
-        setCoinsConfig(null);
-        setCoinsPolicyUnavailable(false);
+        setCoinBalanceRead({ status: 'ready', value: null, error: null });
+        setCoinsConfigRead({ status: 'ready', value: null, error: null });
       }
-    }, [mode]),
+      return () => {
+        providerRequest.current += 1;
+        adminRequest.current += 1;
+        coinBalanceRequest.current += 1;
+        coinsConfigRequest.current += 1;
+        membershipRequest.current += 1;
+      };
+    }, [loadAdmin, loadCoinBalance, loadCoinsConfig, loadMemberships, loadProvider, mode]),
   );
 
   const name = profile?.full_name || tr('account.nameFallback');
+  const currentProviderRead = providerRead.mode === mode
+    ? providerRead
+    : { mode, status: 'loading' as const, value: null, isLive: null, error: null };
+  const provider = currentProviderRead.value;
 
   const switchRole = () => {
     if (mode === 'customer') {
+      if (currentProviderRead.status !== 'ready') return;
       setActiveRole('provider');
       router.replace(provider ? '/dashboard' : '/onboarding');
     } else {
@@ -131,7 +254,9 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
             phone: formatPhone(session?.phone) || tr('account.phoneVerified.accessibility'),
           })}
           accessibilityHint={mode === 'customer' ? 'Edit your name' : 'Edit your provider profile'}
-          onPress={() => mode === 'provider' ? router.push('/onboarding') : editName()}
+          onPress={() => mode === 'provider'
+            ? router.push({ pathname: '/provider-profile/[section]', params: { section: 'basics', returnTo: 'hub' } })
+            : editName()}
           style={({ pressed }) => ({
             flexDirection: 'row',
             alignItems: 'center',
@@ -141,7 +266,7 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
             backgroundColor: pressed ? t.colors.surfaceAlt : 'transparent',
           })}
         >
-          <Avatar name={name} uri={profile?.avatar_url} size={56} verified={mode === 'provider' && provider?.kyc_status === 'verified'} />
+          <Avatar name={name} uri={profile?.avatar_url} size={56} verified={mode === 'provider' && currentProviderRead.isLive === true} />
           <View style={{ flex: 1, gap: 2 }}>
             {profile ? (
               <Text variant="title2" numberOfLines={1}>
@@ -158,6 +283,17 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
         </Pressable>
       </Card>
 
+      {currentProviderRead.status === 'loading' ? (
+        <Text variant="footnote" color="muted">Checking provider status…</Text>
+      ) : null}
+      {currentProviderRead.status === 'error' ? (
+        <Card gap={t.spacing.sm}>
+          <Text variant="calloutStrong">Provider status unavailable</Text>
+          <Text variant="footnote" color="muted">{currentProviderRead.error}</Text>
+          <Button title="Retry provider status" variant="outline" onPress={() => void loadProvider()} />
+        </Card>
+      ) : null}
+
       {mode === 'provider' ? (
         <Group title={tr('account.group.work')}>
           <ListItem icon="id-card-outline" title={tr('account.providerProfile.title')} subtitle={tr('account.providerProfile.subtitle')} chevron onPress={() => router.push('/provider-profile')} />
@@ -171,7 +307,13 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
           <ListItem
             icon="swap-horizontal"
             title={tr('account.switchToProvider.title')}
-            subtitle={provider ? tr('account.switchToProvider.manageJobs') : tr('account.switchToProvider.offerServices')}
+            subtitle={currentProviderRead.status === 'error'
+              ? 'Provider status unavailable'
+              : currentProviderRead.status === 'loading'
+                ? 'Checking provider status…'
+                : provider
+                  ? tr('account.switchToProvider.manageJobs')
+                  : tr('account.switchToProvider.offerServices')}
             chevron
             onPress={switchRole}
           />
@@ -216,7 +358,34 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
 
       {mode === 'provider' && provider ? <ProviderMeSections provider={provider} /> : null}
 
-      {admin ? (
+      {merchantStaffEnabled && membershipRead.status === 'ready' && (membershipRead.value?.length ?? 0) > 0 ? (
+        <Group title="Business work">
+          <ListItem
+            icon="briefcase-outline"
+            title="Business work"
+            subtitle={`${membershipRead.value?.length ?? 0} business${membershipRead.value?.length === 1 ? '' : 'es'}`}
+            chevron
+            onPress={() => router.push('/merchant-work')}
+          />
+        </Group>
+      ) : null}
+      {merchantStaffEnabled && membershipRead.status === 'loading' ? (
+        <Group title="Access status">
+          <View style={{ padding: t.spacing.lg }}>
+            <Text variant="footnote" color="muted">Checking business memberships…</Text>
+          </View>
+        </Group>
+      ) : null}
+      {merchantStaffEnabled && membershipRead.status === 'error' ? (
+        <Group title="Access status">
+          <View style={{ padding: t.spacing.lg, gap: t.spacing.sm }}>
+            <Text variant="footnote" color="muted">{membershipRead.error}</Text>
+            <Button title="Retry business memberships" variant="outline" onPress={() => void loadMemberships()} />
+          </View>
+        </Group>
+      ) : null}
+
+      {adminRead.status === 'ready' && adminRead.value ? (
         <Group title={tr('account.group.administration')}>
           <ListItem
             icon="settings-outline"
@@ -227,33 +396,59 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
           />
         </Group>
       ) : null}
+      {adminRead.status === 'loading' ? <Skeleton width="50%" height={14} /> : null}
+      {adminRead.status === 'error' ? (
+        <Group title={tr('account.group.administration')}>
+          <View style={{ padding: t.spacing.lg, gap: t.spacing.sm }}>
+            <Text variant="footnote" color="muted">{adminRead.error}</Text>
+            <Button title="Retry admin status" variant="outline" onPress={() => void loadAdmin()} />
+          </View>
+        </Group>
+      ) : null}
 
       <Group title={tr('account.group.account')}>
         {mode === 'customer' ? (
           <>
-            {coinsConfig?.coins_earning_enabled === false && coinsConfig.coins_redemption_enabled === false ? null : (
-              <>
-                <ListItem
-                  icon="sparkles-outline"
-                  title={tr('account.coins.title')}
-                  subtitle={
-                    coinsPolicyUnavailable
-                      ? tr('account.coins.policyUnavailable')
-                      : coinsConfig
+            <ListItem
+              icon="sparkles-outline"
+              title={tr('account.coins.title')}
+              subtitle={
+                coinsConfigRead.status === 'error'
+                  ? tr('account.coins.policyUnavailable')
+                  : coinsConfigRead.status === 'loading'
+                    ? 'Checking reward availability…'
+                    : coinsConfigRead.value?.coins_earning_enabled === false && coinsConfigRead.value.coins_redemption_enabled === false
+                      ? 'Rewards are paused. Your coin history remains available.'
+                      : coinsConfigRead.value
                         ? tr('account.coins.subtitle', {
                             coins: '100',
-                            value: formatINR(100 * coinsConfig.coin_paise),
-                            months: String(coinsConfig.expiry_months),
+                            value: formatINR(100 * coinsConfigRead.value.coin_paise),
+                            months: String(coinsConfigRead.value.expiry_months),
                           })
                         : tr('account.coins.subtitleFallback')
-                  }
-                  value={formatINR(coinBalance)}
-                  chevron
-                  onPress={() => router.push('/coins')}
+              }
+              value={coinBalanceRead.status === 'error' || coinBalanceRead.value === null
+                ? coinBalanceRead.status === 'loading' ? 'Loading…' : 'Unavailable'
+                : formatINR(coinBalanceRead.value)}
+              chevron
+              onPress={() => router.push('/coins')}
+            />
+            {coinBalanceRead.status === 'error' || coinsConfigRead.status === 'error' ? (
+              <View style={{ paddingHorizontal: t.spacing.lg, paddingBottom: t.spacing.md, gap: t.spacing.sm }}>
+                <Text variant="footnote" color="muted">
+                  {[coinBalanceRead.error, coinsConfigRead.error].filter(Boolean).join(' ')}
+                </Text>
+                <Button
+                  title="Retry coin details"
+                  variant="outline"
+                  onPress={() => {
+                    void loadCoinBalance();
+                    void loadCoinsConfig();
+                  }}
                 />
-                <Divider inset={LIST_INSET} />
-              </>
-            )}
+              </View>
+            ) : null}
+            <Divider inset={LIST_INSET} />
             <ListItem icon="location-outline" title={tr('account.savedAddresses.title')} subtitle={tr('account.savedAddresses.subtitle')} chevron onPress={() => router.push('/location')} />
             <Divider inset={LIST_INSET} />
             <ListItem icon="card-outline" title={tr('account.paymentMethods.title')} subtitle={tr('account.paymentMethods.subtitle')} chevron onPress={() => soon('account.paymentMethods.comingSoon')} />
