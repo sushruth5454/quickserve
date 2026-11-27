@@ -147,18 +147,24 @@ async function cleanupFixture(client, fixture, bookingIds, scheduleIds) {
     }
   };
 
-  await attempt('notifications', `
+  await attempt(
+    'notifications',
+    `
       delete from public.notifications as n
        where n.data ->> 'booking_id' = any($1::text[])
-    `, [bookingIds]);
+    `,
+    [bookingIds],
+  );
   await attempt(
     'bookings',
     'delete from public.bookings as b where b.id = any($1::uuid[])',
     [bookingIds],
   );
-  await attempt('recurring schedules',
+  await attempt(
+    'recurring schedules',
     'delete from public.recurring_schedules as r where r.id = any($1::uuid[])',
-    [scheduleIds]);
+    [scheduleIds],
+  );
   await attempt('addresses', 'delete from public.addresses as a where a.id = $1::uuid', [fixture.addressId]);
   await attempt('provider availability', 'delete from public.provider_availability as pa where pa.provider_id = $1::uuid', [fixture.ownerId]);
   await attempt('provider services', 'delete from public.provider_services as ps where ps.id = $1::uuid', [fixture.serviceId]);
@@ -179,12 +185,114 @@ async function cleanupFixture(client, fixture, bookingIds, scheduleIds) {
   }
 }
 
+async function withFixtureCleanup(context, fixture, bookingIds, scheduleIds, work) {
+  let testFailure = null;
+  try {
+    await work();
+  } catch (error) {
+    testFailure = error;
+  }
+
+  let cleanupFailure = null;
+  try {
+    await context.withClient((client) => cleanupFixture(client, fixture, bookingIds, scheduleIds));
+  } catch (error) {
+    cleanupFailure = error;
+  }
+
+  if (testFailure && cleanupFailure) {
+    throw new AggregateError(
+      [testFailure, cleanupFailure],
+      `SV12 test and fixture cleanup both failed: ${testFailure.message}; cleanup: ${cleanupFailure.message}`,
+    );
+  }
+  if (testFailure) throw testFailure;
+  if (cleanupFailure) throw cleanupFailure;
+}
+
+async function verifyPartialSetupCleanup(context) {
+  const fixture = createFixtureState();
+  const scheduleId = randomUUID();
+  const bookingIds = [randomUUID()];
+  const injectedMessage = 'SV12 injected setup failure after booking insert';
+  let caught = null;
+
+  try {
+    await withFixtureCleanup(context, fixture, bookingIds, [scheduleId], async () => {
+      await context.withClient(async (client) => {
+        await createFixture(client, fixture);
+        await createRecurringSchedule(client, fixture, scheduleId);
+        await createRequestedBooking(client, fixture, bookingIds[0], {
+          scheduledAt: '2027-04-20T10:00:00+05:30',
+          recurringScheduleId: scheduleId,
+        });
+        throw new Error(injectedMessage);
+      });
+    });
+  } catch (error) {
+    caught = error;
+  }
+
+  assert.equal(
+    caught?.message,
+    injectedMessage,
+    `partial setup failure must propagate after cleanup: ${JSON.stringify({ error: caught?.message ?? null })}`,
+  );
+  const actual = await context.withClient(async (client) => (await client.query(`
+    select
+      (select count(*)::int from auth.users as u where u.id = any($1::uuid[])) as user_count,
+      (select count(*)::int from public.profiles as p where p.id = any($1::uuid[])) as profile_count,
+      (select count(*)::int from public.providers as p where p.id = $2::uuid) as provider_count,
+      (select count(*)::int from public.categories as c where c.id = $3::uuid) as category_count,
+      (select count(*)::int from public.category_cities as cc where cc.category_id = $3::uuid) as category_city_count,
+      (select count(*)::int from public.provider_services as ps where ps.id = $4::uuid) as service_count,
+      (select count(*)::int from public.provider_availability as pa where pa.provider_id = $2::uuid) as availability_count,
+      (select count(*)::int from public.addresses as a where a.id = $5::uuid) as address_count,
+      (select count(*)::int from public.recurring_schedules as r where r.id = $6::uuid) as schedule_count,
+      (select count(*)::int from public.bookings as b where b.id = any($7::uuid[])) as booking_count,
+      (select count(*)::int from public.notifications as n where n.data ->> 'booking_id' = any($8::text[])) as notification_count,
+      coalesce((
+        select c.value = $9::jsonb from public.app_config as c
+         where c.key = 'archetype_flags'::text
+      ), false) as flags_restored
+  `, [
+    [fixture.ownerId, fixture.customerId],
+    fixture.ownerId,
+    fixture.categoryId,
+    fixture.serviceId,
+    fixture.addressId,
+    scheduleId,
+    bookingIds,
+    bookingIds.map(String),
+    JSON.stringify(fixture.originalArchetypeFlags),
+  ])).rows[0]);
+  const expected = {
+    user_count: 0,
+    profile_count: 0,
+    provider_count: 0,
+    category_count: 0,
+    category_city_count: 0,
+    service_count: 0,
+    availability_count: 0,
+    address_count: 0,
+    schedule_count: 0,
+    booking_count: 0,
+    notification_count: 0,
+    flags_restored: true,
+  };
+  assert.deepEqual(
+    actual,
+    expected,
+    `partial setup cleanup must remove every fixture row and restore app_config: ${JSON.stringify(actual)}`,
+  );
+}
+
 export async function run(context) {
+  await verifyPartialSetupCleanup(context);
   const fixture = createFixtureState();
   const scheduleId = randomUUID();
   const bookingIds = [randomUUID(), randomUUID()];
-  let testFailure = null;
-  try {
+  await withFixtureCleanup(context, fixture, bookingIds, [scheduleId], async () => {
     await context.withClient(async (client) => {
       await createFixture(client, fixture);
       await createRecurringSchedule(client, fixture, scheduleId);
@@ -299,23 +407,5 @@ export async function run(context) {
       if (raceFailure) throw raceFailure;
       if (rollbackFailure) throw rollbackFailure;
     });
-  } catch (error) {
-    testFailure = error;
-  }
-
-  let cleanupFailure = null;
-  try {
-    await context.withClient((client) => cleanupFixture(client, fixture, bookingIds, [scheduleId]));
-  } catch (error) {
-    cleanupFailure = error;
-  }
-
-  if (testFailure && cleanupFailure) {
-    throw new AggregateError(
-      [testFailure, cleanupFailure],
-      `SV12 test and fixture cleanup both failed: ${testFailure.message}; cleanup: ${cleanupFailure.message}`,
-    );
-  }
-  if (testFailure) throw testFailure;
-  if (cleanupFailure) throw cleanupFailure;
+  });
 }

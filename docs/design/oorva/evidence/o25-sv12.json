@@ -52,7 +52,7 @@
       "Request cards use the server deadline and flags, hide an unsupported zero-visit-fee earnings estimate, and link to booking details.",
       "Next-job actions are family-aware; accepted time-based sessions and proposal OTP/delivery actions open booking details, and proposal confirmed/delivery_pending work is active.",
       "Mutation success requires a refreshed same-booking-id status readback. No appearance flag or money-safety gate was added.",
-      "The private PostgreSQL fixture preallocates cleanup keys before setup, restores archetype_flags on failure, attempts every cleanup step, and propagates aggregated cleanup failures."
+      "The private PostgreSQL fixture preallocates cleanup keys before setup, restores archetype_flags on failure, attempts every cleanup step, and propagates aggregated cleanup failures. An injected setup abort verifies that partial rows are removed and the original configuration is restored."
     ],
     "featureOffBehavior": "No appearance feature gate was added to owner resolution, cancellation, refunds, settlement, or expiry cleanup; the existing money-safety paths were not modified."
   },
@@ -75,6 +75,7 @@
       "selector": "o25_sv12.pg.test.mjs",
       "scenario": "SV-REQUEST-CARD-CONCURRENT",
       "required": "Two independent backend PIDs; accept_booking waits across the expiry row-lock barrier at the ordinary deadline; recurring acceptance remains exempt.",
+      "cleanupFailureScenario": "An injected setup failure after inserting a recurring request proves partial fixture/schedule cleanup and archetype_flags restoration; the injected error must still propagate.",
       "cleanupFix": "Pending exact Lane CI after focused final-head concurrency review."
     },
     "migrationParserSelector": "o25_sv12_oorva.sql",
