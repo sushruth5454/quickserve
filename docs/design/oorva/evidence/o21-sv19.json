@@ -36,11 +36,16 @@
   "validation": {
     "gitDiffCheck": "PASS",
     "codespaceApp": "PASS: exact requestReadiness selector; 1 suite, 4 tests; snapshot c6ede199.",
-    "codespaceSql": "PASS: exact oorva_o21_sv19 selector; 1/1 test file, 28 scenarios; snapshot edd5d7ef.",
+    "codespaceSql": "PASS: booking_idempotency selected 1/1 file and oorva_o21_sv19 selected 1/1 file; both selectors passed. Snapshots 45ef258f and cf99b0c9.",
     "migrationParser": "PASS: exact o21_sv19_oorva.sql selector; 1/1 parse, 15 top-level statements, 5 function bodies, 0 errors; snapshot 6c13aacd.",
     "focusedAuthReview": "PASS: independent focused review found no actionable authorization/privacy findings after nested x-private was rejected.",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "authorizedFollowUpDelta": {
+    "id": "delta-o21-sv19-idempotency-fixture-20261127",
+    "file": "supabase\\tests\\booking_idempotency.test.mjs",
+    "change": "The existing same-request-key scenario now supplies a valid 10+ character brief; its existing JSON actual-state assertion was preserved."
   }
 }
