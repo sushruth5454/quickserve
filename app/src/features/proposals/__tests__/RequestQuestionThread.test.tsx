@@ -82,13 +82,13 @@ type TestRoot = { render: (element: React.ReactElement) => void; unmount: () => 
 let root: TestRoot | undefined;
 let container: HTMLDivElement;
 
-function message(id: string, createdAt: string) {
+function message(id: string, createdAt: string, body = 'A request question') {
   return {
     id,
     request_id: 'request-1',
     provider_id: 'provider-1',
     sender_id: 'customer-1',
-    body: 'A request question',
+    body,
     created_at: createdAt,
   };
 }
@@ -270,7 +270,11 @@ describe('RequestQuestionThread', () => {
   });
 
   it('clears only after timestamped thread readback and preserves the leakage nudge', async () => {
-    const sentMessage = message('message-returned-by-rpc', '2030-01-15T10:00:00.000Z');
+    const sentMessage = message(
+      'message-returned-by-rpc',
+      '2030-01-15T10:00:00.000Z',
+      'Please send payment outside QuickServe',
+    );
     mockRpc.mockResolvedValueOnce({
       data: { message_id: sentMessage.id, nudge: true },
       error: null,
@@ -288,7 +292,7 @@ describe('RequestQuestionThread', () => {
     await clickButton('Send message');
 
     expect(container.querySelector('textarea')?.value).toBe('');
-    expect(container.textContent).toContain('A request question');
+    expect(container.textContent).toContain(sentMessage.body);
     expect(container.textContent).toContain(new Date(sentMessage.created_at).toLocaleString());
     expect(container.textContent).toContain('Keep this conversation protected');
     expect(mockToast).toHaveBeenCalledWith({ message: 'Message sent', tone: 'success' });

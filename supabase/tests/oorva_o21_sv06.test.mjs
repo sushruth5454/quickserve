@@ -29,7 +29,7 @@ async function user(label) {
   return id;
 }
 
-async function provider(ownerId, city) {
+async function provider(ownerId, categoryId, city) {
   await db.query(`
     insert into public.providers (
       id, city, base_location, kyc_status, admin_review_status, submitted_at, is_online, paused, suspended
@@ -39,6 +39,11 @@ async function provider(ownerId, city) {
       'verified', 'approved', now(), true, false, false
     )
   `, [ownerId, city]);
+  return (await db.query(`
+    insert into public.provider_services (provider_id, category_id, visit_fee, labour_rate, active)
+    values ($1::uuid, $2::uuid, 0::int, 0::int, true)
+    returning id
+  `, [ownerId, categoryId])).rows[0].id;
 }
 
 async function category(label) {
@@ -53,7 +58,7 @@ async function category(label) {
   return id;
 }
 
-async function request(customerId, categoryId, providerId, status, dayOffset) {
+async function request(customerId, categoryId, providerId, providerServiceId, status, dayOffset) {
   const day = String(10 + dayOffset).padStart(2, '0');
   const eventStart = `2032-01-${day}T10:00:00.000Z`;
   const eventEnd = `2032-01-${day}T12:00:00.000Z`;
@@ -69,9 +74,9 @@ async function request(customerId, categoryId, providerId, status, dayOffset) {
     returning id
   `, [customerId, categoryId, `SV06 City ${dayOffset}`, `Area ${dayOffset}`, eventStart, eventEnd, status])).rows[0].id;
   await db.query(`
-    insert into public.request_recipients (request_id, provider_id)
-    values ($1::uuid, $2::uuid)
-  `, [requestId, providerId]);
+    insert into public.request_recipients (request_id, provider_id, provider_service_id)
+    values ($1::uuid, $2::uuid, $3::uuid)
+  `, [requestId, providerId, providerServiceId]);
   return requestId;
 }
 
@@ -79,8 +84,8 @@ async function makeFixture(label, status, dayOffset) {
   const customerId = await user(`${label} customer`);
   const providerId = await user(`${label} provider`);
   const categoryId = await category(label);
-  await provider(providerId, `SV06 City ${dayOffset}`);
-  const requestId = await request(customerId, categoryId, providerId, status, dayOffset);
+  const providerServiceId = await provider(providerId, categoryId, `SV06 City ${dayOffset}`);
+  const requestId = await request(customerId, categoryId, providerId, providerServiceId, status, dayOffset);
   return { customerId, providerId, requestId };
 }
 
