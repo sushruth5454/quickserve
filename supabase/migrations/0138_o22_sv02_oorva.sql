@@ -248,6 +248,14 @@ begin
   perform public._assert(jsonb_typeof(p_addons) = 'array' and jsonb_array_length(p_addons) between 1 and 20, '1 to 20 add-ons are required');
   select * into q from public.quotes where id = b.approved_quote_id for update;
   perform public._assert(q.id is not null and q.status = 'approved' and q.quote_type = 'package', 'approved package quote not found');
+  perform public._assert(not exists (
+    select 1
+      from public.quotes pending
+     where pending.booking_id = b.id
+       and pending.status = 'approved_pending_payment'
+       and pending.is_change_order
+       and pending.quote_type = 'package'
+  ), 'resolve the pending fixed add-on payment before sending another add-on');
 
   for v_item in select value from jsonb_array_elements(p_addons) loop
     perform public._assert(
@@ -335,7 +343,7 @@ begin
   select * into q from public.quotes where id = p_quote_id and booking_id = b.id for update;
   perform public._assert(q.id is not null and q.status = 'sent' and q.quote_type = 'package' and q.is_change_order, 'fixed change order not found');
 
-  v_target := q.total + b.platform_fee;
+  v_target := public._required_total(q.total, b.visit_fee, b.platform_fee);
   v_delta := v_target - public._net_paid(b.id);
   if v_delta > 0 then
     update public.quotes set status = 'approved_pending_payment' where id = q.id;

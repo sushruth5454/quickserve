@@ -30,7 +30,7 @@ import * as api from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { isDemoMode } from '../../lib/config';
 import { cancellationPreviewCopy } from '../../lib/cancellationCopy';
-import { approveFixedChangeOrder, canManageServiceQuotes, getQuoteApprovalMode, getQuoteEditorMode } from '../../lib/fixedBooking';
+import { approveFixedChangeOrder, canManageServiceQuotes, canPayPendingQuoteWithoutSchedule, getQuoteApprovalMode, getQuoteEditorMode } from '../../lib/fixedBooking';
 import { haptics } from '../../lib/haptics';
 import { amountDue, customerDueNow, formatINR, requiredTotal } from '../../lib/money';
 import {
@@ -329,6 +329,9 @@ export default function BookingDetailScreen() {
   const dueForPending = pendingPaymentQuote
     ? amountDue({ quoteTotal: pendingPaymentQuote.total, visitFee: booking.visit_fee, platformFee: booking.platform_fee, alreadyPaid: paid })
     : 0;
+  const canRetryPendingQuotePayment = pendingPaymentQuote
+    ? canPayPendingQuoteWithoutSchedule(booking, pendingPaymentQuote.id, visibleData.paymentSchedule ?? [])
+    : false;
 
   // ---------- actions ----------
   const submitRevisionRequest = () => {
@@ -447,7 +450,7 @@ export default function BookingDetailScreen() {
           <Button title={due > 0 ? 'Approve & pay' : 'Approve'} onPress={() => void approve(openQuote)} loading={busy} size="lg" style={{ flex: 1 }} />
         </AmountFooter>
       );
-    } else if (pendingPaymentQuote && dueForPending > 0 && !scheduled && !scheduleUnavailable) {
+    } else if (pendingPaymentQuote && dueForPending > 0 && canRetryPendingQuotePayment && !scheduleUnavailable) {
       footer = (
         <AmountFooter label="Balance due" amount={dueForPending}>
           <Button
@@ -536,7 +539,7 @@ export default function BookingDetailScreen() {
         leftIcon="checkmark-done"
         size="lg"
         fullWidth
-        disabled={!!openQuote}
+        disabled={!!openQuote || !!pendingPaymentQuote}
         loading={busy}
         onPress={() => void run(() => api.requestCompletion(booking.id), 'Customer asked to confirm')}
       />

@@ -87,19 +87,60 @@
   "coordinatorRegistration": {
     "owner": "coordinator",
     "path": "supabase\\tests\\package.json",
-    "status": "WAITING_FOR_SHARED_REGISTRATION_ROUNDTRIP_SHA",
+    "status": "REGISTERED_AND_FAST_FORWARD_MERGED",
+    "registrationCommit": "f5c34ff6cb19fa6dee92cc03a950ff81eddb0615",
+    "selectionProof": {
+      "sql": "node oorva_o22_sv02.test.mjs",
+      "migrationParser": "node parse.cjs ../migrations/0138_o22_sv02_oorva.sql"
+    },
     "workerEdited": false
   },
   "validation": {
     "sourceScope": "PASS",
-    "gitDiffCheck": "PASS",
-    "codespaceApp": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceJest": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceSql": "NOT_RUN_BY_INSTRUCTION",
-    "codespaceMigrationParser": "NOT_RUN_BY_INSTRUCTION",
-    "focusedMoneyReview": "PENDING_AFTER_REGISTRATION_AND_TESTS",
+    "gitDiffCheck": "PASS before follow-up review fixes; rerun before checkpoint commit",
+    "codespaceApp": {
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.bookingDetail.__tests__.model[.]test[.]ts$'",
+      "selectedFile": "app/src/features/bookingDetail/__tests__/model.test.ts",
+      "selectedTests": 14,
+      "tsc": "PASS through app suite",
+      "outcome": "PASS after money-review fixes"
+    },
+    "codespaceJest": {
+      "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.booking.packages.__tests__.packageModel[.]test[.]ts$'",
+      "selectedFile": "app/src/features/booking/packages/__tests__/packageModel.test.ts",
+      "selectedTests": 14,
+      "outcome": "PASS after money-review fixes"
+    },
+    "codespaceSql": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o22_sv02'",
+      "selectedFile": "supabase/tests/oorva_o22_sv02.test.mjs",
+      "outcome": "PASS after money-review fixes"
+    },
+    "codespaceMigrationParser": {
+      "command": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o22_sv02_oorva.sql'",
+      "selectedMigration": "supabase/migrations/0138_o22_sv02_oorva.sql",
+      "topLevelStatements": 6,
+      "functionBodies": 6,
+      "parseErrors": 0,
+      "outcome": "PASS after money-review fixes"
+    },
+    "focusedMoneyReview": "REVIEW_ITERATION_2_PENDING",
     "exactHeadLaneCi": "NOT_RUN",
     "privateIntegration": "NOT_RUN",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "moneyReview": {
+    "iteration1": [
+      {
+        "severity": "High",
+        "finding": "A second fixed add-on could supersede an approved_pending_payment package change order and lose its pending scope/obligation.",
+        "status": "FIXED: server guard before writes; editor hides pending state; SQL regression added."
+      },
+      {
+        "severity": "Medium",
+        "finding": "Fixed approval target did not use the shared visit-fee-aware required-total formula.",
+        "status": "FIXED: approval uses public._required_total; SQL regression covers a nonzero visit fee."
+      }
+    ]
   }
 }

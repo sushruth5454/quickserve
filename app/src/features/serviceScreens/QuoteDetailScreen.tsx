@@ -26,7 +26,7 @@ import {
   useToast,
 } from '../../components/ui';
 import { getBooking, getQuotes, listMyServices, sendQuote, uploadJobPhoto } from '../../lib/api';
-import { buildFixedAddonPayload, canManageServiceQuotes, getQuoteEditorMode, sendFixedAddons } from '../../lib/fixedBooking';
+import { buildFixedAddonPayload, canManageServiceQuotes, getQuoteEditorMode, hasPendingFixedAddonQuote, sendFixedAddons } from '../../lib/fixedBooking';
 import { useAuth } from '../../lib/auth';
 import { isDemoMode } from '../../lib/config';
 import { haptics } from '../../lib/haptics';
@@ -213,7 +213,7 @@ export default function QuoteDetailScreen() {
     result.total += travelFee;
     return result;
   }, [parsed, booking]);
-  const { quoteMode, approvedPackage, isChangeOrder, title } = useQuoteDetailController(booking, quotes);
+  const { quoteMode, approvedPackage, hasPendingAddonPayment, isChangeOrder, title } = useQuoteDetailController(booking, quotes);
   const addonTotal = addons.reduce((sum, addon) => {
     const unitPrice = rupeesToPaise(Number(addon.unitPrice));
     return sum + (Number.isFinite(unitPrice) && addon.qty > 0 ? Math.round(addon.qty * unitPrice) : 0);
@@ -304,7 +304,11 @@ export default function QuoteDetailScreen() {
   if (!quoteMode) {
     return (
       <Screen header={<Header title={title} />}>
-        <ErrorState message="This booking does not support itemised quotes or fixed-package add-ons." />
+        <ErrorState
+          message={hasPendingAddonPayment
+            ? 'Resolve the pending fixed add-on payment before sending another add-on.'
+            : 'This booking does not support itemised quotes or fixed-package add-ons.'}
+        />
       </Screen>
     );
   }
@@ -618,6 +622,7 @@ export default function QuoteDetailScreen() {
 function useQuoteDetailController(booking: Booking | null, quotes: Quote[]) {
   return useMemo(() => {
     const quoteMode = booking ? getQuoteEditorMode(booking, quotes) : null;
+    const hasPendingAddonPayment = hasPendingFixedAddonQuote(quotes);
     const approvedPackage = booking
       ? quotes.find((quote) => quote.id === booking.approved_quote_id) ?? null
       : null;
@@ -629,7 +634,7 @@ function useQuoteDetailController(booking: Booking | null, quotes: Quote[]) {
         : booking?.status === 'quote_sent'
           ? 'Revise quote'
           : 'Itemised quote';
-    return { quoteMode, approvedPackage, isChangeOrder, title };
+    return { quoteMode, approvedPackage, hasPendingAddonPayment, isChangeOrder, title };
   }, [booking, quotes]);
 }
 

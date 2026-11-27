@@ -547,6 +547,7 @@ export interface ProposalViewState {
 export interface PaymentSchedule {
   id: string;
   booking_id: string;
+  quote_id?: string | null;
   seq: number;
   label: string;
   amount: number;
