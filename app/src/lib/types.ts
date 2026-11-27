@@ -382,6 +382,7 @@ export interface BookingEvent {
 export interface ProviderJob {
   booking_id: string;
   status: BookingStatus;
+  archetype?: BookingArchetype;
   category_name: string;
   customer_name: string;
   description: string;

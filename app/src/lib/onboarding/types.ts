@@ -75,6 +75,20 @@ export interface ProviderDocument {
   created_at: string;
 }
 
+export interface DocumentRequirement {
+  doc_type: string;
+  category_id: string;
+  category_name: string;
+  satisfied: boolean;
+  approved_document_id: string | null;
+  approved_status: 'approved' | null;
+  latest_document_id: string | null;
+  latest_status: DocStatus | null;
+  effective_latest_status: Exclude<DocStatus, 'superseded'> | null;
+  expires_on: string | null;
+  reject_reason: string | null;
+}
+
 export interface PayoutAccount {
   rail: 'route' | 'payouts';
   activation_status: string;
@@ -120,6 +134,8 @@ export interface OnboardingState {
   checks: Check[];
   go_live: GoLive;
   terms_version: string;
+  document_requirements?: DocumentRequirement[];
+  server_local_date?: string | null;
 }
 
 export interface CategorySkill {

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "stage": "O38-ID01",
+  "sourceTask": "ID-T01",
+  "planCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBase": "a393505c330f4e1a7cf1b2c683874548913b9622",
+  "migrationClaim": "MIG-O38-ID01",
+  "migration": "supabase/migrations/0140_o38_id01_oorva.sql",
+  "state": "PAUSED_FOR_REGISTRATION",
+  "scope": {
+    "documentReadiness": "Private per-requirement validity and latest-submission projection; preserves payout/KYC/live policy.",
+    "ownerRead": "Adds document_requirements and server_local_date; preserves existing private fields and raw documents.",
+    "adminRead": "Adds canonical go_live, review_note, and category_name to admin-only reads.",
+    "jobReads": "Adds only stored bookings.archetype to existing safe projections.",
+    "runtimeFlags": "No capability gate or feature flag added."
+  },
+  "preservedBaseDrift": [
+    "app/src/lib/adminApi.ts",
+    "app/src/lib/types.ts"
+  ],
+  "workerFiles": [
+    "app/src/lib/onboarding/types.ts",
+    "app/src/lib/onboarding/supabaseOnboarding.ts",
+    "app/src/lib/adminApi.ts",
+    "app/src/lib/types.ts",
+    "app/src/lib/onboarding/completeness.ts",
+    "supabase/migrations/0140_o38_id01_oorva.sql",
+    "app/src/lib/onboarding/__tests__/completeness.test.ts",
+    "app/src/lib/__tests__/supabaseApi.test.ts",
+    "supabase/tests/id_readiness.test.mjs",
+    "docs/design/oorva/evidence/o38-id01.json"
+  ],
+  "coordinatorRegistration": {
+    "sharedFile": "supabase/tests/package.json",
+    "requestedAdditions": [
+      "Register supabase/tests/id_readiness.test.mjs under its unique filename selector.",
+      "Register the 0140_o38_id01_oorva.sql parser selector in the migration parser/full-chain list."
+    ],
+    "deploymentRegistration": "Not requested for this gate; waits for authorized E1 promotion."
+  },
+  "validation": {
+    "status": "NOT_RUN_PENDING_REGISTRATION",
+    "codespaceSelectors": [
+      "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.lib.onboarding.__tests__.completeness[.]test[.]ts$'",
+      "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.lib.__tests__.supabaseApi[.]test[.]ts$'",
+      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'id_readiness'",
+      "pwsh -NoProfile -File $Helper -Suite sql -Filter 'o38_id01_oorva.sql'"
+    ],
+    "authReview": "PENDING",
+    "laneCi": "PENDING"
+  }
+}

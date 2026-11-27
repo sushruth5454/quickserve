@@ -4,6 +4,7 @@ import { invokeFunction } from '../invokeFunction';
 import type {
   BasicsInput,
   CategorySkill,
+  DocumentRequirement,
   DocumentType,
   GoLive,
   OnboardingApi,
@@ -91,6 +92,10 @@ export const supabaseOnboardingApi: OnboardingApi = {
       checks: raw?.checks ?? [],
       go_live: raw?.go_live ?? EMPTY_GO_LIVE,
       terms_version: raw?.terms_version ?? '',
+      ...(raw?.document_requirements !== undefined
+        ? { document_requirements: raw.document_requirements as DocumentRequirement[] }
+        : {}),
+      ...(raw?.server_local_date !== undefined ? { server_local_date: raw.server_local_date } : {}),
     };
   },
 

@@ -2,7 +2,7 @@ jest.mock('../supabase', () => ({
   supabase: { from: jest.fn(), rpc: jest.fn(), auth: { getSession: jest.fn() } },
 }));
 
-import { deleteAddress, getProviderService, requestAccountDeletion } from '../supabaseApi';
+import { deleteAddress, getProviderJobs, getProviderService, requestAccountDeletion } from '../supabaseApi';
 import { supabase } from '../supabase';
 import { Linking } from 'react-native';
 import { supportContact } from '../config';
@@ -41,6 +41,35 @@ describe('getProviderService', () => {
       expect.stringContaining('categories(name, slug, archetype, recurrence_allowed, allowed_frequencies)'),
     );
     expect(result.categories).toEqual(category);
+  });
+});
+
+describe('getProviderJobs', () => {
+  it('retains the booking key and stored archetype from the safe job projection', async () => {
+    const job = {
+      booking_id: 'booking-1',
+      status: 'accepted',
+      category_name: 'Repair',
+      customer_name: 'Customer',
+      description: 'Repair request',
+      scheduled_at: '2026-12-20T10:00:00.000Z',
+      created_at: '2026-11-20T10:00:00.000Z',
+      visit_fee: 1200,
+      area: 'Test city',
+      distance_km: 2,
+      address_line: null,
+      lat: null,
+      lng: null,
+      archetype: 'proposal',
+    };
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: [job], error: null });
+
+    const result = await getProviderJobs();
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_provider_jobs');
+    expect(result).toEqual([job]);
+    expect(result[0].booking_id).toBe('booking-1');
+    expect(result[0].archetype).toBe('proposal');
   });
 });
 
