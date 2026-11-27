@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stageId": "O17-SV23",
   "workPackage": "O17",
-  "status": "VALIDATED_AWAITING_LANE_CI",
+  "status": "VALIDATED",
   "base": {
     "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
     "implementationSha": "6276036a973014e15e717a4ce21881bb87ac199b",
@@ -158,8 +158,15 @@
     },
     "helperSource": "origin/main:scripts/cs-test.ps1",
     "localAppBuildOrTests": "NOT_RUN",
-    "lanePush": "READY_AFTER_CODESPACE_PASS",
-    "laneCi": "PENDING_EXACT_HEAD_AUTHOR_RUN",
+    "lanePush": "PUSHED_EXACT_HEAD",
+    "laneCI": {
+      "state": "SUCCESS",
+      "ref": "lane/oorva-o17-sv23",
+      "codeHeadSha": "8cb4546ea9c8e4ef81c7ed5a5362ab686e48e6d5",
+      "runId": 45986935456,
+      "conclusion": "success",
+      "coordinatorRegistration": "delta-o17-sv23-lane-evidence-20261127"
+    },
     "mainPromotion": "NOT_IN_SCOPE",
     "runtimeDeviceEvidence": "NOT_VERIFIED",
     "privateE2E": "NOT_RUN"
