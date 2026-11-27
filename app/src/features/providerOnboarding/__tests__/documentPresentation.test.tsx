@@ -2,6 +2,32 @@ import { documentRows, documentStatusLabel, requirementPresentation } from '../P
 import type { OnboardingData } from '../useOnboardingData';
 import type { DocumentRequirement, ProviderDocument } from '../../../lib/onboarding';
 
+jest.mock('expo-image', () => ({ Image: 'Image' }));
+jest.mock('react-native', () => ({ View: 'View' }));
+jest.mock('../../../components/ui', () => ({
+  Badge: 'Badge',
+  BottomSheet: 'BottomSheet',
+  Button: 'Button',
+  Card: 'Card',
+  Chip: 'Chip',
+  InlineAlert: 'InlineAlert',
+  Input: 'Input',
+  ListItem: 'ListItem',
+  Screen: 'Screen',
+  Text: 'Text',
+  useConfirm: () => jest.fn(),
+  useToast: () => jest.fn(),
+}));
+jest.mock('../../../lib/onboarding', () => ({ onboardingApi: {} }));
+jest.mock('../media', () => ({ pickDocument: jest.fn(), pickPhoto: jest.fn() }));
+jest.mock('../parts', () => ({
+  FieldLabel: 'FieldLabel',
+  Intro: 'Intro',
+  SectionFooter: 'SectionFooter',
+  istToday: () => '2026-11-27',
+}));
+jest.mock('../../../theme', () => ({ useTheme: () => ({ colors: {}, spacing: {}, radii: {} }) }));
+
 const requirement = (overrides: Partial<DocumentRequirement> = {}): DocumentRequirement => ({
   doc_type: 'license',
   category_id: 'category-a',

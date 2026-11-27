@@ -8,6 +8,17 @@ import type { RateUnit } from '../../../lib/types';
 import type { ServiceEditorState } from '../serviceEditor';
 import { useTheme } from '../../../theme';
 
+export async function readPriceGuidance(categoryId: string, city: string, unit: RateUnit): Promise<{
+  status: 'ready' | 'error';
+  value: PriceGuidance | null;
+}> {
+  try {
+    return { status: 'ready', value: await onboardingApi.getPriceGuidance(categoryId, city, unit) };
+  } catch {
+    return { status: 'error', value: null };
+  }
+}
+
 export function PricingStep({ state, city, guidance, errors, onState }: {
   state: ServiceEditorState;
   city: string;
@@ -31,14 +42,9 @@ export function PricingStep({ state, city, guidance, errors, onState }: {
     }
     let active = true;
     setRead({ key, status: 'loading', value: null });
-    onboardingApi
-      .getPriceGuidance(state.categoryId, city, state.unit)
-      .then((value) => {
-        if (active) setRead({ key, status: 'ready', value });
-      })
-      .catch(() => {
-        if (active) setRead({ key, status: 'error', value: null });
-      });
+    void readPriceGuidance(state.categoryId, city, state.unit).then((value) => {
+      if (active) setRead({ key, ...value });
+    });
     return () => {
       active = false;
     };

@@ -10,7 +10,7 @@
   },
   "gate": "E0 APPROVED",
   "implementation": {
-    "status": "checkpoint-ready",
+    "status": "codespace-validated",
     "summary": [
       "Owner reads are keyed to the authenticated UID and request generation; old-owner results are ignored.",
       "Read state distinguishes loading, refreshing, initial error, ready and stale; successful mutations remain distinguishable from failed readback with Retry.",
@@ -26,28 +26,54 @@
     "gitDiffCheck": "PASS"
   },
   "codespaceValidation": {
-    "status": "BLOCKED",
-    "reason": "The current-main Codespace helper could not list Codespaces because the GitHub CLI token lacks the codespace scope. The required interactive device authorization was started but could not be completed in this non-interactive run. No test selection or cs-test PASS was produced.",
+    "status": "PASS",
     "commands": [
       {
         "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.providerOnboarding.__tests__.identityReadState[.]test[.]ts$'",
-        "status": "BLOCKED_BEFORE_TEST_SELECTION"
+        "snapshotSha": "2c281f5a",
+        "selectedFile": "app/src/features/providerOnboarding/__tests__/identityReadState.test.ts",
+        "selectedCases": [
+          "ID-LOAD-INITIAL-ERROR distinguishes initial failure from a successful empty result",
+          "ID-LOAD-STALE preserves zero-valued data and ID-SAVE-READBACK-ERROR distinguishes failed readback",
+          "ID-LOAD-UID-RACE ignores a late response from the previous authenticated UID",
+          "coalesces overlapping refreshes into one sequential owner read",
+          "disables owner reads and disposes the focused interval when disabled",
+          "ID-READINESS-INVALIDATION polls only while focused and active and refreshes on resume and focus",
+          "schedules a read at the provider-local date boundary"
+        ],
+        "csTestResult": "PASS"
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.__tests__.documentPresentation[.]test[.]tsx$'",
-        "status": "NOT_RUN"
+        "snapshotSha": "032344aa",
+        "selectedFile": "app/src/features/providerOnboarding/__tests__/documentPresentation.test.tsx",
+        "selectedCases": [
+          "keeps required credentials scoped to each service category",
+          "does not reuse a category-specific legacy document for another category",
+          "keeps an approved fallback credential distinct from a newer pending submission",
+          "shows a latest replacement submission separately from a still-valid approved credential",
+          "uses the server effective expiry status instead of calling an expired credential approved",
+          "labels approved credentials Approved, never Live"
+        ],
+        "csTestResult": "PASS"
       },
       {
         "command": "pwsh -NoProfile -File $Helper -Suite jest -Filter 'src.features.providerOnboarding.services.__tests__.guidance[.]test[.]tsx$'",
-        "status": "NOT_RUN"
+        "snapshotSha": "7a7d4ad0",
+        "selectedFile": "app/src/features/providerOnboarding/services/__tests__/guidance.test.tsx",
+        "selectedCases": [
+          "shows Unavailable with Retry after failure, then remains nonblocking when retried"
+        ],
+        "csTestResult": "PASS"
       }
     ]
   },
   "authReview": {
-    "status": "PENDING_COORDINATOR_REVIEW"
+    "status": "NO_FINDINGS",
+    "reviewedCheckpoint": "fe1d3f2b6f57ae915feaa88582757346cb9d939f"
   },
   "laneCi": {
-    "status": "NOT_RUN",
-    "reason": "No lane push before Codespace PASS and coordinator AUTH review."
+    "status": "PENDING_EXACT_HEAD_LANE_PUSH",
+    "reason": "All three Codespace selectors passed and AUTH review returned NO_FINDINGS."
   }
 }
