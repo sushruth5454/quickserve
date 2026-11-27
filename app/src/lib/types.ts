@@ -383,11 +383,16 @@ export interface ProviderJob {
   booking_id: string;
   status: BookingStatus;
   archetype?: BookingArchetype;
+  booking_origin?: BookingOrigin;
+  recurring_schedule_id?: string | null;
   category_name: string;
   customer_name: string;
   description: string;
   scheduled_at: string | null;
   created_at: string;
+  request_expires_at?: string | null;
+  can_accept?: boolean;
+  can_decline?: boolean;
   visit_fee: number;
   area: string;
   distance_km: number | null;

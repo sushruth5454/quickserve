@@ -32,18 +32,7 @@ import { firstName } from './model';
 import { openBooking } from './navigation';
 import { BusinessDashboardView } from './BusinessDashboardView';
 import { ProviderDashboardView } from './ProviderDashboardView';
-
-/** Active statuses in the order a pro should look at them (most time-critical first). */
-const ACTIVE_PRIORITY: BookingStatus[] = [
-  'en_route',
-  'completion_requested',
-  'inspecting',
-  'in_progress',
-  'accepted',
-  'awaiting_payment',
-  'quote_sent',
-  'disputed',
-];
+import { ACTIVE_PRIORITY, getPrimaryJobAction, isActiveProviderJob } from './DashboardWidgets';
 
 export default function ProviderDashboard() {
   const t = useTheme();
@@ -141,11 +130,20 @@ export default function ProviderDashboard() {
     }
   };
 
-  const act = async (id: string, fn: () => Promise<void>, msg: string) => {
+  const act = async (id: string, fn: () => Promise<void>, msg: string, expectedStatus: BookingStatus) => {
     setBusyId(id);
     try {
       await fn();
       await load();
+      if (!provider || provider.business_role !== 'owner') {
+        throw new Error('The business owner context is unavailable. Refresh and try again.');
+      }
+      const refreshedJobs = await listMyBusinessProviderJobs(provider.id);
+      const updatedJob = refreshedJobs.find((job) => job.booking_id === id);
+      if (!updatedJob || updatedJob.status !== expectedStatus) {
+        throw new Error('The server did not confirm this booking update. Refresh and try again.');
+      }
+      setJobs(refreshedJobs);
       toast({ message: msg, tone: 'success' });
     } catch (e) {
       haptics.error();
@@ -160,7 +158,7 @@ export default function ProviderDashboard() {
   const active = useMemo(
     () =>
       (jobs ?? [])
-        .filter((j) => ACTIVE_PRIORITY.includes(j.status))
+        .filter(isActiveProviderJob)
         .sort(
           (a, b) =>
             ACTIVE_PRIORITY.indexOf(a.status) - ACTIVE_PRIORITY.indexOf(b.status) ||
@@ -177,8 +175,16 @@ export default function ProviderDashboard() {
   const gutter = { paddingHorizontal: t.spacing.lg };
 
   const primaryAction = (j: ProviderJob) => {
-    if (j.status === 'accepted') return void act(j.booking_id, () => startTrip(j.booking_id), `${firstName(j.customer_name)} has been told you're on the way`);
-    if (j.status === 'inspecting') return router.push({ pathname: '/quote/[bookingId]', params: { bookingId: j.booking_id, changeOrder: '0' } });
+    const action = getPrimaryJobAction(j);
+    if (action === 'start_trip') {
+      return void act(
+        j.booking_id,
+        () => startTrip(j.booking_id),
+        `${firstName(j.customer_name)} has been told you're on the way`,
+        'en_route',
+      );
+    }
+    if (action === 'quote') return router.push({ pathname: '/quote/[bookingId]', params: { bookingId: j.booking_id, changeOrder: '0' } });
     openBooking(j.booking_id);
   };
 

@@ -13,7 +13,7 @@ import { bookingRef, scheduleLabel } from '../../lib/schedule';
 import type { ProviderJob } from '../../lib/types';
 import { firstName } from './model';
 import { openBooking } from './navigation';
-import { CountdownRing, NEXT_STEP, RESPONSE_WINDOW_MS, type IconName } from './DashboardWidgets';
+import { CountdownRing, getNextStep, getRequestActionState, type IconName } from './DashboardWidgets';
 
 const DECLINE_REASONS = ['Too far', 'Busy right now', 'Not my skill', 'Other'] as const;
 
@@ -27,10 +27,11 @@ export function RequestCard(props: {
   unread: number;
   onAccept: () => void;
   onDecline: () => void;
+  onViewDetails: () => void;
 }) {
   const t = useTheme();
   const j = props.job;
-  const left = Math.max(0, new Date(j.created_at).getTime() + RESPONSE_WINDOW_MS - props.now);
+  const actions = getRequestActionState(j, props.now);
   return (
     <Animated.View entering={FadeInDown.duration(240)} layout={LinearTransition}>
       <Card variant="elevated" gap={t.spacing.md}>
@@ -45,7 +46,7 @@ export function RequestCard(props: {
               {j.distance_km != null ? ` · ${j.distance_km} km` : ''}
             </Text>
           </View>
-          <CountdownRing leftMs={left} />
+          {actions.leftMs !== null ? <CountdownRing leftMs={actions.leftMs} /> : null}
         </View>
         <Text variant="callout" color="textSecondary" numberOfLines={2}>
           {j.description || 'No description'}
@@ -76,7 +77,7 @@ export function RequestCard(props: {
               {j.scheduled_at ? scheduleLabel(j.scheduled_at) : 'As soon as possible'}
             </Text>
           </View>
-          {props.minEarning == null ? (
+          {props.minEarning == null || props.minEarning <= 0 || j.visit_fee <= 0 || j.booking_origin === 'byo' ? (
             <Text variant="footnote" color="muted" numberOfLines={1}>Earning estimate unavailable</Text>
           ) : (
             <Text variant="footnote" color="muted" numberOfLines={1}>
@@ -90,9 +91,10 @@ export function RequestCard(props: {
         <Text variant="caption" color="muted">
           Exact address is shared after you accept · {bookingRef(j.booking_id)}
         </Text>
+        <Button title="View details" variant="outline" size="md" fullWidth onPress={props.onViewDetails} />
         <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
-          <Button title="Decline" variant="outline" size="lg" style={{ flex: 1 }} disabled={props.busy} onPress={props.onDecline} />
-          <Button title="Accept" size="lg" style={{ flex: 1.4 }} loading={props.busy} disabled={left <= 0} onPress={props.onAccept} />
+          <Button title="Decline" variant="outline" size="lg" style={{ flex: 1 }} disabled={props.busy || !actions.canDecline} onPress={props.onDecline} />
+          <Button title="Accept" size="lg" style={{ flex: 1.4 }} loading={props.busy} disabled={props.busy || !actions.canAccept} onPress={props.onAccept} />
         </View>
       </Card>
     </Animated.View>
@@ -109,7 +111,7 @@ export function NextJobCard(props: {
 }) {
   const t = useTheme();
   const j = props.job;
-  const step = NEXT_STEP[j.status];
+  const step = getNextStep(j);
   return (
     <Card variant="elevated" gap={t.spacing.lg} onPress={() => openBooking(j.booking_id)} accessibilityLabel={`Next job: ${j.category_name} for ${j.customer_name}`}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
