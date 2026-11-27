@@ -1,0 +1,62 @@
+{
+  "stageId": "O26-ID17",
+  "sourceTaskId": "ID-T17",
+  "findingId": "ID-F17",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "approvedBaseSha": "ebdcd61241b25ec70a15c0a6303294660d2daa4a",
+  "testedTargetSha": "ce0d708f02af057b97659598f65521852f090480",
+  "branch": "lane/oorva-o26-id17",
+  "dependencies": {
+    "O00/P": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O23-ID13": "bb25f20d300d70285024a15c4cb551519f3a04f9",
+    "O26-ID05": "ce0d708f02af057b97659598f65521852f090480",
+    "O26-ID06": "ebdcd61241b25ec70a15c0a6303294660d2daa4a",
+    "O03": "d05ee6f4a2996dd3c2f51610676862c4eb9c7eb8",
+    "O05I": "914274914f6c7e1ab59d1e5e38088184166bef1d",
+    "O06B": "de989f95e5d57f78540417587023318afef123c6",
+    "O08": "7479864f743024b8e80ac26fea071a8962ed6265"
+  },
+  "gate": "E0 APPROVED",
+  "implementation": {
+    "status": "implemented",
+    "summary": [
+      "Required rejected/missing credentials are derived from the canonical per-category requirement projection and promoted before optional links/photos only in the effective parent-and-leaf onboarding composition.",
+      "The provider hub places actionable required credential repairs before weighted profile strength in the new composition; the corrected legacy composition remains available when the flags are OFF.",
+      "The persistent footer, seven resumable wizard keys, six editable sections plus review, optional skip, input validators, media handlers, payout behavior and section return targets are retained.",
+      "Provider share and onboarding agreement display names use their dedicated brand identity contexts independent of the onboarding composition leaf.",
+      "Deactivation uses the approved duties copy and preserves the existing cancellation/confirmation handler payload. No server, money-safety, deactivation guard, SQL function or migration changes."
+    ],
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": []
+  },
+  "localChecks": {
+    "ownedPathAudit": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "codespaceValidation": {
+    "status": "PASS",
+    "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.providerOnboarding.__tests__.composition[.]test[.]tsx$'",
+    "suite": "app",
+    "snapshotSha": "16e91652e61f1309b4d2b25587b9476c7d522515",
+    "selectedFile": "app/src/features/providerOnboarding/__tests__/composition.test.tsx",
+    "selectedSuites": 1,
+    "selectedTests": 7,
+    "selectedCases": [
+      "ID-WIZARD-SEVEN preserves resumable wizard keys and all six editable sections",
+      "ID-SECTION-RETURNS preserves the services return target and defaults other sections to the hub",
+      "ID-REQUIRED-DOC-FIRST promotes only actionable canonical required credential repairs",
+      "ID-OPTIONAL-SKIP leaves recommended-only work optional and the wizard skip action unchanged",
+      "ID-HUB-ACTION-FIRST places actual credential repairs ahead of weighted strength only in the new composition",
+      "ID-ONBOARDING-FLAG-PARENTS selects only the effective parent-and-leaf composition",
+      "ID-DEACTIVATION-DUTIES-COPY keeps the exact duties copy and existing cancel/confirm payload"
+    ],
+    "csTestResult": "PASS"
+  },
+  "runtimeEvidence": {
+    "nativeKeyboard": "NOT VERIFIED",
+    "mediaRuntime": "NOT VERIFIED",
+    "dirtyFormRefresh": "NOT VERIFIED",
+    "privateWebE2E": "NOT RUN; reserved for combined integration batch"
+  }
+}

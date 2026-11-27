@@ -1,12 +1,12 @@
 import { Image } from 'expo-image';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { Badge, BottomSheet, Button, Card, Chip, InlineAlert, Input, ListItem, Screen, Text, useConfirm, useToast, type Tone } from '../../components/ui';
 import { onboardingApi, type DocStatus, type DocumentRequirement, type ProviderDocument, type ProviderLink, type ProviderLinkKind } from '../../lib/onboarding';
 import { LIMITS } from '../../lib/onboarding/validation';
 import { useTheme } from '../../theme';
 import { pickDocument, pickPhoto } from './media';
-import { FieldLabel, Intro, SectionFooter, istToday, type SectionProps } from './parts';
+import { FieldLabel, Intro, SectionFooter, istToday, type SectionProps, useOnboardingReadState } from './parts';
 
 type Need = 'required' | 'recommended' | 'optional';
 
@@ -87,6 +87,30 @@ export function requirementPresentation(requirement: DocumentRequirement): {
   };
 }
 
+export function requiredCredentialRepairs(data: SectionProps['data']): DocumentRow[] {
+  return documentRows(data).filter((row) => {
+    if (row.need !== 'required') return false;
+    const latestStatus = row.requirement
+      ? row.requirement.effective_latest_status ?? row.requirement.latest_status
+      : row.latest?.status;
+    const satisfied = row.requirement ? row.requirement.satisfied : !!row.validCredential;
+    return !satisfied && latestStatus !== 'pending';
+  });
+}
+
+export type PortfolioSectionKey = 'requiredCredentials' | 'links' | 'photos' | 'documents';
+
+export function portfolioSectionOrder(oorvaComposition: boolean, repairCount: number): PortfolioSectionKey[] {
+  const optionalFirst: PortfolioSectionKey[] = ['links', 'photos', 'documents'];
+  return oorvaComposition && repairCount > 0
+    ? ['requiredCredentials', ...optionalFirst]
+    : optionalFirst;
+}
+
+export function portfolioPrimaryAction(mode: SectionProps['mode'], photoCount: number): string {
+  return mode === 'wizard' ? (photoCount ? 'Continue' : 'Skip for now') : 'Done';
+}
+
 function activeRequiredCategories(data: SectionProps['data'], code: string) {
   const activeCategoryIds = new Set(data.services.filter((service) => service.active).map((service) => service.category_id));
   return data.categories.filter((category) => activeCategoryIds.has(category.id) && category.requires_docs?.includes(code));
@@ -137,8 +161,9 @@ function validCredential(docs: ProviderDocument[], code: string, providerDate: s
     .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
 }
 
-export function PortfolioSection({ data, reload, header, mode, onDone, onBack }: SectionProps) {
+export function PortfolioSection({ data, reload, header, mode, oorvaComposition = false, onDone, onBack }: SectionProps) {
   const t = useTheme();
+  const readState = useOnboardingReadState();
   const toast = useToast();
   const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
@@ -253,23 +278,75 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
   };
 
   const rows = useMemo(() => documentRows(data), [data]);
+  const repairRows = useMemo(() => requiredCredentialRepairs(data), [data]);
   const visibleRows = showOptional ? rows : rows.filter((row) => row.need !== 'optional' || row.latest);
+  const promoteRequired = oorvaComposition && readState?.state.status !== 'stale' && repairRows.length > 0;
+  const promotedKeys = new Set(promoteRequired ? repairRows.map((row) => row.key) : []);
+  const documentsVisibleRows = visibleRows.filter((row) => !promotedKeys.has(row.key));
+  const requiredAlertMessage = missingRequired.length
+    ? `Required before customers can book you: ${[...new Set(missingRequired)].map((key) => {
+        const [code, categoryId] = key.split(':');
+        const category = data.categories.find((item) => item.id === categoryId);
+        const label = data.docTypes.find((item) => item.code === code)?.label ?? code;
+        return category ? `${label} for ${category.name}` : label;
+      }).join(', ')}.`
+    : null;
 
-  return (
-    <Screen
-      header={header}
-      gap={t.spacing.xl}
-      footer={
-        <SectionFooter
-          primary={mode === 'wizard' ? (portfolio.length ? 'Continue' : 'Skip for now') : 'Done'}
-          onPrimary={() => void next()}
-          onBack={onBack}
-        />
-      }
-    >
-      <Intro title="Your work, links & credentials" subtitle="Your Instagram, YouTube or website and photos of real work help customers trust you. Documents are private — only our review team sees them." />
-      <InlineAlert message={error} />
+  const renderDocumentRows = (documentRows: DocumentRow[]) => documentRows.map((row) => {
+    const type = data.docTypes.find((d) => d.code === row.code);
+    const doc = row.latest;
+    const presentation = row.requirement ? requirementPresentation(row.requirement) : null;
+    const fallbackStatus = doc?.status === 'approved' && doc.expires_on && doc.expires_on < providerDate ? 'expired' : doc?.status;
+    const latestStatus = presentation?.latestStatus ?? fallbackStatus ?? null;
+    const hasValidCredential = presentation?.validCredential ?? !!row.validCredential;
+    const hasSeparateValidCredential = presentation?.separateValidCredential
+      ?? (!!row.validCredential && row.validCredential.id !== doc?.id);
+    const st = latestStatus ? STATUS[latestStatus] : null;
+    const sub = [
+      row.need === 'required' ? `Required for ${row.categoryName ?? 'this service'}` : row.need === 'recommended' ? `Recommended for ${row.categoryName ?? 'this service'}` : 'Optional',
+      hasValidCredential ? 'A valid approved credential is on file' : null,
+      (latestStatus === 'rejected' || latestStatus === 'expired') && (row.requirement?.reject_reason ?? doc?.reject_reason)
+        ? `Reason: ${row.requirement?.reject_reason ?? doc?.reject_reason}`
+        : null,
+      !row.requirement && doc?.expires_on ? `Valid till ${doc.expires_on}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return (
+      <ListItem
+        key={row.key}
+        icon={row.need === 'required' ? 'shield-checkmark-outline' : 'document-text-outline'}
+        title={type?.label ?? row.code}
+        subtitle={sub}
+        right={
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            {st ? <Badge label={st.label} tone={st.tone} /> : null}
+            {hasSeparateValidCredential ? <Badge label="Approved" tone="success" /> : null}
+            <Button
+              title={doc || row.requirement?.latest_document_id ? 'Replace' : 'Upload'}
+              size="sm"
+              variant={doc || row.requirement?.latest_document_id ? 'ghost' : 'outline'}
+              loading={busy === row.code}
+              onPress={() => {
+                setExpiry('');
+                setDocSheet(row.code);
+              }}
+            />
+          </View>
+        }
+      />
+    );
+  });
 
+  const sectionContent: Record<PortfolioSectionKey, ReactNode> = {
+    requiredCredentials: (
+      <View style={{ gap: t.spacing.md }}>
+        <FieldLabel>Required credentials</FieldLabel>
+        {requiredAlertMessage ? <InlineAlert tone="warning" message={requiredAlertMessage} /> : null}
+        <Card gap={0} padding={0}>{renderDocumentRows(repairRows)}</Card>
+      </View>
+    ),
+    links: (
       <View style={{ gap: t.spacing.md }}>
         <FieldLabel hint="Portfolio links only. Don't include phone numbers, WhatsApp, email or payment handles.">
           Instagram, YouTube & website links
@@ -304,7 +381,8 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
           <Button title="Add link" leftIcon="add" variant="outline" onPress={() => void saveLink()} loading={busy === 'link'} disabled={!linkUrl.trim()} />
         </Card>
       </View>
-
+    ),
+    photos: (
       <View style={{ gap: t.spacing.md }}>
         <FieldLabel hint={`Up to ${LIMITS.portfolioMax} photos of jobs you did. No customer faces, house numbers or personal details.`}>
           {`Work photos (${portfolio.length}/${LIMITS.portfolioMax})`}
@@ -332,64 +410,33 @@ export function PortfolioSection({ data, reload, header, mode, onDone, onBack }:
           </View>
         ) : null}
       </View>
-
+    ),
+    documents: (
       <View style={{ gap: t.spacing.md }}>
         <FieldLabel hint="Aadhaar is never uploaded here — identity is verified by our payment partner with your PAN and bank account.">Documents</FieldLabel>
-        {missingRequired.length ? <InlineAlert tone="warning" message={`Required before customers can book you: ${[...new Set(missingRequired)].map((key) => {
-          const [code, categoryId] = key.split(':');
-          const category = data.categories.find((item) => item.id === categoryId);
-          const label = data.docTypes.find((item) => item.code === code)?.label ?? code;
-          return category ? `${label} for ${category.name}` : label;
-        }).join(', ')}.`} /> : null}
-        <Card gap={0} padding={0}>
-          {visibleRows.map((row) => {
-            const type = data.docTypes.find((d) => d.code === row.code);
-            const doc = row.latest;
-            const presentation = row.requirement ? requirementPresentation(row.requirement) : null;
-            const fallbackStatus = doc?.status === 'approved' && doc.expires_on && doc.expires_on < providerDate ? 'expired' : doc?.status;
-            const latestStatus = presentation?.latestStatus ?? fallbackStatus ?? null;
-            const hasValidCredential = presentation?.validCredential ?? !!row.validCredential;
-            const hasSeparateValidCredential = presentation?.separateValidCredential
-              ?? (!!row.validCredential && row.validCredential.id !== doc?.id);
-            const st = latestStatus ? STATUS[latestStatus] : null;
-            const sub = [
-              row.need === 'required' ? `Required for ${row.categoryName ?? 'this service'}` : row.need === 'recommended' ? `Recommended for ${row.categoryName ?? 'this service'}` : 'Optional',
-              hasValidCredential ? 'A valid approved credential is on file' : null,
-              (latestStatus === 'rejected' || latestStatus === 'expired') && (row.requirement?.reject_reason ?? doc?.reject_reason)
-                ? `Reason: ${row.requirement?.reject_reason ?? doc?.reject_reason}`
-                : null,
-              !row.requirement && doc?.expires_on ? `Valid till ${doc.expires_on}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ');
-            return (
-              <ListItem
-                key={row.key}
-                icon={row.need === 'required' ? 'shield-checkmark-outline' : 'document-text-outline'}
-                title={type?.label ?? row.code}
-                subtitle={sub}
-                right={
-                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                    {st ? <Badge label={st.label} tone={st.tone} /> : null}
-                    {hasSeparateValidCredential ? <Badge label="Approved" tone="success" /> : null}
-                    <Button
-                      title={doc || row.requirement?.latest_document_id ? 'Replace' : 'Upload'}
-                      size="sm"
-                      variant={doc || row.requirement?.latest_document_id ? 'ghost' : 'outline'}
-                      loading={busy === row.code}
-                      onPress={() => {
-                        setExpiry('');
-                        setDocSheet(row.code);
-                      }}
-                    />
-                  </View>
-                }
-              />
-            );
-          })}
-        </Card>
+        {!promoteRequired && requiredAlertMessage ? <InlineAlert tone="warning" message={requiredAlertMessage} /> : null}
+        <Card gap={0} padding={0}>{renderDocumentRows(documentsVisibleRows)}</Card>
         {!showOptional ? <Button title="Add another certificate" size="sm" variant="ghost" leftIcon="add" onPress={() => setShowOptional(true)} style={{ alignSelf: 'flex-start' }} /> : null}
       </View>
+    ),
+  };
+  const sectionOrder = portfolioSectionOrder(promoteRequired, repairRows.length);
+
+  return (
+    <Screen
+      header={header}
+      gap={t.spacing.xl}
+      footer={
+        <SectionFooter
+          primary={portfolioPrimaryAction(mode, portfolio.length)}
+          onPrimary={() => void next()}
+          onBack={onBack}
+        />
+      }
+    >
+      <Intro title="Your work, links & credentials" subtitle="Your Instagram, YouTube or website and photos of real work help customers trust you. Documents are private — only our review team sees them." />
+      <InlineAlert message={error} />
+      {sectionOrder.map((section) => <Fragment key={section}>{sectionContent[section]}</Fragment>)}
 
       <BottomSheet visible={photoSheet} onClose={() => setPhotoSheet(false)} title="Add work photo">
         <View style={{ marginHorizontal: -t.spacing.xl }}>

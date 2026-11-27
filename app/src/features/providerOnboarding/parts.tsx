@@ -20,8 +20,13 @@ export interface SectionProps {
   reload: (options?: { afterMutation?: boolean }) => Promise<boolean>;
   header: ReactNode;
   mode: 'wizard' | 'edit';
+  oorvaComposition?: boolean;
   onDone: () => void;
   onBack?: () => void;
+}
+
+export function onboardingCompositionEnabled(brandEnabled: boolean, onboardingEnabled: boolean): boolean {
+  return brandEnabled && onboardingEnabled;
 }
 
 export function OnboardingReadStateProvider({

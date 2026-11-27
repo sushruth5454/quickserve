@@ -4,12 +4,34 @@ import { useEffect, useState } from 'react';
 import { Share, Switch, View } from 'react-native';
 import { Avatar, Button, Card, ErrorState, FullScreenLoader, Header, InlineAlert, ListItem, Screen, Text, useConfirm, useToast } from '../../components/ui';
 import { GoLiveStatusCard } from '../providerOnboarding/GoLiveStatusCard';
-import { OnboardingReadNotice, OnboardingReadStateProvider, ProgressBar } from '../providerOnboarding/parts';
+import { onboardingCompositionEnabled, OnboardingReadNotice, OnboardingReadStateProvider, ProgressBar } from '../providerOnboarding/parts';
+import { documentStatusLabel, requiredCredentialRepairs } from '../providerOnboarding/PortfolioSection';
 import { SECTIONS } from '../providerOnboarding/sections';
 import { useOnboardingData } from '../providerOnboarding/useOnboardingData';
 import { onboardingApi } from '../../lib/onboarding';
 import { completeness, stepDone, type StepKey } from '../../lib/onboarding/completeness';
+import { DEACTIVATION_CONFIRMATION_COPY } from '../../lib/onboarding/copy';
+import { useFeature } from '../../lib/featureFlags';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
+import type { ConfirmOptions } from '../../components/ui/Confirm';
 import { useTheme } from '../../theme';
+
+export function shouldPrioritizeCredentialRepairs(oorvaComposition: boolean, repairCount: number, currentData = true): boolean {
+  return oorvaComposition && currentData && repairCount > 0;
+}
+
+export async function confirmProviderDeactivation<T>(
+  confirm: (options: ConfirmOptions) => Promise<boolean>,
+  deactivate: (payload: null) => Promise<T>,
+): Promise<T | null> {
+  const confirmed = await confirm({
+    title: 'Deactivate provider account?',
+    message: DEACTIVATION_CONFIRMATION_COPY,
+    confirmLabel: 'Deactivate',
+    destructive: true,
+  });
+  return confirmed ? deactivate(null) : null;
+}
 
 const ICONS: Record<Exclude<StepKey, 'review'>, 'person-outline' | 'construct-outline' | 'map-outline' | 'time-outline' | 'images-outline' | 'card-outline'> = {
   basics: 'person-outline',
@@ -54,6 +76,10 @@ export default function ProviderProfileIndexScreen() {
   const t = useTheme();
   const toast = useToast();
   const confirm = useConfirm();
+  const identity = useBrandIdentity('providerShare');
+  const brandEnabled = useFeature('oorva_brand');
+  const onboardingEnabled = useFeature('oorva_onboarding_ux');
+  const oorvaComposition = onboardingCompositionEnabled(brandEnabled, onboardingEnabled);
   const { data, error, readState, reload, busy, actionError, run } = useProviderProfileIndexController();
 
   if (readState.status === 'error' && !data) {
@@ -68,25 +94,20 @@ export default function ProviderProfileIndexScreen() {
   const p = state.provider;
   if (!p) return <FullScreenLoader />;
   const c = completeness(state.checks);
+  const repairRows = requiredCredentialRepairs(data);
+  const showRepairsFirst = shouldPrioritizeCredentialRepairs(oorvaComposition, repairRows.length, readState.status !== 'stale');
   const submitted = !!p.submitted_at;
   const open = (s: StepKey) => router.push({ pathname: '/provider-profile/[section]', params: { section: s, returnTo: 'hub' } });
 
   const share = async () => {
     const url = Linking.createURL(`/provider/${p.id}`);
-    await Share.share({ message: `Book me on QuickServe: ${url}`, url }).catch(() => undefined);
+    await Share.share({ message: `Book me on ${identity.displayName}: ${url}`, url }).catch(() => undefined);
   };
 
   const deactivate = async () => {
-    const ok = await confirm({
-      title: 'Deactivate provider account?',
-      message: 'You will be hidden from customers and cannot receive new bookings. Ongoing jobs and pending payouts continue. You can reactivate any time.',
-      confirmLabel: 'Deactivate',
-      destructive: true,
-    });
-    if (ok) {
-      const message = await run('deactivate', () => onboardingApi.deactivate(null), 'Account deactivated');
-      if (message) toast({ message, tone: 'success' });
-    }
+    const message = await confirmProviderDeactivation(confirm, (payload) =>
+      run('deactivate', () => onboardingApi.deactivate(payload), 'Account deactivated'));
+    if (message) toast({ message, tone: 'success' });
   };
 
   return (
@@ -111,6 +132,33 @@ export default function ProviderProfileIndexScreen() {
             onFix={(s) => open(s)}
             onContinue={() => router.push('/onboarding')}
           />
+        ) : null}
+
+        {showRepairsFirst ? (
+          <Card gap={t.spacing.md}>
+            <Text variant="title3">Required credential repairs</Text>
+            {repairRows.map((row) => {
+              const type = data.docTypes.find((item) => item.code === row.code);
+              const status = row.requirement
+                ? row.requirement.effective_latest_status ?? row.requirement.latest_status
+                : row.latest?.status;
+              const reason = row.requirement?.reject_reason ?? row.latest?.reject_reason;
+              const subtitle = [
+                `Required for ${row.categoryName ?? 'this service'}`,
+                status ? documentStatusLabel(status) : 'Missing',
+                reason ? `Reason: ${reason}` : null,
+              ].filter(Boolean).join(' · ');
+              return (
+                <ListItem
+                  key={row.key}
+                  icon="alert-circle-outline"
+                  title={type?.label ?? row.code}
+                  subtitle={subtitle}
+                  right={<Button title="Fix" size="sm" variant="outline" onPress={() => open('portfolio')} />}
+                />
+              );
+            })}
+          </Card>
         ) : null}
 
         <Card gap={t.spacing.md}>
