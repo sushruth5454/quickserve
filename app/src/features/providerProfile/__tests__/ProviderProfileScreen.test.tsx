@@ -5,11 +5,22 @@ import type { PublicProfile } from '../../../lib/onboarding/types';
 const mockRuntime: {
   id: string;
   category: string | undefined;
+  preview: boolean;
+  features: Record<string, boolean>;
   hookIndex: number;
   states: unknown[];
   load: ((guard: { isCurrent: () => boolean }) => Promise<void>) | null;
   lastRefresh: Promise<void> | null;
-} = { id: 'provider-a', category: undefined, hookIndex: 0, states: [], load: null, lastRefresh: null };
+} = {
+  id: 'provider-a',
+  category: undefined,
+  preview: false,
+  features: {},
+  hookIndex: 0,
+  states: [],
+  load: null,
+  lastRefresh: null,
+};
 
 jest.mock('react', () => {
   const actual = jest.requireActual<typeof import('react')>('react');
@@ -49,7 +60,11 @@ jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({
 jest.mock('expo-linking', () => ({ createURL: () => 'quickserve://provider' }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), canGoBack: () => true, push: jest.fn(), replace: jest.fn() },
-  useLocalSearchParams: () => ({ id: mockRuntime.id, category: mockRuntime.category }),
+  useLocalSearchParams: () => ({
+    id: mockRuntime.id,
+    category: mockRuntime.category,
+    preview: mockRuntime.preview ? '1' : undefined,
+  }),
 }));
 jest.mock('../../../components/ui', () => ({
   Card: 'Card',
@@ -70,6 +85,9 @@ jest.mock('../../../lib/locationContext', () => ({
 }));
 jest.mock('../../../lib/haptics', () => ({ haptics: { tap: jest.fn() } }));
 jest.mock('../../../lib/onboarding', () => ({ onboardingApi: { getPublicProfile: jest.fn() } }));
+jest.mock('../../../lib/featureFlags', () => ({
+  useAppFeatureFlags: () => ({ isOn: (key: string) => mockRuntime.features[key] === true }),
+}));
 jest.mock('../../../lib/onboarding/availability', () => ({
   summarizeHours: () => [],
   todayLabel: () => null,
@@ -100,12 +118,20 @@ const { onboardingApi } = require('../../../lib/onboarding') as {
   onboardingApi: { getPublicProfile: jest.Mock };
 };
 const ProviderDetailScreen = require('../ProviderProfileScreen').default as typeof import('../ProviderProfileScreen').default;
+const PROFILE_SECTION_TYPES = [
+  'ProviderProfileHero',
+  'ProviderProfileCallouts',
+  'ProviderServicesSection',
+  'ProviderPortfolioSection',
+  'ProviderProfileOverview',
+  'ProviderReviewsSection',
+];
 
-function detail(providerId: string, name: string, paused: boolean, serviceId: string): ProviderDetail {
+function detail(providerId: string, name: string, paused: boolean, serviceId: string, city = 'Hyderabad'): ProviderDetail {
   return {
     provider: {
       id: providerId,
-      city: 'Hyderabad',
+      city,
       rating_avg: 4.8,
       rating_count: 7,
       years_experience: 5,
@@ -151,6 +177,14 @@ function renderProfile() {
   return ProviderDetailScreen();
 }
 
+async function loadProfile(provider = detail('provider-a', 'Provider A', false, 'service-a')) {
+  getProviderDetail.mockResolvedValue(provider);
+  onboardingApi.getPublicProfile.mockResolvedValue(publicProfile());
+  renderProfile();
+  await mockRuntime.load!({ isCurrent: () => true });
+  return renderProfile();
+}
+
 function elements(node: unknown, type: string): Array<React.ReactElement<Record<string, unknown>>> {
   if (Array.isArray(node)) return node.flatMap((child) => elements(child, type));
   if (!ReactRuntime.isValidElement(node)) return [];
@@ -159,6 +193,26 @@ function elements(node: unknown, type: string): Array<React.ReactElement<Record<
     ...(element.type === type ? [element] : []),
     ...elements(element.props.children, type),
   ];
+}
+
+function profileSectionOrder(node: unknown): string[] {
+  if (Array.isArray(node)) return node.flatMap(profileSectionOrder);
+  if (!ReactRuntime.isValidElement(node)) return [];
+  const element = node as React.ReactElement<Record<string, unknown>>;
+  const name = PROFILE_SECTION_TYPES.find((type) => element.type === type);
+  return [...(name ? [name] : []), ...profileSectionOrder(element.props.children)];
+}
+
+function screenFooter(tree: unknown): React.ReactElement<Record<string, unknown>> | undefined {
+  const screen = elements(tree, 'Screen')[0];
+  return elements(screen?.props.footer, 'PriceFooter')[0];
+}
+
+function textContent(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textContent).join('');
+  if (!ReactRuntime.isValidElement(node)) return '';
+  return textContent((node as React.ReactElement<Record<string, unknown>>).props.children);
 }
 
 function deferred<T>() {
@@ -170,6 +224,8 @@ function deferred<T>() {
 beforeEach(() => {
   mockRuntime.id = 'provider-a';
   mockRuntime.category = undefined;
+  mockRuntime.preview = false;
+  mockRuntime.features = { oorva_brand: false, oorva_catalogue_ux: false };
   mockRuntime.hookIndex = 0;
   mockRuntime.states = [];
   mockRuntime.load = null;
@@ -232,5 +288,103 @@ describe('ProviderProfileScreen freshness', () => {
     const services = elements(tree, 'ProviderServicesSection')[0];
     expect((hero?.props.provider as ProviderDetail['provider']).id).toBe('provider-b');
     expect((services?.props.service as ProviderDetail['services'][number]).id).toBe('service-b');
+  });
+});
+
+describe('ProviderProfileScreen composition', () => {
+  it('MK-PROFILE-Oorva-order shows the service choice before secondary profile sections', async () => {
+    mockRuntime.features = { oorva_brand: true, oorva_catalogue_ux: true };
+    const tree = await loadProfile();
+    const hero = elements(tree, 'ProviderProfileHero')[0];
+    const services = elements(tree, 'ProviderServicesSection')[0];
+    const portfolio = elements(tree, 'ProviderPortfolioSection')[0];
+    const overview = elements(tree, 'ProviderProfileOverview')[0];
+    const reviews = elements(tree, 'ProviderReviewsSection')[0];
+    const footer = screenFooter(tree);
+
+    expect(profileSectionOrder(elements(tree, 'Screen')[0]?.props.children)).toEqual([
+      'ProviderProfileHero',
+      'ProviderProfileCallouts',
+      'ProviderServicesSection',
+      'ProviderPortfolioSection',
+      'ProviderProfileOverview',
+      'ProviderReviewsSection',
+    ]);
+    expect(hero?.props.compact).toBe(true);
+    expect((hero?.props.provider as ProviderDetail['provider']).id).toBe('provider-a');
+    expect((services?.props.service as ProviderDetail['services'][number]).id).toBe('service-a');
+    expect(portfolio?.props.pub).toEqual(publicProfile());
+    expect((overview?.props.provider as ProviderDetail['provider']).id).toBe('provider-a');
+    expect(reviews?.props.reviews).toEqual([]);
+    expect(footer?.props.cta).toMatchObject({ title: 'Book Provider', disabled: false });
+    expect(footer?.props.caption).toBe('Repair · visit fee');
+  });
+
+  it('MK-PROFILE-leaf-off-invariants retains legacy order and identical paused/preview behavior', async () => {
+    mockRuntime.features = { oorva_brand: true, oorva_catalogue_ux: false };
+    const tree = await loadProfile(detail('provider-a', 'Provider A', true, 'service-a'));
+    const legacyOrder = [
+      'ProviderProfileHero',
+      'ProviderProfileCallouts',
+      'ProviderProfileOverview',
+      'ProviderServicesSection',
+      'ProviderPortfolioSection',
+      'ProviderReviewsSection',
+    ];
+    const legacyFooter = screenFooter(tree);
+    expect(profileSectionOrder(elements(tree, 'Screen')[0]?.props.children)).toEqual(legacyOrder);
+    expect(elements(tree, 'ProviderProfileHero')[0]?.props.compact).toBe(false);
+    expect(legacyFooter?.props.cta).toMatchObject({ title: 'Book Provider', disabled: true });
+
+    mockRuntime.features = { oorva_brand: true, oorva_catalogue_ux: true };
+    const enabledTree = renderProfile();
+    const enabledFooter = screenFooter(enabledTree);
+    expect(profileSectionOrder(elements(enabledTree, 'Screen')[0]?.props.children)).toEqual([
+      'ProviderProfileHero',
+      'ProviderProfileCallouts',
+      'ProviderServicesSection',
+      'ProviderPortfolioSection',
+      'ProviderProfileOverview',
+      'ProviderReviewsSection',
+    ]);
+    expect(elements(enabledTree, 'ProviderProfileHero')[0]?.props.compact).toBe(true);
+    expect(enabledFooter?.props.cta).toMatchObject({
+      title: (legacyFooter?.props.cta as { title: string }).title,
+      disabled: (legacyFooter?.props.cta as { disabled: boolean }).disabled,
+    });
+    expect(enabledFooter?.props.caption).toBe(legacyFooter?.props.caption);
+    expect((elements(enabledTree, 'ProviderServicesSection')[0]?.props.canSelectPackages)).toBe(
+      elements(tree, 'ProviderServicesSection')[0]?.props.canSelectPackages,
+    );
+
+    mockRuntime.features = { oorva_brand: false, oorva_catalogue_ux: true };
+    const parentOffTree = renderProfile();
+    expect(profileSectionOrder(elements(parentOffTree, 'Screen')[0]?.props.children)).toEqual(legacyOrder);
+    expect(elements(parentOffTree, 'ProviderProfileHero')[0]?.props.compact).toBe(false);
+
+    mockRuntime.features = { oorva_brand: true, oorva_catalogue_ux: false };
+    mockRuntime.preview = true;
+    const legacyPreview = renderProfile();
+    expect(screenFooter(legacyPreview)).toBeUndefined();
+    expect(elements(legacyPreview, 'ProviderProfileCallouts')[0]?.props.isPreview).toBe(true);
+    expect(elements(legacyPreview, 'ProviderServicesSection')[0]?.props.canSelectPackages).toBe(false);
+
+    mockRuntime.features = { oorva_brand: true, oorva_catalogue_ux: true };
+    const enabledPreview = renderProfile();
+    expect(screenFooter(enabledPreview)).toBeUndefined();
+    expect(elements(enabledPreview, 'ProviderProfileCallouts')[0]?.props.isPreview).toBe(true);
+    expect(elements(enabledPreview, 'ProviderServicesSection')[0]?.props.canSelectPackages).toBe(false);
+  });
+
+  it('MK-PROFILE-long-content keeps the active footer action and city-switch reason available', async () => {
+    mockRuntime.features = { oorva_brand: true, oorva_catalogue_ux: true };
+    const longName = `LongProvider${'Name'.repeat(60)}`;
+    const tree = await loadProfile(detail('provider-a', longName, false, 'service-a', 'Pune'));
+    const footer = screenFooter(tree);
+    const above = footer?.props.above;
+
+    expect(footer?.props.cta).toMatchObject({ title: 'Switch to Pune', disabled: false });
+    expect(textContent(above)).toContain(`${longName} works in Pune.`);
+    expect(textContent(above)).toContain('Your location is Hyderabad');
   });
 });
