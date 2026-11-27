@@ -97,6 +97,9 @@ jest.doMock('../../../lib/adminApi', () => ({
   createProviderDocumentSignedUrl: (...args: unknown[]) => mockCreateSignedUrl(...args),
 }));
 jest.doMock('../../../lib/phone', () => ({ formatPhone: (phone: string) => phone }));
+jest.doMock('../../../lib/featureFlags', () => ({
+  useAppFeatureFlags: () => ({ isOn: () => false }),
+}));
 jest.doMock('../../../theme', () => ({ useTheme: () => ({ spacing: { xs: 4, sm: 8, md: 12 }, radii: { lg: 12 } }) }));
 
 const ReactRuntime = require('react') as typeof React;
