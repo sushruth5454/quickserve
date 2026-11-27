@@ -3,9 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ErrorState, FullScreenLoader, Header, Screen } from '../../components/ui';
 import { ReviewSection } from '../providerOnboarding/ReviewSection';
 import { SECTIONS } from '../providerOnboarding/sections';
-import { OnboardingReadStateProvider, WizardHeader } from '../providerOnboarding/parts';
+import { onboardingCompositionEnabled, OnboardingReadStateProvider, WizardHeader } from '../providerOnboarding/parts';
 import { useOnboardingData } from '../providerOnboarding/useOnboardingData';
 import { useAuth } from '../../lib/auth';
+import { useFeature } from '../../lib/featureFlags';
 import { onboardingApi } from '../../lib/onboarding';
 import { resumeStep, STEP_KEYS, type StepKey } from '../../lib/onboarding/completeness';
 
@@ -31,6 +32,9 @@ function useOnboardingController() {
 
 /** Provider onboarding wizard (docs/08-Provider-Onboarding.md): seven resumable steps. */
 export default function OnboardingScreen() {
+  const brandEnabled = useFeature('oorva_brand');
+  const onboardingEnabled = useFeature('oorva_onboarding_ux');
+  const oorvaComposition = onboardingCompositionEnabled(brandEnabled, onboardingEnabled);
   const { data, error, readState, reload, reloadAfterMutation, step, setStep, setActiveRole } = useOnboardingController();
 
   if (readState.status === 'error' && !data) {
@@ -70,7 +74,7 @@ export default function OnboardingScreen() {
       ) : (
         (() => {
           const Section = SECTIONS[key].component;
-          return <Section key={key} data={data} reload={reloadAfterMutation} header={header} mode="wizard" onBack={back} onDone={() => go(step + 1)} />;
+          return <Section key={key} data={data} reload={reloadAfterMutation} header={header} mode="wizard" oorvaComposition={oorvaComposition} onBack={back} onDone={() => go(step + 1)} />;
         })()
       )}
     </OnboardingReadStateProvider>

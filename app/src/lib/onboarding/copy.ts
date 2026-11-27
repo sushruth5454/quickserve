@@ -53,6 +53,9 @@ export const PROVIDER_TERMS_SUMMARY = [
   'You follow the safety rules, keep customer details private and behave professionally.',
 ];
 
+export const DEACTIVATION_CONFIRMATION_COPY =
+  'Deactivation may require resolving currently blocking work first. Deactivation does not remove existing work or payment duties.';
+
 export const GO_LIVE_TITLE: Record<GoLiveState, string> = {
   draft: 'Finish your profile',
   under_review: 'Under review',

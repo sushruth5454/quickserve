@@ -6,6 +6,7 @@ import { Button, Card, InlineAlert, ListItem, Screen, Text, useToast } from '../
 import { onboardingApi } from '../../lib/onboarding';
 import { completeness, type StepKey } from '../../lib/onboarding/completeness';
 import { PROVIDER_TERMS_SUMMARY } from '../../lib/onboarding/copy';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
 import { useTheme } from '../../theme';
 import { GoLiveStatusCard } from './GoLiveStatusCard';
 import { Intro, ProgressBar, SectionFooter, type SectionProps, useOnboardingReadState } from './parts';
@@ -25,6 +26,7 @@ const CHECK_LABEL: Record<string, string> = {
 
 export function ReviewSection({ data, reload, header, mode, onDone, onBack, onJump }: SectionProps & { onJump: (step: StepKey) => void }) {
   const t = useTheme();
+  const identity = useBrandIdentity('onboardingAgreement');
   const toast = useToast();
   const state = data.state;
   const c = completeness(state.checks);
@@ -136,7 +138,7 @@ export function ReviewSection({ data, reload, header, mode, onDone, onBack, onJu
         >
           <Ionicons name={accepted ? 'checkbox' : 'square-outline'} size={22} color={accepted ? t.colors.primary : t.colors.muted} />
           <Text variant="subhead" style={{ flex: 1 }}>
-            I agree to the QuickServe provider agreement ({state.terms_version})
+            I agree to the {identity.displayName} provider agreement ({state.terms_version})
           </Text>
         </Pressable>
       </Card>
