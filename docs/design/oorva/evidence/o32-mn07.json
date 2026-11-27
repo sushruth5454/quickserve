@@ -68,11 +68,42 @@
       "MN-OFF-SAFETY"
     ],
     "registration": {
-      "status": "WAITING_FOR_COORDINATOR",
+      "status": "COMPLETE",
       "coordinatorOwned": true,
-      "requiredProof": "doc18 section 0.4.3 registration SHA and selector-selection proof"
+      "sha": "311cb2b269e5ab46458bfb0d373620edd82ea306",
+      "requiredProof": "doc18 section 0.4.3 registration SHA and selector-selection proof",
+      "selectorSelectionProof": {
+        "app": "src/lib/__tests__/adminMoney.test.ts",
+        "sql": "node oorva_o32_mn07.test.mjs",
+        "parser": "node parse.cjs ../migrations/0136_o32_mn07_oorva.sql"
+      }
     },
-    "execution": "NOT_RUN_BEFORE_REGISTRATION_PROOF",
+    "execution": {
+      "status": "PASS",
+      "app": {
+        "selector": "src.lib.__tests__.adminMoney[.]test[.]ts$",
+        "selectedFile": "src/lib/__tests__/adminMoney.test.ts",
+        "result": "PASS",
+        "passed": 4,
+        "total": 4
+      },
+      "sql": {
+        "selector": "oorva_o32_mn07",
+        "selectedFile": "node oorva_o32_mn07.test.mjs",
+        "result": "PASS",
+        "checksPassed": 1,
+        "checksTotal": 1
+      },
+      "parser": {
+        "selector": "o32_mn07_oorva.sql",
+        "selectedFile": "node parse.cjs ../migrations/0136_o32_mn07_oorva.sql",
+        "result": "PASS",
+        "checksPassed": 1,
+        "checksTotal": 1
+      },
+      "runtime": "NOT_RUN",
+      "native": "NOT_RUN"
+    },
     "requiredSelectors": [
       "app: src.lib.__tests__.adminMoney[.]test[.]ts$",
       "sql: oorva_o32_mn07",
@@ -83,12 +114,21 @@
     "E0": "APPROVED",
     "D01": "APPROVED",
     "E1": "PENDING_ELIGIBLE_TESTED_BATCH_ONLY",
-    "focusedMoneyReview": "PENDING",
-    "laneCi": "PENDING"
+    "focusedMoneyReview": {
+      "status": "PASS",
+      "result": "No significant issues found",
+      "reReview": "Final focused O32-MN07 re-review after correcting the payout-cap test; it invokes the resolver on the separate payout fixture, asserts invalid refund amount, and confirms no refund or audit write."
+    },
+    "laneCi": {
+      "status": "SUCCESS",
+      "runId": "45969353588",
+      "headSha": "6d91055708f8d2e4b961a5280dcf0c1c1b89ffe2",
+      "workflow": "Lane CI (tests only)"
+    }
   },
-  "checkpoint": "PAUSED_FOR_REGISTRATION",
+  "checkpoint": "AWAITING_EVIDENCE_HEAD_LANE_CI",
   "productionActions": "none",
   "featureActivation": "none",
-  "mainPromotion": "none",
-  "deployment": "none"
+  "mainPromotion": "NOT_RUN",
+  "deployment": "NOT_RUN"
 }
