@@ -175,7 +175,7 @@ beforeEach(() => {
   mockUseTheme.mockReturnValue({
     spacing: { sm: 8, md: 12, lg: 16 },
     radii: { sm: 8, lg: 12 },
-    colors: { success: '#0a0', outline: '#ccc', primaryText: '#00f', surfaceAlt: '#eee' },
+    colors: { success: '#0a0', outline: '#ccc', primaryText: '#00f', onPrimary: '#fff', surfaceAlt: '#eee' },
   });
 });
 

@@ -20,12 +20,12 @@ function isOwnerProvider(provider: ProviderContext): provider is Provider {
   return !('business_role' in provider) || provider.business_role === 'owner';
 }
 /** react-native-web paints the ON thumb teal unless ctiveThumbColor is set (not in the RN types). */
-const webSwitchThumb = { activeThumbColor: '#FFFFFF' } as object;
 
 /** Provider-only sections of the Me tab: services (with active toggle + edit), work settings, reviews received. */
 export function ProviderMeSections({ provider }: { provider: ProviderContext }) {
   const t = useTheme();
   const toast = useToast();
+  const webSwitchThumb = { activeThumbColor: t.colors.onPrimary } as object;
   const [services, setServices] = useState<ReadState<ProviderService[]>>({ value: null, error: null, loading: true });
   const [reviews, setReviews] = useState<ReadState<PublicReview[]>>({ value: null, error: null, loading: true });
   const [editing, setEditing] = useState<ProviderService | null>(null);
@@ -162,7 +162,7 @@ export function ProviderMeSections({ provider }: { provider: ProviderContext }) 
                     disabled={busyId === s.id}
                     onValueChange={(v) => void toggle(s, v)}
                     trackColor={{ true: t.colors.success, false: t.colors.outline }}
-                    thumbColor="#FFFFFF"
+                    thumbColor={t.colors.onPrimary}
                     {...webSwitchThumb}
                     style={{ alignSelf: 'center' }}
                     accessibilityLabel={`${s.categories?.name ?? 'Service'} ${s.active ? 'active' : 'paused'}`}
