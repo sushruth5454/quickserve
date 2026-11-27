@@ -1,0 +1,105 @@
+{
+  "stageId": "O22-SV02",
+  "sourceTaskIds": [
+    "SV-T02"
+  ],
+  "sourceFindingIds": [
+    "SV-F02"
+  ],
+  "planBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "95ed22f951c25de9b3f03c748cfb1c6330a3d8a2",
+  "testedTargetSha": "95ed22f951c25de9b3f03c748cfb1c6330a3d8a2",
+  "dependencyHeads": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O15-SV10": "19970058253143a5f82f68b2c97b725ed8b1529d",
+    "O16-SV03": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
+    "O21-READ": "9206a782561fa51f705f7644aea4dbf0d4e02dff"
+  },
+  "migrationClaim": {
+    "id": "MIG-O22-SV02",
+    "numericVersion": "0138",
+    "filename": "supabase\\migrations\\0138_o22_sv02_oorva.sql",
+    "allocatedAtLaunch": true,
+    "ownerAcknowledgementRequired": false
+  },
+  "sourceVerification": {
+    "stageAndTask": "docs\\design\\oorva\\execution-plan.json::O22-SV02/SV-T02",
+    "finding": "docs\\design\\oorva\\audit\\services.json::SV-F02",
+    "boundedReadProcedure": "docs\\18-Oorva-Transformation-Implementation-Plan.md §0.2",
+    "testPathAllocation": {
+      "source": "supabase\\tests\\sv_service_lifecycle.test.mjs",
+      "allocated": "supabase\\tests\\oorva_o22_sv02.test.mjs"
+    },
+    "routeHostBinding": {
+      "route": "app\\app\\quote\\[bookingId].tsx",
+      "host": "app\\src\\features\\serviceScreens\\QuoteDetailScreen.tsx",
+      "controller": "useQuoteDetailController (single hook in the host)"
+    }
+  },
+  "implementation": {
+    "status": "IMPLEMENTED_AWAITING_REGISTRATION",
+    "ownedFiles": [
+      "app\\src\\lib\\types.ts",
+      "app\\app\\quote\\[bookingId].tsx",
+      "app\\src\\features\\bookingDetail\\ActionsRow.tsx",
+      "app\\src\\features\\bookingDetail\\BookingDetailScreen.tsx",
+      "app\\src\\lib\\fixedBooking.ts",
+      "supabase\\migrations\\0138_o22_sv02_oorva.sql",
+      "app\\src\\features\\bookingDetail\\__tests__\\model.test.ts",
+      "app\\src\\features\\booking\\packages\\__tests__\\packageModel.test.ts",
+      "supabase\\tests\\oorva_o22_sv02.test.mjs",
+      "app\\src\\features\\serviceScreens\\QuoteDetailScreen.tsx",
+      "docs\\design\\oorva\\evidence\\o22-sv02.json"
+    ],
+    "summary": [
+      "Quote and booking types expose quote_type, source_package_id, package_snapshot, and booking_origin.",
+      "The existing quote route is a thin export to QuoteDetailScreen; editor family and operation derive from loaded booking, quote, and authorized business role, not the changeOrder URL hint.",
+      "Fixed package scope is read-only; only validated positive add-on drafts reach send_fixed_addons. Fixed package approval uses approve_fixed_change_order and retains its approval-time addon obligation.",
+      "Generic itemized send/approve/approve-with-coins/reject RPCs fail closed for marketplace fixed, proposal, and time-based bookings, while inspect and explicit BYO itemized routes remain supported.",
+      "Owner/manager quote actions are visible; staff/customer editor access is rejected. Managed travel lines and the strict parts-over-500-paise proof requirement remain guarded."
+    ],
+    "featureOffBehavior": "No new Oorva or acquisition feature gate was added. Existing approval, payment, refund, settlement, and cleanup paths remain ungated."
+  },
+  "tests": {
+    "appSelector": "src.features.bookingDetail.__tests__.model[.]test[.]ts$",
+    "appCases": [
+      "familySpecificQuoteActions"
+    ],
+    "jestSelector": "src.features.booking.packages.__tests__.packageModel[.]test[.]ts$",
+    "jestCases": [
+      "fixedAddonBaseImmutable"
+    ],
+    "sqlSelector": "oorva_o22_sv02",
+    "sqlCases": [
+      "SV-QUOTE-FAMILY-01",
+      "SV-QUOTE-GUARD-02",
+      "SV-QUOTE-COINS-03",
+      "SV-QUOTE-BYO-04"
+    ],
+    "sqlCoverage": [
+      "Fixed package copy, version, base immutability, and post-approval addon obligation.",
+      "Owner/manager send, staff/customer denial, stale-link closure, and unsupported marketplace family RPC atomicity.",
+      "Inspect positive coin delta and reduced-total refund; explicit BYO itemized revision and generic coin approval."
+    ],
+    "migrationParserSelector": "o22_sv02_oorva.sql",
+    "validationGate": "Do not run app, Jest, SQL, or parser selectors until the coordinator returns the shared-registration roundtrip SHA for this exact SQL test and allocated migration parser."
+  },
+  "coordinatorRegistration": {
+    "owner": "coordinator",
+    "path": "supabase\\tests\\package.json",
+    "status": "WAITING_FOR_SHARED_REGISTRATION_ROUNDTRIP_SHA",
+    "workerEdited": false
+  },
+  "validation": {
+    "sourceScope": "PASS",
+    "gitDiffCheck": "PASS",
+    "codespaceApp": "NOT_RUN_BY_INSTRUCTION",
+    "codespaceJest": "NOT_RUN_BY_INSTRUCTION",
+    "codespaceSql": "NOT_RUN_BY_INSTRUCTION",
+    "codespaceMigrationParser": "NOT_RUN_BY_INSTRUCTION",
+    "focusedMoneyReview": "PENDING_AFTER_REGISTRATION_AND_TESTS",
+    "exactHeadLaneCi": "NOT_RUN",
+    "privateIntegration": "NOT_RUN",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  }
+}

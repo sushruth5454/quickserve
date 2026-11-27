@@ -24,6 +24,8 @@ export type KycStatus = 'pending' | 'verified' | 'rejected' | 'under_review' | '
 export type RateUnit = 'hour' | 'job';
 export type QuoteStatus = 'sent' | 'approved_pending_payment' | 'approved' | 'rejected' | 'superseded';
 export type BookingArchetype = 'fixed' | 'inspect_quote' | 'proposal' | 'time_based' | 'remote';
+export type BookingOrigin = 'marketplace' | 'byo';
+export type QuoteType = 'itemized' | 'package';
 export type LocationMode = 'at_customer' | 'at_provider' | 'at_venue' | 'remote';
 export type TravelFeeMode = 'none' | 'flat' | 'per_km';
 export type TravelRequestStatus = 'pending' | 'approved' | 'declined' | 'expired' | 'used';
@@ -188,6 +190,7 @@ export interface Booking {
   completion_requested_at: string | null;
   completed_at: string | null;
   archetype?: BookingArchetype;
+  booking_origin?: BookingOrigin;
   recurring_schedule_id?: string | null;
   category_config_version?: number;
   location_mode?: LocationMode;
@@ -230,6 +233,9 @@ export interface Quote {
   version: number;
   status: QuoteStatus;
   is_change_order: boolean;
+  quote_type?: QuoteType;
+  source_package_id?: string | null;
+  package_snapshot?: Record<string, unknown>;
   subtotal_labour: number;
   subtotal_parts: number;
   subtotal_other: number;

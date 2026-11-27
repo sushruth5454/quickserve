@@ -2,7 +2,8 @@ import type { CreateFixedBookingInput, FixedBookingLocation } from './apiTypes';
 import { demoFixedBooking } from './demo/demoFixedBooking';
 import { supabase } from './supabase';
 import { isDemoMode } from './config';
-import type { ServicePackage } from './types';
+import { rupeesToPaise } from './money';
+import type { Booking, Quote, ServicePackage } from './types';
 
 export type { CreateFixedBookingInput, FixedBookingLocation };
 
@@ -10,7 +11,126 @@ export interface FixedPackageQuote {
   id: string;
   total: number;
   quote_type: 'package';
+  source_package_id?: string | null;
   package_snapshot: Record<string, unknown>;
+}
+
+export type QuoteEditorMode = 'itemized' | 'fixed_addons';
+
+export function canManageServiceQuotes(role: string | null | undefined): boolean {
+  return role === 'owner' || role === 'manager';
+}
+
+type QuoteFamilyState = Pick<Booking, 'archetype' | 'booking_origin' | 'status' | 'approved_quote_id'>;
+type QuoteFamilyRow = Pick<Quote, 'id' | 'status' | 'is_change_order' | 'quote_type'>;
+
+export function getQuoteEditorMode(
+  booking: QuoteFamilyState,
+  quotes: readonly QuoteFamilyRow[],
+): QuoteEditorMode | null {
+  const openQuote = quotes.find((quote) => quote.status === 'sent') ?? null;
+  const approvedQuote = quotes.find((quote) => quote.id === booking.approved_quote_id) ?? null;
+
+  if (booking.booking_origin === 'byo') {
+    if (booking.status === 'quote_sent') {
+      const currentQuote = openQuote ?? approvedQuote;
+      return currentQuote?.quote_type === 'itemized' ? 'itemized' : null;
+    }
+    if (booking.status === 'in_progress') {
+      return approvedQuote?.quote_type === 'itemized' && (!openQuote || openQuote.quote_type === 'itemized')
+        ? 'itemized'
+        : null;
+    }
+    return null;
+  }
+
+  if (booking.booking_origin !== 'marketplace') return null;
+  if (
+    booking.archetype === 'inspect_quote'
+    && ['inspecting', 'quote_sent', 'in_progress'].includes(booking.status)
+  ) {
+    const existingQuote = openQuote ?? approvedQuote;
+    return !existingQuote || existingQuote.quote_type === 'itemized' ? 'itemized' : null;
+  }
+  if (
+    booking.archetype === 'fixed'
+    && booking.status === 'in_progress'
+    && approvedQuote?.quote_type === 'package'
+  ) {
+    return 'fixed_addons';
+  }
+  return null;
+}
+
+export function getQuoteApprovalMode(
+  booking: QuoteFamilyState,
+  quote: QuoteFamilyRow,
+): QuoteEditorMode | null {
+  if (quote.status !== 'sent' || !['quote_sent', 'in_progress'].includes(booking.status)) return null;
+  if (booking.booking_origin === 'byo' && quote.quote_type === 'itemized') return 'itemized';
+  if (
+    booking.booking_origin === 'marketplace'
+    && booking.archetype === 'inspect_quote'
+    && quote.quote_type === 'itemized'
+  ) {
+    return 'itemized';
+  }
+  if (
+    booking.booking_origin === 'marketplace'
+    && booking.archetype === 'fixed'
+    && booking.status === 'in_progress'
+    && quote.is_change_order
+    && quote.quote_type === 'package'
+  ) {
+    return 'fixed_addons';
+  }
+  return null;
+}
+
+export interface FixedAddonDraft {
+  title: string;
+  qty: number;
+  unit?: string;
+  unitPrice: string | number;
+}
+
+export interface FixedAddonInput {
+  title: string;
+  qty: number;
+  unit?: string;
+  unit_price: number;
+}
+
+export function buildFixedAddonPayload(
+  approvedPackage: Pick<Quote, 'quote_type'>,
+  drafts: readonly FixedAddonDraft[],
+): FixedAddonInput[] {
+  if (approvedPackage.quote_type !== 'package') {
+    throw new Error('Add-ons require an approved fixed package.');
+  }
+  if (drafts.length < 1 || drafts.length > 20) {
+    throw new Error('Add 1 to 20 add-ons.');
+  }
+
+  return drafts.map((draft) => {
+    const title = draft.title.trim();
+    const unitPriceRupees = Number(draft.unitPrice);
+    const unit_price = rupeesToPaise(unitPriceRupees);
+    if (
+      title.length < 2
+      || title.length > 160
+      || !Number.isFinite(draft.qty)
+      || draft.qty <= 0
+      || draft.qty > 100
+      || !Number.isFinite(unitPriceRupees)
+      || unit_price <= 0
+      || unit_price > 10000000
+    ) {
+      throw new Error('Each add-on needs a description, quantity and positive price.');
+    }
+    const unit = draft.unit?.trim();
+    return { title, qty: draft.qty, ...(unit ? { unit } : {}), unit_price };
+  });
 }
 
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }): T {

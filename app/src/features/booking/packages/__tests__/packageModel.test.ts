@@ -1,5 +1,8 @@
 import { canProceedAfterSlotPrefill, canPurchaseSessionPack, fixedBookingDuration, getTimeBookingModes, hasSupportedRecurringFrequency, initialPackageAsap, packageRepeatPlanRoute, timeBookingQuantity } from '../packageModel';
 import { packageCheckoutTotal } from '../../../../lib/money';
+import { buildFixedAddonPayload } from '../../../../lib/fixedBooking';
+
+jest.mock('../../../../lib/supabase', () => ({ supabase: {} }));
 
 type EligibilityCategory = { recurrence_allowed?: boolean; allowed_frequencies?: string[] };
 
@@ -83,5 +86,21 @@ describe('package booking modes', () => {
 
   it('includes the server platform fee in the fixed-package checkout total', () => {
     expect(packageCheckoutTotal({ price: 99900, price_min: 99900 }, 1, 2900)).toBe(102800);
+  });
+
+  it('fixedAddonBaseImmutable keeps the accepted package snapshot out of the add-on draft', () => {
+    const acceptedPackage = {
+      quote_type: 'package' as const,
+      source_package_id: 'package-1',
+      package_snapshot: { title: 'Deep clean', quantity: 1, inclusions: ['Kitchen', 'Bath'] },
+      quote_items: [{ id: 'base-line', kind: 'package', title: 'Deep clean', qty: 1, unit_price: 12000 }],
+    };
+    const before = JSON.parse(JSON.stringify(acceptedPackage));
+    const addonPayload = buildFixedAddonPayload(acceptedPackage, [
+      { title: 'Extra room', qty: 1, unit: 'room', unitPrice: '25.50' },
+    ]);
+
+    expect(acceptedPackage).toEqual(before);
+    expect(addonPayload).toEqual([{ title: 'Extra room', qty: 1, unit: 'room', unit_price: 2550 }]);
   });
 });
