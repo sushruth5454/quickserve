@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O30-CM07",
+  "workPackage": "O30",
+  "sourceTaskId": "CM-T07",
+  "sourceFindingId": "CM-F09",
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t07",
+  "placementProjection": "docs/design/oorva/audit/communications.json",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "825ea8ffef309f1683b42bf658d01f86b2746536",
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "status": "DONE_IN_BASE"
+    },
+    {
+      "stageId": "O24-NOTIFICATIONS",
+      "commit": "d10507ed797460515e11f464cf4fc91e84ee7ef0",
+      "status": "DONE_IN_BASE"
+    }
+  ],
+  "scope": {
+    "allocatedMigration": "supabase/migrations/0142_o30_cm07_oorva.sql",
+    "ownedFiles": [
+      "app/app/admin/index.tsx",
+      "app/src/components/__tests__/AdminDashboardScreen.test.tsx",
+      "supabase/migrations/0142_o30_cm07_oorva.sql",
+      "supabase/tests/oorva_o30_cm07.test.mjs",
+      "app/src/features/communicationScreens/AdminIndexScreen.tsx",
+      "docs/design/oorva/evidence/o30-cm07.json"
+    ],
+    "modifiedSqlFunction": "public.admin_dashboard",
+    "sharedRegistrationOwnedBy": "coordinator",
+    "promotionOrDeployment": false
+  },
+  "implementation": [
+    "Extracted the existing admin dashboard UI/controller into AdminIndexScreen and retained the app/admin route as a thin re-export.",
+    "Aligned providers_pending to admin_review_status pending/needs_clarification plus submitted_at, without the provider-list 300-row limit.",
+    "Kept the KYC-derived count and payment aggregates unchanged while labeling KYC explicitly and naming the payment metric Gross payments collected.",
+    "Did not restore admin_set_provider_kyc, add a review control, add a feature flag, or modify payout/money policy."
+  ],
+  "acceptanceCases": [
+    "CM_SQL_DASHBOARD_REVIEW_PARITY",
+    "CM_DASHBOARD_GROSS_LABEL",
+    "CM_SQL_ADMIN_ENDPOINT_DENIED",
+    "CM_SQL_DASHBOARD_NO_PAGE_CAP"
+  ],
+  "registration": {
+    "state": "MERGED",
+    "commit": "c4a4ef8eb6826ef76570fa10f9a89cd169f42b9b",
+    "file": "supabase/tests/package.json",
+    "sqlTestSelector": "oorva_o30_cm07",
+    "sqlTestCommand": "node oorva_o30_cm07.test.mjs",
+    "migrationParserSelector": "o30_cm07_oorva.sql",
+    "migrationParserCommand": "node parse.cjs ../migrations/0142_o30_cm07_oorva.sql",
+    "otherScriptsChanged": false
+  },
+  "validation": {
+    "status": "CODESPACE_AND_AUTH_PASS",
+    "codespace": {
+      "helper": "origin/main:scripts/cs-test.ps1",
+      "helperOriginSha": "508dbdadb799b8ae4c1677dcd2c1cfac659b3bda",
+      "tokenAccount": "sushruth5454",
+      "csTestResult": "PASS",
+      "selectors": [
+        {
+          "suite": "app",
+          "selector": "src.components.__tests__.AdminDashboardScreen[.]test[.]tsx$",
+          "selectedFile": "app/src/components/__tests__/AdminDashboardScreen.test.tsx",
+          "result": "PASS",
+          "suitesPassed": 1,
+          "testsPassed": 1,
+          "testsTotal": 1,
+          "case": "CM_DASHBOARD_GROSS_LABEL",
+          "snapshotRef": "wip/quickserve-o30-cm07-b61",
+          "snapshotSha": "cdfced5926fd4cc47684b61da086e7f79a338cb4",
+          "snapshotParentHead": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
+          "csTestResult": "PASS"
+        },
+        {
+          "suite": "sql",
+          "selector": "oorva_o30_cm07",
+          "selectedFile": "supabase/tests/oorva_o30_cm07.test.mjs",
+          "selectedFiles": 1,
+          "result": "PASS",
+          "scenarios": [
+            "CM_SQL_DASHBOARD_REVIEW_PARITY",
+            "CM_SQL_DASHBOARD_NO_PAGE_CAP",
+            "CM_SQL_DASHBOARD_GROSS_LABEL",
+            "CM_SQL_ADMIN_ENDPOINT_DENIED"
+          ],
+          "snapshotRef": "wip/quickserve-o30-cm07-b61",
+          "snapshotSha": "f21a6a7cae85d7c4e5dc105677c5e4bb1f8c06f7",
+          "snapshotParentHead": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
+          "csTestResult": "PASS"
+        },
+        {
+          "suite": "sql",
+          "selector": "o30_cm07_oorva.sql",
+          "selectedFile": "supabase/migrations/0142_o30_cm07_oorva.sql",
+          "selectedFiles": 1,
+          "result": "PASS",
+          "topLevelStatements": 1,
+          "functionBodiesOk": 1,
+          "errors": 0,
+          "snapshotRef": "wip/quickserve-o30-cm07-b61",
+          "snapshotSha": "4c18f07aa85f06a460a87d70f99f56cfe5fb6884",
+          "snapshotParentHead": "bde3f6fdbfc3a20a0be3c2610f3b07de49cf5d2d",
+          "csTestResult": "PASS"
+        }
+      ],
+      "snapshotNote": "Snapshot diffs from the validated source head contain only the helper alternate-index and lock files (qs-cs-index-*); no worker source differs."
+    },
+    "exactHeadLaneCi": {
+      "status": "SUCCESS",
+      "runId": 46006940160,
+      "branch": "lane/oorva-o30-cm07",
+      "headSha": "532ae6996a1421dd1e1861b9cab4cf84eb3c303f",
+      "jobs": {
+        "changes": "PASS",
+        "sql": "PASS",
+        "deno": "PASS",
+        "app": "PASS",
+        "privatePostgres": "PASS",
+        "tooling": "NOT_SELECTED"
+      }
+    }
+  },
+  "checkpoint": {
+    "workerFilesCommit": "ae3e0203e910c459027f9f8fe61792dd3cb97313",
+    "registrationCommit": "c4a4ef8eb6826ef76570fa10f9a89cd169f42b9b",
+    "implementationHead": "532ae6996a1421dd1e1861b9cab4cf84eb3c303f",
+    "state": "CODE_GREEN",
+    "promotion": "NOT_PERFORMED",
+    "deployment": "NOT_PERFORMED"
+  },
+  "review": {
+    "type": "auth",
+    "status": "NO_FINDINGS",
+    "reviewerId": "d9bcfd3c-ccfb-45c0-b3a8-bfd4fe33ce2e",
+    "reviewedHead": "ae3e0203e910c459027f9f8fe61792dd3cb97313",
+    "scope": "admin route/RPC guards, aggregate-only output, phone allowlist authority, unchanged payment aggregates",
+    "result": "No findings; production implementation is unchanged since the reviewed checkpoint."
+  }
+}
