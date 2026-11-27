@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { withTwoClients } from './helpers.mjs';
 
 async function createUser(client) {
   const id = randomUUID();
@@ -38,7 +37,7 @@ async function waitForQueueConflict(observer, pid, blockerPid, operation, detail
   })}`);
 }
 
-await withTwoClients(async (first, second) => {
+export const run = async (context) => context.withTwoClients(async (first, second) => {
   const userId = await createUser(first);
   const collapseKey = `o24-pg-${randomUUID()}`;
   const payload = JSON.stringify({ url: '/booking/o24-pg', private_marker: 'unchanged' });
@@ -208,4 +207,4 @@ await withTwoClients(async (first, second) => {
     await mergePromise?.catch(() => undefined);
     throw error;
   }
-}, { privateTestStack: process.env.PRIVATE_TEST_STACK, connectionString: process.env.LOCAL_DB_URL });
+});
