@@ -132,9 +132,54 @@
     }
   ],
   "validation": {
-    "status": "NOT RUN",
-    "reason": "Coordinator-owned SQL test and migration parser registration, ff-merge, and Codespace selection proof are required first.",
-    "privatePostgres": "O37A disposable private job only; not run locally or against hosted databases."
+    "status": "PASS",
+    "stageGate": "BLOCKED",
+    "reason": "Current-main Codespace selectors and exact-head lane CI passed. The unresolved concurrency review remains a separate stage gate.",
+    "codespace": {
+      "execution": "Direct current-main Codespace commands using existing dependencies; no packages installed.",
+      "snapshotRef": "wip/qs-o24-notifications-resume-bb25f20-d6a5a6e2",
+      "snapshotSha": "dc8036c5236a388033fe572eaf4845e604c1fa47",
+      "selectors": [
+        {
+          "suite": "app",
+          "selector": "src.components.__tests__.NotificationsScreen[.]test[.]tsx$",
+          "typecheck": "PASS",
+          "testsPassed": 6,
+          "testsTotal": 6
+        },
+        {
+          "suite": "jest",
+          "selector": "src.lib.__tests__.unread[.]test[.]ts$",
+          "testsPassed": 17,
+          "testsTotal": 17
+        },
+        {
+          "suite": "sql",
+          "selector": "oorva_o24_notifications",
+          "selectedFiles": 1,
+          "passedFiles": 1
+        },
+        {
+          "suite": "migration-parser",
+          "command": "node parse.cjs ../migrations/0134_o24_notifications_oorva.sql",
+          "topLevelStatements": 9,
+          "functionBodiesOk": 6,
+          "errors": 0
+        }
+      ]
+    },
+    "laneCi": {
+      "runId": "45971743190",
+      "headSha": "61123032ecdcf651bdd07b12e8c7723eebf50207",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "app": "PASS",
+        "deno": "PASS",
+        "sql": "PASS",
+        "privatePostgres": "PASS"
+      }
+    },
+    "privatePostgres": "PASS in lane CI run 45971743190 using the disposable stack only; not run locally or against a hosted database."
   },
-  "handoffState": "PAUSED_FOR_REGISTRATION"
+  "handoffState": "BLOCKED_FOR_CONCURRENCY_OWNER_SCOPE_ASSIGNMENT"
 }
