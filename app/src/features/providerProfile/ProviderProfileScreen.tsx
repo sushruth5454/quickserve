@@ -12,6 +12,7 @@ import { haptics } from '../../lib/haptics';
 import { formatINR } from '../../lib/money';
 import { packageDisplayPrice } from '../booking/packages/packageModel';
 import { onboardingApi, type PublicProfile } from '../../lib/onboarding';
+import { providerPublicTrust } from '../../lib/onboarding/publicTrust';
 import { summarizeHours, todayLabel } from '../../lib/onboarding/availability';
 import { useTheme } from '../../theme';
 import { ProviderProfileCallouts } from './ProviderProfileCallouts';
@@ -46,6 +47,7 @@ export default function ProviderDetailScreen() {
   const detail = detailResult?.scope === scope ? detailResult.value : null;
   const availability = availabilityResult?.scope === scope ? availabilityResult : { scope, status: 'loading' as const };
   const pub = availability.status === 'ready' ? availability.value : null;
+  const publicTrust = providerPublicTrust(pub);
   const availabilityError = availability.status === 'error' ? availability.message : null;
   const selection = selectionResult?.scope === scope ? selectionResult.value : null;
   const selected = selection?.serviceId ?? null;
@@ -193,8 +195,6 @@ export default function ProviderDetailScreen() {
   // "Vijayawada Demo" is the test city overlapping Vijayawada; the server routes targeted requests by distance.
   const cityKey = (c: string | null | undefined) => (c ?? '').trim().toLowerCase().replace(/\s+demo$/, '');
   const otherCity = !!provider.city && cityKey(provider.city) !== cityKey(location.city);
-  const idVerified = pub ? pub.badges.id_verified : false;
-  const payoutVerified = pub ? pub.badges.payout_verified : provider.kyc_status === 'verified';
   const share = async () => {
     haptics.tap();
     const url = Linking.createURL(`/provider/${provider.id}`);
@@ -288,13 +288,23 @@ export default function ProviderDetailScreen() {
       <ProviderProfileHero
         provider={provider}
         name={name}
-        payoutVerified={payoutVerified}
+        payoutBadge={publicTrust.badges.payout}
         theme={t}
         topInset={insets.top}
         onBack={back}
         onShare={() => void share()}
       />
-      <ProviderProfileCallouts pub={pub} isPreview={isPreview} unavailable={unavailable} today={today} first={first} idVerified={idVerified} theme={t} gutter={gutter} />
+      <ProviderProfileCallouts
+        pub={pub}
+        trust={publicTrust}
+        profileFailed={availability.status === 'error'}
+        isPreview={isPreview}
+        unavailable={unavailable}
+        today={today}
+        first={first}
+        theme={t}
+        gutter={gutter}
+      />
       <ProviderProfileOverview provider={provider} pub={pub} rating={rating} first={first} today={today} hours={hours} theme={t} gutter={gutter} />
       <ProviderServicesSection
         services={services}

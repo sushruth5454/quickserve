@@ -1,15 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 import { Avatar, IconButton, Text } from '../../components/ui';
-import { VerifiedMark } from '../../components/ProviderCard';
 import type { ProviderDetail } from '../../lib/api';
+import type { PublicTrustBadge } from '../../lib/onboarding/publicTrust';
 import { type useTheme } from '../../theme';
 import { MetaChip } from './ProfileParts';
 
 export function ProviderProfileHero({
   provider,
   name,
-  payoutVerified,
+  payoutBadge,
   theme: t,
   topInset,
   onBack,
@@ -17,7 +18,7 @@ export function ProviderProfileHero({
 }: {
   provider: ProviderDetail['provider'];
   name: string;
-  payoutVerified: boolean;
+  payoutBadge: PublicTrustBadge | null;
   theme: ReturnType<typeof useTheme>;
   topInset: number;
   onBack: () => void;
@@ -44,7 +45,16 @@ export function ProviderProfileHero({
           <Text variant="title1" accessibilityRole="header" numberOfLines={1} style={{ flexShrink: 1 }}>
             {name}
           </Text>
-          {payoutVerified ? <VerifiedMark size={20} /> : null}
+          {payoutBadge ? (
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={t.colors.primary}
+              accessible
+              accessibilityLabel={payoutBadge.label}
+              accessibilityHint={payoutBadge.description}
+            />
+          ) : null}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center', columnGap: 10, rowGap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
