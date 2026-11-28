@@ -1,38 +1,62 @@
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { CategoryIcon, iconForSlug } from '../../../components/CategoryIcon';
-import { Card, EmptyState, ErrorState, Skeleton, Text } from '../../../components/ui';
+import { Card, EmptyState, ErrorState, InlineAlert, Skeleton, Text } from '../../../components/ui';
 import { listMyServiceRequests } from '../../../lib/api';
+import { useAuth } from '../../../lib/auth';
 import type { ServiceRequest } from '../../../lib/types';
 import { useTheme } from '../../../theme';
+import { useFocusedServiceRefresh } from '../../serviceLifecycle/useFocusedServiceRefresh';
 import type { MarkRead, RegisterRefresh } from './types';
+
+export function requestRefreshErrorState(
+  error: string | null,
+  requests: ServiceRequest[] | null,
+): 'initial-error' | 'stale-warning' | null {
+  if (!error) return null;
+  return requests === null ? 'initial-error' : 'stale-warning';
+}
 
 export function RequestsSegment({ registerRefresh, markRead }: { registerRefresh: RegisterRefresh; markRead: MarkRead }) {
   const t = useTheme();
+  const { userId } = useAuth();
   const [requests, setRequests] = useState<ServiceRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     try {
-      setRequests(await listMyServiceRequests());
+      const next = await listMyServiceRequests();
+      if (!guard.isCurrent()) return;
+      setRequests(next);
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      if (guard.isCurrent()) setError((e as Error).message);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
-  useEffect(() => registerRefresh(load), [load, registerRefresh]);
+  const { refresh } = useFocusedServiceRefresh(load, {
+    contextKey: `customer-requests:${userId ?? 'anonymous'}`,
+    enabled: true,
+    intervalMs: 30_000,
+  });
+  useEffect(() => registerRefresh(refresh), [refresh, registerRefresh]);
 
-  if (error && !requests) return <ErrorState message={error} onRetry={() => void load()} />;
+  const errorState = requestRefreshErrorState(error, requests);
+  if (errorState === 'initial-error') return <ErrorState message={error!} onRetry={() => void refresh()} />;
   if (!requests) return [0, 1, 2].map((index) => <Skeleton key={index} height={94} radius={t.radii.lg} />);
   if (!requests.length) {
-    return <EmptyState icon="document-text-outline" title="No service requests yet" message="Requests you create for proposals will appear here." />;
+    return (
+      <View style={{ gap: t.spacing.sm }}>
+        {errorState === 'stale-warning' ? <InlineAlert message={error!} /> : null}
+        <EmptyState icon="document-text-outline" title="No service requests yet" message="Requests you create for proposals will appear here." />
+      </View>
+    );
   }
 
   return (
     <View style={{ gap: t.spacing.sm }}>
+      {errorState === 'stale-warning' ? <InlineAlert message={error!} /> : null}
       {requests.map((request) => (
         <Card
           key={request.id}

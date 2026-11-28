@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, InlineAlert, Text, TextArea, useToast } from '../../components/ui';
 import * as api from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import type { RequestMessage } from '../../lib/types';
+import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
 
 export function RequestQuestionThread({
   requestId,
@@ -21,17 +22,22 @@ export function RequestQuestionThread({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
     try {
       const next = await api.listRequestMessages(requestId, providerId);
+      if (!guard.isCurrent()) return;
       setMessages(next);
       setError(null);
     } catch (caught) {
-      setError((caught as Error).message);
+      if (guard.isCurrent()) setError((caught as Error).message);
     }
   }, [providerId, requestId]);
 
-  useEffect(() => { void load(); }, [load]);
+  const { refresh } = useFocusedServiceRefresh(load, {
+    contextKey: `request-messages:${userId ?? 'anonymous'}:${requestId}:${providerId}`,
+    enabled: true,
+    intervalMs: 30_000,
+  });
 
   const send = async () => {
     const message = body.trim();
@@ -40,7 +46,7 @@ export function RequestQuestionThread({
     try {
       await api.sendRequestMessage(requestId, providerId, message);
       setBody('');
-      await load();
+      await refresh();
       toast({ message: 'Message sent', tone: 'success' });
     } catch (caught) {
       setError((caught as Error).message);
