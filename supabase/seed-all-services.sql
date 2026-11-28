@@ -270,7 +270,9 @@ insert into demo_specs values
 
 insert into auth.users (
   instance_id, id, aud, role, phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-  created_at, updated_at
+  created_at, updated_at, confirmation_token, recovery_token, email_change,
+  email_change_token_new, email_change_token_current, phone_change, phone_change_token,
+  reauthentication_token
 )
 select
   '00000000-0000-0000-0000-000000000000',
@@ -278,13 +280,21 @@ select
   'authenticated', 'authenticated', s.phone, now(),
   '{"provider":"phone","providers":["phone"],"demo_only":"true"}'::jsonb,
   jsonb_build_object('full_name', s.provider_name, 'demo_only', 'true'),
-  now() - interval '180 days', now()
+  now() - interval '180 days', now(), '', '', '', '', '', '', '', ''
 from demo_specs s
 on conflict (id) do update
 set phone = excluded.phone,
     raw_app_meta_data = excluded.raw_app_meta_data,
     raw_user_meta_data = excluded.raw_user_meta_data,
     phone_confirmed_at = excluded.phone_confirmed_at,
+    confirmation_token = excluded.confirmation_token,
+    recovery_token = excluded.recovery_token,
+    email_change = excluded.email_change,
+    email_change_token_new = excluded.email_change_token_new,
+    email_change_token_current = excluded.email_change_token_current,
+    phone_change = excluded.phone_change,
+    phone_change_token = excluded.phone_change_token,
+    reauthentication_token = excluded.reauthentication_token,
     updated_at = now();
 
 insert into public.profiles (id, full_name, role_customer, role_provider, created_at)
