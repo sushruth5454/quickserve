@@ -8,6 +8,7 @@ import { statusShort, statusTone } from '../../components/status';
 import { acceptBooking, declineBooking } from '../../lib/api';
 import { formatINR, settleVisitOnly } from '../../lib/money';
 import { pct } from '../../lib/providerInsights';
+import { useFeature } from '../../lib/featureFlags';
 import type { ProviderJob } from '../../lib/types';
 import type { BusinessProviderContext } from '../merchantStaff/api';
 import { useUnread } from '../../lib/unreadContext';
@@ -17,10 +18,10 @@ import type { DocumentType, GoLive } from '../../lib/onboarding';
 import { TravelRequestInbox } from '../travel/TravelRequestInbox';
 import { ProviderProposalInbox } from '../proposals/ProviderProposalInbox';
 import { ProviderRecurringOverview } from '../recurring/ProviderRecurringOverview';
-import { firstName } from './model';
+import { firstName, getDashboardNextStep, getPayoutSetupLabel, shouldShowStaffManagementShortcut } from './model';
 import { openBooking } from './navigation';
 import { DeclineSheet, NextJobCard, RequestCard } from './JobCards';
-import { getNextStep, OnlineCard, StatsStrip } from './DashboardWidgets';
+import { OnlineCard, StatsStrip } from './DashboardWidgets';
 
 type ProviderDashboardViewProps = {
   t: Theme;
@@ -30,13 +31,15 @@ type ProviderDashboardViewProps = {
   setRefreshing: Dispatch<SetStateAction<boolean>>;
   load: () => Promise<void>;
   provider: Extract<BusinessProviderContext, { business_role: 'owner' }> | null;
-  online: boolean;
+  online: boolean | null;
   toggleOnline: (value: boolean) => Promise<void>;
   goLive: { status: GoLive; docTypes: DocumentType[] } | null;
+  goLiveReadFailed: boolean;
+  payoutReadFailed: boolean;
   error: string | null;
   bellCount: number;
   stats: { acceptance: number | null; completion: number | null };
-  today: number;
+  today: number | null;
   me: string;
   incoming: ProviderJob[];
   jobs: ProviderJob[] | null;
@@ -56,7 +59,12 @@ type ProviderDashboardViewProps = {
 };
 
 export function ProviderDashboardView(props: ProviderDashboardViewProps) {
-  const { t, insets, gutter, refreshing, setRefreshing, load, provider, online, toggleOnline, goLive, error, bellCount, stats, today, me, incoming, jobs, photos, now, earningRates, busyId, unread, iconFor, act, primaryAction, next, rest, declining, setDeclining, toast } = props;
+  const { t, insets, gutter, refreshing, setRefreshing, load, provider, online, toggleOnline, goLive, goLiveReadFailed, payoutReadFailed, error, bellCount, stats, today, me, incoming, jobs, photos, now, earningRates, busyId, unread, iconFor, act, primaryAction, next, rest, declining, setDeclining, toast } = props;
+  const merchantStaffEnabled = useFeature('merchant_staff');
+  const readinessReadFailed = goLiveReadFailed || !!error;
+  const nextCardJob = next && (next.status === 'confirmed' || next.status === 'delivery_pending')
+    ? { ...next, archetype: undefined }
+    : next;
   return (
     <Screen
       inTabs
@@ -89,26 +97,39 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
         </View>
 
         <OnlineCard online={online} radiusKm={provider?.service_radius_km ?? null} onChange={(v) => void toggleOnline(v)} disabled={!provider} />
-        {provider?.business_role === 'owner' ? (
+        {shouldShowStaffManagementShortcut(provider?.business_role ?? null, merchantStaffEnabled) ? (
           <Button title="Manage business staff" variant="outline" onPress={() => router.push('/merchant-staff')} />
         ) : null}
 
-        {goLive && (goLive.status.state !== 'live' || goLive.status.paused) ? (
-          <GoLiveStatusCard
-            goLive={goLive.status}
-            docTypes={goLive.docTypes}
-            onFix={(s) => router.push({ pathname: '/provider-profile/[section]', params: { section: s, returnTo: 'hub' } })}
-            onContinue={() => router.push('/onboarding')}
-          />
-        ) : !goLive && provider && provider.kyc_status !== 'verified' ? (
-          <InlineAlert tone="warning" title="Not visible in search yet" message="Finish your provider profile and payout setup to go live." />
+        {provider ? (
+          readinessReadFailed || !goLive ? (
+            <InlineAlert title="Marketplace readiness unknown" message="We couldn't verify marketplace eligibility. Refresh to try again." />
+          ) : (
+            <GoLiveStatusCard
+              goLive={goLive.status}
+              docTypes={goLive.docTypes}
+              compact
+              onFix={(s) => router.push({ pathname: '/provider-profile/[section]', params: { section: s, returnTo: 'hub' } })}
+              onContinue={() => router.push('/onboarding')}
+            />
+          )
+        ) : null}
+        {provider ? (
+          <View style={{ gap: t.spacing.xs }}>
+            <Text variant="caption" color="muted">
+              Payout setup: {getPayoutSetupLabel(goLive?.status ?? null, readinessReadFailed)}
+            </Text>
+            {payoutReadFailed || !!error ? (
+              <InlineAlert title="Payout activity unknown" message="Today's payout total is unavailable. Refresh to check again." />
+            ) : null}
+          </View>
         ) : null}
         {provider?.suspended ? <InlineAlert title="Account suspended" message="Contact support to restore access." /> : null}
         {error ? <InlineAlert message={error} /> : null}
 
         <StatsStrip
           items={[
-            { label: 'Today', value: formatINR(today), onPress: () => router.navigate('/earnings') },
+            { label: 'Payouts today', value: today === null ? 'Unknown' : formatINR(today), onPress: () => router.navigate('/earnings') },
             { label: 'Rating', value: provider && provider.rating_count > 0 ? Number(provider.rating_avg).toFixed(1) : '—', icon: 'star' },
             { label: 'Acceptance', value: pct(stats.acceptance) },
             { label: 'Completion', value: pct(stats.completion) },
@@ -138,9 +159,13 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
           ) : incoming.length === 0 ? (
             <EmptyState
               compact
-              icon={online ? 'radio-outline' : 'moon-outline'}
-              title={online ? 'Waiting for requests' : 'Go online to start receiving requests.'}
-              message={online ? 'We’ll notify you when a customer nearby books you.' : undefined}
+              icon={online === null ? 'help-circle-outline' : online ? 'radio-outline' : 'moon-outline'}
+              title={online === null ? 'Availability preference unknown' : online ? 'Waiting for requests' : 'Online preference is off'}
+              message={online === null
+                ? 'Refresh to check your new-request preference.'
+                : online
+                  ? 'This preference does not guarantee marketplace visibility or booking eligibility.'
+                  : 'Marketplace visibility and booking eligibility are shown separately.'}
             />
           ) : (
             incoming.map((j) => (
@@ -175,7 +200,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
         <View style={gutter}>
           <Section title="Next job">
             <NextJobCard
-              job={next}
+              job={nextCardJob ?? next}
               icon={iconFor(next.category_name)}
               busy={busyId === next.booking_id}
               onPrimary={() => primaryAction(next)}
@@ -206,7 +231,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
                   {i > 0 ? <Divider inset={LIST_INSET + 8} /> : null}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${j.category_name} for ${j.customer_name}. Next: ${getNextStep(j)?.label ?? ''}`}
+                    accessibilityLabel={`${j.category_name} for ${j.customer_name}. Next: ${getDashboardNextStep(j)?.label ?? ''}`}
                     onPress={() => openBooking(j.booking_id)}
                     style={({ pressed }) => ({
                       flexDirection: 'row',
@@ -223,7 +248,7 @@ export function ProviderDashboardView(props: ProviderDashboardViewProps) {
                         {firstName(j.customer_name)} · {j.category_name}
                       </Text>
                       <Text variant="footnote" color="muted" numberOfLines={1}>
-                        Next: {getNextStep(j)?.label ?? '—'}
+                        Next: {getDashboardNextStep(j)?.label ?? '—'}
                       </Text>
                     </View>
                     <CountBadge count={unread.countFor(j.booking_id)} />

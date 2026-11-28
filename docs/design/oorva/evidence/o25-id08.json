@@ -1,0 +1,43 @@
+{
+  "stageId": "O25-ID08",
+  "dependencyApprovedBaseSha": "6e555ee1213cb3adf6c126300e78ac9b1f45b28a",
+  "originMainSha": "f6fbf52a7f8952b4ddbb84817b43a0ea47558d51",
+  "dependencyHeads": {
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+    "O38-ID01": "ef7ad27900d8727dac3a2cba42f0ba18a088eef1",
+    "O25-SV12": "7a242f56bb716c2410dbadf06a53a571bcb8fc97",
+    "O26-ID05": "9a598cdd27cb9f4a6e53a6c4713e204711fb7853"
+  },
+  "codespace": {
+    "helper": "origin/main:scripts/cs-test.ps1",
+    "codespace": "qs-tests-g67pgv4xqj639gx5",
+    "results": [
+      {
+        "snapshot": "07218715",
+        "suite": "app",
+        "filter": "src.features.providerDashboard.__tests__.model[.]test[.]ts$",
+        "status": "PASS",
+        "testSuites": 1,
+        "tests": 5,
+        "includesTypecheck": true
+      },
+      {
+        "snapshot": "b4e5e191",
+        "suite": "jest",
+        "filter": "src.features.providerDashboard.__tests__.identity[.]test[.]tsx$",
+        "status": "PASS",
+        "testSuites": 1,
+        "tests": 4
+      },
+      {
+        "snapshot": "500bea35",
+        "suite": "jest",
+        "filter": "src.features.providerDashboard.__tests__.jobsPresentation[.]test[.]tsx$",
+        "status": "PASS",
+        "testSuites": 1,
+        "tests": 3
+      }
+    ]
+  },
+  "setupNote": "The initial Codespace discovery call lacked the codespace token scope; the approved gh auth token command resolved it. No token value was recorded."
+}

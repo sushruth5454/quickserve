@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { iconForCategory } from '../../components/CategoryIcon';
 import { useToast } from '../../components/ui';
@@ -28,11 +28,11 @@ import {
 import { useUnread } from '../../lib/unreadContext';
 import { useTheme } from '../../theme';
 import { onboardingApi, type DocumentType, type GoLive } from '../../lib/onboarding';
-import { firstName } from './model';
+import { firstName, selectDashboardWork } from './model';
 import { openBooking } from './navigation';
 import { BusinessDashboardView } from './BusinessDashboardView';
 import { ProviderDashboardView } from './ProviderDashboardView';
-import { ACTIVE_PRIORITY, getPrimaryJobAction, isActiveProviderJob } from './DashboardWidgets';
+import { getPrimaryJobAction } from './DashboardWidgets';
 
 export default function ProviderDashboard() {
   const t = useTheme();
@@ -41,6 +41,8 @@ export default function ProviderDashboard() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [provider, setProvider] = useState<BusinessProviderContext | null>(null);
+  const providerRef = useRef(provider);
+  providerRef.current = provider;
   const [me, setMe] = useState('');
   const [jobs, setJobs] = useState<ProviderJob[] | null>(null);
   const [earningRates, setEarningRates] = useState<Record<string, number | null>>({});
@@ -53,7 +55,14 @@ export default function ProviderDashboard() {
   const [now, setNow] = useState(Date.now());
   const [declining, setDeclining] = useState<ProviderJob | null>(null);
   const [goLive, setGoLive] = useState<{ status: GoLive; docTypes: DocumentType[] } | null>(null);
+  const [goLiveReadFailed, setGoLiveReadFailed] = useState(false);
+  const [payoutReadFailed, setPayoutReadFailed] = useState(false);
   const { userId } = useAuth();
+  const contextKey = JSON.stringify([userId, providerId ?? null]);
+  const contextKeyRef = useRef(contextKey);
+  contextKeyRef.current = contextKey;
+  const [loadedContextKey, setLoadedContextKey] = useState<string | null>(null);
+  const requestGeneration = useRef(0);
   const unread = useUnread();
   const bellCount = unread.total('provider') + unread.notifications;
   const refreshUnread = unread.refresh;
@@ -63,52 +72,119 @@ export default function ProviderDashboard() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    requestGeneration.current += 1;
+    setLoadedContextKey(contextKey);
+    providerRef.current = null;
+    setProvider(null);
+    setJobs(null);
+    setPayouts([]);
+    setCategories([]);
+    setPhotos({});
+    setEarningRates({});
+    setGoLive(null);
+    setGoLiveReadFailed(false);
+    setPayoutReadFailed(false);
+    setMe('');
+    setError(null);
+    setBusyId(null);
+    setDeclining(null);
+    setRefreshing(false);
+    return () => {
+      requestGeneration.current += 1;
+    };
+  }, [contextKey]);
+
   const load = useCallback(async () => {
+    const requestContextKey = contextKey;
+    const generation = ++requestGeneration.current;
+    const isCurrent = () =>
+      generation === requestGeneration.current && requestContextKey === contextKeyRef.current;
+    if (!isCurrent()) return;
+
     setEarningRates({});
     try {
-      const p = await getMyProviderBusinessContext(providerId);
-      if (!p) {
+      const selectedProvider = await getMyProviderBusinessContext(providerId);
+      if (!isCurrent()) return;
+      if (!selectedProvider) {
+        providerRef.current = null;
+        setProvider(null);
+        setJobs(null);
+        setPayouts([]);
+        setGoLive(null);
+        setLoadedContextKey(requestContextKey);
         router.replace('/onboarding');
         return;
       }
-      setProvider(p);
-      const isOwner = p.business_role === 'owner';
-      if (isOwner) {
-        void Promise.all([onboardingApi.getOnboarding(), onboardingApi.getCatalog()])
-          .then(([s, cat]) => setGoLive({ status: s.go_live, docTypes: cat.docTypes }))
-          .catch(() => undefined);
-      } else {
-        setGoLive(null);
-      }
-      const [j, profile, cats] = await Promise.all([listMyBusinessProviderJobs(p.id), getMyProfile(), listCategories()]);
-      setJobs(j);
-      setPayouts(isOwner ? await listMyPayouts() : []);
-      setCategories(cats);
+
+      const isOwner = selectedProvider.business_role === 'owner';
+      const goLiveRequest = isOwner
+        ? Promise.all([onboardingApi.getOnboarding(), onboardingApi.getCatalog()])
+            .then(([status, catalog]) => ({
+              value: { status: status.go_live, docTypes: catalog.docTypes },
+              failed: false as const,
+            }))
+            .catch(() => ({ value: null, failed: true as const }))
+        : Promise.resolve({ value: null, failed: false as const });
+      const payoutRequest = isOwner
+        ? listMyPayouts()
+            .then((value) => ({ value, failed: false as const }))
+            .catch(() => ({ value: [] as Payout[], failed: true as const }))
+        : Promise.resolve({ value: [] as Payout[], failed: false as const });
+
+      const [selectedJobs, profile, selectedCategories, goLiveResult, payoutResult] = await Promise.all([
+        listMyBusinessProviderJobs(selectedProvider.id),
+        getMyProfile(),
+        listCategories(),
+        goLiveRequest,
+        payoutRequest,
+      ]);
+      if (!isCurrent()) return;
+
+      providerRef.current = selectedProvider;
+      setProvider(selectedProvider);
+      setJobs(selectedJobs);
+      setPayouts(payoutResult.value);
+      setPayoutReadFailed(payoutResult.failed);
+      setCategories(selectedCategories);
       setMe(profile?.full_name?.split(' ')[0] ?? '');
-      const requestRates = isOwner ? await Promise.all(j.filter((job) => job.status === 'requested').map(async (job) => {
-        try {
-          return [job.booking_id, await getBookingCommissionRate(job.booking_id)] as const;
-        } catch {
-          return [job.booking_id, null] as const;
-        }
-      })) : [];
-      setEarningRates(Object.fromEntries(requestRates));
+      setGoLive(goLiveResult.value);
+      setGoLiveReadFailed(goLiveResult.failed);
       setError(null);
-      // Problem photos for open requests (RLS lets the assigned pro read the booking and its photos).
-      const incoming = j.filter((x) => x.status === 'requested');
+      setLoadedContextKey(requestContextKey);
+
+      const requestRates = isOwner
+        ? await Promise.all(
+            selectedJobs
+              .filter((job) => job.status === 'requested')
+              .map(async (job) => {
+                try {
+                  return [job.booking_id, await getBookingCommissionRate(job.booking_id)] as const;
+                } catch {
+                  return [job.booking_id, null] as const;
+                }
+              }),
+          )
+        : [];
+      if (!isCurrent()) return;
+      setEarningRates(Object.fromEntries(requestRates));
+
+      const incomingJobs = selectedJobs.filter((job) => job.status === 'requested');
       const entries = await Promise.all(
-        incoming.map(async (x) => {
-          const b = await getBooking(x.booking_id).catch(() => null);
-          const urls = b?.photos.length ? await signedPhotoUrls(b.photos).catch(() => []) : [];
-          return [x.booking_id, urls] as const;
+        incomingJobs.map(async (job) => {
+          const booking = await getBooking(job.booking_id).catch(() => null);
+          const urls = booking?.photos.length ? await signedPhotoUrls(booking.photos).catch(() => []) : [];
+          return [job.booking_id, urls] as const;
         }),
       );
+      if (!isCurrent()) return;
       setPhotos(Object.fromEntries(entries));
     } catch (e) {
-      setError((e as Error).message);
+      if (isCurrent()) setError((e as Error).message);
+    } finally {
+      if (isCurrent()) void refreshUnread();
     }
-    void refreshUnread();
-  }, [providerId, refreshUnread]);
+  }, [contextKey, providerId, refreshUnread]);
 
   useFocusEffect(
     useCallback(() => {
@@ -117,28 +193,41 @@ export default function ProviderDashboard() {
   );
 
   const toggleOnline = async (value: boolean) => {
+    const requestContextKey = contextKey;
+    const isCurrent = () => requestContextKey === contextKeyRef.current;
+    if (!isCurrent() || providerRef.current?.business_role !== 'owner') return;
     haptics.select();
     setProvider((p) => (p ? { ...p, is_online: value } : p));
     try {
       await setOnline(value);
-      toast({ message: value ? "You're online — new requests will reach you" : "You're offline", tone: value ? 'success' : 'default' });
+      if (!isCurrent()) return;
+      toast({ message: value ? 'Online preference turned on' : 'Online preference turned off', tone: value ? 'success' : 'default' });
       // Going online is when a pro wants to hear about new requests: ask for notification permission here.
       if (value && userId) void registerForPush(userId, { prompt: true });
     } catch (e) {
+      if (!isCurrent()) return;
       setError((e as Error).message);
       setProvider((p) => (p ? { ...p, is_online: !value } : p));
     }
   };
 
   const act = async (id: string, fn: () => Promise<void>, msg: string, expectedStatus: BookingStatus) => {
+    const requestContextKey = contextKey;
+    const isCurrent = () => requestContextKey === contextKeyRef.current;
+    if (!isCurrent() || providerRef.current?.business_role !== 'owner') return;
     setBusyId(id);
     try {
       await fn();
+      if (!isCurrent()) return;
       await load();
-      if (!provider || provider.business_role !== 'owner') {
+      if (!isCurrent()) return;
+      const loadedGeneration = requestGeneration.current;
+      const currentProvider = providerRef.current;
+      if (!currentProvider || currentProvider.business_role !== 'owner') {
         throw new Error('The business owner context is unavailable. Refresh and try again.');
       }
-      const refreshedJobs = await listMyBusinessProviderJobs(provider.id);
+      const refreshedJobs = await listMyBusinessProviderJobs(currentProvider.id);
+      if (!isCurrent() || loadedGeneration !== requestGeneration.current) return;
       const updatedJob = refreshedJobs.find((job) => job.booking_id === id);
       if (!updatedJob || updatedJob.status !== expectedStatus) {
         throw new Error('The server did not confirm this booking update. Refresh and try again.');
@@ -146,35 +235,37 @@ export default function ProviderDashboard() {
       setJobs(refreshedJobs);
       toast({ message: msg, tone: 'success' });
     } catch (e) {
+      if (!isCurrent()) return;
       haptics.error();
       setError((e as Error).message);
     } finally {
-      setBusyId(null);
+      if (isCurrent()) setBusyId(null);
     }
   };
 
-  const iconFor = (name: string) => iconForCategory(categories.find((c) => c.name === name));
-  const incoming = (jobs ?? []).filter((j) => j.status === 'requested');
-  const active = useMemo(
-    () =>
-      (jobs ?? [])
-        .filter(isActiveProviderJob)
-        .sort(
-          (a, b) =>
-            ACTIVE_PRIORITY.indexOf(a.status) - ACTIVE_PRIORITY.indexOf(b.status) ||
-            (a.scheduled_at ?? a.created_at).localeCompare(b.scheduled_at ?? b.created_at),
-        ),
-    [jobs],
-  );
-  const [next, ...rest] = active;
-  const stats = useMemo(() => providerStats((jobs ?? []).map((j) => j.status)), [jobs]);
+  const contextIsCurrent = loadedContextKey === contextKey;
+  const currentProvider = contextIsCurrent ? provider : null;
+  const currentJobs = contextIsCurrent ? jobs : null;
+  const currentError = contextIsCurrent ? error : null;
+  const currentGoLive = contextIsCurrent ? goLive : null;
+  const currentGoLiveReadFailed = contextIsCurrent && (goLiveReadFailed || !!currentError);
+  const currentPayoutReadFailed = contextIsCurrent && (payoutReadFailed || !!currentError);
+  const currentCategories = contextIsCurrent ? categories : [];
+  const currentPhotos = contextIsCurrent ? photos : {};
+  const currentEarningRates = contextIsCurrent ? earningRates : {};
+  const { incoming, next, rest } = useMemo(() => selectDashboardWork(currentJobs), [currentJobs]);
+  const stats = useMemo(() => providerStats((currentJobs ?? []).map((j) => j.status)), [currentJobs]);
+  const iconFor = (name: string) => iconForCategory(currentCategories.find((c) => c.name === name));
   const sod = new Date(now);
   sod.setHours(0, 0, 0, 0);
-  const today = payouts.filter((p) => new Date(p.created_at) >= sod && p.status !== 'reversed').reduce((a, p) => a + p.amount, 0);
-  const online = !!provider?.is_online;
+  const today = !contextIsCurrent || currentPayoutReadFailed
+    ? null
+    : payouts.filter((p) => new Date(p.created_at) >= sod && p.status !== 'reversed').reduce((a, p) => a + p.amount, 0);
+  const online = currentProvider && !currentError ? currentProvider.is_online : null;
   const gutter = { paddingHorizontal: t.spacing.lg };
 
   const primaryAction = (j: ProviderJob) => {
+    if (contextKey !== contextKeyRef.current || providerRef.current?.business_role !== 'owner') return;
     const action = getPrimaryJobAction(j);
     if (action === 'start_trip') {
       return void act(
@@ -188,16 +279,16 @@ export default function ProviderDashboard() {
     openBooking(j.booking_id);
   };
 
-  if (provider && provider.business_role !== 'owner') {
+  if (currentProvider && currentProvider.business_role !== 'owner') {
     return (
       <BusinessDashboardView
-        provider={provider}
+        provider={currentProvider}
         t={t}
         refreshing={refreshing}
         setRefreshing={setRefreshing}
         load={load}
-        error={error}
-        jobs={jobs}
+        error={currentError}
+        jobs={currentJobs}
       />
     );
   }
@@ -210,28 +301,30 @@ export default function ProviderDashboard() {
       refreshing={refreshing}
       setRefreshing={setRefreshing}
       load={load}
-      provider={provider}
+      provider={currentProvider}
       online={online}
       toggleOnline={toggleOnline}
-      goLive={goLive}
-      error={error}
+      goLive={currentGoLive}
+      goLiveReadFailed={currentGoLiveReadFailed}
+      payoutReadFailed={currentPayoutReadFailed}
+      error={currentError}
       bellCount={bellCount}
       stats={stats}
       today={today}
-      me={me}
+      me={contextIsCurrent ? me : ''}
       incoming={incoming}
-      jobs={jobs}
-      photos={photos}
+      jobs={currentJobs}
+      photos={currentPhotos}
       now={now}
-      earningRates={earningRates}
-      busyId={busyId}
+      earningRates={currentEarningRates}
+      busyId={contextIsCurrent ? busyId : null}
       unread={unread}
       iconFor={iconFor}
       act={act}
       primaryAction={primaryAction}
       next={next}
       rest={rest}
-      declining={declining}
+      declining={contextIsCurrent ? declining : null}
       setDeclining={setDeclining}
       toast={toast}
     />
