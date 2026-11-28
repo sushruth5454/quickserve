@@ -13,6 +13,8 @@ const mockGetOnboarding = jest.fn();
 const mockGetCatalog = jest.fn();
 const mockRefreshUnread = jest.fn(async () => undefined);
 const mockToast = jest.fn();
+const mockOpenBooking = jest.fn();
+let mockPrimaryAction: ((job: { booking_id: string }) => unknown) | undefined;
 
 jest.doMock('expo-router', () => {
   const ReactModule = require('react') as typeof React;
@@ -67,7 +69,7 @@ jest.doMock('../../merchantStaff/api', () => ({
 jest.doMock('../DashboardWidgets', () => ({
   getPrimaryJobAction: () => 'booking_detail',
 }));
-jest.doMock('../navigation', () => ({ openBooking: jest.fn() }));
+jest.doMock('../navigation', () => ({ openBooking: (...args: unknown[]) => mockOpenBooking(...args) }));
 jest.doMock('../BusinessDashboardView', () => ({
   BusinessDashboardView: (props: { provider: { business_role: string; id: string }; jobs: { booking_id: string }[] | null }) =>
     React.createElement('div', {
@@ -83,14 +85,18 @@ jest.doMock('../ProviderDashboardView', () => ({
     jobs: { booking_id: string }[] | null;
     goLiveReadFailed: boolean;
     payoutReadFailed: boolean;
+    primaryAction: (job: { booking_id: string }) => unknown;
   }) =>
-    React.createElement('div', {
-      'data-testid': 'owner-dashboard',
-      'data-provider-id': props.provider?.id ?? 'none',
-      'data-jobs': props.jobs?.map((job) => job.booking_id).join(',') ?? 'loading',
-      'data-go-live-failed': String(props.goLiveReadFailed),
-      'data-payout-failed': String(props.payoutReadFailed),
-    }),
+    (() => {
+      mockPrimaryAction = props.primaryAction;
+      return React.createElement('div', {
+        'data-testid': 'owner-dashboard',
+        'data-provider-id': props.provider?.id ?? 'none',
+        'data-jobs': props.jobs?.map((job) => job.booking_id).join(',') ?? 'loading',
+        'data-go-live-failed': String(props.goLiveReadFailed),
+        'data-payout-failed': String(props.payoutReadFailed),
+      });
+    })(),
 }));
 
 const { createRoot } = require('react-dom/client') as { createRoot: (container: Element) => TestRoot };
@@ -182,6 +188,7 @@ async function unmount() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPrimaryAction = undefined;
   Object.keys(mockRouteParams).forEach((key) => delete mockRouteParams[key]);
   mockAuth.userId = 'user-a';
   mockGetMyProviderBusinessContext.mockImplementation(async (id: string) => provider(id ?? 'provider-default'));
@@ -235,16 +242,22 @@ describe('O25-ID08 dashboard identity and readiness', () => {
 
     expect(container.querySelector('[data-testid="owner-dashboard"]')?.getAttribute('data-jobs')).toBe('shared-confirmed-booking');
     expect(mockListMyPayouts).toHaveBeenCalledTimes(1);
+    const staleOwnerAction = mockPrimaryAction;
 
     mockRouteParams.providerId = 'member';
     await rerender();
     await testAct(flush);
+    await testAct(async () => {
+      staleOwnerAction?.(job('shared-confirmed-booking'));
+      await flush();
+    });
     const actual = {
       memberRole: container.querySelector('[data-testid="business-dashboard"]')?.getAttribute('data-role'),
       memberJobs: container.querySelector('[data-testid="business-dashboard"]')?.getAttribute('data-jobs'),
       payoutCalls: mockListMyPayouts.mock.calls.length,
+      staleActionCalls: mockOpenBooking.mock.calls.length,
     };
-    expect(actual).toEqual({ memberRole: 'manager', memberJobs: 'shared-confirmed-booking', payoutCalls: 1 });
+    expect(actual).toEqual({ memberRole: 'manager', memberJobs: 'shared-confirmed-booking', payoutCalls: 1, staleActionCalls: 0 });
   });
 
   it('ID-DASH-READINESS-UNKNOWN: failed canonical reads are not presented as verified or empty', async () => {
