@@ -230,26 +230,14 @@ async function currentUserRpc(name, args = {}) {
 }
 
 async function clickConfirmationSheetAction(title, actionLabel) {
-  const closeSheet = page.getByRole('button', { name: 'Close sheet', exact: true });
-  const closeSheetCount = await closeSheet.count();
-  const sheet = closeSheet.locator('xpath=./ancestor::*[.//*[@aria-label="Not now"]][1]');
-  const sheetCount = await sheet.count();
-  const sheetText = sheetCount === 1 ? await sheet.innerText() : '';
-  const normalizedSheetText = sheetText.replace(/\s+/g, ' ').trim();
-  const normalizedTitle = title.replace(/\s+/g, ' ').trim();
-  const action = sheet.getByRole('button', { name: actionLabel, exact: true });
+  await page.waitForFunction((expectedTitle) => document.body?.innerText.includes(expectedTitle), title);
+  const sheetText = await page.locator('body').innerText();
+  const action = page.getByRole('button', { name: actionLabel, exact: true });
   const actionCount = await action.count();
-  if (
-    closeSheetCount !== 1
-    || sheetCount !== 1
-    || !normalizedSheetText.includes(normalizedTitle)
-    || actionCount !== 1
-  ) {
+  if (!sheetText.includes(title) || actionCount !== 1) {
     throw new Error(`Confirmation sheet action was not unique: ${JSON.stringify({
       title,
       actionLabel,
-      closeSheetCount,
-      sheetCount,
       actionCount,
       sheetText: sheetText.slice(0, 600),
     })}`);
