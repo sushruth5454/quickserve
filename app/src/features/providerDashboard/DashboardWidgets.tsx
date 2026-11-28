@@ -9,8 +9,10 @@ export { ACTIVE_PRIORITY, NEXT_STEP, getNextStep, getPrimaryJobAction, getReques
 
 export const RESPONSE_WINDOW_MS = 15 * 60 * 1000;
 
-export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: boolean; radiusKm: number | null; onChange: (v: boolean) => void; disabled: boolean }) {
+export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: boolean | null; radiusKm: number | null; onChange: (v: boolean) => void; disabled: boolean }) {
   const t = useTheme();
+  const isOnline = online === true;
+  const isKnown = online !== null;
   /** react-native-web paints the ON thumb teal unless activeThumbColor is set (not in the RN types). */
   const webSwitchThumb = { activeThumbColor: t.colors.onPrimary } as object;
   return (
@@ -22,8 +24,8 @@ export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: b
         padding: t.spacing.lg,
         borderRadius: t.radii.lg,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: online ? t.colors.success : t.colors.border,
-        backgroundColor: online ? t.colors.successSoft : t.colors.surface,
+        borderColor: isOnline ? t.colors.success : t.colors.border,
+        backgroundColor: isOnline ? t.colors.successSoft : t.colors.surface,
       }}
     >
       <View
@@ -31,31 +33,31 @@ export function OnlineCard({ online, radiusKm, onChange, disabled }: { online: b
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: online ? t.colors.success : t.colors.surfaceAlt,
+          backgroundColor: isOnline ? t.colors.success : t.colors.surfaceAlt,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Ionicons name={online ? 'radio' : 'moon-outline'} size={20} color={online ? t.colors.onPrimary : t.colors.textSecondary} />
+        <Ionicons name={isOnline ? 'radio' : 'moon-outline'} size={20} color={isOnline ? t.colors.onPrimary : t.colors.textSecondary} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="calloutStrong" color={online ? 'successText' : 'text'}>
-          {online ? "You're online" : "You're offline"}
+        <Text variant="calloutStrong" color={isOnline ? 'successText' : 'text'}>
+          {!isKnown ? 'Availability preference unknown' : isOnline ? "You're marked online" : "You're marked offline"}
         </Text>
-        <Text variant="footnote" color={online ? 'successText' : 'muted'}>
-          {online
-            ? `Receiving requests${radiusKm ? ` within ${radiusKm} km` : ''}`
-            : "Customers can't book you right now"}
+        <Text variant="footnote" color={isOnline ? 'successText' : 'muted'}>
+          {!isKnown
+            ? 'Refresh to check your online preference.'
+            : `${isOnline && radiusKm ? `Request radius: ${radiusKm} km. ` : ''}Marketplace visibility and booking eligibility are shown separately.`}
         </Text>
       </View>
       <Switch
-        value={online}
+        value={isOnline}
         onValueChange={onChange}
-        disabled={disabled}
+        disabled={disabled || !isKnown}
         trackColor={{ true: t.colors.success, false: t.colors.outline }}
         thumbColor={t.colors.onPrimary}
         {...webSwitchThumb}
-        accessibilityLabel={online ? 'Online. Turn off to stop receiving requests' : 'Offline. Turn on to receive requests'}
+        accessibilityLabel={!isKnown ? 'Online preference unknown' : isOnline ? 'Online preference is on' : 'Online preference is off'}
       />
     </View>
   );
