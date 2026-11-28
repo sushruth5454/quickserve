@@ -2,7 +2,7 @@
 // Run by .github/workflows/e2e-web.yml and e2e-local.yml. Env: BASE_URL, SUPABASE_URL, SUPABASE_ANON_KEY, SHOTS_DIR,
 // E2E_CUSTOMER_PHONE, NEW_PRO_PHONE, GUEST_E2E_PHONE (required when E2E_FLAGS=on).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chromium, devices } from 'playwright';
 import { DEMO_IDS, runAllServiceScenarios } from './all-services.mjs';
 
@@ -23,12 +23,34 @@ const OTP = '123456';
 const ADMIN_E2E_PHONE = process.env.ADMIN_E2E_PHONE;
 const RAVI = '11111111-1111-1111-1111-111111111111';
 const RAVI_E2E_PHONE = '+919000000101';
+// AC Repair owner of the deterministic inspect-quote booking from seed-all-services.sql.
+const DEMO_QUOTE_PROVIDER_PHONE = '9000004101';
 // Fresh-provider onboarding user: test OTP number reset by e2e-web.yml before each run (no seed data).
 const NEW_PRO_PHONE = process.env.NEW_PRO_PHONE ?? '9000000301';
 // Pass B requires a separate, workflow-reset SMS test account that has no completed customer role.
 const GUEST_E2E_PHONE = process.env.GUEST_E2E_PHONE?.trim() ?? '';
 const OTP_COOLDOWN_MS = 60_000; // Matches the verify screen's resend timer.
 const seeded = (prefix, n) => `${prefix}${String(n).padStart(6, '0')}-5eed-5eed-8000-000000000000`;
+// Mirrors pg_temp.demo_sid in seed-all-services.sql for its deterministic demo fixture keys.
+const seededDemoId = (key) => {
+  const hash = createHash('md5').update(`quickserve-demo-all-services:${key}`).digest('hex');
+  return `${hash.slice(0, 8)}-5eed-de00-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+};
+const INSPECT_QUOTE_BOOKING_ID = seededDemoId('booking:inspect-quote');
+const QUOTE_WINDOW_LABELS = new Map([
+  [8, '8–10 am'],
+  [10, '10 am–12 pm'],
+  [12, '12–2 pm'],
+  [14, '2–4 pm'],
+  [16, '4–6 pm'],
+  [18, '6–8 pm'],
+]);
+function dayLabelFromDateKey(key) {
+  const [year, month, day] = key.split('-').map(Number);
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1];
+  return `${weekday}, ${day} ${monthName}`;
+}
 
 mkdirSync(SHOTS, { recursive: true });
 const pageErrors = [];
@@ -256,6 +278,7 @@ function getGuestE2ePhone() {
     ['E2E_CUSTOMER_PHONE', PHONE],
     ['NEW_PRO_PHONE', NEW_PRO_PHONE],
     ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
+    ['DEMO_QUOTE_PROVIDER_PHONE', DEMO_QUOTE_PROVIDER_PHONE],
     ['GUEST_E2E_PHONE', GUEST_E2E_PHONE],
   ];
   if (ADMIN_E2E_PHONE?.trim()) phoneRoles.push(['ADMIN_E2E_PHONE', ADMIN_E2E_PHONE.trim()]);
@@ -596,6 +619,7 @@ await step('login', async () => {
     ['E2E_CUSTOMER_PHONE', PHONE],
     ['NEW_PRO_PHONE', NEW_PRO_PHONE],
     ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
+    ['DEMO_QUOTE_PROVIDER_PHONE', DEMO_QUOTE_PROVIDER_PHONE],
   ]);
   if (phoneCollisions.length) {
     throw new Error(`OTP test roles must use separate phones: ${JSON.stringify({ phoneRoleCollisions: phoneCollisions })}`);
@@ -1616,15 +1640,83 @@ await step('assistant-review-prefills-book', async () => {
     skipStep('assistant-review-prefills-book', 'No assistant draft was produced to review.');
     return;
   }
+  const availabilityResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_provider_availability'),
+  { timeout: 20000 });
   await page.getByText('Review & pay', { exact: true }).last().click();
   await page.waitForURL(/\/book\//);
+  const availabilityResponse = await availabilityResponsePromise;
+  if (!availabilityResponse.ok()) {
+    throw new Error(`provider availability read failed after assistant prefill: HTTP ${availabilityResponse.status()}`);
+  }
+  await page.waitForLoadState('networkidle').catch(() => undefined);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.getByText(/^Pre-filled by QuickServe AI/).first().waitFor();
   const desc = await page.getByLabel('Describe the problem').first().inputValue();
   if (!/cool|AC/i.test(desc)) throw new Error(`description not pre-filled: "${desc}"`);
   // Job brief for the pro, not the customer's raw last message; time preferences live in the slot, not the text.
   if (!/^Issue: /m.test(desc) || !/Customer reported: "/.test(desc)) throw new Error(`description is not a job brief: "${desc}"`);
   if (/tomorrow evening/i.test(desc.split('\n').find((l) => l.startsWith('Issue:')) ?? '')) throw new Error(`issue line holds the time preference: "${desc}"`);
-  await page.getByText(/arrives .* between 6–8 pm/).first().waitFor();
+  const requestedSlot = new URL(page.url()).searchParams.get('slot') ?? '';
+  const requestedSlotParts = /^(\d{4}-\d{2}-\d{2})@(8|10|12|14|16|18)$/.exec(requestedSlot);
+  if (!requestedSlotParts) throw new Error(`assistant did not prefill a scheduled time window: ${JSON.stringify({ requestedSlot, url: page.url() })}`);
+  const requestedDay = dayLabelFromDateKey(requestedSlotParts[1]);
+  const requestedWindow = QUOTE_WINDOW_LABELS.get(Number(requestedSlotParts[2]));
+  if (!requestedWindow) throw new Error(`assistant prefilled an unsupported time window: ${JSON.stringify({ requestedSlot })}`);
+  const bodyAfterAvailability = await page.locator('body').innerText();
+  const arrivalLines = bodyAfterAvailability
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.includes(' arrives ') && line.includes(', between '));
+  const requestedArrival = `arrives ${requestedDay}, between ${requestedWindow}.`;
+  if (arrivalLines.length === 1 && arrivalLines[0].includes(requestedArrival)) {
+    // Keep the requested slot only when the Book screen still considers it bookable.
+    return;
+  }
+  if (arrivalLines.length) {
+    throw new Error(`Book screen selected a different slot instead of preserving or safely clearing the assistant slot: ${JSON.stringify({
+      requestedSlot,
+      arrivalLines,
+    })}`);
+  }
+
+  await page.getByText('Pick a time slot to continue', { exact: true }).first().waitFor({ state: 'visible' });
+  let reselectedWindow = null;
+  for (const label of QUOTE_WINDOW_LABELS.values()) {
+    const option = page.getByRole('button', { name: label, exact: true }).first();
+    if (await option.count() && await option.isEnabled()) {
+      await option.click();
+      reselectedWindow = label;
+      break;
+    }
+  }
+  if (!reselectedWindow) {
+    throw new Error(`stale assistant slot fallback did not offer a selectable time: ${JSON.stringify({
+      requestedSlot,
+      body: bodyAfterAvailability.slice(-1800),
+    })}`);
+  }
+  const selectedArrival = page.getByText(/arrives .* between .+\./).first();
+  await selectedArrival.waitFor({ state: 'visible' });
+  const selectedArrivalText = await selectedArrival.innerText();
+  if (!selectedArrivalText.includes(`between ${reselectedWindow}.`)) {
+    throw new Error(`valid time selection did not replace the stale assistant slot: ${JSON.stringify({
+      requestedSlot,
+      reselectedWindow,
+      selectedArrivalText,
+    })}`);
+  }
+  if (await page.getByText('Pick a time slot to continue', { exact: true }).first().isVisible().catch(() => false)) {
+    throw new Error(`valid time selection left the booking blocked: ${JSON.stringify({ selectedArrivalText })}`);
+  }
+  const descriptionAfterSlotReselect = await page.getByLabel('Describe the problem').first().inputValue();
+  if (descriptionAfterSlotReselect !== desc) {
+    throw new Error(`reselecting a stale assistant slot changed the job brief: ${JSON.stringify({
+      before: desc,
+      after: descriptionAfterSlotReselect,
+    })}`);
+  }
 });
 await step('bookings-active', async () => {
   await go('/bookings');
@@ -3443,19 +3535,72 @@ await step('provider-booking-fb4', async () => {
   await go(`/booking/${seeded('fb', 4)}`);
   await page.getByText(/^QS-[0-9A-F]{8} · /).first().waitFor();
 });
-await step('quote-editor-fb4', async () => {
-  await go(`/quote/${seeded('fb', 4)}?changeOrder=0`);
-  await page.getByText('Send to customer', { exact: true }).first().waitFor();
-  await visible('Add from my rate card');
+let demoQuoteProviderReady = false;
+const inspectQuotePath = `/quote/${INSPECT_QUOTE_BOOKING_ID}?changeOrder=0`;
+const demoQuoteContext = await browser.newContext({
+  ...devices['iPhone 15'],
+  geolocation: { latitude: 16.4995, longitude: 80.656 },
+  permissions: ['geolocation'],
+  timezoneId: 'Asia/Kolkata',
 });
+const demoQuotePage = await demoQuoteContext.newPage();
+demoQuotePage.setDefaultTimeout(20000);
+demoQuotePage.on('pageerror', (e) => pageErrors.push(`[quote provider ${demoQuotePage.url()}] ${e.message}`));
+demoQuotePage.on('console', (m) => {
+  if (m.type() === 'error') consoleErrors.push(`[quote provider ${demoQuotePage.url()}] ${m.text()}`);
+});
+recordHttpFailures('quote provider', demoQuotePage);
+await step('quote-editor-demo-provider-login', async () => {
+  await goOn(demoQuotePage, '/login');
+  await sendOtpFromUi(demoQuotePage, DEMO_QUOTE_PROVIDER_PHONE, 'demo itemized quote provider');
+  await demoQuotePage.getByLabel('6-digit verification code').fill(OTP);
+  await demoQuotePage.waitForURL((url) => new URL(url).pathname === '/dashboard');
+  await demoQuotePage.getByText(/New requests|Active jobs|Waiting for requests|You're offline/).first().waitFor();
+  demoQuoteProviderReady = true;
+}, demoQuotePage);
+await step('quote-editor-seed-all-services-inspect-quote', async () => {
+  if (!demoQuoteProviderReady) {
+    skipStep('quote-editor-seed-all-services-inspect-quote', 'Seeded AC Repair quote-provider login did not complete.');
+    return;
+  }
+  await goOn(demoQuotePage, inspectQuotePath);
+  await demoQuotePage.getByText('Send to customer', { exact: true }).first().waitFor();
+  await demoQuotePage.getByText('Add from my rate card', { exact: true }).first().waitFor();
+  const lineTitles = await demoQuotePage.getByLabel(/^Line \d+ description$/).evaluateAll((els) => els.map((e) => e.value));
+  if (!lineTitles.includes('Synthetic capacitor') || !lineTitles.includes('Protective cleaning consumables')) {
+    throw new Error(`seeded itemized quote lines were not loaded: ${JSON.stringify({ bookingId: INSPECT_QUOTE_BOOKING_ID, lineTitles })}`);
+  }
+}, demoQuotePage);
 await step('quote-editor-rate-card-pick', async () => {
-  await page.getByLabel(/^Add MCB replacement, /).first().click();
-  await page.getByLabel('Line 1 description').first().waitFor();
-  const values = await page.getByLabel(/^Line \d+ description$/).evaluateAll((els) => els.map((e) => e.value));
-  if (!values.includes('MCB replacement')) throw new Error(`rate card item not added: ${values.join(', ')}`);
-  await visible('You receive');
+  if (!demoQuoteProviderReady) {
+    skipStep('quote-editor-rate-card-pick', 'Seeded AC Repair quote-provider login did not complete.');
+    return;
+  }
+  await demoQuotePage.getByLabel(/^Add Demo standard service, /).first().click();
+  await demoQuotePage.getByLabel('Line 1 description').first().waitFor();
+  const values = await demoQuotePage.getByLabel(/^Line \d+ description$/).evaluateAll((els) => els.map((e) => e.value));
+  if (!values.includes('Demo standard service')) throw new Error(`seeded rate-card item was not added: ${JSON.stringify({ values })}`);
+  await demoQuotePage.getByText('You receive', { exact: true }).first().waitFor();
+}, demoQuotePage);
+await optional('quote-editor-scrolled', async () => {
+  if (!demoQuoteProviderReady) return;
+  await demoQuotePage.mouse.move(195, 420);
+  await demoQuotePage.mouse.wheel(0, 900);
+  await demoQuotePage.waitForTimeout(400);
+  await snap('quote-editor-scrolled', demoQuotePage);
 });
-await optional('quote-editor-scrolled', () => snapScrolled('quote-editor-scrolled', 900));
+if (demoQuoteProviderReady) await demoQuotePage.emulateMedia({ colorScheme: 'dark' });
+await step('dark-quote-editor-seed-all-services', async () => {
+  if (!demoQuoteProviderReady) {
+    skipStep('dark-quote-editor-seed-all-services', 'Seeded AC Repair quote-provider login did not complete.');
+    return;
+  }
+  await goOn(demoQuotePage, inspectQuotePath);
+  await demoQuotePage.getByText('Send to customer', { exact: true }).first().waitFor();
+  await demoQuotePage.getByText('Add from my rate card', { exact: true }).first().waitFor();
+}, demoQuotePage);
+await demoQuotePage.emulateMedia({ colorScheme: 'light' });
+await demoQuoteContext.close();
 await step('job-history', async () => {
   await go('/jobs');
   await visible('Job history');
@@ -3514,7 +3659,6 @@ await page.emulateMedia({ colorScheme: 'dark' });
 for (const [name, path, wait] of [
   ['dark-dashboard', '/dashboard', null],
   ['dark-earnings', '/earnings', 'Earnings'],
-  ['dark-quote-editor-fb4', `/quote/${seeded('fb', 4)}?changeOrder=0`, 'Send to customer'],
   ['dark-me-provider', '/pro-account', 'Switch to customer mode'],
   ['dark-provider-booking-fb4', `/booking/${seeded('fb', 4)}`, null],
 ]) {
