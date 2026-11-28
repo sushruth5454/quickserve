@@ -4040,6 +4040,68 @@ await step('admin-feature-registry', async () => {
     }
   });
   await go('/admin');
+  if (PRIVATE_LOCAL_E2E && !E2E_FLAGS_ON) {
+    const originalViewport = page.viewportSize();
+    if (!originalViewport) throw new Error('O30-CM13 admin capture requires a measurable CSS viewport');
+    const captureAdminIndex = async (name, width) => {
+      await page.setViewportSize({ width, height: originalViewport.height });
+      await go('/admin');
+      await visible('Bookings trend');
+      const actual = await page.evaluate(() => {
+        const body = document.body.innerText;
+        return {
+          viewportWidth: document.documentElement.clientWidth,
+          viewportHeight: document.documentElement.clientHeight,
+          scrollWidth: document.documentElement.scrollWidth,
+          devicePixelRatio: window.devicePixelRatio,
+          darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+          operationalQueuesVisible: body.includes('Operational queues'),
+          bookingsTrendIndex: body.indexOf('Bookings trend'),
+          peopleIndex: body.indexOf('People'),
+          supportIndex: body.indexOf('Support'),
+        };
+      });
+      if (
+        actual.viewportWidth !== width
+        || actual.scrollWidth > actual.viewportWidth + 1
+        || actual.operationalQueuesVisible
+        || actual.bookingsTrendIndex < 0
+        || actual.peopleIndex <= actual.bookingsTrendIndex
+        || actual.supportIndex <= actual.bookingsTrendIndex
+      ) {
+        throw new Error(`O30-CM13 admin OFF capture failed its viewport/order assertions: ${JSON.stringify({
+          name,
+          expectedFlag: { oorva_admin_ops_ux: false },
+          textScale: 'browser default; enlarged text not measured',
+          actual,
+          body: (await page.locator('body').innerText()).slice(0, 1800),
+        })}`);
+      }
+      await snap(`o30-cm13-admin-index-${name}`);
+      console.log(`O30-CM13-ADMIN-CAPTURE: ${JSON.stringify({
+        stageId: 'O30-CM13',
+        route: '/admin',
+        actorPermissionContext: 'authenticated admin',
+        actualBackendState: 'local E2E admin dashboard',
+        fixtureNamespace: 'e2e-local',
+        flagSnapshot: { oorva_admin_ops_ux: false },
+        theme: actual.darkMode ? 'dark' : 'light',
+        viewport: { width: actual.viewportWidth, height: actual.viewportHeight },
+        fontScale: 1,
+        fontScaleNote: 'browser default only; 130% and 200% not measured',
+        platform: 'Playwright Chromium web with iPhone 15 device emulation',
+        captureTime: new Date().toISOString(),
+        imageFilename: `o30-cm13-admin-index-${name}`,
+        assertionResult: actual,
+      })}`);
+    };
+    try {
+      await captureAdminIndex('default', originalViewport.width);
+      await captureAdminIndex('320px', 320);
+    } finally {
+      await page.setViewportSize(originalViewport);
+    }
+  }
 
   const rows = [
     { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },
