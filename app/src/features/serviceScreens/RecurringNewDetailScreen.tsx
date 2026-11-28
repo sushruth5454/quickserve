@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { BookingStepLayout } from '../../components/market/BookingStepLayout';
 import { PriceFooter } from '../../components/market/PriceFooter';
@@ -33,6 +33,36 @@ import type {
 
 type Archetype = 'time_based' | 'fixed';
 type EndMode = 'none' | 'date' | 'count';
+type CreationSection = 'provider' | 'package' | 'schedule' | 'end' | 'address' | 'review' | 'payment' | 'errors' | 'footer';
+
+export function recurringCreationLayoutOrder(layoutEnabled: boolean): CreationSection[] {
+  return layoutEnabled
+    ? ['provider', 'package', 'schedule', 'end', 'address', 'review', 'payment', 'errors', 'footer']
+    : ['schedule', 'package', 'end', 'address', 'payment', 'errors', 'footer'];
+}
+
+export function recurringCreationBlocker(input: {
+  quoteLoading: boolean;
+  quoteReady: boolean;
+  scheduleReady: boolean;
+  addressReady: boolean;
+  instructionsReady: boolean;
+  packageLoading?: boolean;
+  packageReady?: boolean;
+  durationReady?: boolean;
+  quoteError?: string | null;
+}): string | null {
+  if (input.packageLoading) return 'Loading available fixed-price packages.';
+  if (input.packageReady === false) return 'Choose an available package for this service.';
+  if (!input.scheduleReady) return 'Complete the schedule before sending the request.';
+  if (input.durationReady === false) return 'Enter a valid visit duration.';
+  if (!input.addressReady) return 'Add a saved address to continue.';
+  if (!input.instructionsReady) return 'Add instructions for the provider.';
+  if (input.quoteLoading) return 'Checking the per-visit quote.';
+  if (input.quoteError) return 'Retry the server quote before sending the request.';
+  if (!input.quoteReady) return 'A current server quote is required before sending the request.';
+  return null;
+}
 
 const FREQUENCIES: readonly Frequency[] = ['daily', 'alternate_days', 'weekly', 'monthly', 'custom'];
 const FREQUENCY_LABELS: Record<Frequency, string> = {
@@ -93,6 +123,7 @@ function useRecurringNewDetailController() {
     }>();
   const recurringEnabled = useFeature('recurring_bookings');
   const featureFlags = useAppFeatureFlags();
+  const layoutEnabled = featureFlags.isOn('oorva_recurring_ux');
   const stepKeys = getBookingStepKeys(featureFlags.isOn('booking_steps'), recurringEnabled);
   const steps = stepKeys?.map((key) => translate(key)) ?? null;
   const { location } = useSelectedLocation();
@@ -460,33 +491,42 @@ function useRecurringNewDetailController() {
     !description.trim() ||
     !planInput ||
     !canQuote;
+  const requestBlocker = recurringCreationBlocker({
+    quoteLoading,
+    quoteReady: !!quoteForCurrentContext && canQuote && quoteKey === quoteContextKey,
+    scheduleReady: !!planInput && recurrenceValid,
+    addressReady: !!location.addressId && !!location.line1,
+    instructionsReady: !!description.trim(),
+    packageLoading: archetype === 'fixed' && packagesLoading,
+    packageReady: selectedFixedPackageIsCurrent && optionalPackageIsCurrent && !effectivePackageSelectionError,
+    durationReady: archetype !== 'time_based' || Number.isInteger(parsedDuration) && parsedDuration > 0,
+    quoteError,
+  });
+  const detailedQuote = quoteSummary ? (
+    <Card gap={t.spacing.xs}>
+      <Text variant="subheadStrong">{layoutEnabled ? 'Price review' : 'Price'}</Text>
+      <Text variant="footnote" color="textSecondary">
+        {formatINR(quoteSummary.perVisitPaise)} per visit
+      </Text>
+      {fourWeekEstimate ? (
+        <Text variant="footnote" color="textSecondary">{fourWeekEstimate.label}</Text>
+      ) : null}
+      {quoteSummary.visitsTotal != null ? <Text variant="footnote" color="textSecondary">{quoteSummary.visitsTotal} visits in total</Text> : null}
+      {quoteSummary.discountPaise > 0 ? <Text variant="footnote" color="textSecondary">Discount: −{formatINR(quoteSummary.discountPaise)}</Text> : null}
+      <Text variant="footnote" color="textSecondary">Platform fee: {formatINR(quoteSummary.platformFeePaise)}</Text>
+      {quoteSummary.gstPaise > 0 ? <Text variant="footnote" color="textSecondary">Taxes: {formatINR(quoteSummary.gstPaise)}</Text> : null}
+      <Text variant="title3">Total per visit: {formatINR(quoteSummary.totalPaisePerCycle)}</Text>
+      <Text variant="caption" color="muted">{frequencyLabel(quoteSummary.billingFrequency)}</Text>
+      <Text variant="caption" color="muted">
+        Next visits: {quoteSummary.firstDates.map(dateLabel).join(' · ')}
+      </Text>
+    </Card>
+  ) : quoteLoading ? (
+    <Skeleton height={96} radius={t.radii.lg} />
+  ) : null;
   const footerAbove = (
     <>
-      {quoteSummary ? (
-        <Card gap={t.spacing.xs}>
-          <Text variant="subheadStrong">Price</Text>
-          <Text variant="footnote" color="textSecondary">
-            {formatINR(quoteSummary.perVisitPaise)} per visit
-          </Text>
-          {fourWeekEstimate ? (
-            <Text variant="footnote" color="textSecondary">{fourWeekEstimate.label}</Text>
-          ) : null}
-          {quoteSummary.visitsTotal != null ? <Text variant="footnote" color="textSecondary">{quoteSummary.visitsTotal} visits in total</Text> : null}
-          {quoteSummary.discountPaise > 0 ? <Text variant="footnote" color="textSecondary">Discount: −{formatINR(quoteSummary.discountPaise)}</Text> : null}
-          <Text variant="footnote" color="textSecondary">Platform fee: {formatINR(quoteSummary.platformFeePaise)}</Text>
-          {quoteSummary.gstPaise > 0 ? <Text variant="footnote" color="textSecondary">Taxes: {formatINR(quoteSummary.gstPaise)}</Text> : null}
-          <Text variant="title3">
-            Total per visit:{' '}
-            {formatINR(quoteSummary.totalPaisePerCycle)}
-          </Text>
-          <Text variant="caption" color="muted">{frequencyLabel(quoteSummary.billingFrequency)}</Text>
-          <Text variant="caption" color="muted">
-            Next visits: {quoteSummary.firstDates.map(dateLabel).join(' · ')}
-          </Text>
-        </Card>
-      ) : quoteLoading ? (
-        <Skeleton height={96} radius={t.radii.lg} />
-      ) : null}
+      {detailedQuote}
       {requestError ? (
         <InlineAlert
           tone="danger"
@@ -497,6 +537,15 @@ function useRecurringNewDetailController() {
         />
       ) : null}
     </>
+  );
+  const compactFooterAbove = (
+    <View testID="recurring-request-blocker" style={{ gap: t.spacing.xs }}>
+      {requestBlocker ? (
+        <Text variant="caption" color="muted">{requestBlocker}</Text>
+      ) : (
+        <Text variant="caption" color="muted">Ready to send your per-visit request.</Text>
+      )}
+    </View>
   );
   const requestAction = {
     title: `Send request to ${providerName}`,
@@ -509,15 +558,61 @@ function useRecurringNewDetailController() {
       caption={quoteSummary ? 'Total per visit' : 'Price'}
       amountLabel={quoteSummary ? formatINR(quoteSummary.totalPaisePerCycle) : ''}
       cta={requestAction}
-      above={footerAbove}
+      above={layoutEnabled ? compactFooterAbove : footerAbove}
     />
   ) : (
     <View style={{ gap: t.spacing.sm }}>
-      {footerAbove}
+      {layoutEnabled ? compactFooterAbove : footerAbove}
       <Button {...requestAction} fullWidth size="lg" />
     </View>
   );
-  const content = (
+  const providerSection = (
+    <Card gap={t.spacing.xs}>
+      <Text variant="title3">Service and package</Text>
+      <Text variant="calloutStrong">{currentService.categories?.name ?? 'Service'} · {providerName}</Text>
+      {selectedPackage ? (
+        <Text variant="footnote" color="textSecondary">Selected package · {selectedPackage.title}</Text>
+      ) : requestedSessionPackage ? (
+        <Text variant="footnote" color="textSecondary">Selected package · {requestedSessionPackage.title}</Text>
+      ) : null}
+    </Card>
+  );
+  const packageSection = archetype === 'fixed' ? (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Package and quantity</Text>
+      {packagesLoading ? <Skeleton height={120} radius={t.radii.lg} /> : null}
+      {packages.map((item) => (
+        <Pressable key={item.id} accessibilityRole="button" onPress={() => {
+          setSelectedPackage(item);
+          setQuantity(item.qty_min);
+          setPackageSelectionError(null);
+        }}>
+          <Card variant="outlined" gap={t.spacing.xs} style={{ borderColor: selectedPackage?.id === item.id ? t.colors.primary : t.colors.border }}>
+            <Text variant="subheadStrong">{item.title} · {formatINR(item.price ?? 0)}</Text>
+            {item.description ? <Text variant="footnote" color="textSecondary">{item.description}</Text> : null}
+            <Text variant="caption" color="muted">{item.duration_min ?? 60} min · {item.unit}</Text>
+          </Card>
+        </Pressable>
+      ))}
+      {!packagesLoading && packages.length === 0 ? (
+        <InlineAlert tone="warning" title="No fixed packages" message="This provider has no active fixed-price package for repeat plans." />
+      ) : null}
+      {effectivePackageSelectionError ? (
+        <InlineAlert tone="danger" title="Could not use package" message={effectivePackageSelectionError} />
+      ) : null}
+      {selectedPackage && selectedPackage.qty_max > selectedPackage.qty_min ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text variant="calloutStrong">Quantity</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
+            <Button title="−" variant="secondary" onPress={() => setQuantity((value) => Math.max(selectedPackage.qty_min, value - 1))} disabled={quantity <= selectedPackage.qty_min} />
+            <Text variant="title3">{quantity}</Text>
+            <Button title="+" variant="secondary" onPress={() => setQuantity((value) => Math.min(selectedPackage.qty_max, value + 1))} disabled={quantity >= selectedPackage.qty_max} />
+          </View>
+        </View>
+      ) : null}
+    </View>
+  ) : null;
+  const scheduleSection = (
     <>
       <Text variant="footnote" color="textSecondary">
         Choose a schedule. {quoteSummary?.acceptanceMode === 'plan'
@@ -526,7 +621,6 @@ function useRecurringNewDetailController() {
             ? `${providerName} reviews each visit request after the plan is created.`
             : 'The provider response mode will be shown after the server returns a quote.'}
       </Text>
-
       <View style={{ gap: t.spacing.sm }}>
         <Text variant="title3">How often?</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
@@ -601,7 +695,6 @@ function useRecurringNewDetailController() {
           </View>
         ) : null}
       </View>
-
       <View style={{ gap: t.spacing.sm }}>
         <Text variant="title3">When?</Text>
         <Text variant="footnoteStrong">Start date</Text>
@@ -657,140 +750,135 @@ function useRecurringNewDetailController() {
           </View>
         ) : null}
       </View>
-
-      {archetype === 'fixed' ? (
+    </>
+  );
+  const endSection = (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Until?</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+        {([
+          ['none', 'No end date'],
+          ['date', 'End on a date'],
+          ['count', 'Number of visits'],
+        ] as const).map(([value, label]) => (
+          <Button key={value} title={label} size="sm" variant={endMode === value ? 'primary' : 'outline'} onPress={() => setEndMode(value)} />
+        ))}
+      </View>
+      {endMode === 'date' ? (
         <View style={{ gap: t.spacing.sm }}>
-          <Text variant="title3">Package and quantity</Text>
-          {packagesLoading ? <Skeleton height={120} radius={t.radii.lg} /> : null}
-          {packages.map((item) => (
-            <Pressable key={item.id} accessibilityRole="button" onPress={() => {
-              setSelectedPackage(item);
-              setQuantity(item.qty_min);
-              setPackageSelectionError(null);
-            }}>
-              <Card variant="outlined" gap={t.spacing.xs} style={{ borderColor: selectedPackage?.id === item.id ? t.colors.primary : t.colors.border }}>
-                <Text variant="subheadStrong">{item.title} · {formatINR(item.price ?? 0)}</Text>
-                {item.description ? <Text variant="footnote" color="textSecondary">{item.description}</Text> : null}
-                <Text variant="caption" color="muted">{item.duration_min ?? 60} min · {item.unit}</Text>
-              </Card>
-            </Pressable>
-          ))}
-          {!packagesLoading && packages.length === 0 ? (
-            <InlineAlert tone="warning" title="No fixed packages" message="This provider has no active fixed-price package for repeat plans." />
-          ) : null}
-          {effectivePackageSelectionError ? (
-            <InlineAlert tone="danger" title="Could not use package" message={effectivePackageSelectionError} />
-          ) : null}
-          {selectedPackage && selectedPackage.qty_max > selectedPackage.qty_min ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text variant="calloutStrong">Quantity</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-                <Button title="−" variant="secondary" onPress={() => setQuantity((value) => Math.max(selectedPackage.qty_min, value - 1))} disabled={quantity <= selectedPackage.qty_min} />
-                <Text variant="title3">{quantity}</Text>
-                <Button title="+" variant="secondary" onPress={() => setQuantity((value) => Math.min(selectedPackage.qty_max, value + 1))} disabled={quantity >= selectedPackage.qty_max} />
-              </View>
-            </View>
-          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
+            <Button
+              title="Previous month"
+              size="sm"
+              variant="outline"
+              accessibilityLabel="Show previous month"
+              disabled={endDateMonthOffset === 0}
+              onPress={() => setEndDateMonthOffset((value) => Math.max(0, value - 1))}
+            />
+            <Text variant="footnoteStrong" accessibilityRole="header">{endDateOptions.monthLabel}</Text>
+            <Button
+              title="Next month"
+              size="sm"
+              variant="outline"
+              accessibilityLabel="Show next month"
+              disabled={getRecurringEndDateOptions(startDate, endDateMonthOffset + 1).dates.length === 0}
+              onPress={() => setEndDateMonthOffset((value) => value + 1)}
+            />
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+            {endDateOptions.dates.map((date) => (
+              <Button
+                key={date}
+                title={dateLabel(date)}
+                size="sm"
+                variant={endDate === date ? 'primary' : 'outline'}
+                accessibilityLabel={`Choose plan end date ${dateLabel(date)}`}
+                onPress={() => setEndDate(date)}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
-
-      <View style={{ gap: t.spacing.sm }}>
-        <Text variant="title3">Until?</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-          {([
-            ['none', 'No end date'],
-            ['date', 'End on a date'],
-            ['count', 'Number of visits'],
-          ] as const).map(([value, label]) => (
-            <Button key={value} title={label} size="sm" variant={endMode === value ? 'primary' : 'outline'} onPress={() => setEndMode(value)} />
-          ))}
-        </View>
-        {endMode === 'date' ? (
-          <View style={{ gap: t.spacing.sm }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: t.spacing.sm }}>
-              <Button
-                title="Previous month"
-                size="sm"
-                variant="outline"
-                accessibilityLabel="Show previous month"
-                disabled={endDateMonthOffset === 0}
-                onPress={() => setEndDateMonthOffset((value) => Math.max(0, value - 1))}
-              />
-              <Text variant="footnoteStrong" accessibilityRole="header">{endDateOptions.monthLabel}</Text>
-              <Button
-                title="Next month"
-                size="sm"
-                variant="outline"
-                accessibilityLabel="Show next month"
-                disabled={getRecurringEndDateOptions(startDate, endDateMonthOffset + 1).dates.length === 0}
-                onPress={() => setEndDateMonthOffset((value) => value + 1)}
-              />
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-              {endDateOptions.dates.map((date) => (
-                <Button
-                  key={date}
-                  title={dateLabel(date)}
-                  size="sm"
-                  variant={endDate === date ? 'primary' : 'outline'}
-                  accessibilityLabel={`Choose plan end date ${dateLabel(date)}`}
-                  onPress={() => setEndDate(date)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
-        {endMode === 'count' ? (
-          <TextInput
-            value={maxOccurrences}
-            onChangeText={setMaxOccurrences}
-            keyboardType="number-pad"
-            placeholder="Number of visits"
-            accessibilityLabel="Maximum visits"
-            style={{ borderWidth: 1, borderColor: t.colors.border, color: t.colors.text, borderRadius: t.radii.md, padding: t.spacing.md }}
-          />
-        ) : null}
-      </View>
-
-      <View style={{ gap: t.spacing.sm }}>
-        <Text variant="title3">Address and instructions</Text>
-        <Card gap={t.spacing.sm}>
-          <Text variant="calloutStrong">{location.label ?? 'Service address'}</Text>
-          <Text variant="footnote" color="textSecondary">
-            {location.line1 ? `${location.line1}, ${location.city}` : 'Add a saved address to continue.'}
-          </Text>
-          <Button title="Change address" variant="outline" onPress={() => router.push('/location')} />
-        </Card>
-        <TextArea
-          label="Instructions (required)"
-          placeholder="Add instructions for the provider"
-          value={description}
-          onChangeText={setDescription}
-          maxLength={500}
-          accessibilityLabel="Instructions for the provider"
+      {endMode === 'count' ? (
+        <TextInput
+          value={maxOccurrences}
+          onChangeText={setMaxOccurrences}
+          keyboardType="number-pad"
+          placeholder="Number of visits"
+          accessibilityLabel="Maximum visits"
+          style={{ borderWidth: 1, borderColor: t.colors.border, color: t.colors.text, borderRadius: t.radii.md, padding: t.spacing.md }}
         />
-      </View>
-
-      <View style={{ gap: t.spacing.sm }}>
-        <Text variant="title3">Payment</Text>
-        <Card gap={t.spacing.xs}>
-          {allowedBillingFrequencies.map((value) => (
-            <Text key={value} variant="calloutStrong">{frequencyLabel(value)}</Text>
-          ))}
-          {quoteSummary &&
-          quoteSummary.paymentDueHoursBefore != null &&
-          quoteSummary.billingGraceHours != null &&
-          quoteSummary.paymentReleaseCutoffMinutesBeforeVisit != null ? (
-            <Text variant="caption" color="muted">
-              Pay each visit separately. Payment opens up to {quoteSummary.paymentDueHoursBefore} hours before the visit; unpaid visits are released at the earlier of {quoteSummary.billingGraceHours} hours after the deadline or {quoteSummary.paymentReleaseCutoffMinutesBeforeVisit} minutes before the visit.
-            </Text>
-          ) : (
-            <Text variant="caption" color="muted">Payment timing will be shown after the server returns a quote.</Text>
-          )}
-        </Card>
-      </View>
-
-      {quoteError ? (
+      ) : null}
+    </View>
+  );
+  const addressSection = (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Address and instructions</Text>
+      <Card gap={t.spacing.sm}>
+        <Text variant="calloutStrong">{location.label ?? 'Service address'}</Text>
+        <Text variant="footnote" color="textSecondary">
+          {location.line1 ? `${location.line1}, ${location.city}` : 'Add a saved address to continue.'}
+        </Text>
+        <Button title="Change address" variant="outline" onPress={() => router.push('/location')} />
+      </Card>
+      <TextArea
+        label="Instructions (required)"
+        placeholder="Add instructions for the provider"
+        value={description}
+        onChangeText={setDescription}
+        maxLength={500}
+        accessibilityLabel="Instructions for the provider"
+      />
+    </View>
+  );
+  const reviewSection = (
+    <View testID="recurring-review" style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Review request</Text>
+      {detailedQuote ?? (
+        <Text variant="footnote" color="muted">Your server quote will appear here before you send the request.</Text>
+      )}
+      {layoutEnabled && quoteError ? (
+        <InlineAlert
+          tone="danger"
+          title="Could not get a quote"
+          message={quoteError}
+          actionLabel="Retry quote"
+          onAction={() => {
+            setQuote(null);
+            setQuoteContextKey('');
+            setQuoteLoading(false);
+            setQuoteRetry((value) => value + 1);
+          }}
+        />
+      ) : null}
+      {layoutEnabled && requestError ? (
+        <InlineAlert tone="danger" title="Could not send request" message={requestError} />
+      ) : null}
+    </View>
+  );
+  const paymentSection = (
+    <View style={{ gap: t.spacing.sm }}>
+      <Text variant="title3">Payment</Text>
+      <Card gap={t.spacing.xs}>
+        {allowedBillingFrequencies.map((value) => (
+          <Text key={value} variant="calloutStrong">{frequencyLabel(value)}</Text>
+        ))}
+        {quoteSummary &&
+        quoteSummary.paymentDueHoursBefore != null &&
+        quoteSummary.billingGraceHours != null &&
+        quoteSummary.paymentReleaseCutoffMinutesBeforeVisit != null ? (
+          <Text variant="caption" color="muted">
+            Pay each visit separately. Payment opens up to {quoteSummary.paymentDueHoursBefore} hours before the visit; unpaid visits are released at the earlier of {quoteSummary.billingGraceHours} hours after the deadline or {quoteSummary.paymentReleaseCutoffMinutesBeforeVisit} minutes before the visit.
+          </Text>
+        ) : (
+          <Text variant="caption" color="muted">Payment timing will be shown after the server returns a quote.</Text>
+        )}
+      </Card>
+    </View>
+  );
+  const errorsSection = (
+    <>
+      {!layoutEnabled && quoteError ? (
         <InlineAlert
           tone="danger"
           title="Could not get a quote"
@@ -808,6 +896,24 @@ function useRecurringNewDetailController() {
       {effectivePackageSelectionError && archetype !== 'fixed' ? (
         <InlineAlert tone="danger" title="Could not use package" message={effectivePackageSelectionError} />
       ) : null}
+    </>
+  );
+  const sections: Record<CreationSection, ReactNode> = {
+    provider: providerSection,
+    package: packageSection,
+    schedule: scheduleSection,
+    end: endSection,
+    address: addressSection,
+    review: layoutEnabled ? reviewSection : null,
+    payment: paymentSection,
+    errors: errorsSection,
+    footer: null,
+  };
+  const content = (
+    <>
+      {recurringCreationLayoutOrder(layoutEnabled).filter((section) => section !== 'footer').map((section) => (
+        <Fragment key={section}>{sections[section]}</Fragment>
+      ))}
     </>
   );
   return steps ? (
