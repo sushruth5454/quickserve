@@ -7,6 +7,7 @@
   "rebuild": {
     "sourceLaneHead": "3b15982b821e54e6f46e17c85879b675390e108b",
     "featureCodeEquivalentTo": "4f1e54ffea1abd05ea7d15568cd40fe8c9917afb",
+    "registrationCommit": "4475e095f8a58a3d0950e8367d09e73857c608c9",
     "scope": "Path-limited O32-MN08 owned-file patch; no unrelated old-lane files copied."
   },
   "migration": {
@@ -69,7 +70,25 @@
         "result": "PASS"
       }
     ],
-    "currentMainCodespace": "pending coordinator package-only registration and selector proof",
+    "currentMainCodespace": [
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite tsc",
+        "snapshot": "6682ffd0",
+        "result": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite sql -Filter oorva_o32_mn08",
+        "snapshot": "fc03b00c",
+        "selection": "0 parse, 1 test file",
+        "result": "PASS"
+      },
+      {
+        "command": "pwsh -NoProfile -File cs-test-current-main.ps1 -Suite sql -Filter o32_mn08_oorva.sql",
+        "snapshot": "090b3eef",
+        "selection": "1 parse, 0 test files",
+        "result": "PASS"
+      }
+    ],
     "focusedReview": {
       "money": {
         "result": "FINDING_NON_ACTIONABLE",
