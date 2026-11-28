@@ -23,8 +23,6 @@ const OTP = '123456';
 const ADMIN_E2E_PHONE = process.env.ADMIN_E2E_PHONE;
 const RAVI = '11111111-1111-1111-1111-111111111111';
 const RAVI_E2E_PHONE = '+919000000101';
-// AC Repair owner of the deterministic inspect-quote booking from seed-all-services.sql.
-const DEMO_QUOTE_PROVIDER_PHONE = '9000004101';
 // Fresh-provider onboarding user: test OTP number reset by e2e-web.yml before each run (no seed data).
 const NEW_PRO_PHONE = process.env.NEW_PRO_PHONE ?? '9000000301';
 // Pass B requires a separate, workflow-reset SMS test account that has no completed customer role.
@@ -278,7 +276,6 @@ function getGuestE2ePhone() {
     ['E2E_CUSTOMER_PHONE', PHONE],
     ['NEW_PRO_PHONE', NEW_PRO_PHONE],
     ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
-    ['DEMO_QUOTE_PROVIDER_PHONE', DEMO_QUOTE_PROVIDER_PHONE],
     ['GUEST_E2E_PHONE', GUEST_E2E_PHONE],
   ];
   if (ADMIN_E2E_PHONE?.trim()) phoneRoles.push(['ADMIN_E2E_PHONE', ADMIN_E2E_PHONE.trim()]);
@@ -619,7 +616,6 @@ await step('login', async () => {
     ['E2E_CUSTOMER_PHONE', PHONE],
     ['NEW_PRO_PHONE', NEW_PRO_PHONE],
     ['RAVI_SIGN_IN', RAVI_E2E_PHONE],
-    ['DEMO_QUOTE_PROVIDER_PHONE', DEMO_QUOTE_PROVIDER_PHONE],
   ]);
   if (phoneCollisions.length) {
     throw new Error(`OTP test roles must use separate phones: ${JSON.stringify({ phoneRoleCollisions: phoneCollisions })}`);
@@ -3552,7 +3548,8 @@ demoQuotePage.on('console', (m) => {
 recordHttpFailures('quote provider', demoQuotePage);
 await step('quote-editor-demo-provider-login', async () => {
   await goOn(demoQuotePage, '/login');
-  await sendOtpFromUi(demoQuotePage, DEMO_QUOTE_PROVIDER_PHONE, 'demo itemized quote provider');
+  // Reuse the workflow-authorized Ravi identity and share the API/UI OTP cooldown bucket.
+  await sendOtpFromUi(demoQuotePage, phoneKey(RAVI_E2E_PHONE), 'signInAs');
   await demoQuotePage.getByLabel('6-digit verification code').fill(OTP);
   await demoQuotePage.waitForURL((url) => new URL(url).pathname === '/dashboard');
   await demoQuotePage.getByText(/New requests|Active jobs|Waiting for requests|You're offline/).first().waitFor();
@@ -3576,10 +3573,10 @@ await step('quote-editor-rate-card-pick', async () => {
     skipStep('quote-editor-rate-card-pick', 'Seeded AC Repair quote-provider login did not complete.');
     return;
   }
-  await demoQuotePage.getByLabel(/^Add Demo standard service, /).first().click();
+  await demoQuotePage.getByLabel(/^Add Gas refill \(split AC\), /).first().click();
   await demoQuotePage.getByLabel('Line 1 description').first().waitFor();
   const values = await demoQuotePage.getByLabel(/^Line \d+ description$/).evaluateAll((els) => els.map((e) => e.value));
-  if (!values.includes('Demo standard service')) throw new Error(`seeded rate-card item was not added: ${JSON.stringify({ values })}`);
+  if (!values.includes('Gas refill (split AC)')) throw new Error(`seeded rate-card item was not added: ${JSON.stringify({ values })}`);
   await demoQuotePage.getByText('You receive', { exact: true }).first().waitFor();
 }, demoQuotePage);
 await optional('quote-editor-scrolled', async () => {

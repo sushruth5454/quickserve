@@ -1111,8 +1111,8 @@ insert into public.bookings (
   cancellation_snapshot, platform_fee_rule_snapshot, created_at, updated_at, accepted_at
 )
 select
-  pg_temp.demo_sid('booking:inspect-quote'), f.id, pg_temp.demo_sid('provider:ac-repair'), c.id,
-  pg_temp.demo_sid('service:ac-repair'), pg_temp.demo_sid('founder:demo-home'),
+  pg_temp.demo_sid('booking:inspect-quote'), f.id, quote_provider.provider_id, c.id,
+  quote_provider.provider_service_id, pg_temp.demo_sid('founder:demo-home'),
   '[DEMO ONLY] Split AC is cooling weakly; inspect capacitor and gas pressure.',
   now() + interval '2 hours', 'quote_sent', 14900, 2900, 184900, 0,
   'inspect_quote', c.config_version,
@@ -1121,10 +1121,29 @@ select
   '{"key":"standard_visit","demo_only":true}'::jsonb,
   '{"key":"standard","demo_only":true}'::jsonb,
   now() - interval '30 minutes', now(), now() - interval '20 minutes'
-from public.categories c cross join demo_founder f
+from public.categories c
+cross join demo_founder f
+-- Hosted/local E2E has Ravi's seeded AC service; the isolated PGlite seed test falls back to demo.
+cross join lateral (
+  select ps.provider_id, ps.id as provider_service_id
+    from public.provider_services ps
+   where ps.provider_id = '11111111-1111-1111-1111-111111111111'::uuid
+     and ps.category_id = c.id
+  union all
+  select pg_temp.demo_sid('provider:ac-repair'), pg_temp.demo_sid('service:ac-repair')
+   where not exists (
+     select 1 from public.provider_services ps
+      where ps.provider_id = '11111111-1111-1111-1111-111111111111'::uuid
+        and ps.category_id = c.id
+   )
+) quote_provider
 where c.slug = 'ac-repair'
 on conflict (id) do update
-set status = excluded.status, total_amount = excluded.total_amount, description = excluded.description;
+set provider_id = excluded.provider_id,
+    provider_service_id = excluded.provider_service_id,
+    status = excluded.status,
+    total_amount = excluded.total_amount,
+    description = excluded.description;
 
 insert into public.booking_secrets (booking_id, start_otp)
 values (pg_temp.demo_sid('booking:inspect-quote'), '4242')
