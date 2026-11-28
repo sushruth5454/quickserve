@@ -32,6 +32,7 @@ auth_token = "e2e-dummy"
 919000000802 = "123456"
 919000000701 = "123456"
 919000000702 = "123456"
+919000004101 = "123456"
 TOML
 if [[ -n "${GUEST_E2E_PHONE:-}" ]]; then
   guest_phone="$(printf '%s' "$GUEST_E2E_PHONE" | tr -cd '0-9')"

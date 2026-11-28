@@ -9,9 +9,6 @@ site_url = "quickserve://"
 [auth.sms]
 enable_signup = true
 
-[auth.sms.test_otp]
-"919000004101" = "123456"
-
 [functions.create-payment]
 verify_jwt = true
 
