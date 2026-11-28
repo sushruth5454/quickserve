@@ -4102,6 +4102,146 @@ await step('admin-feature-registry', async () => {
       await page.setViewportSize(originalViewport);
     }
   }
+  if (PRIVATE_LOCAL_E2E && E2E_FLAGS_ON) {
+    await step('O30-CM13-admin-index-on-capture', async () => {
+      const originalViewport = page.viewportSize();
+      if (!originalViewport) throw new Error('O30-CM13 admin ON capture requires a measurable CSS viewport');
+      const featureSwitch = (label) => page.getByText(label, { exact: true })
+        .locator('xpath=ancestor::*[.//*[@role="switch"]][1]')
+        .getByRole('switch');
+      const openAdminFeatures = async () => {
+        const path = new URL(page.url()).pathname;
+        if (path === '/admin/features') return;
+        if (path !== '/admin') await go('/admin');
+        await page.getByText('Features', { exact: true }).last().click();
+        await page.waitForURL((u) => new URL(u).pathname === '/admin/features');
+      };
+      const readFlag = async (label) => {
+        await visible(label);
+        const value = await featureSwitch(label).getAttribute('aria-checked');
+        if (value !== 'true' && value !== 'false') {
+          throw new Error(`O30-CM13 could not read the pinned feature state: ${JSON.stringify({ label, value })}`);
+        }
+        return value === 'true';
+      };
+      const setLocalFlag = async (key, label, enabled) => {
+        const current = await readFlag(label);
+        if (current === enabled) return;
+        const write = page.waitForResponse((response) => {
+          if (
+            response.request().method() !== 'POST'
+            || !new URL(response.url()).pathname.endsWith('/rest/v1/rpc/admin_set_feature')
+          ) return false;
+          try {
+            const body = response.request().postDataJSON();
+            return body?.p_key === key && body?.p_enabled === enabled;
+          } catch {
+            return false;
+          }
+        });
+        const refresh = page.waitForResponse((response) =>
+          response.request().method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/rest/v1/rpc/get_app_features'),
+        );
+        await featureSwitch(label).click();
+        const writeResponse = await write;
+        const refreshResponse = await refresh;
+        const features = await refreshResponse.json();
+        const actual = {
+          key,
+          enabled,
+          writeStatus: writeResponse.status(),
+          returnedValue: features?.[key] ?? null,
+        };
+        if (!writeResponse.ok() || actual.returnedValue !== enabled) {
+          throw new Error(`O30-CM13 local feature update did not read back: ${JSON.stringify(actual)}`);
+        }
+        const visibleValue = await readFlag(label);
+        if (visibleValue !== enabled) {
+          throw new Error(`O30-CM13 local switch did not match readback: ${JSON.stringify({ ...actual, visibleValue })}`);
+        }
+      };
+      let originalBrand = null;
+      let originalAdminOps = null;
+      try {
+        await openAdminFeatures();
+        originalBrand = await readFlag('Oorva brand & colours');
+        originalAdminOps = await readFlag('Oorva admin operations');
+        if (originalBrand || originalAdminOps) {
+          throw new Error(`Expected local Oorva flags pinned OFF before ON capture: ${JSON.stringify({
+            oorva_brand: originalBrand,
+            oorva_admin_ops_ux: originalAdminOps,
+          })}`);
+        }
+        await setLocalFlag('oorva_brand', 'Oorva brand & colours', true);
+        await setLocalFlag('oorva_admin_ops_ux', 'Oorva admin operations', true);
+
+        const captureAdminIndex = async (name, width) => {
+          await page.setViewportSize({ width, height: originalViewport.height });
+          await go('/admin');
+          await visible('Operational queues');
+          await visible('Bookings trend');
+          const actual = await page.evaluate(() => {
+            const body = document.body.innerText;
+            return {
+              viewportWidth: document.documentElement.clientWidth,
+              viewportHeight: document.documentElement.clientHeight,
+              scrollWidth: document.documentElement.scrollWidth,
+              devicePixelRatio: window.devicePixelRatio,
+              darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
+              operationalQueuesVisible: body.includes('Operational queues'),
+              bookingsTrendIndex: body.indexOf('Bookings trend'),
+              peopleIndex: body.indexOf('People'),
+              supportIndex: body.indexOf('Support'),
+            };
+          });
+          if (
+            actual.viewportWidth !== width
+            || actual.scrollWidth > actual.viewportWidth + 1
+            || !actual.operationalQueuesVisible
+            || actual.bookingsTrendIndex < 0
+            || actual.peopleIndex < 0
+            || actual.supportIndex < 0
+            || actual.peopleIndex >= actual.bookingsTrendIndex
+            || actual.supportIndex >= actual.bookingsTrendIndex
+          ) {
+            throw new Error(`O30-CM13 admin ON capture failed its viewport/order assertions: ${JSON.stringify({
+              name,
+              flagSnapshot: { oorva_brand: true, oorva_admin_ops_ux: true },
+              textScale: 'browser default; enlarged text not measured',
+              actual,
+              body: (await page.locator('body').innerText()).slice(0, 1800),
+            })}`);
+          }
+          await snap(`o30-cm13-admin-index-on-${name}`);
+          console.log(`O30-CM13-ADMIN-ON-CAPTURE: ${JSON.stringify({
+            stageId: 'O30-CM13',
+            route: '/admin',
+            actorPermissionContext: 'authenticated admin',
+            actualBackendState: 'local E2E admin dashboard',
+            fixtureNamespace: 'e2e-local',
+            flagSnapshot: { oorva_brand: true, oorva_admin_ops_ux: true },
+            theme: actual.darkMode ? 'dark' : 'light',
+            viewport: { width: actual.viewportWidth, height: actual.viewportHeight },
+            fontScale: 1,
+            fontScaleNote: 'browser default only; 130% and 200% not measured',
+            platform: 'Playwright Chromium web with iPhone 15 device emulation',
+            captureTime: new Date().toISOString(),
+            imageFilename: `o30-cm13-admin-index-on-${name}`,
+            assertionResult: actual,
+          })}`);
+        };
+        await captureAdminIndex('on-default', originalViewport.width);
+        await captureAdminIndex('on-320px', 320);
+      } finally {
+        await openAdminFeatures();
+        if (originalAdminOps !== null) await setLocalFlag('oorva_admin_ops_ux', 'Oorva admin operations', originalAdminOps);
+        if (originalBrand !== null) await setLocalFlag('oorva_brand', 'Oorva brand & colours', originalBrand);
+        await page.setViewportSize(originalViewport);
+        await go('/admin');
+      }
+    });
+  }
 
   const rows = [
     { key: 'ai_assistant', enabled: true, label: 'AI assistant', description: 'AI tools.', group_name: 'AI', sort_order: 10, updated_at: new Date().toISOString() },
