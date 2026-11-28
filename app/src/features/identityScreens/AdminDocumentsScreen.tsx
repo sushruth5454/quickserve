@@ -10,14 +10,22 @@ import {
   type AdminDocumentQueueItem,
   type AdminDocumentType,
 } from '../../lib/adminApi';
+import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { useTheme } from '../../theme';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Document review could not be completed.';
 }
 
+function documentScopeLabel(document: AdminDocumentQueueItem, contextualQueueEnabled: boolean): string {
+  if (document.category_id) return `Category: ${document.category_name || 'Category unavailable'}`;
+  return contextualQueueEnabled ? 'General credential' : 'General (all categories)';
+}
+
 export default function AdminDocumentsScreen() {
   const t = useTheme();
+  const flags = useAppFeatureFlags();
+  const contextualQueueEnabled = flags.isOn('oorva_admin_ops_ux');
   const confirm = useConfirm();
   const toast = useToast();
   const [documents, setDocuments] = useState<AdminDocumentQueueItem[] | null>(null);
@@ -102,9 +110,7 @@ export default function AdminDocumentsScreen() {
     const busyKey = `${id}:review`;
     setBusy(busyKey, true);
     try {
-      const categoryScope = document.category_id
-        ? `Category: ${document.category_name || 'Category unavailable'}`
-        : 'General (all categories)';
+      const categoryScope = documentScopeLabel(document, contextualQueueEnabled);
       const confirmed = await confirm({
         title: `${approve ? 'Approve' : 'Reject'} ${type?.label ?? document.doc_type.replaceAll('_', ' ')}?`,
         message: `${categoryScope} · ${document.provider_name || 'Provider'} · submitted ${new Date(document.created_at).toLocaleString('en-IN')}. ${approve ? 'This records the document review only.' : 'The provider will receive this reason.'}`,
@@ -146,27 +152,41 @@ export default function AdminDocumentsScreen() {
       {documents === null && error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
       {documents === null && !error ? <Skeleton height={280} radius={t.radii.lg} /> : null}
       {documents !== null ? <InlineAlert message={error} /> : null}
+      {contextualQueueEnabled ? (
+        <Text variant="caption" color="muted">Pending review queue · one credential per action</Text>
+      ) : null}
       {documents?.length ? documents.map((document) => {
         const type = typeByCode.get(document.doc_type);
+        const typeLabel = type?.label ?? document.doc_type.replaceAll('_', ' ');
         const created = new Date(document.created_at).toLocaleString('en-IN');
         const viewBusy = busyKeys.has(`${document.document_id}:view`);
         const reviewBusy = busyKeys.has(`${document.document_id}:review`);
-        const scope = document.category_id
-          ? `Category: ${document.category_name || 'Category unavailable'}`
-          : 'General (all categories)';
+        const scope = documentScopeLabel(document, contextualQueueEnabled);
         return (
           <Card key={document.document_id} gap={t.spacing.md}>
-            <View style={{ gap: t.spacing.xs }}>
-              <Text variant="calloutStrong">{document.provider_name || 'Provider'}</Text>
-              <Text variant="body">{type?.label ?? document.doc_type.replaceAll('_', ' ')}</Text>
-              <Text variant="caption" color="muted">Scope: {scope}</Text>
-              <Text variant="caption" color="muted">Submitted {created}</Text>
-              {document.expires_on ? (
-                <Text variant="caption" color="muted">Current expiry: {document.expires_on}</Text>
-              ) : null}
-            </View>
+            {contextualQueueEnabled ? (
+              <View style={{ gap: t.spacing.xs }}>
+                <Text variant="calloutStrong">{document.provider_name || 'Provider'}</Text>
+                <Text variant="caption" color="muted">{scope}</Text>
+                <Text variant="body">Credential type: {typeLabel}</Text>
+                <Text variant="caption" color="muted">Submitted {created}</Text>
+                {document.expires_on ? (
+                  <Text variant="caption" color="muted">Current expiry: {document.expires_on}</Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={{ gap: t.spacing.xs }}>
+                <Text variant="calloutStrong">{document.provider_name || 'Provider'}</Text>
+                <Text variant="body">{typeLabel}</Text>
+                <Text variant="caption" color="muted">Scope: {scope}</Text>
+                <Text variant="caption" color="muted">Submitted {created}</Text>
+                {document.expires_on ? (
+                  <Text variant="caption" color="muted">Current expiry: {document.expires_on}</Text>
+                ) : null}
+              </View>
+            )}
             <Button
-              title="View document"
+              title={contextualQueueEnabled ? 'View private document' : 'View document'}
               size="sm"
               variant="outline"
               loading={viewBusy}

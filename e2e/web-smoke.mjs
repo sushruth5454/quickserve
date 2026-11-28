@@ -190,7 +190,7 @@ async function rest(path) {
 }
 
 // Call self-service RPCs with the signed-in browser session; never use service-role credentials or table writes.
-async function currentUserRpc(name, args = {}) {
+async function currentUserRpcData(name, args = {}) {
   const result = await page.evaluate(async ({ url, anonKey, functionName, params }) => {
     let accessToken = null;
     for (const key of Object.keys(localStorage)) {
@@ -217,12 +217,33 @@ async function currentUserRpc(name, args = {}) {
     try {
       data = body ? JSON.parse(body) : null;
     } catch {
-      data = null;
+      return { ok: false, status: response.status, data: null, error: 'RPC response was not valid JSON.' };
     }
-    return { ok: response.ok, status: response.status, resultExists: data !== null, error: response.ok ? '' : body };
+    return { ok: response.ok, status: response.status, data, error: response.ok ? '' : body };
   }, { url: SUPABASE_URL, anonKey: ANON, functionName: name, params: args });
   if (!result.ok) throw new Error(`${name} RPC failed (${result.status}): ${result.error}`);
-  return result.resultExists;
+  return result.data;
+}
+
+async function currentUserRpc(name, args = {}) {
+  return (await currentUserRpcData(name, args)) !== null;
+}
+
+async function clickConfirmationSheetAction(title, actionLabel) {
+  const heading = page.getByRole('heading', { name: title, exact: true });
+  await heading.waitFor({ state: 'visible' });
+  const headingCount = await heading.count();
+  const action = heading.locator(`xpath=./following::*[@role="button" and @aria-label="${actionLabel}"][1]`);
+  const actionCount = await action.count();
+  if (headingCount !== 1 || actionCount !== 1) {
+    throw new Error(`Confirmation sheet action was not unique: ${JSON.stringify({
+      title,
+      actionLabel,
+      headingCount,
+      actionCount,
+    })}`);
+  }
+  await action.click();
 }
 
 function phoneKey(phone) {
@@ -3714,8 +3735,14 @@ await step('admin-feature-registry', async () => {
   await page.getByLabel('6-digit verification code').fill(OTP);
   await page.waitForURL((u) => ['/', '/dashboard'].includes(new URL(u).pathname));
   await grantE2eAdminMembership(adminPhone);
-  const accountPath = new URL(page.url()).pathname === '/dashboard' ? '/pro-account' : '/account';
-  await go(accountPath);
+  // Probe the account route after auth settles instead of trusting a transient post-login URL.
+  await go('/account');
+  const accountLanding = new URL(page.url()).pathname;
+  const accountPath = accountLanding === '/dashboard' ? '/pro-account' : '/account';
+  if (!['/account', '/dashboard'].includes(accountLanding)) {
+    throw new Error(`Admin E2E account route resolved unexpectedly: ${JSON.stringify({ pathname: accountLanding })}`);
+  }
+  if (accountPath === '/pro-account') await go(accountPath);
   await page.getByText('Admin portal', { exact: true }).click();
   await page.waitForURL((u) => new URL(u).pathname === '/admin');
   await page.getByLabel('Go back').last().click();
@@ -3898,6 +3925,426 @@ await step('admin-feature-registry', async () => {
       console.log(`MK-ADMIN-same-shop-cross-role-no-verify: ${JSON.stringify(actual)}`);
     }
   });
+  await go('/admin');
+
+  if (PRIVATE_LOCAL_E2E) {
+    await step('admin-oorva-composition', async () => {
+      const ownerToken = await signInAs(phoneE164(NEW_PRO_PHONE));
+      const ownerResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_my_provider_onboarding`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      const ownerText = await ownerResponse.text();
+      let ownerState;
+      try {
+        ownerState = ownerText ? JSON.parse(ownerText) : null;
+      } catch {
+        throw new Error('E2E owner readback returned invalid JSON');
+      }
+      if (!ownerResponse.ok || !ownerState?.provider?.id) {
+        throw new Error(`E2E owner readback unavailable: ${JSON.stringify({
+          status: ownerResponse.status,
+          hasProvider: !!ownerState?.provider,
+          ownerStateKeys: ownerState && typeof ownerState === 'object' ? Object.keys(ownerState) : [],
+        })}`);
+      }
+
+      const adminRows = await currentUserRpcData('admin_list_providers', { p_filter: 'all', p_search: null });
+      const ownerAdminRow = Array.isArray(adminRows)
+        ? adminRows.find((row) => row.id === ownerState.provider.id)
+        : null;
+      const summarizeGoLive = (value) => ({
+        state: value?.state ?? null,
+        paused: value?.paused ?? null,
+        reasons: Array.isArray(value?.reasons)
+          ? value.reasons.map((reason) => ({
+            code: reason.code ?? null,
+            severity: reason.severity ?? null,
+            detail: reason.detail ?? null,
+          })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+          : [],
+      });
+      const ownerFacts = {
+        adminReviewStatus: ownerState.provider.admin_review_status ?? null,
+        reviewNote: ownerState.provider.review_note ?? null,
+        goLive: summarizeGoLive(ownerState.go_live),
+      };
+      const adminFacts = ownerAdminRow ? {
+        adminReviewStatus: ownerAdminRow.admin_review_status ?? null,
+        reviewNote: ownerAdminRow.review_note ?? null,
+        goLive: summarizeGoLive(ownerAdminRow.go_live),
+      } : null;
+      if (!ownerAdminRow || JSON.stringify(ownerFacts) !== JSON.stringify(adminFacts)) {
+        throw new Error(`E2E owner/admin state or reason diverged: ${JSON.stringify({
+          providerId: ownerState.provider.id,
+          ownerFacts,
+          adminFacts,
+          adminRowCount: Array.isArray(adminRows) ? adminRows.length : null,
+        })}`);
+      }
+
+      const deniedQueueRead = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_list_document_queue`, {
+        method: 'POST',
+        headers: { apikey: ANON, Authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (deniedQueueRead.ok) {
+        throw new Error(`Non-admin provider read admin document queue: ${JSON.stringify({
+          status: deniedQueueRead.status,
+          providerId: ownerState.provider.id,
+        })}`);
+      }
+
+      // These browser-local fixtures exercise presentation without writing provider or document rows.
+      const actionProviderId = randomUUID();
+      const approvedProviderId = randomUUID();
+      const scopedDocumentId = randomUUID();
+      const generalDocumentId = randomUUID();
+      const providerRows = [
+        {
+          ...ownerAdminRow,
+          full_name: 'E2E Owner State Provider',
+          phone: '+919000000123',
+          city: 'E2E Demo City',
+        },
+        {
+          id: actionProviderId,
+          full_name: 'E2E Action Provider',
+          phone: '+919000000124',
+          city: 'E2E Demo City',
+          kyc_status: 'pending',
+          admin_review_status: 'pending',
+          has_payout_account: true,
+          suspended: false,
+          paused: false,
+          is_online: false,
+          rating_avg: 4.5,
+          rating_count: 2,
+          jobs_completed: 3,
+          is_creator: false,
+          categories: ['Electrical'],
+          submitted_at: '2026-11-20T10:00:00.000Z',
+          created_at: '2026-11-20T10:00:00.000Z',
+          go_live: {
+            state: 'under_review',
+            reasons: [{ code: 'document_pending', severity: 'wait', detail: 'Credential review is pending.' }],
+            paused: false,
+          },
+          review_note: 'Please update the provider profile.',
+        },
+        {
+          id: approvedProviderId,
+          full_name: 'E2E Approved Provider',
+          phone: '+919000000125',
+          city: 'E2E Demo City',
+          kyc_status: 'verified',
+          admin_review_status: 'approved',
+          has_payout_account: true,
+          suspended: false,
+          paused: true,
+          is_online: false,
+          rating_avg: 4.8,
+          rating_count: 5,
+          jobs_completed: 8,
+          is_creator: true,
+          categories: ['Home services'],
+          submitted_at: '2026-11-19T10:00:00.000Z',
+          created_at: '2026-11-19T10:00:00.000Z',
+          go_live: {
+            state: 'paused',
+            reasons: [{ code: 'provider_paused', severity: 'wait', detail: 'The provider paused availability.' }],
+            paused: true,
+          },
+          review_note: 'Approved; availability remains paused.',
+        },
+      ];
+      const documentTypes = [
+        { code: 'trade_licence', label: 'Trade licence', has_expiry: true },
+        { code: 'degree', label: 'Degree certificate', has_expiry: false },
+      ];
+      let documentQueue = [
+        {
+          document_id: scopedDocumentId,
+          provider_id: actionProviderId,
+          provider_name: 'E2E Scoped Provider',
+          doc_type: 'trade_licence',
+          category_id: 'e2e-electrical-category',
+          category_name: 'Electrical',
+          file_path: `e2e-private/${scopedDocumentId}/trade-licence.pdf`,
+          expires_on: '2027-12-01',
+          created_at: '2026-11-20T10:00:00.000Z',
+        },
+        {
+          document_id: generalDocumentId,
+          provider_id: approvedProviderId,
+          provider_name: 'E2E General Provider',
+          doc_type: 'degree',
+          category_id: null,
+          category_name: null,
+          file_path: `e2e-private/${generalDocumentId}/degree.pdf`,
+          expires_on: null,
+          created_at: '2026-11-19T10:00:00.000Z',
+        },
+      ];
+      const providerReviewCalls = [];
+      const documentReviewCalls = [];
+      let signedPreviewCalls = 0;
+      const providerListRoute = async (route) => {
+        const request = route.request().postDataJSON() ?? {};
+        let result = [...providerRows];
+        if (request.p_filter === 'creators') result = result.filter((row) => row.is_creator);
+        if (request.p_filter === 'pending') result = result.filter((row) => row.admin_review_status === 'pending');
+        if (request.p_filter === 'suspended') result = result.filter((row) => row.suspended);
+        const query = String(request.p_search ?? '').trim().toLowerCase();
+        if (query) {
+          result = result.filter((row) => `${row.full_name} ${row.phone} ${row.city}`.toLowerCase().includes(query));
+        }
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(result) });
+      };
+      const providerReviewRoute = async (route) => {
+        const request = route.request().postDataJSON() ?? {};
+        providerReviewCalls.push(request);
+        const provider = providerRows.find((row) => row.id === request.p_provider_id);
+        if (!provider) throw new Error(`Unknown E2E provider review target: ${JSON.stringify({ request, providerIds: providerRows.map((row) => row.id) })}`);
+        provider.admin_review_status = request.p_status;
+        provider.review_note = request.p_reason;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+      };
+      const documentListRoute = async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(documentQueue) });
+      };
+      const documentTypesRoute = async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(documentTypes) });
+      };
+      const documentReviewRoute = async (route) => {
+        const request = route.request().postDataJSON() ?? {};
+        documentReviewCalls.push(request);
+        documentQueue = documentQueue.filter((document) => document.document_id !== request.p_document_id);
+        await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+      };
+      const privatePreviewRoute = async (route) => {
+        signedPreviewCalls += 1;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ signedURL: `/object/sign/provider-docs/e2e-private-preview?signature=fixture` }),
+        });
+      };
+      const queryPrivateFlags = async (query) => {
+        if (
+          !PRIVATE_LOCAL_E2E
+          || process.env.DEMO_PROJECT !== '1'
+          || process.env.PROJECT_REF !== 'local'
+          || process.env.SUPABASE_MGMT_URL !== 'http://127.0.0.1:54399'
+        ) {
+          throw new Error('O30 private flag changes require the disposable local E2E backend');
+        }
+        const token = process.env.SUPABASE_ACCESS_TOKEN;
+        if (!token) throw new Error('O30 private flag changes require the local Management API token');
+        const response = await fetch(`${process.env.SUPABASE_MGMT_URL}/v1/projects/local/database/query`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+        const responseText = await response.text();
+        if (!response.ok) {
+          throw new Error(`O30 local feature-flag query failed (${response.status}): ${responseText.slice(0, 400)}`);
+        }
+        let rows;
+        try {
+          rows = responseText ? JSON.parse(responseText) : [];
+        } catch {
+          throw new Error('O30 local feature-flag query returned invalid JSON');
+        }
+        if (!Array.isArray(rows) || rows.some((row) => row?.error)) {
+          throw new Error(`O30 local feature-flag query returned an unexpected result: ${JSON.stringify(rows)}`);
+        }
+        return rows;
+      };
+      const readPrivateOorvaFlags = async () => {
+        const rows = await queryPrivateFlags(
+          "select key, enabled from public.feature_flags where key in ('oorva_brand', 'oorva_admin_ops_ux') order by key",
+        );
+        const flags = Object.fromEntries(rows.map((row) => [row.key, row.enabled]));
+        if (
+          rows.length !== 2
+          || typeof flags.oorva_brand !== 'boolean'
+          || typeof flags.oorva_admin_ops_ux !== 'boolean'
+        ) {
+          throw new Error(`O30 private feature flags are missing or invalid: ${JSON.stringify({ flags, rows })}`);
+        }
+        return flags;
+      };
+      const setPrivateOorvaFlags = async (enabled) => {
+        const values = { oorva_brand: enabled, oorva_admin_ops_ux: enabled };
+        const payload = JSON.stringify(values);
+        if (payload.includes('$flags$')) throw new Error('O30 private feature-flag payload is invalid');
+        await queryPrivateFlags(
+          `update public.feature_flags f set enabled = v.value::boolean, updated_at = now() `
+          + `from json_each_text($flags$${payload}$flags$::json) v where f.key = v.key`,
+        );
+        const actual = await readPrivateOorvaFlags();
+        if (actual.oorva_brand !== enabled || actual.oorva_admin_ops_ux !== enabled) {
+          throw new Error(`O30 private feature-flag update did not persist: ${JSON.stringify({ expected: values, actual })}`);
+        }
+      };
+      const originalOorvaFlags = await readPrivateOorvaFlags();
+      if (originalOorvaFlags.oorva_brand !== false || originalOorvaFlags.oorva_admin_ops_ux !== false) {
+        throw new Error(`O30 local smoke must start with private Oorva flags OFF: ${JSON.stringify({ actual: originalOorvaFlags })}`);
+      }
+      let restorePrivateOorvaFlags = false;
+      const layout = E2E_FLAGS_ON ? 'oorva-on' : 'legacy-off';
+
+      await page.addInitScript(() => {
+        window.__e2eOpenedUrls = [];
+        window.open = (url) => {
+          window.__e2eOpenedUrls.push(String(url));
+          return null;
+        };
+      });
+      await page.route('**/rest/v1/rpc/admin_list_providers', providerListRoute);
+      await page.route('**/rest/v1/rpc/admin_set_provider_review', providerReviewRoute);
+      await page.route('**/rest/v1/rpc/admin_list_document_queue', documentListRoute);
+      await page.route('**/rest/v1/rpc/admin_review_document', documentReviewRoute);
+      await page.route('**/rest/v1/document_types*', documentTypesRoute);
+      await page.route('**/storage/v1/object/sign/provider-docs/**', privatePreviewRoute);
+      try {
+        if (E2E_FLAGS_ON) {
+          restorePrivateOorvaFlags = true;
+          await setPrivateOorvaFlags(true);
+          await page.reload();
+        }
+        await go('/admin/people');
+        await visible('Providers & creators');
+        const appFeatures = await currentUserRpcData('get_app_features');
+        if (appFeatures.oorva_brand !== E2E_FLAGS_ON || appFeatures.oorva_admin_ops_ux !== E2E_FLAGS_ON) {
+          throw new Error(`Oorva admin flags did not match this private pass: ${JSON.stringify({
+            expected: E2E_FLAGS_ON,
+            oorva_brand: appFeatures.oorva_brand,
+            oorva_admin_ops_ux: appFeatures.oorva_admin_ops_ux,
+          })}`);
+        }
+        const peopleBody = await page.locator('body').innerText();
+        const searchIndex = peopleBody.indexOf('Search');
+        const auditIndex = peopleBody.indexOf('Audit log');
+        if (
+          searchIndex < 0
+          || auditIndex < 0
+          || (E2E_FLAGS_ON ? searchIndex >= auditIndex : auditIndex >= searchIndex)
+        ) {
+          throw new Error(`Admin people order did not match the Oorva pass: ${JSON.stringify({
+            expected: E2E_FLAGS_ON ? 'search before audit' : 'audit before search',
+            searchIndex,
+            auditIndex,
+            body: peopleBody.slice(0, 1600),
+          })}`);
+        }
+        const approvedCard = page.getByText('E2E Approved Provider', { exact: true })
+          .locator('xpath=ancestor::*[.//*[@role=\"button\"]][1]');
+        if (await approvedCard.getByRole('button', { name: 'Approve', exact: true }).count()) {
+          throw new Error(`Completed provider review remained actionable: ${JSON.stringify({
+            body: await approvedCard.innerText(),
+          })}`);
+        }
+        await snap(`admin-people-${layout}`);
+        const actionCard = page.getByText('E2E Action Provider', { exact: true })
+          .locator('xpath=ancestor::*[.//*[@role=\"button\"]][1]');
+        const reasonInput = actionCard.getByLabel('Reason (required for Reject or Ask for changes)');
+        await reasonInput.fill('E2E request: update the provider profile.');
+        await actionCard.getByRole('button', { name: 'Ask for changes', exact: true }).click();
+        await clickConfirmationSheetAction('Ask E2E Action Provider for changes?', 'Not now');
+        if (providerReviewCalls.length) {
+          throw new Error(`Cancelled provider confirmation mutated state: ${JSON.stringify({ providerReviewCalls })}`);
+        }
+        await actionCard.getByRole('button', { name: 'Ask for changes', exact: true }).click();
+        await clickConfirmationSheetAction('Ask E2E Action Provider for changes?', 'Ask for changes');
+        await page.getByText('Admin review: needs clarification').first().waitFor({ state: 'visible' });
+        await page.getByText('Stored review note: E2E request: update the provider profile.', { exact: true }).waitFor({ state: 'visible' });
+        const actualProviderReview = providerReviewCalls.map((call) => ({
+          providerId: call.p_provider_id,
+          status: call.p_status,
+          reason: call.p_reason,
+        }));
+        if (actualProviderReview.length !== 1
+          || actualProviderReview[0].providerId !== actionProviderId
+          || actualProviderReview[0].status !== 'needs_clarification'
+          || actualProviderReview[0].reason !== 'E2E request: update the provider profile.') {
+          throw new Error(`Provider action/readback did not match one scoped review: ${JSON.stringify({ actualProviderReview })}`);
+        }
+        await snap(`admin-people-review-readback-${layout}`);
+
+        await go('/admin/documents');
+        await visible('Provider documents');
+        let documentBody = await page.locator('body').innerText();
+        if (
+          E2E_FLAGS_ON
+            ? !documentBody.includes('Pending review queue')
+              || !documentBody.includes('Credential type: Trade licence')
+              || !documentBody.includes('General credential')
+            : documentBody.includes('Pending review queue')
+              || documentBody.includes('Credential type: Trade licence')
+              || !documentBody.includes('General (all categories)')
+        ) {
+          throw new Error(`Admin document composition did not match the Oorva pass: ${JSON.stringify({
+            expected: E2E_FLAGS_ON ? 'contextual queue' : 'legacy document layout',
+            body: documentBody.slice(0, 1800),
+          })}`);
+        }
+        if (documentBody.includes('e2e-private/') || documentBody.includes('private.pdf')) {
+          throw new Error(`Admin document card exposed a storage path: ${JSON.stringify({ body: documentBody.slice(0, 1800) })}`);
+        }
+        await snap(`admin-documents-${layout}`);
+        await page.getByRole('button', { name: E2E_FLAGS_ON ? 'View private document' : 'View document' }).first().click();
+        await page.waitForFunction(() => window.__e2eOpenedUrls?.length > 0);
+        const openedPreviewUrls = await page.evaluate(() => window.__e2eOpenedUrls);
+        if (signedPreviewCalls !== 1 || !openedPreviewUrls.some((url) => url.includes('e2e-private-preview'))) {
+          throw new Error(`Private preview did not use one signed URL: ${JSON.stringify({ signedPreviewCalls, openedPreviewUrls })}`);
+        }
+
+        const scopedCard = page.getByText('E2E Scoped Provider', { exact: true })
+          .locator('xpath=ancestor::*[.//*[@role=\"button\"]][1]');
+        await scopedCard.getByLabel('Reason (required to reject; at least 5 characters)').fill('E2E review: document needs correction.');
+        await scopedCard.getByRole('button', { name: 'Reject', exact: true }).click();
+        await clickConfirmationSheetAction('Reject Trade licence?', 'Not now');
+        if (documentReviewCalls.length) {
+          throw new Error(`Cancelled document confirmation mutated state: ${JSON.stringify({ documentReviewCalls })}`);
+        }
+        await scopedCard.getByRole('button', { name: 'Reject', exact: true }).click();
+        await clickConfirmationSheetAction('Reject Trade licence?', 'Reject');
+        await page.getByText('Document rejected', { exact: true }).waitFor({ state: 'visible' });
+        const scopedProviderCount = await page.getByText('E2E Scoped Provider', { exact: true }).count();
+        const generalProviderCount = await page.getByText('E2E General Provider', { exact: true }).count();
+        if (scopedProviderCount !== 0 || generalProviderCount !== 1) {
+          throw new Error(`Confirmed document review did not remove only the scoped row: ${JSON.stringify({
+            documentReviewCalls,
+            scopedProviderCount,
+            generalProviderCount,
+          })}`);
+        }
+        if (
+          documentReviewCalls.length !== 1
+          || documentReviewCalls[0].p_document_id !== scopedDocumentId
+          || documentReviewCalls[0].p_approve !== false
+          || documentReviewCalls[0].p_reason !== 'E2E review: document needs correction.'
+        ) {
+          throw new Error(`Document action did not match one pending record: ${JSON.stringify({ documentReviewCalls })}`);
+        }
+        await snap(`admin-documents-single-review-${layout}`);
+      } finally {
+        await page.unroute('**/rest/v1/rpc/admin_list_providers', providerListRoute);
+        await page.unroute('**/rest/v1/rpc/admin_set_provider_review', providerReviewRoute);
+        await page.unroute('**/rest/v1/rpc/admin_list_document_queue', documentListRoute);
+        await page.unroute('**/rest/v1/rpc/admin_review_document', documentReviewRoute);
+        await page.unroute('**/rest/v1/document_types*', documentTypesRoute);
+        await page.unroute('**/storage/v1/object/sign/provider-docs/**', privatePreviewRoute);
+        if (restorePrivateOorvaFlags) {
+          await setPrivateOorvaFlags(false);
+          await page.goto('about:blank');
+        }
+      }
+    });
+  }
   await go('/admin');
 
   const rows = [

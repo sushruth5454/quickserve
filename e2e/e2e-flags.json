@@ -1,5 +1,5 @@
 {
-  "_comment": "Feature switches the web smoke test expects. e2e-web pins these on the hosted DEMO project for the run and restores the owner's values afterwards; e2e-local applies them to its private stack. A lane that adds a switch the smoke test needs ON must add it here. Keys missing here keep their current value.",
+  "_comment": "Feature switch values expected by the generic smoke passes. Oorva brand/admin flags remain OFF except during the isolated private O30 local scenario; e2e-web restores the previous hosted values. Keys missing here keep their current value.",
   "admin_category_editor": true,
   "admin_rules_editor": true,
   "ai_assistant": true,

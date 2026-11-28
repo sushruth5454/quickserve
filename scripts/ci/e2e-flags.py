@@ -22,6 +22,8 @@ REDESIGN_FLAGS = (
     "booking_steps",
     "book_again",
 )
+PRIVATE_OORVA_FLAGS = ("oorva_brand", "oorva_admin_ops_ux")
+PINNED_FLAGS = REDESIGN_FLAGS + PRIVATE_OORVA_FLAGS
 
 
 def query(sql):
@@ -55,27 +57,29 @@ def apply(values):
     )
 
 
-def read_redesign_flags():
-    keys = ", ".join(f"'{key}'" for key in REDESIGN_FLAGS)
-    rows = query(f"select key, enabled from public.feature_flags where key in ({keys})")
+def read_flags(keys):
+    keys = tuple(keys)
+    sql_keys = ", ".join(f"'{key}'" for key in keys)
+    rows = query(f"select key, enabled from public.feature_flags where key in ({sql_keys})")
     if not isinstance(rows, list):
         sys.exit("e2e-flags: feature flag query returned an unexpected shape")
     values = {row["key"]: row["enabled"] for row in rows if isinstance(row, dict) and "key" in row}
-    missing = sorted(set(REDESIGN_FLAGS) - set(values))
+    missing = sorted(set(keys) - set(values))
     if missing:
-        sys.exit(f"e2e-flags: required redesign switches missing from this database: {', '.join(missing)}")
+        sys.exit(f"e2e-flags: required switches missing from this database: {', '.join(missing)}")
     return values
 
 
 def set_redesign_flags(enabled):
     expected = {key: enabled for key in REDESIGN_FLAGS}
-    read_redesign_flags()
+    expected.update({key: False for key in PRIVATE_OORVA_FLAGS})
+    read_flags(expected)
     apply(expected)
-    actual = read_redesign_flags()
+    actual = read_flags(expected)
     if actual != expected:
         sys.exit(f"e2e-flags: redesign switch update did not persist: {json.dumps(actual, sort_keys=True)}")
     state = "ON" if enabled else "OFF"
-    print(f"e2e-flags: set all six redesign switches {state}")
+    print(f"e2e-flags: set {len(REDESIGN_FLAGS)} redesign switches {state}; private Oorva switches OFF")
 
 
 def main(mode):
@@ -86,9 +90,9 @@ def main(mode):
             json.dump(before, f)
         if not isinstance(before, dict):
             sys.exit("e2e-flags: feature flag snapshot returned an unexpected shape")
-        missing_required = sorted(set(REDESIGN_FLAGS) - set(before))
+        missing_required = sorted(set(PINNED_FLAGS) - set(before))
         if missing_required:
-            sys.exit(f"e2e-flags: required redesign switches missing from snapshot: {', '.join(missing_required)}")
+            sys.exit(f"e2e-flags: required switches missing from snapshot: {', '.join(missing_required)}")
         want = wanted()
         changed = {k: v for k, v in want.items() if k in before and before[k] != v}
         missing = sorted(k for k in want if k not in before)
@@ -107,9 +111,9 @@ def main(mode):
             before = json.load(f)
         if not isinstance(before, dict):
             sys.exit("e2e-flags: snapshot has an unexpected shape")
-        missing_required = sorted(set(REDESIGN_FLAGS) - set(before))
+        missing_required = sorted(set(PINNED_FLAGS) - set(before))
         if missing_required:
-            sys.exit(f"e2e-flags: snapshot is missing required redesign switches: {', '.join(missing_required)}")
+            sys.exit(f"e2e-flags: snapshot is missing required switches: {', '.join(missing_required)}")
         # Restore only switches this run pinned, so other switches edited during the run are kept.
         apply({k: before[k] for k in wanted() if k in before})
         print("e2e-flags: restored the previous values")
@@ -120,16 +124,16 @@ def main(mode):
             before = json.load(f)
         if not isinstance(before, dict):
             sys.exit("e2e-flags: snapshot has an unexpected shape")
-        expected = {key: before[key] for key in REDESIGN_FLAGS if key in before}
-        if len(expected) != len(REDESIGN_FLAGS):
+        expected = {key: before[key] for key in PINNED_FLAGS if key in before}
+        if len(expected) != len(PINNED_FLAGS):
             sys.exit("e2e-flags: snapshot is missing required redesign switches")
-        actual = read_redesign_flags()
+        actual = read_flags(PINNED_FLAGS)
         if actual != expected:
             sys.exit(
                 "e2e-flags: restored switch values differ from snapshot: "
                 f"expected={json.dumps(expected, sort_keys=True)} actual={json.dumps(actual, sort_keys=True)}"
             )
-        print("e2e-flags: all six redesign switches match the original snapshot")
+        print(f"e2e-flags: all {len(PINNED_FLAGS)} smoke switches match the original snapshot")
     else:
         sys.exit("usage: e2e-flags.py pin|legacy-off|redesign-on|restore|verify")
 
