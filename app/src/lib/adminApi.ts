@@ -159,8 +159,51 @@ export interface AdminBooking {
   provider: string;
   total_amount: number;
   paid_paise: number;
+  cash_captured_paise: number;
+  coins_applied_paise: number;
+  demo_captured_paise: number;
+  refund_pending_paise: number;
+  refund_processing_paise: number;
+  refund_completed_paise: number;
+  refund_failed_paise: number;
+  net_held_paise: number;
   scheduled_at: string | null;
   city: string;
+}
+
+export interface AdminStuckRefund {
+  refund_id: string;
+  payment_id: string;
+  booking_id: string | null;
+  sports_booking_id: string | null;
+  pack_purchase_id: string | null;
+  amount: number;
+  status: 'failed' | 'processing';
+  attempts: number;
+  last_error: string | null;
+  created_at: string;
+  processing_started_at: string | null;
+}
+
+export interface AdminStuckTransfer {
+  transfer_id: string;
+  payout_id: string;
+  booking_id: string | null;
+  sports_booking_id: string | null;
+  pack_purchase_id: string | null;
+  amount: number;
+  status: string;
+  attempts: number;
+  last_error: string | null;
+  created_at: string;
+  processing_started_at: string | null;
+  rail: string | null;
+  gateway_status: string | null;
+}
+
+export interface AdminStuckMoney {
+  refunds: AdminStuckRefund[];
+  transfers: AdminStuckTransfer[];
 }
 
 export interface AdminBookingDetail {
@@ -258,12 +301,16 @@ export interface AdminProblemPayout {
   transferred_at: string | null;
   transfers: {
     id: string;
+    booking_id: string | null;
+    sports_booking_id: string | null;
+    pack_purchase_id: string | null;
     status: string;
     last_error: string | null;
     attempts: number;
     amount: number;
     rail: string | null;
     gateway_status: string | null;
+    processing_started_at: string | null;
     created_at: string;
   }[];
 }
@@ -375,6 +422,7 @@ export async function createProviderDocumentSignedUrl(filePath: string): Promise
 }
 export const listBookings = (status: string | null = 'all', search: string | null = null) =>
   rpc<AdminBooking[]>('admin_list_bookings', { p_status: status, p_search: search });
+export const listStuckMoney = () => rpc<AdminStuckMoney>('admin_list_stuck_money');
 export const getBooking = (id: string) => rpc<AdminBookingDetail>('admin_get_booking', { p_booking_id: id });
 export const resolveDispute = (id: string, outcome: 'denied' | 'partial_refund' | 'full_refund', amount: number | null, note: string) =>
   rpc<void>('resolve_dispute', { p_booking_id: id, p_outcome: outcome, p_refund_amount: amount, p_note: note });
