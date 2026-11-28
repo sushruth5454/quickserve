@@ -230,16 +230,17 @@ async function currentUserRpc(name, args = {}) {
 }
 
 async function clickConfirmationSheetAction(title, actionLabel) {
-  await page.waitForFunction((expectedTitle) => document.body?.innerText.includes(expectedTitle), title);
-  const sheetText = await page.locator('body').innerText();
-  const action = page.getByRole('button', { name: actionLabel, exact: true });
+  const heading = page.getByRole('heading', { name: title, exact: true });
+  await heading.waitFor({ state: 'visible' });
+  const headingCount = await heading.count();
+  const action = heading.locator(`xpath=./following::*[@role="button" and @aria-label="${actionLabel}"][1]`);
   const actionCount = await action.count();
-  if (!sheetText.includes(title) || actionCount !== 1) {
+  if (headingCount !== 1 || actionCount !== 1) {
     throw new Error(`Confirmation sheet action was not unique: ${JSON.stringify({
       title,
       actionLabel,
+      headingCount,
       actionCount,
-      sheetText: sheetText.slice(0, 600),
     })}`);
   }
   await action.click();
