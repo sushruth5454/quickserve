@@ -1,0 +1,621 @@
+{
+  "schemaVersion": 1,
+  "baseline": "128c9595472b92589ff5407246df1aadde4dc7cb",
+  "lightComparisonBackground": "#FFFFFF",
+  "concepts": [
+    {
+      "id": "A",
+      "name": "Forest + Champagne",
+      "shortName": "Forest",
+      "character": "Quiet, traditional premium",
+      "primary": "#173D39",
+      "primaryPressed": "#102D2A",
+      "primarySoft": "#E4EFE9",
+      "primaryText": "#173D39",
+      "onPrimary": "#FFFFFF",
+      "secondary": "#617D6D",
+      "accent": "#D5A65B",
+      "onAccent": "#362B15",
+      "reason": "Tests the existing direction fairly on white, without assuming forest/ivory must win.",
+      "light": {
+        "bg": "#FFFFFF",
+        "surface": "#FFFFFF",
+        "surfaceAlt": "#F4F7F8",
+        "surfaceRaised": "#FFFFFF",
+        "surfaceOverlay": "#FFFFFF",
+        "text": "#18282E",
+        "textSecondary": "#465C64",
+        "muted": "#5F7077",
+        "subtle": "#849197",
+        "border": "#DEE5E7",
+        "borderStrong": "#C9D3D7",
+        "outline": "#74848B",
+        "success": "#1C7B4B",
+        "successStrong": "#15613B",
+        "successText": "#15613B",
+        "successSoft": "#E9F6EE",
+        "warning": "#A96111",
+        "warningText": "#87500A",
+        "warningSoft": "#FFF4E1",
+        "danger": "#BA3F3F",
+        "dangerStrong": "#B4232D",
+        "dangerPressed": "#8F1D27",
+        "onDanger": "#FFFFFF",
+        "dangerText": "#A51D27",
+        "dangerSoft": "#FDEDEE",
+        "info": "#2D6596",
+        "infoText": "#245A85",
+        "infoSoft": "#EDF4FA",
+        "star": "#865514",
+        "skeleton": "#E7EDEF",
+        "onInverse": "#FFFFFF",
+        "onHero": "#FFFFFF",
+        "catHome": "#006D77",
+        "catHomeText": "#005B63",
+        "catHomeSoft": "#E4F2F1",
+        "catShops": "#315CA4",
+        "catShopsText": "#264C8B",
+        "catShopsSoft": "#EBF1FA",
+        "catSports": "#865514",
+        "catSportsText": "#795014",
+        "catSportsSoft": "#FCF1DF",
+        "catCreators": "#754185",
+        "catCreatorsText": "#663674",
+        "catCreatorsSoft": "#F5ECF8",
+        "toastBg": "#18282E",
+        "toastBorder": "#18282E",
+        "segmentThumb": "#FFFFFF",
+        "primary": "#173D39",
+        "primaryPressed": "#102D2A",
+        "primarySoft": "#E4EFE9",
+        "primaryText": "#173D39",
+        "onPrimary": "#FFFFFF",
+        "secondary": "#617D6D",
+        "accent": "#D5A65B",
+        "onAccent": "#362B15",
+        "heroFrom": "#173D39",
+        "heroTo": "#102D2A",
+        "bubbleMine": "#173D39",
+        "bubbleTheirs": "#E4EFE9"
+      },
+      "scores": {
+        "Brand distinctiveness": {
+          "score": 8,
+          "reason": "Clear contrast with the blue/orange examples; colour alone does not establish uniqueness."
+        },
+        "Trust and credibility": {
+          "score": 9,
+          "reason": "Strong dark labels and conservative controls; judgment, not tested trust."
+        },
+        "Premium appearance": {
+          "score": 9,
+          "reason": "Strongest restrained forest/sand combination in the static review."
+        },
+        "Friendliness and accessibility": {
+          "score": 7,
+          "reason": "Dark action can feel more formal; light surfaces soften it."
+        },
+        "Indian consumer relevance": {
+          "score": 8,
+          "reason": "No religious, regional or premium-only visual references."
+        },
+        "Multi-category suitability": {
+          "score": 8,
+          "reason": "Works broadly, but brand and green completion are relatively close."
+        },
+        "Scalability across roles": {
+          "score": 8,
+          "reason": "Dense operational tables remain readable; green status distinction needs care."
+        },
+        "App-icon recognizability": {
+          "score": 8,
+          "reason": "Connected mark remains clear on dark forest."
+        },
+        "Accessibility and contrast": {
+          "score": 9,
+          "reason": "All prescribed used pairs pass the same numerical gate."
+        },
+        "Long-term sustainability": {
+          "score": 8,
+          "reason": "Simple and durable; gold should not become an offer/status dependency."
+        }
+      },
+      "total": 82,
+      "scoreMethod": "Equal-weight expert design judgment after controlled static concept review; not user research, conversion data or trademark analysis."
+    },
+    {
+      "id": "B",
+      "name": "Cobalt + Apricot",
+      "shortName": "Cobalt",
+      "character": "Direct, energetic consumer technology",
+      "primary": "#2454D6",
+      "primaryPressed": "#193FA8",
+      "primarySoft": "#EDF2FF",
+      "primaryText": "#2049BA",
+      "onPrimary": "#FFFFFF",
+      "secondary": "#465E84",
+      "accent": "#F1BE8D",
+      "onAccent": "#513018",
+      "reason": "A real blue contender: familiar existing interaction language, not disqualified because the old app uses blue.",
+      "light": {
+        "bg": "#FFFFFF",
+        "surface": "#FFFFFF",
+        "surfaceAlt": "#F4F7F8",
+        "surfaceRaised": "#FFFFFF",
+        "surfaceOverlay": "#FFFFFF",
+        "text": "#18282E",
+        "textSecondary": "#465C64",
+        "muted": "#5F7077",
+        "subtle": "#849197",
+        "border": "#DEE5E7",
+        "borderStrong": "#C9D3D7",
+        "outline": "#74848B",
+        "success": "#1C7B4B",
+        "successStrong": "#15613B",
+        "successText": "#15613B",
+        "successSoft": "#E9F6EE",
+        "warning": "#A96111",
+        "warningText": "#87500A",
+        "warningSoft": "#FFF4E1",
+        "danger": "#BA3F3F",
+        "dangerStrong": "#B4232D",
+        "dangerPressed": "#8F1D27",
+        "onDanger": "#FFFFFF",
+        "dangerText": "#A51D27",
+        "dangerSoft": "#FDEDEE",
+        "info": "#2D6596",
+        "infoText": "#245A85",
+        "infoSoft": "#EDF4FA",
+        "star": "#865514",
+        "skeleton": "#E7EDEF",
+        "onInverse": "#FFFFFF",
+        "onHero": "#FFFFFF",
+        "catHome": "#006D77",
+        "catHomeText": "#005B63",
+        "catHomeSoft": "#E4F2F1",
+        "catShops": "#315CA4",
+        "catShopsText": "#264C8B",
+        "catShopsSoft": "#EBF1FA",
+        "catSports": "#865514",
+        "catSportsText": "#795014",
+        "catSportsSoft": "#FCF1DF",
+        "catCreators": "#754185",
+        "catCreatorsText": "#663674",
+        "catCreatorsSoft": "#F5ECF8",
+        "toastBg": "#18282E",
+        "toastBorder": "#18282E",
+        "segmentThumb": "#FFFFFF",
+        "primary": "#2454D6",
+        "primaryPressed": "#193FA8",
+        "primarySoft": "#EDF2FF",
+        "primaryText": "#2049BA",
+        "onPrimary": "#FFFFFF",
+        "secondary": "#465E84",
+        "accent": "#F1BE8D",
+        "onAccent": "#513018",
+        "heroFrom": "#2454D6",
+        "heroTo": "#193FA8",
+        "bubbleMine": "#2454D6",
+        "bubbleTheirs": "#EDF2FF"
+      },
+      "scores": {
+        "Brand distinctiveness": {
+          "score": 6,
+          "reason": "Very close to established blue interaction language in the sampled market."
+        },
+        "Trust and credibility": {
+          "score": 9,
+          "reason": "Familiar high-contrast controls with no need to change interaction conventions."
+        },
+        "Premium appearance": {
+          "score": 8,
+          "reason": "Crisp but less differentiated from mainstream consumer apps."
+        },
+        "Friendliness and accessibility": {
+          "score": 9,
+          "reason": "High visibility and familiar control rhythm."
+        },
+        "Indian consumer relevance": {
+          "score": 9,
+          "reason": "Fits familiar sampled consumer conventions; preference is untested."
+        },
+        "Multi-category suitability": {
+          "score": 9,
+          "reason": "Broadly neutral across shopping/services/sports/creative work."
+        },
+        "Scalability across roles": {
+          "score": 9,
+          "reason": "Consumer and admin views remain clear and conventional."
+        },
+        "App-icon recognizability": {
+          "score": 8,
+          "reason": "Clear mark, but blue icon field is common in bounded sample."
+        },
+        "Accessibility and contrast": {
+          "score": 9,
+          "reason": "All prescribed used pairs pass the same numerical gate."
+        },
+        "Long-term sustainability": {
+          "score": 9,
+          "reason": "Simple semantic scaling; recognition depends more heavily on mark/content."
+        }
+      },
+      "total": 85,
+      "scoreMethod": "Equal-weight expert design judgment after controlled static concept review; not user research, conversion data or trademark analysis."
+    },
+    {
+      "id": "C",
+      "name": "Charcoal Green + Clay",
+      "shortName": "Charcoal",
+      "character": "Editorial, practical and warm",
+      "primary": "#303B34",
+      "primaryPressed": "#202A23",
+      "primarySoft": "#EDF0EB",
+      "primaryText": "#303B34",
+      "onPrimary": "#FFFFFF",
+      "secondary": "#7A6658",
+      "accent": "#B4543C",
+      "onAccent": "#FFFFFF",
+      "reason": "An almost-neutral identity with a terracotta accent, rather than a second saturated forest swatch.",
+      "light": {
+        "bg": "#FFFFFF",
+        "surface": "#FFFFFF",
+        "surfaceAlt": "#F4F7F8",
+        "surfaceRaised": "#FFFFFF",
+        "surfaceOverlay": "#FFFFFF",
+        "text": "#18282E",
+        "textSecondary": "#465C64",
+        "muted": "#5F7077",
+        "subtle": "#849197",
+        "border": "#DEE5E7",
+        "borderStrong": "#C9D3D7",
+        "outline": "#74848B",
+        "success": "#1C7B4B",
+        "successStrong": "#15613B",
+        "successText": "#15613B",
+        "successSoft": "#E9F6EE",
+        "warning": "#A96111",
+        "warningText": "#87500A",
+        "warningSoft": "#FFF4E1",
+        "danger": "#BA3F3F",
+        "dangerStrong": "#B4232D",
+        "dangerPressed": "#8F1D27",
+        "onDanger": "#FFFFFF",
+        "dangerText": "#A51D27",
+        "dangerSoft": "#FDEDEE",
+        "info": "#2D6596",
+        "infoText": "#245A85",
+        "infoSoft": "#EDF4FA",
+        "star": "#865514",
+        "skeleton": "#E7EDEF",
+        "onInverse": "#FFFFFF",
+        "onHero": "#FFFFFF",
+        "catHome": "#006D77",
+        "catHomeText": "#005B63",
+        "catHomeSoft": "#E4F2F1",
+        "catShops": "#315CA4",
+        "catShopsText": "#264C8B",
+        "catShopsSoft": "#EBF1FA",
+        "catSports": "#865514",
+        "catSportsText": "#795014",
+        "catSportsSoft": "#FCF1DF",
+        "catCreators": "#754185",
+        "catCreatorsText": "#663674",
+        "catCreatorsSoft": "#F5ECF8",
+        "toastBg": "#18282E",
+        "toastBorder": "#18282E",
+        "segmentThumb": "#FFFFFF",
+        "primary": "#303B34",
+        "primaryPressed": "#202A23",
+        "primarySoft": "#EDF0EB",
+        "primaryText": "#303B34",
+        "onPrimary": "#FFFFFF",
+        "secondary": "#7A6658",
+        "accent": "#B4543C",
+        "onAccent": "#FFFFFF",
+        "heroFrom": "#303B34",
+        "heroTo": "#202A23",
+        "bubbleMine": "#303B34",
+        "bubbleTheirs": "#EDF0EB"
+      },
+      "scores": {
+        "Brand distinctiveness": {
+          "score": 8,
+          "reason": "Unusual neutral-led marketplace identity, especially with clay."
+        },
+        "Trust and credibility": {
+          "score": 8,
+          "reason": "Serious and restrained; can feel heavier in operational tables."
+        },
+        "Premium appearance": {
+          "score": 9,
+          "reason": "Editorial warmth and low chroma support a refined appearance."
+        },
+        "Friendliness and accessibility": {
+          "score": 8,
+          "reason": "Clay warms the neutral but charcoal actions feel substantial."
+        },
+        "Indian consumer relevance": {
+          "score": 8,
+          "reason": "Warm without claiming a traditional/craft identity."
+        },
+        "Multi-category suitability": {
+          "score": 7,
+          "reason": "Strong in services/shop work; less expressive for AI/sports."
+        },
+        "Scalability across roles": {
+          "score": 7,
+          "reason": "Dense pages are legible, but neutral actions can dominate."
+        },
+        "App-icon recognizability": {
+          "score": 8,
+          "reason": "Strong silhouette, less colour-led differentiation."
+        },
+        "Accessibility and contrast": {
+          "score": 9,
+          "reason": "All prescribed used pairs pass the same numerical gate."
+        },
+        "Long-term sustainability": {
+          "score": 8,
+          "reason": "Durable neutral base; warm accent needs careful allocation."
+        }
+      },
+      "total": 80,
+      "scoreMethod": "Equal-weight expert design judgment after controlled static concept review; not user research, conversion data or trademark analysis."
+    },
+    {
+      "id": "D",
+      "name": "Deep Teal + Warm Sand",
+      "shortName": "Deep Teal",
+      "character": "Clear, composed and approachable",
+      "primary": "#006D77",
+      "primaryPressed": "#00515B",
+      "primarySoft": "#E4F2F1",
+      "primaryText": "#005B63",
+      "onPrimary": "#FFFFFF",
+      "secondary": "#526983",
+      "accent": "#E8B772",
+      "onAccent": "#3D2B0D",
+      "reason": "A chromatic action cue that is separate from semantic success green, with restrained warm recognition.",
+      "light": {
+        "bg": "#FFFFFF",
+        "surface": "#FFFFFF",
+        "surfaceAlt": "#F4F7F8",
+        "surfaceRaised": "#FFFFFF",
+        "surfaceOverlay": "#FFFFFF",
+        "text": "#18282E",
+        "textSecondary": "#465C64",
+        "muted": "#5F7077",
+        "subtle": "#849197",
+        "border": "#DEE5E7",
+        "borderStrong": "#C9D3D7",
+        "outline": "#74848B",
+        "success": "#1C7B4B",
+        "successStrong": "#15613B",
+        "successText": "#15613B",
+        "successSoft": "#E9F6EE",
+        "warning": "#A96111",
+        "warningText": "#87500A",
+        "warningSoft": "#FFF4E1",
+        "danger": "#BA3F3F",
+        "dangerStrong": "#B4232D",
+        "dangerPressed": "#8F1D27",
+        "onDanger": "#FFFFFF",
+        "dangerText": "#A51D27",
+        "dangerSoft": "#FDEDEE",
+        "info": "#2D6596",
+        "infoText": "#245A85",
+        "infoSoft": "#EDF4FA",
+        "star": "#865514",
+        "skeleton": "#E7EDEF",
+        "onInverse": "#FFFFFF",
+        "onHero": "#FFFFFF",
+        "catHome": "#006D77",
+        "catHomeText": "#005B63",
+        "catHomeSoft": "#E4F2F1",
+        "catShops": "#315CA4",
+        "catShopsText": "#264C8B",
+        "catShopsSoft": "#EBF1FA",
+        "catSports": "#865514",
+        "catSportsText": "#795014",
+        "catSportsSoft": "#FCF1DF",
+        "catCreators": "#754185",
+        "catCreatorsText": "#663674",
+        "catCreatorsSoft": "#F5ECF8",
+        "toastBg": "#18282E",
+        "toastBorder": "#18282E",
+        "segmentThumb": "#FFFFFF",
+        "primary": "#006D77",
+        "primaryPressed": "#00515B",
+        "primarySoft": "#E4F2F1",
+        "primaryText": "#005B63",
+        "onPrimary": "#FFFFFF",
+        "secondary": "#526983",
+        "accent": "#E8B772",
+        "onAccent": "#3D2B0D",
+        "heroFrom": "#006D77",
+        "heroTo": "#00515B",
+        "bubbleMine": "#006D77",
+        "bubbleTheirs": "#E4F2F1"
+      },
+      "scores": {
+        "Brand distinctiveness": {
+          "score": 8,
+          "reason": "A clear teal silhouette in the bounded benchmark, not a uniqueness/trademark claim."
+        },
+        "Trust and credibility": {
+          "score": 9,
+          "reason": "Clear action/state separation and clean neutral surfaces."
+        },
+        "Premium appearance": {
+          "score": 8,
+          "reason": "Clean without needing ivory, dark surfaces or metallic effects."
+        },
+        "Friendliness and accessibility": {
+          "score": 9,
+          "reason": "Softer chromatic character without weakening text or action contrast."
+        },
+        "Indian consumer relevance": {
+          "score": 8,
+          "reason": "Neutral across languages, categories and regions; field preference untested."
+        },
+        "Multi-category suitability": {
+          "score": 9,
+          "reason": "Primary works independently of four restrained category accents."
+        },
+        "Scalability across roles": {
+          "score": 9,
+          "reason": "All six reconstructed views remain coherent without coloured cards."
+        },
+        "App-icon recognizability": {
+          "score": 9,
+          "reason": "Clear white mark at20/32/48px on distinctive chromatic field."
+        },
+        "Accessibility and contrast": {
+          "score": 9,
+          "reason": "All prescribed used pairs pass the same numerical gate."
+        },
+        "Long-term sustainability": {
+          "score": 9,
+          "reason": "Clear separation of brand, surfaces, semantic status and categories."
+        }
+      },
+      "total": 87,
+      "scoreMethod": "Equal-weight expert design judgment after controlled static concept review; not user research, conversion data or trademark analysis."
+    },
+    {
+      "id": "E",
+      "name": "Plum + Soft Peach",
+      "shortName": "Plum",
+      "character": "Expressive, distinctive and creative",
+      "primary": "#6F3C76",
+      "primaryPressed": "#54285C",
+      "primarySoft": "#F4ECF6",
+      "primaryText": "#64316E",
+      "onPrimary": "#FFFFFF",
+      "secondary": "#756381",
+      "accent": "#F2C2A0",
+      "onAccent": "#4C2B1B",
+      "reason": "An original non-green/non-blue challenger that stress-tests creative identity against utilitarian operations.",
+      "light": {
+        "bg": "#FFFFFF",
+        "surface": "#FFFFFF",
+        "surfaceAlt": "#F4F7F8",
+        "surfaceRaised": "#FFFFFF",
+        "surfaceOverlay": "#FFFFFF",
+        "text": "#18282E",
+        "textSecondary": "#465C64",
+        "muted": "#5F7077",
+        "subtle": "#849197",
+        "border": "#DEE5E7",
+        "borderStrong": "#C9D3D7",
+        "outline": "#74848B",
+        "success": "#1C7B4B",
+        "successStrong": "#15613B",
+        "successText": "#15613B",
+        "successSoft": "#E9F6EE",
+        "warning": "#A96111",
+        "warningText": "#87500A",
+        "warningSoft": "#FFF4E1",
+        "danger": "#BA3F3F",
+        "dangerStrong": "#B4232D",
+        "dangerPressed": "#8F1D27",
+        "onDanger": "#FFFFFF",
+        "dangerText": "#A51D27",
+        "dangerSoft": "#FDEDEE",
+        "info": "#2D6596",
+        "infoText": "#245A85",
+        "infoSoft": "#EDF4FA",
+        "star": "#865514",
+        "skeleton": "#E7EDEF",
+        "onInverse": "#FFFFFF",
+        "onHero": "#FFFFFF",
+        "catHome": "#006D77",
+        "catHomeText": "#005B63",
+        "catHomeSoft": "#E4F2F1",
+        "catShops": "#315CA4",
+        "catShopsText": "#264C8B",
+        "catShopsSoft": "#EBF1FA",
+        "catSports": "#865514",
+        "catSportsText": "#795014",
+        "catSportsSoft": "#FCF1DF",
+        "catCreators": "#754185",
+        "catCreatorsText": "#663674",
+        "catCreatorsSoft": "#F5ECF8",
+        "toastBg": "#18282E",
+        "toastBorder": "#18282E",
+        "segmentThumb": "#FFFFFF",
+        "primary": "#6F3C76",
+        "primaryPressed": "#54285C",
+        "primarySoft": "#F4ECF6",
+        "primaryText": "#64316E",
+        "onPrimary": "#FFFFFF",
+        "secondary": "#756381",
+        "accent": "#F2C2A0",
+        "onAccent": "#4C2B1B",
+        "heroFrom": "#6F3C76",
+        "heroTo": "#54285C",
+        "bubbleMine": "#6F3C76",
+        "bubbleTheirs": "#F4ECF6"
+      },
+      "scores": {
+        "Brand distinctiveness": {
+          "score": 9,
+          "reason": "Most visibly different challenger in this set; not a trademark clearance."
+        },
+        "Trust and credibility": {
+          "score": 7,
+          "reason": "Readable, but expressive tone is less neutral for refunds/admin work."
+        },
+        "Premium appearance": {
+          "score": 9,
+          "reason": "Refined depth with controlled peach; overuse would look boutique."
+        },
+        "Friendliness and accessibility": {
+          "score": 8,
+          "reason": "Peach is welcoming; plum must remain restrained."
+        },
+        "Indian consumer relevance": {
+          "score": 7,
+          "reason": "Needs broader testing to exclude a beauty/creator-only interpretation."
+        },
+        "Multi-category suitability": {
+          "score": 8,
+          "reason": "Creative strength is clear; service/admin balance needs discipline."
+        },
+        "Scalability across roles": {
+          "score": 8,
+          "reason": "Dense merchant view works, but emotional emphasis is stronger."
+        },
+        "App-icon recognizability": {
+          "score": 9,
+          "reason": "Very clear peach/white contrast direction and recognizable silhouette."
+        },
+        "Accessibility and contrast": {
+          "score": 9,
+          "reason": "All prescribed used pairs pass the same numerical gate."
+        },
+        "Long-term sustainability": {
+          "score": 8,
+          "reason": "Durable if restrained, but strongest association risk in this review."
+        }
+      },
+      "total": 82,
+      "scoreMethod": "Equal-weight expert design judgment after controlled static concept review; not user research, conversion data or trademark analysis."
+    }
+  ],
+  "scoreScale": "1 weak ->10 strong",
+  "criteria": [
+    "Brand distinctiveness",
+    "Trust and credibility",
+    "Premium appearance",
+    "Friendliness and accessibility",
+    "Indian consumer relevance",
+    "Multi-category suitability",
+    "Scalability across roles",
+    "App-icon recognizability",
+    "Accessibility and contrast",
+    "Long-term sustainability"
+  ],
+  "scoresAreSubjective": true
+}

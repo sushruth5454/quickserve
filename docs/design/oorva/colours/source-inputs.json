@@ -1,0 +1,100 @@
+{
+  "sourceSha": "128c9595472b92589ff5407246df1aadde4dc7cb",
+  "inputs": [
+    {
+      "path": "app/src/features/home/HomeV2.tsx",
+      "sha256": "6d91b0f8f584bbfc7aefb9e2e0164d09b86c6b1a9fc848671ad905884e62778f",
+      "bytes": 22234
+    },
+    {
+      "path": "app/src/features/home/LegacyHome.tsx",
+      "sha256": "0ef9de60df3743280ca7cc6ba4686d56d80e5678388d1721089975d737add514",
+      "bytes": 23127
+    },
+    {
+      "path": "app/src/features/search/SearchScreen.tsx",
+      "sha256": "9ce1b3fb854897dcc855d39ebb5709349ad50731bba522be5da6f202ccdaf3d7",
+      "bytes": 10679
+    },
+    {
+      "path": "app/src/components/ProviderCard.tsx",
+      "sha256": "7add5a00e0f4699842d355928156aae878ffccd2599430c9b978ac3d411e741e",
+      "bytes": 3987
+    },
+    {
+      "path": "app/src/components/market/PillarCard.tsx",
+      "sha256": "0a69bea617f062bcb87173c6baa7c0abb740a436e30489d3d22264fa6b7a30bd",
+      "bytes": 2032
+    },
+    {
+      "path": "app/src/features/sports/SportsVenueBookingScreen.tsx",
+      "sha256": "d63b52854944deec06433fea01f34e89bab39dab6e95687d4f543e94cff75f59",
+      "bytes": 19129
+    },
+    {
+      "path": "app/src/features/providerDashboard/ProviderDashboardView.tsx",
+      "sha256": "453f95ae22bfc66fdd6133b54fe482df7b171af8a816c31db536c7849433bce5",
+      "bytes": 10996
+    },
+    {
+      "path": "app/src/features/providerDashboard/BusinessDashboardView.tsx",
+      "sha256": "351aab735225a05fd2f583342ff7413697ee6954fe59cdf11d987f955f2b1418",
+      "bytes": 3529
+    },
+    {
+      "path": "app/app/assistant.tsx",
+      "sha256": "ecce61885d4ebb89e30c16fd5409be0c4a85148ca47a2b1153859c38d284dd24",
+      "bytes": 75
+    },
+    {
+      "path": "app/app/admin/index.tsx",
+      "sha256": "004177ef272bd4dc0fe51b099b59208ec33f0d2b07ea4476da83e3962a4588f0",
+      "bytes": 6954
+    },
+    {
+      "path": "app/src/branding/defaults.ts",
+      "sha256": "f84523319c86b8c9b272642f32733d95a8b45d087fe00e4fa61ced11c55feb48",
+      "bytes": 4745
+    },
+    {
+      "path": "app/src/theme/tokens.ts",
+      "sha256": "342dcaa5e7519d683112aaf905c46c7e9ef6fe31aa3edc576ac6ed36ac272f1b",
+      "bytes": 11903
+    },
+    {
+      "path": "app/assets/brand/oorva-symbol.svg",
+      "sha256": "2dfca9f88406103dd9a5f1d709a326579eaebfadb55762a97b22226ae69c8c73",
+      "bytes": 1536
+    },
+    {
+      "path": "app/assets/brand/oorva-wordmark-light.svg",
+      "sha256": "f49c051759adccc2ad152948c84199830c9d57f763c2d94e64be7f0b1e2c57e8",
+      "bytes": 4727
+    },
+    {
+      "path": "app/assets/fonts/Manrope-SemiBold.ttf",
+      "sha256": "e80a2c37e47ec09bff5a9960257bf9001e87d5fb7bf35719ef4958763a0c70ac",
+      "bytes": 144976
+    },
+    {
+      "path": "app/assets/fonts/Manrope-Bold.ttf",
+      "sha256": "2da33eb378d59e6314ed7afdfa837cdcb60e41ac8b1f5d3c4909471b95fcf7d9",
+      "bytes": 145888
+    },
+    {
+      "path": "app/assets/fonts/Manrope-OFL.txt",
+      "sha256": "f612090fb72b6dca3e807e66fa0d2b5def163cef86f1a3209b5c897cba5ee4b7",
+      "bytes": 4383
+    },
+    {
+      "path": "app/src/features/platformScreens/AssistantScreen.tsx",
+      "sha256": "59c2a9830ea176928ec562f65a41955bb45f850032ce37dbfd4d94db07880f1a",
+      "bytes": 40680
+    },
+    {
+      "path": "app/src/features/marketplaceScreens/MerchantShopScreen.tsx",
+      "sha256": "c022ff7d7c909cc9d3afea72272c9484965db0424a1389e2a5b7391c46149e86",
+      "bytes": 25089
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "mergeOnly": true,
+  "doNotReplaceAppConfig": true,
+  "expo": {
+    "icon": "./assets/icon.png",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#006D77"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  },
+  "pluginsToMerge": [
+    [
+      "expo-splash-screen",
+      {
+        "backgroundColor": "#FFFFFF",
+        "image": "./assets/splash-icon.png",
+        "imageWidth": 160,
+        "resizeMode": "contain",
+        "dark": {
+          "backgroundColor": "#0C1B21",
+          "image": "./assets/splash-icon-dark.png"
+        }
+      }
+    ],
+    [
+      "expo-notifications",
+      {
+        "icon": "./assets/notification-icon.png",
+        "color": "#006D77"
+      }
+    ]
+  ],
+  "preserve": [
+    "app IDs",
+    "scheme",
+    "EAS project",
+    "existing unrelated permissions/plugins",
+    "runtime/channel gates"
+  ]
+}

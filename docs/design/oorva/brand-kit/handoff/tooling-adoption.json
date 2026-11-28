@@ -1,0 +1,60 @@
+{
+  "sourceSha": "7e0c7850002d595452cf609576a56f2397963714",
+  "currentPipeline": "scripts/brand/export.mjs and asset-tests.mjs are forest/ivory-specific and require D adoption.",
+  "doNot": [
+    "Do not redraw/trace artwork.",
+    "Do not label Chromium/Pillow output as resvg2.6.2.",
+    "Do not disable manifest/PNG/safe-zone/security tests to accept D.",
+    "Do not blindly copy handoff JSON over current app validation manifests."
+  ],
+  "exactExistingAppInputs": {
+    "svgMasters": [
+      "app/assets/brand/logo-horizontal-dark.svg",
+      "app/assets/brand/logo-horizontal-light.svg",
+      "app/assets/brand/logo-horizontal-mono-black.svg",
+      "app/assets/brand/logo-horizontal-mono-ivory.svg",
+      "app/assets/brand/logo-stacked-dark.svg",
+      "app/assets/brand/logo-stacked-light.svg",
+      "app/assets/brand/oorva-symbol.svg",
+      "app/assets/brand/oorva-wordmark-dark.svg",
+      "app/assets/brand/oorva-wordmark-light.svg"
+    ],
+    "pngExports": [
+      "app/assets/brand/logo-compact-dark.png",
+      "app/assets/brand/logo-compact-dark@2x.png",
+      "app/assets/brand/logo-compact-dark@3x.png",
+      "app/assets/brand/logo-compact-light.png",
+      "app/assets/brand/logo-compact-light@2x.png",
+      "app/assets/brand/logo-compact-light@3x.png",
+      "app/assets/brand/logo-horizontal-dark.png",
+      "app/assets/brand/logo-horizontal-dark@2x.png",
+      "app/assets/brand/logo-horizontal-dark@3x.png",
+      "app/assets/brand/logo-horizontal-light.png",
+      "app/assets/brand/logo-horizontal-light@2x.png",
+      "app/assets/brand/logo-horizontal-light@3x.png",
+      "app/assets/brand/native/android-icon-background.png",
+      "app/assets/brand/native/android-icon-foreground.png",
+      "app/assets/brand/native/android-icon-monochrome.png",
+      "app/assets/brand/native/favicon.png",
+      "app/assets/brand/native/icon.png",
+      "app/assets/brand/native/notification-icon.png",
+      "app/assets/brand/native/splash-icon-dark.png",
+      "app/assets/brand/native/splash-icon.png",
+      "app/assets/brand/oorva-wordmark-dark.png",
+      "app/assets/brand/oorva-wordmark-dark@2x.png",
+      "app/assets/brand/oorva-wordmark-dark@3x.png",
+      "app/assets/brand/oorva-wordmark-light.png",
+      "app/assets/brand/oorva-wordmark-light@2x.png",
+      "app/assets/brand/oorva-wordmark-light@3x.png"
+    ]
+  },
+  "requiredChanges": [
+    "O37A alone updates its owned exporter/validator/asset-test palette/background assertions to approved D while retaining deliberate legacy coverage. It hands a tested tooling SHA to O01X; O01X changes only its own exports/manifest.",
+    "Treat this sealed supplied-file profile truthfully; verify its hashes/PNG safety/source geometry rather than claiming old-renderer byte equality.",
+    "If the maintainer elects to normalize raster encoding through pinned resvg, use the supplied SVG masters only, regenerate hashes/manifests/bindings in the same commit, and keep geometry/colours identical. This is mechanical export, never artwork creation.",
+    "Current O05B owner uses handoff/binding-data.json and selected-brand-exports.ts.txt for the four exact image paths/hashes.",
+    "Preserve current app manifest schema and generate its source/export/transform records from the kit data; the supplied-export-manifest is input evidence, not an unchecked replacement.",
+    "Keep native root files separate until O33 and the actual candidate/runtime/release gates are satisfied."
+  ],
+  "remoteValidation": "NOT RUN: current gh token lacks codespace scope; no auth workaround, package install or production call attempted."
+}
