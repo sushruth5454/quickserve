@@ -37,7 +37,7 @@
     "concurrency": "A private PostgreSQL integration test uses two distinct backend PIDs and service-request row-lock barriers to overlap accept_proposal and cancel_service_request in both lock acquisition orders, prove request-first cancellation blocking, exercise NOWAIT contention against an acceptance-locked proposal, and verify the accepted hold cannot coexist with a cancelled request. Each fixture uses a unique event slot 60-plus days ahead at 10:00 IST, with request/proposal expiry derived from that slot and max_lead_days remaining within 365."
   },
   "validation": {
-    "metadata": "READY_FOR_LANE_VALIDATION",
+    "metadata": "LANE_CI_PASS",
     "workerCheckpoint": "d4e2a214c9893a4e2231b4e83699777da9401a03",
     "gitDiffCheck": "PASS",
     "preFixSql": "FAIL: exact PGlite selector first exposed category_not_bookable in three booking fixtures; fixture setup now enables proposal archetype, seeds a live category city, and uses unique 60-plus-day event slots within max_lead_days.",
@@ -46,8 +46,8 @@
     "migrationParser": "PASS: exact o21_sv20_oorva.sql selector; 1 parse file, 1 statement, 1 function body, 0 errors; snapshot f310f573.",
     "intermediateFixtureAttempt": "FAIL: max_lead_days 10000 violated categories_lead_check (allowed range 0-365); replaced with unique 60-plus-day future slots at 10:00 IST and expiries derived from each slot.",
     "focusedConcurrencyReview": "PASS: no actionable findings on fixed implementation head 5d192059ee7ec9015047eaa5831e205a34335f61. Earlier review finding about hard-coded proposal expiry was fixed with per-fixture 60-plus-day event slots, request/proposal expiries derived from each slot, fixed 10:00 IST event times, and category max_lead_days 365.",
-    "exactHeadLaneCi": "PENDING_LANE_PUSH",
-    "privateIntegration": "PENDING_LANE_CI",
+    "exactHeadLaneCi": "PASS: Lane CI 46005716478 attempt 2 SUCCESS @ 0b0ff8b87920814175d450be7e5ff1eda357dd9f; changes, deno, app, sql, and private-postgres succeeded; tooling skipped.",
+    "privateIntegration": "PASS: job 140910775731; disposable Supabase stack, harness verification, and discovered private PostgreSQL tests all succeeded.",
     "runtimeDeviceEvidence": "NOT_VERIFIED"
   }
 }
