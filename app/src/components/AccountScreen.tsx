@@ -114,27 +114,35 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
 
   const loadCoinBalance = useCallback(async () => {
     const request = ++coinBalanceRequest.current;
-    setCoinBalanceRead({ status: 'loading', value: null, error: null });
+    setCoinBalanceRead((current) => ({ ...current, status: 'loading', error: null }));
     try {
       const value = await getMyCoinBalance();
       if (coinBalanceRequest.current !== request) return;
       setCoinBalanceRead({ status: 'ready', value, error: null });
     } catch (error) {
       if (coinBalanceRequest.current !== request) return;
-      setCoinBalanceRead({ status: 'error', value: null, error: readError(error, 'Coin balance is unavailable.') });
+      setCoinBalanceRead((current) => ({
+        status: 'error',
+        value: current.value,
+        error: readError(error, 'Coin balance is unavailable.'),
+      }));
     }
   }, []);
 
   const loadCoinsConfig = useCallback(async () => {
     const request = ++coinsConfigRequest.current;
-    setCoinsConfigRead({ status: 'loading', value: null, error: null });
+    setCoinsConfigRead((current) => ({ ...current, status: 'loading', error: null }));
     try {
       const value = await getCoinsConfig();
       if (coinsConfigRequest.current !== request) return;
       setCoinsConfigRead({ status: 'ready', value, error: null });
     } catch (error) {
       if (coinsConfigRequest.current !== request) return;
-      setCoinsConfigRead({ status: 'error', value: null, error: readError(error, 'Coin availability is unavailable.') });
+      setCoinsConfigRead((current) => ({
+        status: 'error',
+        value: current.value,
+        error: readError(error, 'Coin availability is unavailable.'),
+      }));
     }
   }, []);
 
@@ -413,21 +421,19 @@ export function AccountScreen({ mode }: { mode: 'customer' | 'provider' }) {
               icon="sparkles-outline"
               title={tr('account.coins.title')}
               subtitle={
-                coinsConfigRead.status === 'error'
-                  ? tr('account.coins.policyUnavailable')
-                  : coinsConfigRead.status === 'loading'
-                    ? 'Checking reward availability…'
-                    : coinsConfigRead.value?.coins_earning_enabled === false && coinsConfigRead.value.coins_redemption_enabled === false
+                coinsConfigRead.value === null
+                  ? coinsConfigRead.status === 'error'
+                    ? tr('account.coins.policyUnavailable')
+                    : 'Checking reward availability…'
+                  : coinsConfigRead.value.coins_earning_enabled === false && coinsConfigRead.value.coins_redemption_enabled === false
                       ? 'Rewards are paused. Your coin history remains available.'
-                      : coinsConfigRead.value
-                        ? tr('account.coins.subtitle', {
-                            coins: '100',
-                            value: formatINR(100 * coinsConfigRead.value.coin_paise),
-                            months: String(coinsConfigRead.value.expiry_months),
-                          })
-                        : tr('account.coins.subtitleFallback')
+                      : tr('account.coins.subtitle', {
+                          coins: '100',
+                          value: formatINR(100 * coinsConfigRead.value.coin_paise),
+                          months: String(coinsConfigRead.value.expiry_months),
+                        })
               }
-              value={coinBalanceRead.status === 'error' || coinBalanceRead.value === null
+              value={coinBalanceRead.value === null
                 ? coinBalanceRead.status === 'loading' ? 'Loading…' : 'Unavailable'
                 : formatINR(coinBalanceRead.value)}
               chevron
