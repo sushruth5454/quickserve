@@ -1,3 +1,18 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+jest.mock('../../branding/useBrandIdentity', () => ({
+  useBrandIdentity: (context: string) => {
+    const { resolveBrandIdentity } = jest.requireActual('../../branding/identity') as typeof import('../../branding/identity');
+    return resolveBrandIdentity(context as 'account', {
+      brandOn: false,
+      runtimeOn: false,
+      bundledIdentityReady: false,
+      published: null,
+    });
+  },
+}));
+
 import type React from 'react';
 import type { AdminDashboard } from '../../lib/adminApi';
 
