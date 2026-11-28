@@ -1,41 +1,40 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, EmptyState, ErrorState, Header, InlineAlert, Input, Screen, Skeleton, Text, useToast } from '../../components/ui';
+import { listStuckMoney, type AdminStuckMoney } from '../../lib/adminApi';
 import { supabase } from '../../lib/supabase';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
 
-interface StuckRefund {
-  refund_id: string;
-  payment_id: string;
-  booking_id: string | null;
-  amount: number;
-  status: 'failed' | 'processing';
-  attempts: number;
-  last_error: string | null;
-  created_at: string;
-  processing_started_at: string | null;
-}
-
-interface StuckTransfer {
-  transfer_id: string;
-  payout_id: string;
-  booking_id: string;
-  amount: number;
-  status: string;
-  attempts: number;
-  last_error: string | null;
-  created_at: string;
-}
-
-interface StuckMoney {
-  refunds: StuckRefund[];
-  transfers: StuckTransfer[];
-}
+const STALE_TRANSFER_MS = 30 * 60 * 1000;
 
 interface DisputeRules {
   max_days_after_close: number | null;
+}
+
+type AdminMoneyParent =
+  | { kind: 'pack'; id: string; label: 'Pack purchase' }
+  | { kind: 'sports'; id: string; label: 'Sports booking' }
+  | { kind: 'service'; id: string; label: 'Service booking' };
+
+function getAdminMoneyParent(value: {
+  booking_id: string | null;
+  sports_booking_id: string | null;
+  pack_purchase_id: string | null;
+}): AdminMoneyParent | null {
+  if (value.pack_purchase_id) return { kind: 'pack', id: value.pack_purchase_id, label: 'Pack purchase' };
+  if (value.sports_booking_id) return { kind: 'sports', id: value.sports_booking_id, label: 'Sports booking' };
+  if (value.booking_id) return { kind: 'service', id: value.booking_id, label: 'Service booking' };
+  return null;
+}
+
+function openAdminMoneyParent(router: ReturnType<typeof useRouter>, parent: AdminMoneyParent) {
+  if (parent.kind === 'service') {
+    router.push({ pathname: '/admin/booking/[id]', params: { id: parent.id } });
+  } else if (parent.kind === 'sports') {
+    router.push('/admin/sports');
+  }
 }
 
 async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
@@ -46,8 +45,9 @@ async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise
 
 function useAdminRefundsController() {
   const t = useTheme();
+  const router = useRouter();
   const toast = useToast();
-  const [money, setMoney] = useState<StuckMoney | null>(null);
+  const [money, setMoney] = useState<AdminStuckMoney | null>(null);
   const [days, setDays] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -59,7 +59,7 @@ function useAdminRefundsController() {
     setLoadError(null);
     setMoney(null);
     void Promise.all([
-      rpc<StuckMoney>('admin_list_stuck_money'),
+      listStuckMoney(),
       rpc<DisputeRules>('admin_get_dispute_rules'),
     ]).then(([nextMoney, rules]) => {
       setMoney(nextMoney);
@@ -119,6 +119,7 @@ function useAdminRefundsController() {
 
   return {
     t,
+    router,
     money,
     days,
     setDays,
@@ -136,6 +137,7 @@ function useAdminRefundsController() {
 export default function AdminRefundsScreen() {
   const {
     t,
+    router,
     money,
     days,
     setDays,
@@ -188,15 +190,44 @@ export default function AdminRefundsScreen() {
 
           <Card gap={t.spacing.md}>
             <Text variant="title3">Refunds needing attention</Text>
+            <Text variant="caption" color="muted">
+              Failed refund amounts are failed attempts, not returned cash.
+            </Text>
             {money.refunds.length === 0 ? (
               <EmptyState compact title="No stuck refunds" message="Failed and stale processing refunds appear here." />
             ) : money.refunds.map((refund) => (
               <Card key={refund.refund_id} gap={t.spacing.sm}>
-                <Text variant="calloutStrong">{formatINR(refund.amount)} · {refund.status}</Text>
+                <Text variant="calloutStrong">
+                  {formatINR(refund.amount)} · {refund.status === 'failed' ? 'failed attempt' : refund.status}
+                </Text>
                 <Text variant="caption" color="muted">
                   Refund {refund.refund_id.slice(0, 8)} · {refund.attempts} attempts
-                  {refund.booking_id ? ` · Booking ${refund.booking_id.slice(0, 8)}` : ''}
                 </Text>
+                {(() => {
+                  const parent = getAdminMoneyParent(refund);
+                  return parent ? (
+                    <>
+                      <Text variant="caption" color="muted">
+                        {parent.label} {parent.id.slice(0, 8)}
+                        {parent.kind === 'pack' ? ' · no service-booking route' : ''}
+                      </Text>
+                      {parent.kind !== 'pack' ? (
+                        <Button
+                          title={parent.kind === 'service' ? 'Open booking' : 'Open sports administration'}
+                          variant="outline"
+                          onPress={() => openAdminMoneyParent(router, parent)}
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text variant="caption" color="muted">Parent unavailable</Text>
+                  );
+                })()}
+                {refund.processing_started_at ? (
+                  <Text variant="caption" color="muted">
+                    Processing since {new Date(refund.processing_started_at).toLocaleString('en-IN')}
+                  </Text>
+                ) : null}
                 {refund.last_error ? <Text variant="caption" color="muted">{refund.last_error}</Text> : null}
                 <InlineAlert message={refundActionErrors[refund.refund_id] ?? null} />
                 {refund.status === 'failed' ? (
@@ -231,15 +262,37 @@ export default function AdminRefundsScreen() {
             </Text>
             {money.transfers.length === 0 ? (
               <Text variant="callout" color="muted">No failed or processing transfers.</Text>
-            ) : money.transfers.map((transfer) => (
-              <View key={transfer.transfer_id} style={{ gap: t.spacing.xs }}>
-                <Text variant="calloutStrong">{formatINR(transfer.amount)} · {transfer.status}</Text>
-                <Text variant="caption" color="muted">
-                  Transfer {transfer.transfer_id.slice(0, 8)} · {transfer.attempts} attempts
-                </Text>
-                {transfer.last_error ? <Text variant="caption" color="muted">{transfer.last_error}</Text> : null}
-              </View>
-            ))}
+            ) : money.transfers.map((transfer) => {
+              const parent = getAdminMoneyParent(transfer);
+              const startedMs = transfer.processing_started_at ? Date.parse(transfer.processing_started_at) : NaN;
+              const staleProcessing = transfer.status === 'processing'
+                && Number.isFinite(startedMs)
+                && Date.now() - startedMs >= STALE_TRANSFER_MS;
+              return (
+                <View key={transfer.transfer_id} style={{ gap: t.spacing.xs }}>
+                  <Text variant="calloutStrong">{formatINR(transfer.amount)} · {transfer.status}</Text>
+                  <Text variant="caption" color="muted">
+                    Transfer {transfer.transfer_id.slice(0, 8)} · {transfer.attempts} attempts
+                    {parent ? ` · ${parent.label} ${parent.id.slice(0, 8)}` : ' · Parent unavailable'}
+                    {parent?.kind === 'pack' ? ' · no service-booking route' : ''}
+                  </Text>
+                  {parent && parent.kind !== 'pack' ? (
+                    <Button
+                      title={parent.kind === 'service' ? 'Open booking' : 'Open sports administration'}
+                      variant="outline"
+                      onPress={() => openAdminMoneyParent(router, parent)}
+                    />
+                  ) : null}
+                  <Text variant="caption" color={staleProcessing ? 'dangerText' : 'muted'}>
+                    Rail {transfer.rail || 'unknown'} · Gateway {transfer.gateway_status || 'unknown'}
+                    {transfer.processing_started_at
+                      ? ` · ${staleProcessing ? 'Stale processing (30+ minutes)' : 'Processing since'} ${new Date(transfer.processing_started_at).toLocaleString('en-IN')}`
+                      : ''}
+                  </Text>
+                  {transfer.last_error ? <Text variant="caption" color="muted">{transfer.last_error}</Text> : null}
+                </View>
+              );
+            })}
           </Card>
         </>
       )}
