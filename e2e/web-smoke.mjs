@@ -190,7 +190,7 @@ async function rest(path) {
 }
 
 // Call self-service RPCs with the signed-in browser session; never use service-role credentials or table writes.
-async function currentUserRpc(name, args = {}) {
+async function currentUserRpcData(name, args = {}) {
   const result = await page.evaluate(async ({ url, anonKey, functionName, params }) => {
     let accessToken = null;
     for (const key of Object.keys(localStorage)) {
@@ -217,12 +217,16 @@ async function currentUserRpc(name, args = {}) {
     try {
       data = body ? JSON.parse(body) : null;
     } catch {
-      data = null;
+      return { ok: false, status: response.status, data: null, error: 'RPC response was not valid JSON.' };
     }
-    return { ok: response.ok, status: response.status, resultExists: data !== null, error: response.ok ? '' : body };
+    return { ok: response.ok, status: response.status, data, error: response.ok ? '' : body };
   }, { url: SUPABASE_URL, anonKey: ANON, functionName: name, params: args });
   if (!result.ok) throw new Error(`${name} RPC failed (${result.status}): ${result.error}`);
-  return result.resultExists;
+  return result.data;
+}
+
+async function currentUserRpc(name, args = {}) {
+  return (await currentUserRpcData(name, args)) !== null;
 }
 
 function phoneKey(phone) {
@@ -3929,7 +3933,7 @@ await step('admin-feature-registry', async () => {
         })}`);
       }
 
-      const adminRows = await currentUserRpc('admin_list_providers', { p_filter: 'all', p_search: null });
+      const adminRows = await currentUserRpcData('admin_list_providers', { p_filter: 'all', p_search: null });
       const ownerAdminRow = Array.isArray(adminRows)
         ? adminRows.find((row) => row.id === ownerState.provider.id)
         : null;
@@ -4196,7 +4200,7 @@ await step('admin-feature-registry', async () => {
         }
         await go('/admin/people');
         await visible('Providers & creators');
-        const appFeatures = await currentUserRpc('get_app_features');
+        const appFeatures = await currentUserRpcData('get_app_features');
         if (appFeatures.oorva_brand !== E2E_FLAGS_ON || appFeatures.oorva_admin_ops_ux !== E2E_FLAGS_ON) {
           throw new Error(`Oorva admin flags did not match this private pass: ${JSON.stringify({
             expected: E2E_FLAGS_ON,
