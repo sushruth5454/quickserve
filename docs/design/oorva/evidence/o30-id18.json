@@ -9,7 +9,7 @@
   "evidenceAcceptance": {
     "web": "ACCEPTED",
     "nativeDevice": "NOT_VERIFIED",
-    "overall": "PENDING_TESTED_INTEGRATION"
+    "overall": "PENDING_RESPONSIVE_MATRIX_AND_TESTED_INTEGRATION"
   },
   "scope": {
     "class": "C",
@@ -181,6 +181,29 @@
       "status": "VERIFIED_WEB_E2E",
       "runId": "46108473593",
       "details": "The private E2E compares get_my_provider_onboarding with admin_list_providers for the same provider ID; admin review status, stored review note, and normalized go-live state/reasons must match."
+    },
+    "responsiveVisualMatrix": {
+      "status": "NOT_VERIFIED",
+      "sourceRequirement": "docs/18-Oorva-Transformation-Implementation-Plan.md §5.2",
+      "requiredViewportWidthsCssPx": [320, 360, 390, 430, 768, 1280],
+      "requiredTextScales": ["default", "130%", "200%"],
+      "requiredPerCaptureMetadata": ["viewport", "fontScale", "platform"],
+      "availableCapture": {
+        "runId": "46108473593",
+        "platform": "Web Playwright Chromium using the iPhone 15 device descriptor; not a native device capture.",
+        "details": "The O30 screenshots are Pass A/B images from the existing web-smoke page context. The O30 step does not iterate the required viewport widths or set text scaling, and pass-a/report.json and pass-b/report.json contain no per-capture viewport/fontScale/platform manifest."
+      },
+      "missing": [
+        "O30 before/after captures at 320, 360, 390, 430, 768 and 1280 CSS px.",
+        "O30 before/after captures at default, 130% and 200% text scale.",
+        "Per-capture viewport, fontScale and platform details for the responsive matrix."
+      ],
+      "evidenceRefs": [
+        "e2e/web-smoke.mjs:60-68",
+        "e2e/web-smoke.mjs:3931-4345",
+        "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/report.json",
+        "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/report.json"
+      ]
     },
     "nonAdminDirectAccess": {
       "status": "VERIFIED_WEB_E2E",
