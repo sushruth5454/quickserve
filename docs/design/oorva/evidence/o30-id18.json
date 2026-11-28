@@ -4,8 +4,13 @@
   "sourceTaskId": "ID-T18",
   "sourceFindingId": "ID-F18",
   "workPackage": "O30",
-  "status": "CODE_GREEN_PENDING_EVIDENCE_ACCEPTANCE",
+  "status": "CODE_GREEN",
   "codeStatus": "CODE_GREEN",
+  "evidenceAcceptance": {
+    "web": "ACCEPTED",
+    "nativeDevice": "NOT_VERIFIED",
+    "overall": "PENDING_TESTED_INTEGRATION"
+  },
   "scope": {
     "class": "C",
     "ownerApprovedGate": "E0",
@@ -91,7 +96,7 @@
     "resolvedPrecedingFailure": "A prior Codespace run reported invalid GoLiveState and ReasonCode fixture literals; corrected them to action_needed and doc_missing based on app/src/lib/onboarding/types.ts before this passing run.",
     "screenshotsAndInteractions": {
       "captureStatus": "VERIFIED_WEB_E2E",
-      "acceptanceStatus": "PENDING_COORDINATOR_EVIDENCE_ACCEPTANCE",
+      "acceptanceStatus": "ACCEPTED_WEB_SCOPE",
       "runId": "46108473593",
       "head": "e5faf08dfefb80e3876be885ca160db3e6150e96",
       "passReports": [
@@ -209,7 +214,7 @@
       "S25 People admin before/after, including search/filter/review queue placement and secondary Audit log",
       "S19 Documents admin before/after, including provider/category/type, private preview and a single confirmed pending review/readback"
     ],
-    "screenshotsCaptured": "See validation.screenshotsAndInteractions for run 46108473593 artifact names; formal evidence acceptance remains pending.",
+    "screenshotsCaptured": "Coordinator accepted web evidence from run 46108473593; native/device evidence remains NOT_VERIFIED.",
     "interactionsRequired": [
       "People: search/filter, inspect independent review/payout/readiness/availability and stored reason, verify completed review target is absent",
       "Documents: open private preview, cancel confirmation without mutation, confirm one pending document review and verify authoritative queue readback",
