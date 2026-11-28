@@ -56,18 +56,68 @@
     "Messages and drafts are isolated when the authenticated user changes, including while a pre-send read is pending."
   ],
   "registrationGate": {
-    "status": "PAUSED_FOR_REGISTRATION",
+    "status": "REGISTERED_AND_CODESPACE_VALIDATED",
     "registrationOwner": "coordinator",
     "registrationPath": "supabase\\tests\\package.json",
+    "registrationCommit": "12e3108e620eabb38b77fd9f848a5496cff91f8b",
+    "registrationSelectionProof": "PASS: exactly one node oorva_o21_sv06.test.mjs selector; test file exists at checkpoint.",
     "requestedTestCommand": "node oorva_o21_sv06.test.mjs",
     "registrationInstruction": "Register the exact existing SQL test command under its unique filename selector; no migration is allocated, so add no migration parser/pretest or deployment entry; preserve existing full-chain loaders and add no E2E registration.",
     "appCodespaceCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.proposals.__tests__.RequestQuestionThread[.]test[.]tsx$'",
     "sqlCodespaceCommand": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o21_sv06'",
-    "validationEvidence": "NOT RUN on the 0400 base; wait for the separate coordinator registration commit. No local tests or installs."
+    "codespace": "qs-tests-g67pgv4xqj639gx5",
+    "helperSource": "origin/main:scripts/cs-test.ps1",
+    "originMainSha": "0400eff8a8a97dfafdb7a51a279b92c17b5305a1",
+    "helperBlobSha": "f5863fca54febcbf896fadc0b8870b9e24429ec2",
+    "passedRuns": [
+      {
+        "suite": "app",
+        "filter": "src.features.proposals.__tests__.RequestQuestionThread[.]test[.]tsx$",
+        "selectedFiles": [
+          "src/features/proposals/__tests__/RequestQuestionThread.test.tsx"
+        ],
+        "selectedSuites": 1,
+        "testsPassed": 8,
+        "testsTotal": 8,
+        "snapshotId": "1c79b63bb5ab9337e8a4774152185cdeb8550a33",
+        "result": "PASS"
+      },
+      {
+        "suite": "sql",
+        "filter": "oorva_o21_sv06",
+        "selectedCommands": [
+          "node oorva_o21_sv06.test.mjs"
+        ],
+        "parseSelections": 0,
+        "testFiles": 1,
+        "checksPassed": 1,
+        "checksTotal": 1,
+        "snapshotId": "af75998bd9fcb76d0f2bc89f33286af03688ffdb",
+        "result": "PASS"
+      }
+    ],
+    "blockedAttempts": [
+      {
+        "snapshotId": "20036e85b943415653ac4d6aa28e23492e3d8d15",
+        "result": "BLOCKED_BEFORE_TESTS",
+        "cause": "The default active GitHub account lacked the codespace scope for codespace discovery."
+      },
+      {
+        "snapshotId": "6fed58affe31ed0006d633cf9d68b13740561be1",
+        "result": "BLOCKED_BEFORE_TESTS",
+        "cause": "The helper reached the Codespace but SSH detail lookup used the default account without the codespace scope."
+      }
+    ],
+    "validationEvidence": "Exact app and SQL selectors selected their target tests and passed. No Windows-local tests or installs were run."
   },
   "currentMainRebuildAuthReview": {
-    "status": "PENDING_AFTER_REGISTRATION",
-    "requiredReviewer": "auth"
+    "status": "COMPLETE",
+    "requiredReviewer": "auth",
+    "reviewer": "sv06-0400-auth-review (code-review agent)",
+    "agentId": "fb65fbd4-4a0e-4bc0-9387-e618e9e373ee",
+    "reviewedCodeHead": "12e3108e620eabb38b77fd9f848a5496cff91f8b",
+    "result": "AUTH SIGNOFF: PASS; no remaining actionable issues in the five O21-SV06 files.",
+    "findings": []
   },
   "priorBaseAuthReview": {
     "baseSha": "6276036a973014e15e717a4ce21881bb87ac199b",
