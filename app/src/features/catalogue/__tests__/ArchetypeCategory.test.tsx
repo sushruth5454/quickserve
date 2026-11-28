@@ -4,10 +4,12 @@ import type { CataloguePackage } from '../api';
 
 const mockRuntime: {
   city: string;
+  slug: string;
+  name: string;
   hookIndex: number;
   states: unknown[];
   load: ((guard: { isCurrent: () => boolean }) => Promise<void>) | null;
-} = { city: 'City A', hookIndex: 0, states: [], load: null };
+} = { city: 'City A', slug: 'cleaning', name: 'Cleaning', hookIndex: 0, states: [], load: null };
 
 jest.mock('react', () => {
   const actual = jest.requireActual<typeof import('react')>('react');
@@ -44,8 +46,22 @@ jest.mock('react', () => {
 
 jest.mock('react-native', () => ({ View: 'View' }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
-jest.mock('expo-router', () => ({ router: { navigate: jest.fn(), push: jest.fn() } }));
+jest.mock('../../../components/market/ListingCard', () => ({ ListingCard: 'ListingCard' }));
+jest.mock('react-native-reanimated', () => ({
+  __esModule: true,
+  default: { View: 'AnimatedView' },
+  FadeInDown: { delay: jest.fn().mockReturnThis(), duration: jest.fn().mockReturnThis() },
+}));
+jest.mock('expo-router', () => ({
+  router: { navigate: jest.fn(), push: jest.fn() },
+  useLocalSearchParams: () => ({ slug: mockRuntime.slug, name: mockRuntime.name }),
+}));
 jest.mock('../../../components/ProviderCard', () => ({ ProviderCard: 'ProviderCard' }));
+jest.mock('../../../lib/haptics', () => ({ haptics: { select: jest.fn() } }));
+jest.mock('../../../lib/featureFlags', () => ({
+  useAppFeatureFlags: () => ({ isOn: () => false }),
+}));
+jest.mock('../../../i18n', () => ({ useT: () => (key: string) => key }));
 jest.mock('../../../components/ui', () => ({
   Button: 'Button',
   Card: 'Card',
@@ -70,7 +86,10 @@ jest.mock('../../../theme', () => ({
 }));
 jest.mock('../../booking/packages/PackageCard', () => ({ PackageCard: 'PackageCard' }));
 jest.mock('../../booking/packages/packageModel', () => ({ canPayInstantly: () => true }));
-jest.mock('../api', () => ({ listCataloguePackages: jest.fn() }));
+jest.mock('../api', () => ({
+  getCatalogueCategory: jest.fn(),
+  listCataloguePackages: jest.fn(),
+}));
 jest.mock('../../../lib/useEntityRefresh', () => ({
   useEntityRefresh: (load: (guard: { isCurrent: () => boolean }) => Promise<void>) => {
     mockRuntime.load = load;
@@ -79,8 +98,14 @@ jest.mock('../../../lib/useEntityRefresh', () => ({
 }));
 
 const ReactRuntime = require('react') as typeof import('react');
-const { listCataloguePackages } = require('../api') as { listCataloguePackages: jest.Mock };
+const { getCatalogueCategory, listCataloguePackages } = require('../api') as {
+  getCatalogueCategory: jest.Mock;
+  listCataloguePackages: jest.Mock;
+};
 const { ArchetypeCategory } = require('../ArchetypeCategory') as typeof import('../ArchetypeCategory');
+const { default: CategoryDetailScreen } = require('../../marketplaceScreens/CategoryDetailScreen') as {
+  default: () => React.ReactElement<{ header: React.ReactElement<{ title: string }> }>;
+};
 
 function category(): Category {
   return {
@@ -110,6 +135,11 @@ function renderCategory() {
   return ArchetypeCategory({ category: category() });
 }
 
+function renderCategoryDetailScreen() {
+  mockRuntime.hookIndex = 0;
+  return CategoryDetailScreen();
+}
+
 function elements(node: unknown, type: string): Array<React.ReactElement<Record<string, unknown>>> {
   if (Array.isArray(node)) return node.flatMap((child) => elements(child, type));
   if (!ReactRuntime.isValidElement(node)) return [];
@@ -128,10 +158,34 @@ function deferred<T>() {
 
 beforeEach(() => {
   mockRuntime.city = 'City A';
+  mockRuntime.slug = 'cleaning';
+  mockRuntime.name = 'Cleaning';
   mockRuntime.hookIndex = 0;
   mockRuntime.states = [];
   mockRuntime.load = null;
+  getCatalogueCategory.mockReset();
+  getCatalogueCategory.mockResolvedValue(null);
   listCataloguePackages.mockReset();
+});
+
+describe('CategoryDetailScreen route host', () => {
+  it('MK-S40-host-uses-route-slug-and-city-for-category-loads', async () => {
+    mockRuntime.slug = 'route-cleaning';
+    mockRuntime.name = 'Route cleaning';
+
+    const screen = renderCategoryDetailScreen();
+    await mockRuntime.load!({ isCurrent: () => true });
+
+    const actual = {
+      title: screen.props.header.props.title,
+      categoryCalls: getCatalogueCategory.mock.calls,
+    };
+    const expected = {
+      title: 'Route cleaning',
+      categoryCalls: [['route-cleaning', 'City A']],
+    };
+    expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+  });
 });
 
 describe('ArchetypeCategory freshness', () => {
