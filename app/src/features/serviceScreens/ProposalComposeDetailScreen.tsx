@@ -4,16 +4,38 @@ import { Button, Card, Header, InlineAlert, Input, Screen, Section, Skeleton, Te
 import * as api from '../../lib/api';
 import { formatINR, rupeesToPaise } from '../../lib/money';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
+import { useFeatureControlHydrationReady, useFeatureControlState, type FeatureControlFreshness } from '../../branding/FeatureFlagsProvider';
 import { getCataloguePackage, type CataloguePackage } from '../catalogue/api';
-import { getCreatorProposalConfig, sendProposalWithDeadline } from '../proposals/api';
+import { getCreatorProposalConfig, sendProposalWithDeadline, type CreatorProposalConfig } from '../proposals/api';
 import { packageProposalPrefill, parseDeliveryDate, proposalAmountError } from '../proposals/model';
 import type { ProposalPackagePrefill } from '../proposals/model';
 import type { ProposalRequest } from '../../lib/types';
+
+export function isProposalComposeReady(input: {
+  controlsHydrated: boolean;
+  freshness: FeatureControlFreshness;
+  proposalEnabled: boolean;
+  requestResolved: boolean;
+  configResolved: boolean;
+}): boolean {
+  return input.controlsHydrated
+    && (input.freshness === 'cache' || input.freshness === 'live')
+    && input.proposalEnabled
+    && input.requestResolved
+    && input.configResolved;
+}
+
+function isValidCreatorProposalConfig(config: CreatorProposalConfig): boolean {
+  return Number.isInteger(config.defaultRevisions) && config.defaultRevisions >= 0 && config.defaultRevisions <= 10
+    && Number.isInteger(config.maxAdvanceBp) && config.maxAdvanceBp >= 0 && config.maxAdvanceBp <= 10000;
+}
 
 export default function ProposalComposeDetailScreen() {
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
   const toast = useToast();
   const flags = useAppFeatureFlags();
+  const featureState = useFeatureControlState();
+  const controlsHydrated = useFeatureControlHydrationReady();
   const [title, setTitle] = useState('');
   const [total, setTotal] = useState('');
   const [advance, setAdvance] = useState('25');
@@ -21,13 +43,23 @@ export default function ProposalComposeDetailScreen() {
   const [deliveryDate, setDeliveryDate] = useState('');
   const [revisions, setRevisions] = useState('1');
   const [maxAdvanceBp, setMaxAdvanceBp] = useState(2500);
+  const [configResolved, setConfigResolved] = useState(false);
   const [request, setRequest] = useState<ProposalRequest | null>(null);
   const [packageDetails, setPackageDetails] = useState<CataloguePackage | null>(null);
   const [packagePrefill, setPackagePrefill] = useState<ProposalPackagePrefill | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const deadlineEnabled = flags.isOn('creator_delivery_deadline') && flags.archetypes.proposal;
+  const proposalControlsReady = controlsHydrated && (featureState.freshness === 'cache' || featureState.freshness === 'live');
+  const proposalParentReady = proposalControlsReady && flags.archetypes?.proposal === true;
+  const deadlineEnabled = proposalParentReady && flags.isOn('creator_delivery_deadline');
+  const canSend = isProposalComposeReady({
+    controlsHydrated,
+    freshness: featureState.freshness,
+    proposalEnabled: flags.archetypes?.proposal === true,
+    requestResolved: !!request && !error,
+    configResolved,
+  });
 
   useEffect(() => {
     let active = true;
@@ -36,10 +68,12 @@ export default function ProposalComposeDetailScreen() {
     setError(null);
     setPackageDetails(null);
     setPackagePrefill(null);
+    setConfigResolved(false);
     void Promise.all([
       api.listProviderServiceRequests(),
       getCreatorProposalConfig(),
     ]).then(async ([requests, config]) => {
+      if (!isValidCreatorProposalConfig(config)) throw new Error('Proposal settings are unavailable');
       const nextRequest = requests.find((row) => row.id === requestId) ?? null;
       if (!nextRequest) throw new Error('This proposal request is no longer available');
       let nextPackage: CataloguePackage | null = null;
@@ -53,6 +87,7 @@ export default function ProposalComposeDetailScreen() {
       }
       if (!active) return;
       setRequest(nextRequest);
+      setConfigResolved(true);
       setPackageDetails(nextPackage);
       setPackagePrefill(nextPrefill);
       setMaxAdvanceBp(config.maxAdvanceBp);
@@ -73,6 +108,10 @@ export default function ProposalComposeDetailScreen() {
 
   const send = async () => {
     if (!request || error || busy) return;
+    if (!canSend) {
+      setError('Proposal sending is currently unavailable');
+      return;
+    }
     setBusy(true); setError(null);
     try {
       if (!requestId || !title.trim()) throw new Error('Add a line item title');
@@ -127,12 +166,17 @@ export default function ProposalComposeDetailScreen() {
   return (
     <Screen
       header={<Header title="Send proposal" />}
-      footer={request && !error
+      footer={canSend
         ? <Button title="Send fixed proposal" size="lg" fullWidth loading={busy} disabled={busy} onPress={() => void send()} />
         : undefined}
     >
       {error ? <InlineAlert message={error} /> : !request ? <Skeleton height={220} /> : (
         <>
+          {!proposalControlsReady
+            ? <InlineAlert title="Proposal settings unavailable" message="Please try again when service settings are available. Existing request details remain available." />
+            : !proposalParentReady
+              ? <InlineAlert title="Proposal sending unavailable" message="New proposals are currently turned off. Existing request details remain available." />
+              : null}
           <Section title="Customer brief">
             <Card>
               <Text>{String(request.intake?.brief ?? 'No free-text brief provided.')}</Text>
