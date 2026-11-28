@@ -1,0 +1,85 @@
+{
+  "stageId": "O21-SV06",
+  "rebuildId": "O21-SV06-CURRENT-MAIN-REBUILD-0400",
+  "sourceTaskId": "SV-T06",
+  "sourceFindingId": "SV-F05",
+  "planInputSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "testedBaseSha": "0400eff8a8a97dfafdb7a51a279b92c17b5305a1",
+  "dependencies": [
+    {
+      "stageId": "O00",
+      "sha": "b40e3ac3da80dc7dba677457413180bca6070222"
+    },
+    {
+      "stageId": "O16-SV03",
+      "sha": "da0d30a8ea2adb0d26e5e275b57c27a6986e0101"
+    },
+    {
+      "stageId": "O21-READ",
+      "sha": "9206a782561fa51f705f7644aea4dbf0d4e02dff"
+    },
+    {
+      "stageId": "O21-SV04",
+      "sha": "cb75b3529d042f77ffe35f4a85ced36e978397b4"
+    }
+  ],
+  "approvedGates": [
+    "E0",
+    "D01"
+  ],
+  "ownedFiles": [
+    "app\\src\\lib\\supabaseApi.ts",
+    "app\\src\\features\\proposals\\RequestQuestionThread.tsx",
+    "app\\src\\features\\proposals\\__tests__\\RequestQuestionThread.test.tsx",
+    "supabase\\tests\\oorva_o21_sv06.test.mjs",
+    "docs\\design\\oorva\\evidence\\o21-sv06.json"
+  ],
+  "functionScope": {
+    "send_request_message": "unchanged"
+  },
+  "sqlFunctionChanges": [],
+  "migrationClaims": [],
+  "implementation": [
+    "Unwrap the send_request_message RPC error and typed message_id/nudge result.",
+    "Keep request/provider/user thread identity, message timestamps and focused refresh.",
+    "Preserve the draft and withhold success until the returned message is read back in the exact thread.",
+    "Retain readable messages while showing a read-only explanation when the request state does not allow messaging.",
+    "Keep the server-returned leakage nudge visible."
+  ],
+  "testCasesAuthored": [
+    "Resolved RPC error retains the draft and does not show success.",
+    "Booked, cancelled and expired threads are read-only while existing messages remain visible.",
+    "Closed requests remain messageable.",
+    "Returned message ID is verified against timestamped readback.",
+    "Customer and authorized business staff can send; an unrelated identity cannot read or send.",
+    "Booked, cancelled and expired requests remain denied by the unchanged server RPC.",
+    "Messages and drafts are isolated when the authenticated user changes, including while a pre-send read is pending."
+  ],
+  "registrationGate": {
+    "status": "PAUSED_FOR_REGISTRATION",
+    "registrationOwner": "coordinator",
+    "registrationPath": "supabase\\tests\\package.json",
+    "requestedTestCommand": "node oorva_o21_sv06.test.mjs",
+    "registrationInstruction": "Register the exact existing SQL test command under its unique filename selector; no migration is allocated, so add no migration parser/pretest or deployment entry; preserve existing full-chain loaders and add no E2E registration.",
+    "appCodespaceCommand": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.features.proposals.__tests__.RequestQuestionThread[.]test[.]tsx$'",
+    "sqlCodespaceCommand": "pwsh -NoProfile -File $Helper -Suite sql -Filter 'oorva_o21_sv06'",
+    "validationEvidence": "NOT RUN on the 0400 base; wait for the separate coordinator registration commit. No local tests or installs."
+  },
+  "currentMainRebuildAuthReview": {
+    "status": "PENDING_AFTER_REGISTRATION",
+    "requiredReviewer": "auth"
+  },
+  "priorBaseAuthReview": {
+    "baseSha": "6276036a973014e15e717a4ce21881bb87ac199b",
+    "reviewer": "sv06-auth-review (code-review agent)",
+    "agentId": "8c9d8bdf-1c28-47b7-8d4e-be3833efb1f5",
+    "result": "No remaining actionable AUTH issues on the prior base; not a substitute for review on the 0400 rebuild.",
+    "resolvedFindings": [
+      "Thread state/send context omitted userId; userId is now part of the composite context key and stale explicit access fails closed after context changes.",
+      "An account change during the pre-send read could dispatch an RPC; the handler now rechecks the context key before dispatch."
+    ]
+  },
+  "reviewRequired": [
+    "auth"
+  ]
+}
