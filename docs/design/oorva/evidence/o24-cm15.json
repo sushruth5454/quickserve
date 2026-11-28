@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "stageId": "O24-CM15",
+  "workPackage": "O24",
+  "sourceTaskId": "CM-T15",
+  "sourceFindingId": "CM-F19",
+  "sourceReport": "docs/audit/18-WS7-Communications-Admin.md#cm-t15",
+  "planningSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "924ff902ecaca68a00fad53fb5c825c8b29596dc",
+  "testedTargetSha": "042c08206049e976af35656db1e27abce6002a9b",
+  "dependencies": [
+    {
+      "stageId": "O24-CM12",
+      "commit": "9ad25b16bc3a93e86b005b2d60990c401faeea02",
+      "status": "DONE_IN_BASE"
+    },
+    {
+      "stageId": "O30-CM13",
+      "commit": "67aa35fa509d0d487259c96d6872e0666ca48cb0",
+      "status": "DONE_IN_BASE"
+    },
+    {
+      "stageId": "O30-CM07",
+      "commit": "042c08206049e976af35656db1e27abce6002a9b",
+      "status": "DONE_IN_BASE"
+    },
+    {
+      "stageId": "O00",
+      "commit": "b40e3ac3da80dc7dba677457413180bca6070222",
+      "status": "DONE_IN_BASE"
+    },
+    {
+      "stageId": "O05I",
+      "commit": "bfc18878a3ecd25f1f6ddf8d694f9346564a763f",
+      "status": "DONE_IN_BASE"
+    }
+  ],
+  "baseDecision": {
+    "currentMainShaAtResume": "f6fbf52a7f8952b4ddbb84817b43a0ea47558d51",
+    "selectedBaseSha": "924ff902ecaca68a00fad53fb5c825c8b29596dc",
+    "rebuildRequired": false,
+    "reason": "Per execution-plan.json section 0.3, the worker base must contain planning commit P and every stage dependency. The approved stack base contains P, O05I, O24-CM12, O30-CM13, and O30-CM07; current origin/main contains P and O05I but not the exact O24-CM12 or O30-CM13 dependency heads. The existing Q worktree is retained without transplant.",
+    "currentMainOwnedPathDrift": "Compared only the seven owned paths: SupportConversation.tsx, ChatDetailScreen.tsx, and SupportIndexScreen.tsx differ from the approved stack; AdminIndexScreen.tsx and SupportNewScreen.tsx are absent from current main. No current-main rebuild or path transplant was performed."
+  },
+  "scope": {
+    "ownedFiles": [
+      "app/src/components/SupportConversation.tsx",
+      "app/src/components/__tests__/CommunicationsBrand.test.tsx",
+      "app/src/features/communicationScreens/AdminIndexScreen.tsx",
+      "app/src/features/communicationScreens/ChatDetailScreen.tsx",
+      "app/src/features/communicationScreens/SupportIndexScreen.tsx",
+      "app/src/features/communicationScreens/SupportNewScreen.tsx",
+      "docs/design/oorva/evidence/o24-cm15.json"
+    ],
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": [],
+    "newFeatureFlags": [],
+    "promotionOrDeployment": false
+  },
+  "implementation": {
+    "resolver": "useBrandIdentity(context)",
+    "parentFlag": "oorva_brand",
+    "contexts": {
+      "support": [
+        "SupportConversation",
+        "SupportIndexScreen",
+        "SupportNewScreen"
+      ],
+      "account": [
+        "AdminIndexScreen",
+        "ChatDetailScreen"
+      ]
+    },
+    "resolverUsedOutsideCompositionBranches": true,
+    "legacyIdentityWhenBrandOff": "QuickServe",
+    "outboundSupportIdentityChanged": false,
+    "storedNotificationTitleBodyDataChanged": false,
+    "bookingRefChanged": false,
+    "safetyNudgeOrSupportActionsGated": false
+  },
+  "acceptance": {
+    "CM_COMMS_BRAND_CONTEXT": "IMPLEMENTED; awaiting exact-head Lane CI",
+    "CM_SUPPORT_NEW_BRAND_OFF": "IMPLEMENTED; awaiting exact-head Lane CI",
+    "CM_HISTORICAL_PAYLOAD_UNCHANGED": "NO PAYLOAD OR BOOKING-REFERENCE CHANGES; covered in targeted test",
+    "CM_CHAT_CONTEXT_REFERENCE": "IMPLEMENTED; awaiting exact-head Lane CI",
+    "safetyNudgeAndSupportActions": "REMAIN_AVAILABLE; covered in targeted test"
+  },
+  "validation": {
+    "diffCheck": "PASS",
+    "codespace": {
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "helperSha": "f5863fca54febcbf896fadc0b8870b9e24429ec2",
+      "selector": "src.components.__tests__.CommunicationsBrand[.]test[.]tsx$",
+      "command": "pwsh -NoProfile -File $Helper -Suite app -Filter 'src.components.__tests__.CommunicationsBrand[.]test[.]tsx$'",
+      "status": "PASS",
+      "selectedFile": "app/src/components/__tests__/CommunicationsBrand.test.tsx",
+      "selectedCases": [
+        "CM_COMMS_BRAND_CONTEXT",
+        "CM_SUPPORT_NEW_BRAND_OFF",
+        "CM_HISTORICAL_PAYLOAD_UNCHANGED",
+        "CM_CHAT_CONTEXT_REFERENCE"
+      ],
+      "testCount": 4,
+      "snapshotRef": "wip/quickserve-o24-cm15",
+      "snapshotSha": "1221c6ddaf3eb75398214a89fcd2b4f36bee38cd",
+      "previousAttempt": {
+        "status": "BLOCKED_BEFORE_TEST_SELECTION",
+        "snapshotSha": "761c476a0c41914720d5e15402938a466cca4895",
+        "error": "GitHub Codespaces API returned HTTP 404 and required the codespace OAuth scope; no test ran."
+      }
+    },
+    "laneCi": "TO_BE_REPORTED_FOR_EXACT_PUSHED_HEAD"
+  },
+  "checkpoint": {
+    "startingHead": "924ff902ecaca68a00fad53fb5c825c8b29596dc",
+    "state": "VALIDATED_AWAITING_LANE_CI",
+    "promotion": "NOT_PERFORMED",
+    "deployment": "NOT_PERFORMED"
+  }
+}

@@ -12,6 +12,7 @@ import { firstUnreadIndex, seenMessageId } from '../../lib/unread';
 import { useUnread } from '../../lib/unreadContext';
 import { isNearScrollEnd, shouldAutoScrollForMessage } from '../../lib/notificationPresentation';
 import { useTheme } from '../../theme';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
 
 const CHAT_CLOSED = new Set(['pending_payment', 'declined', 'expired', 'cancelled']);
 /** Presence heartbeat while the chat is open (server presence lasts 45 s) and "Seen" refresh. */
@@ -263,6 +264,7 @@ function useChatDetailController(): ChatDetailController {
 
 export default function ChatDetailScreen() {
   const t = useTheme();
+  const identity = useBrandIdentity('account');
   const {
     bookingId,
     userId,
@@ -336,7 +338,7 @@ export default function ChatDetailScreen() {
         <InlineAlert
           tone="warning"
           title="Keep this booking protected"
-          message="Payments outside QuickServe aren't covered by the guarantee. Use the in-app payment button."
+          message={`Payments outside ${identity.displayName} aren't covered by the guarantee. Use the in-app payment button.`}
         />
       ) : null}
       <InlineAlert message={error} />
