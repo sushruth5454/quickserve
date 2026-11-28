@@ -1,0 +1,113 @@
+{
+  "stageId": "O21-SV04",
+  "workPackage": "O21",
+  "sourceTaskIds": [
+    "SV-T04"
+  ],
+  "sourceFindingIds": [
+    "SV-F03"
+  ],
+  "gate": {
+    "E0": "APPROVED"
+  },
+  "planBaseSha": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "implementationBaseSha": "f6fbf52a7f8952b4ddbb84817b43a0ea47558d51",
+  "rebuildBranch": "lane/oorva-o21-sv04-f6fb",
+  "doneDependencies": {
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O38R": "25e88c290a0d37b8f7b09943b50d80ab547376d7",
+    "O17-PLAN": "0521d9934d8dfbe68e58fa6c019f76bd6eabb218",
+    "O21-READ": "9206a782561fa51f705f7644aea4dbf0d4e02dff"
+  },
+  "integratedDependencyTargetSha": "f6fbf52a7f8952b4ddbb84817b43a0ea47558d51",
+  "migrationClaims": [],
+  "sqlFunctions": [],
+  "routeHostBindings": {
+    "S49": {
+      "route": "app\\app\\merchant-calendar.tsx",
+      "host": "app\\src\\features\\serviceScreens\\MerchantCalendarScreen.tsx",
+      "extractionOwner": "O21-SV04",
+      "routeAction": "Route path is unchanged; its route module now thinly re-exports the host."
+    },
+    "S60": {
+      "route": "app\\app\\proposal\\[id].tsx",
+      "host": "app\\src\\features\\serviceScreens\\ProposalDetailScreen.tsx",
+      "extractionOwner": "O21-READ",
+      "routeAction": "Existing route export left unchanged."
+    },
+    "S68": {
+      "route": "app\\app\\recurring\\[id].tsx",
+      "host": "app\\src\\features\\serviceScreens\\RecurringDetailScreen.tsx",
+      "extractionOwner": "O17-PLAN",
+      "routeAction": "Existing route export left unchanged."
+    },
+    "S70": {
+      "route": "app\\app\\recurring\\provider\\[id].tsx",
+      "host": "app\\src\\features\\serviceScreens\\RecurringProviderDetailScreen.tsx",
+      "extractionOwner": "O17-PLAN",
+      "routeAction": "Existing route export left unchanged."
+    },
+    "S71": {
+      "route": "app\\app\\request\\[id].tsx",
+      "host": "app\\src\\features\\serviceScreens\\RequestDetailScreen.tsx",
+      "extractionOwner": "O21-READ",
+      "routeAction": "Existing route export left unchanged."
+    }
+  },
+  "placements": [
+    "PA-S49-01-business-date-context",
+    "PA-S49-02-day-week-and-previous-next",
+    "PA-S49-03-visit-cards",
+    "PA-S49-04-loading-empty-error-and-refresh",
+    "PA-S49-05-feature-off-behavior",
+    "PA-S60-02-accept-amount-and-fee-freshness",
+    "PA-S60-06-retry-return-refresh",
+    "PA-S68-07-load-payment-return-freshness",
+    "PA-S70-06-refresh-error-off-behavior",
+    "PA-S71-05-loading-empty-error",
+    "PA-S71-06-questions-and-privacy"
+  ],
+  "implementation": {
+    "status": "IMPLEMENTED",
+    "refreshHook": "useFocusedServiceRefresh is a typed export alias of useEntityRefresh; screens pass contextKey, enabled, and intervalMs, and rely on the shared focus/foreground/active-only lifecycle.",
+    "readbacks": [
+      "Requests list and detail",
+      "Proposal detail, including fee preview and provider configuration retry",
+      "Customer recurring plan",
+      "Provider recurring plan",
+      "Merchant recurring calendar",
+      "Proposal question thread"
+    ],
+    "staleLoadHandling": "Read commits and errors check the shared refresh guard before changing state. Failed refreshes preserve available rows/details; null request reads clear request data and render an unavailable state.",
+    "featureOffBehavior": "Request/proposal/plan read refresh is not gated by acquisition switches. Existing calendar unavailable behavior is retained. No SQL, raw table grants, feature flags, or money-safety paths changed."
+  },
+  "tests": [
+    {
+      "command": "-Suite app -Filter src.features.serviceLifecycle.__tests__.refresh[.]test[.]ts$",
+      "selectedFile": "app\\src\\features\\serviceLifecycle\\__tests__\\refresh.test.ts",
+      "snapshotSha": "8101a178cf08978c29bf72e87961a4ff581e5844",
+      "result": "PASS"
+    },
+    {
+      "command": "-Suite jest -Filter src.features.proposals.__tests__.detailReadback[.]test[.]tsx$",
+      "selectedFile": "app\\src\\features\\proposals\\__tests__\\detailReadback.test.tsx",
+      "snapshotSha": "7e3ce0f616f6f7917127ac219a01cff585b94173",
+      "result": "PASS"
+    },
+    {
+      "command": "-Suite jest -Filter src.features.activity.__tests__.activityModel[.]test[.]ts$",
+      "selectedFile": "app\\src\\features\\activity\\__tests__\\activityModel.test.ts",
+      "snapshotSha": "bc307203f7cda4d2bd44195a42fe6cf4e75270a3",
+      "result": "PASS"
+    }
+  ],
+  "previousBatch56LaneCi": {
+    "state": "SUCCESS",
+    "ref": "lane/oorva-o21-sv04-batch53",
+    "codeHeadSha": "09993b9a43e5f1bcb00b91e9725b3eafb0114059",
+    "runId": 45974019260,
+    "conclusion": "success"
+  },
+  "runtimeDeviceEvidence": "NOT_VERIFIED",
+  "privateE2E": "NOT_RUN"
+}

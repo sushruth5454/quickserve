@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Button, Card, Chip, EmptyState, ErrorState, Header, InlineAlert, Screen, Skeleton, Text, useConfirm, useToast } from '../../components/ui';
 import { useAppFeatureFlags, useFeature } from '../../lib/featureFlags';
@@ -17,6 +17,7 @@ import { getRecurringPlanActions, partitionRecurringOccurrences, resolvePendingR
 import type { ChangeKind, Frequency, PlanStatus, RecurringPlanCapabilities } from '../recurring/types';
 import { useAuth } from '../../lib/auth';
 import { useTheme } from '../../theme';
+import { useFocusedServiceRefresh } from '../serviceLifecycle/useFocusedServiceRefresh';
 
 type PlanFields = Record<string, unknown> & {
   id: string;
@@ -147,24 +148,32 @@ function useRecurringDetailController() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!id) return;
+  const load = useCallback(async (guard: { isCurrent: () => boolean }) => {
+    if (!guard.isCurrent()) return;
+    if (!id) {
+      setError('Recurring plan ID is missing.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const next = parsePlanEnvelope(await getRecurringPlan(id));
+      if (!guard.isCurrent()) return;
       if (!next) throw new Error('The server returned an invalid repeat plan.');
       setDetail(next);
       setError(null);
     } catch (reason) {
-      setError((reason as Error).message);
+      if (guard.isCurrent()) setError((reason as Error).message);
     } finally {
-      setLoading(false);
+      if (guard.isCurrent()) setLoading(false);
     }
   }, [id]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { refresh, refreshing } = useFocusedServiceRefresh(load, {
+    contextKey: `customer-plan:${userId ?? 'anonymous'}:${id ?? ''}`,
+    enabled: true,
+    intervalMs: id ? 30_000 : null,
+  });
 
   const partition = useMemo(
     () => detail ? partitionRecurringOccurrences(detail.occurrences) : null,
@@ -207,7 +216,7 @@ function useRecurringDetailController() {
     try {
       await operation();
       toast({ message, tone: 'success' });
-      await load();
+      await refresh();
     } catch (reason) {
       setError((reason as Error).message);
     } finally {
@@ -223,7 +232,7 @@ function useRecurringDetailController() {
       const result = await startPayment(bookingId);
       if (result === 'paid') {
         toast({ message: 'Visit payment complete.', tone: 'success' });
-        await load();
+        await refresh();
       } else if (result === 'opened') {
         toast({ message: 'Payment opened securely.', tone: 'success' });
       }
@@ -247,7 +256,12 @@ function useRecurringDetailController() {
 
   if (loading && !detail) {
     return (
-      <Screen header={<Header title="Repeat plan" onBack={backToPlans} />} gap={t.spacing.md}>
+      <Screen
+        header={<Header title="Repeat plan" onBack={backToPlans} />}
+        gap={t.spacing.md}
+        refreshing={loading || refreshing}
+        onRefresh={() => void refresh()}
+      >
         <Skeleton height={92} radius={t.radii.lg} />
         <Skeleton height={150} radius={t.radii.lg} />
         <Skeleton height={170} radius={t.radii.lg} />
@@ -255,7 +269,7 @@ function useRecurringDetailController() {
     );
   }
   if (error && !detail) {
-    return <Screen header={<Header title="Repeat plan" onBack={backToPlans} />}><ErrorState message={error} onRetry={() => void load()} /></Screen>;
+    return <Screen header={<Header title="Repeat plan" onBack={backToPlans} />}><ErrorState message={error} onRetry={() => void refresh()} /></Screen>;
   }
   if (!detail) {
     return <Screen header={<Header title="Repeat plan" onBack={backToPlans} />}><EmptyState title="Plan unavailable" message="This repeat plan could not be found." /></Screen>;
