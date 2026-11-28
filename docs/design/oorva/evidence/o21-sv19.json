@@ -1,0 +1,51 @@
+{
+  "stageId": "O21-SV19",
+  "sourceTaskIds": [
+    "SV-T19"
+  ],
+  "sourceFindingIds": [
+    "SV-F19"
+  ],
+  "implementationBaseSha": "95ed22f951c25de9b3f03c748cfb1c6330a3d8a2",
+  "doneDependencies": {
+    "P": "b40e3ac3da80dc7dba677457413180bca6070222",
+    "O00": "f28ac679c0f252a14f34cb25afe30ebf5deaaf1c",
+    "O21-READ": "9206a782561fa51f705f7644aea4dbf0d4e02dff"
+  },
+  "migrationClaim": {
+    "id": "MIG-O21-SV19",
+    "numericVersion": "0137",
+    "filename": "supabase\\migrations\\0137_o21_sv19_oorva.sql",
+    "acknowledged": true
+  },
+  "ownedFiles": [
+    "app\\app\\request\\new.tsx",
+    "supabase\\migrations\\0137_o21_sv19_oorva.sql",
+    "app\\src\\features\\proposals\\__tests__\\requestReadiness.test.tsx",
+    "supabase\\tests\\oorva_o21_sv19.test.mjs",
+    "app\\src\\features\\serviceScreens\\ProposalComposeDetailScreen.tsx",
+    "app\\src\\features\\serviceScreens\\RequestNewScreen.tsx",
+    "docs\\design\\oorva\\evidence\\o21-sv19.json"
+  ],
+  "implementation": {
+    "proposalParent": "New request, routing and proposal-send RPCs fail closed on the effective proposal archetype parent; creator deadline remains a separate child rule and urgent-request behavior remains separate.",
+    "providerReadiness": "Routing and new send recheck _provider_is_live, active service, category/doc eligibility, paused state, location and event-window conflicts; routing retains its service-role-only privilege.",
+    "requestIntake": "Private recursive SchemaField validation covers nested required/object values, scalar and array item types/enums, numeric and string bounds, array bounds/uniqueness, reserved brief/package_id/deliver_by, minimum brief, unknown values and contact screening. Nested x-private schemas fail closed because the provider projection redacts only top-level properties.",
+    "existingWork": "The route stays unchanged for compose, request creation is extracted to its owned host, and existing proposal view/cancel/payment/delivery/refund/expiry functions are not redefined by this stage."
+  },
+  "validation": {
+    "gitDiffCheck": "PASS",
+    "codespaceApp": "PASS: exact requestReadiness selector; 1 suite, 4 tests; snapshot c6ede199.",
+    "codespaceSql": "PASS: booking_idempotency selected 1/1 file and oorva_o21_sv19 selected 1/1 file; both selectors passed. Snapshots 45ef258f and cf99b0c9.",
+    "migrationParser": "PASS: exact o21_sv19_oorva.sql selector; 1/1 parse, 15 top-level statements, 5 function bodies, 0 errors; snapshot 6c13aacd.",
+    "focusedAuthReview": "PASS: independent focused review found no actionable authorization/privacy findings after nested x-private was rejected.",
+    "exactHeadLaneCi": "NOT_RUN",
+    "privateIntegration": "NOT_RUN",
+    "runtimeDeviceEvidence": "NOT_VERIFIED"
+  },
+  "authorizedFollowUpDelta": {
+    "id": "delta-o21-sv19-idempotency-fixture-20261127",
+    "file": "supabase\\tests\\booking_idempotency.test.mjs",
+    "change": "The existing same-request-key scenario now supplies a valid 10+ character brief; its existing JSON actual-state assertion was preserved."
+  }
+}

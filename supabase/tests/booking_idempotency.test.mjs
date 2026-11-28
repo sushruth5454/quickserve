@@ -101,7 +101,7 @@ await h.scenario('service-request key reuses request and private details', async
   const slot = '2027-01-20T10:00:00+05:30';
   const createRequest = () => as(customers[2], 'authenticated', `
     select public.create_service_request_v2(
-      $1::uuid, 'R1 City', 'R1 Area', $2::timestamptz, $3::timestamptz, '{}'::jsonb,
+      $1::uuid, 'R1 City', 'R1 Area', $2::timestamptz, $3::timestamptz, '{"brief":"A sufficiently detailed request brief"}'::jsonb,
       100000, 200000, null::uuid, 'Private venue details', null::uuid, null::double precision,
       null::double precision, false, 'same-request-key'
     ) as id
