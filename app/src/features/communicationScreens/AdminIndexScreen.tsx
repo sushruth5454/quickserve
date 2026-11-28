@@ -7,11 +7,13 @@ import { isAdminRulesEditorEnabled } from '../../lib/adminFeaturePresentation';
 import { useAppFeatureFlags } from '../../lib/featureFlags';
 import { formatINR } from '../../lib/money';
 import { useTheme } from '../../theme';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
 
 const compact = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
 export default function AdminIndexScreen() {
   const t = useTheme();
+  const identity = useBrandIdentity('account');
   const features = useAppFeatureFlags();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const { data, error, load } = useAdminIndexController();
@@ -19,7 +21,7 @@ export default function AdminIndexScreen() {
   const backToProfile = () => router.dismissTo(returnTo === 'pro-account' ? '/pro-account' : '/account');
 
   return (
-    <Screen header={<Header title="Admin" subtitle="QuickServe operations · last 30 days" onBack={backToProfile} />}>
+    <Screen header={<Header title="Admin" subtitle={`${identity.displayName} operations · last 30 days`} onBack={backToProfile} />}>
       {error ? <EmptyState icon="alert-circle-outline" title="Dashboard unavailable" message={error} actionLabel="Retry" onAction={load} /> : !data ? (
         <Skeleton height={360} radius={t.radii.lg} />
       ) : (

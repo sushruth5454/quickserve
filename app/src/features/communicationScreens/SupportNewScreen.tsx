@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Button, Header, InlineAlert, Input, Screen, Text, TextArea } from '../../components/ui';
 import { startSupport } from '../../lib/adminApi';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
 
 export function supportStartRequest(bookingId: string | undefined, subject: string) {
   return {
@@ -34,13 +35,14 @@ function useSupportNewController() {
 }
 
 export default function SupportNewScreen() {
+  const identity = useBrandIdentity('support');
   const { bookingId, subject, setSubject, body, setBody, error, busy, send } = useSupportNewController();
   return (
     <Screen
       header={<Header title="Contact support" subtitle="Customers and providers use the same private inbox" />}
       footer={(
         <Button
-          title="Send to QuickServe support"
+          title={`Send to ${identity.displayName} support`}
           fullWidth
           loading={busy}
           disabled={!body.trim() || (!bookingId && !subject.trim())}

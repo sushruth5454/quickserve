@@ -5,6 +5,7 @@ import { Badge, Button, Card, EmptyState, Header, Screen, Skeleton, Text } from 
 import { listSupportThreads, type SupportThread } from '../../lib/adminApi';
 import { useAuth } from '../../lib/auth';
 import { supportThreadPresentation } from '../../lib/notificationPresentation';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
 
 const useRuntimeFeature: (key: string) => boolean = (() => {
   try {
@@ -68,13 +69,14 @@ function useSupportIndexController() {
 }
 
 export default function SupportIndexScreen() {
+  const identity = useBrandIdentity('support');
   const { userId, authLoading, state, load } = useSupportIndexController();
   const communicationsComposition = useRuntimeFeature('oorva_comms_ux');
   const current = state && state.actorId === userId ? state : null;
 
   return (
     <Screen
-      header={<Header title="Help & support" subtitle="Messages stay private between you and QuickServe" />}
+      header={<Header title="Help & support" subtitle={`Messages stay private between you and ${identity.displayName}`} />}
       footer={<Button title="Start a conversation" fullWidth onPress={() => router.push('/support/new')} />}
     >
       {authLoading || !current || current.phase === 'loading' ? (

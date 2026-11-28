@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../lib/auth';
 import { useEntityRefresh } from '../lib/useEntityRefresh';
 import { useTheme } from '../theme';
+import { useBrandIdentity } from '../branding/useBrandIdentity';
 import { Button, Card, EmptyState, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useConfirm, useToast } from './ui';
 import { bookingRef } from '../lib/schedule';
 import { exactCommunicationTime, supportThreadPresentation } from '../lib/notificationPresentation';
@@ -36,6 +37,7 @@ function currentReadback(ref: { current: SupportReadback | null }): SupportReadb
 export function SupportConversation({ threadId, admin = false }: { threadId: string; admin?: boolean }) {
   const { userId, loading: authLoading } = useAuth();
   const t = useTheme();
+  const identity = useBrandIdentity('support');
   const toast = useToast();
   const confirm = useConfirm();
   const scope = admin ? 'admin' : 'participant';
@@ -255,7 +257,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
 
   if (!authLoading && !userId) {
     return (
-      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+      <Screen header={<Header title="Support" subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`} />}>
         <EmptyState icon="alert-circle-outline" title="Support unavailable" message="Sign in to view this support conversation." />
       </Screen>
     );
@@ -263,7 +265,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
 
   if (!threadId || phase === 'not-found') {
     return (
-      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+      <Screen header={<Header title="Support" subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`} />}>
         <EmptyState icon="chatbubbles-outline" title="Conversation not found" message="This conversation is unavailable." />
       </Screen>
     );
@@ -271,7 +273,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
 
   if (currentState?.phase === 'error') {
     return (
-      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+      <Screen header={<Header title="Support" subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`} />}>
         <EmptyState
           icon="alert-circle-outline"
           title="Support unavailable"
@@ -288,7 +290,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
       header={
         <Header
           title={readyThread?.subject ?? 'Support'}
-          subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'}
+          subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`}
           right={readyThread ? (
             <Button
               title={readyThread.status === 'open' ? 'Close' : 'Reopen'}
@@ -373,7 +375,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
                   backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
                 }}
               >
-                <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{m.from_admin ? 'QuickServe support' : admin ? 'User' : 'You'}</Text>
+                <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{m.from_admin ? `${identity.displayName} support` : admin ? 'User' : 'You'}</Text>
                 <Text>{m.body}</Text>
                 <Text
                   variant="caption"
