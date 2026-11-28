@@ -229,6 +229,25 @@ async function currentUserRpc(name, args = {}) {
   return (await currentUserRpcData(name, args)) !== null;
 }
 
+async function clickConfirmationSheetAction(title, actionLabel) {
+  const titleText = page.getByText(title, { exact: true });
+  const titleCount = await titleText.count();
+  const sheet = titleText.locator('xpath=ancestor::*[.//*[@aria-label="Close sheet"]][1]');
+  const sheetCount = await sheet.count();
+  const action = sheet.getByRole('button', { name: actionLabel, exact: true });
+  const actionCount = await action.count();
+  if (titleCount !== 1 || sheetCount !== 1 || actionCount !== 1) {
+    throw new Error(`Confirmation sheet action was not unique: ${JSON.stringify({
+      title,
+      actionLabel,
+      titleCount,
+      sheetCount,
+      actionCount,
+    })}`);
+  }
+  await action.click();
+}
+
 function phoneKey(phone) {
   let digits = phone.replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
@@ -4236,12 +4255,12 @@ await step('admin-feature-registry', async () => {
         const reasonInput = actionCard.getByLabel('Reason (required for Reject or Ask for changes)');
         await reasonInput.fill('E2E request: update the provider profile.');
         await actionCard.getByRole('button', { name: 'Ask for changes', exact: true }).click();
-        await page.getByRole('button', { name: 'Not now', exact: true }).click();
+        await clickConfirmationSheetAction('Ask E2E Action Provider for changes?', 'Not now');
         if (providerReviewCalls.length) {
           throw new Error(`Cancelled provider confirmation mutated state: ${JSON.stringify({ providerReviewCalls })}`);
         }
         await actionCard.getByRole('button', { name: 'Ask for changes', exact: true }).click();
-        await page.getByRole('button', { name: 'Ask for changes', exact: true }).last().click();
+        await clickConfirmationSheetAction('Ask E2E Action Provider for changes?', 'Ask for changes');
         await page.getByText('Admin review: needs clarification').first().waitFor({ state: 'visible' });
         await page.getByText('Stored review note: E2E request: update the provider profile.', { exact: true }).waitFor({ state: 'visible' });
         const actualProviderReview = providerReviewCalls.map((call) => ({
@@ -4289,12 +4308,12 @@ await step('admin-feature-registry', async () => {
           .locator('xpath=ancestor::*[.//*[@role=\"button\"]][1]');
         await scopedCard.getByLabel('Reason (required to reject; at least 5 characters)').fill('E2E review: document needs correction.');
         await scopedCard.getByRole('button', { name: 'Reject', exact: true }).click();
-        await page.getByRole('button', { name: 'Not now', exact: true }).click();
+        await clickConfirmationSheetAction('Reject Trade licence?', 'Not now');
         if (documentReviewCalls.length) {
           throw new Error(`Cancelled document confirmation mutated state: ${JSON.stringify({ documentReviewCalls })}`);
         }
         await scopedCard.getByRole('button', { name: 'Reject', exact: true }).click();
-        await page.getByRole('button', { name: 'Reject', exact: true }).last().click();
+        await clickConfirmationSheetAction('Reject Trade licence?', 'Reject');
         await page.getByText('E2E General Provider', { exact: true }).waitFor({ state: 'visible' });
         if (await page.getByText('E2E Scoped Provider', { exact: true }).count()) {
           documentBody = await page.locator('body').innerText();
