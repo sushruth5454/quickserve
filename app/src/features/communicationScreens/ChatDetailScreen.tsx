@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ComponentRef, type RefObject } from 'react';
-import { AppState, ScrollView, View } from 'react-native';
+import { AppState, ScrollView, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { ChatComposer, MessageList, useChat } from '../../components/ChatPanel';
 import { ErrorState, Header, InlineAlert, Screen, Skeleton, Text } from '../../components/ui';
 import { getBooking, getChatReadState, getProfileName, markChatRead, subscribeToBooking } from '../../lib/api';
@@ -10,7 +10,9 @@ import type { Booking } from '../../lib/types';
 import { bookingRef } from '../../lib/schedule';
 import { firstUnreadIndex, seenMessageId } from '../../lib/unread';
 import { useUnread } from '../../lib/unreadContext';
+import { isNearScrollEnd, shouldAutoScrollForMessage } from '../../lib/notificationPresentation';
 import { useTheme } from '../../theme';
+import { useBrandIdentity } from '../../branding/useBrandIdentity';
 
 const CHAT_CLOSED = new Set(['pending_payment', 'declined', 'expired', 'cancelled']);
 /** Presence heartbeat while the chat is open (server presence lasts 45 s) and "Seen" refresh. */
@@ -32,6 +34,7 @@ interface ChatDetailController {
   scrollRef: RefObject<ComponentRef<typeof ScrollView> | null>;
   dividerId: string | null | undefined;
   otherReadAt: string | null;
+  trackScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   load: () => Promise<void>;
   back: () => void;
   enabled: boolean;
@@ -66,6 +69,10 @@ function useChatDetailController(): ChatDetailController {
   const [dividerState, setDividerState] = useState<{ key: string; id: string | null | undefined } | null>(null);
   const [otherReadState, setOtherReadState] = useState<{ key: string; at: string | null } | null>(null);
   const focused = useRef(false);
+  const isNearBottom = useRef(true);
+  const trackScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    isNearBottom.current = isNearScrollEnd(event.nativeEvent);
+  }, []);
 
   const load = useCallback(async () => {
     if (!bookingId || !userId) return;
@@ -210,9 +217,17 @@ function useChatDetailController(): ChatDetailController {
   const lastId = messages?.[messages.length - 1]?.id;
   const lastFromOther = !!messages?.length && messages[messages.length - 1]!.sender_id !== userId;
   useEffect(() => {
-    if (lastId) setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (lastId && shouldAutoScrollForMessage(isNearBottom.current, !lastFromOther)) {
+      timer = setTimeout(() => {
+        if (!lastFromOther || isNearBottom.current) scrollRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    }
     // A message arriving while the chat is on screen is read immediately.
     if (lastId && lastFromOther && focused.current) void heartbeat();
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [lastId, lastFromOther, heartbeat]);
 
   const back = () => {
@@ -239,6 +254,7 @@ function useChatDetailController(): ChatDetailController {
     scrollRef,
     dividerId,
     otherReadAt,
+    trackScroll,
     load,
     back,
     enabled,
@@ -248,6 +264,7 @@ function useChatDetailController(): ChatDetailController {
 
 export default function ChatDetailScreen() {
   const t = useTheme();
+  const identity = useBrandIdentity('account');
   const {
     bookingId,
     userId,
@@ -264,6 +281,7 @@ export default function ChatDetailScreen() {
     scrollRef,
     dividerId,
     otherReadAt,
+    trackScroll,
     load,
     back,
     enabled,
@@ -280,6 +298,10 @@ export default function ChatDetailScreen() {
         />
       }
       scrollRef={scrollRef}
+      scrollProps={{
+        onScroll: trackScroll,
+        scrollEventThrottle: 16,
+      }}
       gap={t.spacing.md}
       footer={
         booking ? (
@@ -316,7 +338,7 @@ export default function ChatDetailScreen() {
         <InlineAlert
           tone="warning"
           title="Keep this booking protected"
-          message="Payments outside QuickServe aren't covered by the guarantee. Use the in-app payment button."
+          message={`Payments outside ${identity.displayName} aren't covered by the guarantee. Use the in-app payment button.`}
         />
       ) : null}
       <InlineAlert message={error} />

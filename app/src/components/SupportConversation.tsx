@@ -11,7 +11,10 @@ import {
 import { useAuth } from '../lib/auth';
 import { useEntityRefresh } from '../lib/useEntityRefresh';
 import { useTheme } from '../theme';
+import { useBrandIdentity } from '../branding/useBrandIdentity';
 import { Button, Card, EmptyState, Header, InlineAlert, Screen, Skeleton, Text, TextArea, useConfirm, useToast } from './ui';
+import { bookingRef } from '../lib/schedule';
+import { exactCommunicationTime, supportThreadPresentation } from '../lib/notificationPresentation';
 
 type SupportConversationState =
   | { key: string; phase: 'error'; thread: null; messages: []; error: string }
@@ -34,6 +37,7 @@ function currentReadback(ref: { current: SupportReadback | null }): SupportReadb
 export function SupportConversation({ threadId, admin = false }: { threadId: string; admin?: boolean }) {
   const { userId, loading: authLoading } = useAuth();
   const t = useTheme();
+  const identity = useBrandIdentity('support');
   const toast = useToast();
   const confirm = useConfirm();
   const scope = admin ? 'admin' : 'participant';
@@ -247,10 +251,13 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
   const phase = authLoading || (!currentState && userId && threadId) ? 'pending' : currentState?.phase;
   const readyThread = currentState?.phase === 'ready' ? currentState.thread : null;
   const readyMessages = currentState?.phase === 'ready' ? currentState.messages : [];
+  const supportPresentation = readyThread
+    ? supportThreadPresentation(readyThread, admin ? 'admin' : 'participant')
+    : null;
 
   if (!authLoading && !userId) {
     return (
-      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+      <Screen header={<Header title="Support" subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`} />}>
         <EmptyState icon="alert-circle-outline" title="Support unavailable" message="Sign in to view this support conversation." />
       </Screen>
     );
@@ -258,7 +265,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
 
   if (!threadId || phase === 'not-found') {
     return (
-      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+      <Screen header={<Header title="Support" subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`} />}>
         <EmptyState icon="chatbubbles-outline" title="Conversation not found" message="This conversation is unavailable." />
       </Screen>
     );
@@ -266,7 +273,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
 
   if (currentState?.phase === 'error') {
     return (
-      <Screen header={<Header title="Support" subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'} />}>
+      <Screen header={<Header title="Support" subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`} />}>
         <EmptyState
           icon="alert-circle-outline"
           title="Support unavailable"
@@ -283,7 +290,7 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
       header={
         <Header
           title={readyThread?.subject ?? 'Support'}
-          subtitle={admin ? 'QuickServe support admin' : 'QuickServe support'}
+          subtitle={admin ? `${identity.displayName} support admin` : `${identity.displayName} support`}
           right={readyThread ? (
             <Button
               title={readyThread.status === 'open' ? 'Close' : 'Reopen'}
@@ -310,11 +317,15 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
               />
             </>
           ) : null}
+          <Text variant="caption" color="muted">
+            Messages are limited to 2,000 characters. Don’t include card or UPI details.
+          </Text>
           <TextArea
             label={readyThread.status === 'closed' ? 'Reopen to reply' : 'Message'}
             placeholder="Type your message…"
             value={body}
             onChangeText={(value: string) => setDraftState({ key: contextKey, value })}
+            maxLength={2000}
             editable={readyThread.status === 'open' && !busy && !statusBusy && !refreshing}
           />
           <Button
@@ -335,23 +346,50 @@ export function SupportConversation({ threadId, admin = false }: { threadId: str
     >
       {phase === 'pending' || !readyThread ? (
         <Skeleton height={300} radius={t.radii.lg} />
-      ) : readyMessages.map((m) => {
-        const mine = admin ? m.from_admin : m.sender_id === userId;
-        return (
-          <Card
-            key={m.id}
-            style={{
-              alignSelf: mine ? 'flex-end' : 'flex-start',
-              width: '88%',
-              backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
-            }}
-          >
-            <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{m.from_admin ? 'QuickServe support' : admin ? 'User' : 'You'}</Text>
-            <Text>{m.body}</Text>
-            <Text variant="caption" color="muted" align="right">{new Date(m.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</Text>
-          </Card>
-        );
-      })}
+      ) : (
+        <>
+          <View style={{ gap: t.spacing.xs }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: t.spacing.sm }}>
+              <Text variant="captionStrong">{`Status: ${supportPresentation!.statusLabel}`}</Text>
+              {supportPresentation!.unreadLabel ? (
+                <Text variant="captionStrong" color="danger">{`Unread messages: ${supportPresentation!.unreadCount}`}</Text>
+              ) : null}
+            </View>
+            {readyThread.booking_id ? (
+              <Text variant="footnote" color="primaryText">
+                Linked booking {bookingRef(readyThread.booking_id)}
+              </Text>
+            ) : null}
+            <Text variant="caption" color="muted" accessibilityLabel={supportPresentation!.timeAccessibilityLabel}>
+              {supportPresentation!.timeLabel}
+            </Text>
+          </View>
+          {readyMessages.map((m) => {
+            const mine = admin ? m.from_admin : m.sender_id === userId;
+            return (
+              <Card
+                key={m.id}
+                style={{
+                  alignSelf: mine ? 'flex-end' : 'flex-start',
+                  width: '88%',
+                  backgroundColor: mine ? t.colors.primarySoft : t.colors.surface,
+                }}
+              >
+                <Text variant="captionStrong" color={mine ? 'primaryText' : 'muted'}>{m.from_admin ? `${identity.displayName} support` : admin ? 'User' : 'You'}</Text>
+                <Text>{m.body}</Text>
+                <Text
+                  variant="caption"
+                  color="muted"
+                  align="right"
+                  accessibilityLabel={exactCommunicationTime(m.created_at)}
+                >
+                  {new Date(m.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}
+                </Text>
+              </Card>
+            );
+          })}
+        </>
+      )}
     </Screen>
   );
 }

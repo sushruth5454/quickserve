@@ -1,3 +1,19 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+jest.mock('../../branding/useBrandIdentity', () => ({
+  useBrandIdentity: (context: string) => {
+    const { resolveBrandIdentity } = jest.requireActual('../../branding/identity') as typeof import('../../branding/identity');
+    return resolveBrandIdentity(context as 'support', {
+      brandOn: false,
+      runtimeOn: false,
+      bundledIdentityReady: false,
+      published: null,
+    });
+  },
+}));
+jest.mock('../../lib/featureFlags', () => ({ useFeature: () => false }));
+
 import type React from 'react';
 
 const mockRuntime = {
@@ -103,17 +119,35 @@ async function settle() {
   await Promise.resolve();
 }
 
-const adminRow = (id: string) => ({
+function expectWithEvidence(condition: boolean, evidence: unknown) {
+  const evidenceJson = JSON.stringify(evidence);
+  expect({ condition, evidenceJson }).toEqual({ condition: true, evidenceJson });
+}
+
+async function loadAdminRows(rows: ReturnType<typeof adminRow>[], filter = 'open') {
+  listAdminSupport.mockResolvedValueOnce(rows);
+  let tree = renderScreen(AdminSupportIndexScreen);
+  if (filter !== 'open') {
+    const control = findElements(tree, 'SegmentedControl')[0];
+    (control?.props.onChange as ((value: string) => void) | undefined)?.(filter);
+    tree = renderScreen(AdminSupportIndexScreen);
+  }
+  mockRuntime.focusEffects[0]?.();
+  await settle();
+  return renderScreen(AdminSupportIndexScreen);
+}
+
+const adminRow = (id: string, status: 'open' | 'closed' = 'open', adminUnread = 1) => ({
   id,
   subject: id,
-  status: 'open' as const,
+  status,
   booking_id: null,
   user_id: 'user-2',
-  user_name: 'Customer',
-  user_phone: 'not rendered',
+  user_name: 'Private copied customer name',
+  user_phone: 'Private copied phone',
   is_provider: false,
-  admin_unread: 1,
-  last_message: 'Help needed',
+  admin_unread: adminUnread,
+  last_message: 'Private copied message body',
   last_from_admin: false,
   last_message_at: '2026-01-02T03:04:05.000Z',
 });
@@ -218,5 +252,24 @@ describe('support inbox load states', () => {
     tree = renderScreen(AdminSupportIndexScreen);
     expect(textValues(tree)).toContain('Closed result');
     expect(textValues(tree)).not.toContain('Stale open result');
+  });
+
+  it('CM_ADMIN_SUPPORT_CLOSED_UNREAD shows closed status and unread count independently', async () => {
+    const row = adminRow('Closed unread request', 'closed', 2);
+    const tree = await loadAdminRows([row], 'closed');
+    const badges = findElements(tree, 'Badge').map((element) => element.props.label);
+    expectWithEvidence(['closed', '2 unread'].every((label) => badges.includes(label)), { badges, row });
+  });
+
+  it('CM_ADMIN_SUPPORT_TIME_PRIVACY shows readable last-message time without copied private fields', async () => {
+    const row = adminRow('Support request');
+    const tree = await loadAdminRows([row]);
+    const visible = textValues(tree).join(' ');
+    const privateCopiedFields = [row.user_name, row.user_phone, row.last_message];
+
+    expectWithEvidence(visible.includes('Last message'), { visible, timestamp: row.last_message_at });
+    expectWithEvidence(visible.includes('2 Jan 2026'), { visible, timestamp: row.last_message_at });
+    expectWithEvidence(!privateCopiedFields.some((value) => visible.includes(value)), { visible, privateCopiedFields });
+    expectWithEvidence(!visible.includes(row.last_message_at), { visible, timestamp: row.last_message_at });
   });
 });

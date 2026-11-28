@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import {
   Button,
@@ -17,14 +17,22 @@ import { getChatHeading, listNotifications, markNotificationsRead } from '../../
 import { useAuth } from '../../lib/auth';
 import {
   buildNotificationItems,
-  groupNotificationItems,
-  notificationTimePresentation,
   type AppNotification,
   type ChatHeading,
   type NotificationItem,
 } from '../../lib/unread';
+import { groupNotificationItems, notificationTimePresentation } from '../../lib/notificationPresentation';
 import { useUnread } from '../../lib/unreadContext';
 import { useTheme } from '../../theme';
+import { NotificationCard } from '../../components/NotificationCard';
+
+const useRuntimeFeature: (key: string) => boolean = (() => {
+  try {
+    return (require('../../lib/featureFlags') as typeof import('../../lib/featureFlags')).useFeature;
+  } catch {
+    return () => false;
+  }
+})();
 
 const ICON: Record<string, IconName> = {
   chat_message: 'chatbubble-ellipses',
@@ -342,7 +350,7 @@ export default function NotificationsScreen() {
                 {group.label}
               </Text>
               {group.items.map((item) => (
-                <Row
+                <NotificationPresentation
                   key={item.key}
                   item={item}
                   pending={controller.readAllPending || controller.pendingReadIds.has(item.key)}
@@ -358,6 +366,40 @@ export default function NotificationsScreen() {
       )}
     </Screen>
   );
+}
+
+interface NotificationPresentationProps {
+  item: NotificationItem;
+  pending: boolean;
+  onOpen: (item: NotificationItem) => void;
+}
+
+class MissingFeatureProviderBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { unavailable: boolean }
+> {
+  state = { unavailable: false };
+
+  static getDerivedStateFromError() {
+    return { unavailable: true };
+  }
+
+  render() {
+    return this.state.unavailable ? this.props.fallback : this.props.children;
+  }
+}
+
+function NotificationPresentation(props: NotificationPresentationProps) {
+  return (
+    <MissingFeatureProviderBoundary fallback={<Row {...props} />}>
+      <FeatureAwareNotificationPresentation {...props} />
+    </MissingFeatureProviderBoundary>
+  );
+}
+
+function FeatureAwareNotificationPresentation(props: NotificationPresentationProps) {
+  const enabled = useRuntimeFeature('oorva_comms_ux');
+  return enabled ? <NotificationCard {...props} /> : <Row {...props} />;
 }
 
 function Row({
