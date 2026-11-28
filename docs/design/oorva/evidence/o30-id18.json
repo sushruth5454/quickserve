@@ -4,7 +4,8 @@
   "sourceTaskId": "ID-T18",
   "sourceFindingId": "ID-F18",
   "workPackage": "O30",
-  "status": "IMPLEMENTATION_PENDING_VISUAL_EVIDENCE",
+  "status": "CODE_GREEN_PENDING_EVIDENCE_ACCEPTANCE",
+  "codeStatus": "CODE_GREEN",
   "scope": {
     "class": "C",
     "ownerApprovedGate": "E0",
@@ -89,12 +90,105 @@
     },
     "resolvedPrecedingFailure": "A prior Codespace run reported invalid GoLiveState and ReasonCode fixture literals; corrected them to action_needed and doc_missing based on app/src/lib/onboarding/types.ts before this passing run.",
     "screenshotsAndInteractions": {
-      "status": "NOT_VERIFIED",
-      "details": "No authorized existing browser harness covers the admin routes. Before/after admin screenshots and real interaction evidence were not captured; awaiting coordinator section 0.4.3 roundtrip."
+      "captureStatus": "VERIFIED_WEB_E2E",
+      "acceptanceStatus": "PENDING_COORDINATOR_EVIDENCE_ACCEPTANCE",
+      "runId": "46108473593",
+      "head": "e5faf08dfefb80e3876be885ca160db3e6150e96",
+      "passReports": [
+        {
+          "pass": "A",
+          "path": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/report.json",
+          "status": "PASS",
+          "failures": [],
+          "softFailures": [],
+          "blockedSteps": [],
+          "pageErrors": [],
+          "httpFailures": [],
+          "consoleErrorCount": 2
+        },
+        {
+          "pass": "B",
+          "path": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/report.json",
+          "status": "PASS",
+          "failures": [],
+          "softFailures": [],
+          "blockedSteps": [],
+          "pageErrors": [],
+          "httpFailures": [],
+          "consoleErrorCount": 3
+        }
+      ],
+      "screenshots": [
+        {
+          "pass": "A",
+          "screen": "S25 People legacy / Oorva OFF",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/140-admin-people-legacy-off.png"
+        },
+        {
+          "pass": "A",
+          "screen": "S25 People review readback, legacy / Oorva OFF",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/141-admin-people-review-readback-legacy-off.png"
+        },
+        {
+          "pass": "A",
+          "screen": "S19 Documents legacy / Oorva OFF",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/142-admin-documents-legacy-off.png"
+        },
+        {
+          "pass": "A",
+          "screen": "S19 single-document review readback, legacy / Oorva OFF",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/143-admin-documents-single-review-legacy-off.png"
+        },
+        {
+          "pass": "A",
+          "screen": "Oorva composition",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-a/144-admin-oorva-composition.png"
+        },
+        {
+          "pass": "B",
+          "screen": "S25 People Oorva ON",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/189-admin-people-oorva-on.png"
+        },
+        {
+          "pass": "B",
+          "screen": "S25 People review readback, Oorva ON",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/190-admin-people-review-readback-oorva-on.png"
+        },
+        {
+          "pass": "B",
+          "screen": "S19 Documents Oorva ON",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/191-admin-documents-oorva-on.png"
+        },
+        {
+          "pass": "B",
+          "screen": "S19 single-document review readback, Oorva ON",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/192-admin-documents-single-review-oorva-on.png"
+        },
+        {
+          "pass": "B",
+          "screen": "Oorva composition",
+          "artifact": "e2e-local-46108473593-artifacts/e2e-local-screenshots/pass-b/193-admin-oorva-composition.png"
+        }
+      ],
+      "details": "Both private local E2E passes succeeded. Screenshots 140/142 show the legacy OFF compositions; 189/191 show the Oorva ON compositions. People review readback is captured in 141/190. Documents readback is captured in 143/192: after one confirmed scoped-document rejection, only the general credential remains and the Document rejected toast is visible. The test cancels and then confirms provider/document actions, verifies one scoped provider review and one document mutation, verifies private signed preview handling and queue readback, and restores the private feature flags. UI actions use deterministic browser-local fixtures; the owner/admin state-and-reason comparison and non-admin RPC denial use the authenticated private local backend. Console errors were recorded in the pass reports but did not produce page errors, HTTP failures, or failed steps."
     },
-    "ownerAdminStateReasonRoundtrip": "NOT_VERIFIED",
-    "nonAdminDirectAccess": "NOT_REEXERCISED; server authorization remains inherited because this stage made no server or database changes.",
-    "laneCi": "NOT_RUN; stage is paused pending required visual evidence roundtrip."
+    "ownerAdminStateReasonRoundtrip": {
+      "status": "VERIFIED_WEB_E2E",
+      "runId": "46108473593",
+      "details": "The private E2E compares get_my_provider_onboarding with admin_list_providers for the same provider ID; admin review status, stored review note, and normalized go-live state/reasons must match."
+    },
+    "nonAdminDirectAccess": {
+      "status": "VERIFIED_WEB_E2E",
+      "runId": "46108473593",
+      "details": "The provider-owner token is denied direct access to admin_list_document_queue."
+    },
+    "nativeDeviceEvidence": "NOT_VERIFIED; this run captured web evidence only.",
+    "laneCi": {
+      "result": "PASS",
+      "runId": "46107983981",
+      "head": "e5faf08dfefb80e3876be885ca160db3e6150e96",
+      "url": "https://github.com/sushruth5454/quickserve/actions/runs/46107983981"
+    }
   },
   "rollout": {
     "flagsEnabled": false,
@@ -115,6 +209,7 @@
       "S25 People admin before/after, including search/filter/review queue placement and secondary Audit log",
       "S19 Documents admin before/after, including provider/category/type, private preview and a single confirmed pending review/readback"
     ],
+    "screenshotsCaptured": "See validation.screenshotsAndInteractions for run 46108473593 artifact names; formal evidence acceptance remains pending.",
     "interactionsRequired": [
       "People: search/filter, inspect independent review/payout/readiness/availability and stored reason, verify completed review target is absent",
       "Documents: open private preview, cancel confirmation without mutation, confirm one pending document review and verify authoritative queue readback",
