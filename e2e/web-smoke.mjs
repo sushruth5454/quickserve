@@ -4312,12 +4312,14 @@ await step('admin-feature-registry', async () => {
         }
         await scopedCard.getByRole('button', { name: 'Reject', exact: true }).click();
         await clickConfirmationSheetAction('Reject Trade licence?', 'Reject');
-        await page.getByText('E2E General Provider', { exact: true }).waitFor({ state: 'visible' });
-        if (await page.getByText('E2E Scoped Provider', { exact: true }).count()) {
-          documentBody = await page.locator('body').innerText();
-          throw new Error(`Confirmed document review did not remove exactly one pending row: ${JSON.stringify({
+        await page.getByText('Document rejected', { exact: true }).waitFor({ state: 'visible' });
+        const scopedProviderCount = await page.getByText('E2E Scoped Provider', { exact: true }).count();
+        const generalProviderCount = await page.getByText('E2E General Provider', { exact: true }).count();
+        if (scopedProviderCount !== 0 || generalProviderCount !== 1) {
+          throw new Error(`Confirmed document review did not remove only the scoped row: ${JSON.stringify({
             documentReviewCalls,
-            body: documentBody.slice(0, 1800),
+            scopedProviderCount,
+            generalProviderCount,
           })}`);
         }
         if (
