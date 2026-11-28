@@ -1,3 +1,18 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+jest.mock('../../branding/useBrandIdentity', () => ({
+  useBrandIdentity: (context: string) => {
+    const { resolveBrandIdentity } = jest.requireActual('../../branding/identity') as typeof import('../../branding/identity');
+    return resolveBrandIdentity(context as 'account', {
+      brandOn: false,
+      runtimeOn: false,
+      bundledIdentityReady: false,
+      published: null,
+    });
+  },
+}));
+
 import type { Booking, Message } from '../../lib/types';
 import ChatDetailScreen from '../../features/communicationScreens/ChatDetailScreen';
 
