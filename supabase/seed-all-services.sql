@@ -268,34 +268,60 @@ insert into demo_specs values
   ('wedding-planner', 'Divya Demo Weddings', '[DEMO ONLY] Full, partial and day-of wedding planning.', '919000004130', '{"planning_modes":["full-planning","partial-planning","day-coordination"]}'),
   ('demo-home-tutor', 'Sravani Demo Learning', '[DEMO ONLY] Maths and science tutor for classes 6-12.', '919000004131', '{"subjects":["Mathematics","Science"],"teaching_language":"Telugu"}');
 
-insert into auth.users (
-  instance_id, id, aud, role, phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-  created_at, updated_at, confirmation_token, recovery_token, email_change,
-  email_change_token_new, email_change_token_current, phone_change, phone_change_token,
-  reauthentication_token
-)
-select
-  '00000000-0000-0000-0000-000000000000',
-  pg_temp.demo_sid('provider:' || s.slug),
-  'authenticated', 'authenticated', s.phone, now(),
-  '{"provider":"phone","providers":["phone"],"demo_only":"true"}'::jsonb,
-  jsonb_build_object('full_name', s.provider_name, 'demo_only', 'true'),
-  now() - interval '180 days', now(), '', '', '', '', '', '', '', ''
-from demo_specs s
-on conflict (id) do update
-set phone = excluded.phone,
-    raw_app_meta_data = excluded.raw_app_meta_data,
-    raw_user_meta_data = excluded.raw_user_meta_data,
-    phone_confirmed_at = excluded.phone_confirmed_at,
-    confirmation_token = excluded.confirmation_token,
-    recovery_token = excluded.recovery_token,
-    email_change = excluded.email_change,
-    email_change_token_new = excluded.email_change_token_new,
-    email_change_token_current = excluded.email_change_token_current,
-    phone_change = excluded.phone_change,
-    phone_change_token = excluded.phone_change_token,
-    reauthentication_token = excluded.reauthentication_token,
-    updated_at = now();
+do $$
+declare
+  token_fields text[] := array[
+    'confirmation_token', 'recovery_token', 'email_change', 'email_change_token_new',
+    'email_change_token_current', 'phone_change', 'phone_change_token', 'reauthentication_token'
+  ];
+  token_field_count int;
+  token_columns text;
+  token_values text;
+  token_updates text;
+begin
+  -- The PGlite seed test uses a minimal auth.users stub; real GoTrue exposes all eight columns.
+  select count(*)::int,
+         string_agg(format(', %I', f.name), '' order by f.ordinality),
+         string_agg(', ' || quote_literal(''), '' order by f.ordinality),
+         string_agg(format(', %1$I = excluded.%1$I', f.name), '' order by f.ordinality)
+    into token_field_count, token_columns, token_values, token_updates
+    from unnest(token_fields) with ordinality as f(name, ordinality)
+    join information_schema.columns c
+      on c.table_schema = 'auth'
+     and c.table_name = 'users'
+     and c.column_name = f.name;
+
+  if token_field_count <> 0 and token_field_count <> cardinality(token_fields) then
+    raise exception 'auth.users has an incomplete GoTrue token column set (% of %)',
+      token_field_count, cardinality(token_fields);
+  end if;
+
+  execute format($seed$
+    insert into auth.users (
+      instance_id, id, aud, role, phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+      created_at, updated_at%s
+    )
+    select
+      '00000000-0000-0000-0000-000000000000',
+      pg_temp.demo_sid('provider:' || s.slug),
+      'authenticated', 'authenticated', s.phone, now(),
+      '{"provider":"phone","providers":["phone"],"demo_only":"true"}'::jsonb,
+      jsonb_build_object('full_name', s.provider_name, 'demo_only', 'true'),
+      now() - interval '180 days', now()%s
+    from demo_specs s
+    on conflict (id) do update
+    set phone = excluded.phone,
+        raw_app_meta_data = excluded.raw_app_meta_data,
+        raw_user_meta_data = excluded.raw_user_meta_data,
+        phone_confirmed_at = excluded.phone_confirmed_at%s,
+        updated_at = now()
+  $seed$,
+    coalesce(token_columns, ''),
+    coalesce(token_values, ''),
+    coalesce(token_updates, '')
+  );
+end;
+$$;
 
 insert into public.profiles (id, full_name, role_customer, role_provider, created_at)
 select pg_temp.demo_sid('provider:' || slug), provider_name, false, true, now() - interval '180 days'
