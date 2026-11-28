@@ -1,0 +1,100 @@
+{
+  "stageId": "O23-ID12",
+  "workPackage": "O23",
+  "sourceTaskId": "ID-T12",
+  "findingIds": [
+    "ID-F11",
+    "ID-F12"
+  ],
+  "planningCommit": "b40e3ac3da80dc7dba677457413180bca6070222",
+  "approvedBaseHead": "30d1b9b9e97e6e5464067380c93e88a024b11ebc",
+  "baseSelection": {
+    "originMainHead": "f6fbf52a7f8952b4ddbb84817b43a0ea47558d51",
+    "selectedBaseHead": "30d1b9b9e97e6e5464067380c93e88a024b11ebc",
+    "planCommitContained": true,
+    "o00CommitContained": true,
+    "o23Id07Head": "30d1b9b9e97e6e5464067380c93e88a024b11ebc",
+    "o23Id07LaneCiRunId": 46031256703,
+    "o23Id07LaneCiResult": "success",
+    "originMainContainsO23Id07": false,
+    "selectionReason": "The stage evidence explicitly approves this exact predecessor head; it contains the planning commit and O00, and its own exact-head Lane CI is successful. Current origin/main does not contain O23-ID07."
+  },
+  "implementation": {
+    "routeHost": "app/src/features/identityScreens/CoinsScreen.tsx",
+    "route": "app/app/coins.tsx",
+    "controller": "useCoinsController",
+    "accountEntry": "History remains reachable with both rewards capabilities OFF; failed refreshes retain prior coin values and config with an error.",
+    "walletReads": "Balance, history, and config use explicit required-read states. Initial failure does not display a zero balance or empty history; failed refresh keeps prior data and offers retry.",
+    "noticeStorage": "Denomination notice storage is an independent optional state; its read/write errors do not replace successful wallet data.",
+    "emptyHistory": "The empty state only mentions eligible completed bookings when earning is explicitly enabled; paused earning does not promise new rewards.",
+    "ledgerPresentation": "Retains all six existing ledger kinds, signed paise values, dates, expiry, reasons, denomination conversion, and Seva Coins non-cash/non-transferable wording.",
+    "moneyBehavior": "No calculation, API, authorization, RLS, refund/clawback, feature-flag, SQL function/object, or migration changes."
+  },
+  "tests": {
+    "newCases": [
+      "ID-COIN-LOAD-ERROR",
+      "ID-COIN-NOTICE-OPTIONAL",
+      "ID-COIN-BOTH-OFF",
+      "ID-COIN-PAUSED-EMPTY",
+      "ID-COIN-DELTA-PRESERVE"
+    ],
+    "existingCalculationTests": "app/src/lib/__tests__/coins.test.ts retained unchanged.",
+    "codespace": {
+      "status": "PASS",
+      "helperSource": "origin/main:scripts/cs-test.ps1",
+      "currentMainHelperBlob": "f5863fca54febcbf896fadc0b8870b9e24429ec2",
+      "codespace": "qs-tests-g67pgv4xqj639gx5",
+      "runs": [
+        {
+          "suite": "app",
+          "selector": "src.components.__tests__.CoinsScreen[.]state[.]test[.]tsx$",
+          "snapshotCommitPrefix": "d976c77b",
+          "selectedFile": "app/src/components/__tests__/CoinsScreen.state.test.tsx",
+          "selectedCases": [
+            "ID-COIN-LOAD-ERROR does not render a failed first read as zero or empty history",
+            "ID-COIN-LOAD-ERROR keeps prior balance and rows visible with a refresh error",
+            "ID-COIN-NOTICE-OPTIONAL keeps wallet and history when notice reads and writes fail",
+            "ID-COIN-BOTH-OFF keeps positive and negative history readable",
+            "ID-COIN-PAUSED-EMPTY treats zero and empty as loaded without encouraging earning",
+            "ID-COIN-DELTA-PRESERVE retains all ledger kinds, signs, dates, reasons and non-cash copy",
+            "shows eligible completed-booking copy for an enabled earning policy and a loaded-empty wallet"
+          ],
+          "typescript": "PASS",
+          "csTestResult": "PASS"
+        },
+        {
+          "suite": "jest",
+          "selector": "src.lib.__tests__.coins[.]test[.]ts$",
+          "snapshotCommitPrefix": "ff112643",
+          "selectedFile": "app/src/lib/__tests__/coins.test.ts",
+          "selectedCases": [
+            "uses the owner-approved 1% policy and rounds to 10-paise coins",
+            "caps and rounds redemption by configured denomination, service value, platform revenue and balance",
+            "uses server eligibility and preserves legacy applied coins in previews",
+            "applies the configured per-booking cap, first-booking bonus, monthly cap and budget"
+          ],
+          "csTestResult": "PASS"
+        }
+      ],
+      "zeroSelectedTests": false
+    },
+    "localWindowsTests": "Not run, per stage instructions.",
+    "diffCheck": "PASS",
+    "moneyReview": {
+      "status": "PASS",
+      "reviewer": "Direct focused review by the continuation agent.",
+      "checks": [
+        "Balance, history and config errors propagate to the wallet state; failed initial reads do not render a zero balance or empty history.",
+        "Failed refresh retains the last wallet values and reports an error; notice-storage read/write failures are isolated from wallet data.",
+        "Both capability flags OFF preserve the history entry and existing ledger rows without promising new rewards.",
+        "All six ledger kinds, signed paise values, dates, expiry, reasons and non-cash/non-transferable wording remain present."
+      ],
+      "scope": "Presentation and stale-read handling only; coin calculation helpers/tests, API/RPC, authorization, RLS, ledger rules, refund/clawback, flags, and migrations unchanged."
+    }
+  },
+  "backendScope": {
+    "sqlFunctions": [],
+    "sqlObjects": [],
+    "migrationClaims": []
+  }
+}
